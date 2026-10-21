@@ -510,7 +510,8 @@ public partial class MainWindow : Window
         if (input.Contains("اتكسفي", StringComparison.Ordinal) || input.Contains("خليكي مكسوفة", StringComparison.Ordinal) ||
             input.Contains("shy face", StringComparison.Ordinal))
             return "shy";
-        if (input.Contains("تعبيرات الوجه", StringComparison.Ordinal) || input.Contains("رياكشنات وشك", StringComparison.Ordinal) ||
+        if (input.Contains("تعبيرات الوجه", StringComparison.Ordinal) || input.Contains("تعبيراتك", StringComparison.Ordinal) ||
+            input.Contains("رياكشنات وشك", StringComparison.Ordinal) || input.Contains("رياكشناتك", StringComparison.Ordinal) ||
             input.Contains("show your expressions", StringComparison.Ordinal))
             return "playful";
 
