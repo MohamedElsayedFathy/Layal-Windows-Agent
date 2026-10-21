@@ -8,7 +8,7 @@
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
         MouseRightButtonUp="Window_MouseRightButtonUp"
-        MouseEnter="Window_MouseEnter" MouseLeave="Window_MouseLeave">
+        MouseEnter="Window_MouseEnter" MouseLeave="Window_MouseLeave" MouseMove="Window_MouseMove">
     <Viewbox x:Name="MascotViewBox" Stretch="Uniform" StretchDirection="Both">
         <Grid x:Name="Root" Width="178" Height="145" Background="Transparent" ToolTip="Layal | Double-click to open">
             <!-- Soft pastel aura and orbital details keep the mascot readable over light or dark apps. -->

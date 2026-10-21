@@ -131,6 +131,8 @@ public partial class MainWindow : Window
         CancelAgentTaskButton.Content = ar ? "إيقاف المهمة" : "Stop task";
         TaskInput.ToolTip = ar ? "اكتب المهمة بالعربية أو الإنجليزية" : "Describe the task in Arabic or English";
         TaskSkillHint.Text = ar ? "يمكن تحديد حتى 3 مهارات من تبويب المهارات؛ نصوص المهارات تُعامل كمراجع غير موثوقة." : "Select up to 3 skills in Skills; skill text is treated as untrusted reference material.";
+        CopyTaskResultButton.Content = ar ? "نسخ النتيجة" : "Copy result";
+        CopyTaskLogButton.Content = ar ? "نسخ سجل التنفيذ" : "Copy task log";
         if (string.IsNullOrEmpty(TaskResult.Text)) TaskResult.Text = ar ? "لم تُنفذ أي عملية بعد." : "No operation has been run yet.";
 
         SkillsHeading.Text = ar ? "مدير المهارات" : "Skills manager";
@@ -373,7 +375,11 @@ public partial class MainWindow : Window
         AppRuntime.MascotWindow?.SetMood("thinking");
         try
         {
-            var history = ChatMessages.Where(m => m.Role is "user" or "assistant").ToList();
+            var history = new List<ChatMessage>
+            {
+                new() { Role = "system", Content = LayalIdentity.SystemPrompt }
+            };
+            history.AddRange(ChatMessages.Where(m => m.Role is "user" or "assistant"));
             var response = await _aiClient.ChatAsync(AppRuntime.Settings.ProviderBaseUrl, AppRuntime.Settings.ModelId, key, history, _chatCancellation.Token);
             AddMessage("assistant", response);
             AppRuntime.MascotWindow?.SetMood("success");
@@ -535,12 +541,17 @@ public partial class MainWindow : Window
             TaskResult.Text = IsArabic ? "استخدم 3 مهارات كحد أقصى في المهمة الواحدة." : "Select no more than 3 skills for one task.";
             return;
         }
+
         TaskEvents.Clear();
         TaskResult.Text = IsArabic ? "بدأت المهمة. راقب سجل التنفيذ والموافقات." : "Task started. Watch the activity log and approval prompts.";
-        _agentTaskCancellation = new CancellationTokenSource();
+        TaskCopyStatus.Text = string.Empty;
+        var cancellation = new CancellationTokenSource();
+        _agentTaskCancellation = cancellation;
         RunAgentTaskButton.IsEnabled = false;
         CancelAgentTaskButton.IsEnabled = true;
         AppRuntime.MascotWindow?.SetMood("thinking");
+
+        var finalMood = "error";
         try
         {
             var record = await AppRuntime.AgentOrchestrator.RunTaskAsync(
@@ -551,19 +562,73 @@ public partial class MainWindow : Window
                 selectedSkills,
                 ConfirmToolActionAsync,
                 AddTaskEvent,
-                _agentTaskCancellation.Token);
+                cancellation.Token);
+
             TaskResult.Text = $"{record.Status}{Environment.NewLine}{record.Result}";
+            finalMood = record.Status switch
+            {
+                "Completed" => "success",
+                "CompletedWithWarnings" => "warning",
+                "Cancelled" => "paused",
+                _ => "error"
+            };
             TaskResult.Foreground = record.Status == "Completed" ? System.Windows.Media.Brushes.ForestGreen :
-                record.Status == "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod : System.Windows.Media.Brushes.Firebrick;
-            AppRuntime.MascotWindow?.SetMood(record.Status == "Completed" ? "success" : record.Status == "Cancelled" ? "paused" : "error");
+                record.Status is "CompletedWithWarnings" or "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod :
+                System.Windows.Media.Brushes.Firebrick;
             RefreshRecentTasks(record.Id);
+        }
+        catch (OperationCanceledException)
+        {
+            TaskResult.Text = IsArabic ? "تم إلغاء المهمة." : "Task was cancelled.";
+            TaskResult.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            AddTaskEvent("Task cancelled by the user.");
+            finalMood = "paused";
+        }
+        catch (Exception ex)
+        {
+            TaskResult.Text = (IsArabic ? "فشلت المهمة: " : "Task failed: ") + ex.Message;
+            TaskResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            AddTaskEvent("Task failed: " + ex.Message);
+            finalMood = "error";
         }
         finally
         {
-            _agentTaskCancellation.Dispose();
-            _agentTaskCancellation = null;
+            cancellation.Dispose();
+            if (ReferenceEquals(_agentTaskCancellation, cancellation))
+                _agentTaskCancellation = null;
             RunAgentTaskButton.IsEnabled = true;
             CancelAgentTaskButton.IsEnabled = false;
+        }
+
+        // Set terminal state only after task history and event controls finish updating.
+        // The mascot resets success/error/paused to idle after displaying the outcome briefly.
+        AppRuntime.MascotWindow?.SetMood(finalMood);
+    }
+
+    private void CopyTaskResultButton_Click(object sender, RoutedEventArgs e) =>
+        CopyTaskTextToClipboard(TaskResult.Text, IsArabic ? "النتيجة" : "task result");
+
+    private void CopyTaskLogButton_Click(object sender, RoutedEventArgs e) =>
+        CopyTaskTextToClipboard(string.Join(Environment.NewLine, TaskEvents), IsArabic ? "سجل التنفيذ" : "task log");
+
+    private void CopyTaskTextToClipboard(string text, string label)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            TaskCopyStatus.Text = IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.";
+            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            return;
+        }
+        try
+        {
+            Clipboard.SetText(text);
+            TaskCopyStatus.Text = IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"Copied {label} to the clipboard.";
+            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        }
+        catch (Exception ex)
+        {
+            TaskCopyStatus.Text = (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message;
+            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
         }
     }
 
@@ -612,7 +677,15 @@ public partial class MainWindow : Window
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
         TaskResult.Text = $"{task.Status}{Environment.NewLine}{task.Result}";
         TaskResult.Foreground = task.Status == "Completed" ? System.Windows.Media.Brushes.ForestGreen :
-            task.Status == "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod : System.Windows.Media.Brushes.Firebrick;
+            task.Status is "CompletedWithWarnings" or "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod :
+            System.Windows.Media.Brushes.Firebrick;
+        AppRuntime.MascotWindow?.SetMood(task.Status switch
+        {
+            "Completed" => "success",
+            "CompletedWithWarnings" => "warning",
+            "Cancelled" => "paused",
+            _ => "error"
+        });
     }
 
     private void RefreshMemoryNotes(string? query = null)

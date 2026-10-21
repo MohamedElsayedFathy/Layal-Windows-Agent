@@ -14,9 +14,17 @@ public partial class FloatingMascotWindow : Window
     private readonly DispatcherTimer _blinkTimer;
     private readonly DispatcherTimer _restoreEyesTimer;
     private readonly DispatcherTimer _floatTimer;
+    private readonly DispatcherTimer _moodResetTimer;
     private double _floatPhase;
     private int _speechFrame;
     private bool _blinked;
+    private bool _isPointerOver;
+    private double _pointerOffsetX;
+    private double _pointerOffsetY;
+    private double _leftPupilMoodX;
+    private double _leftPupilMoodY;
+    private double _rightPupilMoodX;
+    private double _rightPupilMoodY;
     private string _mood = "idle";
     private readonly ContextMenu _contextMenu = new();
     private readonly MenuItem _openMenuItem = new();
@@ -63,6 +71,8 @@ public partial class FloatingMascotWindow : Window
         _restoreEyesTimer.Tick += (_, _) => RestoreEyes();
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(45) };
         _floatTimer.Tick += (_, _) => AnimateMoodTick();
+        _moodResetTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2600) };
+        _moodResetTimer.Tick += (_, _) => ResetTerminalMood();
         _blinkTimer.Start();
         _floatTimer.Start();
         UpdateLanguage();
@@ -91,8 +101,10 @@ public partial class FloatingMascotWindow : Window
     {
         _mood = NormalizeMood(mood);
         _speechFrame = 0;
+        _leftPupilMoodX = _leftPupilMoodY = _rightPupilMoodX = _rightPupilMoodY = 0;
         LeftPupil.RenderTransform = Transform.Identity;
         RightPupil.RenderTransform = Transform.Identity;
+        LeftEyeShine.RenderTransform = RightEyeShine.RenderTransform = Transform.Identity;
         LeftEye.Fill = RightEye.Fill = EyeWhite;
         LeftEye.Height = RightEye.Height = 22;
         LeftPupil.Visibility = RightPupil.Visibility = Visibility.Visible;
@@ -118,8 +130,8 @@ public partial class FloatingMascotWindow : Window
                 break;
             case "transcribing":
                 LeftEye.Height = RightEye.Height = 21;
-                LeftPupil.RenderTransform = new TranslateTransform(0, 1);
-                RightPupil.RenderTransform = new TranslateTransform(0, 1);
+                _leftPupilMoodY = 1;
+                _rightPupilMoodY = 1;
                 Mouth.Data = Geometry.Parse("M 38,56 Q 51,53 65,56");
                 status = AccentPurple;
                 break;
@@ -144,8 +156,8 @@ public partial class FloatingMascotWindow : Window
             case "curious":
                 LeftBrow.Data = Geometry.Parse("M 25,15 Q 34,10 43,15");
                 RightBrow.Data = Geometry.Parse("M 61,18 Q 69,14 77,18");
-                LeftPupil.RenderTransform = new TranslateTransform(1.3, -1.5);
-                RightPupil.RenderTransform = new TranslateTransform(1.3, -1.5);
+                _leftPupilMoodX = 1.3; _leftPupilMoodY = -1.5;
+                _rightPupilMoodX = 1.3; _rightPupilMoodY = -1.5;
                 Mouth.Data = Geometry.Parse("M 43,54 Q 51,59 59,54");
                 status = AccentCyan;
                 break;
@@ -158,8 +170,8 @@ public partial class FloatingMascotWindow : Window
             case "waiting":
                 LeftBrow.Data = Geometry.Parse("M 26,18 Q 34,15 42,17");
                 RightBrow.Data = Geometry.Parse("M 61,14 Q 69,10 77,14");
-                LeftPupil.RenderTransform = new TranslateTransform(1.5, -2.0);
-                RightPupil.RenderTransform = new TranslateTransform(2.0, -2.0);
+                _leftPupilMoodX = 1.5; _leftPupilMoodY = -2.0;
+                _rightPupilMoodX = 2.0; _rightPupilMoodY = -2.0;
                 Mouth.Data = Geometry.Parse("M 40,56 Q 51,51 64,56");
                 status = AccentAmber;
                 break;
@@ -186,8 +198,8 @@ public partial class FloatingMascotWindow : Window
             case "error":
                 LeftBrow.Data = Geometry.Parse("M 26,21 L 42,15");
                 RightBrow.Data = Geometry.Parse("M 61,15 L 77,21");
-                LeftPupil.RenderTransform = new TranslateTransform(1, 0);
-                RightPupil.RenderTransform = new TranslateTransform(-1, 0);
+                _leftPupilMoodX = 1;
+                _rightPupilMoodX = -1;
                 Mouth.Data = Geometry.Parse("M 34,63 Q 51,48 70,63");
                 CheekLeft.Opacity = CheekRight.Opacity = 0.28;
                 status = AccentRed;
@@ -221,8 +233,8 @@ public partial class FloatingMascotWindow : Window
                 status = AccentGreen;
                 break;
             case "camera_processing":
-                LeftPupil.RenderTransform = new TranslateTransform(-1, 1.5);
-                RightPupil.RenderTransform = new TranslateTransform(-1, 1.5);
+                _leftPupilMoodX = -1; _leftPupilMoodY = 1.5;
+                _rightPupilMoodX = -1; _rightPupilMoodY = 1.5;
                 Mouth.Data = Geometry.Parse("M 39,56 Q 51,52 64,56");
                 status = AccentPurple;
                 break;
@@ -232,6 +244,7 @@ public partial class FloatingMascotWindow : Window
                 break;
         }
 
+        ApplyPupilTransforms();
         Canvas.SetTop(LeftPupil, 23 + (LeftEye.Height - 10) / 2);
         Canvas.SetTop(RightPupil, 23 + (RightEye.Height - 10) / 2);
         Canvas.SetTop(LeftEyeShine, 23 + (LeftEye.Height - 10) / 2 - 1.5);
@@ -244,6 +257,30 @@ public partial class FloatingMascotWindow : Window
             "privacy" or "offline" => TimeSpan.FromSeconds(6.5),
             _ => TimeSpan.FromSeconds(3.65)
         };
+
+        _moodResetTimer.Stop();
+        if (_mood is "success" or "error" or "paused" or "interrupted")
+        {
+            _moodResetTimer.Interval = _mood == "success"
+                ? TimeSpan.FromMilliseconds(2600)
+                : TimeSpan.FromMilliseconds(3200);
+            _moodResetTimer.Start();
+        }
+    }
+
+    private void ApplyPupilTransforms()
+    {
+        LeftPupil.RenderTransform = new TranslateTransform(_leftPupilMoodX + _pointerOffsetX, _leftPupilMoodY + _pointerOffsetY);
+        RightPupil.RenderTransform = new TranslateTransform(_rightPupilMoodX + _pointerOffsetX, _rightPupilMoodY + _pointerOffsetY);
+        LeftEyeShine.RenderTransform = new TranslateTransform(_pointerOffsetX, _pointerOffsetY);
+        RightEyeShine.RenderTransform = new TranslateTransform(_pointerOffsetX, _pointerOffsetY);
+    }
+
+    private void ResetTerminalMood()
+    {
+        _moodResetTimer.Stop();
+        if (_mood is "success" or "error" or "paused" or "interrupted")
+            SetMood(_isPointerOver ? "curious" : "idle");
     }
 
     public void ApplyScale(double scale)
@@ -371,13 +408,32 @@ public partial class FloatingMascotWindow : Window
 
     private void Window_MouseEnter(object sender, MouseEventArgs e)
     {
+        _isPointerOver = true;
         if (_mood == "idle" && AppRuntime.Settings.MascotAnimationsEnabled)
             SetMood("curious");
     }
 
+    private void Window_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!IsVisible) return;
+        var size = FaceCanvas.RenderSize;
+        if (size.Width <= 0 || size.Height <= 0) return;
+
+        // Let the pupils follow the pointer while preserving the task expression.
+        var point = e.GetPosition(FaceCanvas);
+        var normalizedX = Math.Clamp((point.X / size.Width - 0.5) * 2, -1, 1);
+        var normalizedY = Math.Clamp((point.Y / size.Height - 0.5) * 2, -1, 1);
+        _pointerOffsetX = normalizedX * 2.6;
+        _pointerOffsetY = normalizedY * 1.8;
+        ApplyPupilTransforms();
+    }
+
     private void Window_MouseLeave(object sender, MouseEventArgs e)
     {
+        _isPointerOver = false;
+        _pointerOffsetX = _pointerOffsetY = 0;
         if (_mood == "curious") SetMood("idle");
+        else ApplyPupilTransforms();
     }
 
     private void Window_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
@@ -403,6 +459,7 @@ public partial class FloatingMascotWindow : Window
             _blinkTimer.Stop();
             _restoreEyesTimer.Stop();
             _floatTimer.Stop();
+            _moodResetTimer.Stop();
         }
         base.OnClosing(e);
     }

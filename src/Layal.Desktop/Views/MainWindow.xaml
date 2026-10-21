@@ -113,7 +113,11 @@
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
                         <GroupBox Grid.Column="0" Header="سجل تنفيذ المهمة" Foreground="#1C2940" BorderBrush="#DCE5F0" Background="#FFFFFF" Padding="8" Margin="0,0,6,0">
-                            <ListBox x:Name="TaskEventsList" ItemsSource="{Binding TaskEvents}" Background="#FFFFFF" BorderBrush="#DCE5F0" Foreground="#1C2940" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <Button x:Name="CopyTaskLogButton" Grid.Row="0" Content="نسخ سجل التنفيذ" Click="CopyTaskLogButton_Click" HorizontalAlignment="Right" Margin="2,0,2,6"/>
+                                <ListBox x:Name="TaskEventsList" Grid.Row="1" ItemsSource="{Binding TaskEvents}" Background="#FFFFFF" BorderBrush="#DCE5F0" Foreground="#1C2940" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                            </Grid>
                         </GroupBox>
                         <GroupBox Grid.Column="1" x:Name="RecentTasksGroup" Header="المهام السابقة" Foreground="#1C2940" BorderBrush="#DCE5F0" Background="#FFFFFF" Padding="8" Margin="6,0,0,0">
                             <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" SelectionChanged="RecentTasksList_SelectionChanged" Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="4">
@@ -121,7 +125,16 @@
                             </ListBox>
                         </GroupBox>
                     </Grid>
-                    <TextBlock x:Name="TaskResult" Grid.Row="4" Text="لم تُنفذ أي عملية بعد." Foreground="#177A57" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                    <StackPanel Grid.Row="4" Margin="4,10,4,0">
+                        <WrapPanel HorizontalAlignment="Right">
+                            <Button x:Name="CopyTaskResultButton" Content="نسخ النتيجة" Click="CopyTaskResultButton_Click"/>
+                        </WrapPanel>
+                        <TextBox x:Name="TaskResult" Text="لم تُنفذ أي عملية بعد." IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                 MinHeight="68" MaxHeight="170" Padding="9" Margin="0,4,0,0"
+                                 Background="#FFFFFF" BorderBrush="#DCE5F0" Foreground="#177A57"/>
+                        <TextBlock x:Name="TaskCopyStatus" Text="" Foreground="#63738A" TextWrapping="Wrap" Margin="3,3,3,0"/>
+                    </StackPanel>
                 </Grid>
             </TabItem>
 
