@@ -484,6 +484,37 @@ public partial class MainWindow : Window
         var input = userText.ToLowerInvariant();
         var answer = response.ToLowerInvariant();
 
+        // Let users preview expressions explicitly as well as trigger them contextually.
+        if (input.Contains("غمزة", StringComparison.Ordinal) || input.Contains("غمزي", StringComparison.Ordinal) ||
+            input.Contains("wink", StringComparison.Ordinal))
+            return "wink";
+        if (input.Contains("وش مفاجأة", StringComparison.Ordinal) || input.Contains("اتخضي", StringComparison.Ordinal) ||
+            input.Contains("اتفاجئي", StringComparison.Ordinal) || input.Contains("surprised face", StringComparison.Ordinal))
+            return "surprised";
+        if (input.Contains("وش حيران", StringComparison.Ordinal) || input.Contains("تعبير حيرة", StringComparison.Ordinal) ||
+            input.Contains("confused face", StringComparison.Ordinal))
+            return "confused";
+        if (input.Contains("وش حزين", StringComparison.Ordinal) || input.Contains("وش زعلان", StringComparison.Ordinal) ||
+            input.Contains("sad face", StringComparison.Ordinal))
+            return "sad";
+        if (input.Contains("وش غاضب", StringComparison.Ordinal) || input.Contains("وش عصبي", StringComparison.Ordinal) ||
+            input.Contains("angry face", StringComparison.Ordinal))
+            return "annoyed";
+        if (input.Contains("وش زهقان", StringComparison.Ordinal) || input.Contains("تعبير ملل", StringComparison.Ordinal) ||
+            input.Contains("bored face", StringComparison.Ordinal))
+            return "bored";
+        if (input.Contains("اتكسفي", StringComparison.Ordinal) || input.Contains("خليكي مكسوفة", StringComparison.Ordinal) ||
+            input.Contains("shy face", StringComparison.Ordinal))
+            return "shy";
+        if (input.Contains("تعبيرات الوجه", StringComparison.Ordinal) || input.Contains("رياكشنات وشك", StringComparison.Ordinal) ||
+            input.Contains("show your expressions", StringComparison.Ordinal))
+            return "playful";
+
+        if (input.Contains("أنا زعلان", StringComparison.Ordinal) || input.Contains("انا زعلان", StringComparison.Ordinal) ||
+            input.Contains("أنا حزينة", StringComparison.Ordinal) || input.Contains("انا حزين", StringComparison.Ordinal) ||
+            input.Contains("i feel sad", StringComparison.Ordinal) || input.Contains("i'm sad", StringComparison.Ordinal))
+            return "worried";
+
         if (input.Contains("هههه", StringComparison.Ordinal) || input.Contains("😂", StringComparison.Ordinal) ||
             input.Contains("joke", StringComparison.Ordinal) || input.Contains("نكتة", StringComparison.Ordinal) ||
             input.Contains("ضحكني", StringComparison.Ordinal) || answer.Contains("😂", StringComparison.Ordinal) ||
