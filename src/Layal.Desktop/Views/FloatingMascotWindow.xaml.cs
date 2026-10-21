@@ -72,7 +72,22 @@ public partial class FloatingMascotWindow : Window
         ["offline"] = new[] { "🔌", "📴", "💤", "🌙", "🔋", "🪫", "📡", "😴", "☁️", "🧸", "🛑", "🌧️" },
         ["privacy"] = new[] { "🔒", "🤫", "🛡️", "🔐", "🗝️", "👀", "🧘", "🕵️‍♀️", "🔏", "🫶", "🤐", "🪪" },
         ["camera_processing"] = new[] { "📷", "👁️", "🔍", "🎥", "📸", "🧐", "🔬", "🧿", "🎯", "👀", "📹", "💡", "🖼️", "🌟" },
-        ["sleepy"] = new[] { "🥱", "🌙", "💤", "🛌", "😴", "☕", "🧸", "🌃", "⭐", "😪", "🫠", "🦉" }
+        ["sleepy"] = new[] { "🥱", "🌙", "💤", "🛌", "😴", "☕", "🧸", "🌃", "⭐", "😪", "🫠", "🦉" },
+        ["responding"] = new[] { "💬", "🗨️", "🗣️", "✨", "😊", "🫶" },
+        ["happy"] = new[] { "😊", "🌸", "💖", "✨", "🌈", "🩷" },
+        ["greeting"] = new[] { "👋", "🌞", "😊", "💐", "✨", "🌷" },
+        ["love"] = new[] { "💖", "💗", "🩷", "🥰", "💕", "💞" },
+        ["laughing"] = new[] { "😂", "🤣", "😆", "😹", "🎉", "💫" },
+        ["wink"] = new[] { "😉", "😜", "✨", "😏", "🫣" },
+        ["surprised"] = new[] { "😲", "😮", "🤯", "✨", "‼️", "🫢" },
+        ["confused"] = new[] { "🤔", "😵‍💫", "❓", "🫤", "🧐" },
+        ["sad"] = new[] { "🥺", "😢", "🌧️", "💧", "🫂" },
+        ["worried"] = new[] { "😟", "🥺", "🫣", "💭", "🫂" },
+        ["proud"] = new[] { "🏆", "👏", "🌟", "💯", "🎉", "🙌" },
+        ["shy"] = new[] { "☺️", "🫣", "🌸", "💗", "🙈" },
+        ["annoyed"] = new[] { "😒", "🙄", "😤", "💢", "🫠" },
+        ["bored"] = new[] { "🥱", "😑", "💤", "☕", "🌙" },
+        ["playful"] = new[] { "😜", "😉", "🐣", "🎈", "✨", "😎" }
     };
 
     public FloatingMascotWindow()
@@ -211,11 +226,115 @@ public partial class FloatingMascotWindow : Window
                 Mouth.Data = Geometry.Parse("M 40,56 Q 51,51 64,56");
                 status = AccentAmber;
                 break;
+            case "responding":
             case "speaking":
+                LeftEye.Height = RightEye.Height = 23;
                 Mouth.Data = Geometry.Parse("M 39,50 Q 51,73 65,50 Q 52,66 39,50 Z");
                 Mouth.Fill = new SolidColorBrush(Color.FromRgb(103, 44, 88));
                 Mouth.StrokeThickness = 2.6;
                 status = AccentCyan;
+                break;
+            case "greeting":
+            case "happy":
+                LeftEye.Height = RightEye.Height = 24;
+                LeftBrow.Data = Geometry.Parse("M 25,16 Q 34,10 43,16");
+                RightBrow.Data = Geometry.Parse("M 60,16 Q 69,10 78,16");
+                Mouth.Data = Geometry.Parse("M 27,47 Q 51,80 79,47");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.96;
+                GlowHalo.Opacity = 0.70;
+                status = AccentGreen;
+                break;
+            case "love":
+            case "shy":
+                LeftEye.Fill = RightEye.Fill = new SolidColorBrush(Color.FromRgb(255, 209, 231));
+                LeftBrow.Data = Geometry.Parse("M 25,17 Q 34,12 43,18");
+                RightBrow.Data = Geometry.Parse("M 60,18 Q 69,12 78,17");
+                _leftPupilMoodX = 0.5; _leftPupilMoodY = 1.8;
+                _rightPupilMoodX = 0.5; _rightPupilMoodY = 1.8;
+                Mouth.Data = Geometry.Parse("M 39,54 Q 51,63 64,54");
+                CheekLeft.Opacity = CheekRight.Opacity = 1;
+                GlowHalo.Opacity = 0.78;
+                status = AccentRed;
+                break;
+            case "laughing":
+                LeftEye.Height = RightEye.Height = 6;
+                LeftPupil.Visibility = RightPupil.Visibility = Visibility.Collapsed;
+                LeftEyeShine.Visibility = RightEyeShine.Visibility = Visibility.Collapsed;
+                LeftBrow.Data = Geometry.Parse("M 25,17 Q 34,10 43,16");
+                RightBrow.Data = Geometry.Parse("M 60,16 Q 69,10 78,17");
+                Mouth.Data = Geometry.Parse("M 30,46 Q 51,88 80,46 Z");
+                Mouth.Fill = new SolidColorBrush(Color.FromRgb(119, 48, 90));
+                CheekLeft.Opacity = CheekRight.Opacity = 1;
+                GlowHalo.Opacity = 0.78;
+                status = AccentPurple;
+                break;
+            case "wink":
+            case "playful":
+                LeftEye.Height = 3;
+                LeftPupil.Visibility = LeftEyeShine.Visibility = Visibility.Collapsed;
+                RightEye.Height = 25;
+                LeftBrow.Data = Geometry.Parse("M 25,20 Q 34,25 43,20");
+                RightBrow.Data = Geometry.Parse("M 60,14 Q 69,9 78,15");
+                Mouth.Data = Geometry.Parse("M 28,48 Q 51,79 79,48");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.94;
+                status = AccentPurple;
+                break;
+            case "surprised":
+                LeftEye.Height = RightEye.Height = 27;
+                LeftBrow.Data = Geometry.Parse("M 25,12 Q 34,6 43,12");
+                RightBrow.Data = Geometry.Parse("M 60,12 Q 69,6 78,12");
+                Mouth.Data = Geometry.Parse("M 44,51 Q 51,46 58,51 Q 61,61 51,66 Q 41,61 44,51 Z");
+                Mouth.Fill = new SolidColorBrush(Color.FromRgb(103, 44, 88));
+                CheekLeft.Opacity = CheekRight.Opacity = 0.50;
+                status = AccentCyan;
+                break;
+            case "confused":
+                LeftBrow.Data = Geometry.Parse("M 25,13 Q 34,7 43,14");
+                RightBrow.Data = Geometry.Parse("M 60,22 Q 69,18 78,22");
+                _leftPupilMoodX = -2; _leftPupilMoodY = -1;
+                _rightPupilMoodX = 2; _rightPupilMoodY = 1;
+                Mouth.Data = Geometry.Parse("M 39,58 Q 46,52 53,58 Q 60,64 66,57");
+                status = AccentAmber;
+                break;
+            case "sad":
+                LeftBrow.Data = Geometry.Parse("M 25,17 Q 34,24 43,21");
+                RightBrow.Data = Geometry.Parse("M 60,21 Q 69,24 78,17");
+                Mouth.Data = Geometry.Parse("M 32,63 Q 51,44 71,63");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.28;
+                GlowHalo.Opacity = 0.34;
+                status = AccentMuted;
+                break;
+            case "worried":
+                LeftBrow.Data = Geometry.Parse("M 25,16 Q 34,11 43,20");
+                RightBrow.Data = Geometry.Parse("M 60,20 Q 69,11 78,16");
+                LeftEye.Height = RightEye.Height = 20;
+                Mouth.Data = Geometry.Parse("M 38,62 Q 51,52 64,62");
+                GlowHalo.Opacity = 0.40;
+                status = AccentAmber;
+                break;
+            case "proud":
+                LeftEye.Height = RightEye.Height = 24;
+                LeftBrow.Data = Geometry.Parse("M 25,15 Q 34,10 43,15");
+                RightBrow.Data = Geometry.Parse("M 60,15 Q 69,10 78,15");
+                Mouth.Data = Geometry.Parse("M 27,47 Q 51,77 79,47");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.90;
+                GlowHalo.Opacity = 0.80;
+                status = AccentGreen;
+                break;
+            case "annoyed":
+                LeftEye.Height = RightEye.Height = 15;
+                LeftBrow.Data = Geometry.Parse("M 25,15 L 43,22");
+                RightBrow.Data = Geometry.Parse("M 60,22 L 78,15");
+                Mouth.Data = Geometry.Parse("M 38,58 L 64,58");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.24;
+                status = AccentRed;
+                break;
+            case "bored":
+                LeftEye.Height = RightEye.Height = 12;
+                _leftPupilMoodY = 3; _rightPupilMoodY = 3;
+                Mouth.Data = Geometry.Parse("M 40,59 L 64,59");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.22;
+                status = AccentMuted;
                 break;
             case "success":
                 LeftBrow.Data = Geometry.Parse("M 26,17 Q 34,13 42,17");
@@ -297,10 +416,12 @@ public partial class FloatingMascotWindow : Window
         };
 
         _moodResetTimer.Stop();
-        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted")
+        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
+            "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
+            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful")
         {
-            _moodResetTimer.Interval = _mood == "success"
-                ? TimeSpan.FromMilliseconds(2600)
+            _moodResetTimer.Interval = _mood is "success" or "happy" or "greeting" or "love" or "laughing" or "proud"
+                ? TimeSpan.FromMilliseconds(2800)
                 : TimeSpan.FromMilliseconds(3200);
             _moodResetTimer.Start();
         }
@@ -415,7 +536,7 @@ public partial class FloatingMascotWindow : Window
         AntennaDot.RenderTransform = new ScaleTransform(pulse, pulse);
         GlowHalo.Opacity = (_mood is "offline" or "privacy" ? 0.20 : 0.48) + ((Math.Sin(_floatPhase) + 1) * 0.06);
 
-        if (_mood == "speaking")
+        if (_mood is "speaking" or "responding")
         {
             _speechFrame++;
             if (_speechFrame % 4 == 0)
@@ -456,12 +577,14 @@ public partial class FloatingMascotWindow : Window
             "tool" or "tool_call" or "executing" => "using_tool",
             "approval" or "approval_needed" or "approval_required" => "warning",
             "waiting_for_result" => "waiting",
-            "done" or "completed" or "happy" or "celebrating" => "success",
-            "failed" or "confused" => "error",
+            "done" or "completed" or "celebrating" => "success",
+            "failed" => "error",
             "camera" => "camera_processing",
             "offline" or "privacy" or "idle" or "listening" or "transcribing" or "understanding" or "curious"
                 or "thinking" or "planning" or "researching" or "reading" or "coding" or "using_tool" or "waiting"
-                or "speaking" or "success" or "warning" or "error" or "paused" or "recovering" or "reconnecting"
+                or "speaking" or "responding" or "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised"
+                or "confused" or "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful"
+                or "success" or "warning" or "error" or "paused" or "recovering" or "reconnecting"
                 or "camera_processing" or "interrupted" or "sleepy" or "excited" => normalized,
             _ => "idle"
         };
