@@ -41,6 +41,48 @@ public sealed class OpenAiCompatibleClientTests
     }
 
     [TestMethod]
+    public async Task ChatStreamRequestsStreamingAndEmitsEachTextDelta()
+    {
+        const string stream = """
+data: {"choices":[{"delta":{"role":"assistant"}}]}
+
+data: {"choices":[{"delta":{"content":"Hello"}}]}
+
+data: {"choices":[{"delta":{"content":" world"}}]}
+
+data: [DONE]
+
+""";
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(stream, Encoding.UTF8, "text/event-stream")
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+        var deltas = new List<string>();
+
+        var reply = await client.ChatStreamAsync("https://provider.example/v1", "test-model", "key",
+            new[] { new ChatMessage { Role = "user", Content = "Hello" } }, deltas.Add);
+
+        Assert.AreEqual("Hello world", reply);
+        CollectionAssert.AreEqual(new[] { "Hello", " world" }, deltas);
+        StringAssert.Contains(handler.LastRequestBody ?? string.Empty, "\"stream\":true");
+    }
+
+    [TestMethod]
+    public async Task ChatStreamFallsBackWhenProviderReturnsRegularJson()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse("{\"choices\":[{\"message\":{\"content\":\"Fallback reply\"}}]}"));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+        var deltas = new List<string>();
+
+        var reply = await client.ChatStreamAsync("https://provider.example/v1", "test-model", "key",
+            new[] { new ChatMessage { Role = "user", Content = "Hello" } }, deltas.Add);
+
+        Assert.AreEqual("Fallback reply", reply);
+        CollectionAssert.AreEqual(new[] { "Fallback reply" }, deltas);
+    }
+
+    [TestMethod]
     public async Task AgentTurnParsesToolCalls()
     {
         const string response = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call-1\",\"type\":\"function\",\"function\":{\"name\":\"get_current_time\",\"arguments\":\"{}\"}}]}}]}";
