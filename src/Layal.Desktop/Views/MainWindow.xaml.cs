@@ -386,15 +386,46 @@ public partial class MainWindow : Window
         AppRuntime.MascotWindow?.SetMood("thinking");
         try
         {
-            var history = new List<ChatMessage>
+            // Keep the most recent chat context bounded; archive history remains saved locally.
+            var history = ChatContextBuilder.Build(LayalIdentity.SystemPrompt, ChatMessages);
+            ChatMessage? liveAssistantMessage = null;
+            var response = await _aiClient.ChatStreamAsync(
+                AppRuntime.Settings.ProviderBaseUrl,
+                AppRuntime.Settings.ModelId,
+                key,
+                history,
+                delta =>
+                {
+                    if (liveAssistantMessage is null)
+                    {
+                        AppRuntime.MascotWindow?.SetMood("responding");
+                        ChatProviderStatus.Text = IsArabic ? "ليال بتكتب..." : "Layal is responding...";
+                        liveAssistantMessage = AddMessage("assistant", delta);
+                    }
+                    else
+                    {
+                        liveAssistantMessage.Content += delta;
+                        liveAssistantMessage.Direction = ContainsArabic(liveAssistantMessage.Content)
+                            ? FlowDirection.RightToLeft
+                            : FlowDirection.LeftToRight;
+                        ChatMessagesList.ScrollIntoView(liveAssistantMessage);
+                    }
+                },
+                _chatCancellation.Token);
+
+            if (liveAssistantMessage is null)
+                AddMessage("assistant", response);
+            else
             {
-                new() { Role = "system", Content = LayalIdentity.SystemPrompt }
-            };
-            history.AddRange(ChatMessages.Where(m => m.Role is "user" or "assistant"));
-            var response = await _aiClient.ChatAsync(AppRuntime.Settings.ProviderBaseUrl, AppRuntime.Settings.ModelId, key, history, _chatCancellation.Token);
-            AddMessage("assistant", response);
-            AppRuntime.MascotWindow?.SetMood("success");
-            ChatProviderStatus.Text = IsArabic ? "اكتمل طلب النموذج" : "Model request completed";
+                if (!string.Equals(liveAssistantMessage.Content, response, StringComparison.Ordinal))
+                    liveAssistantMessage.Content = response;
+                liveAssistantMessage.Direction = ContainsArabic(liveAssistantMessage.Content)
+                    ? FlowDirection.RightToLeft
+                    : FlowDirection.LeftToRight;
+                SaveCurrentChatMessages();
+            }
+            AppRuntime.MascotWindow?.SetMood(SelectChatMood(text, response));
+            ChatProviderStatus.Text = IsArabic ? "اكتمل الرد" : "Response completed";
         }
         catch (OperationCanceledException)
         {
@@ -410,6 +441,7 @@ public partial class MainWindow : Window
         }
         finally
         {
+            SaveCurrentChatMessages();
             _chatCancellation?.Dispose();
             _chatCancellation = null;
             SendButton.IsEnabled = true;
@@ -419,7 +451,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AddMessage(string role, string content)
+    private ChatMessage AddMessage(string role, string content)
     {
         var ar = IsArabic;
         var display = role switch
@@ -429,15 +461,67 @@ public partial class MainWindow : Window
             _ => ar ? "حالة النظام" : "System status"
         };
         var direction = ContainsArabic(content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        ChatMessages.Add(new ChatMessage { Role = role, Content = content, DisplayRole = display, CreatedAt = DateTimeOffset.Now, Direction = direction });
+        var message = new ChatMessage { Role = role, Content = content, DisplayRole = display, CreatedAt = DateTimeOffset.Now, Direction = direction };
+        ChatMessages.Add(message);
         while (ChatMessages.Count > 100) ChatMessages.RemoveAt(0);
+        SaveCurrentChatMessages();
+        ChatMessagesList.ScrollIntoView(ChatMessages.LastOrDefault());
+        return message;
+    }
+
+    private void SaveCurrentChatMessages()
+    {
         try
         {
             AppRuntime.ChatSessionService.SaveCurrentMessages(ChatMessages.ToList());
             RefreshChatSessions(_currentConversationId);
         }
         catch { /* A history save failure must not block the current conversation. */ }
-        ChatMessagesList.ScrollIntoView(ChatMessages.LastOrDefault());
+    }
+
+    private static string SelectChatMood(string userText, string response)
+    {
+        var input = userText.ToLowerInvariant();
+        var answer = response.ToLowerInvariant();
+
+        if (input.Contains("هههه", StringComparison.Ordinal) || input.Contains("😂", StringComparison.Ordinal) ||
+            input.Contains("joke", StringComparison.Ordinal) || input.Contains("نكتة", StringComparison.Ordinal) ||
+            input.Contains("ضحكني", StringComparison.Ordinal) || answer.Contains("😂", StringComparison.Ordinal) ||
+            answer.Contains("🤣", StringComparison.Ordinal))
+            return "laughing";
+
+        if (input.Contains("شكرا", StringComparison.Ordinal) || input.Contains("شكرًا", StringComparison.Ordinal) ||
+            input.Contains("متشكر", StringComparison.Ordinal) || input.Contains("تسلم", StringComparison.Ordinal) ||
+            input.Contains("thank you", StringComparison.Ordinal) || input.Contains("thanks", StringComparison.Ordinal))
+            return "love";
+
+        if (input.Contains("السلام عليكم", StringComparison.Ordinal) || input.Contains("صباح الخير", StringComparison.Ordinal) ||
+            input.Contains("مساء الخير", StringComparison.Ordinal) || input.Contains("اهلا", StringComparison.Ordinal) ||
+            input.Contains("أهلا", StringComparison.Ordinal) || input.Contains("hello", StringComparison.Ordinal) ||
+            input.Equals("hi", StringComparison.Ordinal) || input.StartsWith("hi ", StringComparison.Ordinal))
+            return "greeting";
+
+        if (input.Contains("مش فاهم", StringComparison.Ordinal) || input.Contains("مش شغال", StringComparison.Ordinal) ||
+            input.Contains("غلط", StringComparison.Ordinal) || input.Contains("مشكلة", StringComparison.Ordinal) ||
+            input.Contains("help me", StringComparison.Ordinal) || input.Contains("محتاج مساعدة", StringComparison.Ordinal))
+            return "worried";
+
+        if (input.Contains("ممتاز", StringComparison.Ordinal) || input.Contains("رائع", StringComparison.Ordinal) ||
+            input.Contains("awesome", StringComparison.Ordinal) || input.Contains("great job", StringComparison.Ordinal))
+            return "proud";
+
+        if (input.Contains("بحب", StringComparison.Ordinal) || input.Contains("أحبك", StringComparison.Ordinal) ||
+            input.Contains("love you", StringComparison.Ordinal))
+            return "shy";
+
+        if (input.Contains("؟", StringComparison.Ordinal) || input.Contains("?", StringComparison.Ordinal))
+            return "curious";
+
+        if (input.Contains("!", StringComparison.Ordinal) || input.Contains("！", StringComparison.Ordinal) ||
+            input.Contains("مبروك", StringComparison.Ordinal) || input.Contains("احتفل", StringComparison.Ordinal))
+            return "excited";
+
+        return "happy";
     }
 
     private void CopyChatButton_Click(object sender, RoutedEventArgs e)
