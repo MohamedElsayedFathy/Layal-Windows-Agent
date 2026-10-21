@@ -21,7 +21,8 @@ This matrix describes source-code presence and authored test coverage only; test
 | Encrypted chat/task/memory persistence | Implemented with DPAPI-backed JSON | `ProtectedJsonStore.cs`, memory/task services | Windows account/profile test needed |
 | Memory notes CRUD/search/export | Implemented in source | `MemoryService.cs`, Memory tab | UI/runtime tests needed; JSON export is plaintext |
 | Actual voice STT/TTS | Not implemented | — | Future milestone |
-| General mouse/keyboard/UI Automation | Not implemented | — | Future milestone |
+| Read-only Windows UI Automation inspection | Implemented in source, CI/runtime acceptance pending; no clicks, typing, or screenshots | `Services/WindowsUiAutomationService.cs`, `Services/AgentToolExecutor.cs` | Manual Windows acceptance required |
+| General mouse/keyboard control and screen capture | Not implemented | — | Future milestone |
 | Screen capture/visual UI control | Not implemented | — | Future milestone |
 | Browser DOM automation/research | Not implemented; URL launching exists only | `AgentToolExecutor.cs` | Future milestone |
 | RTSP/ONVIF video and computer vision | Not implemented | Camera tab reports limitation | Future milestone |

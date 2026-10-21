@@ -181,7 +181,7 @@ public partial class MainWindow : Window
         SettingsLimitations.Text = ar
             ? "ما زالت وظائف الصوت الحقيقي، وأتمتة المتصفح، والتحكم العام بالماوس والكيبورد، وبث الكاميرات، وMCP غير منفذة. لا يتم عرضها كوظائف مكتملة."
             : "Real voice, browser automation, general mouse/keyboard control, camera streaming, and MCP are not implemented yet and are not presented as completed features.";
-        WindowInspectionCheckbox.Content = ar ? "السماح بقراءة عناوين النوافذ عند الطلب (تتطلب مشاركة العناوين موافقة)" : "Allow window-title inspection on request (sharing titles still requires approval)";
+        WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة عند الطلب (كل مشاركة تتطلب موافقة)" : "Allow window and UI-control inspection on request (each disclosure requires approval)";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
         MemorySearchInput.ToolTip = ar ? "بحث في الملاحظات" : "Search memory notes";

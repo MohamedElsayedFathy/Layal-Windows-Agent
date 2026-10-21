@@ -50,6 +50,7 @@ public sealed class AgentToolExecutor
         Definition("open_url", "Open an HTTP or HTTPS URL in the user's default browser. Requires approval.", """{"type":"object","properties":{"url":{"type":"string"}},"required":["url"],"additionalProperties":false}"""),
         Definition("get_open_window_titles", "List visible top-level window titles. Disabled unless the user opts in, and requires consent before titles are sent to the AI provider.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("activate_window", "Bring a visible window with an exact title to the foreground. Requires user approval.", """{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}"""),
+        Definition("inspect_window_controls", "Inspect the accessible control metadata of one visible external window identified by its exact title. Read-only; asks approval before sharing labels and identifiers. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
         Definition("run_dotnet_build", "Run dotnet build for a .sln or .csproj inside the approved workspace. Build targets may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("run_dotnet_test", "Run dotnet test for a .sln or .csproj inside the approved workspace. Tests may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("search_memory", "Search user-managed Layal memory. Always ask permission before sharing matched notes with the configured AI provider.", """{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}"""),
@@ -81,6 +82,7 @@ public sealed class AgentToolExecutor
             "open_url" => await OpenUrlAsync(GetString(args, "url"), confirm, cancellationToken),
             "get_open_window_titles" => await GetWindowTitlesAsync(confirm, cancellationToken),
             "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
+            "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
             "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "search_memory" => await SearchMemoryAsync(GetString(args, "query"), confirm, cancellationToken),
@@ -257,6 +259,30 @@ public sealed class AgentToolExecutor
         return WindowInventory.ActivateWindowByExactTitle(title)
             ? "Windows accepted the request to activate the matching window. Verify the foreground state manually if important."
             : "No visible window with that exact title was found or Windows declined the activation request.";
+    }
+
+    private async Task<string> InspectWindowControlsAsync(
+        string title,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (!AppRuntime.Settings.AllowWindowTitleInspection)
+            return "Window and UI inspection is disabled in Layal settings. Ask the user to enable it first.";
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+            throw new InvalidOperationException("Provide an exact visible window title up to 200 characters.");
+
+        var target = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (target is null)
+            throw new InvalidOperationException("No unique visible external window with that exact title was found. Use get_open_window_titles to review available windows.");
+        var approvalText = $"Read the accessible control labels and automation identifiers in '{target.Title}' (PID {target.ProcessId})? This is read-only. Editable field values and screenshots are not read, and no click or keystroke will be sent. The selected metadata will be shared with the configured AI provider and may still reveal private information.";
+        if (!await confirm("Inspect application controls", approvalText, token))
+            return "User declined UI inspection. No controls were read or shared.";
+
+        token.ThrowIfCancellationRequested();
+        var controls = WindowsUiAutomationService.ReadControls(target, maxControls: 60);
+        report($"Read-only UI inspection completed for an external window (PID {target.ProcessId}); {controls.Count} eligible controls returned.");
+        return WindowsUiAutomationService.FormatReport(target.Title, target.ProcessId, controls);
     }
 
     private async Task<string> RunDotnetAsync(string verb, string relativeProjectFile, string configuration, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
