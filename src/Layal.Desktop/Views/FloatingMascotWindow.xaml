@@ -1,6 +1,7 @@
 <Window x:Class="Layal.Views.FloatingMascotWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         Title="Layal" Width="178" Height="145"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True"
         Background="Transparent" ShowInTaskbar="False" ShowActivated="False"
@@ -143,7 +144,7 @@
                     <Border.Effect>
                         <DropShadowEffect Color="#6A7FAD" BlurRadius="9" ShadowDepth="2" Opacity="0.22"/>
                     </Border.Effect>
-                    <TextBlock x:Name="ReactionEmojiText" Text="✨" FontFamily="Segoe UI Emoji"
+                    <emoji:TextBlock x:Name="ReactionEmojiText" Text="✨" FontFamily="Segoe UI Emoji"
                                FontSize="27" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
             </Canvas>
