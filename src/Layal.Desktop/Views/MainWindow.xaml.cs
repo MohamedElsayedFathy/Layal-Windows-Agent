@@ -382,13 +382,14 @@ public partial class MainWindow : Window
         _chatCancellation = new CancellationTokenSource();
         SendButton.IsEnabled = false;
         CancelResponseButton.IsEnabled = true;
-        ChatProviderStatus.Text = IsArabic ? "جارٍ الاتصال بالنموذج..." : "Request in progress...";
+        ChatProviderStatus.Text = IsArabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...";
         AppRuntime.MascotWindow?.SetMood("thinking");
         try
         {
             // Keep the most recent chat context bounded; archive history remains saved locally.
             var history = ChatContextBuilder.Build(LayalIdentity.SystemPrompt, ChatMessages);
             ChatMessage? liveAssistantMessage = null;
+            var streamedChunks = 0;
             var response = await _aiClient.ChatStreamAsync(
                 AppRuntime.Settings.ProviderBaseUrl,
                 AppRuntime.Settings.ModelId,
@@ -405,10 +406,13 @@ public partial class MainWindow : Window
                     else
                     {
                         liveAssistantMessage.Content += delta;
-                        liveAssistantMessage.Direction = ContainsArabic(liveAssistantMessage.Content)
-                            ? FlowDirection.RightToLeft
-                            : FlowDirection.LeftToRight;
-                        ChatMessagesList.ScrollIntoView(liveAssistantMessage);
+                        if (liveAssistantMessage.Direction != FlowDirection.RightToLeft && ContainsArabic(delta))
+                            liveAssistantMessage.Direction = FlowDirection.RightToLeft;
+
+                        // Avoid re-scanning the entire growing answer and forcing layout on every token.
+                        streamedChunks++;
+                        if (streamedChunks % 8 == 0)
+                            ChatMessagesList.ScrollIntoView(liveAssistantMessage);
                     }
                 },
                 _chatCancellation.Token);
