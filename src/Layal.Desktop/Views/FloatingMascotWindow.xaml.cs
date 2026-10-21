@@ -21,6 +21,8 @@ public partial class FloatingMascotWindow : Window
     private double _floatPhase;
     private bool _reactionActive;
     private DateTimeOffset _reactionStartedAt;
+    private DateTimeOffset _lastReactionShownAt = DateTimeOffset.MinValue;
+    private string _lastReactionMood = string.Empty;
     private readonly Dictionary<string, int> _reactionIndexes = new(StringComparer.OrdinalIgnoreCase);
     private int _speechFrame;
     private bool _blinked;
@@ -48,28 +50,29 @@ public partial class FloatingMascotWindow : Window
 
     private static readonly Dictionary<string, string[]> ReactionSets = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["curious"] = new[] { "👀", "✨", "🤔" },
-        ["thinking"] = new[] { "💭", "🤔", "🧠" },
-        ["planning"] = new[] { "🗺️", "💡", "📝" },
-        ["researching"] = new[] { "🔎", "📚", "🧐" },
-        ["reading"] = new[] { "📖", "👓", "💡" },
-        ["coding"] = new[] { "💻", "🧩", "⚙️" },
-        ["using_tool"] = new[] { "🛠️", "⚙️", "🔧" },
-        ["listening"] = new[] { "👂", "🎧", "👀" },
-        ["transcribing"] = new[] { "📝", "✍️", "🎧" },
-        ["speaking"] = new[] { "💬", "🗨️", "👋" },
-        ["excited"] = new[] { "🤩", "🥳", "💖" },
-        ["success"] = new[] { "🎉", "✅", "✨", "💖" },
-        ["warning"] = new[] { "⚠️", "❗", "🫣" },
-        ["error"] = new[] { "😵‍💫", "🙈", "🛑" },
-        ["paused"] = new[] { "⏸️", "😌", "💤" },
-        ["interrupted"] = new[] { "✋", "🛑", "💭" },
-        ["recovering"] = new[] { "🔄", "🤞", "🛠️" },
-        ["reconnecting"] = new[] { "🔄", "📡", "🤞" },
-        ["offline"] = new[] { "🔌", "📴", "💤" },
-        ["privacy"] = new[] { "🔒", "🤫", "🛡️" },
-        ["camera_processing"] = new[] { "📷", "👁️", "🔍" },
-        ["sleepy"] = new[] { "🥱", "🌙", "💤" }
+        ["idle"] = new[] { "😊", "🌸", "✨", "🫧", "💫", "🌈", "🐣", "💗", "🌷", "⭐", "🩷", "☀️" },
+        ["curious"] = new[] { "👀", "🤔", "🧐", "❓", "💡", "🪄", "✨", "🔍", "🫣", "😮", "🦉", "🙋", "🐾", "❔" },
+        ["thinking"] = new[] { "💭", "🤔", "🧠", "💡", "🔮", "🧐", "📝", "☁️", "💫", "🧩", "🙃", "🤓", "🌀" },
+        ["planning"] = new[] { "🗺️", "💡", "📝", "📋", "🧭", "🗓️", "🪄", "🧠", "🧩", "📌", "🗂️", "🎯", "🪜", "🚦" },
+        ["researching"] = new[] { "🔎", "📚", "🧐", "🗞️", "🔬", "📖", "🌐", "🧭", "💡", "📝", "🗃️", "🦉", "🪄", "📊" },
+        ["reading"] = new[] { "📖", "👓", "💡", "📚", "🤓", "🔖", "📘", "🧐", "✍️", "💭", "📑", "🦉", "📗", "🧾" },
+        ["coding"] = new[] { "💻", "🧩", "⚙️", "⌨️", "👩‍💻", "🛠️", "🤓", "🔧", "🐞", "🚀", "🧠", "✨", "🖥️", "🧪" },
+        ["using_tool"] = new[] { "🛠️", "⚙️", "🔧", "🧰", "🔩", "🪛", "🤖", "🚀", "✨", "🧪", "🔋", "🔌", "🪄", "📦" },
+        ["listening"] = new[] { "👂", "🎧", "👀", "🫶", "🙂", "💗", "🙋", "🗣️", "💭", "🐰", "💬", "✨" },
+        ["transcribing"] = new[] { "📝", "✍️", "🎧", "🗒️", "⌨️", "📋", "🔤", "✅", "✨", "🗣️", "🦻", "📄" },
+        ["speaking"] = new[] { "💬", "🗨️", "👋", "🗣️", "😊", "💖", "💌", "📣", "✨", "🎤", "🫶", "😄", "🗯️", "💞" },
+        ["excited"] = new[] { "🤩", "🥳", "💖", "🎉", "🌟", "🩷", "💃", "🪩", "🚀", "🎊", "😆", "🐣", "💫", "🎈", "😍", "🌈" },
+        ["success"] = new[] { "🎉", "✅", "✨", "💖", "🏆", "🌟", "🥳", "👏", "🙌", "💯", "🎊", "💐", "🚀", "🤩", "🪄", "🩷" },
+        ["warning"] = new[] { "⚠️", "❗", "🫣", "🛑", "🙈", "😬", "👀", "🔔", "🚧", "🟠", "🧯", "🚦", "🤨", "🫢" },
+        ["error"] = new[] { "😵‍💫", "🙈", "🛑", "😓", "🫠", "💔", "😣", "🧯", "🚨", "🆘", "😵", "🤦", "🥴", "🫥" },
+        ["paused"] = new[] { "⏸️", "😌", "💤", "☕", "🫖", "🧘", "🌙", "⏳", "🍵", "💭", "🧸", "🌿" },
+        ["interrupted"] = new[] { "✋", "🛑", "💭", "🙋", "🔔", "🖐️", "🤚", "⏸️", "🚦", "👀", "🫷", "🫸" },
+        ["recovering"] = new[] { "🔄", "🤞", "🛠️", "💪", "🩹", "🧩", "🌈", "🚀", "🧰", "🧪", "💡", "✨", "🫡", "🪄" },
+        ["reconnecting"] = new[] { "🔄", "📡", "🤞", "📶", "🔌", "🛰️", "📲", "🔋", "🌐", "🛜", "🔗", "✨", "🧭", "💫" },
+        ["offline"] = new[] { "🔌", "📴", "💤", "🌙", "🔋", "🪫", "📡", "😴", "☁️", "🧸", "🛑", "🌧️" },
+        ["privacy"] = new[] { "🔒", "🤫", "🛡️", "🔐", "🗝️", "👀", "🧘", "🕵️‍♀️", "🔏", "🫶", "🤐", "🪪" },
+        ["camera_processing"] = new[] { "📷", "👁️", "🔍", "🎥", "📸", "🧐", "🔬", "🧿", "🎯", "👀", "📹", "💡", "🖼️", "🌟" },
+        ["sleepy"] = new[] { "🥱", "🌙", "💤", "🛌", "😴", "☕", "🧸", "🌃", "⭐", "😪", "🫠", "🦉" }
     };
 
     public FloatingMascotWindow()
@@ -283,7 +286,7 @@ public partial class FloatingMascotWindow : Window
         Canvas.SetTop(LeftEyeShine, 23 + (LeftEye.Height - 10) / 2 - 1.5);
         Canvas.SetTop(RightEyeShine, 23 + (RightEye.Height - 10) / 2 - 1.5);
         StatusDot.Fill = status;
-        if (showReaction && previousMood != _mood)
+        if (showReaction && (previousMood != _mood || _mood != "idle"))
             ShowReactionForMood(_mood);
         _blinkTimer.Interval = _mood switch
         {
@@ -320,9 +323,11 @@ public partial class FloatingMascotWindow : Window
 
     private void ShowReactionForMood(string mood)
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || !ReactionSets.TryGetValue(mood, out var choices))
-            return;
-
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || !ReactionSets.TryGetValue(mood, out var choices)) return;
+        var now = DateTimeOffset.UtcNow;
+        if (_lastReactionMood.Equals(mood, StringComparison.OrdinalIgnoreCase) && now - _lastReactionShownAt < TimeSpan.FromMilliseconds(900)) return;
+        _lastReactionMood = mood;
+        _lastReactionShownAt = now;
         _reactionIndexes.TryGetValue(mood, out var index);
         ReactionEmojiText.Text = choices[index % choices.Length];
         _reactionIndexes[mood] = (index + 1) % choices.Length;
