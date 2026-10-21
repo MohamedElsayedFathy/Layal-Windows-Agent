@@ -52,7 +52,7 @@
 - [ ] Observe a passing Windows CI run and fix any failures before treating the test gate as complete.
 
 ## 0.6 — Native automation and safety hardening
-- [x] Read-only UI Automation inspection of a uniquely titled external window, with per-request approval and metadata-only output; Windows runtime acceptance remains pending.
+- [x] Read-only UI Automation inspection of a uniquely titled external window, with per-request approval, metadata-only output, a background worker, and an 8-second caller timeout; Windows runtime acceptance remains pending.
 - [ ] Windows UI Automation adapter for approved apps.
 - [ ] Explicit mouse/keyboard adapter, screen capture approvals, and outcome checks.
 - [ ] More robust restricted process runner and recovery tests.

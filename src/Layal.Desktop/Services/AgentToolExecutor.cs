@@ -240,7 +240,7 @@ public sealed class AgentToolExecutor
     private async Task<string> GetWindowTitlesAsync(Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
     {
         if (!AppRuntime.Settings.AllowWindowTitleInspection)
-            return "Window-title inspection is disabled in Layal settings. Ask the user to enable it first.";
+            return "Window and UI inspection is disabled in Layal settings. Ask the user to enable it first.";
         var titles = WindowInventory.GetVisibleWindowTitles();
         if (titles.Count == 0) return "No titled visible windows were found.";
         var content = string.Join(Environment.NewLine, titles.Take(60).Select(x => $"{x.Title} (PID {x.ProcessId})"));
@@ -252,7 +252,7 @@ public sealed class AgentToolExecutor
     private async Task<string> ActivateWindowAsync(string title, Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
     {
         if (!AppRuntime.Settings.AllowWindowTitleInspection)
-            return "Window interaction is disabled. Enable window-title inspection in Settings first.";
+            return "Window interaction is disabled. Enable window and UI inspection in Settings first.";
         if (title.Length > 200) throw new InvalidOperationException("Window title is too long.");
         if (!await confirm("Activate window", $"Try to bring a window with this exact title to the foreground?\n{title}", token)) return "User declined window activation.";
         token.ThrowIfCancellationRequested();
@@ -280,7 +280,7 @@ public sealed class AgentToolExecutor
             return "User declined UI inspection. No controls were read or shared.";
 
         token.ThrowIfCancellationRequested();
-        var controls = WindowsUiAutomationService.ReadControls(target, maxControls: 60);
+        var controls = await WindowsUiAutomationService.ReadControlsAsync(target, maxControls: 60, cancellationToken: token);
         report($"Read-only UI inspection completed for an external window (PID {target.ProcessId}); {controls.Count} eligible controls returned.");
         return WindowsUiAutomationService.FormatReport(target.Title, target.ProcessId, controls);
     }

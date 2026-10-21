@@ -42,9 +42,20 @@ public sealed class WindowsUiAutomationServiceTests
     }
 
     [TestMethod]
-    public void ControlLimitIsBounded()
+    public void ReadControlsRejectsOutOfRangeLimitsBeforeNativeCalls()
     {
-        var methods = typeof(WindowsUiAutomationService).GetMethod(nameof(WindowsUiAutomationService.ReadControls));
-        Assert.IsNotNull(methods);
+        var target = new UiWindowTarget(IntPtr.Zero, "unused", 1);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            WindowsUiAutomationService.ReadControls(target, maxControls: 0));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            WindowsUiAutomationService.ReadControls(target, maxControls: 101));
+    }
+
+    [TestMethod]
+    public void WindowLookupRejectsEmptyTitleBeforeNativeCalls()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            WindowsUiAutomationService.FindVisibleWindowByExactTitle(" "));
     }
 }

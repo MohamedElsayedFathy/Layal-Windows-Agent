@@ -12,6 +12,8 @@ public static class WindowsUiAutomationService
 {
     private const int MaxWindowTitleLength = 500;
     private const int MaxNodesExamined = 400;
+    private static readonly SemaphoreSlim InspectionGate = new(1, 1);
+    private static readonly TimeSpan InspectionTimeout = TimeSpan.FromSeconds(8);
 
     private static readonly HashSet<string> AllowedControlTypes = new(StringComparer.Ordinal)
     {
@@ -83,6 +85,46 @@ public static class WindowsUiAutomationService
         if (ambiguous)
             throw new InvalidOperationException("More than one visible external window has that exact title. Choose a window with a unique title.");
         return match == IntPtr.Zero ? null : new UiWindowTarget(match, matchedTitle, matchedProcessId);
+    }
+
+    /// <summary>Runs the native inspection away from the WPF UI thread and bounds the caller wait.</summary>
+    public static async Task<IReadOnlyList<UiControlSummary>> ReadControlsAsync(
+        UiWindowTarget target,
+        int maxControls = 60,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await InspectionGate.WaitAsync(TimeSpan.Zero, cancellationToken))
+            throw new InvalidOperationException("A previous UI Automation inspection is still running. Wait for it to finish before retrying.");
+
+        Task<IReadOnlyList<UiControlSummary>> worker;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            worker = Task.Run(() => ReadControls(target, maxControls), CancellationToken.None);
+        }
+        catch
+        {
+            InspectionGate.Release();
+            throw;
+        }
+
+        // Release the single-flight gate only when the native operation itself completes.
+        // If the provider hangs, the WPF caller still times out, but another inspection is
+        // not started on top of a potentially blocked UI Automation worker.
+        _ = worker.ContinueWith(
+            _ => { InspectionGate.Release(); },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        try
+        {
+            return await worker.WaitAsync(InspectionTimeout, cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            throw new TimeoutException("Windows UI Automation did not respond within 8 seconds. No UI action was performed.");
+        }
     }
 
     public static IReadOnlyList<UiControlSummary> ReadControls(UiWindowTarget target, int maxControls = 60)
