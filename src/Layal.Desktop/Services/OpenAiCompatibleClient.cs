@@ -70,6 +70,102 @@ public sealed class OpenAiCompatibleClient
         throw new InvalidOperationException("The provider returned an unsupported content format.");
     }
 
+
+    /// <summary>Streams response text from OpenAI-compatible providers, with JSON fallback.</summary>
+    public async Task<string> ChatStreamAsync(
+        string baseUrl,
+        string model,
+        string apiKey,
+        IReadOnlyList<ChatMessage> messages,
+        Action<string> onDelta,
+        CancellationToken cancellationToken = default)
+    {
+        if (messages.Count == 0) throw new ArgumentException("At least one message is required.", nameof(messages));
+        ArgumentNullException.ThrowIfNull(onDelta);
+
+        var payload = new
+        {
+            model,
+            messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
+            stream = true
+        };
+        using var client = _clientFactory(TimeSpan.FromSeconds(120));
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(await FormatError(response, cancellationToken));
+
+        if (!string.Equals(response.Content.Headers.ContentType?.MediaType, "text/event-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            await using var jsonBody = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(jsonBody, cancellationToken: cancellationToken);
+            if (!document.RootElement.TryGetProperty("choices", out var jsonChoices) || jsonChoices.GetArrayLength() == 0)
+                throw new InvalidOperationException("The provider returned no choices.");
+            var jsonMessage = jsonChoices[0].GetProperty("message");
+            if (!jsonMessage.TryGetProperty("content", out var jsonContent))
+                throw new InvalidOperationException("The provider response has no message content.");
+            var fullText = ReadContent(jsonContent);
+            if (!string.IsNullOrEmpty(fullText)) onDelta(fullText);
+            return fullText;
+        }
+
+        var result = new StringBuilder();
+        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(body);
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+            var data = line[5..].Trim();
+            if (data.Length == 0) continue;
+            if (data.Equals("[DONE]", StringComparison.Ordinal)) break;
+
+            JsonDocument chunk;
+            try { chunk = JsonDocument.Parse(data); }
+            catch (JsonException) { continue; }
+
+            using (chunk)
+            {
+                if (!chunk.RootElement.TryGetProperty("choices", out var choices) ||
+                    choices.ValueKind != JsonValueKind.Array || choices.GetArrayLength() == 0)
+                    continue;
+
+                var choice = choices[0];
+                if (!choice.TryGetProperty("delta", out var delta)) continue;
+                var text = delta.TryGetProperty("content", out var content)
+                    ? ReadContent(content)
+                    : choice.TryGetProperty("text", out var legacyText) && legacyText.ValueKind == JsonValueKind.String
+                        ? legacyText.GetString() ?? string.Empty
+                        : string.Empty;
+                if (text.Length == 0) continue;
+                result.Append(text);
+                onDelta(text);
+            }
+        }
+
+        return result.ToString();
+    }
+
+    private static string ReadContent(JsonElement content)
+    {
+        if (content.ValueKind == JsonValueKind.String) return content.GetString() ?? string.Empty;
+        if (content.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined) return string.Empty;
+        if (content.ValueKind == JsonValueKind.Array)
+        {
+            return string.Join(Environment.NewLine, content.EnumerateArray()
+                .Where(part => part.ValueKind == JsonValueKind.Object && part.TryGetProperty("text", out _))
+                .Select(part => part.GetProperty("text").ValueKind == JsonValueKind.String
+                    ? part.GetProperty("text").GetString()
+                    : null)
+                .Where(part => !string.IsNullOrEmpty(part)));
+        }
+        return string.Empty;
+    }
+
     /// <summary>Sends a tool-capable agent turn. The provider must implement OpenAI-compatible tool calling.</summary>
     public async Task<AgentTurnResult> AgentTurnAsync(
         string baseUrl,
