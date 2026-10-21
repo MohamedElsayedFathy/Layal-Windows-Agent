@@ -125,6 +125,8 @@ public partial class MainWindow : Window
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
+        CopyChatButton.Content = ar ? "نسخ الشات" : "Copy chat";
+        CopyChatButton.ToolTip = ar ? "نسخ المحادثة كاملة إلى الحافظة" : "Copy the entire conversation to the clipboard";
         SendButton.Content = ar ? "إرسال" : "Send";
         CancelResponseButton.Content = ar ? "إيقاف" : "Stop";
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
@@ -436,6 +438,49 @@ public partial class MainWindow : Window
         }
         catch { /* A history save failure must not block the current conversation. */ }
         ChatMessagesList.ScrollIntoView(ChatMessages.LastOrDefault());
+    }
+
+    private void CopyChatButton_Click(object sender, RoutedEventArgs e)
+    {
+        var transcript = ChatTranscriptFormatter.Format(ChatMessages);
+        CopyChatTextToClipboard(transcript, IsArabic ? "المحادثة" : "chat");
+    }
+
+    private void CopyChatMessage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem &&
+            menuItem.Parent is ContextMenu contextMenu &&
+            contextMenu.PlacementTarget is FrameworkElement target &&
+            target.DataContext is ChatMessage message)
+        {
+            CopyChatTextToClipboard(message.Content, IsArabic ? "الرسالة" : "message");
+            return;
+        }
+
+        ChatCopyStatus.Text = IsArabic ? "تعذر تحديد الرسالة لنسخها." : "Could not identify the message to copy.";
+        ChatCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+    }
+
+    private void CopyChatTextToClipboard(string? text, string label)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ChatCopyStatus.Text = IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.";
+            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(text);
+            ChatCopyStatus.Text = IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"{label} copied to the clipboard.";
+            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        }
+        catch (Exception ex)
+        {
+            ChatCopyStatus.Text = (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message;
+            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+        }
     }
 
     private static bool ContainsArabic(string value) => value.Any(c => c is >= '\u0600' and <= '\u06FF' or >= '\u0750' and <= '\u077F');
