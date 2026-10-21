@@ -9,9 +9,16 @@ namespace Layal.Services;
 /// <summary>Client for OpenAI-compatible chat completions, including optional tool/function calling.</summary>
 public sealed class OpenAiCompatibleClient
 {
+    private static readonly HttpClient SharedProbeClient = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private static readonly HttpClient SharedChatClient = new() { Timeout = TimeSpan.FromSeconds(120) };
     private readonly Func<TimeSpan, HttpClient> _clientFactory;
 
-    public OpenAiCompatibleClient() : this(timeout => new HttpClient { Timeout = timeout }) { }
+    // Reuse connection pools in production; tests can still inject short-lived deterministic clients.
+    public OpenAiCompatibleClient() : this(timeout =>
+        timeout <= TimeSpan.FromSeconds(15) ? SharedProbeClient : SharedChatClient) { }
+
+    private static IDisposable? GetClientLifetime(HttpClient client) =>
+        ReferenceEquals(client, SharedProbeClient) || ReferenceEquals(client, SharedChatClient) ? null : client;
 
     /// <summary>Allows deterministic HTTP-handler injection for automated tests.</summary>
     public OpenAiCompatibleClient(Func<TimeSpan, HttpClient> clientFactory)
@@ -22,7 +29,8 @@ public sealed class OpenAiCompatibleClient
     public async Task<string> ProbeAsync(string baseUrl, string apiKey, CancellationToken cancellationToken = default)
     {
         var uri = BuildUri(baseUrl, "models");
-        using var client = _clientFactory(TimeSpan.FromSeconds(15));
+        var client = _clientFactory(TimeSpan.FromSeconds(15));
+        using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -42,7 +50,8 @@ public sealed class OpenAiCompatibleClient
             messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
             stream = false
         };
-        using var client = _clientFactory(TimeSpan.FromSeconds(120));
+        var client = _clientFactory(TimeSpan.FromSeconds(120));
+        using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
@@ -89,7 +98,8 @@ public sealed class OpenAiCompatibleClient
             messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
             stream = true
         };
-        using var client = _clientFactory(TimeSpan.FromSeconds(120));
+        var client = _clientFactory(TimeSpan.FromSeconds(120));
+        using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
@@ -187,7 +197,8 @@ public sealed class OpenAiCompatibleClient
             ["stream"] = false
         };
 
-        using var client = _clientFactory(TimeSpan.FromSeconds(120));
+        var client = _clientFactory(TimeSpan.FromSeconds(120));
+        using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
