@@ -294,7 +294,7 @@ public partial class FloatingMascotWindow : Window
         };
 
         _moodResetTimer.Stop();
-        if (_mood is "success" or "error" or "paused" or "interrupted")
+        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted")
         {
             _moodResetTimer.Interval = _mood == "success"
                 ? TimeSpan.FromMilliseconds(2600)
