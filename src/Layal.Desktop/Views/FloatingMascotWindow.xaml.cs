@@ -1,0 +1,409 @@
+using System.ComponentModel;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
+using Layal.Services;
+
+namespace Layal.Views;
+
+/// <summary>Native, transparent Layal mascot window. Facial states are driven by actual agent events.</summary>
+public partial class FloatingMascotWindow : Window
+{
+    private readonly DispatcherTimer _blinkTimer;
+    private readonly DispatcherTimer _restoreEyesTimer;
+    private readonly DispatcherTimer _floatTimer;
+    private double _floatPhase;
+    private int _speechFrame;
+    private bool _blinked;
+    private string _mood = "idle";
+    private readonly ContextMenu _contextMenu = new();
+    private readonly MenuItem _openMenuItem = new();
+    private readonly MenuItem _hideMenuItem = new();
+    private readonly MenuItem _exitMenuItem = new();
+
+    private static readonly Brush EyeWhite = new SolidColorBrush(Color.FromRgb(247, 249, 255));
+    private static readonly Brush BrowNeutral = new SolidColorBrush(Color.FromRgb(171, 189, 249));
+    private static readonly Brush AccentCyan = new SolidColorBrush(Color.FromRgb(89, 225, 230));
+    private static readonly Brush AccentPurple = new SolidColorBrush(Color.FromRgb(167, 139, 250));
+    private static readonly Brush AccentGreen = new SolidColorBrush(Color.FromRgb(77, 225, 161));
+    private static readonly Brush AccentAmber = new SolidColorBrush(Color.FromRgb(245, 201, 111));
+    private static readonly Brush AccentRed = new SolidColorBrush(Color.FromRgb(255, 113, 142));
+    private static readonly Brush AccentMuted = new SolidColorBrush(Color.FromRgb(157, 171, 199));
+
+    public FloatingMascotWindow()
+    {
+        InitializeComponent();
+        Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
+        Opacity = AppRuntime.Settings.MascotOpacity;
+        ApplyScale(AppRuntime.Settings.MascotScale);
+
+        var hasSavedPosition = AppRuntime.Settings.MascotLeft != -1 || AppRuntime.Settings.MascotTop != -1;
+        var desiredLeft = hasSavedPosition
+            ? AppRuntime.Settings.MascotLeft
+            : SystemParameters.WorkArea.Right - Width - 28;
+        var desiredTop = hasSavedPosition
+            ? AppRuntime.Settings.MascotTop
+            : SystemParameters.WorkArea.Top + 70;
+        (Left, Top) = ClampToVirtualScreen(desiredLeft, desiredTop);
+
+        _openMenuItem.Click += OpenMenuItem_Click;
+        _hideMenuItem.Click += HideMenuItem_Click;
+        _exitMenuItem.Click += ExitMenuItem_Click;
+        _contextMenu.Items.Add(_openMenuItem);
+        _contextMenu.Items.Add(_hideMenuItem);
+        _contextMenu.Items.Add(new Separator());
+        _contextMenu.Items.Add(_exitMenuItem);
+        ContextMenu = _contextMenu;
+
+        _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(3650) };
+        _blinkTimer.Tick += (_, _) => Blink();
+        _restoreEyesTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(135) };
+        _restoreEyesTimer.Tick += (_, _) => RestoreEyes();
+        _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(45) };
+        _floatTimer.Tick += (_, _) => AnimateMoodTick();
+        _blinkTimer.Start();
+        _floatTimer.Start();
+        UpdateLanguage();
+        SetMood("idle");
+    }
+
+    public string CurrentMood => _mood;
+
+    public void ShowAgain()
+    {
+        if (!IsVisible) Show();
+        Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
+        if (!AppRuntime.Settings.MascotAnimationsEnabled) Root.RenderTransform = Transform.Identity;
+    }
+
+    public void UpdateLanguage()
+    {
+        var ar = AppRuntime.Settings.Language == "ar";
+        ToolTip = ar ? "ليال | انقر مرتين لفتح الواجهة" : "Layal | Double-click to open the full interface";
+        _openMenuItem.Header = ar ? "فتح ليال" : "Open Layal";
+        _hideMenuItem.Header = ar ? "إخفاء الشخصية" : "Hide mascot";
+        _exitMenuItem.Header = ar ? "خروج" : "Exit";
+    }
+
+    public void SetMood(string mood)
+    {
+        _mood = NormalizeMood(mood);
+        _speechFrame = 0;
+        LeftPupil.RenderTransform = Transform.Identity;
+        RightPupil.RenderTransform = Transform.Identity;
+        LeftEye.Fill = RightEye.Fill = EyeWhite;
+        LeftEye.Height = RightEye.Height = 22;
+        LeftPupil.Visibility = RightPupil.Visibility = Visibility.Visible;
+        LeftEyeShine.Visibility = RightEyeShine.Visibility = Visibility.Visible;
+        LeftBrow.Stroke = RightBrow.Stroke = BrowNeutral;
+        LeftBrow.Data = Geometry.Parse("M 26,18 Q 34,14 42,18");
+        RightBrow.Data = Geometry.Parse("M 61,18 Q 69,14 77,18");
+        CheekLeft.Opacity = CheekRight.Opacity = 0.62;
+        Mouth.Stroke = EyeWhite;
+        Mouth.Fill = Brushes.Transparent;
+        Mouth.StrokeThickness = 3.4;
+        GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.58;
+        var status = AccentGreen;
+
+        switch (_mood)
+        {
+            case "listening":
+                LeftEye.Height = RightEye.Height = 25;
+                LeftBrow.Data = Geometry.Parse("M 26,16 Q 34,11 42,16");
+                RightBrow.Data = Geometry.Parse("M 61,16 Q 69,11 77,16");
+                Mouth.Data = Geometry.Parse("M 38,54 Q 51,62 65,54");
+                status = AccentCyan;
+                break;
+            case "transcribing":
+                LeftEye.Height = RightEye.Height = 21;
+                LeftPupil.RenderTransform = new TranslateTransform(0, 1);
+                RightPupil.RenderTransform = new TranslateTransform(0, 1);
+                Mouth.Data = Geometry.Parse("M 38,56 Q 51,53 65,56");
+                status = AccentPurple;
+                break;
+            case "excited":
+                LeftEye.Height = RightEye.Height = 25;
+                LeftBrow.Data = Geometry.Parse("M 25,15 Q 34,9 43,15");
+                RightBrow.Data = Geometry.Parse("M 60,15 Q 69,9 78,15");
+                Mouth.Data = Geometry.Parse("M 26,46 Q 51,82 80,46");
+                CheekLeft.Opacity = CheekRight.Opacity = 1;
+                GlowHalo.Opacity = 0.84;
+                status = AccentGreen;
+                break;
+            case "sleepy":
+                LeftEye.Height = RightEye.Height = 13;
+                LeftBrow.Data = Geometry.Parse("M 26,22 Q 34,19 42,22");
+                RightBrow.Data = Geometry.Parse("M 61,22 Q 69,19 77,22");
+                Mouth.Data = Geometry.Parse("M 42,58 Q 51,60 60,58");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.36;
+                status = AccentMuted;
+                break;
+            case "understanding":
+            case "curious":
+                LeftBrow.Data = Geometry.Parse("M 25,15 Q 34,10 43,15");
+                RightBrow.Data = Geometry.Parse("M 61,18 Q 69,14 77,18");
+                LeftPupil.RenderTransform = new TranslateTransform(1.3, -1.5);
+                RightPupil.RenderTransform = new TranslateTransform(1.3, -1.5);
+                Mouth.Data = Geometry.Parse("M 43,54 Q 51,59 59,54");
+                status = AccentCyan;
+                break;
+            case "thinking":
+            case "planning":
+            case "researching":
+            case "reading":
+            case "coding":
+            case "using_tool":
+            case "waiting":
+                LeftBrow.Data = Geometry.Parse("M 26,18 Q 34,15 42,17");
+                RightBrow.Data = Geometry.Parse("M 61,14 Q 69,10 77,14");
+                LeftPupil.RenderTransform = new TranslateTransform(1.5, -2.0);
+                RightPupil.RenderTransform = new TranslateTransform(2.0, -2.0);
+                Mouth.Data = Geometry.Parse("M 40,56 Q 51,51 64,56");
+                status = AccentAmber;
+                break;
+            case "speaking":
+                Mouth.Data = Geometry.Parse("M 39,50 Q 51,73 65,50 Q 52,66 39,50 Z");
+                Mouth.Fill = new SolidColorBrush(Color.FromRgb(103, 44, 88));
+                Mouth.StrokeThickness = 2.6;
+                status = AccentCyan;
+                break;
+            case "success":
+                LeftBrow.Data = Geometry.Parse("M 26,17 Q 34,13 42,17");
+                RightBrow.Data = Geometry.Parse("M 61,17 Q 69,13 77,17");
+                Mouth.Data = Geometry.Parse("M 27,47 Q 51,77 79,47");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.98;
+                GlowHalo.Opacity = 0.78;
+                status = AccentGreen;
+                break;
+            case "warning":
+                LeftBrow.Data = Geometry.Parse("M 26,17 L 42,22");
+                RightBrow.Data = Geometry.Parse("M 61,22 L 77,17");
+                Mouth.Data = Geometry.Parse("M 35,63 Q 51,49 70,63");
+                status = AccentAmber;
+                break;
+            case "error":
+                LeftBrow.Data = Geometry.Parse("M 26,21 L 42,15");
+                RightBrow.Data = Geometry.Parse("M 61,15 L 77,21");
+                LeftPupil.RenderTransform = new TranslateTransform(1, 0);
+                RightPupil.RenderTransform = new TranslateTransform(-1, 0);
+                Mouth.Data = Geometry.Parse("M 34,63 Q 51,48 70,63");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.28;
+                status = AccentRed;
+                break;
+            case "paused":
+            case "interrupted":
+                Mouth.Data = Geometry.Parse("M 40,57 L 64,57");
+                status = AccentMuted;
+                break;
+            case "recovering":
+            case "reconnecting":
+                LeftBrow.Data = Geometry.Parse("M 26,15 Q 34,11 42,15");
+                RightBrow.Data = Geometry.Parse("M 61,15 Q 69,11 77,15");
+                Mouth.Data = Geometry.Parse("M 43,54 Q 51,63 59,54");
+                status = AccentAmber;
+                break;
+            case "offline":
+                LeftEye.Height = RightEye.Height = 15;
+                Mouth.Data = Geometry.Parse("M 40,61 Q 51,54 64,61");
+                LeftBrow.Data = Geometry.Parse("M 26,22 Q 34,19 42,22");
+                RightBrow.Data = Geometry.Parse("M 61,22 Q 69,19 77,22");
+                status = AccentMuted;
+                break;
+            case "privacy":
+                LeftEye.Height = RightEye.Height = 4;
+                LeftPupil.Visibility = RightPupil.Visibility = Visibility.Collapsed;
+                LeftEyeShine.Visibility = RightEyeShine.Visibility = Visibility.Collapsed;
+                LeftBrow.Data = Geometry.Parse("M 26,20 Q 34,24 42,20");
+                RightBrow.Data = Geometry.Parse("M 61,20 Q 69,24 77,20");
+                Mouth.Data = Geometry.Parse("M 40,57 Q 51,60 64,57");
+                status = AccentGreen;
+                break;
+            case "camera_processing":
+                LeftPupil.RenderTransform = new TranslateTransform(-1, 1.5);
+                RightPupil.RenderTransform = new TranslateTransform(-1, 1.5);
+                Mouth.Data = Geometry.Parse("M 39,56 Q 51,52 64,56");
+                status = AccentPurple;
+                break;
+            default:
+                Mouth.Data = Geometry.Parse("M 28,48 Q 51,72 78,48");
+                status = AccentGreen;
+                break;
+        }
+
+        Canvas.SetTop(LeftPupil, 23 + (LeftEye.Height - 10) / 2);
+        Canvas.SetTop(RightPupil, 23 + (RightEye.Height - 10) / 2);
+        Canvas.SetTop(LeftEyeShine, 23 + (LeftEye.Height - 10) / 2 - 1.5);
+        Canvas.SetTop(RightEyeShine, 23 + (RightEye.Height - 10) / 2 - 1.5);
+        StatusDot.Fill = status;
+        _blinkTimer.Interval = _mood switch
+        {
+            "listening" or "transcribing" => TimeSpan.FromSeconds(5.2),
+            "thinking" or "planning" or "coding" => TimeSpan.FromSeconds(4.4),
+            "privacy" or "offline" => TimeSpan.FromSeconds(6.5),
+            _ => TimeSpan.FromSeconds(3.65)
+        };
+    }
+
+    public void ApplyScale(double scale)
+    {
+        scale = Math.Clamp(scale, 0.65, 1.8);
+        Width = 178 * scale;
+        Height = 145 * scale;
+        // Viewbox scales the fixed 178x145 design exactly once; scaling both the Window and
+        // its child LayoutTransform previously caused the mascot to clip at larger sizes.
+    }
+
+    private void AnimateMoodTick()
+    {
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || !IsVisible)
+        {
+            Root.RenderTransform = Transform.Identity;
+            AntennaDot.RenderTransform = Transform.Identity;
+            GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
+            return;
+        }
+
+        _floatPhase += _mood switch
+        {
+            "thinking" or "planning" or "researching" or "coding" => 0.16,
+            "speaking" => 0.22,
+            "listening" or "transcribing" => 0.10,
+            _ => 0.075
+        };
+
+        var amplitude = _mood switch
+        {
+            "idle" => 1.8,
+            "success" => 2.4,
+            "thinking" or "planning" or "researching" or "coding" => 0.8,
+            "speaking" => 0.65,
+            "listening" => 1.0,
+            "offline" or "privacy" or "paused" => 0.2,
+            _ => 0.55
+        };
+        var x = _mood == "curious" ? Math.Sin(_floatPhase * 0.5) * 1.1 : 0;
+        Root.RenderTransform = new TranslateTransform(x, Math.Sin(_floatPhase) * amplitude);
+
+        var pulse = 0.92 + (Math.Sin(_floatPhase * 1.6) + 1) * 0.07;
+        AntennaDot.RenderTransformOrigin = new Point(0.5, 0.5);
+        AntennaDot.RenderTransform = new ScaleTransform(pulse, pulse);
+        GlowHalo.Opacity = (_mood is "offline" or "privacy" ? 0.20 : 0.48) + ((Math.Sin(_floatPhase) + 1) * 0.06);
+
+        if (_mood == "speaking")
+        {
+            _speechFrame++;
+            if (_speechFrame % 4 == 0)
+            {
+                var open = (_speechFrame / 4) % 2 == 0;
+                Mouth.Data = open
+                    ? Geometry.Parse("M 39,50 Q 51,73 65,50 Q 52,66 39,50 Z")
+                    : Geometry.Parse("M 37,52 Q 51,62 67,52");
+            }
+        }
+    }
+
+    private void Blink()
+    {
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || _blinked || !IsVisible || _mood is "listening" or "transcribing" or "privacy" or "offline") return;
+        _blinked = true;
+        LeftEye.Height = RightEye.Height = 3;
+        LeftPupil.Visibility = RightPupil.Visibility = Visibility.Collapsed;
+        LeftEyeShine.Visibility = RightEyeShine.Visibility = Visibility.Collapsed;
+        _restoreEyesTimer.Start();
+    }
+
+    private void RestoreEyes()
+    {
+        _restoreEyesTimer.Stop();
+        _blinked = false;
+        SetMood(_mood);
+    }
+
+    private static string NormalizeMood(string? mood)
+    {
+        var normalized = (mood ?? "idle").Trim().ToLowerInvariant().Replace('-', '_').Replace(' ', '_');
+        return normalized switch
+        {
+            "processing" => "thinking",
+            "tool" or "tool_call" or "executing" => "using_tool",
+            "approval" or "approval_needed" or "approval_required" => "warning",
+            "waiting_for_result" => "waiting",
+            "done" or "completed" or "happy" or "celebrating" => "success",
+            "failed" or "confused" => "error",
+            "camera" => "camera_processing",
+            "offline" or "privacy" or "idle" or "listening" or "transcribing" or "understanding" or "curious"
+                or "thinking" or "planning" or "researching" or "reading" or "coding" or "using_tool" or "waiting"
+                or "speaking" or "success" or "warning" or "error" or "paused" or "recovering" or "reconnecting"
+                or "camera_processing" or "interrupted" or "sleepy" or "excited" => normalized,
+            _ => "idle"
+        };
+    }
+
+    private (double Left, double Top) ClampToVirtualScreen(double left, double top)
+    {
+        var minLeft = SystemParameters.VirtualScreenLeft;
+        var minTop = SystemParameters.VirtualScreenTop;
+        var maxLeft = minLeft + Math.Max(0, SystemParameters.VirtualScreenWidth - Width);
+        var maxTop = minTop + Math.Max(0, SystemParameters.VirtualScreenHeight - Height);
+        return (Math.Clamp(left, minLeft, maxLeft), Math.Clamp(top, minTop, maxTop));
+    }
+
+    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount >= 2)
+        {
+            AppRuntime.MainWindow?.ShowFromTray();
+            e.Handled = true;
+            return;
+        }
+        try { DragMove(); }
+        catch (InvalidOperationException) { }
+        var position = ClampToVirtualScreen(Left, Top);
+        Left = position.Left;
+        Top = position.Top;
+        AppRuntime.Settings.MascotLeft = Left;
+        AppRuntime.Settings.MascotTop = Top;
+        try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
+        catch { /* Keep the mascot usable even if settings storage is unavailable. */ }
+    }
+
+    private void Window_MouseEnter(object sender, MouseEventArgs e)
+    {
+        if (_mood == "idle" && AppRuntime.Settings.MascotAnimationsEnabled)
+            SetMood("curious");
+    }
+
+    private void Window_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_mood == "curious") SetMood("idle");
+    }
+
+    private void Window_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        UpdateLanguage();
+        _contextMenu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    private void OpenMenuItem_Click(object sender, RoutedEventArgs e) => AppRuntime.MainWindow?.ShowFromTray();
+    private void HideMenuItem_Click(object sender, RoutedEventArgs e) => Hide();
+    private void ExitMenuItem_Click(object sender, RoutedEventArgs e) => AppRuntime.ExitAction?.Invoke();
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (!AppRuntime.IsExiting)
+        {
+            e.Cancel = true;
+            Hide();
+        }
+        else
+        {
+            _blinkTimer.Stop();
+            _restoreEyesTimer.Stop();
+            _floatTimer.Stop();
+        }
+        base.OnClosing(e);
+    }
+}

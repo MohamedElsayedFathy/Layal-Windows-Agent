@@ -1,0 +1,227 @@
+<Window x:Class="Layal.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Layal | ليال" Icon="pack://application:,,,/Assets/layal-tray.ico" Width="1320" Height="860" MinWidth="1060" MinHeight="700"
+        Background="{StaticResource Layal.Background}" Foreground="{StaticResource Layal.Text}" WindowStartupLocation="CenterScreen"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        Closing="Window_Closing">
+    <Grid Margin="20">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="{StaticResource Layal.HeaderGradient}" CornerRadius="18" Padding="18" Margin="0,0,0,14" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="46" Height="46" CornerRadius="15" Background="{StaticResource Layal.PrimaryButtonGradient}" Margin="0,0,13,0" BorderBrush="#B9E6EB" BorderThickness="1">
+                        <Grid>
+                            <TextBlock Text="L" FontSize="27" FontWeight="Bold" Foreground="#1C2940" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Ellipse Width="7" Height="7" Fill="#E8B451" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="TitleText" Text="Layal | ليال" FontSize="24" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="SubtitleText" Text="وكيل ذكاء اصطناعي مستقل لسطح المكتب" Foreground="{StaticResource Layal.Muted}" FontSize="12" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border CornerRadius="11" Background="#FFFFFF" Padding="12,8" Margin="4" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
+                        <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{StaticResource Layal.Warning}" FontSize="12" FontWeight="SemiBold"/>
+                    </Border>
+                    <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="82"/>
+                    <Button x:Name="ShowMascotButton" Content="إظهار الشخصية" Click="ShowMascotButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl x:Name="MainTabs" Grid.Row="1" Background="Transparent" BorderBrush="Transparent" SelectionChanged="MainTabs_SelectionChanged">
+            <TabItem x:Name="HomeTab" Header="الرئيسية">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="18">
+                        <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="HomeDescription" Text="هذه النسخة هي الأساس الأصلي لتطبيق Windows. ابدأ بربط نموذج حقيقي من الإعدادات." Foreground="#63738A" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                        <UniformGrid Columns="2" Rows="2" Margin="0,0,0,12">
+                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="#DCE5F0" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                                <StackPanel><TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardAiValue" Text="غير متصل" Foreground="#946200" Margin="0,8,0,0"/><TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات" Foreground="#63738A" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="#DCE5F0" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                                <StackPanel><TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardMascotValue" Text="نافذة Windows أصلية" Foreground="#177A57" Margin="0,8,0,0"/><TextBlock x:Name="CardMascotHint" Text="اسحب ليال في سطح المكتب، وانقر مرتين لفتح الواجهة." Foreground="#63738A" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="#DCE5F0" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                                <StackPanel><TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardToolsValue" Text="أداة آمنة متاحة" Foreground="#177A57" Margin="0,8,0,0"/><TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه." Foreground="#63738A" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="#DCE5F0" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                                <StackPanel><TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardSkillsValue" Text="استيراد ZIP مع التحقق" Foreground="#177A57" Margin="0,8,0,0"/><TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها." Foreground="#63738A" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        <WrapPanel Margin="0,4,0,10">
+                            <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/>
+                            <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"/>
+                            <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"/>
+                        </WrapPanel>
+                        <Border Background="{StaticResource Layal.HeaderGradient}" CornerRadius="14" Padding="16" Margin="4,8,4,0" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                            <TextBlock x:Name="HomeCaveat" Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة." Foreground="#5D6D83" TextWrapping="Wrap"/>
+                        </Border>
+                        <TextBlock x:Name="HomeResult" Text="" Foreground="#177A57" TextWrapping="Wrap" Margin="6,12,6,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem x:Name="ChatTab" Header="المحادثة">
+                <Grid Margin="14">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="3,0,3,10">
+                        <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="20" FontWeight="SemiBold" DockPanel.Dock="Left"/>
+                        <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="#946200" HorizontalAlignment="Right"/>
+                    </DockPanel>
+                    <ListBox x:Name="ChatMessagesList" Grid.Row="1" ItemsSource="{Binding ChatMessages}" Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="8" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="12" Padding="12" Margin="3" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayRole}" FontWeight="SemiBold" Foreground="#087B8F" Margin="0,0,0,5"/>
+                                        <TextBlock Text="{Binding Content}" TextWrapping="Wrap" Foreground="#1C2940" FlowDirection="{Binding Direction}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock x:Name="ChatNotice" Grid.Row="2" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." Foreground="#63738A" TextWrapping="Wrap" Margin="4,8"/>
+                    <Grid Grid.Row="3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBox x:Name="ChatInput" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="42" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter"/>
+                        <Button x:Name="SendButton" Grid.Column="1" Content="إرسال" Click="SendButton_Click" MinWidth="72"/>
+                        <Button x:Name="CancelResponseButton" Grid.Column="2" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="TasksTab" Header="المهام">
+                <Grid Margin="18">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock x:Name="TasksHeading" Text="مركز المهام" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock x:Name="TasksDescription" Grid.Row="1" Text="اكتب مهمة. ستطلب ليال موافقتك قبل الأدوات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات." TextWrapping="Wrap" Foreground="#63738A" Margin="0,0,0,12"/>
+                    <StackPanel Grid.Row="2" Margin="0,0,0,10">
+                        <TextBox x:Name="TaskInput" MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="اكتب المهمة بالعربية أو الإنجليزية"/>
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/>
+                            <Button x:Name="CancelAgentTaskButton" Content="إيقاف المهمة" Click="CancelAgentTaskButton_Click" IsEnabled="False" Background="#FBECEF" BorderBrush="#E9C3CC"/>
+                            <Button x:Name="TaskOpenNotepadButton" Content="فتح المفكرة (اختبار)" Click="OpenNotepadButton_Click"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="#63738A" TextWrapping="Wrap" Margin="4,6,4,0"/>
+                        <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
+                        <TextBlock x:Name="TaskSafeToolDescription" Text="الأدوات المتاحة محددة؛ لا يوجد وصول عام غير مقيد إلى سطر الأوامر أو الملفات." Foreground="#63738A" TextWrapping="Wrap" Margin="4,3,4,0"/>
+                    </StackPanel>
+                    <Grid Grid.Row="3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+                        <GroupBox Grid.Column="0" Header="سجل تنفيذ المهمة" Foreground="#1C2940" BorderBrush="#DCE5F0" Background="#FFFFFF" Padding="8" Margin="0,0,6,0">
+                            <ListBox x:Name="TaskEventsList" ItemsSource="{Binding TaskEvents}" Background="#FFFFFF" BorderBrush="#DCE5F0" Foreground="#1C2940" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                        </GroupBox>
+                        <GroupBox Grid.Column="1" x:Name="RecentTasksGroup" Header="المهام السابقة" Foreground="#1C2940" BorderBrush="#DCE5F0" Background="#FFFFFF" Padding="8" Margin="6,0,0,0">
+                            <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" SelectionChanged="RecentTasksList_SelectionChanged" Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="4">
+                                <ListBox.ItemTemplate><DataTemplate><Border Background="{StaticResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FontWeight="SemiBold" Foreground="#1C2940" TextWrapping="Wrap"/><TextBlock Text="{Binding Status}" Foreground="#087B8F" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:g}}" Foreground="#63738A" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                            </ListBox>
+                        </GroupBox>
+                    </Grid>
+                    <TextBlock x:Name="TaskResult" Grid.Row="4" Text="لم تُنفذ أي عملية بعد." Foreground="#177A57" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="SkillsTab" Header="المهارات">
+                <Grid Margin="18">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock x:Name="SkillsHeading" Text="مدير المهارات" FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="SkillsDescription" Grid.Row="1" Text="استورد ZIP أو رابط GitHub لمجلد مهارة. حدد حتى 3 مهارات لاستخدام نصوصها كمراجع فقط؛ السكربتات لا تُشغّل." Foreground="#63738A" TextWrapping="Wrap" Margin="0,7,0,12"/>
+                    <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="6">
+                        <ListBox.ItemTemplate><DataTemplate><Border Background="{StaticResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#087B8F"/><TextBlock Text="{Binding Description}" Foreground="#1C2940" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" Foreground="#63738A" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                        <WrapPanel><Button x:Name="ImportSkillButton" Content="استيراد ZIP" Click="ImportSkillButton_Click"/><Button x:Name="RefreshSkillsButton" Content="تحديث القائمة" Click="RefreshSkillsButton_Click"/></WrapPanel>
+                        <DockPanel Margin="0,7,0,0">
+                            <Button x:Name="ImportGitHubSkillButton" Content="استيراد من GitHub" Click="ImportGitHubSkillButton_Click" DockPanel.Dock="Right"/>
+                            <TextBox x:Name="GitHubSkillUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://github.com/owner/repo/tree/main/path/to/skill"/>
+                        </DockPanel>
+                        <TextBlock x:Name="SkillsResult" Text="" Foreground="#177A57" TextWrapping="Wrap" Margin="5,5,5,0"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="CamerasTab" Header="الكاميرات">
+                <StackPanel Margin="20">
+                    <TextBlock x:Name="CamerasHeading" Text="الكاميرات والرؤية الحاسوبية" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <Border Background="#FFFFFF" CornerRadius="14" Padding="16" BorderBrush="#DCE5F0" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                        <StackPanel>
+                            <TextBlock x:Name="CameraStatus" Text="غير متصل — التكامل الحقيقي غير منفذ في إصدار الأساس" Foreground="#946200" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="CameraDescription" Text="سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا." Foreground="#63738A" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </TabItem>
+
+            <TabItem x:Name="MemoryTab" Header="الذاكرة">
+                <Grid Margin="18">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock x:Name="MemoryHeading" Text="الذاكرة الشخصية" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="MemoryDescription" Text="ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ البحث الذي يشارك النتائج مع AI يتطلب موافقة." Foreground="#63738A" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+                    <Grid Grid.Row="1" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="32" ToolTip="بحث في الذاكرة"/>
+                        <Button x:Name="MemorySearchButton" Grid.Column="1" Content="بحث" Click="MemorySearchButton_Click"/>
+                        <Button x:Name="NewMemoryButton" Grid.Column="2" Content="ملاحظة جديدة" Click="NewMemoryButton_Click"/>
+                    </Grid>
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
+                        <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" SelectionChanged="MemoryList_SelectionChanged" DisplayMemberPath="Title" Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="6"/>
+                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="12,0,0,0">
+                            <StackPanel>
+                                <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,0,0,4"/>
+                                <TextBox x:Name="MemoryTitleInput" MinHeight="32"/>
+                                <TextBlock x:Name="MemoryContentLabel" Text="المحتوى" Margin="0,10,0,4"/>
+                                <TextBox x:Name="MemoryContentInput" MinHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                                <WrapPanel Margin="0,10,0,0">
+                                    <Button x:Name="SaveMemoryButton" Content="حفظ الملاحظة" Click="SaveMemoryButton_Click"/>
+                                    <Button x:Name="DeleteMemoryButton" Content="حذف" Click="DeleteMemoryButton_Click"/>
+                                    <Button x:Name="ExportMemoryButton" Content="تصدير JSON" Click="ExportMemoryButton_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="MemoryResult" Text="" Foreground="#177A57" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                    <TextBlock x:Name="MemoryPrivacyNote" Grid.Row="3" Text="لا تحفظ مفاتيح API أو كلمات المرور في الذاكرة. تصدير JSON غير مشفر." Foreground="#946200" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="SettingsTab" Header="الإعدادات">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20" MaxWidth="760" HorizontalAlignment="Stretch">
+                        <TextBlock x:Name="SettingsHeading" Text="الإعدادات والاتصال" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                        <TextBlock x:Name="LanguageSettingLabel" Text="لغة الواجهة" FontWeight="SemiBold" Margin="4,8,4,0"/>
+                        <WrapPanel><Button x:Name="ArabicLanguageButton" Content="العربية" Click="ArabicLanguageButton_Click"/><Button x:Name="EnglishLanguageButton" Content="English" Click="EnglishLanguageButton_Click"/></WrapPanel>
+                        <Separator Margin="4,10" Background="#E3EAF3"/>
+                        <TextBlock x:Name="ProviderSectionTitle" Text="مزود ذكاء اصطناعي متوافق مع OpenAI API" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
+                        <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1"/>
+                        <TextBlock x:Name="ModelLabel" Text="معرّف النموذج" Margin="4,5,4,0"/>
+                        <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto"/>
+                        <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
+                        <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight"/>
+                        <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="#63738A" TextWrapping="Wrap" Margin="4,4"/>
+                        <WrapPanel><Button x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"/><Button x:Name="TestProviderButton" Content="اختبار الاتصال" Click="TestProviderButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/><Button x:Name="DeleteKeyButton" Content="حذف المفتاح المحفوظ" Click="DeleteKeyButton_Click" Background="#FBECEF" BorderBrush="#E9C3CC"/></WrapPanel>
+                        <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="#177A57" TextWrapping="Wrap" Margin="5,8,5,12"/>
+                        <Separator Margin="4,10" Background="#E3EAF3"/>
+                        <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <CheckBox x:Name="AlwaysOnTopCheckbox" Content="إبقاء الشخصية فوق النوافذ الأخرى" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
+                        <CheckBox x:Name="AnimationsCheckbox" Content="تفعيل حركة الشخصية والرمش" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
+                        <CheckBox x:Name="WindowInspectionCheckbox" Content="السماح بقراءة عناوين النوافذ عند الطلب (يتطلب موافقة قبل مشاركتها مع AI)" Checked="WindowInspectionSettingChanged" Unchecked="WindowInspectionSettingChanged"/>
+                        <TextBlock x:Name="MascotSizeLabel" Text="حجم الشخصية" Margin="4,8,4,0"/>
+                        <Slider x:Name="MascotSizeSlider" Minimum="0.65" Maximum="1.8" Value="1" TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="4,4"/>
+                        <TextBlock x:Name="MascotOpacityLabel" Text="شفافية الشخصية" Margin="4,8,4,0"/>
+                        <Slider x:Name="MascotOpacitySlider" Minimum="0.35" Maximum="1" Value="1" TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="4,4"/>
+                        <Button x:Name="ApplyMascotSettingsButton" Content="تطبيق إعدادات الشخصية" Click="ApplyMascotSettingsButton_Click" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="SettingsLimitations" Text="المتصفح، والتحكم العام في Windows، والصوت، والبث الحقيقي للكاميرات ليست منفذة بعد في إصدار الأساس. لا يتم عرضها كوظائف مكتملة." Foreground="#63738A" TextWrapping="Wrap" Margin="5,14,5,5"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
