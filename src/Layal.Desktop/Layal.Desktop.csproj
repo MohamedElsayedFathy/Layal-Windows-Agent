@@ -14,6 +14,9 @@
     <Description>Layal bilingual Windows AI desktop companion - native desktop agent with bounded tool execution</Description>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Emoji.Wpf" Version="0.3.4" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="Assets\layal-tray.ico" />
     <None Update="Assets\layal-mascot-reference.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
