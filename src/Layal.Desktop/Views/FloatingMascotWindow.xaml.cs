@@ -438,7 +438,9 @@ public partial class FloatingMascotWindow : Window
     private void ResetTerminalMood()
     {
         _moodResetTimer.Stop();
-        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted")
+        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
+            "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
+            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful")
             SetMood(_isPointerOver ? "curious" : "idle", showReaction: false);
     }
 
