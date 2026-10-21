@@ -95,7 +95,7 @@ for xaml_path in xaml_files:
     duplicates = sorted({name for name in names if names.count(name) > 1})
     if duplicates and xaml_path.name != "App.xaml":
         ERRORS.append(f"Duplicate x:Name in {xaml_path.relative_to(ROOT)}: {duplicates}")
-    all_names[str(xaml_path.relative_to(ROOT))] = set(names)
+    all_names[xaml_path.relative_to(ROOT).as_posix()] = set(names)
 
     # Every x:Class should map to an existing code-behind file. WPF compiler validation still
     # remains necessary because this check cannot resolve generated fields/types.
