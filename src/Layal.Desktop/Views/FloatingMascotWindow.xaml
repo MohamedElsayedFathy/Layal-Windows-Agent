@@ -133,6 +133,20 @@
                 <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#32B985"
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
+
+            <!-- Short-lived, animated reaction bubble; it never intercepts pointer input. -->
+            <Canvas x:Name="ReactionLayer" IsHitTestVisible="False" ClipToBounds="False">
+                <Border x:Name="ReactionBubble" Width="48" Height="45" Canvas.Left="115" Canvas.Top="54"
+                        Visibility="Collapsed" Opacity="0" CornerRadius="16" Background="#F5FFFFFF"
+                        BorderBrush="#B8CBE8" BorderThickness="1" Padding="2"
+                        RenderTransformOrigin="0.5,0.5">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#6A7FAD" BlurRadius="9" ShadowDepth="2" Opacity="0.22"/>
+                    </Border.Effect>
+                    <TextBlock x:Name="ReactionEmojiText" Text="✨" FontFamily="Segoe UI Emoji"
+                               FontSize="27" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </Canvas>
         </Grid>
     </Viewbox>
 </Window>

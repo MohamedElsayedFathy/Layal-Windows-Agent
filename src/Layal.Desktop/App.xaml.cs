@@ -22,6 +22,10 @@ public partial class App : Application
         AppRuntime.MemoryService = new MemoryService(Path.Combine(dataRoot, "memory-notes.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(dataRoot, "agent-tasks.dpapi"));
         AppRuntime.ChatHistoryStore = new ProtectedJsonStore<List<Layal.Models.ChatMessage>>(Path.Combine(dataRoot, "chat-history.dpapi"));
+        AppRuntime.ChatSessionService = new ChatSessionService(
+            Path.Combine(dataRoot, "chat-sessions.dpapi"),
+            AppRuntime.ChatHistoryStore,
+            AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
         AppRuntime.WorkspaceRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LayalWorkspace");
         AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService);
         AppRuntime.AgentOrchestrator = new AgentOrchestrator(new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);

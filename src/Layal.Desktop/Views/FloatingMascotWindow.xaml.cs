@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,6 +19,9 @@ public partial class FloatingMascotWindow : Window
     private readonly DispatcherTimer _floatTimer;
     private readonly DispatcherTimer _moodResetTimer;
     private double _floatPhase;
+    private bool _reactionActive;
+    private DateTimeOffset _reactionStartedAt;
+    private readonly Dictionary<string, int> _reactionIndexes = new(StringComparer.OrdinalIgnoreCase);
     private int _speechFrame;
     private bool _blinked;
     private bool _isPointerOver;
@@ -39,6 +45,32 @@ public partial class FloatingMascotWindow : Window
     private static readonly Brush AccentAmber = new SolidColorBrush(Color.FromRgb(245, 201, 111));
     private static readonly Brush AccentRed = new SolidColorBrush(Color.FromRgb(255, 113, 142));
     private static readonly Brush AccentMuted = new SolidColorBrush(Color.FromRgb(157, 171, 199));
+
+    private static readonly Dictionary<string, string[]> ReactionSets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["curious"] = new[] { "👀", "✨", "🤔" },
+        ["thinking"] = new[] { "💭", "🤔", "🧠" },
+        ["planning"] = new[] { "🗺️", "💡", "📝" },
+        ["researching"] = new[] { "🔎", "📚", "🧐" },
+        ["reading"] = new[] { "📖", "👓", "💡" },
+        ["coding"] = new[] { "💻", "🧩", "⚙️" },
+        ["using_tool"] = new[] { "🛠️", "⚙️", "🔧" },
+        ["listening"] = new[] { "👂", "🎧", "👀" },
+        ["transcribing"] = new[] { "📝", "✍️", "🎧" },
+        ["speaking"] = new[] { "💬", "🗨️", "👋" },
+        ["excited"] = new[] { "🤩", "🥳", "💖" },
+        ["success"] = new[] { "🎉", "✅", "✨", "💖" },
+        ["warning"] = new[] { "⚠️", "❗", "🫣" },
+        ["error"] = new[] { "😵‍💫", "🙈", "🛑" },
+        ["paused"] = new[] { "⏸️", "😌", "💤" },
+        ["interrupted"] = new[] { "✋", "🛑", "💭" },
+        ["recovering"] = new[] { "🔄", "🤞", "🛠️" },
+        ["reconnecting"] = new[] { "🔄", "📡", "🤞" },
+        ["offline"] = new[] { "🔌", "📴", "💤" },
+        ["privacy"] = new[] { "🔒", "🤫", "🛡️" },
+        ["camera_processing"] = new[] { "📷", "👁️", "🔍" },
+        ["sleepy"] = new[] { "🥱", "🌙", "💤" }
+    };
 
     public FloatingMascotWindow()
     {
@@ -97,8 +129,9 @@ public partial class FloatingMascotWindow : Window
         _exitMenuItem.Header = ar ? "خروج" : "Exit";
     }
 
-    public void SetMood(string mood)
+    public void SetMood(string mood, bool showReaction = true)
     {
+        var previousMood = _mood;
         _mood = NormalizeMood(mood);
         _speechFrame = 0;
         _leftPupilMoodX = _leftPupilMoodY = _rightPupilMoodX = _rightPupilMoodY = 0;
@@ -250,6 +283,8 @@ public partial class FloatingMascotWindow : Window
         Canvas.SetTop(LeftEyeShine, 23 + (LeftEye.Height - 10) / 2 - 1.5);
         Canvas.SetTop(RightEyeShine, 23 + (RightEye.Height - 10) / 2 - 1.5);
         StatusDot.Fill = status;
+        if (showReaction && previousMood != _mood)
+            ShowReactionForMood(_mood);
         _blinkTimer.Interval = _mood switch
         {
             "listening" or "transcribing" => TimeSpan.FromSeconds(5.2),
@@ -279,8 +314,54 @@ public partial class FloatingMascotWindow : Window
     private void ResetTerminalMood()
     {
         _moodResetTimer.Stop();
-        if (_mood is "success" or "error" or "paused" or "interrupted")
-            SetMood(_isPointerOver ? "curious" : "idle");
+        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted")
+            SetMood(_isPointerOver ? "curious" : "idle", showReaction: false);
+    }
+
+    private void ShowReactionForMood(string mood)
+    {
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || !ReactionSets.TryGetValue(mood, out var choices))
+            return;
+
+        _reactionIndexes.TryGetValue(mood, out var index);
+        ReactionEmojiText.Text = choices[index % choices.Length];
+        _reactionIndexes[mood] = (index + 1) % choices.Length;
+        Canvas.SetLeft(ReactionBubble, 115);
+        Canvas.SetTop(ReactionBubble, 54);
+        ReactionBubble.RenderTransform = Transform.Identity;
+        ReactionBubble.Visibility = Visibility.Visible;
+        ReactionBubble.Opacity = 0;
+        _reactionStartedAt = DateTimeOffset.UtcNow;
+        _reactionActive = true;
+    }
+
+    private void AnimateReactionTick()
+    {
+        if (!_reactionActive) return;
+        var elapsed = (DateTimeOffset.UtcNow - _reactionStartedAt).TotalSeconds;
+        const double duration = 2.2;
+        if (elapsed >= duration)
+        {
+            HideReaction();
+            return;
+        }
+
+        var progress = Math.Clamp(elapsed / duration, 0, 1);
+        var fadeIn = Math.Clamp(elapsed / 0.16, 0, 1);
+        var fadeOut = elapsed <= 1.62 ? 1 : Math.Clamp((duration - elapsed) / (duration - 1.62), 0, 1);
+        ReactionBubble.Opacity = Math.Min(fadeIn, fadeOut);
+        Canvas.SetLeft(ReactionBubble, 115 + Math.Sin(progress * Math.PI) * 5);
+        Canvas.SetTop(ReactionBubble, 54 - (38 * progress));
+        var scale = 0.78 + Math.Sin(progress * Math.PI) * 0.20;
+        ReactionBubble.RenderTransform = new ScaleTransform(scale, scale);
+    }
+
+    private void HideReaction()
+    {
+        _reactionActive = false;
+        ReactionBubble.Opacity = 0;
+        ReactionBubble.Visibility = Visibility.Collapsed;
+        ReactionBubble.RenderTransform = Transform.Identity;
     }
 
     public void ApplyScale(double scale)
@@ -299,6 +380,7 @@ public partial class FloatingMascotWindow : Window
             Root.RenderTransform = Transform.Identity;
             AntennaDot.RenderTransform = Transform.Identity;
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
+            HideReaction();
             return;
         }
 
@@ -339,6 +421,8 @@ public partial class FloatingMascotWindow : Window
                     : Geometry.Parse("M 37,52 Q 51,62 67,52");
             }
         }
+
+        AnimateReactionTick();
     }
 
     private void Blink()
@@ -355,7 +439,7 @@ public partial class FloatingMascotWindow : Window
     {
         _restoreEyesTimer.Stop();
         _blinked = false;
-        SetMood(_mood);
+        SetMood(_mood, showReaction: false);
     }
 
     private static string NormalizeMood(string? mood)
@@ -391,6 +475,7 @@ public partial class FloatingMascotWindow : Window
     {
         if (e.ClickCount >= 2)
         {
+            SetMood("excited");
             AppRuntime.MainWindow?.ShowFromTray();
             e.Handled = true;
             return;

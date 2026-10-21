@@ -68,10 +68,21 @@
             <TabItem x:Name="ChatTab" Header="المحادثة">
                 <Grid Margin="14">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <DockPanel Grid.Row="0" Margin="3,0,3,10">
-                        <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="20" FontWeight="SemiBold" DockPanel.Dock="Left"/>
-                        <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="#946200" HorizontalAlignment="Right"/>
-                    </DockPanel>
+                    <Grid Grid.Row="0" Margin="3,0,3,10">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <DockPanel Grid.Row="0">
+                            <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="20" FontWeight="SemiBold" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="#946200" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                        <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,7,0,0">
+                            <ComboBox x:Name="ChatHistorySelector" ItemsSource="{Binding ChatConversations}" DisplayMemberPath="Title"
+                                      SelectionChanged="ChatHistorySelector_SelectionChanged" MinWidth="190" MaxWidth="300"
+                                      ToolTip="المحادثات المحفوظة" VerticalContentAlignment="Center"/>
+                            <Button x:Name="NewConversationButton" Content="محادثة جديدة" Click="NewConversationButton_Click"/>
+                            <Button x:Name="ClearSavedChatHistoryButton" Content="مسح السجل المحفوظ" Click="ClearSavedChatHistoryButton_Click"
+                                    Background="#FBECEF" BorderBrush="#E9C3CC"/>
+                        </WrapPanel>
+                    </Grid>
                     <ListBox x:Name="ChatMessagesList" Grid.Row="1" ItemsSource="{Binding ChatMessages}" Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="8" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate>
                             <DataTemplate>

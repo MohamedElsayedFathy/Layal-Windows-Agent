@@ -13,6 +13,7 @@ namespace Layal.Views;
 public partial class MainWindow : Window
 {
     public ObservableCollection<ChatMessage> ChatMessages { get; } = new();
+    public ObservableCollection<ChatConversation> ChatConversations { get; } = new();
     public ObservableCollection<SkillRecord> InstalledSkills { get; } = new();
     public ObservableCollection<string> TaskEvents { get; } = new();
     public ObservableCollection<AgentTaskRecord> RecentTasks { get; } = new();
@@ -25,6 +26,8 @@ public partial class MainWindow : Window
     private bool _providerTestPassed;
     private string? _testedBaseUrl;
     private string? _testedModelId;
+    private string _currentConversationId = string.Empty;
+    private bool _refreshingChatSessions;
 
     public MainWindow()
     {
@@ -37,7 +40,10 @@ public partial class MainWindow : Window
         MascotSizeSlider.Value = AppRuntime.Settings.MascotScale;
         MascotOpacitySlider.Value = AppRuntime.Settings.MascotOpacity;
         WindowInspectionCheckbox.IsChecked = AppRuntime.Settings.AllowWindowTitleInspection;
-        foreach (var message in AppRuntime.ChatHistoryStore.Load(new List<ChatMessage>()).TakeLast(100)) ChatMessages.Add(message);
+        var currentConversation = AppRuntime.ChatSessionService.GetCurrent();
+        _currentConversationId = currentConversation.Id;
+        foreach (var message in currentConversation.Messages.TakeLast(100)) ChatMessages.Add(message);
+        RefreshChatSessions(_currentConversationId);
         var recent = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         if (recent is not null)
         {
@@ -116,6 +122,9 @@ public partial class MainWindow : Window
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
         ChatNotice.Text = ar ? "تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." : "Configure a valid API endpoint and key in Settings to send real messages.";
+        NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
+        ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
+        ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
         SendButton.Content = ar ? "إرسال" : "Send";
         CancelResponseButton.Content = ar ? "إيقاف" : "Stop";
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
@@ -420,11 +429,107 @@ public partial class MainWindow : Window
         var direction = ContainsArabic(content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         ChatMessages.Add(new ChatMessage { Role = role, Content = content, DisplayRole = display, CreatedAt = DateTimeOffset.Now, Direction = direction });
         while (ChatMessages.Count > 100) ChatMessages.RemoveAt(0);
-        try { AppRuntime.ChatHistoryStore.Save(ChatMessages.ToList()); } catch { /* A history save failure must not block the current conversation. */ }
+        try
+        {
+            AppRuntime.ChatSessionService.SaveCurrentMessages(ChatMessages.ToList());
+            RefreshChatSessions(_currentConversationId);
+        }
+        catch { /* A history save failure must not block the current conversation. */ }
         ChatMessagesList.ScrollIntoView(ChatMessages.LastOrDefault());
     }
 
     private static bool ContainsArabic(string value) => value.Any(c => c is >= '\u0600' and <= '\u06FF' or >= '\u0750' and <= '\u077F');
+
+    private void RefreshChatSessions(string? selectedId = null)
+    {
+        _refreshingChatSessions = true;
+        try
+        {
+            ChatConversations.Clear();
+            foreach (var conversation in AppRuntime.ChatSessionService.GetAll())
+                ChatConversations.Add(conversation);
+            var id = string.IsNullOrWhiteSpace(selectedId) ? _currentConversationId : selectedId;
+            ChatHistorySelector.SelectedItem = ChatConversations.FirstOrDefault(c => c.Id == id)
+                ?? ChatConversations.FirstOrDefault();
+        }
+        finally { _refreshingChatSessions = false; }
+    }
+
+    private void NewConversationButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chatCancellation is not null)
+        {
+            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.";
+            return;
+        }
+        var conversation = AppRuntime.ChatSessionService.CreateNewConversation(IsArabic ? "محادثة جديدة" : "New conversation");
+        _currentConversationId = conversation.Id;
+        ChatMessages.Clear();
+        ChatInput.Clear();
+        RefreshChatSessions(_currentConversationId);
+        ChatProviderStatus.Text = IsArabic
+            ? "بدأت محادثة جديدة؛ المحادثات السابقة ما زالت محفوظة ويمكن اختيارها من القائمة."
+            : "New conversation started. Previous conversations remain saved in the selector.";
+        AppRuntime.MascotWindow?.SetMood("excited");
+        ChatInput.Focus();
+    }
+
+    private void ClearSavedChatHistoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chatCancellation is not null)
+        {
+            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.";
+            return;
+        }
+
+        var answer = MessageBox.Show(this,
+            IsArabic
+                ? "سيتم حذف كل المحادثات المحفوظة محليًا نهائيًا، بما فيها المحادثات السابقة. لا يمكن التراجع عن ذلك. هل تريد المتابعة؟"
+                : "This permanently deletes all locally saved conversations, including archived chats. This cannot be undone. Continue?",
+            IsArabic ? "تأكيد مسح سجل المحادثات" : "Confirm clear saved chat history",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+
+        var fresh = AppRuntime.ChatSessionService.ClearAll(IsArabic ? "محادثة جديدة" : "New conversation");
+        _currentConversationId = fresh.Id;
+        ChatMessages.Clear();
+        ChatInput.Clear();
+        RefreshChatSessions(_currentConversationId);
+        ChatProviderStatus.Text = IsArabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.";
+        AppRuntime.MascotWindow?.SetMood("success");
+    }
+
+    private void ChatHistorySelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_refreshingChatSessions || ChatHistorySelector.SelectedItem is not ChatConversation selected)
+            return;
+        if (string.Equals(selected.Id, _currentConversationId, StringComparison.Ordinal))
+            return;
+        if (_chatCancellation is not null)
+        {
+            RefreshChatSessions(_currentConversationId);
+            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل تبديل المحادثة." : "Cancel the active response before switching conversations.";
+            return;
+        }
+
+        var conversation = AppRuntime.ChatSessionService.SelectConversation(selected.Id);
+        _currentConversationId = conversation.Id;
+        ChatMessages.Clear();
+        foreach (var message in conversation.Messages.TakeLast(100))
+        {
+            message.DisplayRole = message.Role switch
+            {
+                "user" => IsArabic ? "أنت" : "You",
+                "assistant" => "Layal | ليال",
+                _ => IsArabic ? "حالة النظام" : "System status"
+            };
+            message.Direction = ContainsArabic(message.Content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+            ChatMessages.Add(message);
+        }
+        ChatMessagesList.Items.Refresh();
+        RefreshChatSessions(_currentConversationId);
+        ChatProviderStatus.Text = IsArabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.";
+    }
 
     private void CancelResponseButton_Click(object sender, RoutedEventArgs e) => _chatCancellation?.Cancel();
 
