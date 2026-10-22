@@ -93,6 +93,7 @@ public partial class MainWindow : Window
             ["Layal.Color.Purple"] = dark ? "#B6A5FF" : "#7563D6",
             ["Layal.Color.Text"] = dark ? "#EDF2FF" : "#1C2940",
             ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#5D6D84",
+            ["Layal.Color.ScrollThumb"] = dark ? "#50617A" : "#9BAEC7",
             ["Layal.Color.Success"] = dark ? "#73DEAA" : "#177A57",
             ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
             ["Layal.Color.Danger"] = dark ? "#FF91A8" : "#BD3C55",
@@ -138,6 +139,7 @@ public partial class MainWindow : Window
         SetSolidBrush("Layal.Purple", "Layal.Color.Purple");
         SetSolidBrush("Layal.Text", "Layal.Color.Text");
         SetSolidBrush("Layal.Muted", "Layal.Color.Muted");
+        SetSolidBrush("Layal.ScrollThumb", "Layal.Color.ScrollThumb");
         SetSolidBrush("Layal.Success", "Layal.Color.Success");
         SetSolidBrush("Layal.Warning", "Layal.Color.Warning");
         SetSolidBrush("Layal.Danger", "Layal.Color.Danger");
