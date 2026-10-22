@@ -330,7 +330,7 @@ public partial class FloatingMascotWindow : Window
         var root = new ModelVisual3D
         {
             // Shoulders sit just outside the head silhouette, in front of the shell.
-            Transform = new TranslateTransform3D(side * 0.91, -0.31, 0.36)
+            Transform = new TranslateTransform3D(side * 1.00, -0.31, 0.36)
         };
         root.Children.Add(new ModelVisual3D
         {
