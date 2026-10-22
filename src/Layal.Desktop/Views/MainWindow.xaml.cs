@@ -1109,73 +1109,11 @@ public partial class MainWindow : Window
         while (TaskEvents.Count > 300) TaskEvents.RemoveAt(0);
         if (TaskEventsList.Items.Count > 0) TaskEventsList.ScrollIntoView(TaskEventsList.Items[^1]);
 
-        // Drive facial acting from the actual agent lifecycle rather than a generic "working" mood.
-        var mascot = AppRuntime.MascotWindow;
-        if (text.Contains("Task accepted", StringComparison.OrdinalIgnoreCase))
-        {
-            mascot?.SetMood("planning");
-        }
-        else if (text.Contains("Requesting model turn", StringComparison.OrdinalIgnoreCase))
-        {
-            mascot?.SetMood("thinking");
-        }
-        else if (text.Contains("Model provided an intermediate note", StringComparison.OrdinalIgnoreCase))
-        {
-            mascot?.SetMood("responding");
-        }
-        else if (text.Contains("Tool requested:", StringComparison.OrdinalIgnoreCase))
-        {
-            var marker = text.IndexOf("Tool requested:", StringComparison.OrdinalIgnoreCase);
-            var nameStart = marker + "Tool requested:".Length;
-            while (nameStart < text.Length && char.IsWhiteSpace(text[nameStart])) nameStart++;
-            var nameEnd = nameStart;
-            while (nameEnd < text.Length && !char.IsWhiteSpace(text[nameEnd]) && text[nameEnd] != '(') nameEnd++;
-            var toolName = text[nameStart..nameEnd].Trim();
-
-            var mood = toolName switch
-            {
-                "list_workspace_files" or "get_current_time" or "get_system_info" or
-                    "get_workspace_info" or "get_open_window_titles" => "researching",
-                "read_text_file" or "search_memory" => "reading",
-                "create_text_file" or "replace_text_in_file" or "save_memory" => "writing",
-                "run_dotnet_build" or "run_dotnet_test" => "coding",
-                "activate_window" or "open_notepad" or "open_url" => "using_tool",
-                _ => "using_tool"
-            };
-            mascot?.SetMood(mood);
-        }
-        else if (text.Contains("Tool result recorded:", StringComparison.OrdinalIgnoreCase))
-        {
-            // Preserve a meaningful failure/decline reaction after the orchestrator records its
-            // tool-result envelope; do not immediately replace it with a generic response face.
-            var recentEvents = TaskEvents.TakeLast(3).ToArray();
-            if (recentEvents.Any(line => line.Contains("Tool failed", StringComparison.OrdinalIgnoreCase)))
-            {
-                mascot?.SetMood("error");
-            }
-            else if (recentEvents.Any(line => line.Contains("declined", StringComparison.OrdinalIgnoreCase)))
-            {
-                mascot?.SetMood("warning");
-            }
-            else
-            {
-                var lower = text.ToLowerInvariant();
-                mascot?.SetMood(lower.Contains("run_dotnet_build", StringComparison.Ordinal) ||
-                                lower.Contains("run_dotnet_test", StringComparison.Ordinal)
-                    ? "validating"
-                    : "responding", showReaction: false);
-            }
-        }
-        else if (text.Contains("Tool failed", StringComparison.OrdinalIgnoreCase) || text.Contains("Task failed", StringComparison.OrdinalIgnoreCase))
-        {
-            mascot?.SetMood("error");
-        }
-        else if (text.Contains("declined", StringComparison.OrdinalIgnoreCase) ||
-                 text.Contains("approval", StringComparison.OrdinalIgnoreCase) ||
-                 text.Contains("requires approval", StringComparison.OrdinalIgnoreCase))
-        {
-            mascot?.SetMood("warning");
-        }
+        // Drive facial acting from actual engine events through a unit-testable resolver.
+        var mascotMood = TaskMoodResolver.Resolve(text, TaskEvents.TakeLast(4));
+        if (mascotMood is not null)
+            AppRuntime.MascotWindow?.SetMood(mascotMood,
+                showReaction: !text.Contains("Tool result recorded:", StringComparison.OrdinalIgnoreCase));
     }
 
     private void RefreshRecentTasks(string? selectTaskId = null)
