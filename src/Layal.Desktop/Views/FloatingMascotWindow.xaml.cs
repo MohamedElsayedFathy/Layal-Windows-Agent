@@ -477,7 +477,7 @@ public partial class FloatingMascotWindow : Window
                 FontFamily = new FontFamily("Segoe UI Emoji"),
                 FontSize = i % 3 == 0 ? 17 : 13 + (i % 2) * 2,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = i % 3 switch
+                Foreground = (i % 3) switch
                 {
                     0 => particlePalette.Primary,
                     1 => particlePalette.Secondary,
