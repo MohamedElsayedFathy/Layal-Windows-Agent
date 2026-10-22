@@ -105,7 +105,9 @@ public partial class FloatingMascotWindow : Window
         ["apologetic"] = new[] { "🥺", "🙏", "🫶", "💐", "💗", "😔" },
         ["frustrated"] = new[] { "😤", "💢", "😮‍💨", "🫠", "🛠️", "🤦" },
         ["grateful"] = new[] { "🥰", "💝", "🫶", "🌷", "💐", "💖", "✨" },
-        ["celebrating"] = new[] { "🥳", "🎉", "🎊", "💖", "🌈", "🪩", "🚀", "🎈" }
+        ["celebrating"] = new[] { "🥳", "🎉", "🎊", "💖", "🌈", "🪩", "🚀", "🎈" },
+        ["writing"] = new[] { "📝", "✍️", "🖊️", "📄", "💡", "📌", "✨", "🗒️", "🧠" },
+        ["validating"] = new[] { "🧪", "🔍", "✅", "📊", "🧩", "🔬", "🎯", "🛠️" }
     };
 
     public FloatingMascotWindow()
@@ -367,18 +369,75 @@ public partial class FloatingMascotWindow : Window
                 status = AccentCyan;
                 break;
             case "thinking":
-            case "planning":
-            case "researching":
-            case "reading":
-            case "coding":
-            case "using_tool":
-            case "waiting":
                 LeftBrow.Data = Geometry.Parse("M 26,18 Q 34,15 42,17");
                 RightBrow.Data = Geometry.Parse("M 61,14 Q 69,10 77,14");
                 _leftPupilMoodX = 1.5; _leftPupilMoodY = -2.0;
                 _rightPupilMoodX = 2.0; _rightPupilMoodY = -2.0;
                 Mouth.Data = Geometry.Parse("M 40,56 Q 51,51 64,56");
                 status = AccentAmber;
+                break;
+            case "planning":
+                LeftBrow.Data = Geometry.Parse("M 25,15 Q 34,9 43,15");
+                RightBrow.Data = Geometry.Parse("M 61,17 Q 69,14 77,17");
+                _leftPupilMoodX = -1.2; _leftPupilMoodY = -2.1;
+                _rightPupilMoodX = -0.5; _rightPupilMoodY = -1.8;
+                Mouth.Data = Geometry.Parse("M 42,56 Q 51,52 60,56");
+                status = AccentPurple;
+                break;
+            case "researching":
+                LeftBrow.Data = Geometry.Parse("M 25,14 Q 34,9 43,15");
+                RightBrow.Data = Geometry.Parse("M 60,14 Q 69,9 78,15");
+                LeftEye.Height = RightEye.Height = 25;
+                _leftPupilMoodX = -2.1; _leftPupilMoodY = -0.2;
+                _rightPupilMoodX = -1.8; _rightPupilMoodY = -0.2;
+                Mouth.Data = Geometry.Parse("M 43,55 Q 51,58 59,55");
+                status = AccentCyan;
+                break;
+            case "reading":
+                LeftEye.Height = RightEye.Height = 19;
+                _leftPupilMoodX = 0.3; _leftPupilMoodY = 2.5;
+                _rightPupilMoodX = 0.3; _rightPupilMoodY = 2.5;
+                LeftBrow.Data = Geometry.Parse("M 26,18 Q 34,15 42,18");
+                RightBrow.Data = Geometry.Parse("M 61,18 Q 69,15 77,18");
+                Mouth.Data = Geometry.Parse("M 39,55 Q 51,63 64,55");
+                status = AccentCyan;
+                break;
+            case "coding":
+                LeftEye.Height = RightEye.Height = 18;
+                LeftBrow.Data = Geometry.Parse("M 25,19 Q 34,13 43,18");
+                RightBrow.Data = Geometry.Parse("M 60,18 Q 69,13 78,19");
+                Mouth.Data = Geometry.Parse("M 40,57 L 63,57");
+                status = AccentPurple;
+                break;
+            case "writing":
+                LeftEye.Height = RightEye.Height = 19;
+                _leftPupilMoodX = -2.2; _leftPupilMoodY = 2.0;
+                _rightPupilMoodX = -1.8; _rightPupilMoodY = 2.0;
+                LeftBrow.Data = Geometry.Parse("M 26,17 Q 34,13 42,18");
+                RightBrow.Data = Geometry.Parse("M 61,17 Q 69,13 77,18");
+                Mouth.Data = Geometry.Parse("M 39,55 Q 51,61 64,55");
+                status = AccentPurple;
+                break;
+            case "using_tool":
+                _leftPupilMoodX = 2.2; _leftPupilMoodY = 0.4;
+                _rightPupilMoodX = 2.2; _rightPupilMoodY = 0.4;
+                LeftBrow.Data = Geometry.Parse("M 26,15 Q 34,11 42,15");
+                RightBrow.Data = Geometry.Parse("M 61,15 Q 69,11 77,15");
+                Mouth.Data = Geometry.Parse("M 38,54 Q 51,63 65,54");
+                status = AccentCyan;
+                break;
+            case "waiting":
+                LeftEye.Height = RightEye.Height = 20;
+                Mouth.Data = Geometry.Parse("M 41,57 Q 51,60 61,57");
+                status = AccentAmber;
+                break;
+            case "validating":
+                LeftEye.Height = RightEye.Height = 24;
+                LeftBrow.Data = Geometry.Parse("M 25,15 Q 34,9 43,15");
+                RightBrow.Data = Geometry.Parse("M 60,15 Q 69,9 78,15");
+                Mouth.Data = Geometry.Parse("M 42,55 Q 51,61 60,55");
+                GlowHalo.Opacity = 0.74;
+                status = AccentGreen;
                 break;
             case "responding":
             case "speaking":
@@ -729,9 +788,9 @@ public partial class FloatingMascotWindow : Window
     }
 
     private static bool IsTaskMood(string mood) =>
-        mood is "thinking" or "planning" or "researching" or "reading" or "coding" or
-            "using_tool" or "waiting" or "warning" or "transcribing" or "responding" or
-            "speaking" or "camera_processing";
+        mood is "thinking" or "planning" or "researching" or "reading" or "writing" or
+            "coding" or "validating" or "using_tool" or "waiting" or "warning" or
+            "transcribing" or "responding" or "speaking" or "camera_processing";
 
     private void UpdateTaskProps()
     {
@@ -776,7 +835,7 @@ public partial class FloatingMascotWindow : Window
 
         _floatPhase += _mood switch
         {
-            "thinking" or "planning" or "researching" or "coding" or "celebrating" => 0.16,
+            "thinking" or "planning" or "researching" or "coding" or "writing" or "validating" or "celebrating" => 0.16,
             "speaking" => 0.22,
             "listening" or "transcribing" => 0.10,
             _ => 0.075
@@ -786,7 +845,7 @@ public partial class FloatingMascotWindow : Window
         {
             "idle" => 1.8,
             "success" or "celebrating" => 2.4,
-            "thinking" or "planning" or "researching" or "coding" => 0.8,
+            "thinking" or "planning" or "researching" or "coding" or "writing" or "validating" => 0.8,
             "speaking" => 0.65,
             "listening" => 1.0,
             "offline" or "privacy" or "paused" => 0.2,
@@ -867,8 +926,8 @@ public partial class FloatingMascotWindow : Window
             "failed" => "error",
             "camera" => "camera_processing",
             "offline" or "privacy" or "idle" or "listening" or "transcribing" or "understanding" or "curious"
-                or "thinking" or "planning" or "researching" or "reading" or "coding" or "using_tool" or "waiting"
-                or "speaking" or "responding" or "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised"
+                or "thinking" or "planning" or "researching" or "reading" or "writing" or "coding" or "validating"
+                or "using_tool" or "waiting" or "speaking" or "responding" or "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised"
                 or "confused" or "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful"
                 or "success" or "warning" or "error" or "paused" or "recovering" or "reconnecting"
                 or "camera_processing" or "interrupted" or "sleepy" or "excited" or "embarrassed" or
