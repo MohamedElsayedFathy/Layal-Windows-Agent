@@ -105,7 +105,7 @@ Artifacts uploaded by this run include the Windows Release build, interactive-ac
 
 ## Display resolution, DPI, and multi-monitor acceptance — in progress
 
-- Added \`tools/Test-LayalDisplayDpi.ps1\` to enumerate active monitors and record physical-pixel bounds/work areas, effective DPI, the floating Layal HWND bounds, its current monitor, \`GetDpiForWindow\`, and the window's DPI-awareness level.
-- The same harness supports timed sampling for a manual cross-monitor drag. Run \`-RequireMultipleMonitors -RequireMonitorTransition -RequireDpiTransition -ObserveSeconds 90\` on a real PC with two displays configured at different Windows scaling levels; it saves JSON and CSV evidence.
-- Windows CI runs a three-second topology smoke check and uploads \`display-dpi-summary.json\` and \`display-dpi-samples.csv\`. The CI runner's topology must not be interpreted as proof of a physical multi-monitor or 100/125/150/175% scale change.
+- Added `tools/Test-LayalDisplayDpi.ps1` to enumerate active monitors and record physical-pixel bounds/work areas, effective DPI, the floating Layal HWND bounds, its current monitor, `GetDpiForWindow`, and the window's DPI-awareness level.
+- The same harness supports timed sampling for a manual cross-monitor drag. Run `-RequireMultipleMonitors -RequireMonitorTransition -RequireDpiTransition -ObserveSeconds 90` on a real PC with two displays configured at different Windows scaling levels; it saves JSON and CSV evidence.
+- Windows CI runs a three-second topology smoke check and uploads `display-dpi-summary.json` and `display-dpi-samples.csv`. The CI runner's topology must not be interpreted as proof of a physical multi-monitor or 100/125/150/175% scale change.
 - **Physical display acceptance remains pending** until a run on the target device records each monitor's resolution/scaling, confirms Layal crosses between displays without losing position or input behavior, and checks visual clipping/overlap. PR #6 remains draft and unmerged.

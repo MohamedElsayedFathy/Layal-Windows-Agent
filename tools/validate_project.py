@@ -262,9 +262,11 @@ else:
     ):
         if fragment not in display_dpi_harness:
             ERRORS.append(f"Display/DPI acceptance coverage is missing '{fragment}'")
-if "Run Windows display and DPI topology smoke test" not in workflow_code or "Test-LayalDisplayDpi.ps1" not in workflow_code or "-ObserveSeconds 3" not in workflow_code:
+display_dpi_workflow_path = ROOT / ".github/workflows/windows-build.yml"
+display_dpi_workflow_code = display_dpi_workflow_path.read_text(encoding="utf-8") if display_dpi_workflow_path.is_file() else ""
+if "Run Windows display and DPI topology smoke test" not in display_dpi_workflow_code or "Test-LayalDisplayDpi.ps1" not in display_dpi_workflow_code or "-ObserveSeconds 3" not in display_dpi_workflow_code:
     ERRORS.append("Windows CI must run the display/DPI topology smoke test")
-if "Upload display and DPI topology evidence" not in workflow_code or "artifacts/display-dpi/**/*" not in workflow_code:
+if "Upload display and DPI topology evidence" not in display_dpi_workflow_code or "artifacts/display-dpi/**/*" not in display_dpi_workflow_code:
     ERRORS.append("Windows CI must upload display/DPI topology evidence")
 
 # Keep native acceptance from silently regressing to a one-off movement check. The Windows
