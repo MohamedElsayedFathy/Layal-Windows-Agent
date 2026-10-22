@@ -4,6 +4,7 @@ using System.Net;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Layal.Models;
 using Layal.Services;
 using Microsoft.Win32;
@@ -75,46 +76,112 @@ public partial class MainWindow : Window
 
     private void ApplyTheme()
     {
+        // Replace the theme brushes and gradients themselves, not only their source colors.
+        // DynamicResource consumers then receive the replacement even if a control was
+        // constructed before the user switched themes.
         var dark = IsDarkTheme;
-        (string Key, string Value)[] palette =
+        var palette = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ("Layal.Color.Background", dark ? "#111521" : "#F4F7FC"),
-            ("Layal.Color.Surface", dark ? "#1B2233" : "#FFFFFF"),
-            ("Layal.Color.SurfaceRaised", dark ? "#232B3D" : "#FAFBFF"),
-            ("Layal.Color.SurfaceHover", dark ? "#2B354A" : "#EDF3FA"),
-            ("Layal.Color.Border", dark ? "#3A465E" : "#DCE5F0"),
-            ("Layal.Color.Cyan", dark ? "#76DFE8" : "#087B8F"),
-            ("Layal.Color.Purple", dark ? "#B6A5FF" : "#7563D6"),
-            ("Layal.Color.Text", dark ? "#EDF2FF" : "#1C2940"),
-            ("Layal.Color.Muted", dark ? "#A8B4C9" : "#63738A"),
-            ("Layal.Color.Success", dark ? "#73DEAA" : "#177A57"),
-            ("Layal.Color.Warning", dark ? "#FFD17D" : "#946200"),
-            ("Layal.Color.Danger", dark ? "#FF91A8" : "#BD3C55"),
-            ("Layal.Color.Focus", dark ? "#7C93D5" : "#AFC8F7"),
-            ("Layal.Color.HeaderStart", dark ? "#202D43" : "#EAF5FF"),
-            ("Layal.Color.HeaderMiddle", dark ? "#1B2233" : "#FFFFFF"),
-            ("Layal.Color.HeaderEnd", dark ? "#2C2542" : "#F3EFFF"),
-            ("Layal.Color.CardStart", dark ? "#222B3F" : "#FFFFFF"),
-            ("Layal.Color.CardEnd", dark ? "#1B2335" : "#F9FBFF"),
-            ("Layal.Color.ButtonStart", dark ? "#326B78" : "#A3E3E7"),
-            ("Layal.Color.ButtonEnd", dark ? "#594C84" : "#C8C0F7"),
-            ("Layal.Color.BrandBorder", dark ? "#4C8F9B" : "#B9E6EB"),
-            ("Layal.Color.BrandDot", dark ? "#FFD36E" : "#E8B451"),
-            ("Layal.Color.DangerSurface", dark ? "#452735" : "#FBECEF"),
-            ("Layal.Color.DangerBorder", dark ? "#794154" : "#E9C3CC"),
-            ("Layal.Color.NavSelected", dark ? "#283B50" : "#E2F2F6"),
-            ("Layal.Color.NavSelectedBorder", dark ? "#4F8190" : "#C6E8ED"),
-            ("Layal.Color.NavHover", dark ? "#242F43" : "#F0F5FC"),
-            ("Layal.Color.ListHover", dark ? "#263247" : "#F0F6FC"),
-            ("Layal.Color.ListSelected", dark ? "#2C4155" : "#E3F3F6"),
-            ("Layal.Color.InputFocus", dark ? "#222E43" : "#FBFDFF"),
-            ("Layal.Color.HoverSurface", dark ? "#2C3B50" : "#E8F5F7"),
-            ("Layal.Color.Shadow", dark ? "#080B13" : "#A8B9D6")
+            ["Layal.Color.Background"] = dark ? "#111521" : "#F4F7FC",
+            ["Layal.Color.Surface"] = dark ? "#1B2233" : "#FFFFFF",
+            ["Layal.Color.SurfaceRaised"] = dark ? "#232B3D" : "#FAFBFF",
+            ["Layal.Color.SurfaceHover"] = dark ? "#2B354A" : "#EDF3FA",
+            ["Layal.Color.Border"] = dark ? "#3A465E" : "#DCE5F0",
+            ["Layal.Color.Cyan"] = dark ? "#76DFE8" : "#087B8F",
+            ["Layal.Color.Purple"] = dark ? "#B6A5FF" : "#7563D6",
+            ["Layal.Color.Text"] = dark ? "#EDF2FF" : "#1C2940",
+            ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#63738A",
+            ["Layal.Color.Success"] = dark ? "#73DEAA" : "#177A57",
+            ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
+            ["Layal.Color.Danger"] = dark ? "#FF91A8" : "#BD3C55",
+            ["Layal.Color.Focus"] = dark ? "#7C93D5" : "#AFC8F7",
+            ["Layal.Color.HeaderStart"] = dark ? "#202D43" : "#EAF5FF",
+            ["Layal.Color.HeaderMiddle"] = dark ? "#1B2233" : "#FFFFFF",
+            ["Layal.Color.HeaderEnd"] = dark ? "#2C2542" : "#F3EFFF",
+            ["Layal.Color.CardStart"] = dark ? "#222B3F" : "#FFFFFF",
+            ["Layal.Color.CardEnd"] = dark ? "#1B2335" : "#F9FBFF",
+            ["Layal.Color.ButtonStart"] = dark ? "#326B78" : "#A3E3E7",
+            ["Layal.Color.ButtonEnd"] = dark ? "#594C84" : "#C8C0F7",
+            ["Layal.Color.BrandBorder"] = dark ? "#4C8F9B" : "#B9E6EB",
+            ["Layal.Color.BrandDot"] = dark ? "#FFD36E" : "#E8B451",
+            ["Layal.Color.DangerSurface"] = dark ? "#452735" : "#FBECEF",
+            ["Layal.Color.DangerBorder"] = dark ? "#794154" : "#E9C3CC",
+            ["Layal.Color.NavSelected"] = dark ? "#283B50" : "#E2F2F6",
+            ["Layal.Color.NavSelectedBorder"] = dark ? "#4F8190" : "#C6E8ED",
+            ["Layal.Color.NavHover"] = dark ? "#242F43" : "#F0F5FC",
+            ["Layal.Color.ListHover"] = dark ? "#263247" : "#F0F6FC",
+            ["Layal.Color.ListSelected"] = dark ? "#2C4155" : "#E3F3F6",
+            ["Layal.Color.InputFocus"] = dark ? "#222E43" : "#FBFDFF",
+            ["Layal.Color.HoverSurface"] = dark ? "#2C3B50" : "#E8F5F7",
+            ["Layal.Color.Shadow"] = dark ? "#080B13" : "#A8B9D6"
         };
 
+        var colors = new Dictionary<string, Color>(StringComparer.Ordinal);
         foreach (var (key, value) in palette)
-            Application.Current.Resources[key] =
-                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value)!;
+        {
+            var color = (Color)ColorConverter.ConvertFromString(value)!;
+            colors[key] = color;
+            Application.Current.Resources[key] = color;
+        }
+
+        void SetSolidBrush(string brushKey, string colorKey) =>
+            Application.Current.Resources[brushKey] = new SolidColorBrush(colors[colorKey]);
+
+        SetSolidBrush("Layal.Background", "Layal.Color.Background");
+        SetSolidBrush("Layal.Panel", "Layal.Color.Surface");
+        SetSolidBrush("Layal.PanelAlt", "Layal.Color.SurfaceRaised");
+        SetSolidBrush("Layal.PanelHover", "Layal.Color.SurfaceHover");
+        SetSolidBrush("Layal.Border", "Layal.Color.Border");
+        SetSolidBrush("Layal.Cyan", "Layal.Color.Cyan");
+        SetSolidBrush("Layal.Purple", "Layal.Color.Purple");
+        SetSolidBrush("Layal.Text", "Layal.Color.Text");
+        SetSolidBrush("Layal.Muted", "Layal.Color.Muted");
+        SetSolidBrush("Layal.Success", "Layal.Color.Success");
+        SetSolidBrush("Layal.Warning", "Layal.Color.Warning");
+        SetSolidBrush("Layal.Danger", "Layal.Color.Danger");
+        SetSolidBrush("Layal.Focus", "Layal.Color.Focus");
+        SetSolidBrush("Layal.White", "Layal.Color.Surface");
+        SetSolidBrush("Layal.BrandBorder", "Layal.Color.BrandBorder");
+        SetSolidBrush("Layal.DecorativeAmber", "Layal.Color.BrandDot");
+        SetSolidBrush("Layal.DangerSurface", "Layal.Color.DangerSurface");
+        SetSolidBrush("Layal.DangerBorder", "Layal.Color.DangerBorder");
+        SetSolidBrush("Layal.HoverSurface", "Layal.Color.HoverSurface");
+        SetSolidBrush("Layal.InputFocus", "Layal.Color.InputFocus");
+        SetSolidBrush("Layal.ListHover", "Layal.Color.ListHover");
+        SetSolidBrush("Layal.ListSelected", "Layal.Color.ListSelected");
+        SetSolidBrush("Layal.NavSelected", "Layal.Color.NavSelected");
+        SetSolidBrush("Layal.NavSelectedBorder", "Layal.Color.NavSelectedBorder");
+        SetSolidBrush("Layal.NavHover", "Layal.Color.NavHover");
+
+        LinearGradientBrush MakeGradient(params (string Key, double Offset)[] stops)
+        {
+            var brush = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(1, 1)
+            };
+            foreach (var stop in stops)
+                brush.GradientStops.Add(new GradientStop(colors[stop.Key], stop.Offset));
+            return brush;
+        }
+
+        Application.Current.Resources["Layal.HeaderGradient"] = MakeGradient(
+            ("Layal.Color.HeaderStart", 0),
+            ("Layal.Color.HeaderMiddle", 0.56),
+            ("Layal.Color.HeaderEnd", 1));
+        Application.Current.Resources["Layal.CardGradient"] = MakeGradient(
+            ("Layal.Color.CardStart", 0),
+            ("Layal.Color.CardEnd", 1));
+        Application.Current.Resources["Layal.PrimaryButtonGradient"] = MakeGradient(
+            ("Layal.Color.ButtonStart", 0),
+            ("Layal.Color.ButtonEnd", 1));
+        Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
+        {
+            Color = colors["Layal.Color.Shadow"],
+            BlurRadius = 18,
+            ShadowDepth = 3,
+            Opacity = 0.18
+        };
     }
 
     private void ApplyLanguage()
