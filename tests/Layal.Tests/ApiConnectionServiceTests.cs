@@ -48,7 +48,8 @@ public sealed class ApiConnectionServiceTests
             BaseUrl = "https://api.example.test/v2/",
             AuthenticationType = "CustomHeader",
             AuthHeaderName = "X-API-Key",
-            AuthSecret = "private-key"
+            AuthSecret = "private-key",
+            AdditionalHeadersJson = "{\"Notion-Version\":\"2022-06-28\",\"X-App-Context\":\"layal-test\"}"
         });
 
         var result = await service.SendAsync("demo APP", "POST", "records",
@@ -57,9 +58,34 @@ public sealed class ApiConnectionServiceTests
         Assert.AreEqual("https://api.example.test/v2/records?page=2&filter=open%20items", handler.LastRequestUri?.AbsoluteUri);
         Assert.AreEqual("POST", handler.LastMethod);
         Assert.AreEqual("private-key", handler.LastCustomHeader);
+        Assert.AreEqual("2022-06-28", handler.LastNotionVersion);
+        Assert.AreEqual("layal-test", handler.LastAppContext);
         StringAssert.Contains(handler.LastRequestBody ?? string.Empty, "Layal test");
         Assert.IsTrue(result.StatusCode is >= 200 and < 300);
         Assert.IsFalse(service.BuildToolDescription().Contains("private-key", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void AdditionalHeadersCannotOverrideAuthenticationOrTransportHeaders()
+    {
+        using var temp = new TestTempDirectory();
+        var service = new ApiConnectionService(Path.Combine(temp.Path, "api-connections.dpapi"));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.Save(new ApiConnectionProfile
+        {
+            Name = "Bad header",
+            BaseUrl = "https://api.example.test",
+            AuthenticationType = "None",
+            AdditionalHeadersJson = "{\"Authorization\":\"Bearer injected\"}"
+        }));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.Save(new ApiConnectionProfile
+        {
+            Name = "Bad type",
+            BaseUrl = "https://api.example.test",
+            AuthenticationType = "None",
+            AdditionalHeadersJson = "{\"X-Version\":42}"
+        }));
+        Assert.AreEqual(0, service.GetAll().Count);
     }
 
     [TestMethod]
@@ -128,6 +154,8 @@ public sealed class ApiConnectionServiceTests
         public string? LastAuthorizationScheme { get; private set; }
         public string? LastAuthorizationParameter { get; private set; }
         public string? LastCustomHeader { get; private set; }
+        public string? LastNotionVersion { get; private set; }
+        public string? LastAppContext { get; private set; }
         public string? LastRequestBody { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -138,6 +166,10 @@ public sealed class ApiConnectionServiceTests
             LastAuthorizationParameter = request.Headers.Authorization?.Parameter;
             request.Headers.TryGetValues("X-API-Key", out var keys);
             LastCustomHeader = keys?.FirstOrDefault();
+            request.Headers.TryGetValues("Notion-Version", out var notionVersion);
+            LastNotionVersion = notionVersion?.FirstOrDefault();
+            request.Headers.TryGetValues("X-App-Context", out var appContext);
+            LastAppContext = appContext?.FirstOrDefault();
             if (request.Content is not null) LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
             return responseFactory(request);
         }
