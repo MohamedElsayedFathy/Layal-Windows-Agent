@@ -31,6 +31,7 @@ public sealed class MainWindowVisualSmokeTests
         {
             try { RenderAllStates(); }
             catch (Exception exception) { failure = exception; }
+            finally { App.SuppressStartupForTests = false; }
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.IsBackground = true;
@@ -82,7 +83,7 @@ public sealed class MainWindowVisualSmokeTests
         {
             "Layal Windows WPF visual smoke snapshots",
             $"Window DIPs: {window.Width:0}x{window.Height:0}",
-            "Captures below are direct RenderTargetBitmap output, not OS-per-monitor DPI simulation."
+            "Captures below are direct RenderTargetBitmap output at multiple render densities; physical monitor DPI switching remains a manual acceptance step."
         };
 
         foreach (var theme in new[] { "light", "dark" })
@@ -100,9 +101,13 @@ public sealed class MainWindowVisualSmokeTests
                 window.UpdateLayout();
                 window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-                var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}.png");
-                SaveSnapshot(window, path);
-                lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | size={window.ActualWidth:0}x{window.ActualHeight:0}");
+                foreach (var scale in new[] { 1.0, 1.25, 1.5, 1.75 })
+                {
+                    var suffix = (int)Math.Round(scale * 100);
+                    var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}-dpi{suffix}.png");
+                    SaveSnapshot(window, path, scale);
+                    lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | dips={window.ActualWidth:0}x{window.ActualHeight:0}");
+                }
             }
         }
 
@@ -157,12 +162,14 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.IsExiting = false;
     }
 
-    private static void SaveSnapshot(FrameworkElement visual, string path)
+    private static void SaveSnapshot(FrameworkElement visual, string path, double renderScale = 1.0)
     {
         visual.UpdateLayout();
-        var width = Math.Max(1, (int)Math.Ceiling(visual.ActualWidth));
-        var height = Math.Max(1, (int)Math.Ceiling(visual.ActualHeight));
-        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        renderScale = Math.Clamp(renderScale, 1.0, 2.0);
+        var dpi = 96.0 * renderScale;
+        var width = Math.Max(1, (int)Math.Ceiling(visual.ActualWidth * renderScale));
+        var height = Math.Max(1, (int)Math.Ceiling(visual.ActualHeight * renderScale));
+        var bitmap = new RenderTargetBitmap(width, height, dpi, dpi, PixelFormats.Pbgra32);
         bitmap.Render(visual);
         if (bitmap.PixelWidth < 1 || bitmap.PixelHeight < 1)
             throw new InvalidOperationException($"Empty snapshot generated for {visual.GetType().Name}.");
