@@ -8,6 +8,7 @@
         Topmost="True" WindowStartupLocation="Manual"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp"
         MouseRightButtonUp="Window_MouseRightButtonUp"
         MouseEnter="Window_MouseEnter" MouseLeave="Window_MouseLeave" MouseMove="Window_MouseMove">
     <Viewbox x:Name="MascotViewBox" Stretch="Uniform" StretchDirection="Both">
