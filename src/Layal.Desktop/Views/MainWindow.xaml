@@ -226,6 +226,66 @@
                 </Grid>
             </TabItem>
 
+            <TabItem x:Name="ApiIntegrationsTab" Header="تكاملات API">
+                <Grid Margin="18">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock x:Name="ApiIntegrationsHeading" Text="ربط التطبيقات عبر API" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="ApiIntegrationsDescription" Text="أضف أي تطبيق يوفر REST/JSON API. بيانات المصادقة محفوظة محليًا بتشفير Windows DPAPI. كل طلب من ليال يحتاج موافقتك." Foreground="#63738A" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="0.82*"/><ColumnDefinition Width="1.18*"/></Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                            <TextBlock x:Name="ApiConnectionsListLabel" Text="التطبيقات المتصلة" FontWeight="SemiBold" Margin="4,0,4,5"/>
+                            <ListBox x:Name="ApiConnectionList" ItemsSource="{Binding ApiConnections}" SelectionChanged="ApiConnectionList_SelectionChanged"
+                                     Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="5" MinHeight="220">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#087B8F" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding BaseUrl}" Foreground="#63738A" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <Button x:Name="NewApiConnectionButton" Content="إضافة اتصال جديد" Click="NewApiConnectionButton_Click" HorizontalAlignment="Stretch" Margin="0,8,0,0"/>
+                            <TextBlock x:Name="ApiConnectionsPrivacyNote" Text="لا تشارك مفتاح API داخل المحادثة. أدخله هنا؛ سيُحفظ مشفرًا على حساب Windows الحالي." Foreground="#946200" TextWrapping="Wrap" Margin="4,8,4,0"/>
+                        </StackPanel>
+                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock x:Name="ApiConnectionNameLabel" Text="اسم التطبيق / الاتصال" Margin="4,2,4,0"/>
+                                <TextBox x:Name="ApiConnectionNameInput" MinHeight="32" ToolTip="Notion, GitHub, CRM..." />
+                                <TextBlock x:Name="ApiConnectionBaseUrlLabel" Text="Base URL" Margin="4,8,4,0"/>
+                                <TextBox x:Name="ApiConnectionBaseUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://api.example.com/v1"/>
+                                <TextBlock x:Name="ApiAuthTypeLabel" Text="طريقة المصادقة" Margin="4,8,4,0"/>
+                                <ComboBox x:Name="ApiAuthTypeComboBox" MinHeight="32" SelectedIndex="1">
+                                    <ComboBoxItem Content="بدون مصادقة / None" Tag="None"/>
+                                    <ComboBoxItem Content="Bearer token" Tag="Bearer"/>
+                                    <ComboBoxItem Content="Custom header (API key)" Tag="CustomHeader"/>
+                                </ComboBox>
+                                <TextBlock x:Name="ApiAuthHeaderNameLabel" Text="اسم ترويسة المصادقة (Custom header)" Margin="4,8,4,0"/>
+                                <TextBox x:Name="ApiAuthHeaderNameInput" FlowDirection="LeftToRight" Text="X-API-Key" MinHeight="32"/>
+                                <TextBlock x:Name="ApiAuthSecretLabel" Text="Token / API key / header value" Margin="4,8,4,0"/>
+                                <PasswordBox x:Name="ApiAuthSecretInput" FlowDirection="LeftToRight" MinHeight="32"/>
+                                <TextBlock x:Name="ApiTestPathLabel" Text="مسار اختبار الاتصال (GET)، مثل health أو users/me" Margin="4,8,4,0"/>
+                                <TextBox x:Name="ApiTestPathInput" FlowDirection="LeftToRight" MinHeight="32"/>
+                                <TextBlock x:Name="ApiInstructionsLabel" Text="ملاحظات التوثيق ونقاط النهاية (اختياري، بدون أسرار)" Margin="4,8,4,0"/>
+                                <TextBox x:Name="ApiInstructionsInput" MinHeight="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                         ToolTip="اكتب المسارات وطريقة الاستخدام التي تريد أن تعرفها ليال."/>
+                                <WrapPanel Margin="0,10,0,0">
+                                    <Button x:Name="SaveApiConnectionButton" Content="حفظ الاتصال" Click="SaveApiConnectionButton_Click"/>
+                                    <Button x:Name="TestApiConnectionButton" Content="اختبار API" Click="TestApiConnectionButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/>
+                                    <Button x:Name="DeleteApiConnectionButton" Content="حذف الاتصال المحدد" Click="DeleteApiConnectionButton_Click" Background="#FBECEF" BorderBrush="#E9C3CC"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                    <TextBlock x:Name="ApiConnectionsStatus" Grid.Row="2" Text="" Foreground="#177A57" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                </Grid>
+            </TabItem>
+
             <TabItem x:Name="SettingsTab" Header="الإعدادات">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20" MaxWidth="760" HorizontalAlignment="Stretch">
