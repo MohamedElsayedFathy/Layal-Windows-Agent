@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net;
 using System.Net.Http;
 using System.Net.WebSockets;
 using System.Text;
@@ -123,6 +122,7 @@ public sealed class BrowserAutomationService
             var snapshot = await ReadPageSnapshotAsync(page, token);
             return new BrowserElementPreview(
                 action,
+                page.Id,
                 snapshot.Url,
                 selector,
                 root.GetProperty("fingerprint").GetString() ?? string.Empty,
@@ -147,6 +147,8 @@ public sealed class BrowserAutomationService
         try
         {
             var page = await GetPageTargetAsync(token);
+            if (!string.Equals(page.Id, preview.PageTargetId, StringComparison.Ordinal))
+                throw new InvalidOperationException("The active browser tab changed while awaiting approval. Inspect the intended tab again; no click was dispatched.");
             var expression = BuildActionExpression(preview, "click", string.Empty);
             var result = await EvaluateAsync(page, expression, token);
             EnsureActionSucceeded(result, "click");
@@ -167,6 +169,8 @@ public sealed class BrowserAutomationService
         try
         {
             var page = await GetPageTargetAsync(token);
+            if (!string.Equals(page.Id, preview.PageTargetId, StringComparison.Ordinal))
+                throw new InvalidOperationException("The active browser tab changed while awaiting approval. Inspect the intended tab again; no text was entered.");
             var expression = BuildActionExpression(preview, "fill", value);
             var result = await EvaluateAsync(page, expression, token);
             EnsureActionSucceeded(result, "fill");
@@ -267,7 +271,7 @@ public sealed class BrowserAutomationService
     {
         var expression = "(() => JSON.stringify({title:document.title||'',url:location.href,readyState:document.readyState," +
             "text:(document.body?.innerText||'').slice(0,20000)," +
-            "links:Array.from(document.querySelectorAll('a[href]')).slice(0,50).map(a=>({text:(a.innerText||a.getAttribute('aria-label')||'').trim().replace(/\\\\s+/g,' ').slice(0,160),href:a.href}))," +
+            "links:Array.from(document.querySelectorAll('a[href]')).slice(0,50).map(a=>({text:(a.innerText||a.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160),href:a.href}))," +
             "buttons:Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0,40).map(e=>({text:(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\\\s+/g,' ').slice(0,120),id:e.id||'',type:e.tagName.toLowerCase()}))," +
             "fields:Array.from(document.querySelectorAll('input:not([type=password]):not([type=file]):not([type=hidden]),textarea,[contenteditable=true]')).slice(0,40).map(e=>({tag:e.tagName.toLowerCase(),type:e.type||'',name:e.name||'',id:e.id||'',placeholder:e.placeholder||'',label:e.getAttribute('aria-label')||'',disabled:e.disabled===true}))," +
             "formCount:document.forms.length}))()";
@@ -313,12 +317,12 @@ public sealed class BrowserAutomationService
         {
             await socket.ConnectAsync(new Uri(page.WebSocketUrl), timeout.Token);
             var request = JsonSerializer.SerializeToUtf8Bytes(new { id = 1, method, @params = parameters });
-            await socket.SendAsync(request, WebSocketMessageType.Text, true, timeout.Token);
+            await socket.SendAsync(request.AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
             using var message = new MemoryStream();
             var buffer = new byte[8192];
             while (true)
             {
-                var received = await socket.ReceiveAsync(buffer, timeout.Token);
+                var received = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
                 if (received.MessageType == WebSocketMessageType.Close)
                     throw new WebSocketException("The browser closed the DevTools connection.");
                 message.Write(buffer, 0, received.Count);
@@ -347,8 +351,9 @@ public sealed class BrowserAutomationService
         var q = JsonSerializer.Serialize(selector);
         var requested = JsonSerializer.Serialize(action);
         return "(() => {const q=" + q + ",action=" + requested + ",e=document.querySelector(q);" +
-            "if(!e)return JSON.stringify({found:false,error:'No element matched the selector.'});" +
-            "const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
+            "const matches=document.querySelectorAll(q);if(matches.length===0)return JSON.stringify({found:false,error:'No element matched the selector.'});" +
+            "if(matches.length!==1)return JSON.stringify({found:false,error:'The selector matched multiple elements. Use a more specific selector; ambiguous actions are blocked.'});" +
+            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'';" +
@@ -370,8 +375,8 @@ public sealed class BrowserAutomationService
         return "(() => {const q=" + selector + ",expectedUrl=" + expectedUrl + ",expectedFp=" + fingerprint +
             ",action=" + actionJson + ",value=" + valueJson + ";" +
             "if(location.href!==expectedUrl)return JSON.stringify({ok:false,error:'The page URL changed while awaiting approval.'});" +
-            "const e=document.querySelector(q);if(!e)return JSON.stringify({ok:false,error:'The element no longer exists.'});" +
-            "const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase();" +
+            "const matches=document.querySelectorAll(q);if(matches.length!==1)return JSON.stringify({ok:false,error:'The selector no longer matches exactly one element.'});" +
+            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase();" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'';" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||''});" +
@@ -398,6 +403,7 @@ public sealed class BrowserAutomationService
 
 public sealed record BrowserElementPreview(
     string Action,
+    string PageTargetId,
     string PageUrl,
     string Selector,
     string Fingerprint,
