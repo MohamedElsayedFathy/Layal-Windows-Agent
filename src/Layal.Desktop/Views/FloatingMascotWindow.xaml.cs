@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 using Layal.Services;
 
@@ -19,6 +20,7 @@ public partial class FloatingMascotWindow : Window
     private readonly DispatcherTimer _floatTimer;
     private readonly DispatcherTimer _moodResetTimer;
     private readonly DispatcherTimer _idleTimer;
+    private ModelVisual3D? _avatarModelHost;
     private double _floatPhase;
     private bool _reactionActive;
     private DateTimeOffset _reactionStartedAt;
@@ -108,6 +110,8 @@ public partial class FloatingMascotWindow : Window
     public FloatingMascotWindow()
     {
         InitializeComponent();
+        _avatarModelHost = new ModelVisual3D { Content = CreateAvatarModel() };
+        AvatarViewport.Children.Add(_avatarModelHost);
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
         Opacity = AppRuntime.Settings.MascotOpacity;
         ApplyScale(AppRuntime.Settings.MascotScale);
@@ -145,6 +149,104 @@ public partial class FloatingMascotWindow : Window
         _floatTimer.Start();
         UpdateLanguage();
         SetMood("idle");
+    }
+
+    private static Model3DGroup CreateAvatarModel()
+    {
+        var group = new Model3DGroup();
+        group.Children.Add(new AmbientLight(Color.FromRgb(117, 135, 168)));
+        group.Children.Add(new DirectionalLight(Color.FromRgb(255, 252, 255), new Vector3D(-0.35, -0.55, -1)));
+        group.Children.Add(new DirectionalLight(Color.FromRgb(110, 218, 241), new Vector3D(0.65, 0.1, -0.55)));
+        group.Children.Add(new DirectionalLight(Color.FromRgb(183, 155, 255), new Vector3D(-0.7, 0.1, 0.3)));
+
+        // Smooth ellipsoid shell gives the face display real volume and reflected highlights.
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0, 0, 0), 1.08, 0.78, 0.40,
+            Color.FromRgb(225, 237, 250), Color.FromRgb(255, 255, 255)));
+
+        // A lower pearl housing and inset cyan/lilac sensor pods extend the 3D silhouette.
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0, -0.72, 0.01), 0.47, 0.18, 0.28,
+            Color.FromRgb(204, 220, 245), Color.FromRgb(239, 245, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-0.93, -0.10, 0.015), 0.18, 0.28, 0.23,
+            Color.FromRgb(190, 239, 243), Color.FromRgb(236, 255, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0.93, -0.10, 0.015), 0.18, 0.28, 0.23,
+            Color.FromRgb(218, 208, 250), Color.FromRgb(249, 245, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-0.94, -0.10, 0.22), 0.055, 0.16, 0.055,
+            Color.FromRgb(48, 188, 204), Color.FromRgb(170, 250, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0.94, -0.10, 0.22), 0.055, 0.16, 0.055,
+            Color.FromRgb(133, 112, 229), Color.FromRgb(218, 207, 255)));
+
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-0.26, -0.91, 0.04), 0.22, 0.10, 0.15,
+            Color.FromRgb(150, 133, 230), Color.FromRgb(224, 217, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0.26, -0.91, 0.04), 0.22, 0.10, 0.15,
+            Color.FromRgb(78, 191, 202), Color.FromRgb(197, 250, 252)));
+
+        return group;
+    }
+
+    private static GeometryModel3D CreateEllipsoid(
+        Point3D center, double radiusX, double radiusY, double radiusZ,
+        Color baseColor, Color highlightColor)
+    {
+        const int slices = 32;
+        const int stacks = 20;
+        var mesh = new MeshGeometry3D();
+
+        for (var stack = 0; stack <= stacks; stack++)
+        {
+            var theta = Math.PI * stack / stacks;
+            var sinTheta = Math.Sin(theta);
+            var cosTheta = Math.Cos(theta);
+
+            for (var slice = 0; slice <= slices; slice++)
+            {
+                var phi = 2 * Math.PI * slice / slices;
+                var nx = sinTheta * Math.Cos(phi);
+                var nz = sinTheta * Math.Sin(phi);
+                var ny = cosTheta;
+
+                mesh.Positions.Add(new Point3D(
+                    center.X + radiusX * nx,
+                    center.Y + radiusY * ny,
+                    center.Z + radiusZ * nz));
+
+                var normal = new Vector3D(nx / radiusX, ny / radiusY, nz / radiusZ);
+                normal.Normalize();
+                mesh.Normals.Add(normal);
+                mesh.TextureCoordinates.Add(new Point((double)slice / slices, (double)stack / stacks));
+            }
+        }
+
+        for (var stack = 0; stack < stacks; stack++)
+        {
+            for (var slice = 0; slice < slices; slice++)
+            {
+                var first = stack * (slices + 1) + slice;
+                var nextRow = first + slices + 1;
+
+                mesh.TriangleIndices.Add(first);
+                mesh.TriangleIndices.Add(nextRow);
+                mesh.TriangleIndices.Add(first + 1);
+
+                mesh.TriangleIndices.Add(first + 1);
+                mesh.TriangleIndices.Add(nextRow);
+                mesh.TriangleIndices.Add(nextRow + 1);
+            }
+        }
+
+        var material = new MaterialGroup();
+        material.Children.Add(new DiffuseMaterial(new SolidColorBrush(baseColor)));
+        material.Children.Add(new SpecularMaterial(
+            new SolidColorBrush(Color.FromArgb(172, highlightColor.R, highlightColor.G, highlightColor.B)), 52));
+
+        return new GeometryModel3D(mesh, material) { BackMaterial = material };
     }
 
     public string CurrentMood => _mood;
@@ -631,6 +733,7 @@ public partial class FloatingMascotWindow : Window
         {
             Root.RenderTransform = Transform.Identity;
             AntennaDot.RenderTransform = Transform.Identity;
+            if (_avatarModelHost is not null) _avatarModelHost.Transform = Transform3D.Identity;
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
             PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
             Canvas.SetTop(PaperProp, 94);
@@ -665,6 +768,17 @@ public partial class FloatingMascotWindow : Window
         AntennaDot.RenderTransformOrigin = new Point(0.5, 0.5);
         AntennaDot.RenderTransform = new ScaleTransform(pulse, pulse);
         GlowHalo.Opacity = (_mood is "offline" or "privacy" ? 0.20 : 0.48) + ((Math.Sin(_floatPhase) + 1) * 0.06);
+
+        // Let the 3D housing make a restrained, smooth turn without fighting the face overlay.
+        if (_avatarModelHost is not null)
+        {
+            var yaw = Math.Sin(_floatPhase * 0.22) * (_mood == "curious" ? 2.2 : 1.15);
+            var tilt = Math.Sin(_floatPhase * 0.31) * 0.9;
+            var motion = new Transform3DGroup();
+            motion.Children.Add(new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 1, 0), yaw)));
+            motion.Children.Add(new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), tilt)));
+            _avatarModelHost.Transform = motion;
+        }
 
         if (TaskPropsLayer.Visibility == Visibility.Visible)
         {
