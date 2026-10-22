@@ -87,3 +87,17 @@ Windows CI run [39852788070](https://github.com/MohamedElsayedFathy/Layal-Window
 The source validator now guards the native test modes and expected check counts, requires both dedicated CI steps, and rejects reintroducing WPF DragMove() in the mascot's drag path. The native drag suite also checks movement, click-through isolation, settings persistence, and position restoration after restart.
 
 **Scope limit:** this is successful CI-desktop native input verification, not certification on a physical multi-monitor setup. Changing real Windows DPI scales (100/125/150/175%), moving between physical monitors, keyboard-focus acceptance, and visual manual acceptance remain separate live-Windows checks. PR #6 remains a draft and unmerged.
+
+
+## Final verification and dark-mode regression prevention — 23 October 2026
+
+Windows CI run [39857814475](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39857814475) completed successfully on commit `edee14701ed613fd9af320772ce1ec8ce537bba2`. The Release build reported **0 warnings / 0 errors**; static source validation, PowerShell parse, source hygiene, package validation, restore, build, native interaction checks, automated tests, test report validation, and artifact uploads all passed.
+
+- Native transparent-padding click-through: **4 passed, 0 failed**.
+- Native drag/restart acceptance: **6 passed, 0 failed**, including three directional drag cycles, no leaked clicks, position saved to `settings.json`, and position restored after restarting Layal.exe.
+- Automated C# tests: **77 passed, 0 failed, 0 skipped**.
+- New dark-mode regression gate in `MainWindowVisualSmokeTests.cs` invokes the actual `ThemeButton_Click` path for Light → Dark → Light and asserts live resource colors, button labels, control-surface/contrast checks, and persisted settings after reload. `validate_project.py` fails CI if the UI binding, save path, or regression coverage is removed.
+
+Artifacts uploaded by this run include the Windows Release build, interactive-acceptance evidence, WPF visual-smoke snapshots, source package, and TRX test results.
+
+**Remaining manual acceptance gate:** the above is CI-desktop native interaction verification, not validation on the user's physical display. Real Windows scale changes at 100/125/150/175%, secondary-monitor movement and DPI transition, keyboard focus, and visual clipping/overlap must still be recorded in the [manual acceptance checklist](MANUAL_ACCEPTANCE_AR.md). PR #6 remains a draft and unmerged.
