@@ -155,8 +155,9 @@ public sealed class ApiConnectionService
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(RequestTimeout);
         using var request = new HttpRequestMessage(new HttpMethod(verb), uri);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         ApplyAuthentication(request, profile);
+        var hasCustomAccept = ApplyAdditionalHeaders(request, profile);
+        if (!hasCustomAccept) request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (body is not null)
             request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
 
@@ -210,6 +211,39 @@ public sealed class ApiConnectionService
         try { return (Encoding.UTF8.GetString(bytes), truncated); }
         finally { Array.Clear(bytes); Array.Clear(buffer); }
     }
+
+    private static bool ApplyAdditionalHeaders(HttpRequestMessage request, ApiConnectionProfile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.AdditionalHeadersJson)) return false;
+        JsonObject headers;
+        try { headers = JsonNode.Parse(profile.AdditionalHeadersJson) as JsonObject ?? throw new JsonException(); }
+        catch (JsonException) { throw new InvalidOperationException("Additional headers must be a JSON object of string values."); }
+
+        var customAccept = false;
+        foreach (var item in headers)
+        {
+            var name = item.Key;
+            var value = item.Value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var text) ? text : null;
+            if (!IsValidHeaderName(name) || IsReservedHeader(name) || value is null ||
+                value.Length > 4096 || value.Any(ch => ch is '\r' or '\n'))
+                throw new InvalidOperationException($"Additional header '{name}' is invalid. Use non-secret header names and string values; keep credentials in the authentication fields.");
+            if (!request.Headers.TryAddWithoutValidation(name, value))
+                throw new InvalidOperationException($"Could not add additional HTTP header '{name}'.");
+            if (name.Equals("Accept", StringComparison.OrdinalIgnoreCase)) customAccept = true;
+        }
+        return customAccept;
+    }
+
+    private static bool IsReservedHeader(string name) =>
+        name.Equals("Authorization", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Cookie", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Host", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Content-Length", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Connection", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase);
 
     private static void ApplyAuthentication(HttpRequestMessage request, ApiConnectionProfile profile)
     {
@@ -312,6 +346,7 @@ public sealed class ApiConnectionService
         }
         if ((profile.Instructions ?? string.Empty).Length > 8000)
             throw new InvalidOperationException("API usage notes must be 8000 characters or fewer.");
+        var additionalHeadersJson = ValidateAdditionalHeaders(profile.AdditionalHeadersJson);
         var testPath = (profile.TestPath ?? string.Empty).Trim();
         if (testPath.Length > 2048 || testPath.Contains('?') || testPath.Contains('#'))
             throw new InvalidOperationException("The connection test path must be relative and must not contain a query string or fragment.");
@@ -322,9 +357,32 @@ public sealed class ApiConnectionService
             AuthenticationType = authType,
             AuthHeaderName = authType == "CustomHeader" ? headerName : "X-API-Key",
             AuthSecret = authType == "None" ? string.Empty : secret,
+            AdditionalHeadersJson = additionalHeadersJson,
             Instructions = (profile.Instructions ?? string.Empty).Trim(),
             TestPath = testPath
         };
+    }
+
+    private static string ValidateAdditionalHeaders(string? value)
+    {
+        var text = (value ?? string.Empty).Trim();
+        if (text.Length == 0) return string.Empty;
+        if (text.Length > MaxQueryJsonChars)
+            throw new InvalidOperationException("Additional headers JSON exceeds the 8 KB limit.");
+        JsonObject headers;
+        try { headers = JsonNode.Parse(text) as JsonObject ?? throw new JsonException(); }
+        catch (JsonException) { throw new InvalidOperationException("Additional headers must be a JSON object of string values."); }
+
+        var normalized = new JsonObject();
+        foreach (var item in headers)
+        {
+            var valueText = item.Value is JsonValue v && v.TryGetValue<string>(out var str) ? str : null;
+            if (!IsValidHeaderName(item.Key) || IsReservedHeader(item.Key) || valueText is null ||
+                valueText.Length > 4096 || valueText.Any(ch => ch is '\r' or '\n'))
+                throw new InvalidOperationException($"Additional header '{item.Key}' is invalid. Use non-secret header names and string values; do not put API credentials here.");
+            normalized[item.Key] = valueText;
+        }
+        return normalized.ToJsonString();
     }
 
     private static string ValidateBaseUrl(string value)
@@ -361,6 +419,7 @@ public sealed class ApiConnectionService
         AuthenticationType = x.AuthenticationType,
         AuthHeaderName = x.AuthHeaderName,
         AuthSecret = x.AuthSecret,
+        AdditionalHeadersJson = x.AdditionalHeadersJson,
         Instructions = x.Instructions,
         TestPath = x.TestPath
     };
