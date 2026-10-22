@@ -45,6 +45,7 @@ public sealed class MainWindowVisualSmokeTests
     private static void RenderAllStates()
     {
         using var temp = new TestTempDirectory();
+        App.SuppressStartupForTests = true;
         var app = new App();
         app.InitializeComponent();
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -134,6 +135,7 @@ public sealed class MainWindowVisualSmokeTests
         mascot.Close();
         window.Close();
         app.Shutdown();
+        App.SuppressStartupForTests = false;
     }
 
     private static void InitializeRuntime(string root)
