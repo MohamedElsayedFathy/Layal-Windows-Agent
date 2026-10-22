@@ -53,8 +53,23 @@ jobs:
       - name: Release build
         run: dotnet build Layal.sln --configuration Release --no-restore --nologo
 
+      - name: Run native Windows desktop click-through integration
+        shell: pwsh
+        run: |
+          & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Run automated tests
         run: dotnet test Layal.sln --configuration Release --no-build --no-restore --nologo --logger "trx;LogFileName=Layal.Tests.trx" --results-directory artifacts/test-results
+
+      - name: Upload native desktop acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Layal-${{ github.sha }}-interactive-acceptance
+          path: artifacts/interactive-acceptance/**/*
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload WPF visual smoke screenshots
         if: always()
