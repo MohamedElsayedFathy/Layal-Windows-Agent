@@ -61,6 +61,6 @@ public sealed class SettingsStoreTests
         var settings = new SettingsStore(temp.Path).Load();
 
         Assert.AreEqual("ar", settings.Language);
-        Assert.AreEqual("auto", settings.ModelId);
+        Assert.AreEqual(string.Empty, settings.ModelId);
     }
 }
