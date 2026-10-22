@@ -3,8 +3,8 @@ namespace Layal.Models;
 public sealed class UserSettings
 {
     public string Language { get; set; } = "ar";
-    public string ProviderBaseUrl { get; set; } = "http://127.0.0.1:31415/v1";
-    public string ModelId { get; set; } = "auto";
+    public string ProviderBaseUrl { get; set; } = string.Empty;
+    public string ModelId { get; set; } = string.Empty;
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
     public double MascotScale { get; set; } = 1.0;
