@@ -191,6 +191,12 @@ mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
 main_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
 mascot_code = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
 main_code = main_code_path.read_text(encoding="utf-8") if main_code_path.exists() else ""
+resolver_path = ROOT / "src/Layal.Desktop/Services/TaskMoodResolver.cs"
+resolver_code = resolver_path.read_text(encoding="utf-8") if resolver_path.exists() else ""
+if not resolver_path.exists():
+    ERRORS.append("Task-stage mood resolver is missing: src/Layal.Desktop/Services/TaskMoodResolver.cs")
+if "TaskMoodResolver.Resolve(text, TaskEvents.TakeLast(4))" not in main_code:
+    ERRORS.append("Main window is not using the tested task-stage mood resolver")
 for required_fragment in (
     "CreateAvatarModel()", "CreateEllipsoid(", "Viewport3D", "UpdateTaskProps()",
     "SetTaskActive(bool active)", "IsPointOnMascot(Point point)", "IsTaskMood(string mood)",
@@ -208,8 +214,8 @@ for mood in ("embarrassed", "relieved", "determined", "confident", "apologetic",
 for mood in ("writing", "validating"):
     if mascot_code.count(f'"{mood}"') < 4:
         ERRORS.append(f"Task-stage mood '{mood}' is not fully wired into the mascot expression/reaction lifecycle")
-    if f'"{mood}"' not in main_code:
-        ERRORS.append(f"Task-stage routing does not use mascot mood '{mood}'")
+    if f'"{mood}"' not in resolver_code:
+        ERRORS.append(f"Task-stage resolver does not route mood '{mood}'")
 if "ForInterfaceLanguage(string? language)" not in (ROOT / "src/Layal.Desktop/Services/LayalIdentity.cs").read_text(encoding="utf-8"):
     ERRORS.append("Selected interface language is not applied to Layal's system prompt")
 if "ChatMessageContextMenu_Opened" not in main_code:
