@@ -17,17 +17,24 @@ public static class BidiTextNormalizer
 
     public static string NormalizeMixedText(string? value)
     {
-        if (string.IsNullOrEmpty(value))
-            return value ?? string.Empty;
+        var clean = StripDirectionalControls(value);
+        if (clean.Length == 0)
+            return string.Empty;
 
-        // Strip markers first to make repeated theme/language updates idempotent.
-        var clean = value
+        return LatinRunPattern.Replace(clean, match =>
+            string.Concat(LeftToRightIsolate, match.Value, PopDirectionalIsolate));
+    }
+
+    /// <summary>Removes invisible bidi controls before copying displayed text to the clipboard.</summary>
+    public static string StripDirectionalControls(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value
             .Replace(LeftToRightIsolate.ToString(), string.Empty)
             .Replace(PopDirectionalIsolate.ToString(), string.Empty)
             .Replace('\u200E'.ToString(), string.Empty)
             .Replace('\u200F'.ToString(), string.Empty);
-
-        return LatinRunPattern.Replace(clean, match =>
-            string.Concat(LeftToRightIsolate, match.Value, PopDirectionalIsolate));
     }
 }
