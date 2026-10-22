@@ -393,9 +393,7 @@ public sealed class AgentToolExecutor
         token.ThrowIfCancellationRequested();
         var outcome = await WindowsUiAutomationService.SetTextAsync(confirmedTarget, preview, text, token);
         report($"One approved UI Automation ValuePattern.SetValue call was issued to external PID {outcome.ProcessId}; the application-level result is not confirmed.");
-        return
-            $"ValuePattern.SetValue returned for one approved Edit field in '{outcome.WindowTitle}' (PID {outcome.ProcessId}, AutomationId '{outcome.AutomationId}'). " +
-            $"Characters requested: {outcome.CharacterCount}. The previous field value was not read or returned. This does not prove the application accepted the value or submitted any form; inspect the application before continuing.";
+        return WindowsUiAutomationService.FormatTextEntryReport(outcome);
     }
 
     private async Task<string> BrowserNavigateAsync(
