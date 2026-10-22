@@ -364,6 +364,9 @@ public partial class MainWindow : Window
             if (!visited.Add(current))
                 continue;
 
+            if (current is Window currentWindow)
+                currentWindow.Title = BidiTextNormalizer.NormalizeMixedText(currentWindow.Title);
+
             if (current is TextBlock textBlock &&
                 !BindingOperations.IsDataBound(textBlock, TextBlock.TextProperty))
             {
@@ -825,7 +828,7 @@ public partial class MainWindow : Window
 
         try
         {
-            Clipboard.SetText(text);
+            Clipboard.SetText(BidiTextNormalizer.StripDirectionalControls(text));
             ChatCopyStatus.Text = IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"{label} copied to the clipboard.";
             ChatCopyStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
