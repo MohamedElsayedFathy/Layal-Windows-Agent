@@ -547,13 +547,16 @@ public partial class FloatingMascotWindow : Window
         if (_lastReactionMood.Equals(mood, StringComparison.OrdinalIgnoreCase) && now - _lastReactionShownAt < TimeSpan.FromMilliseconds(900)) return;
         _lastReactionMood = mood;
         _lastReactionShownAt = now;
-        _reactionIndexes.TryGetValue(mood, out var index);
-        var nextIndex = Random.Shared.Next(choices.Length);
+        var nextIndex = _reactionIndexes.TryGetValue(mood, out var savedIndex)
+            ? savedIndex % choices.Length
+            : Random.Shared.Next(choices.Length);
         for (var attempt = 0; attempt < choices.Length && choices[nextIndex] == _lastReactionEmoji; attempt++)
             nextIndex = (nextIndex + 1) % choices.Length;
         ReactionEmojiText.Text = choices[nextIndex];
         _lastReactionEmoji = choices[nextIndex];
-        _reactionIndexes[mood] = (nextIndex + 1 + index) % choices.Length;
+        // Walk each mood's emoji pool in shuffled-start order so it does not keep picking
+        // the same reaction at random before the rest of that pool has been shown.
+        _reactionIndexes[mood] = (nextIndex + 1) % choices.Length;
         Canvas.SetLeft(ReactionBubble, 185);
         Canvas.SetTop(ReactionBubble, 29);
         ReactionBubble.RenderTransform = Transform.Identity;
@@ -629,8 +632,8 @@ public partial class FloatingMascotWindow : Window
             AntennaDot.RenderTransform = Transform.Identity;
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
             PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
-            Canvas.SetTop(PaperProp, 72);
-            Canvas.SetTop(PencilProp, 69);
+            Canvas.SetTop(PaperProp, 94);
+            Canvas.SetTop(PencilProp, 89);
             HoloComputerProp.Opacity = TaskPropsLayer.Visibility == Visibility.Visible ? 0.92 : 0;
             HideReaction();
             return;
@@ -638,7 +641,7 @@ public partial class FloatingMascotWindow : Window
 
         _floatPhase += _mood switch
         {
-            "thinking" or "planning" or "researching" or "coding" => 0.16,
+            "thinking" or "planning" or "researching" or "coding" or "celebrating" => 0.16,
             "speaking" => 0.22,
             "listening" or "transcribing" => 0.10,
             _ => 0.075
@@ -647,7 +650,7 @@ public partial class FloatingMascotWindow : Window
         var amplitude = _mood switch
         {
             "idle" => 1.8,
-            "success" => 2.4,
+            "success" or "celebrating" => 2.4,
             "thinking" or "planning" or "researching" or "coding" => 0.8,
             "speaking" => 0.65,
             "listening" => 1.0,
@@ -665,9 +668,9 @@ public partial class FloatingMascotWindow : Window
         if (TaskPropsLayer.Visibility == Visibility.Visible)
         {
             var propWave = Math.Sin(_floatPhase);
-            Canvas.SetTop(PaperProp, 72 + propWave * 2.7);
+            Canvas.SetTop(PaperProp, 94 + propWave * 2.7);
             PaperProp.RenderTransform = new RotateTransform(Math.Sin(_floatPhase * 0.72) * 4.2);
-            Canvas.SetTop(PencilProp, 69 - Math.Cos(_floatPhase * 1.05) * 1.7);
+            Canvas.SetTop(PencilProp, 89 - Math.Cos(_floatPhase * 1.05) * 1.7);
             PencilProp.RenderTransform = new RotateTransform(-10 + Math.Sin(_floatPhase * 1.25) * 4.5);
             HoloComputerProp.RenderTransform = new TranslateTransform(0, Math.Sin(_floatPhase * 1.15) * 3.2);
             HoloComputerProp.Opacity = 0.84 + ((Math.Sin(_floatPhase * 1.45) + 1) * 0.07);
