@@ -12,7 +12,7 @@ public static class BidiTextNormalizer
     private const char PopDirectionalIsolate = '\u2069';
 
     private static readonly Regex LatinRunPattern = new(
-        @"[A-Za-z0-9]+(?:[._:/+\\-][A-Za-z0-9]+)*(?:[ ]+[A-Za-z0-9]+(?:[._:/+\\-][A-Za-z0-9]+)*)*",
+        @"[A-Za-z0-9]+(?:[._:/+-][A-Za-z0-9]+)*(?:[ ]+[A-Za-z0-9]+(?:[._:/+-][A-Za-z0-9]+)*)*",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static string NormalizeMixedText(string? value)
