@@ -135,6 +135,8 @@ public sealed class MainWindowVisualSmokeTests
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
             window.UpdateLayout();
+            Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
+                "The root window must not horizontally mirror icons or glyphs in RTL mode.");
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
             if (language == "ar")
             {
@@ -142,6 +144,10 @@ public sealed class MainWindowVisualSmokeTests
                     "English language-toggle text must retain left-to-right order on the Arabic screen.");
                 Assert.IsTrue(titleText.Text.Contains("\u2066Layal\u2069", StringComparison.Ordinal),
                     "Latin text in the Arabic title must retain left-to-right order.");
+                Assert.AreEqual(FlowDirection.LeftToRight, titleText.FlowDirection,
+                    "Arabic text should be right-aligned locally rather than mirroring its parent visual.");
+                Assert.AreEqual(TextAlignment.Right, titleText.TextAlignment,
+                    "Arabic title text should align to the right without flipping icons or glyph shapes.");
                 Assert.AreEqual(FlowDirection.LeftToRight, baseUrlInput.FlowDirection,
                     "API base URLs must stay left-to-right on the Arabic screen.");
                 Assert.AreEqual(FlowDirection.LeftToRight, modelInput.FlowDirection,
