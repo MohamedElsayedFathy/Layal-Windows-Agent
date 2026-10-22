@@ -277,7 +277,7 @@ public partial class FloatingMascotWindow : Window
         // Hip, knee and ankle nodes form a true parent-child transform chain.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.28, -0.60, 0.24)
+            Transform = new TranslateTransform3D(side * 0.28, -0.60, 0.27)
         };
         root.Children.Add(new ModelVisual3D
         {
@@ -319,7 +319,7 @@ public partial class FloatingMascotWindow : Window
         // Shoulder, elbow and wrist are separate transformable scene nodes.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.60, -0.30, 0.035)
+            Transform = new TranslateTransform3D(side * 0.62, -0.36, 0.28)
         };
         root.Children.Add(new ModelVisual3D
         {
@@ -670,10 +670,13 @@ public partial class FloatingMascotWindow : Window
         {
             Children =
             {
+                // Reduce the head slightly and lift it off the torso so the neck and body
+                // silhouette read as a character, not only as a floating faceplate.
+                new ScaleTransform3D(0.90, 0.90, 0.90),
                 new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 1, 0), Math.Sin(phase * 0.22) * (_mood == "curious" ? 7.5 : 2.8))),
                 new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(1, 0, 0), Math.Sin(phase * 0.31) * ((_mood is "thinking" or "reading") ? 3.4 : 1.6))),
                 new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), Math.Sin(phase * 0.31) * ((_mood is "embarrassed" or "shy") ? 3.2 : 1.1))),
-                new TranslateTransform3D(0, Math.Sin(phase) * 0.012, 0)
+                new TranslateTransform3D(0, 0.15 + Math.Sin(phase) * 0.012, 0)
             }
         };
         var bodyRoll = _mood is "celebrating" or "excited" ? Math.Sin(phase * 1.2) * 3.3 :
