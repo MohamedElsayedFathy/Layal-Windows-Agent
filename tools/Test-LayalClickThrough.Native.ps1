@@ -34,7 +34,10 @@ public static class LayalNativeInput
     private struct Input { public uint type; public MouseInput mi; }
 
     [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
-    private static extern IntPtr FindWindow(string className, string windowName);
+    private static extern int GetWindowText(IntPtr hwnd, System.Text.StringBuilder text, int maxCount);
+    [DllImport("user32.dll", SetLastError=true)]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+    private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
     [DllImport("user32.dll", SetLastError=true)]
     private static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
     [DllImport("user32.dll", SetLastError=true)]
@@ -47,9 +50,33 @@ public static class LayalNativeInput
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 
     private const uint SwpNoActivate=0x0010, InputMouse=0, LeftDown=0x0002, LeftUp=0x0004;
-    public static IntPtr FindLayalWindow() => FindWindow(null, "Layal");
     public static uint ProcessIdForWindow(IntPtr hwnd) { GetWindowThreadProcessId(hwnd, out uint pid); return pid; }
     public static bool Visible(IntPtr hwnd) => IsWindowVisible(hwnd);
+    public static IntPtr FindVisibleLayalWindowForProcess(int processId, out string diagnostic) {
+        IntPtr found = IntPtr.Zero;
+        var seen = new System.Collections.Generic.List<string>();
+        EnumWindows((hwnd, lParam) => {
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            if (pid == (uint)processId) {
+                bool isVisible = IsWindowVisible(hwnd);
+                var title = new System.Text.StringBuilder(512);
+                GetWindowText(hwnd, title, title.Capacity);
+                int[] bounds = null;
+                if (GetWindowRect(hwnd, out Rect rect))
+                    bounds = new int[] { rect.Left, rect.Top, rect.Right, rect.Bottom };
+                seen.Add("hwnd=0x" + hwnd.ToInt64().ToString("X") + ", visible=" + isVisible +
+                    ", title='" + title + "', bounds=" + (bounds == null ? "unknown" : string.Join(",", bounds)));
+                if (isVisible && title.ToString() == "Layal" && bounds != null &&
+                    bounds[2]-bounds[0] > 100 && bounds[3]-bounds[1] > 80) {
+                    found = hwnd;
+                    return false;
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+        diagnostic = string.Join(" | ", seen);
+        return found;
+    }
     public static int[] GetRect(IntPtr hwnd) {
         if (!GetWindowRect(hwnd, out Rect r)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(), "GetWindowRect failed.");
         return new int[] { r.Left, r.Top, r.Right, r.Bottom };
@@ -214,13 +241,14 @@ try {
     while ([DateTime]::UtcNow -lt $deadline -and $script:MascotHwnd -eq [IntPtr]::Zero) {
         Pump-Messages 100
         if ($script:AppProcess.HasExited) { throw "Layal.exe exited during startup with exit code $($script:AppProcess.ExitCode)." }
-        $hwnd=[LayalNativeInput]::FindLayalWindow()
-        if ($hwnd -ne [IntPtr]::Zero -and [LayalNativeInput]::ProcessIdForWindow($hwnd) -eq [uint32]$script:AppProcess.Id) {
-            $script:MascotHwnd=$hwnd
-        }
+        $windowDiagnostic=$null
+        $hwnd=[LayalNativeInput]::FindVisibleLayalWindowForProcess($script:AppProcess.Id,[ref]$windowDiagnostic)
+        if ($hwnd -ne [IntPtr]::Zero) { $script:MascotHwnd=$hwnd }
     }
-    if ($script:MascotHwnd -eq [IntPtr]::Zero) { throw "Could not find the visible floating Layal window for launched PID $($script:AppProcess.Id)." }
-    if (-not [LayalNativeInput]::Visible($script:MascotHwnd)) { throw "The located mascot window is not visible." }
+    if ($script:MascotHwnd -eq [IntPtr]::Zero) {
+        throw "Could not find a visible floating Layal window for launched PID $($script:AppProcess.Id). Process windows: $windowDiagnostic"
+    }
+    if (-not [LayalNativeInput]::Visible($script:MascotHwnd)) { throw "Selected Layal mascot window became hidden after enumeration." }
 
     $buttonCenter=$script:TargetButton.PointToScreen([System.Drawing.Point]::new([int]($script:TargetButton.Width/2),[int]($script:TargetButton.Height/2)))
     $initialRect=Get-MascotRect
@@ -286,20 +314,26 @@ finally {
         try { Stop-Process -Id $script:AppProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
         try { $script:AppProcess.WaitForExit(5000) } catch {}
     }
-    if ($form -and -not $form.IsDisposed) { try { $form.Close(); $form.Dispose() } catch {} }
+    if ($form -and -not $form.IsDisposed) { try { [void]$form.Close(); $form.Dispose() } catch {} }
 
+    $checks = $script:Rows.ToArray()
+    $passedRows = @($checks | Where-Object { $_.Status -eq "passed" })
+    $failedRows = @($checks | Where-Object { $_.Status -eq "failed" })
+    $resultLabel = "failed"
+    if ($script:FailureCount -eq 0 -and $checks.Length -ge 4) { $resultLabel = "passed" }
     $summary=[pscustomobject]@{
         TestSuite="Layal native Windows desktop click-through integration"
         CreatedAtLocal=(Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
         Executable=$resolvedExe
-        Result=if ($script:FailureCount -eq 0 -and $script:Rows.Count -ge 4) { "passed" } else { "failed" }
-        Passed=@($script:Rows | Where-Object Status -eq "passed").Count
-        Failed=@($script:Rows | Where-Object Status -eq "failed").Count
+        Result=$resultLabel
+        Passed=$passedRows.Count
+        Failed=$failedRows.Count
         UnderlyingClicksObserved=$script:UnderlyingClicks
-        Checks=@($script:Rows)
+        Checks=$checks
         Scope="Actual Layal WPF window and native Windows mouse input in the CI desktop session; not a physical multi-monitor DPI certification."
     }
-    $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonPath -Encoding UTF8
+    $jsonText = ConvertTo-Json -InputObject $summary -Depth 6
+    [IO.File]::WriteAllText($jsonPath, $jsonText, (New-Object System.Text.UTF8Encoding($false)))
 }
 if ($script:FailureCount -gt 0 -or $script:Rows.Count -lt 4) {
     Write-Error "Native desktop click-through integration failed. See $jsonPath and $csvPath"
