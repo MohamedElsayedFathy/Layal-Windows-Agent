@@ -58,6 +58,7 @@
 - [ ] Pass Windows Release build and automated regression tests on this branch.
 - [ ] Manually verify click/drag/double-click, display scaling, task transitions, and reduced-motion behavior on Windows.
 - [x] Add a procedural native WPF 3D pearlescent shell behind the expressive 2D face overlay.
+- [x] Add a soft background gradient and restrained translucent/glossy header and card surfaces for both themes.
 - [ ] Evolve the procedural shell into a full 3D avatar with body/head rigging and 3D facial or gaze controls before marking the complete 3D character requirement done.
 - [ ] Redesign and visually validate all application sections as one consistent light/dark design system.
 
