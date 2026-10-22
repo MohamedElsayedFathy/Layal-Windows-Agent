@@ -58,6 +58,7 @@ public partial class FloatingMascotWindow : Window
         public double BaseY { get; init; }
         public double Phase { get; init; }
         public double Drift { get; init; }
+        public double Speed { get; init; }
     }
     private double _floatPhase;
     private bool _reactionActive;
@@ -478,7 +479,8 @@ public partial class FloatingMascotWindow : Window
                 BaseX = anchor.X,
                 BaseY = anchor.Y,
                 Phase = i * 0.91 + _particleSeed * 0.23,
-                Drift = 4.5 + (i % 4) * 2.2
+                Drift = 4.5 + (i % 4) * 2.2,
+                Speed = 0.44 + (i % 4) * 0.11
             });
         }
         _particleSeed++;
@@ -496,17 +498,27 @@ public partial class FloatingMascotWindow : Window
 
         foreach (var particle in _cinematicParticles)
         {
-            var wave = _floatPhase * 0.8 + particle.Phase;
-            Canvas.SetLeft(particle.Element, particle.BaseX + Math.Sin(wave) * particle.Drift);
-            Canvas.SetTop(particle.Element, particle.BaseY + Math.Cos(wave * 0.68) * 7 - Math.Abs(Math.Sin(wave * 0.32)) * 5);
-            particle.Element.Opacity = 0.20 + (Math.Sin(wave * 1.15) + 1) * 0.31;
-            var scale = 0.78 + (Math.Sin(wave * 1.7) + 1) * 0.17;
+            // Each glyph follows a staggered rise/fade cycle; different speeds keep the
+            // burst from looking like a synchronized row of labels.
+            var cycle = (_floatPhase * particle.Speed + particle.Phase) % (Math.PI * 2);
+            if (cycle < 0) cycle += Math.PI * 2;
+            var progress = cycle / (Math.PI * 2);
+            var rise = progress * (IsTaskMood(_mood) || _taskActive ? 28 : 20);
+            var wave = cycle * 1.7;
+            var outward = particle.BaseX < 124 ? -1.0 : 1.0;
+            var burst = _mood is "success" or "happy" or "excited" or "celebrating" ? Math.Sin(progress * Math.PI) * 5.5 : 0;
+            Canvas.SetLeft(particle.Element, particle.BaseX + Math.Sin(wave) * particle.Drift + outward * burst);
+            Canvas.SetTop(particle.Element, particle.BaseY - rise + Math.Cos(wave * 0.68) * 3.5);
+            var fade = Math.Sin(progress * Math.PI);
+            particle.Element.Opacity = 0.12 + fade * 0.68;
+            var scale = 0.60 + fade * 0.45 + Math.Sin(wave * 1.7) * 0.06;
+            var rotation = Math.Sin(wave * 0.75) * (IsTaskMood(_mood) ? 22 : 34);
             particle.Element.RenderTransform = new TransformGroup
             {
                 Children =
                 {
-                    new RotateTransform(Math.Sin(wave) * 14),
-                    new ScaleTransform(scale, scale)
+                    new RotateTransform(rotation),
+                    new ScaleTransform(Math.Max(0.4, scale), Math.Max(0.4, scale))
                 }
             };
         }
