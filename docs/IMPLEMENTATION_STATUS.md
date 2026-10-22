@@ -64,7 +64,7 @@ The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a 
 - **Stage 3 Part 2 — DPI and interaction acceptance:** implementation and automated test work have started after user approval. The desktop app now declares PerMonitorV2 DPI awareness and enables WPF re-layout after DPI changes; mascot hit-region math is isolated and regression-tested, and settings round-trip coverage includes persisted theme/language and mascot placement/options. Windows CI is required to validate these changes.
 - **Live hardware gate remains pending:** actual monitor scale changes at 100/125/150/175%, secondary-monitor movement, real input/click-through behavior, keyboard focus, and restart persistence must still be exercised and recorded on an interactive Windows desktop. RenderTargetBitmap density captures do not simulate physical monitor DPI.
 - The avatar remains procedural WPF 3D geometry/scene nodes, not an imported artist-authored mesh or DCC bone rig. The theme-aware gradients/cards provide a restrained glass-like finish, not true desktop acrylic blur.
-- Plan: `docs/PHASED_EXECUTION_AR.md`. Manual checklist: `docs/MANUAL_ACCEPTANCE_AR.md`. PR #6 remains draft and unmerged; Part 2 must wait for the user's explicit approval.
+- Plan: `docs/PHASED_EXECUTION_AR.md`. Manual checklist: `docs/MANUAL_ACCEPTANCE_AR.md`. PR #6 remains draft and unmerged; Live Windows hardware acceptance remains pending.
 ## Version 0.5.2 — automated regression test foundation
 
 - Added MSTest-based suites for SettingsStore defaults/normalization/round-trip/corrupt-file recovery.
