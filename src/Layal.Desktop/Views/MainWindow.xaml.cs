@@ -4,6 +4,7 @@ using System.Text;
 using System.Net;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
@@ -91,7 +92,7 @@ public partial class MainWindow : Window
             ["Layal.Color.Cyan"] = dark ? "#76DFE8" : "#087B8F",
             ["Layal.Color.Purple"] = dark ? "#B6A5FF" : "#7563D6",
             ["Layal.Color.Text"] = dark ? "#EDF2FF" : "#1C2940",
-            ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#63738A",
+            ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#5D6D84",
             ["Layal.Color.Success"] = dark ? "#73DEAA" : "#177A57",
             ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
             ["Layal.Color.Danger"] = dark ? "#FF91A8" : "#BD3C55",
@@ -345,6 +346,57 @@ public partial class MainWindow : Window
         ChatProviderStatus.Text = tested ? (IsArabic ? "تم اختبار نقطة الاتصال في هذه الجلسة" : "Endpoint tested in this session")
             : ready ? (IsArabic ? "إعداد محفوظ؛ اختبر الاتصال" : "Configured; test connection")
             : (IsArabic ? "لا يوجد اتصال مختبَر" : "Not connected/tested");
+
+        NormalizeBidiTextInTree();
+    }
+
+    private void NormalizeBidiTextInTree()
+    {
+        // Preserve the RTL layout of Arabic screens while isolating embedded Latin terms
+        // such as English labels, API names and file formats from the surrounding direction.
+        var pending = new Stack<DependencyObject>();
+        var visited = new HashSet<DependencyObject>();
+        pending.Push(this);
+
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (!visited.Add(current))
+                continue;
+
+            if (current is TextBlock textBlock &&
+                !BindingOperations.IsDataBound(textBlock, TextBlock.TextProperty))
+            {
+                textBlock.Text = BidiTextNormalizer.NormalizeMixedText(textBlock.Text);
+            }
+
+            if (current is ContentControl contentControl &&
+                contentControl.Content is string content &&
+                !BindingOperations.IsDataBound(contentControl, ContentControl.ContentProperty))
+            {
+                contentControl.Content = BidiTextNormalizer.NormalizeMixedText(content);
+            }
+
+            if (current is HeaderedContentControl headeredContent &&
+                headeredContent.Header is string header &&
+                !BindingOperations.IsDataBound(headeredContent, HeaderedContentControl.HeaderProperty))
+            {
+                headeredContent.Header = BidiTextNormalizer.NormalizeMixedText(header);
+            }
+
+            foreach (var child in LogicalTreeHelper.GetChildren(current))
+            {
+                if (child is DependencyObject dependencyChild)
+                    pending.Push(dependencyChild);
+            }
+
+            if (current is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D)
+            {
+                var childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(current);
+                for (var i = 0; i < childCount; i++)
+                    pending.Push(System.Windows.Media.VisualTreeHelper.GetChild(current, i));
+            }
+        }
     }
 
     private void SetLanguage(string language)
