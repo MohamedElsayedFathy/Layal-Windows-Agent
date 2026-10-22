@@ -202,6 +202,28 @@ else:
         if fragment not in mascot_window_code:
             ERRORS.append(f"Captured-pointer mascot drag wiring is missing '{fragment}'")
 
+# Keep native acceptance from silently regressing to a one-off movement check. The Windows
+# job must replay opposite-direction drags and verify persisted position after process restart.
+native_acceptance_path = ROOT / "tools/Test-LayalClickThrough.Native.ps1"
+workflow_path = ROOT / ".github/workflows/windows-build.yml"
+native_acceptance = native_acceptance_path.read_text(encoding="utf-8") if native_acceptance_path.is_file() else ""
+workflow_code = workflow_path.read_text(encoding="utf-8") if workflow_path.is_file() else ""
+if not native_acceptance_path.is_file():
+    ERRORS.append("Native Windows interaction acceptance harness is missing")
+else:
+    for fragment in (
+        "$dragVectors = @(@{X=42;Y=28}",
+        "Native mouse drag cycle $iteration",
+        "Dragged position persisted to settings",
+        "Dragged position restored after app restart",
+        "DpiScaleForWindow",
+        "UnderlyingClicks -ne $beforeClicks",
+    ):
+        if fragment not in native_acceptance:
+            ERRORS.append(f"Native drag regression coverage is missing '{fragment}'")
+if "Run native Windows desktop mouse-drag integration" not in workflow_code or "-DragOnly" not in workflow_code:
+    ERRORS.append("Windows CI must execute the isolated native mouse-drag regression suite")
+
 for xaml_path in xaml_files:
     text = xaml_path.read_text(encoding="utf-8")
     for match in re.finditer(r"\{(StaticResource|DynamicResource)\s+([^}\s]+)\}", text):
