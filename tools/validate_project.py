@@ -195,9 +195,9 @@ else:
     mascot_window_code = (ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs").read_text(encoding="utf-8")
     if "MascotHitTestGeometry.IsPointOnMascot(point, Width," not in mascot_window_code:
         ERRORS.append("Floating mascot input handling is not using the testable hit-test geometry")
-    for fragment in ("MascotHitTestWindowProc", "AddHook(MascotHitTestWindowProc)", "WmNcHitTest", "HtTransparent"):
+    for fragment in ("_hitTestTimer", "UpdateHitTestTransparency()", "WsExTransparent", "GetCursorPos(out NativePoint point)", "SetWindowLongPtrCompat(hwnd, GwlExStyle"):
         if fragment not in mascot_window_code:
-            ERRORS.append(f"Transparent-padding click-through wiring is missing '{fragment}'")
+            ERRORS.append(f"Cross-process transparent-padding click-through wiring is missing '{fragment}'")
 
 for xaml_path in xaml_files:
     text = xaml_path.read_text(encoding="utf-8")
