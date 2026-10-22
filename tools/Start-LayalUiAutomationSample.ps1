@@ -22,7 +22,7 @@ $panel.Margin = [System.Windows.Thickness]::new(22)
 $window.Content = $panel
 
 $heading = New-Object System.Windows.Controls.TextBlock
-$heading.Text = "Layal — UI Automation safety test"
+$heading.Text = "Layal - UI Automation safety test"
 $heading.FontSize = 19
 $heading.FontWeight = [System.Windows.FontWeights]::SemiBold
 $heading.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
@@ -80,7 +80,8 @@ $textBox.Add_TextChanged({
 })
 
 $actionButton.Add_Click({
-    $status.Text = "Button action observed locally at $(Get-Date -Format 'HH:mm:ss'). No data was submitted."
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $status.Text = "Button action observed locally at $timestamp. No data was submitted."
 })
 
 [void]$window.ShowDialog()
