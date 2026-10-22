@@ -291,12 +291,6 @@ public partial class FloatingMascotWindow : Window
         group.Children.Add(CreateEllipsoid(
             new Point3D(0, -0.69, 0.292), 0.19, 0.048, 0.028,
             Color.FromRgb(67, 199, 209), Color.FromRgb(187, 250, 250)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(-0.25, -0.90, 0.05), 0.22, 0.10, 0.15,
-            Color.FromRgb(150, 133, 230), Color.FromRgb(224, 217, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(0.25, -0.90, 0.05), 0.22, 0.10, 0.15,
-            Color.FromRgb(78, 191, 202), Color.FromRgb(197, 250, 252)));
         return group;
     }
 
