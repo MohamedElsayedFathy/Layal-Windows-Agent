@@ -8,9 +8,15 @@ namespace Layal;
 
 public partial class App : Application
 {
+    // Test harnesses can instantiate the real application resource dictionary without
+    // launching a second tray agent/window set from the WPF dispatcher startup event.
+    public static bool SuppressStartupForTests { get; set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (SuppressStartupForTests) return;
+
         var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Layal");
         Directory.CreateDirectory(dataRoot);
 
