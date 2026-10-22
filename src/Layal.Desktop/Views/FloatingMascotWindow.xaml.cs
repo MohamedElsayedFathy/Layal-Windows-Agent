@@ -159,9 +159,12 @@ public partial class FloatingMascotWindow : Window
 
     public void SetMood(string mood, bool showReaction = true)
     {
-        _lastInteractionAt = DateTimeOffset.UtcNow;
+        var normalizedMood = NormalizeMood(mood);
+        if (!string.Equals(_mood, normalizedMood, StringComparison.OrdinalIgnoreCase))
+            _lastInteractionAt = DateTimeOffset.UtcNow;
+
         var previousMood = _mood;
-        _mood = NormalizeMood(mood);
+        _mood = normalizedMood;
         _speechFrame = 0;
         _leftPupilMoodX = _leftPupilMoodY = _rightPupilMoodX = _rightPupilMoodY = 0;
         LeftPupil.RenderTransform = Transform.Identity;
@@ -691,9 +694,8 @@ public partial class FloatingMascotWindow : Window
         if (!AppRuntime.Settings.MascotAnimationsEnabled || !IsVisible || _isPointerOver || _pointerDown)
             return;
 
-        if (_mood is "idle" or "curious" or "sleepy" &&
-            DateTimeOffset.UtcNow - _lastInteractionAt >= TimeSpan.FromMinutes(2) &&
-            _mood != "sleepy")
+        if ((_mood is "idle" or "curious") &&
+            DateTimeOffset.UtcNow - _lastInteractionAt >= TimeSpan.FromMinutes(2))
         {
             SetMood("sleepy", showReaction: false);
         }
@@ -703,7 +705,7 @@ public partial class FloatingMascotWindow : Window
     {
         _isPointerOver = true;
         _lastInteractionAt = DateTimeOffset.UtcNow;
-        if (_mood is "idle" or "sleepy" && AppRuntime.Settings.MascotAnimationsEnabled)
+        if ((_mood is "idle" or "sleepy") && AppRuntime.Settings.MascotAnimationsEnabled)
             SetMood("curious");
     }
 
