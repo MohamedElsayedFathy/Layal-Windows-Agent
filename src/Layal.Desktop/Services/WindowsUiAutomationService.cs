@@ -6,7 +6,7 @@ namespace Layal.Services;
 
 /// <summary>
 /// Bounded UI Automation for a specifically selected external top-level window.
-/// Inspection never reads editable values; action support is limited to one approved InvokePattern call.
+/// Inspection never reads editable values; supported actions are limited to one approved InvokePattern, ValuePattern text entry, or TogglePattern checkbox state change per local consent.
 /// </summary>
 public static class WindowsUiAutomationService
 {

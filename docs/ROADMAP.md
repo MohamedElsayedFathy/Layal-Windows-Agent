@@ -56,6 +56,7 @@
 - [x] One-control UI Automation InvokePattern action for a unique exact AutomationId on an external window, fresh per-action approval, 8-second bound, and post-action metadata observation; real-app acceptance remains pending.
 - [x] Generic user-configured REST/JSON app API connections with DPAPI-protected profiles, no-auth/Bearer/custom-header auth, bounded request and response sizes, and local per-request approval; Windows CI/runtime acceptance pending.
 - [x] Bounded Windows UI Automation: read-only inspect, one approved InvokePattern action, one approved ValuePattern text entry into an exact unique non-password Edit field, and one approved TogglePattern state-setting action for an exact unique two-state CheckBox; manual Windows acceptance remains pending.
+- [x] Verified current checkbox automation implementation in Windows CI run 39750965626 on commit 59803b6: Release build passed and all 64 C# tests passed (0 failed, 0 skipped); this does not replace manual Windows acceptance.
 - [ ] General mouse/keyboard input, coordinate actions, screen capture approvals, and evidence-based post-action outcome checks.
 - [ ] More robust restricted process runner and recovery tests.
 - [ ] Threat model and automated security tests for workspace/skill handling.
