@@ -205,6 +205,14 @@ for mood in ("embarrassed", "relieved", "determined", "confident", "apologetic",
         ERRORS.append(f"New facial mood '{mood}' is not fully wired into expression/reaction lifecycle")
     if f'return "{mood}";' not in main_code:
         ERRORS.append(f"Chat context is not mapped to the new facial mood '{mood}'")
+for mood in ("writing", "validating"):
+    if mascot_code.count(f'"{mood}"') < 4:
+        ERRORS.append(f"Task-stage mood '{mood}' is not fully wired into the mascot expression/reaction lifecycle")
+    if f'"{mood}"' not in main_code:
+        ERRORS.append(f"Task-stage routing does not use mascot mood '{mood}'")
+if "ForInterfaceLanguage(string? language)" not in (ROOT / "src/Layal.Desktop/Services/LayalIdentity.cs").read_text(encoding="utf-8"):
+    ERRORS.append("Selected interface language is not applied to Layal's system prompt")
+
 if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
     ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
 for expected_glass_color in ("#F4FFFFFF", "#E5222B3F"):
