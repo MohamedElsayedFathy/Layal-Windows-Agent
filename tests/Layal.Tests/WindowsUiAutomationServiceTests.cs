@@ -58,4 +58,38 @@ public sealed class WindowsUiAutomationServiceTests
         Assert.ThrowsExactly<ArgumentException>(() =>
             WindowsUiAutomationService.FindVisibleWindowByExactTitle(" "));
     }
+    [TestMethod]
+    public void InvokeControlSupportsOnlyExplicitlyAllowedActionTypes()
+    {
+        Assert.AreEqual("ControlType.Button", WindowsUiAutomationService.NormalizeInvokeControlType("Button"));
+        Assert.AreEqual("ControlType.Hyperlink", WindowsUiAutomationService.NormalizeInvokeControlType("Hyperlink"));
+        Assert.AreEqual("ControlType.MenuItem", WindowsUiAutomationService.NormalizeInvokeControlType("MenuItem"));
+        Assert.AreEqual("ControlType.SplitButton", WindowsUiAutomationService.NormalizeInvokeControlType("SplitButton"));
+
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.NormalizeInvokeControlType("Edit"));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.NormalizeInvokeControlType("Text"));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.NormalizeInvokeControlType("CheckBox"));
+    }
+
+    [TestMethod]
+    public void AutomationIdMustBeNonEmptyBoundedAndFreeOfControlCharacters()
+    {
+        Assert.AreEqual("saveButton", WindowsUiAutomationService.ValidateAutomationId("saveButton"));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId(" "));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId(new string('x', 101)));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId("save\\nButton"));
+    }
+
+    [TestMethod]
+    public void InvokeReportNeverClaimsApplicationLevelSuccessFromInvocationAlone()
+    {
+        var report = WindowsUiAutomationService.FormatInvokeReport(new UiInvokeOutcome(
+            "Test App", 4242, "Button", "Save", "saveButton", true, true, true));
+
+        StringAssert.Contains(report, "InvokePattern call returned without throwing");
+        StringAssert.Contains(report, "does not by itself prove");
+        StringAssert.Contains(report, "Verify the application's result");
+        Assert.IsFalse(report.Contains("Application operation succeeded", StringComparison.Ordinal));
+    }
+
 }

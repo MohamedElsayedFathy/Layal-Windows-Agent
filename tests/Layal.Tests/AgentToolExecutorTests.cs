@@ -16,10 +16,20 @@ public sealed class AgentToolExecutorTests
         var names = definitions.Select(n => n?["function"]?["name"]?.GetValue<string>()).ToList();
 
         Assert.IsTrue(definitions.Count >= 10);
+        Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "click_ui_control"));
+
         Assert.AreEqual(names.Count, names.Distinct(StringComparer.Ordinal).Count());
         Assert.IsFalse(names.Any(string.IsNullOrWhiteSpace));
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as JsonObject);
+    }
+
+    [TestMethod]
+    public void ClickToolRequiresAnExactSupportedSelector()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.NormalizeInvokeControlType("Edit"));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId(""));
+        Assert.AreEqual("okButton", WindowsUiAutomationService.ValidateAutomationId("okButton"));
     }
 
     [TestMethod]

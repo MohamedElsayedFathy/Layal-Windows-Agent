@@ -12,8 +12,8 @@ public static class WindowsUiAutomationService
 {
     private const int MaxWindowTitleLength = 500;
     private const int MaxNodesExamined = 400;
-    private static readonly SemaphoreSlim InspectionGate = new(1, 1);
-    private static readonly TimeSpan InspectionTimeout = TimeSpan.FromSeconds(8);
+    private static readonly SemaphoreSlim AutomationGate = new(1, 1);
+    private static readonly TimeSpan OperationTimeout = TimeSpan.FromSeconds(8);
 
     private static readonly HashSet<string> AllowedControlTypes = new(StringComparer.Ordinal)
     {
@@ -87,45 +87,294 @@ public static class WindowsUiAutomationService
         return match == IntPtr.Zero ? null : new UiWindowTarget(match, matchedTitle, matchedProcessId);
     }
 
-    /// <summary>Runs the native inspection away from the WPF UI thread and bounds the caller wait.</summary>
-    public static async Task<IReadOnlyList<UiControlSummary>> ReadControlsAsync(
+    /// <summary>Runs read-only inspection away from the WPF UI thread and bounds the caller wait.</summary>
+    public static Task<IReadOnlyList<UiControlSummary>> ReadControlsAsync(
         UiWindowTarget target,
         int maxControls = 60,
-        CancellationToken cancellationToken = default)
-    {
-        if (!await InspectionGate.WaitAsync(TimeSpan.Zero, cancellationToken))
-            throw new InvalidOperationException("A previous UI Automation inspection is still running. Wait for it to finish before retrying.");
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => ReadControls(target, maxControls),
+            cancellationToken,
+            "Windows UI Automation did not respond within 8 seconds. No UI action was performed.");
 
-        Task<IReadOnlyList<UiControlSummary>> worker;
+    /// <summary>Returns a local preview of an exact supported control, without invoking it.</summary>
+    public static Task<UiInvokePreview> PreviewInvokeControlAsync(
+        UiWindowTarget target,
+        string controlType,
+        string automationId,
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => PreviewInvokeControl(target, controlType, automationId),
+            cancellationToken,
+            "UI Automation did not identify the requested control within 8 seconds. No UI action was performed.");
+
+    /// <summary>Invokes one exact control and performs a bounded, metadata-only follow-up observation.</summary>
+    public static Task<UiInvokeOutcome> InvokeControlAsync(
+        UiWindowTarget target,
+        string controlType,
+        string automationId,
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => InvokeControl(target, controlType, automationId),
+            cancellationToken,
+            "Waiting for the UI action exceeded 8 seconds. The action may have been delivered; inspect the target application before retrying. Layal will not queue a second UI Automation operation until the original operation exits.");
+
+    public static string NormalizeInvokeControlType(string controlType)
+    {
+        if (string.IsNullOrWhiteSpace(controlType) || controlType.Length > 40)
+            throw new ArgumentException("Choose a supported control type: Button, Hyperlink, MenuItem, or SplitButton.", nameof(controlType));
+
+        return controlType.Trim() switch
+        {
+            "Button" => ControlType.Button.ProgrammaticName,
+            "Hyperlink" => ControlType.Hyperlink.ProgrammaticName,
+            "MenuItem" => ControlType.MenuItem.ProgrammaticName,
+            "SplitButton" => ControlType.SplitButton.ProgrammaticName,
+            _ => throw new ArgumentException("Only Button, Hyperlink, MenuItem, and SplitButton controls can be invoked.", nameof(controlType))
+        };
+    }
+
+    public static string ValidateAutomationId(string automationId)
+    {
+        if (string.IsNullOrWhiteSpace(automationId))
+            throw new ArgumentException("A non-empty exact AutomationId is required.", nameof(automationId));
+        if (automationId.Length > 100)
+            throw new ArgumentException("AutomationId must not exceed 100 characters.", nameof(automationId));
+        if (automationId.Any(char.IsControl))
+            throw new ArgumentException("AutomationId cannot contain control characters.", nameof(automationId));
+        return automationId.Trim();
+    }
+
+    private static async Task<T> RunBoundedAutomationAsync<T>(
+        Func<T> operation,
+        CancellationToken cancellationToken,
+        string timeoutMessage)
+    {
+        if (!await AutomationGate.WaitAsync(TimeSpan.Zero, cancellationToken))
+            throw new InvalidOperationException("A previous Windows UI Automation operation is still running. Wait for it to finish before retrying.");
+
+        Task<T> worker;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            worker = Task.Run(() => ReadControls(target, maxControls), CancellationToken.None);
+            worker = Task.Run(operation, CancellationToken.None);
         }
         catch
         {
-            InspectionGate.Release();
+            AutomationGate.Release();
             throw;
         }
 
-        // Release the single-flight gate only when the native operation itself completes.
-        // If the provider hangs, the WPF caller still times out, but another inspection is
-        // not started on top of a potentially blocked UI Automation worker.
+        // Keep the gate held if native UI Automation is still blocked after the caller times out.
+        // Observe late faults so they do not become unobserved task exceptions.
         _ = worker.ContinueWith(
-            _ => { InspectionGate.Release(); },
+            completed =>
+            {
+                _ = completed.Exception;
+                AutomationGate.Release();
+            },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
 
         try
         {
-            return await worker.WaitAsync(InspectionTimeout, cancellationToken);
+            return await worker.WaitAsync(OperationTimeout, cancellationToken);
         }
         catch (TimeoutException)
         {
-            throw new TimeoutException("Windows UI Automation did not respond within 8 seconds. No UI action was performed.");
+            throw new TimeoutException(timeoutMessage);
         }
     }
+
+    private static UiInvokePreview PreviewInvokeControl(UiWindowTarget target, string controlType, string automationId)
+    {
+        var programmaticType = NormalizeInvokeControlType(controlType);
+        automationId = ValidateAutomationId(automationId);
+        var element = FindUniqueActionControl(target, programmaticType, automationId);
+        var info = element.Current;
+
+        if (info.IsPassword)
+            throw new InvalidOperationException("Password controls cannot be invoked through this tool.");
+        if (info.IsOffscreen)
+            throw new InvalidOperationException("The selected control is offscreen. Bring it into view and inspect again.");
+        if (!info.IsEnabled)
+            throw new InvalidOperationException("The selected control is disabled.");
+        if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern) || pattern is not InvokePattern)
+            throw new InvalidOperationException("The selected control does not expose the UI Automation InvokePattern. No action was performed.");
+
+        return new UiInvokePreview(
+            target.Title,
+            target.ProcessId,
+            DisplayControlType(programmaticType),
+            SafeNamedControlTypesForActions.Contains(programmaticType) ? Sanitize(info.Name, 100) : string.Empty,
+            automationId,
+            info.IsEnabled);
+    }
+
+    private static UiInvokeOutcome InvokeControl(UiWindowTarget target, string controlType, string automationId)
+    {
+        var preview = PreviewInvokeControl(target, controlType, automationId);
+        var programmaticType = NormalizeInvokeControlType(controlType);
+        var element = FindUniqueActionControl(target, programmaticType, preview.AutomationId);
+        var info = element.Current;
+
+        if (!info.IsEnabled || info.IsOffscreen || info.IsPassword)
+            throw new InvalidOperationException("The selected control became disabled, offscreen, or protected before invocation. No action was performed.");
+        if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern) || pattern is not InvokePattern invokePattern)
+            throw new InvalidOperationException("The selected control no longer exposes InvokePattern. No action was performed.");
+
+        invokePattern.Invoke();
+        Thread.Sleep(250);
+
+        var windowStillVisible = IsTargetWindowStillVisible(target);
+        bool? controlStillPresent = null;
+        bool? controlStillEnabled = null;
+        if (windowStillVisible)
+        {
+            try
+            {
+                var after = FindUniqueActionControl(target, programmaticType, preview.AutomationId);
+                var afterInfo = after.Current;
+                controlStillPresent = true;
+                controlStillEnabled = afterInfo.IsEnabled;
+            }
+            catch (InvalidOperationException ex) when (
+                ex.Message.StartsWith("No matching UI control with this type and AutomationId was found", StringComparison.Ordinal))
+            {
+                controlStillPresent = false;
+            }
+            catch (InvalidOperationException)
+            {
+                // An ambiguous or incomplete UI tree is not evidence that the control disappeared.
+            }
+            catch (ElementNotAvailableException) { }
+            catch (COMException) { }
+        }
+
+        return new UiInvokeOutcome(
+            target.Title,
+            target.ProcessId,
+            preview.ControlType,
+            preview.Name,
+            preview.AutomationId,
+            windowStillVisible,
+            controlStillPresent,
+            controlStillEnabled);
+    }
+
+    private static AutomationElement FindUniqueActionControl(
+        UiWindowTarget target,
+        string expectedProgrammaticType,
+        string automationId)
+    {
+        var root = GetRootForExternalWindow(target);
+        var walker = TreeWalker.ControlViewWalker;
+        var pending = new Stack<AutomationElement>();
+        var matches = new List<AutomationElement>(2);
+        var examined = 0;
+        var treeIncomplete = false;
+
+        try
+        {
+            var first = walker.GetFirstChild(root);
+            if (first is not null) pending.Push(first);
+        }
+        catch (ElementNotAvailableException)
+        {
+            throw new InvalidOperationException("The target UI tree changed and could not be safely inspected. No action was performed.");
+        }
+        catch (COMException)
+        {
+            throw new InvalidOperationException("Windows UI Automation could not access the target UI tree. No action was performed.");
+        }
+
+        while (pending.Count > 0 && examined < MaxNodesExamined)
+        {
+            var element = pending.Pop();
+            examined++;
+
+            try
+            {
+                var sibling = walker.GetNextSibling(element);
+                if (sibling is not null) pending.Push(sibling);
+                var child = walker.GetFirstChild(element);
+                if (child is not null) pending.Push(child);
+
+                var info = element.Current;
+                if (!info.IsControlElement || info.IsPassword) continue;
+                var actualType = info.ControlType?.ProgrammaticName ?? string.Empty;
+                if (!string.Equals(actualType, expectedProgrammaticType, StringComparison.Ordinal)) continue;
+                if (!string.Equals(info.AutomationId, automationId, StringComparison.Ordinal)) continue;
+
+                matches.Add(element);
+                if (matches.Count > 1)
+                    throw new InvalidOperationException("More than one control has this exact AutomationId and type. No action was performed.");
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (ElementNotAvailableException)
+            {
+                treeIncomplete = true;
+            }
+            catch (COMException)
+            {
+                treeIncomplete = true;
+            }
+        }
+
+        if (pending.Count > 0 || examined >= MaxNodesExamined)
+            throw new InvalidOperationException("The target UI tree exceeds the 400-element safety limit. Refusing to invoke a control without proving it is unique.");
+        if (treeIncomplete)
+            throw new InvalidOperationException("The target UI tree changed or was partially unavailable. Refusing to invoke a control whose uniqueness cannot be proven.");
+        if (matches.Count == 0)
+            throw new InvalidOperationException("No matching UI control with this type and AutomationId was found in the selected window.");
+
+        return matches[0];
+    }
+
+    private static AutomationElement GetRootForExternalWindow(UiWindowTarget target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        EnsureWindows();
+
+        if (!IsWindow(target.Handle) || !IsWindowVisible(target.Handle))
+            throw new InvalidOperationException("The selected external window has closed or is no longer visible.");
+
+        GetWindowThreadProcessId(target.Handle, out var actualProcessId);
+        if (actualProcessId == 0 || actualProcessId != target.ProcessId || actualProcessId == Environment.ProcessId)
+            throw new InvalidOperationException("The selected window changed or is not an external application. Select it again.");
+
+        var currentTitle = GetNativeWindowTitle(target.Handle);
+        if (!string.Equals(currentTitle, target.Title, StringComparison.Ordinal))
+            throw new InvalidOperationException("The selected window title changed. Inspect the target again before acting.");
+
+        return AutomationElement.FromHandle(target.Handle);
+    }
+
+    private static bool IsTargetWindowStillVisible(UiWindowTarget target)
+    {
+        if (!IsWindow(target.Handle) || !IsWindowVisible(target.Handle)) return false;
+        GetWindowThreadProcessId(target.Handle, out var actualProcessId);
+        if (actualProcessId == 0 || actualProcessId != target.ProcessId || actualProcessId == Environment.ProcessId) return false;
+        return string.Equals(GetNativeWindowTitle(target.Handle), target.Title, StringComparison.Ordinal);
+    }
+
+    private static string GetNativeWindowTitle(IntPtr hWnd)
+    {
+        var length = GetWindowTextLength(hWnd);
+        if (length <= 0 || length > MaxWindowTitleLength) return string.Empty;
+        var buffer = new StringBuilder(length + 1);
+        _ = GetWindowText(hWnd, buffer, buffer.Capacity);
+        return buffer.ToString().Trim();
+    }
+
+    private static string DisplayControlType(string programmaticType) =>
+        programmaticType.StartsWith("ControlType.", StringComparison.Ordinal)
+            ? programmaticType["ControlType.".Length..]
+            : programmaticType;
 
     public static IReadOnlyList<UiControlSummary> ReadControls(UiWindowTarget target, int maxControls = 60)
     {
@@ -202,6 +451,14 @@ public static class WindowsUiAutomationService
         return controls;
     }
 
+    private static readonly HashSet<string> SafeNamedControlTypesForActions = new(StringComparer.Ordinal)
+    {
+        ControlType.Button.ProgrammaticName,
+        ControlType.Hyperlink.ProgrammaticName,
+        ControlType.MenuItem.ProgrammaticName,
+        ControlType.SplitButton.ProgrammaticName
+    };
+
     public static string FormatReport(string windowTitle, uint processId, IReadOnlyList<UiControlSummary> controls)
     {
         ArgumentNullException.ThrowIfNull(controls);
@@ -262,6 +519,24 @@ public static class WindowsUiAutomationService
 }
 
 public sealed record UiWindowTarget(IntPtr Handle, string Title, uint ProcessId);
+
+public sealed record UiInvokePreview(
+    string WindowTitle,
+    uint ProcessId,
+    string ControlType,
+    string Name,
+    string AutomationId,
+    bool IsEnabled);
+
+public sealed record UiInvokeOutcome(
+    string WindowTitle,
+    uint ProcessId,
+    string ControlType,
+    string Name,
+    string AutomationId,
+    bool WindowStillVisible,
+    bool? ControlStillPresent,
+    bool? ControlStillEnabled);
 
 /// <summary>Metadata-only UI control summary; intentionally has no property for a control's value.</summary>
 public sealed record UiControlSummary(string ControlType, string Name, string AutomationId, bool IsEnabled);
