@@ -101,3 +101,11 @@ Windows CI run [39857814475](https://github.com/MohamedElsayedFathy/Layal-Window
 Artifacts uploaded by this run include the Windows Release build, interactive-acceptance evidence, WPF visual-smoke snapshots, source package, and TRX test results.
 
 **Remaining manual acceptance gate:** the above is CI-desktop native interaction verification, not validation on the user's physical display. Real Windows scale changes at 100/125/150/175%, secondary-monitor movement and DPI transition, keyboard focus, and visual clipping/overlap must still be recorded in the [manual acceptance checklist](MANUAL_ACCEPTANCE_AR.md). PR #6 remains a draft and unmerged.
+
+
+## Display resolution, DPI, and multi-monitor acceptance — in progress
+
+- Added \`tools/Test-LayalDisplayDpi.ps1\` to enumerate active monitors and record physical-pixel bounds/work areas, effective DPI, the floating Layal HWND bounds, its current monitor, \`GetDpiForWindow\`, and the window's DPI-awareness level.
+- The same harness supports timed sampling for a manual cross-monitor drag. Run \`-RequireMultipleMonitors -RequireMonitorTransition -RequireDpiTransition -ObserveSeconds 90\` on a real PC with two displays configured at different Windows scaling levels; it saves JSON and CSV evidence.
+- Windows CI runs a three-second topology smoke check and uploads \`display-dpi-summary.json\` and \`display-dpi-samples.csv\`. The CI runner's topology must not be interpreted as proof of a physical multi-monitor or 100/125/150/175% scale change.
+- **Physical display acceptance remains pending** until a run on the target device records each monitor's resolution/scaling, confirms Layal crosses between displays without losing position or input behavior, and checks visual clipping/overlap. PR #6 remains draft and unmerged.

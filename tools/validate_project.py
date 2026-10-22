@@ -242,6 +242,31 @@ else:
         if fragment not in mascot_window_code:
             ERRORS.append(f"Captured-pointer mascot drag wiring is missing '{fragment}'")
 
+# Keep real Windows monitor/DPI diagnostics runnable in CI and on a physical multi-monitor machine.
+display_dpi_harness_path = ROOT / "tools/Test-LayalDisplayDpi.ps1"
+display_dpi_harness = display_dpi_harness_path.read_text(encoding="utf-8") if display_dpi_harness_path.is_file() else ""
+if not display_dpi_harness_path.is_file():
+    ERRORS.append("Display/DPI acceptance harness is missing: tools/Test-LayalDisplayDpi.ps1")
+else:
+    for fragment in (
+        "EnumDisplayMonitors",
+        "GetMonitorInfo",
+        "GetDpiForMonitor",
+        "GetDpiForWindow",
+        "GetWindowDpiAwarenessContext",
+        "RequireMultipleMonitors",
+        "RequireMonitorTransition",
+        "RequireDpiTransition",
+        "display-dpi-summary.json",
+        "display-dpi-samples.csv",
+    ):
+        if fragment not in display_dpi_harness:
+            ERRORS.append(f"Display/DPI acceptance coverage is missing '{fragment}'")
+if "Run Windows display and DPI topology smoke test" not in workflow_code or "Test-LayalDisplayDpi.ps1" not in workflow_code or "-ObserveSeconds 3" not in workflow_code:
+    ERRORS.append("Windows CI must run the display/DPI topology smoke test")
+if "Upload display and DPI topology evidence" not in workflow_code or "artifacts/display-dpi/**/*" not in workflow_code:
+    ERRORS.append("Windows CI must upload display/DPI topology evidence")
+
 # Keep native acceptance from silently regressing to a one-off movement check. The Windows
 # job must replay opposite-direction drags and verify persisted position after process restart.
 native_acceptance_path = ROOT / "tools/Test-LayalClickThrough.Native.ps1"
