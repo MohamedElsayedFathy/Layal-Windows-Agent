@@ -200,11 +200,13 @@ public partial class FloatingMascotWindow : Window
         _avatarModelHost = _headRigHost;
 
         AvatarViewport.Children.Add(_bodyRigHost);
-        AvatarViewport.Children.Add(_leftArmRigHost);
-        AvatarViewport.Children.Add(_rightArmRigHost);
-        AvatarViewport.Children.Add(_leftLegRigHost);
-        AvatarViewport.Children.Add(_rightLegRigHost);
-        AvatarViewport.Children.Add(_headRigHost);
+        // The torso is the skeleton root: shoulders, hips and head inherit its small body motion,
+        // while retaining independent local transforms for posing.
+        _bodyRigHost.Children.Add(_leftArmRigHost);
+        _bodyRigHost.Children.Add(_rightArmRigHost);
+        _bodyRigHost.Children.Add(_leftLegRigHost);
+        _bodyRigHost.Children.Add(_rightLegRigHost);
+        _bodyRigHost.Children.Add(_headRigHost);
 
         // Real 3D face plate and features replace the former flat Canvas face.
         AddEyeRig(left: true);
@@ -1390,6 +1392,14 @@ public partial class FloatingMascotWindow : Window
                 Mouth.Data = open
                     ? Geometry.Parse("M 39,50 Q 51,73 65,50 Q 52,66 39,50 Z")
                     : Geometry.Parse("M 37,52 Q 51,62 67,52");
+                if (_mouth3DHost is not null)
+                    _mouth3DHost.Content = open
+                        ? CreateEllipsoid(new Point3D(0, -0.225, 0.474), 0.112, 0.064, 0.025,
+                            Color.FromRgb(112, 40, 84), Color.FromRgb(195, 90, 144))
+                        : CreateCurveStrip(
+                            SampleQuadraticCurve(new Point3D(-0.285, -0.205, 0.472),
+                                new Point3D(0, -0.34, 0.472), new Point3D(0.285, -0.205, 0.472), 16),
+                            0.022, Color.FromRgb(250, 227, 244));
             }
         }
 
