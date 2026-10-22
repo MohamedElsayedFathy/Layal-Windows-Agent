@@ -14,6 +14,7 @@
         <Color x:Key="Layal.Color.Purple">#7563D6</Color>
         <Color x:Key="Layal.Color.Text">#1C2940</Color>
         <Color x:Key="Layal.Color.Muted">#5D6D84</Color>
+        <Color x:Key="Layal.Color.ScrollThumb">#9BAEC7</Color>
         <Color x:Key="Layal.Color.Success">#177A57</Color>
         <Color x:Key="Layal.Color.Warning">#946200</Color>
         <Color x:Key="Layal.Color.Danger">#BD3C55</Color>
@@ -47,6 +48,7 @@
         <SolidColorBrush x:Key="Layal.Purple" Color="{DynamicResource Layal.Color.Purple}" />
         <SolidColorBrush x:Key="Layal.Text" Color="{DynamicResource Layal.Color.Text}" />
         <SolidColorBrush x:Key="Layal.Muted" Color="{DynamicResource Layal.Color.Muted}" />
+        <SolidColorBrush x:Key="Layal.ScrollThumb" Color="{DynamicResource Layal.Color.ScrollThumb}" />
         <SolidColorBrush x:Key="Layal.Success" Color="{DynamicResource Layal.Color.Success}" />
         <SolidColorBrush x:Key="Layal.Warning" Color="{DynamicResource Layal.Color.Warning}" />
         <SolidColorBrush x:Key="Layal.Danger" Color="{DynamicResource Layal.Color.Danger}" />
@@ -374,7 +376,7 @@
                                                   Background="Transparent" BorderThickness="0" />
                                 </Track.DecreaseRepeatButton>
                                 <Track.Thumb>
-                                    <Thumb Background="{DynamicResource Layal.Muted}"
+                                    <Thumb Background="{DynamicResource Layal.ScrollThumb}"
                                            BorderBrush="{DynamicResource Layal.Border}"
                                            MinWidth="6" MinHeight="16">
                                         <Thumb.Template>
