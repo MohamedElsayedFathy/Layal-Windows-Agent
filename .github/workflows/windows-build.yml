@@ -27,6 +27,19 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Validate UI automation sample PowerShell syntax
+        shell: powershell
+        run: |
+          $samplePath = (Resolve-Path "tools/Start-LayalUiAutomationSample.ps1").Path
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($samplePath, [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "PowerShell sample syntax: PASS"
+
       - name: Static source checks
         run: python tools/validate_project.py
 
