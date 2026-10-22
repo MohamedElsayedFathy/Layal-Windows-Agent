@@ -198,6 +198,9 @@ else:
     for fragment in ("_hitTestTimer", "UpdateHitTestTransparency()", "WsExTransparent", "GetCursorPos(out NativePoint point)", "SetWindowLongPtrCompat(hwnd, GwlExStyle"):
         if fragment not in mascot_window_code:
             ERRORS.append(f"Cross-process transparent-padding click-through wiring is missing '{fragment}'")
+    for fragment in ("_lastDragScreenPosition", "TransformFromDevice.Transform(delta)", "ClampToVirtualScreen(Left + delta.X, Top + delta.Y)", "SaveMascotPosition()"):
+        if fragment not in mascot_window_code:
+            ERRORS.append(f"Captured-pointer mascot drag wiring is missing '{fragment}'")
 
 for xaml_path in xaml_files:
     text = xaml_path.read_text(encoding="utf-8")
