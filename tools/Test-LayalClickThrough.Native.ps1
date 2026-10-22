@@ -6,13 +6,16 @@ param(
     [string]$LogDirectory = "artifacts/interactive-acceptance",
     [int]$StartupTimeoutSeconds = 25,
     [switch]$CalibrationOnly,
-    [switch]$ClickThroughOnly
+    [switch]$ClickThroughOnly,
+    [switch]$DragOnly
 )
 
 $ErrorActionPreference = "Stop"
 $resolvedExe = (Resolve-Path -LiteralPath $LayalExePath).Path
 if ([IO.Path]::GetFileName($resolvedExe) -ine "Layal.exe") { throw "Expected the actual Layal.exe release executable." }
-if ($CalibrationOnly -and $ClickThroughOnly) { throw "Choose only one test mode: CalibrationOnly or ClickThroughOnly." }
+if (($CalibrationOnly -and ($ClickThroughOnly -or $DragOnly)) -or ($ClickThroughOnly -and $DragOnly)) {
+    throw "Choose only one test mode: CalibrationOnly, ClickThroughOnly, or DragOnly."
+}
 if (Get-Process -Name "Layal" -ErrorAction SilentlyContinue) { throw "A Layal process is already running. Close it before running this isolated integration test." }
 
 $resolvedLogDirectory = [IO.Path]::GetFullPath($LogDirectory)
@@ -301,6 +304,7 @@ try {
         [LayalNativeInput]::MoveTopMost($script:MascotHwnd,$buttonCenter.X-[int]($initialRect.Width/2),$buttonCenter.Y-[int]($initialRect.Height/2))
         Pump-Messages 500
 
+        if (-not $DragOnly) {
         Invoke-NativeAcceptanceCase "Transparent upper-left padding reaches underlying button" {
         $before=$script:UnderlyingClicks
         $point=Get-ScaledPoint -DesignX 8 -DesignY 8
@@ -349,6 +353,7 @@ try {
         }
         Write-Result "Transparent bottom padding reaches underlying button" "passed" "Native click incremented the underlying button. WindowFromPoint diagnostic=$nativeTarget."
     }
+        }
 
     if (-not $ClickThroughOnly) {
         Invoke-NativeAcceptanceCase "Drag moves mascot without clicking through" {
@@ -391,14 +396,14 @@ finally {
     $checks = $script:Rows.ToArray()
     $passedRows = @($checks | Where-Object { $_.Status -eq "passed" })
     $failedRows = @($checks | Where-Object { $_.Status -eq "failed" })
-    $minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } else { 5 }
+    $minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 2 } else { 5 }
     $resultLabel = "failed"
     if ($script:FailureCount -eq 0 -and $checks.Length -ge $minimumChecks) { $resultLabel = "passed" }
     $summary=[pscustomobject]@{
         TestSuite="Layal native Windows desktop click-through integration"
         CreatedAtLocal=(Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
         Executable=$resolvedExe
-        Mode=if ($CalibrationOnly) { "calibration-only" } elseif ($ClickThroughOnly) { "click-through-only" } else { "full-interactive-acceptance" }
+        Mode=if ($CalibrationOnly) { "calibration-only" } elseif ($ClickThroughOnly) { "click-through-only" } elseif ($DragOnly) { "drag-only" } else { "full-interactive-acceptance" }
         Result=$resultLabel
         Passed=$passedRows.Count
         Failed=$failedRows.Count
@@ -409,7 +414,7 @@ finally {
     $jsonText = ConvertTo-Json -InputObject $summary -Depth 6
     [IO.File]::WriteAllText($jsonPath, $jsonText, (New-Object System.Text.UTF8Encoding($false)))
 }
-$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } else { 5 }
+$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 2 } else { 5 }
 if ($script:FailureCount -gt 0 -or $script:Rows.Count -lt $minimumChecks) {
     Write-Error "Native desktop click-through integration failed. See $jsonPath and $csvPath"
     exit 1
