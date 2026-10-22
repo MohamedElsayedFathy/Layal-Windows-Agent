@@ -288,16 +288,11 @@ try {
         Move-CursorAndPump $point 450
         $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
         $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
-        $hasTransparentStyle=(($exStyle -band 0x20) -ne 0)
-        if ($nativeTarget -match ("PID=" + $script:AppProcess.Id + ", title='Layal'")) {
-            throw "Transparent padding still resolves to Layal instead of the window below. $nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle"
-        }
-        if ($nativeTarget -notmatch ("PID=" + $PID + ",")) {
-            throw "Transparent padding did not resolve to the WinForms harness process (PID=$PID). Target=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle"
-        }
         Send-LeftClick
-        if ($script:UnderlyingClicks -ne ($before+1)) { throw "Expected underlying count $($before+1), got $script:UnderlyingClicks. Target=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle" }
-        Write-Result "Transparent upper-left padding reaches underlying button" "passed" "WindowFromPoint=$nativeTarget; Layal WS_EX_TRANSPARENT=$hasTransparentStyle."
+        if ($script:UnderlyingClicks -ne ($before+1)) {
+            throw "Expected underlying click count $($before+1), got $script:UnderlyingClicks. WindowFromPoint diagnostic=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')). Note: WindowFromPoint is not authoritative for HTTRANSPARENT layered windows."
+        }
+        Write-Result "Transparent upper-left padding reaches underlying button" "passed" "Native click incremented the underlying button. WindowFromPoint diagnostic=$nativeTarget."
     }
 
     Invoke-NativeAcceptanceCase "Visible mascot receives click without underlying activation" {
@@ -319,11 +314,11 @@ try {
         Move-CursorAndPump $point 450
         $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
         $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
-        $hasTransparentStyle=(($exStyle -band 0x20) -ne 0)
-        if ($nativeTarget -notmatch ("PID=" + $PID + ",")) { throw "Bottom padding expected harness PID=$PID, got $nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle" }
         Send-LeftClick
-        if ($script:UnderlyingClicks -ne ($before+1)) { throw "Expected underlying count $($before+1), got $script:UnderlyingClicks. Target=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle" }
-        Write-Result "Transparent bottom padding reaches underlying button" "passed" "WindowFromPoint=$nativeTarget; Layal WS_EX_TRANSPARENT=$hasTransparentStyle."
+        if ($script:UnderlyingClicks -ne ($before+1)) {
+            throw "Expected underlying click count $($before+1), got $script:UnderlyingClicks. WindowFromPoint diagnostic=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')). Note: WindowFromPoint is not authoritative for HTTRANSPARENT layered windows."
+        }
+        Write-Result "Transparent bottom padding reaches underlying button" "passed" "Native click incremented the underlying button. WindowFromPoint diagnostic=$nativeTarget."
     }
 
     Invoke-NativeAcceptanceCase "Drag moves mascot without clicking through" {
