@@ -191,7 +191,7 @@ hit_test_path = ROOT / "src/Layal.Desktop/Services/MascotHitTestGeometry.cs"
 hit_test_tests_path = ROOT / "tests/Layal.Tests/MascotHitTestGeometryTests.cs"
 if not hit_test_path.is_file() or not hit_test_tests_path.is_file():
     ERRORS.append("Mascot hit-test geometry and its regression tests must both exist")
-elif "MascotHitTestGeometry.IsPointOnMascot(point, Width," not in mascot_code:
+elif "MascotHitTestGeometry.IsPointOnMascot(point, Width," not in (ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs").read_text(encoding="utf-8"):
     ERRORS.append("Floating mascot input handling is not using the testable hit-test geometry")
 
 for xaml_path in xaml_files:
