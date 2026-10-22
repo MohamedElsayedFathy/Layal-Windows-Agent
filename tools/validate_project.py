@@ -176,8 +176,8 @@ else:
         "ThemeButton_Click",
         "Color.FromRgb(17, 21, 33)",
         "Color.FromRgb(244, 247, 252)",
-        'Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode)',
-        'Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode)',
+        'Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode,',
+        'Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,',
         'AssertThemeContrastAndControlSurfaces("dark", "ar", historySelector);',
         'AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);',
     ):
