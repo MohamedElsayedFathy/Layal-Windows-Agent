@@ -401,12 +401,8 @@ public partial class MainWindow : Window
                     pending.Push(dependencyChild);
             }
 
-            if (current is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D)
-            {
-                var childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(current);
-                for (var i = 0; i < childCount; i++)
-                    pending.Push(System.Windows.Media.VisualTreeHelper.GetChild(current, i));
-            }
+            // Intentionally traverse the logical tree only. Template-generated visual children
+            // (e.g. AccessText inside a Button) must remain bound to their owning Content property.
         }
     }
 
