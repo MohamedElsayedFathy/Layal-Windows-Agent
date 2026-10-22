@@ -53,16 +53,16 @@ This matrix describes source-code presence and authored test coverage only; test
 The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a CSV copy in `REQUIREMENT_TRACEABILITY.csv`. Check that ledger before every milestone/release.
 
 
-## Phased visual-personality work — Stage 1 complete, Stage 2 awaiting approval
-- **Stage 1 — articulated 3D avatar:** implemented in the feature branch. Separate WPF 3D scene nodes exist for the head, torso, shoulders/upper arms, forearms, hands, thighs, shins and feet. Joint-level transforms create independent arm/leg posing, while the head and torso have separate transforms.
-- The face uses 3D geometry for eye whites, irises, pupils, brows, cheeks and mouth. Mood changes alter geometry/scale, pointer input updates pupil gaze, and blinking scales the 3D eye groups. The former 2D face remains at zero opacity for pointer-coordinate compatibility.
-- Stage 1 verification: Windows Release build and automated tests passed on commit `86db499d610f3f87d00599488847e803c1365263` (0 warnings, 0 errors; 45 passed, 0 failed, 0 skipped). Windows CI also generated rendered snapshots of representative avatar moods and all seven application sections; density captures are render-target scaling, not physical monitor-DPI tests.
-- The avatar is procedural WPF 3D geometry/scene graph, not an imported artist-authored mesh/animation rig. This limitation is explicit.
-- **Stage 2 — further cinematic motion and task-synchronized effects:** await the user's explicit approval before the next set of enhancements. The branch already contains initial particles and task props from earlier work; the focused cinematic-timing/motion polish is not being treated as finished.
-- **Stage 3 — complete visual audit:** wait until Stage 2 is accepted. It requires live Windows testing at real display-scaling settings plus a screenshot/checklist for each app section in both themes and languages.
+## Phased visual-personality work — Stages 1–2 implemented; Stage 3 gated on user approval
+- **Stage 1 — articulated 3D avatar:** separate WPF 3D nodes represent the head, torso, upper arms, forearms, hands, thighs, shins and feet. Independent joint transforms support posing; the 3D face includes eye whites, irises, pupils, brows, cheeks and mouth.
+- **Stage 2 — cinematic motion and task-synchronized effects:** `MascotEffectStyleResolver` selects distinct motion styles for affection, task-orbit, speech, waiting, celebration, alerts, quiet states and default idle. Stage symbols, colors and motion cadence now vary by planning/research/reading/writing/coding/tool/validation/waiting/success/error state.
+- Celebration particles use staggered eased bursts that fade out rather than repeating endlessly; their origins travel outward toward safe edge anchors. Hearts/flowers drift, task glyphs orbit, speech symbols wave, and warning/error glyphs pulse.
+- Head, torso and joint pose values use a damped transition so changes in task/social state feel less abrupt. When mascot animation is disabled, decorative particles/reactions are hidden and the rig settles into a static pose.
+- **Stage 2 verification:** Windows CI run [39812411884](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39812411884), commit `fed31dab26d0a47dcc84a5b5cdcfe6d0314dc0ab`: Release build succeeded with **0 warnings / 0 errors**; **69 tests passed, 0 failed, 0 skipped**. WPF visual-smoke captures and validated source/release artifacts were generated successfully.
+- The avatar remains procedural WPF 3D geometry/scene nodes, not an imported artist-authored mesh or DCC bone rig. The phase-2 animation work improves easing and effects but does not change that scope.
+- **Stage 3 — complete visual audit:** not started. It requires live Windows checks for all seven app sections, light/dark themes, Arabic/English layout, physical DPI changes at 100–175%, secondary displays where available, and pointer/drag behavior. Generated render-target density captures do not simulate actual Windows monitor scaling.
 - The theme-aware background gradient and lightly translucent card/header surfaces provide a restrained glass-like finish, not true desktop acrylic blur.
-- Plan and gate details: `docs/PHASED_EXECUTION_AR.md`. PR #6 remains draft and unmerged; generated snapshots do not prove interactive Windows click-through, drag bounds, physical multi-monitor DPI, or every visual alignment.
-
+- Plan and gate details: `docs/PHASED_EXECUTION_AR.md`. PR #6 remains draft and unmerged; stage 3 must wait for the user's explicit approval.
 ## Version 0.5.2 — automated regression test foundation
 
 - Added MSTest-based suites for SettingsStore defaults/normalization/round-trip/corrupt-file recovery.
