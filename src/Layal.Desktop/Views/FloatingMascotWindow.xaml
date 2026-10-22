@@ -180,7 +180,7 @@
                 </Canvas>
 
                 <!-- A hovering translucent holo-computer with a tiny live-looking display. -->
-                <Canvas x:Name="HoloComputerProp" Width="48" Height="43" Canvas.Left="194" Canvas.Top="95"
+                <Canvas x:Name="HoloComputerProp" Width="48" Height="43" Canvas.Left="198" Canvas.Top="126"
                         Opacity="0" RenderTransformOrigin="0.5,0.5">
                     <Border Width="46" Height="30" CornerRadius="6"
                             BorderBrush="#9CE9F0" BorderThickness="1.2"
