@@ -32,7 +32,7 @@
             <Path Data="M 0,5 L 5,0 L 10,5 L 5,10 Z" Fill="#B8A9F2" Opacity="0.9"
                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,26,0" />
 
-            <!-- Native WPF 3D shell. Facial features remain a precise 2D overlay so moods stay readable. -->
+            <!-- Native WPF 3D head/body/limb rig. A zero-opacity legacy face canvas remains only for pointer coordinates. -->
             <Viewport3D x:Name="AvatarViewport" Width="180" Height="160"
                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,5,0,0"
                         IsHitTestVisible="False" ClipToBounds="True">
@@ -54,7 +54,7 @@
                 <Ellipse.Effect><DropShadowEffect Color="#D9A23B" BlurRadius="8" ShadowDepth="0" Opacity="0.48" /></Ellipse.Effect>
             </Ellipse>
 
-            <!-- Pearl body with a cool gradient trim. The face display remains dark for expressive contrast. -->
+            <!-- Transparent visual trim over the lit 3D shell and recessed 3D face display. -->
             <Border x:Name="Shell" Width="132" Height="96" CornerRadius="35" BorderThickness="0"
                     VerticalAlignment="Top" Margin="0,25,0,0"
                     Background="Transparent" HorizontalAlignment="Center">
