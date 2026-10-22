@@ -5,7 +5,7 @@
 للاختبار اليدوي على جهاز به شاشتان مضبوطتان على مقاسين مختلفين، شغّل الأمر التالي ثم اسحب **الشخصية العائمة** بالكامل بين الشاشتين خلال فترة الرصد:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\\tools\\Test-LayalDisplayDpi.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -ObserveSeconds 90 -RequireMultipleMonitors -RequireMonitorTransition -RequireDpiTransition -LogDirectory "artifacts/display-dpi-manual"
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-LayalDisplayDpi.ps1 -LayalExePath ".\src\Layal.Desktop\bin\Release\net10.0-windows\Layal.exe" -ObserveSeconds 90 -RequireMultipleMonitors -RequireMonitorTransition -RequireDpiTransition -LogDirectory "artifacts/display-dpi-manual"
 ```
 
 يجب أن يتغير `MonitorDevice` عند انتقال الشخصية إلى الشاشة الثانية، وأن تتغير قيمة `WindowDpi` عند الانتقال إلى شاشة ذات مقياس مختلف. تحفظ الأداة تقرير JSON وعينات CSV. إذا كانت الشاشتان مضبوطتين على المقياس نفسه، نفّذ اختبار الانتقال بإزالة `-RequireDpiTransition` ودوّن أن اختبار تغيّر DPI لم يُحسم.

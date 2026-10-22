@@ -465,13 +465,14 @@ finally {
         }
     })
 
-    $samples = @($script:Samples)
+    $samples = $script:Samples.ToArray()
     if ($samples.Count -gt 0) {
         $samples | Export-Csv -LiteralPath $csvPath -NoTypeInformation
     }
     $uniqueMonitorHandles = @($samples | Select-Object -ExpandProperty MonitorHandle -Unique)
     $uniqueWindowDpis = @($samples | Select-Object -ExpandProperty WindowDpi -Unique)
-    $failRows = @($script:Checks | Where-Object { $_.Result -eq "failed" })
+    $checks = $script:Checks.ToArray()
+    $failRows = @($checks | Where-Object { $_.Result -eq "failed" })
     $resultLabel = if ($failRows.Count -eq 0 -and $script:Checks.Count -gt 0) { "passed" } else { "failed" }
     $monitorTransitionCount = 0
     $dpiTransitionCount = 0
@@ -498,14 +499,15 @@ finally {
         MonitorTransitionCount=$monitorTransitionCount
         DpiTransitionCount=$dpiTransitionCount
         Samples=$samples
-        Checks=@($script:Checks)
+        Checks=$checks
         Scope="The workflow smoke test records the CI display topology. Physical multi-monitor acceptance requires running this script on the target PC with RequireMonitorTransition and RequireDpiTransition."
     }
     [IO.File]::WriteAllText($jsonPath,(ConvertTo-Json -InputObject $summary -Depth 8),(New-Object System.Text.UTF8Encoding($false)))
     Write-Host ("Display/DPI diagnostic result: {0}. JSON: {1}; CSV: {2}" -f $resultLabel,$jsonPath,$csvPath)
 }
 
-if (@($script:Checks | Where-Object { $_.Result -eq "failed" }).Count -gt 0) {
+$finalFailures = @($script:Checks.ToArray() | Where-Object { $_.Result -eq "failed" })
+if ($finalFailures.Count -gt 0) {
     exit 1
 }
 Write-Host ("Layal display/DPI topology diagnostic passed with {0} check(s)." -f $script:Checks.Count)
