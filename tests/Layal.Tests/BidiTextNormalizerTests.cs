@@ -27,6 +27,13 @@ public sealed class BidiTextNormalizerTests
     }
 
     [TestMethod]
+    public void ClipboardCleanupRemovesInvisibleDirectionalControls()
+    {
+        Assert.AreEqual("Windows API", BidiTextNormalizer.StripDirectionalControls(
+            "\u2066Windows\u2069 \u2066API\u2069"));
+    }
+
+    [TestMethod]
     public void NormalizationIsIdempotentAndHandlesEmptyInput()
     {
         var normalized = BidiTextNormalizer.NormalizeMixedText("ZIP وGitHub");
