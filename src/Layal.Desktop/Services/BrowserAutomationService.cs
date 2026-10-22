@@ -94,7 +94,18 @@ public sealed class BrowserAutomationService
         {
             var page = await GetPageTargetAsync(token);
             var snapshot = await ReadPageSnapshotAsync(page, token);
-            return JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
+            var output = new JsonObject
+            {
+                ["title"] = snapshot.Title,
+                ["url"] = snapshot.Url,
+                ["readyState"] = snapshot.ReadyState,
+                ["visibleText"] = snapshot.Text,
+                ["links"] = JsonNode.Parse(snapshot.LinksJson),
+                ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson),
+                ["fields"] = JsonNode.Parse(snapshot.FieldsJson),
+                ["formCount"] = snapshot.FormCount
+            };
+            return output.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         }
         finally { _gate.Release(); }
     }
@@ -181,8 +192,17 @@ public sealed class BrowserAutomationService
 
     private async Task EnsureBrowserStartedAsync(CancellationToken token)
     {
-        if (_debugPort > 0 && _browserProcess is { HasExited: false })
-            return;
+        if (_debugPort > 0)
+        {
+            try
+            {
+                using var currentEndpoint = await _http.GetAsync(DebugEndpoint("json/version"), token);
+                if (currentEndpoint.IsSuccessStatusCode) return;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { }
+            _debugPort = 0;
+        }
+        if (await TryAttachExistingSessionAsync(token)) return;
 
         var edgePath = FindEdgeExecutable();
         Directory.CreateDirectory(_profileDirectory);
@@ -233,6 +253,33 @@ public sealed class BrowserAutomationService
         throw new TimeoutException("Microsoft Edge did not expose its local automation endpoint within 15 seconds. Check whether Edge is installed and allowed to start.");
     }
 
+    private async Task<bool> TryAttachExistingSessionAsync(CancellationToken token)
+    {
+        var activePortFile = Path.Combine(_profileDirectory, "DevToolsActivePort");
+        if (!File.Exists(activePortFile)) return false;
+        try
+        {
+            var lines = await File.ReadAllLinesAsync(activePortFile, token);
+            if (lines.Length == 0 || !int.TryParse(lines[0], out var port) || port is <= 0 or > 65535)
+                return false;
+
+            using var response = await _http.GetAsync($"http://127.0.0.1:{port}/json/version", token);
+            if (!response.IsSuccessStatusCode) return false;
+            var json = await response.Content.ReadAsStringAsync(token);
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("Browser", out var browserName) ||
+                !(browserName.GetString() ?? string.Empty).StartsWith("Edg/", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            _debugPort = port;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or HttpRequestException or UnauthorizedAccessException or JsonException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
     private static string FindEdgeExecutable()
     {
         var candidates = new[]
@@ -247,7 +294,9 @@ public sealed class BrowserAutomationService
 
     private async Task<CdpPageTarget> GetPageTargetAsync(CancellationToken token)
     {
-        if (_debugPort <= 0 || _browserProcess is null || _browserProcess.HasExited)
+        if (_debugPort <= 0)
+            await TryAttachExistingSessionAsync(token);
+        if (_debugPort <= 0)
             throw new InvalidOperationException("No Layal-controlled browser session is active. Use browser_navigate first; Layal will launch a dedicated Edge profile after you approve navigation.");
         using var response = await _http.GetAsync(DebugEndpoint("json/list"), token);
         response.EnsureSuccessStatusCode();
@@ -360,7 +409,8 @@ public sealed class BrowserAutomationService
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type, label, text, href:e.href||''});" +
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
             "if(disabled)return JSON.stringify({found:false,error:'The selected element is disabled.'});" +
-            "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});}" +
+            "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});" +
+            "if(tag==='a'&&e.href&&!/^https?:/i.test(e.href))return JSON.stringify({found:false,error:'Only HTTP/HTTPS links are allowed for browser clicks.'});}" +
             "if(action==='fill'){const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;if(!allowed||readOnly)return JSON.stringify({found:false,error:'Selector must match an editable visible text/email/search/tel/url/number input, textarea, or contenteditable field. Password/file/hidden fields are not supported.'});}" +
             "return JSON.stringify({found:true,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',disabled,readOnly,fingerprint:fp});})()";
     }
