@@ -54,6 +54,8 @@
 ## 0.5.3 — Reactive mascot personality (this branch)
 - [x] Show lightweight animated task props (work sheet, pencil, holographic computer) for working moods in the floating mascot.
 - [x] Add eight additional face-driven moods and matching non-repeating emoji reaction groups.
+- [x] Map planning, research, reading, writing, coding, tool use, and validation events to distinct facial acting.
+- [x] Apply the selected interface language to Layal's response voice and test Arabic/English prompt selection.
 - [x] Keep task props visible but static when decorative animation is disabled.
 - [ ] Pass Windows Release build and automated regression tests on this branch.
 - [ ] Manually verify click/drag/double-click, display scaling, task transitions, and reduced-motion behavior on Windows.
