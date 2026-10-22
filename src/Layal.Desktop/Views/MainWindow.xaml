@@ -271,7 +271,7 @@
                                 <PasswordBox x:Name="ApiAuthSecretInput" FlowDirection="LeftToRight" MinHeight="32"/>
                                 <TextBlock x:Name="ApiAdditionalHeadersLabel" Text="ترويسات HTTP إضافية غير سرية (JSON)" Margin="4,8,4,0"/>
                                 <TextBox x:Name="ApiAdditionalHeadersInput" FlowDirection="LeftToRight" MinHeight="58" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                                         ToolTip="{&quot;Notion-Version&quot;:&quot;2022-06-28&quot;}"/>
+                                         ToolTip="Example additional header: Notion-Version"/>
                                 <TextBlock x:Name="ApiTestPathLabel" Text="مسار اختبار الاتصال (GET)، مثل health أو users/me" Margin="4,8,4,0"/>
                                 <TextBox x:Name="ApiTestPathInput" FlowDirection="LeftToRight" MinHeight="32"/>
                                 <TextBlock x:Name="ApiInstructionsLabel" Text="ملاحظات التوثيق ونقاط النهاية (اختياري، بدون أسرار)" Margin="4,8,4,0"/>
