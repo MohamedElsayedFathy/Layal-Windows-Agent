@@ -595,6 +595,17 @@ public static class WindowsUiAutomationService
         ControlType.SplitButton.ProgrammaticName
     };
 
+    public static string FormatTextEntryReport(UiTextEntryOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(outcome);
+        var output = new StringBuilder();
+        output.AppendLine($"Window: {Sanitize(outcome.WindowTitle, 200)} (PID {outcome.ProcessId})");
+        output.AppendLine($"ValuePattern.SetValue returned for one approved Edit field (AutomationId: {Sanitize(outcome.AutomationId, 100)}).");
+        output.AppendLine($"Characters requested: {outcome.CharacterCount}.");
+        output.Append("The previous field value was not read or returned. This does not prove the application accepted the value or submitted a form; verify the result in the target application.");
+        return output.ToString();
+    }
+
     public static string FormatInvokeReport(UiInvokeOutcome outcome)
     {
         ArgumentNullException.ThrowIfNull(outcome);
