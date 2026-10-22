@@ -5,12 +5,14 @@ param(
     [string]$LayalExePath,
     [string]$LogDirectory = "artifacts/interactive-acceptance",
     [int]$StartupTimeoutSeconds = 25,
-    [switch]$CalibrationOnly
+    [switch]$CalibrationOnly,
+    [switch]$ClickThroughOnly
 )
 
 $ErrorActionPreference = "Stop"
 $resolvedExe = (Resolve-Path -LiteralPath $LayalExePath).Path
 if ([IO.Path]::GetFileName($resolvedExe) -ine "Layal.exe") { throw "Expected the actual Layal.exe release executable." }
+if ($CalibrationOnly -and $ClickThroughOnly) { throw "Choose only one test mode: CalibrationOnly or ClickThroughOnly." }
 if (Get-Process -Name "Layal" -ErrorAction SilentlyContinue) { throw "A Layal process is already running. Close it before running this isolated integration test." }
 
 $resolvedLogDirectory = [IO.Path]::GetFullPath($LogDirectory)
@@ -305,6 +307,9 @@ try {
         Move-CursorAndPump $point 450
         $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
         $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
+        if (($exStyle -band 0x20) -eq 0) {
+            throw "WS_EX_TRANSPARENT was not enabled over transparent padding. Current style=0x$($exStyle.ToString('X'))."
+        }
         Send-LeftClick
         if ($script:UnderlyingClicks -ne ($before+1)) {
             throw "Expected underlying click count $($before+1), got $script:UnderlyingClicks. WindowFromPoint diagnostic=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')). Note: WindowFromPoint is not authoritative for HTTRANSPARENT layered windows."
@@ -320,6 +325,10 @@ try {
         if ($nativeTarget -notmatch ("PID=" + $script:AppProcess.Id + ", title='Layal'")) {
             throw "The visible mascot is not the native hit-test target at its core. Cursor=($($point.X),$($point.Y)); $nativeTarget"
         }
+        $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
+        if (($exStyle -band 0x20) -ne 0) {
+            throw "WS_EX_TRANSPARENT remained enabled over the interactive mascot core. Current style=0x$($exStyle.ToString('X'))."
+        }
         Send-LeftClick
         if ($script:UnderlyingClicks -ne $before) { throw "Mascot click leaked through: expected $before underlying clicks, got $script:UnderlyingClicks. Native target before click: $nativeTarget" }
         Write-Result "Visible mascot receives click without underlying activation" "passed" "WindowFromPoint targeted the actual Layal HWND and the underlying button count stayed unchanged."
@@ -331,6 +340,9 @@ try {
         Move-CursorAndPump $point 450
         $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
         $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
+        if (($exStyle -band 0x20) -eq 0) {
+            throw "WS_EX_TRANSPARENT was not enabled over transparent padding. Current style=0x$($exStyle.ToString('X'))."
+        }
         Send-LeftClick
         if ($script:UnderlyingClicks -ne ($before+1)) {
             throw "Expected underlying click count $($before+1), got $script:UnderlyingClicks. WindowFromPoint diagnostic=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')). Note: WindowFromPoint is not authoritative for HTTRANSPARENT layered windows."
@@ -338,29 +350,31 @@ try {
         Write-Result "Transparent bottom padding reaches underlying button" "passed" "Native click incremented the underlying button. WindowFromPoint diagnostic=$nativeTarget."
     }
 
-    Invoke-NativeAcceptanceCase "Drag moves mascot without clicking through" {
-        $beforeClicks=$script:UnderlyingClicks
-        $beforeRect=Get-MascotRect
-        $anchor=Get-ScaledPoint -DesignX 124 -DesignY 80
-        Move-CursorAndPump $anchor 450
-        $downSent=[LayalNativeInput]::LeftButtonDown()
-        if ($downSent -ne 1) { throw "Could not inject native left-button down event." }
-        $script:MouseButtonHeld=$true
-        Pump-Messages 120
-        $moveSent=[LayalNativeInput]::MoveRelative(42,28)
-        if ($moveSent -ne 1) { throw "Could not inject native mouse-move while dragging." }
-        Pump-Messages 300
-        $upSent=[LayalNativeInput]::LeftButtonUp()
-        if ($upSent -ne 1) { throw "Could not inject native left-button up event." }
-        $script:MouseButtonHeld=$false
-        Pump-Messages 450
-        $afterRect=Get-MascotRect
-        $movedX=[Math]::Abs($afterRect.Left-$beforeRect.Left)
-        $movedY=[Math]::Abs($afterRect.Top-$beforeRect.Top)
-        if ($movedX -lt 15 -and $movedY -lt 15) { throw "Expected mascot movement after native drag; delta was ($movedX,$movedY) pixels." }
-        if ($script:UnderlyingClicks -ne $beforeClicks) { throw "Drag leaked input to underlying target; count changed from $beforeClicks to $script:UnderlyingClicks." }
-        Write-Result "Drag moves mascot without clicking through" "passed" "Native drag moved actual mascot window by ($movedX,$movedY) px."
-        }
+    if (-not $ClickThroughOnly) {
+        Invoke-NativeAcceptanceCase "Drag moves mascot without clicking through" {
+            $beforeClicks=$script:UnderlyingClicks
+            $beforeRect=Get-MascotRect
+            $anchor=Get-ScaledPoint -DesignX 124 -DesignY 80
+            Move-CursorAndPump $anchor 450
+            $downSent=[LayalNativeInput]::LeftButtonDown()
+            if ($downSent -ne 1) { throw "Could not inject native left-button down event." }
+            $script:MouseButtonHeld=$true
+            Pump-Messages 120
+            $moveSent=[LayalNativeInput]::MoveRelative(42,28)
+            if ($moveSent -ne 1) { throw "Could not inject native mouse-move while dragging." }
+            Pump-Messages 300
+            $upSent=[LayalNativeInput]::LeftButtonUp()
+            if ($upSent -ne 1) { throw "Could not inject native left-button up event." }
+            $script:MouseButtonHeld=$false
+            Pump-Messages 450
+            $afterRect=Get-MascotRect
+            $movedX=[Math]::Abs($afterRect.Left-$beforeRect.Left)
+            $movedY=[Math]::Abs($afterRect.Top-$beforeRect.Top)
+            if ($movedX -lt 15 -and $movedY -lt 15) { throw "Expected mascot movement after native drag; delta was ($movedX,$movedY) pixels." }
+            if ($script:UnderlyingClicks -ne $beforeClicks) { throw "Drag leaked input to underlying target; count changed from $beforeClicks to $script:UnderlyingClicks." }
+            Write-Result "Drag moves mascot without clicking through" "passed" "Native drag moved actual mascot window by ($movedX,$movedY) px."
+            }
+    }
     }
 }
 catch {
@@ -377,14 +391,14 @@ finally {
     $checks = $script:Rows.ToArray()
     $passedRows = @($checks | Where-Object { $_.Status -eq "passed" })
     $failedRows = @($checks | Where-Object { $_.Status -eq "failed" })
-    $minimumChecks = if ($CalibrationOnly) { 1 } else { 4 }
+    $minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } else { 5 }
     $resultLabel = "failed"
     if ($script:FailureCount -eq 0 -and $checks.Length -ge $minimumChecks) { $resultLabel = "passed" }
     $summary=[pscustomobject]@{
         TestSuite="Layal native Windows desktop click-through integration"
         CreatedAtLocal=(Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
         Executable=$resolvedExe
-        Mode=if ($CalibrationOnly) { "calibration-only" } else { "full-interactive-acceptance" }
+        Mode=if ($CalibrationOnly) { "calibration-only" } elseif ($ClickThroughOnly) { "click-through-only" } else { "full-interactive-acceptance" }
         Result=$resultLabel
         Passed=$passedRows.Count
         Failed=$failedRows.Count
@@ -395,7 +409,7 @@ finally {
     $jsonText = ConvertTo-Json -InputObject $summary -Depth 6
     [IO.File]::WriteAllText($jsonPath, $jsonText, (New-Object System.Text.UTF8Encoding($false)))
 }
-$minimumChecks = if ($CalibrationOnly) { 1 } else { 4 }
+$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } else { 5 }
 if ($script:FailureCount -gt 0 -or $script:Rows.Count -lt $minimumChecks) {
     Write-Error "Native desktop click-through integration failed. See $jsonPath and $csvPath"
     exit 1
