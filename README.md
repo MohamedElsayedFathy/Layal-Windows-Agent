@@ -1,8 +1,8 @@
 # Layal | ليال — Windows AI Desktop Agent
 
-**Source version 0.5.2.** Native WPF application foundation with a redesigned Calm Light UI with soft blue-lavender surfaces and darker readable text, left navigation rail, refined pearl-shell floating mascot with layered cyan/violet hardware details and expressive mood/hover animation states, custom tray icon, Arabic/English UI, OpenAI-compatible chat and tool-calling client, bounded multi-step agent orchestration, explicit approvals for consequential tools, GitHub/ZIP skill import, and locally DPAPI-encrypted chat history, task history, and memory notes. The task runner now marks final answers as CompletedWithWarnings when a tool fails or an approved action is declined; exiting through the tray also closes hidden windows and triggers cancellation.
+**Source version 0.5.2.** Native WPF application foundation with a redesigned Calm Light UI with soft blue-lavender surfaces and darker readable text, left navigation rail, refined pearl-shell floating mascot with layered cyan/violet hardware details and expressive mood/hover animation states, custom tray icon, Arabic/English UI, OpenAI-compatible chat and tool-calling client, bounded multi-step agent orchestration, explicit approvals for consequential tools, generic configurable REST/JSON application API connections (Bearer/custom-header/no-auth), GitHub/ZIP skill import, and locally DPAPI-encrypted chat history, task history, memory notes, and API connection profiles. The task runner now marks final answers as CompletedWithWarnings when a tool fails or an approved action is declined; exiting through the tray also closes hidden windows and triggers cancellation.
 
-This is a development milestone, not the complete Layal product. Real STT/TTS, browser DOM automation/research, general mouse/keyboard automation, RTSP/ONVIF video processing, MCP execution, model training, and installer/updater remain unimplemented. Static XAML/resource/event checks were run while preparing this archive. No Windows build was executed because the authoring environment does not contain the .NET SDK.
+This is a development milestone, not the complete Layal product. Generic app integration currently supports HTTP REST/JSON endpoints with no auth, bearer tokens, or one custom header; interactive OAuth flows and non-HTTP protocols need dedicated adapters. Real STT/TTS, browser DOM automation/research, general mouse/keyboard automation, RTSP/ONVIF video processing, MCP execution, model training, and installer/updater remain unimplemented. Static XAML/resource/event checks were run while preparing this archive. No Windows build was executed because the authoring environment does not contain the .NET SDK.
 
 Mascot preview: `src/Layal.Desktop/Assets/layal-mascot-modern-preview.png`. This is a visual reference; the in-app mascot is rendered by WPF vector elements so its expressions can change.
 
@@ -16,7 +16,8 @@ On Windows 10/11 x64 with the .NET 10 SDK:
 
 - Run `BUILD-LAYAL.bat` to publish a Release build.
 - Run `START-LAYAL.bat` to launch from source.
-- Configure a compatible endpoint and model ID in Settings. Tool execution requires a provider/model that actually supports OpenAI-compatible function calling.
+- New installs have no hardcoded AI-provider endpoint; configure an OpenAI-compatible model API URL, model ID, and key in Settings. Existing saved endpoints are preserved.
+- To connect external applications, open API integrations, add its REST/JSON base URL and authentication, enter optional endpoint notes, test the connection, and then invoke it from the Tasks tab. Each request requires local approval and its response is shared with the AI provider.
 
 Layal agent file tools and dotnet build/test operations are limited to `%USERPROFILE%\Documents\LayalWorkspace`; build/test commands can still execute project-defined targets and should only be run on trusted projects. See README_AR.md for limits, safeguards, and data locations.
 
