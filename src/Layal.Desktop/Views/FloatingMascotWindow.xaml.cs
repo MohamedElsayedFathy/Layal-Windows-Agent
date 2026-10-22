@@ -18,6 +18,7 @@ public partial class FloatingMascotWindow : Window
     private readonly DispatcherTimer _restoreEyesTimer;
     private readonly DispatcherTimer _floatTimer;
     private readonly DispatcherTimer _moodResetTimer;
+    private readonly DispatcherTimer _idleTimer;
     private double _floatPhase;
     private bool _reactionActive;
     private DateTimeOffset _reactionStartedAt;
@@ -27,6 +28,12 @@ public partial class FloatingMascotWindow : Window
     private int _speechFrame;
     private bool _blinked;
     private bool _isPointerOver;
+    private bool _pointerDown;
+    private bool _dragStarted;
+    private Point _pointerDownPosition;
+    private DateTimeOffset _lastInteractionAt = DateTimeOffset.UtcNow;
+    private string _lastTapMood = string.Empty;
+    private string _lastReactionEmoji = string.Empty;
     private double _pointerOffsetX;
     private double _pointerOffsetY;
     private double _leftPupilMoodX;
@@ -123,7 +130,10 @@ public partial class FloatingMascotWindow : Window
         _floatTimer.Tick += (_, _) => AnimateMoodTick();
         _moodResetTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2600) };
         _moodResetTimer.Tick += (_, _) => ResetTerminalMood();
+        _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _idleTimer.Tick += (_, _) => UpdateIdleState();
         _blinkTimer.Start();
+        _idleTimer.Start();
         _floatTimer.Start();
         UpdateLanguage();
         SetMood("idle");
@@ -149,6 +159,7 @@ public partial class FloatingMascotWindow : Window
 
     public void SetMood(string mood, bool showReaction = true)
     {
+        _lastInteractionAt = DateTimeOffset.UtcNow;
         var previousMood = _mood;
         _mood = NormalizeMood(mood);
         _speechFrame = 0;
@@ -418,7 +429,7 @@ public partial class FloatingMascotWindow : Window
         _moodResetTimer.Stop();
         if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
             "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
-            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful")
+            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited")
         {
             _moodResetTimer.Interval = _mood is "success" or "happy" or "greeting" or "love" or "laughing" or "proud"
                 ? TimeSpan.FromMilliseconds(2800)
@@ -440,7 +451,7 @@ public partial class FloatingMascotWindow : Window
         _moodResetTimer.Stop();
         if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
             "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
-            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful")
+            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited")
             SetMood(_isPointerOver ? "curious" : "idle", showReaction: false);
     }
 
@@ -452,8 +463,12 @@ public partial class FloatingMascotWindow : Window
         _lastReactionMood = mood;
         _lastReactionShownAt = now;
         _reactionIndexes.TryGetValue(mood, out var index);
-        ReactionEmojiText.Text = choices[index % choices.Length];
-        _reactionIndexes[mood] = (index + 1) % choices.Length;
+        var nextIndex = Random.Shared.Next(choices.Length);
+        for (var attempt = 0; attempt < choices.Length && choices[nextIndex] == _lastReactionEmoji; attempt++)
+            nextIndex = (nextIndex + 1) % choices.Length;
+        ReactionEmojiText.Text = choices[nextIndex];
+        _lastReactionEmoji = choices[nextIndex];
+        _reactionIndexes[mood] = (nextIndex + 1 + index) % choices.Length;
         Canvas.SetLeft(ReactionBubble, 115);
         Canvas.SetTop(ReactionBubble, 54);
         ReactionBubble.RenderTransform = Transform.Identity;
@@ -603,15 +618,65 @@ public partial class FloatingMascotWindow : Window
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        _lastInteractionAt = DateTimeOffset.UtcNow;
         if (e.ClickCount >= 2)
         {
+            _pointerDown = false;
+            if (IsMouseCaptured) ReleaseMouseCapture();
             SetMood("excited");
             AppRuntime.MainWindow?.ShowFromTray();
             e.Handled = true;
             return;
         }
-        try { DragMove(); }
-        catch (InvalidOperationException) { }
+
+        // A single tap is a personality interaction; dragging is detected only after
+        // the pointer crosses the normal Windows drag threshold.
+        _pointerDownPosition = e.GetPosition(this);
+        _pointerDown = true;
+        _dragStarted = false;
+        CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void Window_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_pointerDown) return;
+
+        _pointerDown = false;
+        if (IsMouseCaptured) ReleaseMouseCapture();
+
+        if (!_dragStarted)
+            ReactToTap();
+
+        _dragStarted = false;
+        e.Handled = true;
+    }
+
+    private void ReactToTap()
+    {
+        _lastInteractionAt = DateTimeOffset.UtcNow;
+        if (!AppRuntime.Settings.MascotAnimationsEnabled)
+        {
+            AppRuntime.MainWindow?.ShowFromTray();
+            return;
+        }
+
+        // Pick from expressive, short-lived moods. Avoid repeating the previous tap mood.
+        string[] tapMoods =
+        {
+            "happy", "greeting", "love", "laughing", "wink", "surprised",
+            "confused", "proud", "shy", "playful", "excited"
+        };
+        var nextMood = tapMoods[Random.Shared.Next(tapMoods.Length)];
+        for (var attempt = 0; attempt < tapMoods.Length && nextMood == _lastTapMood; attempt++)
+            nextMood = tapMoods[(Array.IndexOf(tapMoods, nextMood) + 1) % tapMoods.Length];
+
+        _lastTapMood = nextMood;
+        SetMood(nextMood);
+    }
+
+    private void SaveMascotPosition()
+    {
         var position = ClampToVirtualScreen(Left, Top);
         Left = position.Left;
         Top = position.Top;
@@ -621,16 +686,50 @@ public partial class FloatingMascotWindow : Window
         catch { /* Keep the mascot usable even if settings storage is unavailable. */ }
     }
 
+    private void UpdateIdleState()
+    {
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || !IsVisible || _isPointerOver || _pointerDown)
+            return;
+
+        if (_mood is "idle" or "curious" or "sleepy" &&
+            DateTimeOffset.UtcNow - _lastInteractionAt >= TimeSpan.FromMinutes(2) &&
+            _mood != "sleepy")
+        {
+            SetMood("sleepy", showReaction: false);
+        }
+    }
+
     private void Window_MouseEnter(object sender, MouseEventArgs e)
     {
         _isPointerOver = true;
-        if (_mood == "idle" && AppRuntime.Settings.MascotAnimationsEnabled)
+        _lastInteractionAt = DateTimeOffset.UtcNow;
+        if (_mood is "idle" or "sleepy" && AppRuntime.Settings.MascotAnimationsEnabled)
             SetMood("curious");
     }
 
     private void Window_MouseMove(object sender, MouseEventArgs e)
     {
         if (!IsVisible) return;
+
+        if (_pointerDown && e.LeftButton == MouseButtonState.Pressed && !_dragStarted)
+        {
+            var currentPoint = e.GetPosition(this);
+            var dx = Math.Abs(currentPoint.X - _pointerDownPosition.X);
+            var dy = Math.Abs(currentPoint.Y - _pointerDownPosition.Y);
+            if (dx >= SystemParameters.MinimumHorizontalDragDistance ||
+                dy >= SystemParameters.MinimumVerticalDragDistance)
+            {
+                _pointerDown = false;
+                _dragStarted = true;
+                if (IsMouseCaptured) ReleaseMouseCapture();
+                try { DragMove(); }
+                catch (InvalidOperationException) { }
+                SaveMascotPosition();
+                _dragStarted = false;
+                return;
+            }
+        }
+
         var size = FaceCanvas.RenderSize;
         if (size.Width <= 0 || size.Height <= 0) return;
 
@@ -675,6 +774,7 @@ public partial class FloatingMascotWindow : Window
             _restoreEyesTimer.Stop();
             _floatTimer.Stop();
             _moodResetTimer.Stop();
+            _idleTimer.Stop();
         }
         base.OnClosing(e);
     }
