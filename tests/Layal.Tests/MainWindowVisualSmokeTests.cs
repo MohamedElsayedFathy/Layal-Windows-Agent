@@ -231,7 +231,7 @@ public sealed class MainWindowVisualSmokeTests
                 {
                     var suffix = (int)Math.Round(scale * 100);
                     var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}-scale{suffix}.png");
-                    SaveSnapshot(windowContent, path, scale);
+                    SaveSnapshot(windowContent, path, scale, Application.Current.TryFindResource("Layal.Background") as Brush);
                     lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | windowDips={window.Width:0}x{window.Height:0} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}");
                 }
             }
@@ -266,7 +266,7 @@ public sealed class MainWindowVisualSmokeTests
                     $"Compact tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
 
                 var compactPath = Path.Combine(outputDirectory, $"app-compact-{theme}-{language}-{tabNames[index]}-scale100.png");
-                SaveSnapshot(windowContent, compactPath, 1.0);
+                SaveSnapshot(windowContent, compactPath, 1.0, Application.Current.TryFindResource("Layal.Background") as Brush);
                 lines.Add($"{Path.GetFileName(compactPath)} | tab={tabNames[index]} | theme={theme} | language={language} | windowDips={window.Width:0}x{window.Height:0} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0} | compactResize=true");
             }
 
@@ -404,20 +404,43 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.IsExiting = false;
     }
 
-    private static void SaveSnapshot(FrameworkElement visual, string path, double renderScale = 1.0)
+    private static void SaveSnapshot(
+        FrameworkElement visual,
+        string path,
+        double renderScale = 1.0,
+        Brush? backdrop = null)
     {
-        visual.UpdateLayout();
-        renderScale = Math.Clamp(renderScale, 1.0, 2.0);
-        var dpi = 96.0 * renderScale;
-        var width = Math.Max(1, (int)Math.Ceiling(visual.ActualWidth * renderScale));
-        var height = Math.Max(1, (int)Math.Ceiling(visual.ActualHeight * renderScale));
-        var bitmap = new RenderTargetBitmap(width, height, dpi, dpi, PixelFormats.Pbgra32);
-        bitmap.Render(visual);
-        if (bitmap.PixelWidth < 1 || bitmap.PixelHeight < 1)
-            throw new InvalidOperationException($"Empty snapshot generated for {visual.GetType().Name}.");
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(path);
-        encoder.Save(stream);
+        var panel = visual as Panel;
+        var originalBackground = panel?.Background;
+        try
+        {
+            // The real MainWindow inherits its opaque Window background behind its transparent
+            // root Grid. Reapply that same brush during capture so PNG alpha doesn't make
+            // DropShadowEffect edges look darker than they do in the running application.
+            if (panel is not null && backdrop is not null)
+                panel.Background = backdrop;
+
+            visual.UpdateLayout();
+            renderScale = Math.Clamp(renderScale, 1.0, 2.0);
+            var dpi = 96.0 * renderScale;
+            var width = Math.Max(1, (int)Math.Ceiling(visual.ActualWidth * renderScale));
+            var height = Math.Max(1, (int)Math.Ceiling(visual.ActualHeight * renderScale));
+            var bitmap = new RenderTargetBitmap(width, height, dpi, dpi, PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            if (bitmap.PixelWidth < 1 || bitmap.PixelHeight < 1)
+                throw new InvalidOperationException($"Empty snapshot generated for {visual.GetType().Name}.");
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var stream = File.Create(path);
+            encoder.Save(stream);
+        }
+        finally
+        {
+            if (panel is not null && backdrop is not null)
+            {
+                panel.Background = originalBackground;
+                visual.UpdateLayout();
+            }
+        }
     }
 }
