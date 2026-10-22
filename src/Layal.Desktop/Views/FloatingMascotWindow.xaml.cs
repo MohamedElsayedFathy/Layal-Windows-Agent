@@ -182,6 +182,21 @@ public partial class FloatingMascotWindow : Window
             new Point3D(0.94, -0.10, 0.22), 0.055, 0.16, 0.055,
             Color.FromRgb(133, 112, 229), Color.FromRgb(218, 207, 255)));
 
+        // Small articulated-looking arms sit behind the face overlay and stay within the
+        // transparent mascot hit area. They are simple 3D forms until a full rig is added.
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-1.00, -0.48, 0.04), 0.16, 0.27, 0.17,
+            Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(1.00, -0.48, 0.04), 0.16, 0.27, 0.17,
+            Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-1.11, -0.68, 0.14), 0.115, 0.13, 0.12,
+            Color.FromRgb(131, 222, 231), Color.FromRgb(224, 255, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(1.11, -0.68, 0.14), 0.115, 0.13, 0.12,
+            Color.FromRgb(177, 163, 242), Color.FromRgb(246, 240, 255)));
+
         group.Children.Add(CreateEllipsoid(
             new Point3D(-0.26, -0.91, 0.04), 0.22, 0.10, 0.15,
             Color.FromRgb(150, 133, 230), Color.FromRgb(224, 217, 255)));
