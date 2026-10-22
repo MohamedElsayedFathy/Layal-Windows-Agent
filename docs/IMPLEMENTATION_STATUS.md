@@ -53,6 +53,13 @@ This matrix describes source-code presence and authored test coverage only; test
 The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a CSV copy in `REQUIREMENT_TRACEABILITY.csv`. Check that ledger before every milestone/release.
 
 
+## Visual personality follow-up — reactive task props
+- The current floating character remains a WPF vector illustration; it is not a rigged 3D model.
+- The new visual-personality branch adds floating WPF task props (paper, pencil, holographic computer) tied to work-related moods, with gentle idle motion.
+- The branch adds eight moods whose facial features are changed on Layal's face and whose reaction emoji pools are selected separately.
+- Reduced-motion behavior keeps the work state visible while freezing the decorative prop animation.
+- **Verification status:** awaiting this branch's Windows CI and manual Windows visual acceptance; do not treat the props as true 3D or as proof of the full redesign.
+
 ## Version 0.5.2 — automated regression test foundation
 
 - Added MSTest-based suites for SettingsStore defaults/normalization/round-trip/corrupt-file recovery.
