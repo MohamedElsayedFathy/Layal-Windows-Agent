@@ -88,7 +88,7 @@ for xaml_path in xaml_files:
             if attr in {
                 "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "Closing",
                 "MouseLeftButtonDown", "MouseRightButtonUp", "MouseEnter", "MouseLeave",
-                "Loaded", "Unloaded", "TextChanged", "ValueChanged", "LostFocus"
+                "Loaded", "Unloaded", "Opened", "TextChanged", "ValueChanged", "LostFocus"
             }:
                 handlers.append(value)
     # App.xaml contains multiple separate ControlTemplate name scopes, each legitimately uses PART_ContentHost.
@@ -212,6 +212,8 @@ for mood in ("writing", "validating"):
         ERRORS.append(f"Task-stage routing does not use mascot mood '{mood}'")
 if "ForInterfaceLanguage(string? language)" not in (ROOT / "src/Layal.Desktop/Services/LayalIdentity.cs").read_text(encoding="utf-8"):
     ERRORS.append("Selected interface language is not applied to Layal's system prompt")
+if "ChatMessageContextMenu_Opened" not in main_code:
+    ERRORS.append("Chat message context menu does not switch its label with the interface language")
 
 if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
     ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
