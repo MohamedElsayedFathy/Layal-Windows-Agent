@@ -715,22 +715,36 @@ public partial class FloatingMascotWindow : Window
             _leftFootJointHost is null || _rightFootJointHost is null)
             return;
 
+        var headMoodScale = _mood is "surprised" or "celebrating" or "excited"
+            ? 1.015 + Math.Max(0, Math.Sin(phase * 2.0)) * 0.025
+            : _mood is "sleepy" or "sad" or "apologetic" ? 0.985 : 1.0;
+        var headYaw = Math.Sin(phase * 0.22) * (_mood == "curious" ? 7.5 : 2.8);
+        var headPitch = Math.Sin(phase * 0.31) * ((_mood is "thinking" or "reading") ? 3.4 : 1.6)
+            + (_mood is "sleepy" or "sad" ? 3.2 : _mood == "surprised" ? -2.8 : 0);
+        var headRoll = Math.Sin(phase * 0.31) * ((_mood is "embarrassed" or "shy" or "love") ? 3.2 : 1.1)
+            + (_mood is "confident" or "determined" ? -1.2 : 0);
+        var headLift = _mood is "celebrating" or "excited" or "success"
+            ? 0.15 + Math.Abs(Math.Sin(phase * 1.7)) * 0.035
+            : _mood is "sleepy" or "sad" or "apologetic" ? 0.12 : 0.15;
         _headRigHost.Transform = new Transform3DGroup
         {
             Children =
             {
-                // Reduce the head slightly and lift it off the torso so the neck and body
-                // silhouette read as a character, not only as a floating faceplate.
-                new ScaleTransform3D(0.90, 0.90, 0.90),
-                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 1, 0), Math.Sin(phase * 0.22) * (_mood == "curious" ? 7.5 : 2.8))),
-                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(1, 0, 0), Math.Sin(phase * 0.31) * ((_mood is "thinking" or "reading") ? 3.4 : 1.6))),
-                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), Math.Sin(phase * 0.31) * ((_mood is "embarrassed" or "shy") ? 3.2 : 1.1))),
-                new TranslateTransform3D(0, 0.15 + Math.Sin(phase) * 0.012, 0)
+                // The default lift/scale keeps the neck connected; the mood pulse adds a
+                // tiny squash-and-stretch accent for surprise and celebration.
+                new ScaleTransform3D(0.90 * headMoodScale, 0.90 * headMoodScale, 0.90),
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 1, 0), headYaw)),
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(1, 0, 0), headPitch)),
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), headRoll)),
+                new TranslateTransform3D(0, headLift + (Math.Sin(phase) * (_mood is "celebrating" or "excited" ? 0.024 : 0.012)), 0)
             }
         };
         var bodyRoll = _mood is "celebrating" or "excited" ? Math.Sin(phase * 1.2) * 3.3 :
             _mood is "thinking" or "planning" or "researching" or "coding" ? Math.Sin(phase * 0.55) * 1.2 :
             Math.Sin(phase * 0.36) * 0.7;
+        var bodyBounce = _mood is "celebrating" or "excited" or "success"
+            ? Math.Abs(Math.Sin(phase * 1.7)) * 0.04
+            : _mood is "sleepy" or "sad" or "apologetic" ? -0.012 : 0;
         _bodyRigHost.Transform = new Transform3DGroup
         {
             Children =
@@ -739,12 +753,27 @@ public partial class FloatingMascotWindow : Window
                 // and limbs inherit a believable body sway rather than orbiting the scene.
                 new RotateTransform3D(
                     new AxisAngleRotation3D(new Vector3D(0, 0, 1), bodyRoll), 0, -0.76, 0),
-                new TranslateTransform3D(0, Math.Sin(phase * 1.4) * 0.018, 0)
+                new TranslateTransform3D(0, bodyBounce + Math.Sin(phase * 1.4) * 0.018, 0)
             }
         };
 
         var leftArmAngle = Math.Sin(phase * 0.86) * 5.5;
         var rightArmAngle = Math.Sin(phase * 0.91 + 1.1) * 5.5;
+        if (_mood is "love" or "grateful")
+        {
+            leftArmAngle -= 8 + Math.Sin(phase * 0.8) * 2.0;
+            rightArmAngle += 8 + Math.Sin(phase * 0.8) * 2.0;
+        }
+        else if (_mood is "shy" or "embarrassed")
+        {
+            leftArmAngle += 5;
+            rightArmAngle -= 5;
+        }
+        else if (_mood is "surprised" or "curious")
+        {
+            leftArmAngle -= 9;
+            rightArmAngle += 9;
+        }
         if (_mood is "writing" or "coding" or "using_tool")
         {
             leftArmAngle += Math.Sin(phase * 2.2) * 5;
@@ -1518,21 +1547,9 @@ public partial class FloatingMascotWindow : Window
         {
             Root.RenderTransform = Transform.Identity;
             AntennaDot.RenderTransform = Transform.Identity;
-            if (_avatarModelHost is not null) _avatarModelHost.Transform = Transform3D.Identity;
-            if (_headRigHost is not null) _headRigHost.Transform = Transform3D.Identity;
-            if (_bodyRigHost is not null) _bodyRigHost.Transform = Transform3D.Identity;
-            SetJointRotation(_leftUpperArmJointHost, 0);
-            SetJointRotation(_rightUpperArmJointHost, 0);
-            SetJointRotation(_leftForearmJointHost, 0);
-            SetJointRotation(_rightForearmJointHost, 0);
-            SetJointRotation(_leftHandJointHost, 0);
-            SetJointRotation(_rightHandJointHost, 0);
-            SetJointRotation(_leftUpperLegJointHost, 0);
-            SetJointRotation(_rightUpperLegJointHost, 0);
-            SetJointRotation(_leftLowerLegJointHost, 0);
-            SetJointRotation(_rightLowerLegJointHost, 0);
-            SetJointRotation(_leftFootJointHost, 0);
-            SetJointRotation(_rightFootJointHost, 0);
+            // Keep the canonical head lift/scale and each mood's static pose; disabled
+            // animation should freeze the rig, not snap it back to a different-sized model.
+            ApplyRigPose(0);
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
             PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
             Canvas.SetTop(PaperProp, 94);
