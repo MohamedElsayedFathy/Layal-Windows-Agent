@@ -562,9 +562,9 @@ public partial class FloatingMascotWindow : Window
         // outwards from these edge anchors, while other styles use the same anchors as orbits.
         var anchors = new (double X, double Y)[]
         {
-            (10, 44), (22, 76), (12, 111), (37, 143),
-            (65, 42), (183, 40), (218, 49), (235, 83),
-            (232, 119), (207, 146), (178, 151), (67, 146)
+            (10, 44), (22, 76), (12, 111), (37, 141),
+            (65, 42), (183, 40), (216, 49), (226, 83),
+            (225, 116), (207, 141), (178, 145), (67, 143)
         };
 
         var count = _cinematicStyle switch
@@ -607,11 +607,16 @@ public partial class FloatingMascotWindow : Window
             var dx = anchor.X - 124;
             var dy = anchor.Y - 83;
             var length = Math.Max(1, Math.Sqrt(dx * dx + dy * dy));
+            var directionX = dx / length;
+            var directionY = dy / length;
+            var burstDistance = 18 + (i % 4) * 5;
+            var startsAtBurstOrigin = _cinematicStyle == MascotEffectStyle.CelebrationBurst;
             _cinematicParticles.Add(new CinematicParticle
             {
                 Element = text,
-                BaseX = anchor.X,
-                BaseY = anchor.Y,
+                // Burst particles begin closer to Layal and travel out to the safe edge anchors.
+                BaseX = startsAtBurstOrigin ? anchor.X - directionX * burstDistance : anchor.X,
+                BaseY = startsAtBurstOrigin ? anchor.Y - directionY * burstDistance : anchor.Y,
                 Phase = i * 0.91 + _particleSeed * 0.23,
                 Drift = 3.2 + (i % 4) * 1.7,
                 Speed = _cinematicStyle switch
@@ -622,11 +627,11 @@ public partial class FloatingMascotWindow : Window
                     MascotEffectStyle.WaitingPulse => 1.6 + (i % 3) * 0.12,
                     _ => 1.05 + (i % 3) * 0.1
                 },
-                DirectionX = dx / length,
-                DirectionY = dy / length,
+                DirectionX = directionX,
+                DirectionY = directionY,
                 StartDelaySeconds = _cinematicStyle == MascotEffectStyle.CelebrationBurst ? i * 0.045 : 0,
                 DurationSeconds = 0.98 + (i % 4) * 0.17,
-                BurstDistance = 18 + (i % 4) * 5
+                BurstDistance = burstDistance
             });
         }
 
