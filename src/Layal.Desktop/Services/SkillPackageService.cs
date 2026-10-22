@@ -281,13 +281,68 @@ public sealed class SkillPackageService
         for (var i = 1; i < end; i++)
         {
             var line = lines[i].Trim();
-            if (line.StartsWith("name:", StringComparison.OrdinalIgnoreCase)) name = Unquote(line[5..].Trim());
-            else if (line.StartsWith("description:", StringComparison.OrdinalIgnoreCase)) description = Unquote(line[12..].Trim());
+            if (line.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+            {
+                name = Unquote(line[5..].Trim());
+            }
+            else if (line.StartsWith("description:", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = line["description:".Length..].Trim();
+                if (value is ">" or ">-" or ">+" or "|" or "|-" or "|+")
+                {
+                    var blockLines = new List<string>();
+                    while (i + 1 < end)
+                    {
+                        var candidate = lines[i + 1];
+                        if (string.IsNullOrWhiteSpace(candidate))
+                        {
+                            blockLines.Add(string.Empty);
+                            i++;
+                            continue;
+                        }
+
+                        if (!char.IsWhiteSpace(candidate[0])) break;
+                        blockLines.Add(candidate.Trim());
+                        i++;
+                    }
+
+                    description = value.StartsWith('|', StringComparison.Ordinal)
+                        ? string.Join(Environment.NewLine, blockLines).Trim()
+                        : FoldDescriptionLines(blockLines);
+                }
+                else
+                {
+                    description = Unquote(value);
+                }
+            }
         }
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("SKILL.md front matter must contain a non-empty name field.");
         if (!NamePattern.IsMatch(name)) throw new InvalidOperationException("Skill name must use lowercase letters, numbers, and hyphens.");
         if (string.IsNullOrWhiteSpace(description)) throw new InvalidOperationException("SKILL.md front matter must contain a non-empty description field.");
         return (name, description);
+    }
+
+    private static string FoldDescriptionLines(IReadOnlyList<string> lines)
+    {
+        var paragraphs = new List<string>();
+        var current = new List<string>();
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                if (current.Count > 0)
+                {
+                    paragraphs.Add(string.Join(" ", current));
+                    current.Clear();
+                }
+                continue;
+            }
+
+            current.Add(line.Trim());
+        }
+
+        if (current.Count > 0) paragraphs.Add(string.Join(" ", current));
+        return string.Join(Environment.NewLine + Environment.NewLine, paragraphs).Trim();
     }
 
     private static string Unquote(string value) => value.Length >= 2 &&
