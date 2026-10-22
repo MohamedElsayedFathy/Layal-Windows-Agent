@@ -25,8 +25,20 @@ public partial class FloatingMascotWindow : Window
     private ModelVisual3D? _bodyRigHost;
     private ModelVisual3D? _leftArmRigHost;
     private ModelVisual3D? _rightArmRigHost;
+    private ModelVisual3D? _leftUpperArmJointHost;
+    private ModelVisual3D? _rightUpperArmJointHost;
+    private ModelVisual3D? _leftForearmJointHost;
+    private ModelVisual3D? _rightForearmJointHost;
+    private ModelVisual3D? _leftHandJointHost;
+    private ModelVisual3D? _rightHandJointHost;
     private ModelVisual3D? _leftLegRigHost;
     private ModelVisual3D? _rightLegRigHost;
+    private ModelVisual3D? _leftUpperLegJointHost;
+    private ModelVisual3D? _rightUpperLegJointHost;
+    private ModelVisual3D? _leftLowerLegJointHost;
+    private ModelVisual3D? _rightLowerLegJointHost;
+    private ModelVisual3D? _leftFootJointHost;
+    private ModelVisual3D? _rightFootJointHost;
     private ModelVisual3D? _left3DIrisHost;
     private ModelVisual3D? _right3DIrisHost;
     private ModelVisual3D? _left3DBrowHost;
@@ -192,10 +204,14 @@ public partial class FloatingMascotWindow : Window
 
         // Every anatomical section is a separate scene node with its own transform.
         _bodyRigHost = new ModelVisual3D { Content = CreateBodyModel() };
-        _leftArmRigHost = new ModelVisual3D { Content = CreateArmModel(-1) };
-        _rightArmRigHost = new ModelVisual3D { Content = CreateArmModel(1) };
-        _leftLegRigHost = new ModelVisual3D { Content = CreateLegModel(-1) };
-        _rightLegRigHost = new ModelVisual3D { Content = CreateLegModel(1) };
+        _leftArmRigHost = CreateArticulatedArmRig(-1,
+            out _leftUpperArmJointHost, out _leftForearmJointHost, out _leftHandJointHost);
+        _rightArmRigHost = CreateArticulatedArmRig(1,
+            out _rightUpperArmJointHost, out _rightForearmJointHost, out _rightHandJointHost);
+        _leftLegRigHost = CreateArticulatedLegRig(-1,
+            out _leftUpperLegJointHost, out _leftLowerLegJointHost, out _leftFootJointHost);
+        _rightLegRigHost = CreateArticulatedLegRig(1,
+            out _rightUpperLegJointHost, out _rightLowerLegJointHost, out _rightFootJointHost);
         _headRigHost = new ModelVisual3D { Content = CreateHeadModel() };
         _avatarModelHost = _headRigHost;
 
@@ -251,32 +267,94 @@ public partial class FloatingMascotWindow : Window
         return group;
     }
 
-    private static Model3DGroup CreateLegModel(int side)
+    private static ModelVisual3D CreateArticulatedLegRig(
+        int side,
+        out ModelVisual3D thigh,
+        out ModelVisual3D shin,
+        out ModelVisual3D foot)
     {
-        var group = new Model3DGroup();
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(side * 0.035, -0.10, 0.035), 0.115, 0.145, 0.125,
-            Color.FromRgb(213, 226, 247), Color.FromRgb(255, 255, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(side * 0.07, -0.255, 0.075), 0.092, 0.125, 0.11,
-            Color.FromRgb(200, 218, 243), Color.FromRgb(246, 251, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(side * 0.085, -0.385, 0.12), 0.145, 0.072, 0.14,
-            side < 0 ? Color.FromRgb(150, 133, 230) : Color.FromRgb(78, 191, 202),
-            Color.FromRgb(240, 247, 255)));
-        return group;
+        // Hip, knee and ankle nodes form a true parent-child transform chain.
+        var root = new ModelVisual3D
+        {
+            Transform = new TranslateTransform3D(side * 0.23, -0.46, 0.015)
+        };
+        root.Children.Add(new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.115, 0.12, 0.105,
+                Color.FromRgb(205, 221, 245), Color.FromRgb(248, 252, 255))
+        });
+        thigh = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, -0.07, 0.025), 0.095, 0.12, 0.10,
+                Color.FromRgb(213, 226, 247), Color.FromRgb(255, 255, 255))
+        };
+        var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.15, 0.01) };
+        shin = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, -0.065, 0.025), 0.08, 0.105, 0.087,
+                Color.FromRgb(200, 218, 243), Color.FromRgb(246, 251, 255))
+        };
+        var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.14, 0.02) };
+        foot = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, -0.005, 0.065), 0.135, 0.07, 0.13,
+                side < 0 ? Color.FromRgb(150, 133, 230) : Color.FromRgb(78, 191, 202),
+                Color.FromRgb(240, 247, 255))
+        };
+        ankleAnchor.Children.Add(foot);
+        shin.Children.Add(ankleAnchor);
+        kneeAnchor.Children.Add(shin);
+        thigh.Children.Add(kneeAnchor);
+        root.Children.Add(thigh);
+        return root;
     }
 
-    private static Transform3D CreateLegTransform(int side, double angle)
+    private static ModelVisual3D CreateArticulatedArmRig(
+        int side,
+        out ModelVisual3D upperArm,
+        out ModelVisual3D forearm,
+        out ModelVisual3D hand)
     {
-        return new Transform3DGroup
+        // Shoulder, elbow and wrist are separate transformable scene nodes.
+        var root = new ModelVisual3D
         {
-            Children =
-            {
-                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), angle)),
-                new TranslateTransform3D(side * 0.225, -0.48, 0.015)
-            }
+            Transform = new TranslateTransform3D(side * 0.60, -0.30, 0.035)
         };
+        root.Children.Add(new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.14, 0.145, 0.13,
+                Color.FromRgb(190, 218, 245), Color.FromRgb(246, 251, 255))
+        });
+        upperArm = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, -0.105, 0.025), 0.103, 0.135, 0.104,
+                Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255))
+        };
+        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.17, 0.005) };
+        forearm = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, -0.075, 0.02), 0.087, 0.115, 0.09,
+                Color.FromRgb(222, 232, 249), Color.FromRgb(255, 255, 255))
+        };
+        forearm.Children.Add(new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, -0.12, 0.083), 0.088, 0.029, 0.024,
+                side < 0 ? Color.FromRgb(79, 207, 215) : Color.FromRgb(162, 145, 240),
+                Color.FromRgb(242, 252, 255))
+        });
+        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.135, 0.015) };
+        hand = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, -0.004, 0.035), 0.095, 0.088, 0.092,
+                side < 0 ? Color.FromRgb(131, 222, 231) : Color.FromRgb(177, 163, 242),
+                Color.FromRgb(246, 251, 255))
+        };
+        wristAnchor.Children.Add(hand);
+        forearm.Children.Add(wristAnchor);
+        elbowAnchor.Children.Add(forearm);
+        upperArm.Children.Add(elbowAnchor);
+        root.Children.Add(upperArm);
+        return root;
     }
 
     private static Model3DGroup CreateBodyModel()
@@ -294,24 +372,11 @@ public partial class FloatingMascotWindow : Window
         return group;
     }
 
-    private static Model3DGroup CreateArmModel(int side)
+    private static void SetJointRotation(ModelVisual3D? joint, double angle)
     {
-        var group = new Model3DGroup();
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(side * 0.10, -0.14, 0.045), 0.145, 0.20, 0.145,
-            Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(side * 0.20, -0.30, 0.085), 0.105, 0.14, 0.125,
-            Color.FromRgb(222, 232, 249), Color.FromRgb(255, 255, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(side * 0.205, -0.275, 0.197), 0.108, 0.035, 0.026,
-            side < 0 ? Color.FromRgb(79, 207, 215) : Color.FromRgb(162, 145, 240),
-            Color.FromRgb(242, 252, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(side * 0.23, -0.425, 0.105), 0.105, 0.10, 0.11,
-            side < 0 ? Color.FromRgb(131, 222, 231) : Color.FromRgb(177, 163, 242),
-            Color.FromRgb(246, 251, 255)));
-        return group;
+        if (joint is not null)
+            joint.Transform = new RotateTransform3D(
+                new AxisAngleRotation3D(new Vector3D(0, 0, 1), angle));
     }
 
     private void AddEyeRig(bool left)
@@ -561,7 +626,13 @@ public partial class FloatingMascotWindow : Window
     {
         if (_headRigHost is null || _bodyRigHost is null ||
             _leftArmRigHost is null || _rightArmRigHost is null ||
-            _leftLegRigHost is null || _rightLegRigHost is null)
+            _leftLegRigHost is null || _rightLegRigHost is null ||
+            _leftUpperArmJointHost is null || _rightUpperArmJointHost is null ||
+            _leftForearmJointHost is null || _rightForearmJointHost is null ||
+            _leftHandJointHost is null || _rightHandJointHost is null ||
+            _leftUpperLegJointHost is null || _rightUpperLegJointHost is null ||
+            _leftLowerLegJointHost is null || _rightLowerLegJointHost is null ||
+            _leftFootJointHost is null || _rightFootJointHost is null)
             return;
 
         _headRigHost.Transform = new Transform3DGroup
@@ -603,23 +674,41 @@ public partial class FloatingMascotWindow : Window
             leftArmAngle += 8;
             rightArmAngle -= 8;
         }
-        _leftArmRigHost.Transform = CreateArmTransform(-1, leftArmAngle);
-        _rightArmRigHost.Transform = CreateArmTransform(1, rightArmAngle);
-        var legSwing = Math.Sin(phase * 0.72) * (_mood is "celebrating" or "excited" ? 4.5 : 2.0);
-        _leftLegRigHost.Transform = CreateLegTransform(-1, legSwing);
-        _rightLegRigHost.Transform = CreateLegTransform(1, -legSwing);
-    }
+        SetJointRotation(_leftUpperArmJointHost, leftArmAngle);
+        SetJointRotation(_rightUpperArmJointHost, rightArmAngle);
 
-    private static Transform3D CreateArmTransform(int side, double angle)
-    {
-        return new Transform3DGroup
+        var leftForearmAngle = Math.Sin(phase * 0.78 + 0.3) * 9.0;
+        var rightForearmAngle = Math.Sin(phase * 0.81 + 1.0) * 9.0;
+        var leftHandAngle = Math.Sin(phase * 1.7 + 0.2) * 7.0;
+        var rightHandAngle = Math.Sin(phase * 1.9 + 0.7) * 7.0;
+        if (_mood is "writing" or "coding" or "using_tool")
         {
-            Children =
-            {
-                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), angle)),
-                new TranslateTransform3D(side * 0.70, -0.31, 0.035)
-            }
-        };
+            leftForearmAngle += Math.Sin(phase * 2.1) * 12.0;
+            rightForearmAngle += Math.Cos(phase * 2.5) * 14.0;
+            leftHandAngle += Math.Sin(phase * 3.1) * 13.0;
+            rightHandAngle += Math.Cos(phase * 3.4) * 15.0;
+        }
+        if (_mood is "success" or "celebrating" or "excited")
+        {
+            leftForearmAngle -= 17;
+            rightForearmAngle += 17;
+            leftHandAngle -= 11;
+            rightHandAngle += 11;
+        }
+        SetJointRotation(_leftForearmJointHost, leftForearmAngle);
+        SetJointRotation(_rightForearmJointHost, rightForearmAngle);
+        SetJointRotation(_leftHandJointHost, leftHandAngle);
+        SetJointRotation(_rightHandJointHost, rightHandAngle);
+
+        var legSwing = Math.Sin(phase * 0.72) * (_mood is "celebrating" or "excited" ? 6.0 : 2.0);
+        var leftKneeFlex = _mood is "celebrating" or "excited" ? 12 + Math.Abs(Math.Sin(phase)) * 9 : 2 + Math.Abs(Math.Sin(phase * 0.7)) * 2;
+        var rightKneeFlex = _mood is "celebrating" or "excited" ? 12 + Math.Abs(Math.Cos(phase)) * 9 : 2 + Math.Abs(Math.Cos(phase * 0.7)) * 2;
+        SetJointRotation(_leftUpperLegJointHost, legSwing);
+        SetJointRotation(_rightUpperLegJointHost, -legSwing);
+        SetJointRotation(_leftLowerLegJointHost, leftKneeFlex);
+        SetJointRotation(_rightLowerLegJointHost, rightKneeFlex);
+        SetJointRotation(_leftFootJointHost, -leftKneeFlex * 0.45);
+        SetJointRotation(_rightFootJointHost, -rightKneeFlex * 0.45);
     }
 
     private static Point3D[] SampleQuadraticCurve(Point3D start, Point3D control, Point3D end, int segments)
@@ -1314,10 +1403,18 @@ public partial class FloatingMascotWindow : Window
             if (_avatarModelHost is not null) _avatarModelHost.Transform = Transform3D.Identity;
             if (_headRigHost is not null) _headRigHost.Transform = Transform3D.Identity;
             if (_bodyRigHost is not null) _bodyRigHost.Transform = Transform3D.Identity;
-            if (_leftArmRigHost is not null) _leftArmRigHost.Transform = CreateArmTransform(-1, 0);
-            if (_rightArmRigHost is not null) _rightArmRigHost.Transform = CreateArmTransform(1, 0);
-            if (_leftLegRigHost is not null) _leftLegRigHost.Transform = CreateLegTransform(-1, 0);
-            if (_rightLegRigHost is not null) _rightLegRigHost.Transform = CreateLegTransform(1, 0);
+            SetJointRotation(_leftUpperArmJointHost, 0);
+            SetJointRotation(_rightUpperArmJointHost, 0);
+            SetJointRotation(_leftForearmJointHost, 0);
+            SetJointRotation(_rightForearmJointHost, 0);
+            SetJointRotation(_leftHandJointHost, 0);
+            SetJointRotation(_rightHandJointHost, 0);
+            SetJointRotation(_leftUpperLegJointHost, 0);
+            SetJointRotation(_rightUpperLegJointHost, 0);
+            SetJointRotation(_leftLowerLegJointHost, 0);
+            SetJointRotation(_rightLowerLegJointHost, 0);
+            SetJointRotation(_leftFootJointHost, 0);
+            SetJointRotation(_rightFootJointHost, 0);
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
             PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
             Canvas.SetTop(PaperProp, 94);
