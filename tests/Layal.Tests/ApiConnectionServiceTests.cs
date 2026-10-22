@@ -103,6 +103,12 @@ public sealed class ApiConnectionServiceTests
         };
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "../admin"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "%2e%2e/admin"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "%252e%252e/admin"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "%25252e%25252e/admin"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "%2e%2e%2fadmin"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "%2e%2e%5cadmin"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "%252e%252e%255cadmin"));
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "https://other.example.test/data"));
         Assert.IsNull(handler.LastRequestUri);
     }

@@ -1,6 +1,6 @@
 # Layal development preview — implementation status register
 
-This matrix describes source-code presence and verification boundaries. Windows CI run 39750965626 for commit 59803b6 completed the Release build and passed all 64 C# tests (0 failed, 0 skipped), including source/static and PowerShell sample syntax checks. The local authoring environment does not contain the .NET SDK. CI does not prove that real external applications, Edge pages, provider tool-calls, or WPF interactions behave correctly on a user's desktop; those still require manual acceptance. Version 0.5.0 refreshed presentation resources and mascot XAML; version 0.5.1 added traceability/build checks; version 0.5.2 added automated C# tests.
+This matrix describes source-code presence and verification boundaries. Windows CI run [39765678941](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39765678941) for reviewed head `fd2cb632` completed the Release build and passed all 64 C# tests (0 failed, 0 skipped), including source/static, PowerShell sample syntax, encoded-backslash traversal, and folded/literal YAML skill-description regression checks. Check the latest matching run after future source changes. The local authoring environment does not contain the .NET SDK. CI does not prove that real external applications, Edge pages, provider tool-calls, or WPF interactions behave correctly on a user's desktop; those still require manual acceptance. Version 0.5.0 refreshed presentation resources and mascot XAML; version 0.5.1 added traceability/build checks; version 0.5.2 added automated C# tests.
 
 | Requirement | Status in source | Relevant files | Verification |
 |---|---|---|---|
@@ -18,7 +18,7 @@ This matrix describes source-code presence and verification boundaries. Windows 
 | Window title list/activation | Implemented, opt-in plus confirmation | `AgentToolExecutor.cs`, `UserSettings.cs` | Requires Windows test |
 | ZIP skill validation | Implemented in source | `Services/SkillPackageService.cs` | Needs valid/invalid package tests |
 | Public GitHub skill directory import | Implemented in source with size limits | `SkillPackageService.cs`, Skills tab | Live GitHub integration unverified |
-| Selected skills as untrusted references | Implemented in source, max 3 | `AgentOrchestrator.cs`, Skills tab | Tool/provider integration test needed |
+| Selected skills as untrusted references | Implemented in source, max 3; script content is not executed and no sandbox is provided | `AgentOrchestrator.cs`, Skills tab | Tool/provider integration and external skill import acceptance needed |
 | Encrypted chat/task/memory persistence | Implemented with DPAPI-backed JSON | `ProtectedJsonStore.cs`, memory/task services | Windows account/profile test needed |
 | Memory notes CRUD/search/export | Implemented in source | `MemoryService.cs`, Memory tab | UI/runtime tests needed; JSON export is plaintext |
 | Actual voice STT/TTS | Not implemented | — | Future milestone |
@@ -31,7 +31,7 @@ This matrix describes source-code presence and verification boundaries. Windows 
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |
 | Installer/updater/signing | Not implemented | Publish script only | Future milestone |
-| Automated C# test project | 64 tests passed, 0 failed and 0 skipped in Windows CI run 39750965626 for commit 59803b6 | `tests/Layal.Tests/` | CI confirms automated tests only; actual WPF/voice/camera/API-app acceptance remains separate |
+| Automated C# test project | 64 tests passed, 0 failed and 0 skipped in Windows CI run 39765678941 for reviewed head `fd2cb632`; manual runtime acceptance remains separate | `tests/Layal.Tests/` | CI confirms automated tests only; actual WPF/voice/camera/API-app acceptance remains separate |
 
 ## Design/reliability changes carried forward from 0.4.0
 
