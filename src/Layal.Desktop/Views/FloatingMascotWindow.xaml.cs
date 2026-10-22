@@ -319,7 +319,7 @@ public partial class FloatingMascotWindow : Window
         // Shoulder, elbow and wrist are separate transformable scene nodes.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.57, -0.48, 0.28)
+            Transform = new TranslateTransform3D(side * 0.72, -0.38, 0.29)
         };
         root.Children.Add(new ModelVisual3D
         {
@@ -328,25 +328,25 @@ public partial class FloatingMascotWindow : Window
         });
         upperArm = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.105, 0.025), 0.103, 0.135, 0.104,
+            Content = CreateEllipsoid(new Point3D(side * 0.10, -0.03, 0.025), 0.108, 0.092, 0.10,
                 Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255))
         };
-        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.14, -0.17, 0.005) };
+        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.10, -0.08, 0.005) };
         forearm = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.075, 0.02), 0.087, 0.115, 0.09,
+            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.035, 0.02), 0.091, 0.085, 0.09,
                 Color.FromRgb(222, 232, 249), Color.FromRgb(255, 255, 255))
         };
         forearm.Children.Add(new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.09, -0.12, 0.083), 0.088, 0.029, 0.024,
+            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.075, 0.083), 0.091, 0.026, 0.024,
                 side < 0 ? Color.FromRgb(79, 207, 215) : Color.FromRgb(162, 145, 240),
                 Color.FromRgb(242, 252, 255))
         });
-        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.07, -0.135, 0.015) };
+        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.05, -0.075, 0.015) };
         hand = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.025, -0.004, 0.035), 0.095, 0.088, 0.092,
+            Content = CreateEllipsoid(new Point3D(side * 0.02, -0.004, 0.035), 0.105, 0.09, 0.10,
                 side < 0 ? Color.FromRgb(131, 222, 231) : Color.FromRgb(177, 163, 242),
                 Color.FromRgb(246, 251, 255))
         };
