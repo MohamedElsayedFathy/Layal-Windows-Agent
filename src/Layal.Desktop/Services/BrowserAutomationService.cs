@@ -367,25 +367,31 @@ public sealed class BrowserAutomationService
             await socket.ConnectAsync(new Uri(page.WebSocketUrl), timeout.Token);
             var request = JsonSerializer.SerializeToUtf8Bytes(new { id = 1, method, @params = parameters });
             await socket.SendAsync(request.AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
-            using var message = new MemoryStream();
             var buffer = new byte[8192];
             while (true)
             {
-                var received = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
-                if (received.MessageType == WebSocketMessageType.Close)
-                    throw new WebSocketException("The browser closed the DevTools connection.");
-                message.Write(buffer, 0, received.Count);
-                if (message.Length > MaxCdpMessageBytes)
-                    throw new InvalidOperationException("The browser DevTools response exceeded 2 MB.");
-                if (received.EndOfMessage) break;
+                using var message = new MemoryStream();
+                while (true)
+                {
+                    var received = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
+                    if (received.MessageType == WebSocketMessageType.Close)
+                        throw new WebSocketException("The browser closed the DevTools connection.");
+                    if (message.Length + received.Count > MaxCdpMessageBytes)
+                        throw new InvalidOperationException("The browser DevTools response exceeded 2 MB.");
+                    message.Write(buffer, 0, received.Count);
+                    if (received.EndOfMessage) break;
+                }
+
+                using var doc = JsonDocument.Parse(message.ToArray());
+                var root = doc.RootElement;
+                // Chromium sends asynchronous protocol events on the same socket. Ignore them
+                // until the response carrying this command's request id arrives.
+                if (!root.TryGetProperty("id", out var id) || id.GetInt32() != 1)
+                    continue;
+                if (root.TryGetProperty("error", out var error))
+                    throw new InvalidOperationException("Browser DevTools command failed: " + error.GetRawText());
+                return JsonNode.Parse(root.GetRawText()) as JsonObject ?? new JsonObject();
             }
-            using var doc = JsonDocument.Parse(message.ToArray());
-            var root = doc.RootElement;
-            if (!root.TryGetProperty("id", out var id) || id.GetInt32() != 1)
-                throw new InvalidOperationException("The browser DevTools response did not match the request.");
-            if (root.TryGetProperty("error", out var error))
-                throw new InvalidOperationException("Browser DevTools command failed: " + error.GetRawText());
-            return JsonNode.Parse(root.GetRawText()) as JsonObject ?? new JsonObject();
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
         {
