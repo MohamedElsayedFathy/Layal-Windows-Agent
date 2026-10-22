@@ -54,7 +54,7 @@ The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a 
 
 
 ## Visual personality follow-up — reactive task props
-- This branch adds a procedural native WPF 3D pearlescent shell (Viewport3D/MeshGeometry3D with lighting/specular materials) behind the expressive 2D face overlay; the avatar is not yet a full rigged 3D character.
+- This branch adds a procedural native WPF 3D pearlescent head/shell with simple side arm/wrist forms (Viewport3D/MeshGeometry3D with lighting/specular materials) behind the expressive 2D face overlay; the avatar is not yet a full rigged 3D character.
 - The visual-personality branch adds floating WPF task props (paper, pencil, holographic computer) tied to work-related moods, with gentle idle motion.
 - The branch adds eight moods whose facial features are changed on Layal's face and whose reaction emoji pools are selected separately.
 - Reduced-motion behavior keeps the work state visible while freezing the decorative prop animation.
