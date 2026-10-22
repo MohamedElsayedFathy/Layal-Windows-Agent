@@ -990,6 +990,7 @@ public partial class MainWindow : Window
         _agentTaskCancellation = cancellation;
         RunAgentTaskButton.IsEnabled = false;
         CancelAgentTaskButton.IsEnabled = true;
+        AppRuntime.MascotWindow?.SetTaskActive(true);
         AppRuntime.MascotWindow?.SetMood("thinking");
 
         var finalMood = "error";
@@ -1039,6 +1040,7 @@ public partial class MainWindow : Window
                 _agentTaskCancellation = null;
             RunAgentTaskButton.IsEnabled = true;
             CancelAgentTaskButton.IsEnabled = false;
+            AppRuntime.MascotWindow?.SetTaskActive(false);
         }
 
         // Set terminal state only after task history and event controls finish updating.
