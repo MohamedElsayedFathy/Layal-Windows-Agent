@@ -1,6 +1,6 @@
 # Layal development preview — implementation status register
 
-This matrix describes source-code presence and authored test coverage only; test pass status requires Windows CI evidence. Because the .NET SDK was unavailable in the authoring environment, Windows compilation/runtime behavior has not been verified. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds a C# automated test project and Windows CI test execution. Treat the source as statically reviewed, not runtime-proven, until Windows CI passes.
+This matrix describes source-code presence and verification boundaries. The latest checked Windows CI run for the current development line completed the Release build and passed all 61 C# tests. The local authoring environment does not contain the .NET SDK. CI does not prove that real external applications, Edge pages, provider tool-calls, or WPF interactions behave correctly on a user's desktop; those still require manual acceptance. Version 0.5.0 refreshed presentation resources and mascot XAML; version 0.5.1 added traceability/build checks; version 0.5.2 added automated C# tests.
 
 | Requirement | Status in source | Relevant files | Verification |
 |---|---|---|---|
@@ -22,16 +22,16 @@ This matrix describes source-code presence and authored test coverage only; test
 | Encrypted chat/task/memory persistence | Implemented with DPAPI-backed JSON | `ProtectedJsonStore.cs`, memory/task services | Windows account/profile test needed |
 | Memory notes CRUD/search/export | Implemented in source | `MemoryService.cs`, Memory tab | UI/runtime tests needed; JSON export is plaintext |
 | Actual voice STT/TTS | Not implemented | — | Future milestone |
-| Read-only Windows UI Automation inspection | Implemented in source with consent, bounded traversal, single-flight background worker, and 8-second caller timeout; CI/runtime acceptance pending | `Services/WindowsUiAutomationService.cs`, `Services/AgentToolExecutor.cs` | Manual Windows acceptance required |
+| Read-only Windows UI Automation inspection | Implemented in source with consent, bounded traversal, single-flight background worker, and 8-second caller timeout; Windows CI build/tests pass, manual runtime acceptance pending | `Services/WindowsUiAutomationService.cs`, `Services/AgentToolExecutor.cs` | Manual Windows acceptance required |
 | Approved native UI actions and text entry | Implemented in source: Button/Hyperlink/MenuItem/SplitButton InvokePattern plus ValuePattern.SetValue on one uniquely identified visible, enabled, writable non-password Edit field; fresh local approval, runtime-id revalidation, bounded traversal, and no read-back of field values; runtime acceptance pending | `Services/WindowsUiAutomationService.cs`, `Services/AgentToolExecutor.cs` | Test on a disposable Windows sample app; no general mouse/keyboard, coordinates, screenshots, form submission, or application-success claim |
 | General mouse/keyboard control and screen capture | Not implemented | — | Future milestone |
 | Screen capture/visual UI control | Not implemented | — | Future milestone |
-| Browser automation (initial milestone) | Implemented in source: separate Edge profile, loopback DevTools, approved navigation/page disclosure, unique CSS selector click/fill, revalidation after consent, password/file fields blocked; runtime acceptance pending | `Services/BrowserAutomationService.cs`, `AgentToolExecutor.cs` | Windows manual acceptance required; advanced research/download/upload and normal browser profile reuse remain unimplemented |
+| Browser automation (initial milestone) | Implemented in source: separate Edge profile, loopback DevTools, approved navigation/page disclosure, unique CSS selector click/fill, revalidation after consent, password/file fields blocked; Windows CI build/tests pass, manual runtime acceptance pending | `Services/BrowserAutomationService.cs`, `AgentToolExecutor.cs` | Windows manual acceptance required; advanced research/download/upload and normal browser profile reuse remain unimplemented |
 | RTSP/ONVIF video and computer vision | Not implemented | Camera tab reports limitation | Future milestone |
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |
 | Installer/updater/signing | Not implemented | Publish script only | Future milestone |
-| Automated C# test project | Includes REST API connection tests; latest CI result must be reviewed | `tests/Layal.Tests/` | Must pass Windows CI; actual WPF/voice/camera/API-app acceptance remains separate |
+| Automated C# test project | 61 tests passed in the latest checked Windows CI run | `tests/Layal.Tests/` | Recheck the current SHA in CI; actual WPF/voice/camera/API-app acceptance remains separate |
 
 ## Design/reliability changes carried forward from 0.4.0
 

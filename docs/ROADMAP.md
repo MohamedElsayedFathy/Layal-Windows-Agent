@@ -8,7 +8,7 @@
 - [x] OpenAI-compatible provider probe and chat request.
 - [x] Limited Notepad launch.
 - [x] ZIP skill metadata validation.
-- [ ] Windows build/runtime verification.
+- [x] Windows Release build and automated C# tests on CI; manual runtime acceptance remains pending.
 
 ## 0.3 — Bounded agent runtime and local state (previous source milestone)
 - [x] OpenAI-compatible tool/function-call request and response parsing.
@@ -21,7 +21,7 @@
 - [x] Public GitHub skill importer for repository/tree/blob SKILL.md URLs.
 - [x] Up to three selected skill references per task; scripts are not executed.
 - [x] DPAPI-encrypted memory notes and conversation history.
-- [ ] Build and end-to-end verify on Windows.
+- [x] Windows CI build and C# tests pass; [ ] manual end-to-end verification on a Windows desktop.
 
 ## 0.4.0 — UI refresh and reliability review (previous milestone)
 - [x] Modernized dark Aurora theme and rounded input/button controls.
@@ -32,7 +32,7 @@
 - [x] Close hidden windows on exit and allow active requests to cancel.
 - [x] Mark final task status with warnings after tool failures or declined actions.
 - [x] Add repeatable static XAML/resource/event checks.
-- [ ] Windows build/runtime verification and automated C# tests.
+- [x] Windows CI build and automated C# tests; [ ] manual runtime verification.
 
 ## 0.5.0 — Calm Light theme and mascot refresh (previous milestone)
 - [x] Replaced the dark application palette with a light, low-glare palette and high-contrast text.
@@ -49,7 +49,7 @@
 - [x] OpenAI-compatible endpoint, authorization, response parsing, and tool-call parsing tests using a fake HTTP handler.
 - [x] Windows DPAPI memory tests (to execute on Windows CI).
 - [x] CI now runs `dotnet test`, validates non-empty TRX results, and stores test/source artifacts.
-- [ ] Observe a passing Windows CI run and fix any failures before treating the test gate as complete.
+- [x] Observe a passing Windows CI run: Release build passed and all 61 tests passed; current-SHA CI and manual acceptance remain required.
 
 ## 0.6 — Native automation, API integrations, and safety hardening
 - [x] Read-only UI Automation inspection of a uniquely titled external window, with per-request approval, metadata-only output, a background worker, and an 8-second caller timeout; Windows runtime acceptance remains pending.
