@@ -49,6 +49,7 @@ public partial class FloatingMascotWindow : Window
     private ScaleTransform3D? _leftEyeBlinkTransform;
     private ScaleTransform3D? _rightEyeBlinkTransform;
     private readonly List<CinematicParticle> _cinematicParticles = new();
+    private readonly Dictionary<string, double> _smoothedPoseValues = new(StringComparer.Ordinal);
     private int _particleSeed;
 
     private sealed class CinematicParticle
@@ -430,11 +431,28 @@ public partial class FloatingMascotWindow : Window
         return group;
     }
 
-    private static void SetJointRotation(ModelVisual3D? joint, double angle)
+    private double SmoothPoseValue(string key, double target)
+    {
+        // Exponential easing filters mood changes without introducing another timer.
+        // First assignment snaps to the initial pose; subsequent frames ease over ~200 ms.
+        if (!_smoothedPoseValues.TryGetValue(key, out var current))
+        {
+            _smoothedPoseValues[key] = target;
+            return target;
+        }
+
+        var next = current + (target - current) * 0.24;
+        if (Math.Abs(target - next) < 0.015)
+            next = target;
+        _smoothedPoseValues[key] = next;
+        return next;
+    }
+
+    private void SetJointRotation(ModelVisual3D? joint, double angle, string key)
     {
         if (joint is not null)
             joint.Transform = new RotateTransform3D(
-                new AxisAngleRotation3D(new Vector3D(0, 0, 1), angle));
+                new AxisAngleRotation3D(new Vector3D(0, 0, 1), SmoothPoseValue($"joint.{key}", angle)));
     }
 
     private void AddEyeRig(bool left)
@@ -878,6 +896,11 @@ public partial class FloatingMascotWindow : Window
         var headLift = _mood is "celebrating" or "excited" or "success"
             ? 0.15 + Math.Abs(Math.Sin(phase * 1.7)) * 0.035
             : _mood is "sleepy" or "sad" or "apologetic" ? 0.12 : 0.15;
+        headMoodScale = SmoothPoseValue("head.scale", headMoodScale);
+        headYaw = SmoothPoseValue("head.yaw", headYaw);
+        headPitch = SmoothPoseValue("head.pitch", headPitch);
+        headRoll = SmoothPoseValue("head.roll", headRoll);
+        headLift = SmoothPoseValue("head.lift", headLift);
         _headRigHost.Transform = new Transform3DGroup
         {
             Children =
@@ -897,6 +920,8 @@ public partial class FloatingMascotWindow : Window
         var bodyBounce = _mood is "celebrating" or "excited" or "success"
             ? Math.Abs(Math.Sin(phase * 1.7)) * 0.04
             : _mood is "sleepy" or "sad" or "apologetic" ? -0.012 : 0;
+        bodyRoll = SmoothPoseValue("body.roll", bodyRoll);
+        bodyBounce = SmoothPoseValue("body.bounce", bodyBounce);
         _bodyRigHost.Transform = new Transform3DGroup
         {
             Children =
@@ -951,8 +976,8 @@ public partial class FloatingMascotWindow : Window
             leftArmAngle += 8;
             rightArmAngle -= 8;
         }
-        SetJointRotation(_leftUpperArmJointHost, leftArmAngle);
-        SetJointRotation(_rightUpperArmJointHost, rightArmAngle);
+        SetJointRotation(_leftUpperArmJointHost, leftArmAngle, "left-upper-arm");
+        SetJointRotation(_rightUpperArmJointHost, rightArmAngle, "right-upper-arm");
 
         var leftForearmAngle = Math.Sin(phase * 0.78 + 0.3) * 9.0;
         var rightForearmAngle = Math.Sin(phase * 0.81 + 1.0) * 9.0;
@@ -994,20 +1019,20 @@ public partial class FloatingMascotWindow : Window
             leftHandAngle -= 11;
             rightHandAngle += 11;
         }
-        SetJointRotation(_leftForearmJointHost, leftForearmAngle);
-        SetJointRotation(_rightForearmJointHost, rightForearmAngle);
-        SetJointRotation(_leftHandJointHost, leftHandAngle);
-        SetJointRotation(_rightHandJointHost, rightHandAngle);
+        SetJointRotation(_leftForearmJointHost, leftForearmAngle, "left-forearm");
+        SetJointRotation(_rightForearmJointHost, rightForearmAngle, "right-forearm");
+        SetJointRotation(_leftHandJointHost, leftHandAngle, "left-hand");
+        SetJointRotation(_rightHandJointHost, rightHandAngle, "right-hand");
 
         var legSwing = Math.Sin(phase * 0.72) * (_mood is "celebrating" or "excited" ? 6.0 : 2.0);
         var leftKneeFlex = _mood is "celebrating" or "excited" ? 12 + Math.Abs(Math.Sin(phase)) * 9 : 2 + Math.Abs(Math.Sin(phase * 0.7)) * 2;
         var rightKneeFlex = _mood is "celebrating" or "excited" ? 12 + Math.Abs(Math.Cos(phase)) * 9 : 2 + Math.Abs(Math.Cos(phase * 0.7)) * 2;
-        SetJointRotation(_leftUpperLegJointHost, legSwing);
-        SetJointRotation(_rightUpperLegJointHost, -legSwing);
-        SetJointRotation(_leftLowerLegJointHost, leftKneeFlex);
-        SetJointRotation(_rightLowerLegJointHost, rightKneeFlex);
-        SetJointRotation(_leftFootJointHost, -leftKneeFlex * 0.45);
-        SetJointRotation(_rightFootJointHost, -rightKneeFlex * 0.45);
+        SetJointRotation(_leftUpperLegJointHost, legSwing, "left-upper-leg");
+        SetJointRotation(_rightUpperLegJointHost, -legSwing, "right-upper-leg");
+        SetJointRotation(_leftLowerLegJointHost, leftKneeFlex, "left-knee");
+        SetJointRotation(_rightLowerLegJointHost, rightKneeFlex, "right-knee");
+        SetJointRotation(_leftFootJointHost, -leftKneeFlex * 0.45, "left-foot");
+        SetJointRotation(_rightFootJointHost, -rightKneeFlex * 0.45, "right-foot");
     }
 
     private static Point3D[] SampleQuadraticCurve(Point3D start, Point3D control, Point3D end, int segments)
