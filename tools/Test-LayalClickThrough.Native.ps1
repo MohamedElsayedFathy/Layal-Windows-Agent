@@ -57,7 +57,7 @@ public static class LayalNativeInput
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 
-    private const uint SwpNoActivate=0x0010, InputMouse=0, LeftDown=0x0002, LeftUp=0x0004;
+    private const uint SwpNoActivate=0x0010, InputMouse=0, MouseMove=0x0001, LeftDown=0x0002, LeftUp=0x0004;
     public static uint ProcessIdForWindow(IntPtr hwnd) { GetWindowThreadProcessId(hwnd, out uint pid); return pid; }
     public static bool Visible(IntPtr hwnd) => IsWindowVisible(hwnd);
     public static long ExtendedStyle(IntPtr hwnd) => IntPtr.Size == 8 ? GetWindowLongPtr64(hwnd, -20).ToInt64() : GetWindowLong32(hwnd, -20);
@@ -109,6 +109,10 @@ public static class LayalNativeInput
     }
     private static uint SendButton(uint flag) {
         Input input = new Input { type=InputMouse, mi=new MouseInput { dwFlags=flag } };
+        return SendInput(1, new Input[] { input }, Marshal.SizeOf(typeof(Input)));
+    }
+    public static uint MoveRelative(int dx, int dy) {
+        Input input = new Input { type=InputMouse, mi=new MouseInput { dx=dx, dy=dy, dwFlags=MouseMove } };
         return SendInput(1, new Input[] { input }, Marshal.SizeOf(typeof(Input)));
     }
     public static uint ClickLeft() {
@@ -164,6 +168,11 @@ function Get-ScaledPoint {
 function Move-CursorAndPump {
     param([hashtable]$Point,[int]$WaitMilliseconds=400)
     [LayalNativeInput]::SetCursor($Point.X,$Point.Y)
+    # SetCursorPos sets the location, but does not provide an explicit raw mouse-move
+    # input event. Nudge with SendInput so WPF and Win32 both process real move messages.
+    if ([LayalNativeInput]::MoveRelative(1,0) -ne 1) { throw "Could not inject native mouse-move event." }
+    Pump-Messages 35
+    if ([LayalNativeInput]::MoveRelative(-1,0) -ne 1) { throw "Could not inject native return mouse-move event." }
     Pump-Messages $WaitMilliseconds
 }
 function Send-LeftClick {
@@ -278,12 +287,17 @@ try {
         $point=Get-ScaledPoint -DesignX 8 -DesignY 8
         Move-CursorAndPump $point 450
         $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
+        $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
+        $hasTransparentStyle=(($exStyle -band 0x20) -ne 0)
         if ($nativeTarget -match ("PID=" + $script:AppProcess.Id + ", title='Layal'")) {
-            throw "Transparent padding still resolves to Layal instead of the window below. $nativeTarget"
+            throw "Transparent padding still resolves to Layal instead of the window below. $nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle"
+        }
+        if ($nativeTarget -notmatch ("PID=" + $PID + ",")) {
+            throw "Transparent padding did not resolve to the WinForms harness process (PID=$PID). Target=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle"
         }
         Send-LeftClick
-        if ($script:UnderlyingClicks -ne ($before+1)) { throw "Expected underlying count $($before+1), got $script:UnderlyingClicks." }
-        Write-Result "Transparent upper-left padding reaches underlying button" "passed" "Native SendInput activated the actual underlying WinForms button."
+        if ($script:UnderlyingClicks -ne ($before+1)) { throw "Expected underlying count $($before+1), got $script:UnderlyingClicks. Target=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle" }
+        Write-Result "Transparent upper-left padding reaches underlying button" "passed" "WindowFromPoint=$nativeTarget; Layal WS_EX_TRANSPARENT=$hasTransparentStyle."
     }
 
     Invoke-NativeAcceptanceCase "Visible mascot receives click without underlying activation" {
@@ -303,9 +317,13 @@ try {
         $before=$script:UnderlyingClicks
         $point=Get-ScaledPoint -DesignX 124 -DesignY 160
         Move-CursorAndPump $point 450
+        $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
+        $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
+        $hasTransparentStyle=(($exStyle -band 0x20) -ne 0)
+        if ($nativeTarget -notmatch ("PID=" + $PID + ",")) { throw "Bottom padding expected harness PID=$PID, got $nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle" }
         Send-LeftClick
-        if ($script:UnderlyingClicks -ne ($before+1)) { throw "Expected underlying count $($before+1), got $script:UnderlyingClicks." }
-        Write-Result "Transparent bottom padding reaches underlying button" "passed" "Native click in bottom transparent padding activated the underlying button."
+        if ($script:UnderlyingClicks -ne ($before+1)) { throw "Expected underlying count $($before+1), got $script:UnderlyingClicks. Target=$nativeTarget; LayalExStyle=0x$($exStyle.ToString('X')); WS_EX_TRANSPARENT=$hasTransparentStyle" }
+        Write-Result "Transparent bottom padding reaches underlying button" "passed" "WindowFromPoint=$nativeTarget; Layal WS_EX_TRANSPARENT=$hasTransparentStyle."
     }
 
     Invoke-NativeAcceptanceCase "Drag moves mascot without clicking through" {
@@ -317,7 +335,8 @@ try {
         if ($downSent -ne 1) { throw "Could not inject native left-button down event." }
         $script:MouseButtonHeld=$true
         Pump-Messages 120
-        [LayalNativeInput]::SetCursor($anchor.X+42,$anchor.Y+28)
+        $moveSent=[LayalNativeInput]::MoveRelative(42,28)
+        if ($moveSent -ne 1) { throw "Could not inject native mouse-move while dragging." }
         Pump-Messages 300
         $upSent=[LayalNativeInput]::LeftButtonUp()
         if ($upSent -ne 1) { throw "Could not inject native left-button up event." }
