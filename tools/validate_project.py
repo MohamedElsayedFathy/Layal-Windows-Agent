@@ -184,6 +184,71 @@ else:
         if fragment not in theme_regression_test:
             ERRORS.append(f"Dark-mode UI regression test lost required coverage: {fragment}")
 
+# Guard the real interaction/settings paths so their UI bindings, persistence, and regression tests cannot silently disappear.
+interaction_ui_needles = (
+    'x:Name="LanguageButton" Content="English" Click="LanguageButton_Click"',
+    'x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"',
+    'x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"',
+    'x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"',
+    'x:Name="ApplyMascotSettingsButton" Content="تطبيق إعدادات الشخصية" Click="ApplyMascotSettingsButton_Click"',
+    'x:Name="WindowInspectionCheckbox"',
+)
+for needle in interaction_ui_needles:
+    if needle not in main_window_theme_text:
+        ERRORS.append(f"Interaction/settings UI control lost its expected XAML wiring: {needle}")
+
+for fragment in (
+    'AppRuntime.Settings.Language = language;',
+    'AppRuntime.SettingsStore.Save(AppRuntime.Settings);',
+    'AppRuntime.Tray?.SetLanguage(language);',
+):
+    if fragment not in main_window_code_text:
+        ERRORS.append(f"Language persistence path is missing '{fragment}'")
+
+mascot_settings_match = re.search(r"private void ApplyMascotSettingsButton_Click\(.*?^\s*\}", main_window_code_text, re.DOTALL | re.MULTILINE)
+if not mascot_settings_match:
+    ERRORS.append("ApplyMascotSettingsButton_Click handler is missing")
+else:
+    for fragment in (
+        'AppRuntime.Settings.MascotAlwaysOnTop = AlwaysOnTopCheckbox.IsChecked == true;',
+        'AppRuntime.Settings.MascotAnimationsEnabled = AnimationsCheckbox.IsChecked == true;',
+        'Math.Clamp(MascotSizeSlider.Value, 0.65, 1.8)',
+        'Math.Clamp(MascotOpacitySlider.Value, 0.35, 1.0)',
+        'AppRuntime.SettingsStore.Save(AppRuntime.Settings);',
+        'AppRuntime.MascotWindow.ApplyScale(AppRuntime.Settings.MascotScale);',
+    ):
+        if fragment not in mascot_settings_match.group(0):
+            ERRORS.append(f"Apply mascot settings behavior lost required fragment: {fragment}")
+
+inspection_match = re.search(r"private void WindowInspectionSettingChanged\(.*?^\s*\}", main_window_code_text, re.DOTALL | re.MULTILINE)
+if not inspection_match or "AppRuntime.SettingsStore.Save(AppRuntime.Settings);" not in inspection_match.group(0) or "WindowInspectionCheckbox.IsChecked == true" not in inspection_match.group(0):
+    ERRORS.append("Window-inspection opt-in must persist its checked/unchecked state")
+
+interaction_test_needles = (
+    "AssertInteractionAndSettingsPersistence(window, mascot, temp.Path);",
+    "private static void AssertInteractionAndSettingsPersistence(",
+    "The language change must survive reloading settings.json.",
+    "The live mascot must stop staying above other windows.",
+    "Enabling optional window-title inspection must persist.",
+    "Apply must update live window opacity.",
+    "An invalid provider URL must not overwrite a previously saved URL.",
+    "The show-mascot button must restore a hidden mascot window.",
+)
+for needle in interaction_test_needles:
+    if needle not in theme_regression_test:
+        ERRORS.append(f"Interactive settings regression test is missing coverage: {needle}")
+
+settings_test_path = ROOT / "tests/Layal.Tests/SettingsStoreTests.cs"
+settings_test_code = settings_test_path.read_text(encoding="utf-8") if settings_test_path.is_file() else ""
+for needle in (
+    'Assert.AreEqual("light", settings.ThemeMode);',
+    "Assert.IsFalse(settings.AllowWindowTitleInspection);",
+    "AllowWindowTitleInspection = true",
+    "Assert.IsTrue(reloaded.AllowWindowTitleInspection);",
+):
+    if needle not in settings_test_code:
+        ERRORS.append(f"Settings Store regression coverage is missing: {needle}")
+
 project_file = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
 project_text = project_file.read_text(encoding="utf-8") if project_file.exists() else ""
 version_match = re.search(r"<Version>([^<]+)</Version>", project_text)

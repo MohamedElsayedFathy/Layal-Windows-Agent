@@ -305,6 +305,9 @@ public sealed class MainWindowVisualSmokeTests
             }
         }
 
+        AssertInteractionAndSettingsPersistence(window, mascot, temp.Path);
+        lines.Add("Interactive settings regression: language/theme/navigation, mascot toggles, size/opacity, opt-in window inspection, provider validation/persistence, and show/hide passed.");
+
         File.WriteAllLines(Path.Combine(outputDirectory, "manifest.txt"), lines);
         AppRuntime.IsExiting = true;
         mascot.Close();
@@ -375,6 +378,156 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,
             "Switching back must persist light mode in settings.json.");
         AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);
+    }
+
+    private static void AssertInteractionAndSettingsPersistence(MainWindow window, FloatingMascotWindow mascot, string dataRoot)
+    {
+        var store = new SettingsStore(dataRoot);
+        var languageButton = window.FindName("LanguageButton") as Button
+            ?? throw new InvalidOperationException("LanguageButton was not found.");
+        var tabs = window.FindName("MainTabs") as TabControl
+            ?? throw new InvalidOperationException("MainTabs was not found.");
+        var homeTab = window.FindName("HomeTab") as TabItem
+            ?? throw new InvalidOperationException("HomeTab was not found.");
+        var chatTab = window.FindName("ChatTab") as TabItem
+            ?? throw new InvalidOperationException("ChatTab was not found.");
+        var settingsTab = window.FindName("SettingsTab") as TabItem
+            ?? throw new InvalidOperationException("SettingsTab was not found.");
+        var goChat = window.FindName("GoChatButton") as Button
+            ?? throw new InvalidOperationException("GoChatButton was not found.");
+        var goSettings = window.FindName("GoSettingsButton") as Button
+            ?? throw new InvalidOperationException("GoSettingsButton was not found.");
+        var showMascot = window.FindName("ShowMascotButton") as Button
+            ?? throw new InvalidOperationException("ShowMascotButton was not found.");
+        var alwaysOnTop = window.FindName("AlwaysOnTopCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("AlwaysOnTopCheckbox was not found.");
+        var animations = window.FindName("AnimationsCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("AnimationsCheckbox was not found.");
+        var windowInspection = window.FindName("WindowInspectionCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("WindowInspectionCheckbox was not found.");
+        var size = window.FindName("MascotSizeSlider") as Slider
+            ?? throw new InvalidOperationException("MascotSizeSlider was not found.");
+        var opacity = window.FindName("MascotOpacitySlider") as Slider
+            ?? throw new InvalidOperationException("MascotOpacitySlider was not found.");
+        var applyMascotSettings = window.FindName("ApplyMascotSettingsButton") as Button
+            ?? throw new InvalidOperationException("ApplyMascotSettingsButton was not found.");
+        var baseUrl = window.FindName("BaseUrlInput") as TextBox
+            ?? throw new InvalidOperationException("BaseUrlInput was not found.");
+        var model = window.FindName("ModelInput") as TextBox
+            ?? throw new InvalidOperationException("ModelInput was not found.");
+        var saveProvider = window.FindName("SaveProviderButton") as Button
+            ?? throw new InvalidOperationException("SaveProviderButton was not found.");
+        var providerStatus = window.FindName("ProviderActionStatus") as TextBlock
+            ?? throw new InvalidOperationException("ProviderActionStatus was not found.");
+
+        // Exercise the visible language toggle in both directions and verify a fresh settings read.
+        AppRuntime.Settings.Language = "ar";
+        languageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, languageButton));
+        Assert.AreEqual("en", AppRuntime.Settings.Language, "The header language button should switch Arabic to English.");
+        Assert.AreEqual("en", store.Load().Language, "The language change must survive reloading settings.json.");
+        StringAssert.Contains(settingsTab.Header?.ToString() ?? string.Empty, "Settings",
+            "Switching to English must update the settings tab label.");
+
+        languageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, languageButton));
+        Assert.AreEqual("ar", AppRuntime.Settings.Language, "The header language button should switch English back to Arabic.");
+        Assert.AreEqual("ar", store.Load().Language, "Switching the language back must also persist.");
+        StringAssert.Contains(settingsTab.Header?.ToString() ?? string.Empty, "الإعدادات",
+            "Switching back to Arabic must update the settings tab label.");
+
+        // Navigation entry points must select the real corresponding tabs.
+        goSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goSettings));
+        Assert.AreSame(settingsTab, tabs.SelectedItem, "The home settings shortcut must navigate to Settings.");
+        goChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goChat));
+        Assert.AreSame(chatTab, tabs.SelectedItem, "The home chat shortcut must navigate to Chat.");
+        tabs.SelectedItem = homeTab;
+
+        // Checkbox changes persist immediately and are reflected by the live mascot.
+        alwaysOnTop.IsChecked = false;
+        Assert.IsFalse(store.Load().MascotAlwaysOnTop, "Turning off always-on-top must persist immediately.");
+        Assert.IsFalse(mascot.Topmost, "The live mascot must stop staying above other windows.");
+        alwaysOnTop.IsChecked = true;
+        Assert.IsTrue(store.Load().MascotAlwaysOnTop, "Turning always-on-top back on must persist.");
+        Assert.IsTrue(mascot.Topmost, "The live mascot must return to topmost mode.");
+
+        animations.IsChecked = false;
+        Assert.IsFalse(store.Load().MascotAnimationsEnabled, "Disabling mascot animation must persist immediately.");
+        animations.IsChecked = true;
+        Assert.IsTrue(store.Load().MascotAnimationsEnabled, "Re-enabling mascot animation must persist.");
+
+        // The window-title permission is opt-in and must round-trip in both directions.
+        windowInspection.IsChecked = true;
+        Assert.IsTrue(store.Load().AllowWindowTitleInspection, "Enabling optional window-title inspection must persist.");
+        windowInspection.IsChecked = false;
+        Assert.IsFalse(store.Load().AllowWindowTitleInspection, "Disabling optional window-title inspection must persist.");
+
+        // Apply the size/opacity controls through the actual XAML Click event, then reload settings.
+        size.Value = 1.25;
+        opacity.Value = 0.8;
+        applyMascotSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, applyMascotSettings));
+        var applied = store.Load();
+        Assert.AreEqual(1.25, applied.MascotScale, 0.0001, "Mascot scale must persist after Apply.");
+        Assert.AreEqual(0.8, applied.MascotOpacity, 0.0001, "Mascot opacity must persist after Apply.");
+        Assert.IsTrue(applied.MascotAlwaysOnTop, "Always-on-top state must persist alongside slider settings.");
+        Assert.IsTrue(mascot.Topmost, "Apply must keep the live window's topmost state in sync.");
+        Assert.AreEqual(0.8, mascot.Opacity, 0.001, "Apply must update live window opacity.");
+        Assert.AreEqual(248 * 1.25, mascot.Width, 0.001, "Apply must resize the live mascot width.");
+        Assert.AreEqual(175 * 1.25, mascot.Height, 0.001, "Apply must resize the live mascot height.");
+
+        // The provider form must reject an unsupported scheme without partially saving it.
+        var oldBaseUrl = applied.ProviderBaseUrl;
+        var oldModelId = applied.ModelId;
+        baseUrl.Text = "file:///not-a-provider";
+        model.Text = "should-not-be-saved";
+        saveProvider.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, saveProvider));
+        Assert.AreEqual(oldBaseUrl, store.Load().ProviderBaseUrl, "An invalid provider URL must not overwrite a previously saved URL.");
+        Assert.AreEqual(oldModelId, store.Load().ModelId, "A failed provider save must not partially write the model ID.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(providerStatus.Text), "Invalid provider settings must show feedback.");
+
+        // A valid URL/model pair must be normalized and persisted without requiring network access.
+        baseUrl.Text = "http://127.0.0.1:31415/v1/";
+        model.Text = "interaction-regression-test";
+        saveProvider.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, saveProvider));
+        Assert.AreEqual("http://127.0.0.1:31415/v1", store.Load().ProviderBaseUrl);
+        Assert.AreEqual("interaction-regression-test", store.Load().ModelId);
+
+        // Restore safe defaults through the same controls/handlers so later checks remain isolated.
+        baseUrl.Text = oldBaseUrl;
+        model.Text = oldModelId;
+        saveProvider.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, saveProvider));
+        alwaysOnTop.IsChecked = true;
+        animations.IsChecked = true;
+        windowInspection.IsChecked = false;
+        size.Value = 1.0;
+        opacity.Value = 1.0;
+        applyMascotSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, applyMascotSettings));
+        Assert.IsTrue(store.Load().MascotAlwaysOnTop);
+        Assert.IsTrue(store.Load().MascotAnimationsEnabled);
+        Assert.AreEqual(1.0, store.Load().MascotScale, 0.0001);
+        Assert.AreEqual(1.0, store.Load().MascotOpacity, 0.0001);
+        Assert.IsFalse(store.Load().AllowWindowTitleInspection);
+        Assert.AreEqual(oldBaseUrl, store.Load().ProviderBaseUrl);
+        Assert.AreEqual(oldModelId, store.Load().ModelId);
+
+        // Test the show control against the real floating window, then leave the harness in a safe state.
+        mascot.Hide();
+        showMascot.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, showMascot));
+        Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
+        Assert.IsTrue(mascot.Topmost, "ShowAgain must respect the persisted always-on-top preference.");
+
+        AppRuntime.Settings = store.Load();
+        AppRuntime.Settings.ThemeMode = "light";
+        AppRuntime.Settings.Language = "ar";
+        store.Save(AppRuntime.Settings);
+        var applyTheme = typeof(MainWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ApplyTheme was not found.");
+        var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ApplyLanguage was not found.");
+        applyTheme.Invoke(window, null);
+        applyLanguage.Invoke(window, null);
+        mascot.UpdateLanguage();
+        mascot.Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
+        mascot.Opacity = AppRuntime.Settings.MascotOpacity;
+        mascot.ApplyScale(AppRuntime.Settings.MascotScale);
     }
 
     private static void AssertThemeContrastAndControlSurfaces(

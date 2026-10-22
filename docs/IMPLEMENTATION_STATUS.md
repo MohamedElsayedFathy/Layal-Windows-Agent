@@ -109,3 +109,11 @@ Artifacts uploaded by this run include the Windows Release build, interactive-ac
 - The same harness supports timed sampling for a manual cross-monitor drag. Run `-RequireMultipleMonitors -RequireMonitorTransition -RequireDpiTransition -ObserveSeconds 90` on a real PC with two displays configured at different Windows scaling levels; it saves JSON and CSV evidence.
 - Windows CI runs a three-second topology smoke check and uploads `display-dpi-summary.json` and `display-dpi-samples.csv`. The CI runner's topology must not be interpreted as proof of a physical multi-monitor or 100/125/150/175% scale change.
 - **Physical display acceptance remains pending** until a run on the target device records each monitor's resolution/scaling, confirms Layal crosses between displays without losing position or input behavior, and checks visual clipping/overlap. PR #6 remains draft and unmerged.
+
+
+## Interaction and settings verification — automation added; live acceptance pending
+
+- The WPF visual-smoke suite now exercises the real language-toggle button in both directions, the home shortcuts to Chat and Settings, immediate checkbox persistence for always-on-top and animations, the opt-in window-title inspection flag, mascot scale/opacity application to the live WPF window, provider URL/model validation without network access, and the show-mascot button after hiding the real window.
+- SettingsStoreTests now asserts safe defaults, rejects an invalid theme name by normalizing to light mode, and round-trips AllowWindowTitleInspection.
+- validate_project.py guards key XAML event wiring and the language/settings/provider save handlers, as well as the new end-to-end WPF regression assertions.
+- **Live Windows acceptance remains pending:** manually verify single/double click behavior, context-menu hide/show, restart persistence, and all configuration options in a user desktop session. The workflow result for this change must be linked only after CI finishes.
