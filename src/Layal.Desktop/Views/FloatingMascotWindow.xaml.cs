@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Runtime.InteropServices;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 using Layal.Services;
@@ -21,6 +22,7 @@ public partial class FloatingMascotWindow : Window
     private readonly DispatcherTimer _floatTimer;
     private readonly DispatcherTimer _moodResetTimer;
     private readonly DispatcherTimer _idleTimer;
+    private readonly DispatcherTimer _hitTestTimer;
     private ModelVisual3D? _avatarModelHost;
     private ModelVisual3D? _headRigHost;
     private ModelVisual3D? _bodyRigHost;
@@ -93,9 +95,39 @@ public partial class FloatingMascotWindow : Window
     private double _rightPupilMoodX;
     private double _rightPupilMoodY;
     private string _mood = "idle";
-    private const int WmNcHitTest = 0x0084;
-    private const int HtTransparent = -1;
-    private HwndSource? _inputHitTestSource;
+    private const int GwlExStyle = -20;
+    private const long WsExTransparent = 0x00000020L;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpFrameChanged = 0x0020;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetCursorPos(out NativePoint point);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr value);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+    private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+    private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int value);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
 
     private readonly ContextMenu _contextMenu = new();
     private readonly MenuItem _openMenuItem = new();
@@ -200,44 +232,67 @@ public partial class FloatingMascotWindow : Window
         _moodResetTimer.Tick += (_, _) => ResetTerminalMood();
         _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         _idleTimer.Tick += (_, _) => UpdateIdleState();
+        // Poll the OS cursor so the layered window can switch between interactive avatar
+        // regions and true cross-process click-through transparent padding.
+        _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _hitTestTimer.Tick += (_, _) => UpdateHitTestTransparency();
         _blinkTimer.Start();
         _idleTimer.Start();
+        _hitTestTimer.Start();
         _floatTimer.Start();
         UpdateLanguage();
         SetMood("idle");
     }
 
-    /// <summary>
-    /// Lets Windows hit-test the actual mascot/task-prop region instead of the entire
-    /// transparent HWND. Empty padding should not steal clicks from applications behind Layal.
-    /// </summary>
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        _inputHitTestSource = PresentationSource.FromVisual(this) as HwndSource;
-        _inputHitTestSource?.AddHook(WindowMessageHook);
+        UpdateHitTestTransparency();
     }
 
-    private IntPtr WindowMessageHook(
-        IntPtr hwnd,
-        int message,
-        IntPtr wParam,
-        IntPtr lParam,
-        ref bool handled)
+    /// <summary>
+    /// Layered windows can pass input through alpha-zero pixels, but a WPF transparent
+    /// Background can still participate in managed hit-testing. Toggle WS_EX_TRANSPARENT
+    /// while the pointer is outside the interactive character/task-prop regions; unlike
+    /// HTTRANSPARENT, this also passes input to windows owned by other processes.
+    /// </summary>
+    private void UpdateHitTestTransparency()
     {
-        if (message != WmNcHitTest || _pointerDown || _dragStarted)
-            return IntPtr.Zero;
+        if (!IsLoaded)
+            return;
 
-        var packedPoint = lParam.ToInt64();
-        var screenX = unchecked((short)(packedPoint & 0xFFFF));
-        var screenY = unchecked((short)((packedPoint >> 16) & 0xFFFF));
-        var localPoint = PointFromScreen(new Point(screenX, screenY));
-        if (IsPointOnMascot(localPoint))
-            return IntPtr.Zero;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero)
+            return;
 
-        handled = true;
-        return new IntPtr(HtTransparent);
+        var shouldPassThrough = false;
+        if (IsVisible && !_pointerDown && !_dragStarted && GetCursorPos(out var cursor))
+        {
+            var point = PointFromScreen(new Point(cursor.X, cursor.Y));
+            shouldPassThrough = !IsPointOnMascot(point);
+        }
+
+        var currentStyle = GetWindowLongPtrCompat(hwnd, GwlExStyle).ToInt64();
+        var targetStyle = shouldPassThrough
+            ? currentStyle | WsExTransparent
+            : currentStyle & ~WsExTransparent;
+        if (currentStyle == targetStyle)
+            return;
+
+        SetWindowLongPtrCompat(hwnd, GwlExStyle, targetStyle);
+        SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+            SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
     }
+
+    private static IntPtr GetWindowLongPtrCompat(IntPtr hwnd, int index) =>
+        IntPtr.Size == 8
+            ? GetWindowLongPtr64(hwnd, index)
+            : new IntPtr(GetWindowLong32(hwnd, index));
+
+    private static IntPtr SetWindowLongPtrCompat(IntPtr hwnd, int index, long value) =>
+        IntPtr.Size == 8
+            ? SetWindowLongPtr64(hwnd, index, new IntPtr(value))
+            : new IntPtr(SetWindowLong32(hwnd, index, unchecked((int)value)));
 
     private void InitializeAvatarRig()
     {
@@ -2110,6 +2165,7 @@ public partial class FloatingMascotWindow : Window
             _floatTimer.Stop();
             _moodResetTimer.Stop();
             _idleTimer.Stop();
+            _hitTestTimer.Stop();
             CinematicEffectsLayer.Children.Clear();
             _cinematicParticles.Clear();
         }
