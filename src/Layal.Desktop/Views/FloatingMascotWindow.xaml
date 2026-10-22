@@ -222,7 +222,7 @@
 
             <!-- Short-lived, animated reaction bubble; it never intercepts pointer input. -->
             <Canvas x:Name="ReactionLayer" IsHitTestVisible="False" ClipToBounds="False">
-                <Border x:Name="ReactionBubble" Width="48" Height="45" Canvas.Left="115" Canvas.Top="54"
+                <Border x:Name="ReactionBubble" Width="48" Height="45" Canvas.Left="185" Canvas.Top="29"
                         Visibility="Collapsed" Opacity="0" CornerRadius="16" Background="#F5FFFFFF"
                         BorderBrush="#B8CBE8" BorderThickness="1" Padding="2"
                         RenderTransformOrigin="0.5,0.5">
