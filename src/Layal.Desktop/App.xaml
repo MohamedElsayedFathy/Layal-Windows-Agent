@@ -5,6 +5,7 @@
     <Application.Resources>
         <!-- Layal Calm Light design system: soft surfaces, strong text contrast, restrained accents. -->
         <Color x:Key="Layal.Color.Background">#F4F7FC</Color>
+        <Color x:Key="Layal.Color.BackgroundEnd">#EEF3FB</Color>
         <Color x:Key="Layal.Color.Surface">#FFFFFF</Color>
         <Color x:Key="Layal.Color.SurfaceRaised">#FAFBFF</Color>
         <Color x:Key="Layal.Color.SurfaceHover">#EDF3FA</Color>
