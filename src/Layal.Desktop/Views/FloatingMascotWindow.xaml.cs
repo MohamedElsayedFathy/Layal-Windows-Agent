@@ -321,7 +321,6 @@ public partial class FloatingMascotWindow : Window
         iris.Children.Add(pupil);
         eye.Children.Add(iris);
         _headRigHost!.Children.Add(eye);
-        _headRigHost.Children.Add(iris);
         // The iris is already parented by the eye node; keep references for mouse gaze.
         if (left)
         {
@@ -1258,14 +1257,17 @@ public partial class FloatingMascotWindow : Window
 
         TaskPropsLayer.Visibility = Visibility.Visible;
         // Prop emphasis follows the actual stage instead of showing every prop equally.
-        (PaperProp.Opacity, PencilProp.Opacity, HoloComputerProp.Opacity) = _mood switch
+        var propOpacity = _mood switch
         {
-            "planning" or "researching" or "reading" => (0.96, 0.42, 0.70),
-            "writing" => (0.92, 1.0, 0.44),
-            "coding" or "using_tool" or "validating" => (0.35, 0.35, 1.0),
-            "waiting" or "warning" => (0.52, 0.18, 0.84),
-            _ => (0.82, 0.72, 0.88)
+            "planning" or "researching" or "reading" => (Paper: 0.96, Pencil: 0.42, Computer: 0.70),
+            "writing" => (Paper: 0.92, Pencil: 1.0, Computer: 0.44),
+            "coding" or "using_tool" or "validating" => (Paper: 0.35, Pencil: 0.35, Computer: 1.0),
+            "waiting" or "warning" => (Paper: 0.52, Pencil: 0.18, Computer: 0.84),
+            _ => (Paper: 0.82, Pencil: 0.72, Computer: 0.88)
         };
+        PaperProp.Opacity = propOpacity.Paper;
+        PencilProp.Opacity = propOpacity.Pencil;
+        HoloComputerProp.Opacity = propOpacity.Computer;
     }
 
     public void ApplyScale(double scale)
@@ -1344,7 +1346,7 @@ public partial class FloatingMascotWindow : Window
                 "waiting" or "warning" => 0.78,
                 _ => 0.82
             };
-            HoloComputerProp.Opacity = computerBase * (0.88 + ((Math.Sin(_floatPhase * 1.45) + 1) * 0.06);
+            HoloComputerProp.Opacity = computerBase * (0.88 + ((Math.Sin(_floatPhase * 1.45) + 1) * 0.06));
         }
 
         if (_mood is "speaking" or "responding")
