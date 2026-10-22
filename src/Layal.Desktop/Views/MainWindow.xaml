@@ -295,9 +295,9 @@
                         <Separator Margin="4,10" Background="#E3EAF3"/>
                         <TextBlock x:Name="ProviderSectionTitle" Text="مزود ذكاء اصطناعي متوافق مع OpenAI API" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
-                        <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1"/>
+                        <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text=""/>
                         <TextBlock x:Name="ModelLabel" Text="معرّف النموذج" Margin="4,5,4,0"/>
-                        <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto"/>
+                        <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text=""/>
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight"/>
                         <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="#63738A" TextWrapping="Wrap" Margin="4,4"/>
