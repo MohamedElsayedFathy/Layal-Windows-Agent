@@ -177,7 +177,7 @@ required_controls = {
     "src/Layal.Desktop/Views/FloatingMascotWindow.xaml": [
         "Root", "AntennaDot", "GlowHalo", "LeftPupil", "RightPupil", "LeftEye", "RightEye",
         "LeftEyeShine", "RightEyeShine", "LeftBrow", "RightBrow", "CheekLeft", "CheekRight",
-        "Mouth", "StatusDot", "AvatarViewport", "TaskPropsLayer", "PaperProp", "PencilProp", "HoloComputerProp"
+        "Mouth", "StatusDot", "AvatarViewport", "TaskPropsLayer", "PaperProp", "PencilProp", "HoloComputerProp", "CinematicEffectsLayer"
     ]
 }
 for xaml_file, controls in required_controls.items():
@@ -198,9 +198,12 @@ if not resolver_path.exists():
 if "TaskMoodResolver.Resolve(text, TaskEvents.TakeLast(4))" not in main_code:
     ERRORS.append("Main window is not using the tested task-stage mood resolver")
 for required_fragment in (
-    "CreateAvatarModel()", "CreateEllipsoid(", "Viewport3D", "UpdateTaskProps()",
+    "InitializeAvatarRig()", "CreateHeadModel()", "CreateBodyModel()", "CreateArmModel(int side)",
+    "CreateLegModel(int side)", "AddEyeRig(bool left)", "ApplyThreeDimensionalFaceExpression(",
+    "CreateCurveStrip(", "ConfigureCinematicEffects(", "AnimateCinematicEffects()",
+    "ApplyRigPose(_floatPhase)", "CreateEllipsoid(", "Viewport3D", "UpdateTaskProps()",
     "SetTaskActive(bool active)", "IsPointOnMascot(Point point)", "IsTaskMood(string mood)",
-    "new Transform3DGroup()", "MeshGeometry3D",
+    "Transform3DGroup", "MeshGeometry3D",
 ):
     if required_fragment not in mascot_code and required_fragment not in (ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml").read_text(encoding="utf-8"):
         ERRORS.append(f"3D/personality regression: required implementation fragment '{required_fragment}' is missing")
