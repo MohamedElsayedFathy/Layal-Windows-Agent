@@ -192,7 +192,9 @@ public partial class MainWindow : Window
     private void ApplyLanguage()
     {
         var ar = IsArabic;
-        FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        // Keep the root visual tree LTR: setting RTL on the entire Window mirrors glyphs and icons.
+        // Apply RTL to input fields and Arabic text runs locally instead of flipping all visuals.
+        FlowDirection = FlowDirection.LeftToRight;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         BaseUrlInput.FlowDirection = ModelInput.FlowDirection = ApiKeyInput.FlowDirection = GitHubSkillUrlInput.FlowDirection = FlowDirection.LeftToRight;
         foreach (var message in ChatMessages)
@@ -370,6 +372,10 @@ public partial class MainWindow : Window
             if (current is TextBlock textBlock &&
                 !BindingOperations.IsDataBound(textBlock, TextBlock.TextProperty))
             {
+                var hasArabic = ContainsArabic(textBlock.Text);
+                // Localize text direction without flipping the containing visual tree.
+                textBlock.FlowDirection = FlowDirection.LeftToRight;
+                textBlock.TextAlignment = hasArabic ? TextAlignment.Right : TextAlignment.Left;
                 textBlock.Text = BidiTextNormalizer.NormalizeMixedText(textBlock.Text);
             }
 
