@@ -53,6 +53,22 @@ public sealed class WindowsUiAutomationServiceTests
     }
 
     [TestMethod]
+    public void TextEntryReportDoesNotExposeTheEnteredValueOrClaimApplicationSuccess()
+    {
+        const string sensitiveValue = "private-value-should-not-be-returned";
+        var outcome = new UiTextEntryOutcome("Test Editor", 4242, "searchInput", sensitiveValue.Length);
+
+        var report = WindowsUiAutomationService.FormatTextEntryReport(outcome);
+
+        StringAssert.Contains(report, "AutomationId: searchInput");
+        StringAssert.Contains(report, $"Characters requested: {sensitiveValue.Length}");
+        StringAssert.Contains(report, "previous field value was not read or returned");
+        StringAssert.Contains(report, "does not prove the application accepted the value");
+        Assert.IsFalse(report.Contains(sensitiveValue, StringComparison.Ordinal));
+        Assert.IsFalse(report.Contains("application operation succeeded", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
     public void ReadControlsRejectsOutOfRangeLimitsBeforeNativeCalls()
     {
         var target = new UiWindowTarget(IntPtr.Zero, "unused", 1);
