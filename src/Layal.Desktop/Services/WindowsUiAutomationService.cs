@@ -119,6 +119,142 @@ public static class WindowsUiAutomationService
             cancellationToken,
             "Waiting for the UI action exceeded 8 seconds. The action may have been delivered; inspect the target application before retrying. Layal will not queue a second UI Automation operation until the original operation exits.");
 
+    /// <summary>Previews one editable non-password field without reading its current value.</summary>
+    public static Task<UiTextEntryPreview> PreviewSetTextAsync(
+        UiWindowTarget target,
+        string automationId,
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => PreviewSetText(target, automationId),
+            cancellationToken,
+            "Windows UI Automation could not safely inspect the text field within 8 seconds. No UI action was performed.");
+
+    /// <summary>Sets the value of the exact field approved by the user; it never reads or returns the old value.</summary>
+    public static Task<UiTextEntryOutcome> SetTextAsync(
+        UiWindowTarget target,
+        UiTextEntryPreview preview,
+        string value,
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => SetText(target, preview, value),
+            cancellationToken,
+            "Waiting for the UI text action exceeded 8 seconds. The value may have been set; inspect the target application before retrying. Layal will not queue another UI Automation operation until the original operation exits.");
+
+    public static string ValidateUiText(string value)
+    {
+        if (value is null) throw new ArgumentNullException(nameof(value));
+        if (value.Length > 10_000)
+            throw new ArgumentException("Text entry is limited to 10,000 characters.", nameof(value));
+        if (value.Contains('\0'))
+            throw new ArgumentException("Text entry cannot contain a null character.", nameof(value));
+        return value;
+    }
+
+    private static UiTextEntryPreview PreviewSetText(UiWindowTarget target, string automationId)
+    {
+        automationId = ValidateAutomationId(automationId);
+        var element = FindUniqueEditableControl(target, automationId);
+        var info = element.Current;
+        if (info.IsPassword)
+            throw new InvalidOperationException("Password fields are not supported; no value was set.");
+        if (info.IsOffscreen)
+            throw new InvalidOperationException("The selected field is offscreen. Bring it into view and inspect again.");
+        if (!info.IsEnabled)
+            throw new InvalidOperationException("The selected field is disabled.");
+        if (!element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) || pattern is not ValuePattern valuePattern)
+            throw new InvalidOperationException("The selected field does not expose ValuePattern. No value was set.");
+        if (valuePattern.Current.IsReadOnly)
+            throw new InvalidOperationException("The selected field is read-only. No value was set.");
+
+        var runtimeId = string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        return new UiTextEntryPreview(target.Title, target.ProcessId, automationId, runtimeId, info.IsEnabled, valuePattern.Current.IsReadOnly);
+    }
+
+    private static UiTextEntryOutcome SetText(UiWindowTarget target, UiTextEntryPreview preview, string value)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+        _ = ValidateUiText(value);
+        if (!string.Equals(preview.WindowTitle, target.Title, StringComparison.Ordinal) ||
+            preview.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The approved text-field target does not match the selected window. No value was set.");
+
+        var element = FindUniqueEditableControl(target, preview.AutomationId);
+        var info = element.Current;
+        var currentRuntimeId = string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (!string.Equals(currentRuntimeId, preview.RuntimeId, StringComparison.Ordinal))
+            throw new InvalidOperationException("The text field changed while awaiting approval. Inspect the application again; no value was set.");
+        if (info.IsPassword || info.IsOffscreen || !info.IsEnabled)
+            throw new InvalidOperationException("The field became protected, offscreen, or disabled while awaiting approval. No value was set.");
+        if (!element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) || pattern is not ValuePattern valuePattern)
+            throw new InvalidOperationException("The field no longer exposes ValuePattern. No value was set.");
+        if (valuePattern.Current.IsReadOnly)
+            throw new InvalidOperationException("The field became read-only while awaiting approval. No value was set.");
+
+        valuePattern.SetValue(value);
+        return new UiTextEntryOutcome(target.Title, target.ProcessId, preview.AutomationId, value.Length);
+    }
+
+    private static AutomationElement FindUniqueEditableControl(UiWindowTarget target, string automationId)
+    {
+        var root = GetRootForExternalWindow(target);
+        var walker = TreeWalker.ControlViewWalker;
+        var pending = new Stack<AutomationElement>();
+        var matches = new List<AutomationElement>(2);
+        var examined = 0;
+        var treeIncomplete = false;
+
+        try
+        {
+            var first = walker.GetFirstChild(root);
+            if (first is not null) pending.Push(first);
+        }
+        catch (ElementNotAvailableException)
+        {
+            throw new InvalidOperationException("The target UI tree changed and could not be safely inspected. No text was entered.");
+        }
+        catch (COMException)
+        {
+            throw new InvalidOperationException("Windows UI Automation could not access the target UI tree. No text was entered.");
+        }
+
+        while (pending.Count > 0 && examined < MaxNodesExamined)
+        {
+            var element = pending.Pop();
+            examined++;
+            try
+            {
+                var sibling = walker.GetNextSibling(element);
+                if (sibling is not null) pending.Push(sibling);
+                var child = walker.GetFirstChild(element);
+                if (child is not null) pending.Push(child);
+
+                var info = element.Current;
+                var actualType = info.ControlType?.ProgrammaticName ?? string.Empty;
+                if (!info.IsControlElement || !string.Equals(actualType, ControlType.Edit.ProgrammaticName, StringComparison.Ordinal))
+                    continue;
+                if (!string.Equals(info.AutomationId, automationId, StringComparison.Ordinal))
+                    continue;
+
+                // Keep password controls in the match set so a protected control with this ID
+                // cannot be silently ignored in favor of another similarly named field.
+                matches.Add(element);
+                if (matches.Count > 1)
+                    throw new InvalidOperationException("More than one text field has this exact AutomationId. No value was set.");
+            }
+            catch (InvalidOperationException) { throw; }
+            catch (ElementNotAvailableException) { treeIncomplete = true; }
+            catch (COMException) { treeIncomplete = true; }
+        }
+
+        if (pending.Count > 0 || examined >= MaxNodesExamined)
+            throw new InvalidOperationException("The target UI tree exceeds the 400-element safety limit. Refusing to enter text without proving the target is unique.");
+        if (treeIncomplete)
+            throw new InvalidOperationException("The target UI tree changed or was partially unavailable. Refusing to enter text into a field whose uniqueness cannot be proven.");
+        if (matches.Count == 0)
+            throw new InvalidOperationException("No text field with this exact AutomationId was found in the selected window.");
+        return matches[0];
+    }
+
     public static string NormalizeInvokeControlType(string controlType)
     {
         if (string.IsNullOrWhiteSpace(controlType) || controlType.Length > 40)
@@ -567,6 +703,20 @@ public sealed record UiInvokeOutcome(
     bool WindowStillVisible,
     bool? ControlStillPresent,
     bool? ControlStillEnabled);
+
+public sealed record UiTextEntryPreview(
+    string WindowTitle,
+    uint ProcessId,
+    string AutomationId,
+    string RuntimeId,
+    bool IsEnabled,
+    bool IsReadOnly);
+
+public sealed record UiTextEntryOutcome(
+    string WindowTitle,
+    uint ProcessId,
+    string AutomationId,
+    int CharacterCount);
 
 /// <summary>Metadata-only UI control summary; intentionally has no property for a control's value.</summary>
 public sealed record UiControlSummary(string ControlType, string Name, string AutomationId, bool IsEnabled);
