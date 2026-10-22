@@ -199,6 +199,7 @@ public sealed class BrowserAutomationService
                 using var currentEndpoint = await _http.GetAsync(DebugEndpoint("json/version"), token);
                 if (currentEndpoint.IsSuccessStatusCode) return;
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { }
             _debugPort = 0;
         }
@@ -226,31 +227,43 @@ public sealed class BrowserAutomationService
         start.ArgumentList.Add("about:blank");
 
         _browserProcess = Process.Start(start) ?? throw new InvalidOperationException("Microsoft Edge could not be started.");
-        var stopwatch = Stopwatch.StartNew();
-        while (stopwatch.Elapsed < BrowserStartTimeout)
+        try
         {
-            token.ThrowIfCancellationRequested();
-            if (_browserProcess.HasExited)
-                throw new InvalidOperationException("The dedicated Layal browser process exited before the debugging endpoint became available.");
-            try
+            var stopwatch = Stopwatch.StartNew();
+            while (stopwatch.Elapsed < BrowserStartTimeout)
             {
-                if (File.Exists(activePortFile))
+                token.ThrowIfCancellationRequested();
+                if (_browserProcess.HasExited)
+                    throw new InvalidOperationException("The dedicated Layal browser process exited before the debugging endpoint became available.");
+                try
                 {
-                    var lines = await File.ReadAllLinesAsync(activePortFile, token);
-                    if (lines.Length > 0 && int.TryParse(lines[0], out var port) && port is > 0 and <= 65535)
+                    if (File.Exists(activePortFile))
                     {
-                        _debugPort = port;
-                        using var response = await _http.GetAsync(DebugEndpoint("json/version"), token);
-                        if (response.IsSuccessStatusCode) return;
-                        _debugPort = 0;
+                        var lines = await File.ReadAllLinesAsync(activePortFile, token);
+                        if (lines.Length > 0 && int.TryParse(lines[0], out var port) && port is > 0 and <= 65535)
+                        {
+                            _debugPort = port;
+                            using var response = await _http.GetAsync(DebugEndpoint("json/version"), token);
+                            if (response.IsSuccessStatusCode) return;
+                            _debugPort = 0;
+                        }
                     }
                 }
+                catch (Exception ex) when (ex is IOException or HttpRequestException or UnauthorizedAccessException) { }
+                await Task.Delay(150, token);
             }
-            catch (Exception ex) when (ex is IOException or HttpRequestException or UnauthorizedAccessException) { }
-            await Task.Delay(150, token);
-        }
 
-        throw new TimeoutException("Microsoft Edge did not expose its local automation endpoint within 15 seconds. Check whether Edge is installed and allowed to start.");
+            throw new TimeoutException("Microsoft Edge did not expose its local automation endpoint within 15 seconds. Check whether Edge is installed and allowed to start.");
+        }
+        catch
+        {
+            _debugPort = 0;
+            try { if (!_browserProcess.HasExited) _browserProcess.Kill(entireProcessTree: true); } catch { }
+            _browserProcess.Dispose();
+            _browserProcess = null;
+            try { if (File.Exists(activePortFile)) File.Delete(activePortFile); } catch { }
+            throw;
+        }
     }
 
     private async Task<bool> TryAttachExistingSessionAsync(CancellationToken token)
@@ -273,6 +286,10 @@ public sealed class BrowserAutomationService
 
             _debugPort = port;
             return true;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is IOException or HttpRequestException or UnauthorizedAccessException or JsonException or TaskCanceledException)
         {
@@ -416,7 +433,7 @@ public sealed class BrowserAutomationService
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
             "if(disabled)return JSON.stringify({found:false,error:'The selected element is disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});" +
-            "if(tag==='a'&&e.href&&!/^https?:/i.test(e.href))return JSON.stringify({found:false,error:'Only HTTP/HTTPS links are allowed for browser clicks.'});}" +
+            "if(tag==='a'&&(!e.href||!/^https?:/i.test(e.href)))return JSON.stringify({found:false,error:'Only anchors with HTTP/HTTPS destinations are allowed for browser clicks.'});}" +
             "if(action==='fill'){const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;if(!allowed||readOnly)return JSON.stringify({found:false,error:'Selector must match an editable visible text/email/search/tel/url/number input, textarea, or contenteditable field. Password/file/hidden fields are not supported.'});}" +
             "return JSON.stringify({found:true,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',disabled,readOnly,fingerprint:fp});})()";
     }
