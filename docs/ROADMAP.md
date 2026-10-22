@@ -51,6 +51,15 @@
 - [x] CI now runs `dotnet test`, validates non-empty TRX results, and stores test/source artifacts.
 - [ ] Observe a passing Windows CI run and fix any failures before treating the test gate as complete.
 
+## 0.5.3 — Reactive mascot personality (this branch)
+- [x] Show lightweight animated task props (work sheet, pencil, holographic computer) for working moods in the floating mascot.
+- [x] Add eight additional face-driven moods and matching non-repeating emoji reaction groups.
+- [x] Keep task props visible but static when decorative animation is disabled.
+- [ ] Pass Windows Release build and automated regression tests on this branch.
+- [ ] Manually verify click/drag/double-click, display scaling, task transitions, and reduced-motion behavior on Windows.
+- [ ] Replace the 2D shell with a genuine 3D character model and rig before marking the 3D design requirement complete.
+- [ ] Redesign and visually validate all application sections as one consistent light/dark design system.
+
 ## 0.6 — Native automation and safety hardening
 - [ ] Windows UI Automation adapter for approved apps.
 - [ ] Explicit mouse/keyboard adapter, screen capture approvals, and outcome checks.
