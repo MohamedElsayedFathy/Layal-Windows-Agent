@@ -42,6 +42,17 @@ public sealed class WindowsUiAutomationServiceTests
     }
 
     [TestMethod]
+    public void UiTextValidationAllowsOrdinaryAndMultilineTextWithoutReadingAnyField()
+    {
+        Assert.AreEqual("Layal test", WindowsUiAutomationService.ValidateUiText("Layal test"));
+        Assert.AreEqual("Arabic: مرحبًا\\nEnglish: hello", WindowsUiAutomationService.ValidateUiText("Arabic: مرحبًا\\nEnglish: hello"));
+        Assert.AreEqual(string.Empty, WindowsUiAutomationService.ValidateUiText(string.Empty));
+        Assert.AreEqual(10_000, WindowsUiAutomationService.ValidateUiText(new string('x', 10_000)).Length);
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateUiText(new string('x', 10_001)));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateUiText("bad\\0value"));
+    }
+
+    [TestMethod]
     public void ReadControlsRejectsOutOfRangeLimitsBeforeNativeCalls()
     {
         var target = new UiWindowTarget(IntPtr.Zero, "unused", 1);
