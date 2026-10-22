@@ -58,6 +58,7 @@ The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a 
 - The visual-personality branch adds floating WPF task props (paper, pencil, holographic computer) tied to work-related moods, with gentle idle motion.
 - The branch adds eight expressive social moods plus distinct work-stage faces for planning, research, reading, writing, coding and validation. Arabic/English context and task-engine events select these moods.
 - The selected UI language is passed into the chat and task system prompt so Arabic mode uses natural Egyptian Arabic and English mode uses clear English; tests cover both preferences.
+- `TaskMoodResolver` isolates task-event-to-expression routing and regression tests cover planning, reading, writing, build/test validation, failure precedence and declined approvals.
 - Reduced-motion behavior keeps the work state visible while freezing the decorative prop animation.
 - The same branch adds a theme-aware background gradient and lightly translucent card/header gradients to give the app a restrained glass-like finish; it does not use true desktop acrylic blur.
 - **Verification status:** awaiting fresh Windows CI for the current branch head and manual Windows visual acceptance; the task props are 2D WPF elements. The shell is genuine WPF 3D geometry, but the face remains a 2D overlay and the full rigged 3D character/full app redesign are incomplete.
