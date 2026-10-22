@@ -277,9 +277,31 @@ public sealed class ApiConnectionService
             throw new InvalidOperationException("API path must be a relative path of at most 2048 characters, without query strings, fragments, or absolute URLs.");
 
         var relative = path.Trim().TrimStart('/');
-        var decoded = Uri.UnescapeDataString(relative);
-        if (decoded.Split('/').Any(segment => segment is "." or ".."))
+        // Check nested percent-encoding as well as a single decode. Some reverse proxies
+        // and application servers decode paths more than once, so %252e%252e can become
+        // a parent-directory segment after Layal's initial URL validation.
+        var decoded = relative;
+        for (var decodePass = 0; decodePass < 5; decodePass++)
+        {
+            if (decoded.Split('/', StringSplitOptions.None).Any(segment => segment is "." or ".."))
+                throw new InvalidOperationException("API paths cannot traverse parent directories.");
+
+            string next;
+            try { next = Uri.UnescapeDataString(decoded); }
+            catch (UriFormatException)
+            {
+                throw new InvalidOperationException("API path contains invalid percent-encoding.");
+            }
+
+            if (string.Equals(next, decoded, StringComparison.Ordinal)) break;
+            decoded = next;
+            if (decodePass == 4 && decoded.Contains('%'))
+                throw new InvalidOperationException("API path uses excessive nested percent-encoding.");
+        }
+
+        if (decoded.Split('/', StringSplitOptions.None).Any(segment => segment is "." or ".."))
             throw new InvalidOperationException("API paths cannot traverse parent directories.");
+
         var baseUri = new Uri(baseUrl, UriKind.Absolute);
         var uri = new Uri(baseUri, relative);
         if (!string.Equals(uri.Scheme, baseUri.Scheme, StringComparison.OrdinalIgnoreCase) ||
