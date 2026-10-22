@@ -140,6 +140,27 @@ public static class WindowsUiAutomationService
             cancellationToken,
             "Waiting for the UI text action exceeded 8 seconds. The value may have been set; inspect the target application before retrying. Layal will not queue another UI Automation operation until the original operation exits.");
 
+    /// <summary>Previews one unique visible CheckBox and records its stable runtime identifier.</summary>
+    public static Task<UiCheckBoxPreview> PreviewSetCheckBoxAsync(
+        UiWindowTarget target,
+        string automationId,
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => PreviewSetCheckBox(target, automationId),
+            cancellationToken,
+            "Windows UI Automation could not safely inspect the checkbox within 8 seconds. No UI action was performed.");
+
+    /// <summary>Sets one approved checkbox state and observes the resulting TogglePattern state.</summary>
+    public static Task<UiCheckBoxOutcome> SetCheckBoxAsync(
+        UiWindowTarget target,
+        UiCheckBoxPreview preview,
+        bool shouldBeChecked,
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => SetCheckBox(target, preview, shouldBeChecked),
+            cancellationToken,
+            "Waiting for the checkbox action exceeded 8 seconds. The state may have changed; inspect the target before retrying. Layal will not queue a second UI Automation operation until the original operation exits.");
+
     public static string ValidateUiText(string value)
     {
         if (value is null) throw new ArgumentNullException(nameof(value));
@@ -195,6 +216,79 @@ public static class WindowsUiAutomationService
 
         valuePattern.SetValue(value);
         return new UiTextEntryOutcome(target.Title, target.ProcessId, preview.AutomationId, value.Length);
+    }
+
+    private static UiCheckBoxPreview PreviewSetCheckBox(UiWindowTarget target, string automationId)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        automationId = ValidateAutomationId(automationId);
+        var element = FindUniqueActionControl(target, ControlType.CheckBox.ProgrammaticName, automationId);
+        var info = element.Current;
+        if (info.IsPassword)
+            throw new InvalidOperationException("Protected controls are not supported for checkbox changes.");
+        if (info.IsOffscreen)
+            throw new InvalidOperationException("The selected checkbox is offscreen. Bring it into view and inspect again.");
+        if (!info.IsEnabled)
+            throw new InvalidOperationException("The selected checkbox is disabled.");
+        if (!element.TryGetCurrentPattern(TogglePattern.Pattern, out var pattern) || pattern is not TogglePattern togglePattern)
+            throw new InvalidOperationException("The selected checkbox does not expose TogglePattern. No action was performed.");
+
+        var state = togglePattern.Current.ToggleState;
+        if (state == ToggleState.Indeterminate)
+            throw new InvalidOperationException("Indeterminate/three-state checkboxes are not supported because their state cannot be set predictably.");
+        var runtimeId = string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (string.IsNullOrWhiteSpace(runtimeId))
+            throw new InvalidOperationException("Windows UI Automation did not provide a stable runtime identifier. No checkbox action was performed.");
+
+        return new UiCheckBoxPreview(target.Title, target.ProcessId, automationId, runtimeId, state == ToggleState.On, info.IsEnabled);
+    }
+
+    private static UiCheckBoxOutcome SetCheckBox(UiWindowTarget target, UiCheckBoxPreview preview, bool shouldBeChecked)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(preview);
+        if (!string.Equals(preview.WindowTitle, target.Title, StringComparison.Ordinal) ||
+            preview.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The approved checkbox target does not match the selected window. No action was performed.");
+
+        var element = FindUniqueActionControl(target, ControlType.CheckBox.ProgrammaticName, preview.AutomationId);
+        var info = element.Current;
+        var runtimeId = string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (string.IsNullOrWhiteSpace(runtimeId) || !string.Equals(runtimeId, preview.RuntimeId, StringComparison.Ordinal))
+            throw new InvalidOperationException("The checkbox changed while awaiting approval. No action was performed; inspect the window again.");
+        if (info.IsOffscreen || !info.IsEnabled || info.IsPassword)
+            throw new InvalidOperationException("The checkbox became offscreen, disabled, or protected while awaiting approval. No action was performed.");
+        if (!element.TryGetCurrentPattern(TogglePattern.Pattern, out var pattern) || pattern is not TogglePattern togglePattern)
+            throw new InvalidOperationException("The checkbox no longer exposes TogglePattern. No action was performed.");
+
+        var currentState = togglePattern.Current.ToggleState;
+        if (currentState == ToggleState.Indeterminate)
+            throw new InvalidOperationException("The checkbox became indeterminate while awaiting approval. No action was performed.");
+        var currentlyChecked = currentState == ToggleState.On;
+        if (currentlyChecked != preview.IsChecked)
+            throw new InvalidOperationException("The checkbox state changed while awaiting approval. No action was performed; inspect the window again.");
+
+        var changed = currentlyChecked != shouldBeChecked;
+        if (changed)
+        {
+            togglePattern.Toggle();
+            Thread.Sleep(150);
+        }
+
+        var after = FindUniqueActionControl(target, ControlType.CheckBox.ProgrammaticName, preview.AutomationId);
+        var afterInfo = after.Current;
+        var afterRuntimeId = string.Join(",", after.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (!string.Equals(afterRuntimeId, preview.RuntimeId, StringComparison.Ordinal))
+            throw new InvalidOperationException("The checkbox target changed after the action. The action may have been delivered; inspect the application before retrying.");
+        if (afterInfo.IsOffscreen || !afterInfo.IsEnabled ||
+            !after.TryGetCurrentPattern(TogglePattern.Pattern, out var afterPattern) ||
+            afterPattern is not TogglePattern afterToggle)
+            throw new InvalidOperationException("The checkbox state could not be observed safely after the action. Inspect the application before retrying.");
+
+        var afterState = afterToggle.Current.ToggleState;
+        if (afterState == ToggleState.Indeterminate)
+            throw new InvalidOperationException("The checkbox entered an indeterminate state. Verify the application manually.");
+        return new UiCheckBoxOutcome(target.Title, target.ProcessId, preview.AutomationId, changed, afterState == ToggleState.On);
     }
 
     private static AutomationElement FindUniqueEditableControl(UiWindowTarget target, string automationId)
@@ -598,6 +692,21 @@ public static class WindowsUiAutomationService
         ControlType.SplitButton.ProgrammaticName
     };
 
+    public static string FormatCheckBoxReport(UiCheckBoxOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(outcome);
+        var output = new StringBuilder();
+        output.AppendLine($"Window: {Sanitize(outcome.WindowTitle, 200)} (PID {outcome.ProcessId})");
+        output.AppendLine($"Checkbox AutomationId: {Sanitize(outcome.AutomationId, 100)}.");
+        output.AppendLine(outcome.WasChanged
+            ? "One TogglePattern action was issued."
+            : "The checkbox already had the requested state; no toggle action was needed.");
+        output.Append("Observed checkbox state after the action: ")
+            .Append(outcome.IsCheckedAfter ? "checked (On)." : "unchecked (Off).")
+            .Append(" This observation does not prove that the application completed a higher-level operation; verify the result before continuing.");
+        return output.ToString();
+    }
+
     public static string FormatTextEntryReport(UiTextEntryOutcome outcome)
     {
         ArgumentNullException.ThrowIfNull(outcome);
@@ -717,6 +826,21 @@ public sealed record UiInvokeOutcome(
     bool WindowStillVisible,
     bool? ControlStillPresent,
     bool? ControlStillEnabled);
+
+public sealed record UiCheckBoxPreview(
+    string WindowTitle,
+    uint ProcessId,
+    string AutomationId,
+    string RuntimeId,
+    bool IsChecked,
+    bool IsEnabled);
+
+public sealed record UiCheckBoxOutcome(
+    string WindowTitle,
+    uint ProcessId,
+    string AutomationId,
+    bool WasChanged,
+    bool IsCheckedAfter);
 
 public sealed record UiTextEntryPreview(
     string WindowTitle,

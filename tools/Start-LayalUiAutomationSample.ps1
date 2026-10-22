@@ -10,9 +10,9 @@ Add-Type -AssemblyName WindowsBase
 $window = New-Object System.Windows.Window
 $window.Title = "Layal UI Automation Sample"
 $window.Width = 520
-$window.Height = 390
+$window.Height = 440
 $window.MinWidth = 460
-$window.MinHeight = 340
+$window.MinHeight = 400
 $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterScreen
 $window.ResizeMode = [System.Windows.ResizeMode]::CanResize
 [System.Windows.Automation.AutomationProperties]::SetAutomationId($window, "layalSampleWindow")
@@ -58,6 +58,12 @@ $passwordBox.Margin = [System.Windows.Thickness]::new(0, 0, 0, 16)
 [System.Windows.Automation.AutomationProperties]::SetAutomationId($passwordBox, "layalSamplePasswordInput")
 $panel.Children.Add($passwordBox) | Out-Null
 
+$sampleCheckBox = New-Object System.Windows.Controls.CheckBox
+$sampleCheckBox.Content = "Enable sample option (AutomationId: layalSampleCheckBox)"
+$sampleCheckBox.Margin = [System.Windows.Thickness]::new(0, 0, 0, 12)
+[System.Windows.Automation.AutomationProperties]::SetAutomationId($sampleCheckBox, "layalSampleCheckBox")
+$panel.Children.Add($sampleCheckBox) | Out-Null
+
 $actionButton = New-Object System.Windows.Controls.Button
 $actionButton.Content = "Test approved button action"
 $actionButton.Height = 34
@@ -77,6 +83,14 @@ $panel.Children.Add($status) | Out-Null
 $textBox.Add_TextChanged({
     # Only a character count is shown. The field content is not logged or sent to any service.
     $status.Text = "TextChanged observed locally. Character count: $($textBox.Text.Length)."
+})
+
+$sampleCheckBox.Add_Checked({
+    $status.Text = "Checkbox state observed locally: checked. No data was submitted."
+})
+
+$sampleCheckBox.Add_Unchecked({
+    $status.Text = "Checkbox state observed locally: unchecked. No data was submitted."
 })
 
 $actionButton.Add_Click({

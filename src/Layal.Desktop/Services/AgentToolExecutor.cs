@@ -61,6 +61,7 @@ public sealed class AgentToolExecutor
         Definition("inspect_window_controls", "Call this tool directly when the user asks to inspect UI elements in a known visible external window. Supply its exact title. Read-only; Layal itself displays a local consent prompt before sharing labels and identifiers with the AI provider, so do not ask a separate natural-language permission question first. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
         Definition("click_ui_control", "Invoke exactly one uniquely identified supported control in one visible external window after explicit per-action approval. Requires the exact AutomationId and supported control type; no free-form mouse/keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of the visible external window"},"control_type":{"type":"string","enum":["Button","Hyperlink","MenuItem","SplitButton"]},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"}},"required":["window_title","control_type","automation_id"],"additionalProperties":false}"""),
         Definition("fill_ui_text", "Set the value of one exact visible Windows UI Automation Edit field in an external application after explicit local approval. Requires the exact window title and AutomationId from inspect_window_controls. Never use for password, protected, read-only, disabled, offscreen, or ambiguous controls; it does not press Enter or submit forms.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact unique visible title of the external application window"},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"},"text":{"type":"string","description":"Value to enter; maximum 10,000 characters"}},"required":["window_title","automation_id","text"],"additionalProperties":false}"""),
+        Definition("set_ui_checkbox", "Set one uniquely identified visible Windows CheckBox to checked or unchecked after fresh local approval. Requires the exact AutomationId from inspect_window_controls. Indeterminate/three-state checkboxes, ambiguous controls, and unsupported controls are rejected. Does not use coordinates or keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact unique visible title of the external application window"},"automation_id":{"type":"string","description":"Exact non-empty AutomationId of one CheckBox reported by inspect_window_controls"},"checked":{"type":"boolean","description":"true to check the box, false to uncheck it"}},"required":["window_title","automation_id","checked"],"additionalProperties":false}"""),
         Definition("call_app_api", _apiConnections?.BuildToolDescription() ?? "No external app API connection service is available. Do not invent a connection.", """{"type":"object","properties":{"connection_name":{"type":"string","description":"Exact configured connection name from the available connections"},"method":{"type":"string","enum":["GET","POST","PUT","PATCH","DELETE"]},"path":{"type":"string","description":"Relative path beneath the configured base URL; do not include scheme, query, or fragment"},"query_json":{"type":"string","description":"Optional JSON object of query parameters; use empty string for none"},"body_json":{"type":"string","description":"Optional valid JSON request body; use empty string when not needed, and never send a body with GET"}},"required":["connection_name","method","path","query_json","body_json"],"additionalProperties":false}"""),
         Definition("run_dotnet_build", "Run dotnet build for a .sln or .csproj inside the approved workspace. Build targets may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("run_dotnet_test", "Run dotnet test for a .sln or .csproj inside the approved workspace. Tests may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
@@ -100,6 +101,7 @@ public sealed class AgentToolExecutor
             "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
             "click_ui_control" => await InvokeWindowControlAsync(GetString(args, "window_title"), GetString(args, "control_type"), GetString(args, "automation_id"), confirm, report, cancellationToken),
             "fill_ui_text" => await FillUiTextAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetString(args, "text"), confirm, report, cancellationToken),
+            "set_ui_checkbox" => await SetUiCheckboxAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetBoolean(args, "checked"), confirm, report, cancellationToken),
             "call_app_api" => await CallAppApiAsync(GetString(args, "connection_name"), GetString(args, "method"), GetString(args, "path"), GetString(args, "query_json"), GetString(args, "body_json"), confirm, report, cancellationToken),
             "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
@@ -128,6 +130,13 @@ public sealed class AgentToolExecutor
         if (args[name] is not JsonValue value || !value.TryGetValue<string>(out var result))
             throw new InvalidOperationException($"Required string argument '{name}' is missing or invalid.");
         if (result.Length > 150_000) throw new InvalidOperationException($"Argument '{name}' is too large.");
+        return result;
+    }
+
+    private static bool GetBoolean(JsonObject args, string name)
+    {
+        if (args[name] is not JsonValue value || !value.TryGetValue<bool>(out var result))
+            throw new InvalidOperationException($"Required boolean argument '{name}' is missing or invalid.");
         return result;
     }
 
@@ -394,6 +403,46 @@ public sealed class AgentToolExecutor
         var outcome = await WindowsUiAutomationService.SetTextAsync(confirmedTarget, preview, text, token);
         report($"One approved UI Automation ValuePattern.SetValue call was issued to external PID {outcome.ProcessId}; the application-level result is not confirmed.");
         return WindowsUiAutomationService.FormatTextEntryReport(outcome);
+    }
+
+    private async Task<string> SetUiCheckboxAsync(
+        string title,
+        string automationId,
+        bool shouldBeChecked,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (!AppRuntime.Settings.AllowWindowTitleInspection)
+            return "Window and UI inspection is disabled in Layal settings. Enable it in Settings before interacting with external applications.";
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+            throw new InvalidOperationException("Provide an exact visible external window title up to 200 characters.");
+
+        automationId = WindowsUiAutomationService.ValidateAutomationId(automationId);
+        var target = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (target is null)
+            throw new InvalidOperationException("No unique visible external window with that exact title was found. Use get_open_window_titles and inspect_window_controls first.");
+
+        var preview = await WindowsUiAutomationService.PreviewSetCheckBoxAsync(target, automationId, token);
+        var requested = shouldBeChecked ? "checked (On)" : "unchecked (Off)";
+        var current = preview.IsChecked ? "checked (On)" : "unchecked (Off)";
+        var approvalText =
+            $"Set one checkbox in external window '{target.Title}' (PID {target.ProcessId}) to {requested}?\n" +
+            $"AutomationId: '{preview.AutomationId}'. Current observed state: {current}.\n\n" +
+            "Layal will target only this exact CheckBox. It will reject ambiguous, hidden, disabled, changed, or indeterminate controls. It will not send coordinates or keyboard input. If the checkbox already has the requested state, no toggle is needed.";
+
+        if (!await confirm("Set application checkbox", approvalText, token))
+            return "User declined the Windows checkbox action. No state change was requested.";
+
+        token.ThrowIfCancellationRequested();
+        var confirmedTarget = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (confirmedTarget is null || confirmedTarget.Handle != target.Handle || confirmedTarget.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The selected window changed while awaiting approval. No checkbox action was performed; inspect the target again.");
+
+        token.ThrowIfCancellationRequested();
+        var outcome = await WindowsUiAutomationService.SetCheckBoxAsync(confirmedTarget, preview, shouldBeChecked, token);
+        report($"One approved TogglePattern state-setting action was issued to external PID {outcome.ProcessId}; verify the application's resulting state.");
+        return WindowsUiAutomationService.FormatCheckBoxReport(outcome);
     }
 
     private async Task<string> BrowserNavigateAsync(

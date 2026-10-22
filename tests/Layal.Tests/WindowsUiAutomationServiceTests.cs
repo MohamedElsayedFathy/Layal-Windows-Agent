@@ -53,6 +53,19 @@ public sealed class WindowsUiAutomationServiceTests
     }
 
     [TestMethod]
+    public void CheckBoxReportStatesObservedStateWithoutClaimingApplicationSuccess()
+    {
+        var report = WindowsUiAutomationService.FormatCheckBoxReport(
+            new UiCheckBoxOutcome("Test App", 4242, "enableOption", WasChanged: true, IsCheckedAfter: true));
+
+        StringAssert.Contains(report, "Checkbox AutomationId: enableOption");
+        StringAssert.Contains(report, "One TogglePattern action was issued");
+        StringAssert.Contains(report, "checked (On)");
+        StringAssert.Contains(report, "does not prove that the application completed");
+        Assert.IsFalse(report.Contains("application operation succeeded", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
     public void TextEntryReportDoesNotExposeTheEnteredValueOrClaimApplicationSuccess()
     {
         const string sensitiveValue = "private-value-should-not-be-returned";
