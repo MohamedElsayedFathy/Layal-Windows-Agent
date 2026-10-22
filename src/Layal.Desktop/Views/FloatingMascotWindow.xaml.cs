@@ -277,7 +277,7 @@ public partial class FloatingMascotWindow : Window
         // Hip, knee and ankle nodes form a true parent-child transform chain.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.23, -0.46, 0.015)
+            Transform = new TranslateTransform3D(side * 0.28, -0.60, 0.24)
         };
         root.Children.Add(new ModelVisual3D
         {
@@ -286,19 +286,19 @@ public partial class FloatingMascotWindow : Window
         });
         thigh = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.07, 0.025), 0.095, 0.12, 0.10,
+            Content = CreateEllipsoid(new Point3D(side * 0.015, -0.045, 0.025), 0.095, 0.105, 0.10,
                 Color.FromRgb(213, 226, 247), Color.FromRgb(255, 255, 255))
         };
-        var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.15, 0.01) };
+        var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.015, -0.10, 0.01) };
         shin = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.065, 0.025), 0.08, 0.105, 0.087,
+            Content = CreateEllipsoid(new Point3D(0, -0.045, 0.025), 0.08, 0.095, 0.087,
                 Color.FromRgb(200, 218, 243), Color.FromRgb(246, 251, 255))
         };
-        var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.14, 0.02) };
+        var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.015, -0.095, 0.02) };
         foot = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.005, 0.065), 0.135, 0.07, 0.13,
+            Content = CreateEllipsoid(new Point3D(side * 0.03, -0.005, 0.065), 0.135, 0.07, 0.13,
                 side < 0 ? Color.FromRgb(150, 133, 230) : Color.FromRgb(78, 191, 202),
                 Color.FromRgb(240, 247, 255))
         };
@@ -328,25 +328,25 @@ public partial class FloatingMascotWindow : Window
         });
         upperArm = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.105, 0.025), 0.103, 0.135, 0.104,
+            Content = CreateEllipsoid(new Point3D(side * 0.08, -0.105, 0.025), 0.103, 0.135, 0.104,
                 Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255))
         };
-        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.17, 0.005) };
+        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.15, -0.17, 0.005) };
         forearm = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.075, 0.02), 0.087, 0.115, 0.09,
+            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.075, 0.02), 0.087, 0.115, 0.09,
                 Color.FromRgb(222, 232, 249), Color.FromRgb(255, 255, 255))
         };
         forearm.Children.Add(new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.12, 0.083), 0.088, 0.029, 0.024,
+            Content = CreateEllipsoid(new Point3D(side * 0.09, -0.12, 0.083), 0.088, 0.029, 0.024,
                 side < 0 ? Color.FromRgb(79, 207, 215) : Color.FromRgb(162, 145, 240),
                 Color.FromRgb(242, 252, 255))
         });
-        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(0, -0.135, 0.015) };
+        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.08, -0.135, 0.015) };
         hand = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.004, 0.035), 0.095, 0.088, 0.092,
+            Content = CreateEllipsoid(new Point3D(side * 0.025, -0.004, 0.035), 0.095, 0.088, 0.092,
                 side < 0 ? Color.FromRgb(131, 222, 231) : Color.FromRgb(177, 163, 242),
                 Color.FromRgb(246, 251, 255))
         };
@@ -676,6 +676,16 @@ public partial class FloatingMascotWindow : Window
             leftArmAngle += Math.Sin(phase * 2.2) * 5;
             rightArmAngle += Math.Cos(phase * 2.6) * 7;
         }
+        else if (_mood is "thinking" or "planning" or "researching" or "reading")
+        {
+            leftArmAngle -= 4.5;
+            rightArmAngle += 11 + Math.Sin(phase * 0.9) * 3.0;
+        }
+        else if (_mood == "waiting")
+        {
+            leftArmAngle += 3.0;
+            rightArmAngle -= 3.0;
+        }
         if (_mood is "success" or "celebrating" or "excited")
         {
             leftArmAngle -= 25 + Math.Sin(phase * 1.8) * 6;
@@ -699,6 +709,28 @@ public partial class FloatingMascotWindow : Window
             rightForearmAngle += Math.Cos(phase * 2.5) * 14.0;
             leftHandAngle += Math.Sin(phase * 3.1) * 13.0;
             rightHandAngle += Math.Cos(phase * 3.4) * 15.0;
+            if (_mood == "writing")
+            {
+                rightForearmAngle += 18;
+                rightHandAngle -= 12;
+                leftForearmAngle -= 7;
+            }
+            else if (_mood == "using_tool")
+            {
+                rightForearmAngle += 16;
+                rightHandAngle -= 9;
+            }
+        }
+        else if (_mood is "thinking" or "planning" or "researching")
+        {
+            rightForearmAngle += 12;
+            rightHandAngle += 8;
+        }
+        else if (_mood == "reading")
+        {
+            leftForearmAngle -= 11;
+            rightForearmAngle += 20;
+            rightHandAngle += 10;
         }
         if (_mood is "success" or "celebrating" or "excited")
         {
