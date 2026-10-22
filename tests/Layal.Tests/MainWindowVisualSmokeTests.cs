@@ -104,6 +104,10 @@ public sealed class MainWindowVisualSmokeTests
 
         var historySelector = window.FindName("ChatHistorySelector") as ComboBox
             ?? throw new InvalidOperationException("ChatHistorySelector was not found.");
+        var languageButton = window.FindName("LanguageButton") as Button
+            ?? throw new InvalidOperationException("LanguageButton was not found.");
+        var titleText = window.FindName("TitleText") as TextBlock
+            ?? throw new InvalidOperationException("TitleText was not found.");
         var baseUrlInput = window.FindName("BaseUrlInput") as TextBox
             ?? throw new InvalidOperationException("BaseUrlInput was not found.");
         var modelInput = window.FindName("ModelInput") as TextBox
@@ -133,6 +137,10 @@ public sealed class MainWindowVisualSmokeTests
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
             if (language == "ar")
             {
+                Assert.IsTrue((languageButton.Content as string)?.Contains("\u2066English\u2069", StringComparison.Ordinal) == true,
+                    "English language-toggle text must retain left-to-right order on the Arabic screen.");
+                Assert.IsTrue(titleText.Text.Contains("\u2066Layal\u2069", StringComparison.Ordinal),
+                    "Latin text in the Arabic title must retain left-to-right order.");
                 Assert.AreEqual(FlowDirection.LeftToRight, baseUrlInput.FlowDirection,
                     "API base URLs must stay left-to-right on the Arabic screen.");
                 Assert.AreEqual(FlowDirection.LeftToRight, modelInput.FlowDirection,
