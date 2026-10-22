@@ -57,7 +57,8 @@
 - [x] Keep task props visible but static when decorative animation is disabled.
 - [ ] Pass Windows Release build and automated regression tests on this branch.
 - [ ] Manually verify click/drag/double-click, display scaling, task transitions, and reduced-motion behavior on Windows.
-- [ ] Replace the 2D shell with a genuine 3D character model and rig before marking the 3D design requirement complete.
+- [x] Add a procedural native WPF 3D pearlescent shell behind the expressive 2D face overlay.
+- [ ] Evolve the procedural shell into a full 3D avatar with body/head rigging and 3D facial or gaze controls before marking the complete 3D character requirement done.
 - [ ] Redesign and visually validate all application sections as one consistent light/dark design system.
 
 ## 0.6 — Native automation and safety hardening
