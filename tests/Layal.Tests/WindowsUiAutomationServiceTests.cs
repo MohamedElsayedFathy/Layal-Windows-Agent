@@ -49,7 +49,7 @@ public sealed class WindowsUiAutomationServiceTests
         Assert.AreEqual(string.Empty, WindowsUiAutomationService.ValidateUiText(string.Empty));
         Assert.AreEqual(10_000, WindowsUiAutomationService.ValidateUiText(new string('x', 10_000)).Length);
         Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateUiText(new string('x', 10_001)));
-        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateUiText("bad\\0value"));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateUiText("bad\0value"));
     }
 
     [TestMethod]
