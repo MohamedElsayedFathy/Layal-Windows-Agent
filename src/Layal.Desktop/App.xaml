@@ -131,7 +131,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#E5F4F7" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource Layal.HoverSurface}" />
                                 <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Layal.Cyan}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
@@ -156,12 +156,12 @@
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="11,9" />
             <Setter Property="Margin" Value="4" />
-            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
             <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="{StaticResource Layal.Cyan}" />
-            <Setter Property="SelectionBrush" Value="#B6C8F7" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource Layal.Focus}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
@@ -190,7 +190,7 @@
         <Style TargetType="PasswordBox">
             <Setter Property="Padding" Value="11,9" />
             <Setter Property="Margin" Value="4" />
-            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
             <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -238,7 +238,7 @@
         </Style>
 
         <Style TargetType="ListBox">
-            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
             <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
