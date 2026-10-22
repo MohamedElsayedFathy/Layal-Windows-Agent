@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -81,11 +82,44 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("ApplyLanguage was not found.");
 
         var tabNames = new[] { "home", "chat", "tasks", "skills", "cameras", "memory", "settings" };
+        Assert.AreEqual(tabNames.Length, tabs.Items.Count,
+            "The visual audit must render every expected main section; the test must not silently skip a missing tab.");
+
+        var expectedTabs = new[]
+        {
+            window.FindName("HomeTab") as TabItem,
+            window.FindName("ChatTab") as TabItem,
+            window.FindName("TasksTab") as TabItem,
+            window.FindName("SkillsTab") as TabItem,
+            window.FindName("CamerasTab") as TabItem,
+            window.FindName("MemoryTab") as TabItem,
+            window.FindName("SettingsTab") as TabItem
+        };
+        Assert.AreEqual(tabNames.Length, expectedTabs.Length);
+        for (var i = 0; i < expectedTabs.Length; i++)
+        {
+            Assert.IsNotNull(expectedTabs[i], $"Expected named tab '{tabNames[i]}' was not found.");
+            Assert.AreSame(expectedTabs[i], tabs.Items[i], $"Tab order mismatch at '{tabNames[i]}'.");
+        }
+
+        var historySelector = window.FindName("ChatHistorySelector") as ComboBox
+            ?? throw new InvalidOperationException("ChatHistorySelector was not found.");
+        var baseUrlInput = window.FindName("BaseUrlInput") as TextBox
+            ?? throw new InvalidOperationException("BaseUrlInput was not found.");
+        var modelInput = window.FindName("ModelInput") as TextBox
+            ?? throw new InvalidOperationException("ModelInput was not found.");
+        var apiKeyInput = window.FindName("ApiKeyInput") as PasswordBox
+            ?? throw new InvalidOperationException("ApiKeyInput was not found.");
+        var githubSkillUrlInput = window.FindName("GitHubSkillUrlInput") as TextBox
+            ?? throw new InvalidOperationException("GitHubSkillUrlInput was not found.");
+
         var lines = new List<string>
         {
             "Layal Windows WPF visual smoke snapshots",
-            $"Window DIPs: {window.Width:0}x{window.Height:0}",
-            "Captures below are direct RenderTargetBitmap output at multiple render densities; physical monitor DPI switching remains a manual acceptance step."
+            $"Window Width/Height DIPs after show: {window.Width:0}x{window.Height:0}",
+            $"Actual client content DIPs: {windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}",
+            "RenderTargetBitmap captures use 96 DPI multiplied by renderScale. These do not emulate physical Windows monitor DPI, display changes, or multi-monitor movement.",
+            "Coverage: 7 sections x 2 themes x 2 languages x 4 render scales = 112 main-window PNG snapshots."
         };
 
         foreach (var theme in new[] { "light", "dark" })
@@ -95,18 +129,39 @@ public sealed class MainWindowVisualSmokeTests
             AppRuntime.Settings.Language = language;
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
+            window.UpdateLayout();
+            AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
+            if (language == "ar")
+            {
+                Assert.AreEqual(FlowDirection.LeftToRight, baseUrlInput.FlowDirection,
+                    "API base URLs must stay left-to-right on the Arabic screen.");
+                Assert.AreEqual(FlowDirection.LeftToRight, modelInput.FlowDirection,
+                    "Model IDs must stay left-to-right on the Arabic screen.");
+                Assert.AreEqual(FlowDirection.LeftToRight, apiKeyInput.FlowDirection,
+                    "API keys must stay left-to-right on the Arabic screen.");
+                Assert.AreEqual(FlowDirection.LeftToRight, githubSkillUrlInput.FlowDirection,
+                    "GitHub URLs must stay left-to-right on the Arabic screen.");
+            }
 
-            for (var index = 0; index < Math.Min(tabNames.Length, tabs.Items.Count); index++)
+            for (var index = 0; index < tabNames.Length; index++)
             {
                 tabs.SelectedIndex = index;
                 tabs.UpdateLayout();
                 window.UpdateLayout();
                 window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Keyboard.ClearFocus();
+
+                var selectedTab = tabs.SelectedItem as TabItem
+                    ?? throw new InvalidOperationException($"Selected tab '{tabNames[index]}' is not a TabItem.");
+                var tabContent = selectedTab.Content as FrameworkElement
+                    ?? throw new InvalidOperationException($"Content for tab '{tabNames[index]}' was not found.");
+                Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
+                    $"Tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
 
                 foreach (var scale in new[] { 1.0, 1.25, 1.5, 1.75 })
                 {
                     var suffix = (int)Math.Round(scale * 100);
-                    var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}-dpi{suffix}.png");
+                    var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}-scale{suffix}.png");
                     SaveSnapshot(windowContent, path, scale);
                     lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}");
                 }
@@ -135,7 +190,7 @@ public sealed class MainWindowVisualSmokeTests
             foreach (var scale in new[] { 1.0, 1.25, 1.5, 1.75 })
             {
                 var suffix = (int)Math.Round(scale * 100);
-                var path = Path.Combine(outputDirectory, $"mascot-{mood}-dpi{suffix}.png");
+                var path = Path.Combine(outputDirectory, $"mascot-{mood}-scale{suffix}.png");
                 SaveSnapshot(mascot, path, scale);
                 lines.Add($"{Path.GetFileName(path)} | mood={mood} | renderScale={scale:0.00} | dips={mascot.ActualWidth:0}x{mascot.ActualHeight:0}");
             }
@@ -147,6 +202,59 @@ public sealed class MainWindowVisualSmokeTests
         window.Close();
         app.Shutdown();
         App.SuppressStartupForTests = false;
+    }
+
+    private static void AssertThemeContrastAndControlSurfaces(
+        string theme,
+        string language,
+        ComboBox historySelector)
+    {
+        var resources = Application.Current.Resources;
+        var background = (Color)resources["Layal.Color.Background"];
+        var text = (Color)resources["Layal.Color.Text"];
+        var muted = (Color)resources["Layal.Color.Muted"];
+        var panelBrush = Application.Current.TryFindResource("Layal.Panel") as SolidColorBrush;
+        var comboBackground = historySelector.Background as SolidColorBrush;
+        var textBrush = Application.Current.TryFindResource("Layal.Text") as SolidColorBrush;
+        var comboForeground = historySelector.Foreground as SolidColorBrush;
+
+        Assert.IsNotNull(panelBrush, $"Layal.Panel must resolve for {theme}/{language}.");
+        Assert.IsNotNull(comboBackground, $"ComboBox background must use a solid theme surface for {theme}/{language}.");
+        Assert.IsNotNull(textBrush, $"Layal.Text must resolve for {theme}/{language}.");
+        Assert.IsNotNull(comboForeground, $"ComboBox text must use a theme-aware foreground for {theme}/{language}.");
+        Assert.AreEqual(panelBrush.Color, comboBackground.Color,
+            $"Chat history ComboBox leaked a native/default surface in {theme}/{language}.");
+        Assert.AreEqual(textBrush.Color, comboForeground.Color,
+            $"Chat history ComboBox text does not follow {theme}/{language} text resources.");
+
+        Assert.IsTrue(ContrastRatio(text, background) >= 7.0,
+            $"Primary text contrast must be at least 7:1 in {theme}/{language}.");
+        Assert.IsTrue(ContrastRatio(muted, background) >= 4.5,
+            $"Muted text contrast must be at least 4.5:1 in {theme}/{language}.");
+    }
+
+    private static double ContrastRatio(Color first, Color second)
+    {
+        var firstLuminance = RelativeLuminance(first);
+        var secondLuminance = RelativeLuminance(second);
+        var lighter = Math.Max(firstLuminance, secondLuminance);
+        var darker = Math.Min(firstLuminance, secondLuminance);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double RelativeLuminance(Color color)
+    {
+        static double Linear(byte channel)
+        {
+            var value = channel / 255.0;
+            return value <= 0.04045
+                ? value / 12.92
+                : Math.Pow((value + 0.055) / 1.055, 2.4);
+        }
+
+        return 0.2126 * Linear(color.R) +
+               0.7152 * Linear(color.G) +
+               0.0722 * Linear(color.B);
     }
 
     private static void InitializeRuntime(string root)
