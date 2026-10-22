@@ -75,3 +75,15 @@ The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a 
 - Expanded static validation to scan C# test sources and validate the test-project configuration.
 - Updated Windows GitHub Actions to restore, build, run tests, and upload TRX results.
 - **Execution status:** source written and statically checked; `dotnet test` has not run in the current authoring environment because .NET SDK is unavailable. Do not mark the test requirement verified until Windows CI shows a passing result.
+
+## Final native input verification and anti-regression gate — 22 October 2026
+
+Windows CI run [39852788070](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39852788070) completed successfully. It verified the Release build, native click-through and drag integration runs, all 77 automated tests, and evidence upload. The recorded native evidence reports:
+
+- Transparent-padding click-through: **4 passed, 0 failed** — underlying baseline click, transparent upper-left pass-through, interactive mascot core without click leakage, and transparent bottom pass-through.
+- Native drag/restart acceptance: **6 passed, 0 failed** — three drag vectors in differing directions, no leaked clicks during drag, position written to settings.json, and position restored after restarting Layal.exe.
+- Automated C# tests: **77 passed, 0 failed, 0 skipped**.
+
+The source validator now guards the native test modes and expected check counts, requires both dedicated CI steps, and rejects reintroducing WPF DragMove() in the mascot's drag path. The native drag suite also checks movement, click-through isolation, settings persistence, and position restoration after restart.
+
+**Scope limit:** this is successful CI-desktop native input verification, not certification on a physical multi-monitor setup. Changing real Windows DPI scales (100/125/150/175%), moving between physical monitors, keyboard-focus acceptance, and visual manual acceptance remain separate live-Windows checks. PR #6 remains a draft and unmerged.
