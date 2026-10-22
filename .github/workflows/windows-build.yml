@@ -45,6 +45,15 @@ jobs:
       - name: Run automated tests
         run: dotnet test Layal.sln --configuration Release --no-build --no-restore --nologo --logger "trx;LogFileName=Layal.Tests.trx" --results-directory artifacts/test-results
 
+      - name: Upload WPF visual smoke screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Layal-${{ github.sha }}-visual-smoke
+          path: artifacts/visual-smoke/**/*
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Verify test reports contain executed tests
         if: success()
         run: python tools/validate_test_results.py artifacts/test-results
