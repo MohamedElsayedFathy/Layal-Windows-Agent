@@ -231,13 +231,14 @@ public partial class FloatingMascotWindow : Window
                 var first = stack * (slices + 1) + slice;
                 var nextRow = first + slices + 1;
 
+                // Counter-clockwise winding keeps the outward-facing normals lit correctly.
                 mesh.TriangleIndices.Add(first);
-                mesh.TriangleIndices.Add(nextRow);
                 mesh.TriangleIndices.Add(first + 1);
+                mesh.TriangleIndices.Add(nextRow);
 
                 mesh.TriangleIndices.Add(first + 1);
-                mesh.TriangleIndices.Add(nextRow);
                 mesh.TriangleIndices.Add(nextRow + 1);
+                mesh.TriangleIndices.Add(nextRow);
             }
         }
 
