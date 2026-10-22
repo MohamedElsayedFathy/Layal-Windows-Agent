@@ -62,7 +62,8 @@ public sealed class ApiToolApprovalTests
             Name = "Demo CRM",
             BaseUrl = "https://crm.example.test/v1",
             AuthenticationType = "Bearer",
-            AuthSecret = "never-shared-token"
+            AuthSecret = "never-shared-token",
+            Instructions = "GET contacts; POST notes."
         });
         var executor = new AgentToolExecutor(temp.Path, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")), connections);
         var approvalCount = 0;
