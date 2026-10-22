@@ -32,9 +32,9 @@
             <Path Data="M 0,5 L 5,0 L 10,5 L 5,10 Z" Fill="#B8A9F2" Opacity="0.9"
                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,26,0" />
 
-            <!-- Native WPF 3D head/body/limb rig. A zero-opacity legacy face canvas remains only for pointer coordinates. -->
-            <Viewport3D x:Name="AvatarViewport" Width="180" Height="160"
-                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,5,0,0"
+            <!-- Native WPF 3D head/body/limb rig. A wide viewport gives articulated arms and feet room outside the head silhouette. The zero-opacity face canvas remains only for pointer coordinate compatibility. -->
+            <Viewport3D x:Name="AvatarViewport" Width="248" Height="170"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0"
                         IsHitTestVisible="False" ClipToBounds="True">
                 <Viewport3D.Camera>
                     <PerspectiveCamera Position="0,0,2.6" LookDirection="0,0,-2.6"
