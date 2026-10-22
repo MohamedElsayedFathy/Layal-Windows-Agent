@@ -60,10 +60,13 @@
 - [x] Keep task props visible but static when decorative animation is disabled.
 - [ ] Pass Windows Release build and automated regression tests on this branch.
 - [ ] Manually verify click/drag/double-click, display scaling, task transitions, and reduced-motion behavior on Windows.
-- [x] Add a procedural native WPF 3D pearlescent shell behind the expressive 2D face overlay.
+- [x] Replace the static shell group with separate 3D head, torso, arm and leg rig nodes that receive independent transforms.
+- [x] Add 3D eye/iris/pupil, brow, cheek and mouth geometry; drive gaze, blink scaling and facial shapes from mood and pointer input.
+- [x] Add lightweight animated heart, flower, sparkle and technology glyph particles chosen by the current mood/task stage.
+- [x] Emphasize paper/pencil/hologram props by task phase and vary head/body/arm/leg motion with task context.
 - [x] Add a soft background gradient and restrained translucent/glossy header and card surfaces for both themes.
-- [ ] Evolve the procedural shell into a full 3D avatar with body/head rigging and 3D facial or gaze controls before marking the complete 3D character requirement done.
-- [ ] Redesign and visually validate all application sections as one consistent light/dark design system.
+- [ ] Visually verify the articulated avatar alignment, lighting, movement bounds and reduced-motion behavior on Windows.
+- [ ] Redesign and visually validate every application section in both themes and at multiple Windows display scaling factors.
 
 ## 0.6 — Native automation and safety hardening
 - [ ] Windows UI Automation adapter for approved apps.
