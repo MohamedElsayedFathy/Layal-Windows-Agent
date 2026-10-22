@@ -27,7 +27,8 @@ public partial class App : Application
             AppRuntime.ChatHistoryStore,
             AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
         AppRuntime.WorkspaceRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LayalWorkspace");
-        AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService);
+        AppRuntime.ApiConnectionService = new ApiConnectionService(Path.Combine(dataRoot, "api-connections.dpapi"));
+        AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService, AppRuntime.ApiConnectionService);
         AppRuntime.AgentOrchestrator = new AgentOrchestrator(new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
 
         AppRuntime.ExitAction = ShutdownLayal;
