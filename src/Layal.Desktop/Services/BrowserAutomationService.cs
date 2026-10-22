@@ -321,7 +321,7 @@ public sealed class BrowserAutomationService
         var expression = "(() => JSON.stringify({title:document.title||'',url:location.href,readyState:document.readyState," +
             "text:(document.body?.innerText||'').slice(0,20000)," +
             "links:Array.from(document.querySelectorAll('a[href]')).slice(0,50).map(a=>({text:(a.innerText||a.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160),href:a.href}))," +
-            "buttons:Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0,40).map(e=>({text:(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\\\s+/g,' ').slice(0,120),id:e.id||'',type:e.tagName.toLowerCase()}))," +
+            "buttons:Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0,40).map(e=>({text:(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,120),id:e.id||'',type:e.tagName.toLowerCase()}))," +
             "fields:Array.from(document.querySelectorAll('input:not([type=password]):not([type=file]):not([type=hidden]),textarea,[contenteditable=true]')).slice(0,40).map(e=>({tag:e.tagName.toLowerCase(),type:e.type||'',name:e.name||'',id:e.id||'',placeholder:e.placeholder||'',label:e.getAttribute('aria-label')||'',disabled:e.disabled===true}))," +
             "formCount:document.forms.length}))()";
         var json = await EvaluateAsync(page, expression, token);
@@ -399,12 +399,12 @@ public sealed class BrowserAutomationService
     {
         var q = JsonSerializer.Serialize(selector);
         var requested = JsonSerializer.Serialize(action);
-        return "(() => {const q=" + q + ",action=" + requested + ",e=document.querySelector(q);" +
+        return "(() => {const q=" + q + ",action=" + requested + ";" +
             "const matches=document.querySelectorAll(q);if(matches.length===0)return JSON.stringify({found:false,error:'No element matched the selector.'});" +
             "if(matches.length!==1)return JSON.stringify({found:false,error:'The selector matched multiple elements. Use a more specific selector; ambiguous actions are blocked.'});" +
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
-            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\\\s+/g,' ').slice(0,160);" +
+            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'';" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type, label, text, href:e.href||''});" +
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
@@ -427,7 +427,7 @@ public sealed class BrowserAutomationService
             "if(location.href!==expectedUrl)return JSON.stringify({ok:false,error:'The page URL changed while awaiting approval.'});" +
             "const matches=document.querySelectorAll(q);if(matches.length!==1)return JSON.stringify({ok:false,error:'The selector no longer matches exactly one element.'});" +
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase();" +
-            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\\\s+/g,' ').slice(0,160);" +
+            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'';" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||''});" +
             "if(fp!==expectedFp)return JSON.stringify({ok:false,error:'The selected element changed while awaiting approval. Inspect the page again.'});" +
