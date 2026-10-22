@@ -1,6 +1,6 @@
 # Layal 0.5.2 — implementation status register
 
-This matrix describes source-code presence and authored test coverage only; test pass status requires Windows CI evidence. Because the .NET SDK was unavailable in the authoring environment, Windows compilation/runtime behavior has not been verified. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds a C# automated test project and Windows CI test execution. Treat the source as statically reviewed, not runtime-proven, until Windows CI passes.
+This matrix separates source presence, automated Windows CI evidence, and live interactive acceptance. The authoring environment itself lacks the .NET SDK, but Windows CI run [39825663174](${runUrl}) successfully built the current PR head with 0 warnings/0 errors and ran 73 passing tests. These results prove the CI build/tests, not live input or physical monitor-DPI behavior. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds automated C# tests and Windows CI execution.
 
 | Requirement | Status in source | Relevant files | Verification |
 |---|---|---|---|
@@ -53,16 +53,17 @@ This matrix describes source-code presence and authored test coverage only; test
 The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a CSV copy in `REQUIREMENT_TRACEABILITY.csv`. Check that ledger before every milestone/release.
 
 
-## Phased visual-personality work — Stages 1–2 implemented; Stage 3 gated on user approval
+## Phased visual-personality work — Stages 1–2 and Stage 3 Part 1 implemented; Part 2 awaits user approval
 - **Stage 1 — articulated 3D avatar:** separate WPF 3D nodes represent the head, torso, upper arms, forearms, hands, thighs, shins and feet. Independent joint transforms support posing; the 3D face includes eye whites, irises, pupils, brows, cheeks and mouth.
-- **Stage 2 — cinematic motion and task-synchronized effects:** `MascotEffectStyleResolver` selects distinct motion styles for affection, task-orbit, speech, waiting, celebration, alerts, quiet states and default idle. Stage symbols, colors and motion cadence now vary by planning/research/reading/writing/coding/tool/validation/waiting/success/error state.
-- Celebration particles use staggered eased bursts that fade out rather than repeating endlessly; their origins travel outward toward safe edge anchors. Hearts/flowers drift, task glyphs orbit, speech symbols wave, and warning/error glyphs pulse.
-- Head, torso and joint pose values use a damped transition so changes in task/social state feel less abrupt. When mascot animation is disabled, decorative particles/reactions are hidden and the rig settles into a static pose.
-- **Stage 2 verification:** Windows CI run [39812411884](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39812411884), commit `fed31dab26d0a47dcc84a5b5cdcfe6d0314dc0ab`: Release build succeeded with **0 warnings / 0 errors**; **69 tests passed, 0 failed, 0 skipped**. WPF visual-smoke captures and validated source/release artifacts were generated successfully.
-- The avatar remains procedural WPF 3D geometry/scene nodes, not an imported artist-authored mesh or DCC bone rig. The phase-2 animation work improves easing and effects but does not change that scope.
-- **Stage 3 — complete visual audit:** not started. It requires live Windows checks for all seven app sections, light/dark themes, Arabic/English layout, physical DPI changes at 100–175%, secondary displays where available, and pointer/drag behavior. Generated render-target density captures do not simulate actual Windows monitor scaling.
-- The theme-aware background gradient and lightly translucent card/header surfaces provide a restrained glass-like finish, not true desktop acrylic blur.
-- Plan and gate details: `docs/PHASED_EXECUTION_AR.md`. PR #6 remains draft and unmerged; stage 3 must wait for the user's explicit approval.
+- **Stage 2 — cinematic motion and task-synchronized effects:** `MascotEffectStyleResolver` selects distinct motion styles for affection, task-orbit, speech, waiting, celebration, alerts, quiet states and default idle. Task symbols, colors and motion cadence vary by planning/research/reading/writing/coding/tool/validation/waiting/success/error state.
+- Celebration particles use staggered eased bursts that fade out rather than repeating endlessly; hearts/flowers drift, task glyphs orbit, speech symbols wave, and warning/error glyphs pulse. Head, torso and joint pose values use damped transitions.
+- **Stage 3 Part 1 — automated visual review:** the source now has a theme-aware ComboBox/ComboBoxItem template, a themed scrollbar track/thumb, a themed GroupBox template, stronger muted-text contrast, Latin isolation in Arabic UI text, checks for actually rendered button labels, and a smaller 900×560 DIP minimum window.
+- The WPF visual regression test asserts the seven expected tabs exist in the right order and have non-empty viewports; it checks light/dark palette contrast, the chat-history ComboBox, Arabic/English button labels, LTR handling for URLs/API keys/model IDs, and the themed task GroupBox border.
+- Latest automated visual package contains **208 PNGs** plus a manifest: 112 standard app renders (7 sections × 2 themes × 2 languages × 4 render scales), 28 compact-window renders (900×560 DIPs), and 68 mascot renders (17 moods × 4 render scales). The application screenshots are composited over the active theme backdrop; mascot-background transparency remains intentional.
+- **Stage 3 Part 1 CI verification:** [Windows CI run 39825663174](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39825663174), commit `ea7a7cc62c484f04d8c6086f69c8afaa89c89e74`: Release build **0 warnings / 0 errors**; **73 passed, 0 failed, 0 skipped**. Source/test/visual/release artifacts were uploaded.
+- **Stage 3 Part 2 — live Windows acceptance:** **not started and gated on explicit user permission**. Remaining checks include actual Windows display scaling at 100/125/150/175%, a second monitor where available, live theme/language persistence after restart, real drag/click/double-click/click-through and keyboard-focus interactions. RenderTargetBitmap density captures do not simulate physical display DPI.
+- The avatar remains procedural WPF 3D geometry/scene nodes, not an imported artist-authored mesh or DCC bone rig. The theme-aware gradients/cards provide a restrained glass-like finish, not true desktop acrylic blur.
+- Plan: `docs/PHASED_EXECUTION_AR.md`. Manual checklist: `docs/MANUAL_ACCEPTANCE_AR.md`. PR #6 remains draft and unmerged; Part 2 must wait for the user's explicit approval.
 ## Version 0.5.2 — automated regression test foundation
 
 - Added MSTest-based suites for SettingsStore defaults/normalization/round-trip/corrupt-file recovery.
