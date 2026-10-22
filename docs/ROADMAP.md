@@ -53,7 +53,8 @@
 
 ## 0.6 — Native automation, API integrations, and safety hardening
 - [x] Read-only UI Automation inspection of a uniquely titled external window, with per-request approval, metadata-only output, a background worker, and an 8-second caller timeout; Windows runtime acceptance remains pending.
-- [x] One-control UI Automation InvokePattern action for a unique exact AutomationId on an external window, fresh per-action approval, 8-second bound, and post-action metadata observation; real-app acceptance remains pending.\n- [x] Generic user-configured REST/JSON app API connections with DPAPI-protected profiles, no-auth/Bearer/custom-header auth, bounded request and response sizes, and local per-request approval; Windows CI/runtime acceptance pending.
+- [x] One-control UI Automation InvokePattern action for a unique exact AutomationId on an external window, fresh per-action approval, 8-second bound, and post-action metadata observation; real-app acceptance remains pending.
+- [x] Generic user-configured REST/JSON app API connections with DPAPI-protected profiles, no-auth/Bearer/custom-header auth, bounded request and response sizes, and local per-request approval; Windows CI/runtime acceptance pending.
 - [ ] Windows UI Automation adapter for approved apps.
 - [ ] Explicit mouse/keyboard adapter, screen capture approvals, and outcome checks.
 - [ ] More robust restricted process runner and recovery tests.
