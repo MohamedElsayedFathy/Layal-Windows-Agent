@@ -693,7 +693,7 @@ public partial class FloatingMascotWindow : Window
         _blinkTimer.Interval = _mood switch
         {
             "listening" or "transcribing" => TimeSpan.FromSeconds(5.2),
-            "thinking" or "planning" or "coding" => TimeSpan.FromSeconds(4.4),
+            "thinking" or "planning" or "researching" or "reading" or "writing" or "coding" or "validating" => TimeSpan.FromSeconds(4.4),
             "privacy" or "offline" => TimeSpan.FromSeconds(6.5),
             _ => TimeSpan.FromSeconds(3.65)
         };
@@ -724,12 +724,16 @@ public partial class FloatingMascotWindow : Window
     private void ResetTerminalMood()
     {
         _moodResetTimer.Stop();
-        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
+        if (_mood is not ("success" or "error" or "warning" or "paused" or "interrupted" or
             "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
             "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited" or
             "embarrassed" or "relieved" or "determined" or "confident" or "apologetic" or "frustrated" or
-            "grateful" or "celebrating")
-            SetMood(_isPointerOver ? "curious" : "idle", showReaction: false);
+            "grateful" or "celebrating"))
+            return;
+
+        // A short reaction may finish while a task is still running. Return to the real work
+        // state instead of falling back to idle and leaving the face disconnected from progress.
+        SetMood(_taskActive ? "thinking" : (_isPointerOver ? "curious" : "idle"), showReaction: false);
     }
 
     private void ShowReactionForMood(string mood)
