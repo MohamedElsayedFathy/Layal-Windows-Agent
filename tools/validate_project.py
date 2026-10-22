@@ -221,8 +221,21 @@ else:
     ):
         if fragment not in native_acceptance:
             ERRORS.append(f"Native drag regression coverage is missing '{fragment}'")
+if "Run native Windows desktop click-through integration" not in workflow_code or "-ClickThroughOnly" not in workflow_code:
+    ERRORS.append("Windows CI must execute the isolated native click-through regression suite")
 if "Run native Windows desktop mouse-drag integration" not in workflow_code or "-DragOnly" not in workflow_code:
     ERRORS.append("Windows CI must execute the isolated native mouse-drag regression suite")
+
+# Prevent reintroducing the WPF DragMove path: it bypassed reliable movement for
+# this transparent layered overlay under native input. Keep the direct captured-pointer
+# delta implementation and its tested per-mode check counts wired into every CI run.
+if re.search(r"\\bDragMove\\s*\\(", mascot_window_code):
+    ERRORS.append("Do not reintroduce DragMove; use the tested captured-pointer delta path")
+minimum_check_rule = '$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 6 } else { 5 }'
+if native_acceptance.count(minimum_check_rule) != 2:
+    ERRORS.append("Native acceptance check-count thresholds changed unexpectedly; update both summary and exit guard deliberately")
+if 'Mode=if ($CalibrationOnly) { "calibration-only" } elseif ($ClickThroughOnly) { "click-through-only" } elseif ($DragOnly) { "drag-only" } else { "full-interactive-acceptance" }' not in native_acceptance:
+    ERRORS.append("Native acceptance summary must identify the active test mode accurately")
 
 for xaml_path in xaml_files:
     text = xaml_path.read_text(encoding="utf-8")
