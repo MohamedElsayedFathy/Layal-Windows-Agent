@@ -37,8 +37,9 @@
                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0"
                         IsHitTestVisible="False" ClipToBounds="True">
                 <Viewport3D.Camera>
+                    <!-- FOV widened with the viewport: preserve the same model pixel scale while giving arms/feet horizontal clearance. -->
                     <PerspectiveCamera Position="0,0,2.6" LookDirection="0,0,-2.6"
-                                       UpDirection="0,1,0" FieldOfView="46"/>
+                                       UpDirection="0,1,0" FieldOfView="60.5"/>
                 </Viewport3D.Camera>
             </Viewport3D>
 
