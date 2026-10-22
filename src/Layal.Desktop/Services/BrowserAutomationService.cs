@@ -311,6 +311,12 @@ public sealed class BrowserAutomationService
 
     private async Task<CdpPageTarget> GetPageTargetAsync(CancellationToken token)
     {
+        if (_browserProcess is { HasExited: true })
+        {
+            _browserProcess.Dispose();
+            _browserProcess = null;
+            _debugPort = 0;
+        }
         if (_debugPort <= 0)
             await TryAttachExistingSessionAsync(token);
         if (_debugPort <= 0)
@@ -347,9 +353,11 @@ public sealed class BrowserAutomationService
         if (string.IsNullOrWhiteSpace(json)) throw new InvalidOperationException("The browser returned no page metadata.");
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
+        var pageUrl = root.TryGetProperty("url", out var url) ? url.GetString() ?? string.Empty : string.Empty;
+        _ = ValidateHttpUrl(pageUrl);
         return new BrowserPageSnapshot(
             root.TryGetProperty("title", out var title) ? title.GetString() ?? string.Empty : string.Empty,
-            root.TryGetProperty("url", out var url) ? url.GetString() ?? string.Empty : string.Empty,
+            pageUrl,
             root.TryGetProperty("readyState", out var ready) ? ready.GetString() ?? string.Empty : string.Empty,
             root.TryGetProperty("text", out var text) ? text.GetString() ?? string.Empty : string.Empty,
             root.TryGetProperty("links", out var links) ? links.GetRawText() : "[]",
