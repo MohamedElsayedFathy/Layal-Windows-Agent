@@ -53,14 +53,15 @@ This matrix describes source-code presence and authored test coverage only; test
 The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a CSV copy in `REQUIREMENT_TRACEABILITY.csv`. Check that ledger before every milestone/release.
 
 
-## Visual personality follow-up — articulated 3D rig and cinematic task effects
-- The source constructs independent WPF 3D scene nodes for the head, torso, both arms and both legs. Each part receives its own transform, with poses varying by mood and task stage.
+## Phased visual-personality work — Stage 1 complete, Stage 2 awaiting approval
+- **Stage 1 — articulated 3D avatar:** implemented in the feature branch. Separate WPF 3D scene nodes exist for the head, torso, shoulders/upper arms, forearms, hands, thighs, shins and feet. Joint-level transforms create independent arm/leg posing, while the head and torso have separate transforms.
 - The face uses 3D geometry for eye whites, irises, pupils, brows, cheeks and mouth. Mood changes alter geometry/scale, pointer input updates pupil gaze, and blinking scales the 3D eye groups. The former 2D face remains at zero opacity for pointer-coordinate compatibility.
-- A non-interactive WPF particle layer cycles hearts, flowers, sparkles and technology glyphs by mood/task stage. Paper, pencil and holographic-computer companions remain 2D WPF props, but their prominence and movement now vary by work phase.
-- Social moods and task-stage states continue to be driven by TaskMoodResolver and task-engine events. The selected interface language still affects Arabic/English response style.
-- Reduced-motion behavior is intended to freeze posing/effects while retaining readable task indicators; this still requires a running Windows session check.
+- Stage 1 verification: Windows Release build and automated tests passed on commit `86db499d610f3f87d00599488847e803c1365263` (0 warnings, 0 errors; 45 passed, 0 failed, 0 skipped). Windows CI also generated rendered snapshots of representative avatar moods and all seven application sections; density captures are render-target scaling, not physical monitor-DPI tests.
+- The avatar is procedural WPF 3D geometry/scene graph, not an imported artist-authored mesh/animation rig. This limitation is explicit.
+- **Stage 2 — further cinematic motion and task-synchronized effects:** await the user's explicit approval before the next set of enhancements. The branch already contains initial particles and task props from earlier work; the focused cinematic-timing/motion polish is not being treated as finished.
+- **Stage 3 — complete visual audit:** wait until Stage 2 is accepted. It requires live Windows testing at real display-scaling settings plus a screenshot/checklist for each app section in both themes and languages.
 - The theme-aware background gradient and lightly translucent card/header surfaces provide a restrained glass-like finish, not true desktop acrylic blur.
-- **Verification boundary:** these avatar/effect changes are source-level implementations until Windows CI and visual acceptance on a real interactive Windows desktop succeed. 3D/2D alignment, lighting, render order, click-through areas, monitor bounds, light/dark consistency and the 100–175% DPI matrix have not been confirmed with actual screenshots. The complete app-wide redesign remains an acceptance item.
+- Plan and gate details: `docs/PHASED_EXECUTION_AR.md`. PR #6 remains draft and unmerged; generated snapshots do not prove interactive Windows click-through, drag bounds, physical multi-monitor DPI, or every visual alignment.
 
 ## Version 0.5.2 — automated regression test foundation
 
