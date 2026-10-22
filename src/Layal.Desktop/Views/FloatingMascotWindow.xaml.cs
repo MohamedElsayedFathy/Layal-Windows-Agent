@@ -660,7 +660,9 @@ public partial class FloatingMascotWindow : Window
         _lastInteractionAt = DateTimeOffset.UtcNow;
         if (!AppRuntime.Settings.MascotAnimationsEnabled)
         {
-            AppRuntime.MainWindow?.ShowFromTray();
+            // With decorative animation disabled, still provide a static facial response
+            // rather than unexpectedly opening the full application on a single tap.
+            SetMood("happy", showReaction: false);
             return;
         }
 
@@ -691,7 +693,7 @@ public partial class FloatingMascotWindow : Window
 
     private void UpdateIdleState()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || !IsVisible || _isPointerOver || _pointerDown)
+        if (!IsVisible || _isPointerOver || _pointerDown)
             return;
 
         if ((_mood is "idle" or "curious") &&
@@ -705,8 +707,8 @@ public partial class FloatingMascotWindow : Window
     {
         _isPointerOver = true;
         _lastInteractionAt = DateTimeOffset.UtcNow;
-        if ((_mood is "idle" or "sleepy") && AppRuntime.Settings.MascotAnimationsEnabled)
-            SetMood("curious");
+        if (_mood is "idle" or "sleepy")
+            SetMood("curious", showReaction: AppRuntime.Settings.MascotAnimationsEnabled);
     }
 
     private void Window_MouseMove(object sender, MouseEventArgs e)
