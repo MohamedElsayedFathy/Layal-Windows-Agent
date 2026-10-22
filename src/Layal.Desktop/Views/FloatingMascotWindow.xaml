@@ -37,7 +37,7 @@
                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,5,0,0"
                         IsHitTestVisible="False" ClipToBounds="True">
                 <Viewport3D.Camera>
-                    <PerspectiveCamera Position="0,0,2.3" LookDirection="0,0,-2.3"
+                    <PerspectiveCamera Position="0,0,2.6" LookDirection="0,0,-2.6"
                                        UpDirection="0,1,0" FieldOfView="46"/>
                 </Viewport3D.Camera>
             </Viewport3D>
@@ -130,14 +130,6 @@
                     <Border Width="5" Height="20" CornerRadius="2.5" Background="#8A78E7" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
             </Border>
-
-            <!-- Small boots with a pearl finish. -->
-            <Border Width="31" Height="10" CornerRadius="5" Background="#8F85DF"
-                    BorderBrush="#C9C4F4" BorderThickness="1"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,18,3" />
-            <Border Width="28" Height="10" CornerRadius="5" Background="#50BFC9"
-                    BorderBrush="#B2EAEC" BorderThickness="1"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="22,0,0,3" />
 
             <!-- Explicit status ring, connected to the agent's real state. -->
             <Border Width="19" Height="19" CornerRadius="9.5" Background="#FFFFFF" BorderBrush="#C9D6E9"
