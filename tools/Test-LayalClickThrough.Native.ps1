@@ -279,6 +279,21 @@ try {
 
     $buttonCenter=$script:TargetButton.PointToScreen([System.Drawing.Point]::new([int]($script:TargetButton.Width/2),[int]($script:TargetButton.Height/2)))
     $initialRect=Get-MascotRect
+
+    # Validate the WinForms target and SendInput path before testing pass-through. Move
+    # Layal away from the target first so a failure here cannot be mistaken for app failure.
+    [LayalNativeInput]::MoveTopMost($script:MascotHwnd,10,10)
+    Pump-Messages 400
+    $baselineBefore=$script:UnderlyingClicks
+    $baselinePoint=@{X=$buttonCenter.X;Y=$buttonCenter.Y}
+    Move-CursorAndPump $baselinePoint 300
+    $baselineTarget=[LayalNativeInput]::DescribeWindowAt($baselinePoint.X,$baselinePoint.Y)
+    Send-LeftClick
+    if ($script:UnderlyingClicks -ne ($baselineBefore+1)) {
+        throw "Native input calibration failed before overlay tests. Expected underlying count $($baselineBefore+1), got $script:UnderlyingClicks. Target=$baselineTarget"
+    }
+    Write-Result "Underlying target receives native click with mascot moved away" "passed" "Calibration click incremented the WinForms target. WindowFromPoint=$baselineTarget."
+
     [LayalNativeInput]::MoveTopMost($script:MascotHwnd,$buttonCenter.X-[int]($initialRect.Width/2),$buttonCenter.Y-[int]($initialRect.Height/2))
     Pump-Messages 500
 
