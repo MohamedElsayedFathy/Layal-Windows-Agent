@@ -31,7 +31,7 @@ public sealed class SettingsStoreTests
 
         Assert.AreEqual("ar", settings.Language);
         Assert.AreEqual(string.Empty, settings.ProviderBaseUrl);
-        Assert.AreEqual("auto", settings.ModelId);
+        Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.AreEqual(1.8, settings.MascotScale, 0.0001);
         Assert.AreEqual(0.35, settings.MascotOpacity, 0.0001);
     }
