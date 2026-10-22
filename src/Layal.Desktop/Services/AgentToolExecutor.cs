@@ -60,6 +60,7 @@ public sealed class AgentToolExecutor
         Definition("activate_window", "Bring a visible window with an exact title to the foreground. Requires user approval.", """{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}"""),
         Definition("inspect_window_controls", "Call this tool directly when the user asks to inspect UI elements in a known visible external window. Supply its exact title. Read-only; Layal itself displays a local consent prompt before sharing labels and identifiers with the AI provider, so do not ask a separate natural-language permission question first. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
         Definition("click_ui_control", "Invoke exactly one uniquely identified supported control in one visible external window after explicit per-action approval. Requires the exact AutomationId and supported control type; no free-form mouse/keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of the visible external window"},"control_type":{"type":"string","enum":["Button","Hyperlink","MenuItem","SplitButton"]},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"}},"required":["window_title","control_type","automation_id"],"additionalProperties":false}"""),
+        Definition("fill_ui_text", "Set the value of one exact visible Windows UI Automation Edit field in an external application after explicit local approval. Requires the exact window title and AutomationId from inspect_window_controls. Never use for password, protected, read-only, disabled, offscreen, or ambiguous controls; it does not press Enter or submit forms.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact unique visible title of the external application window"},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"},"text":{"type":"string","description":"Value to enter; maximum 10,000 characters"}},"required":["window_title","automation_id","text"],"additionalProperties":false}"""),
         Definition("call_app_api", _apiConnections?.BuildToolDescription() ?? "No external app API connection service is available. Do not invent a connection.", """{"type":"object","properties":{"connection_name":{"type":"string","description":"Exact configured connection name from the available connections"},"method":{"type":"string","enum":["GET","POST","PUT","PATCH","DELETE"]},"path":{"type":"string","description":"Relative path beneath the configured base URL; do not include scheme, query, or fragment"},"query_json":{"type":"string","description":"Optional JSON object of query parameters; use empty string for none"},"body_json":{"type":"string","description":"Optional valid JSON request body; use empty string when not needed, and never send a body with GET"}},"required":["connection_name","method","path","query_json","body_json"],"additionalProperties":false}"""),
         Definition("run_dotnet_build", "Run dotnet build for a .sln or .csproj inside the approved workspace. Build targets may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("run_dotnet_test", "Run dotnet test for a .sln or .csproj inside the approved workspace. Tests may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
@@ -98,6 +99,7 @@ public sealed class AgentToolExecutor
             "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
             "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
             "click_ui_control" => await InvokeWindowControlAsync(GetString(args, "window_title"), GetString(args, "control_type"), GetString(args, "automation_id"), confirm, report, cancellationToken),
+            "fill_ui_text" => await FillUiTextAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetString(args, "text"), confirm, report, cancellationToken),
             "call_app_api" => await CallAppApiAsync(GetString(args, "connection_name"), GetString(args, "method"), GetString(args, "path"), GetString(args, "query_json"), GetString(args, "body_json"), confirm, report, cancellationToken),
             "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
@@ -345,6 +347,55 @@ public sealed class AgentToolExecutor
         var outcome = await WindowsUiAutomationService.InvokeControlAsync(confirmedTarget, controlType, automationId, token);
         report($"One approved UI Automation action was issued to external PID {confirmedTarget.ProcessId}; application-level success still requires observing the app.");
         return WindowsUiAutomationService.FormatInvokeReport(outcome);
+    }
+
+    private async Task<string> FillUiTextAsync(
+        string title,
+        string automationId,
+        string text,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (!AppRuntime.Settings.AllowWindowTitleInspection)
+            return "Window and UI inspection is disabled in Layal settings. Enable it in Settings before interacting with external applications.";
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+            throw new InvalidOperationException("Provide an exact visible external window title up to 200 characters.");
+
+        automationId = WindowsUiAutomationService.ValidateAutomationId(automationId);
+        _ = WindowsUiAutomationService.ValidateUiText(text);
+
+        var target = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (target is null)
+            throw new InvalidOperationException("No unique visible external window with that exact title was found. Use get_open_window_titles and inspect_window_controls first.");
+
+        var preview = await WindowsUiAutomationService.PreviewSetTextAsync(target, automationId, token);
+        var shownText = text.Length <= 700 ? text : text[..700] + "… (truncated in preview)";
+        var nl = Environment.NewLine;
+        var approvalText =
+            $"Set the value of exactly one editable field in external window '{target.Title}' (PID {target.ProcessId})?{nl}" +
+            $"Control type: Edit; AutomationId: '{preview.AutomationId}'; characters: {text.Length}.{nl}{nl}" +
+            $"Text to enter (preview; may be sensitive):{nl}{shownText}{nl}{nl}" +
+            "Layal will not read back the existing field value, will not use password fields, and will not press Enter or submit the form. The field must remain the same unique, enabled, visible, writable control while you review this approval.";
+
+        if (!await confirm("Enter text in application field", approvalText, token))
+            return "User declined the Windows text-entry action. No field value was changed.";
+
+        token.ThrowIfCancellationRequested();
+
+        // The user may have closed the app or changed the selected window while reading the prompt.
+        var confirmedTarget = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (confirmedTarget is null ||
+            confirmedTarget.Handle != target.Handle ||
+            confirmedTarget.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The selected window changed while awaiting approval. No text was entered; inspect the target again.");
+
+        token.ThrowIfCancellationRequested();
+        var outcome = await WindowsUiAutomationService.SetTextAsync(confirmedTarget, preview, text, token);
+        report($"One approved UI Automation ValuePattern.SetValue call was issued to external PID {outcome.ProcessId}; the application-level result is not confirmed.");
+        return
+            $"ValuePattern.SetValue returned for one approved Edit field in '{outcome.WindowTitle}' (PID {outcome.ProcessId}, AutomationId '{outcome.AutomationId}'). " +
+            $"Characters requested: {outcome.CharacterCount}. The previous field value was not read or returned. This does not prove the application accepted the value or submitted any form; inspect the application before continuing.";
     }
 
     private async Task<string> BrowserNavigateAsync(
