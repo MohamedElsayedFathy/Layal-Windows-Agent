@@ -277,23 +277,33 @@ public partial class FloatingMascotWindow : Window
         // Hip, knee and ankle nodes form a true parent-child transform chain.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.24, -0.70, 0.27)
+            // Hips are offset from the torso centre and pulled forward so the thighs and shins
+            // stay visible in front of the lower body rather than merging into the pearl torso.
+            Transform = new TranslateTransform3D(side * 0.31, -0.78, 0.36)
         };
         root.Children.Add(new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.115, 0.12, 0.105,
-                Color.FromRgb(205, 221, 245), Color.FromRgb(248, 252, 255))
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.105, 0.10, 0.10,
+                Color.FromRgb(105, 168, 218), Color.FromRgb(226, 247, 255))
         });
         thigh = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.012, -0.035, 0.025), 0.095, 0.09, 0.10,
-                Color.FromRgb(213, 226, 247), Color.FromRgb(255, 255, 255))
+            Content = CreateEllipsoid(new Point3D(side * 0.012, -0.035, 0.025), 0.09, 0.095, 0.09,
+                side < 0 ? Color.FromRgb(117, 166, 217) : Color.FromRgb(145, 142, 222),
+                Color.FromRgb(235, 248, 255))
         };
         var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.085, 0.01) };
+        kneeAnchor.Children.Add(new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.075), 0.063, 0.055, 0.025,
+                side < 0 ? Color.FromRgb(63, 198, 211) : Color.FromRgb(165, 137, 235),
+                Color.FromRgb(240, 251, 255))
+        });
         shin = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.04, 0.025), 0.08, 0.085, 0.087,
-                Color.FromRgb(200, 218, 243), Color.FromRgb(246, 251, 255))
+            Content = CreateEllipsoid(new Point3D(0, -0.04, 0.025), 0.077, 0.085, 0.082,
+                side < 0 ? Color.FromRgb(151, 205, 232) : Color.FromRgb(189, 174, 235),
+                Color.FromRgb(245, 251, 255))
         };
         var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.075, 0.02) };
         foot = new ModelVisual3D
@@ -319,12 +329,13 @@ public partial class FloatingMascotWindow : Window
         // Shoulder, elbow and wrist are separate transformable scene nodes.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.72, -0.38, 0.29)
+            // Shoulders sit just outside the head's widest silhouette and in front of the shell.
+            Transform = new TranslateTransform3D(side * 0.91, -0.30, 0.36)
         };
         root.Children.Add(new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.14, 0.145, 0.13,
-                Color.FromRgb(190, 218, 245), Color.FromRgb(246, 251, 255))
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.13, 0.13, 0.12,
+                Color.FromRgb(123, 178, 224), Color.FromRgb(230, 248, 255))
         });
         upperArm = new ModelVisual3D
         {
