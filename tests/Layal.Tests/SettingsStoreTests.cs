@@ -41,15 +41,32 @@ public sealed class SettingsStoreTests
     {
         using var temp = new TestTempDirectory();
         var store = new SettingsStore(temp.Path);
-        store.Save(new UserSettings { Language = "en", ProviderBaseUrl = "https://provider.example/v1", ModelId = "test-model", MascotScale = 1.25, MascotOpacity = 0.8 });
+        store.Save(new UserSettings
+        {
+            Language = "en",
+            ThemeMode = "dark",
+            ProviderBaseUrl = "https://provider.example/v1",
+            ModelId = "test-model",
+            MascotAlwaysOnTop = false,
+            MascotAnimationsEnabled = false,
+            MascotScale = 1.25,
+            MascotOpacity = 0.8,
+            MascotLeft = 1284.5,
+            MascotTop = 424.25
+        });
 
         var reloaded = new SettingsStore(temp.Path).Load();
 
         Assert.AreEqual("en", reloaded.Language);
+        Assert.AreEqual("dark", reloaded.ThemeMode);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
+        Assert.IsFalse(reloaded.MascotAlwaysOnTop);
+        Assert.IsFalse(reloaded.MascotAnimationsEnabled);
         Assert.AreEqual(1.25, reloaded.MascotScale, 0.0001);
         Assert.AreEqual(0.8, reloaded.MascotOpacity, 0.0001);
+        Assert.AreEqual(1284.5, reloaded.MascotLeft, 0.0001);
+        Assert.AreEqual(424.25, reloaded.MascotTop, 0.0001);
     }
 
     [TestMethod]
