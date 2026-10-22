@@ -62,9 +62,11 @@ public static class LayalNativeInput
     private static extern uint SendInput(uint count, Input[] inputs, int size);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+    [DllImport("user32.dll", SetLastError=true)] private static extern uint GetDpiForWindow(IntPtr hwnd);
 
     private const uint SwpNoActivate=0x0010, InputMouse=0, MouseMove=0x0001, LeftDown=0x0002, LeftUp=0x0004;
     public static uint ProcessIdForWindow(IntPtr hwnd) { GetWindowThreadProcessId(hwnd, out uint pid); return pid; }
+    public static double DpiScaleForWindow(IntPtr hwnd) { uint dpi = GetDpiForWindow(hwnd); return dpi == 0 ? 1.0 : dpi / 96.0; }
     public static bool Visible(IntPtr hwnd) => IsWindowVisible(hwnd);
     public static long ExtendedStyle(IntPtr hwnd) => IntPtr.Size == 8 ? GetWindowLongPtr64(hwnd, -20).ToInt64() : GetWindowLong32(hwnd, -20);
     public static string DescribeWindowAt(int x, int y) {
@@ -356,29 +358,82 @@ try {
         }
 
     if (-not $ClickThroughOnly) {
-        Invoke-NativeAcceptanceCase "Drag moves mascot without clicking through" {
-            $beforeClicks=$script:UnderlyingClicks
-            $beforeRect=Get-MascotRect
-            $anchor=Get-ScaledPoint -DesignX 124 -DesignY 80
-            Move-CursorAndPump $anchor 450
-            $downSent=[LayalNativeInput]::LeftButtonDown()
-            if ($downSent -ne 1) { throw "Could not inject native left-button down event." }
-            $script:MouseButtonHeld=$true
-            Pump-Messages 120
-            $moveSent=[LayalNativeInput]::MoveRelative(42,28)
-            if ($moveSent -ne 1) { throw "Could not inject native mouse-move while dragging." }
-            Pump-Messages 300
-            $upSent=[LayalNativeInput]::LeftButtonUp()
-            if ($upSent -ne 1) { throw "Could not inject native left-button up event." }
-            $script:MouseButtonHeld=$false
-            Pump-Messages 450
-            $afterRect=Get-MascotRect
-            $movedX=[Math]::Abs($afterRect.Left-$beforeRect.Left)
-            $movedY=[Math]::Abs($afterRect.Top-$beforeRect.Top)
-            if ($movedX -lt 15 -and $movedY -lt 15) { throw "Expected mascot movement after native drag; delta was ($movedX,$movedY) pixels." }
-            if ($script:UnderlyingClicks -ne $beforeClicks) { throw "Drag leaked input to underlying target; count changed from $beforeClicks to $script:UnderlyingClicks." }
-            Write-Result "Drag moves mascot without clicking through" "passed" "Native drag moved actual mascot window by ($movedX,$movedY) px."
+        $dragVectors = @(@{X=42;Y=28}, @{X=-31;Y=21}, @{X=27;Y=-26})
+        for ($dragIndex=0; $dragIndex -lt $dragVectors.Count; $dragIndex++) {
+            $iteration=$dragIndex+1
+            Invoke-NativeAcceptanceCase "Native mouse drag cycle $iteration moves mascot without click-through" {
+                $beforeClicks=$script:UnderlyingClicks
+                $beforeRect=Get-MascotRect
+                $anchor=Get-ScaledPoint -DesignX 124 -DesignY 80
+                Move-CursorAndPump $anchor 350
+                $downSent=[LayalNativeInput]::LeftButtonDown()
+                if ($downSent -ne 1) { throw "Could not inject native left-button down event on drag cycle $iteration." }
+                $script:MouseButtonHeld=$true
+                Pump-Messages 100
+                $moveSent=[LayalNativeInput]::MoveRelative($dragVectors[$dragIndex].X,$dragVectors[$dragIndex].Y)
+                if ($moveSent -ne 1) { throw "Could not inject native mouse-move while dragging on cycle $iteration." }
+                Pump-Messages 300
+                $upSent=[LayalNativeInput]::LeftButtonUp()
+                if ($upSent -ne 1) { throw "Could not inject native left-button up event on drag cycle $iteration." }
+                $script:MouseButtonHeld=$false
+                Pump-Messages 350
+                $afterRect=Get-MascotRect
+                $movedX=[Math]::Abs($afterRect.Left-$beforeRect.Left)
+                $movedY=[Math]::Abs($afterRect.Top-$beforeRect.Top)
+                if ($movedX -lt 12 -and $movedY -lt 12) {
+                    throw "Expected actual mascot movement on drag cycle $iteration; delta was ($movedX,$movedY) pixels."
+                }
+                if ($script:UnderlyingClicks -ne $beforeClicks) {
+                    throw "Drag cycle $iteration leaked input to underlying target; count changed from $beforeClicks to $script:UnderlyingClicks."
+                }
+                Write-Result "Native mouse drag cycle $iteration moves mascot without click-through" "passed" "Actual HWND moved by ($movedX,$movedY) px; underlying click count remained $beforeClicks."
             }
+        }
+
+        Invoke-NativeAcceptanceCase "Dragged position is saved and restored after restart" {
+            $settingsPath=Join-Path $env:LOCALAPPDATA "Layal/settings.json"
+            if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
+                throw "Expected settings file after completed drags: $settingsPath"
+            }
+            $saved=Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+            if ($null -eq $saved.MascotLeft -or $null -eq $saved.MascotTop) {
+                throw "Saved settings do not contain MascotLeft/MascotTop after dragging."
+            }
+            $savedLeft=[double]$saved.MascotLeft
+            $savedTop=[double]$saved.MascotTop
+            Write-Result "Dragged position persisted to settings" "passed" "settings.json contains MascotLeft=$savedLeft and MascotTop=$savedTop."
+
+            if (-not $script:AppProcess.HasExited) {
+                Stop-Process -Id $script:AppProcess.Id -Force -ErrorAction SilentlyContinue
+                [void]$script:AppProcess.WaitForExit(5000)
+            }
+            $script:AppProcess=Start-Process -FilePath $resolvedExe -WorkingDirectory (Split-Path -Parent $resolvedExe) -PassThru
+            $script:MascotHwnd=[IntPtr]::Zero
+            $deadline=[DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+            $windowDiagnostic=$null
+            while ([DateTime]::UtcNow -lt $deadline -and $script:MascotHwnd -eq [IntPtr]::Zero) {
+                Pump-Messages 100
+                if ($script:AppProcess.HasExited) {
+                    throw "Layal.exe exited during post-drag restart with exit code $($script:AppProcess.ExitCode)."
+                }
+                $hwnd=[LayalNativeInput]::FindVisibleLayalWindowForProcess($script:AppProcess.Id,[ref]$windowDiagnostic)
+                if ($hwnd -ne [IntPtr]::Zero) { $script:MascotHwnd=$hwnd }
+            }
+            if ($script:MascotHwnd -eq [IntPtr]::Zero) {
+                throw "Could not find visible mascot after restart. Process windows: $windowDiagnostic"
+            }
+            Pump-Messages 500
+            $restoredRect=Get-MascotRect
+            $dpiScale=[LayalNativeInput]::DpiScaleForWindow($script:MascotHwnd)
+            $expectedLeftPixels=$savedLeft*$dpiScale
+            $expectedTopPixels=$savedTop*$dpiScale
+            $leftDifference=[Math]::Abs($restoredRect.Left-$expectedLeftPixels)
+            $topDifference=[Math]::Abs($restoredRect.Top-$expectedTopPixels)
+            if ($leftDifference -gt 5 -or $topDifference -gt 5) {
+                throw "Restart did not restore dragged position within 5 px. Saved DIP=($savedLeft,$savedTop), scale=$dpiScale, actual screen pixels=($($restoredRect.Left),$($restoredRect.Top)), differences=($leftDifference,$topDifference)."
+            }
+            Write-Result "Dragged position restored after app restart" "passed" "Saved DIP=($savedLeft,$savedTop), scale=$dpiScale, restored HWND origin=($($restoredRect.Left),$($restoredRect.Top)) px."
+        }
     }
     }
 }
@@ -396,7 +451,7 @@ finally {
     $checks = $script:Rows.ToArray()
     $passedRows = @($checks | Where-Object { $_.Status -eq "passed" })
     $failedRows = @($checks | Where-Object { $_.Status -eq "failed" })
-    $minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 2 } else { 5 }
+    $minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 6 } else { 5 }
     $resultLabel = "failed"
     if ($script:FailureCount -eq 0 -and $checks.Length -ge $minimumChecks) { $resultLabel = "passed" }
     $summary=[pscustomobject]@{
@@ -414,7 +469,7 @@ finally {
     $jsonText = ConvertTo-Json -InputObject $summary -Depth 6
     [IO.File]::WriteAllText($jsonPath, $jsonText, (New-Object System.Text.UTF8Encoding($false)))
 }
-$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 2 } else { 5 }
+$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 6 } else { 5 }
 if ($script:FailureCount -gt 0 -or $script:Rows.Count -lt $minimumChecks) {
     Write-Error "Native desktop click-through integration failed. See $jsonPath and $csvPath"
     exit 1
