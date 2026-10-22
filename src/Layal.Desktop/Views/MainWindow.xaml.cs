@@ -178,6 +178,7 @@ public partial class MainWindow : Window
         ApiAuthTypeLabel.Text = ar ? "طريقة المصادقة" : "Authentication type";
         ApiAuthHeaderNameLabel.Text = ar ? "اسم ترويسة المصادقة (Custom header)" : "Authentication header name (Custom header)";
         ApiAuthSecretLabel.Text = ar ? "Token / API key / قيمة الترويسة" : "Token / API key / header value";
+        ApiAdditionalHeadersLabel.Text = ar ? "ترويسات HTTP إضافية غير سرية (JSON)" : "Additional non-secret HTTP headers (JSON)";
         ApiTestPathLabel.Text = ar ? "مسار اختبار الاتصال (GET)، مثل health أو users/me" : "Connection test path (GET), e.g. health or users/me";
         ApiInstructionsLabel.Text = ar ? "ملاحظات التوثيق ونقاط النهاية (اختياري، بدون أسرار)" : "API docs and endpoint notes (optional; do not include secrets)";
         SaveApiConnectionButton.Content = ar ? "حفظ الاتصال" : "Save connection";
@@ -301,6 +302,7 @@ public partial class MainWindow : Window
         ApiConnectionBaseUrlInput.Text = string.Empty;
         ApiAuthHeaderNameInput.Text = "X-API-Key";
         ApiAuthSecretInput.Clear();
+        ApiAdditionalHeadersInput.Clear();
         ApiTestPathInput.Text = string.Empty;
         ApiInstructionsInput.Clear();
         ApiAuthTypeComboBox.SelectedIndex = 1;
@@ -324,6 +326,7 @@ public partial class MainWindow : Window
             AuthenticationType = SelectedApiAuthenticationType,
             AuthHeaderName = ApiAuthHeaderNameInput.Text.Trim(),
             AuthSecret = secret,
+            AdditionalHeadersJson = ApiAdditionalHeadersInput.Text.Trim(),
             TestPath = ApiTestPathInput.Text.Trim(),
             Instructions = ApiInstructionsInput.Text.Trim()
         };
@@ -338,6 +341,7 @@ public partial class MainWindow : Window
         ApiConnectionBaseUrlInput.Text = profile.BaseUrl;
         ApiAuthHeaderNameInput.Text = profile.AuthHeaderName;
         ApiAuthSecretInput.Password = profile.AuthSecret;
+        ApiAdditionalHeadersInput.Text = profile.AdditionalHeadersJson;
         ApiTestPathInput.Text = profile.TestPath;
         ApiInstructionsInput.Text = profile.Instructions;
         ApiAuthTypeComboBox.SelectedItem = ApiAuthTypeComboBox.Items
