@@ -94,7 +94,15 @@ public partial class FloatingMascotWindow : Window
         ["shy"] = new[] { "☺️", "🫣", "🌸", "💗", "🙈" },
         ["annoyed"] = new[] { "😒", "🙄", "😤", "💢", "🫠" },
         ["bored"] = new[] { "🥱", "😑", "💤", "☕", "🌙" },
-        ["playful"] = new[] { "😜", "😉", "🐣", "🎈", "✨", "😎" }
+        ["playful"] = new[] { "😜", "😉", "🐣", "🎈", "✨", "😎" },
+        ["embarrassed"] = new[] { "😳", "🫣", "🙈", "🌸", "💗", "😅", "🫢" },
+        ["relieved"] = new[] { "😌", "🌿", "✨", "🫧", "💨", "☀️", "🩵" },
+        ["determined"] = new[] { "💪", "🎯", "⚡", "🧭", "🛡️", "🔥", "🫡" },
+        ["confident"] = new[] { "😎", "🌟", "✨", "💅", "🪄", "👑", "💫" },
+        ["apologetic"] = new[] { "🥺", "🙏", "🫶", "💐", "💗", "😔" },
+        ["frustrated"] = new[] { "😤", "💢", "😮‍💨", "🫠", "🛠️", "🤦" },
+        ["grateful"] = new[] { "🥰", "💝", "🫶", "🌷", "💐", "💖", "✨" },
+        ["celebrating"] = new[] { "🥳", "🎉", "🎊", "💖", "🌈", "🪩", "🚀", "🎈" }
     };
 
     public FloatingMascotWindow()
@@ -407,6 +415,75 @@ public partial class FloatingMascotWindow : Window
                 Mouth.Data = Geometry.Parse("M 39,56 Q 51,52 64,56");
                 status = AccentPurple;
                 break;
+            case "embarrassed":
+                LeftEye.Height = RightEye.Height = 16;
+                _leftPupilMoodY = _rightPupilMoodY = 2.2;
+                LeftBrow.Data = Geometry.Parse("M 26,17 Q 34,14 42,19");
+                RightBrow.Data = Geometry.Parse("M 61,19 Q 69,14 77,17");
+                Mouth.Data = Geometry.Parse("M 43,56 Q 51,60 59,56");
+                CheekLeft.Opacity = CheekRight.Opacity = 1;
+                GlowHalo.Opacity = 0.72;
+                status = AccentRed;
+                break;
+            case "relieved":
+                LeftEye.Height = RightEye.Height = 16;
+                _leftPupilMoodY = _rightPupilMoodY = 1.1;
+                Mouth.Data = Geometry.Parse("M 29,49 Q 51,76 79,49");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.86;
+                GlowHalo.Opacity = 0.72;
+                status = AccentGreen;
+                break;
+            case "determined":
+                LeftEye.Height = RightEye.Height = 20;
+                LeftBrow.Data = Geometry.Parse("M 26,17 Q 34,22 42,18");
+                RightBrow.Data = Geometry.Parse("M 61,18 Q 69,22 77,17");
+                Mouth.Data = Geometry.Parse("M 39,57 Q 51,59 64,57");
+                GlowHalo.Opacity = 0.68;
+                status = AccentCyan;
+                break;
+            case "confident":
+                LeftBrow.Data = Geometry.Parse("M 25,17 Q 34,12 43,16");
+                RightBrow.Data = Geometry.Parse("M 61,14 Q 69,10 77,14");
+                Mouth.Data = Geometry.Parse("M 36,54 Q 54,64 70,52");
+                GlowHalo.Opacity = 0.72;
+                status = AccentPurple;
+                break;
+            case "apologetic":
+                LeftEye.Height = RightEye.Height = 18;
+                _leftPupilMoodY = _rightPupilMoodY = 1.5;
+                LeftBrow.Data = Geometry.Parse("M 26,18 Q 34,23 42,20");
+                RightBrow.Data = Geometry.Parse("M 61,20 Q 69,23 77,18");
+                Mouth.Data = Geometry.Parse("M 35,62 Q 51,48 69,62");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.45;
+                GlowHalo.Opacity = 0.38;
+                status = AccentMuted;
+                break;
+            case "frustrated":
+                LeftEye.Height = RightEye.Height = 18;
+                LeftBrow.Data = Geometry.Parse("M 25,22 Q 34,13 43,18");
+                RightBrow.Data = Geometry.Parse("M 60,18 Q 69,13 78,22");
+                Mouth.Data = Geometry.Parse("M 38,58 Q 44,53 50,58 Q 57,63 65,57");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.35;
+                GlowHalo.Opacity = 0.38;
+                status = AccentRed;
+                break;
+            case "grateful":
+                LeftEye.Height = RightEye.Height = 21;
+                Mouth.Data = Geometry.Parse("M 31,48 Q 51,75 77,48");
+                CheekLeft.Opacity = CheekRight.Opacity = 0.96;
+                GlowHalo.Opacity = 0.76;
+                status = AccentGreen;
+                break;
+            case "celebrating":
+                LeftEye.Height = RightEye.Height = 6;
+                LeftPupil.Visibility = RightPupil.Visibility = Visibility.Collapsed;
+                LeftEyeShine.Visibility = RightEyeShine.Visibility = Visibility.Collapsed;
+                Mouth.Data = Geometry.Parse("M 30,46 Q 51,84 80,46 Z");
+                Mouth.Fill = new SolidColorBrush(Color.FromRgb(119, 48, 90));
+                CheekLeft.Opacity = CheekRight.Opacity = 1;
+                GlowHalo.Opacity = 0.92;
+                status = AccentGreen;
+                break;
             default:
                 Mouth.Data = Geometry.Parse("M 28,48 Q 51,72 78,48");
                 status = AccentGreen;
@@ -419,6 +496,7 @@ public partial class FloatingMascotWindow : Window
         Canvas.SetTop(LeftEyeShine, 23 + (LeftEye.Height - 10) / 2 - 1.5);
         Canvas.SetTop(RightEyeShine, 23 + (RightEye.Height - 10) / 2 - 1.5);
         StatusDot.Fill = status;
+        UpdateTaskProps();
         if (showReaction && (previousMood != _mood || _mood != "idle"))
             ShowReactionForMood(_mood);
         _blinkTimer.Interval = _mood switch
@@ -432,7 +510,9 @@ public partial class FloatingMascotWindow : Window
         _moodResetTimer.Stop();
         if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
             "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
-            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited")
+            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited" or
+            "embarrassed" or "relieved" or "determined" or "confident" or "apologetic" or "frustrated" or
+            "grateful" or "celebrating")
         {
             _moodResetTimer.Interval = _mood is "success" or "happy" or "greeting" or "love" or "laughing" or "proud"
                 ? TimeSpan.FromMilliseconds(2800)
@@ -454,7 +534,9 @@ public partial class FloatingMascotWindow : Window
         _moodResetTimer.Stop();
         if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
             "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
-            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited")
+            "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited" or
+            "embarrassed" or "relieved" or "determined" or "confident" or "apologetic" or "frustrated" or
+            "grateful" or "celebrating")
             SetMood(_isPointerOver ? "curious" : "idle", showReaction: false);
     }
 
@@ -510,11 +592,31 @@ public partial class FloatingMascotWindow : Window
         ReactionBubble.RenderTransform = Transform.Identity;
     }
 
+    private void UpdateTaskProps()
+    {
+        var showProps = _mood is "thinking" or "planning" or "researching" or "reading" or
+            "coding" or "using_tool" or "waiting" or "transcribing" or "responding" or
+            "speaking" or "camera_processing";
+
+        if (!showProps)
+        {
+            TaskPropsLayer.Visibility = Visibility.Collapsed;
+            PaperProp.Opacity = PencilProp.Opacity = HoloComputerProp.Opacity = 0;
+            PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
+            return;
+        }
+
+        TaskPropsLayer.Visibility = Visibility.Visible;
+        PaperProp.Opacity = 0.96;
+        PencilProp.Opacity = 0.98;
+        HoloComputerProp.Opacity = 0.92;
+    }
+
     public void ApplyScale(double scale)
     {
         scale = Math.Clamp(scale, 0.65, 1.8);
-        Width = 178 * scale;
-        Height = 145 * scale;
+        Width = 248 * scale;
+        Height = 175 * scale;
         // Viewbox scales the fixed 178x145 design exactly once; scaling both the Window and
         // its child LayoutTransform previously caused the mascot to clip at larger sizes.
     }
@@ -526,6 +628,10 @@ public partial class FloatingMascotWindow : Window
             Root.RenderTransform = Transform.Identity;
             AntennaDot.RenderTransform = Transform.Identity;
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
+            PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
+            Canvas.SetTop(PaperProp, 72);
+            Canvas.SetTop(PencilProp, 69);
+            HoloComputerProp.Opacity = TaskPropsLayer.Visibility == Visibility.Visible ? 0.92 : 0;
             HideReaction();
             return;
         }
@@ -555,6 +661,17 @@ public partial class FloatingMascotWindow : Window
         AntennaDot.RenderTransformOrigin = new Point(0.5, 0.5);
         AntennaDot.RenderTransform = new ScaleTransform(pulse, pulse);
         GlowHalo.Opacity = (_mood is "offline" or "privacy" ? 0.20 : 0.48) + ((Math.Sin(_floatPhase) + 1) * 0.06);
+
+        if (TaskPropsLayer.Visibility == Visibility.Visible)
+        {
+            var propWave = Math.Sin(_floatPhase);
+            Canvas.SetTop(PaperProp, 72 + propWave * 2.7);
+            PaperProp.RenderTransform = new RotateTransform(Math.Sin(_floatPhase * 0.72) * 4.2);
+            Canvas.SetTop(PencilProp, 69 - Math.Cos(_floatPhase * 1.05) * 1.7);
+            PencilProp.RenderTransform = new RotateTransform(-10 + Math.Sin(_floatPhase * 1.25) * 4.5);
+            HoloComputerProp.RenderTransform = new TranslateTransform(0, Math.Sin(_floatPhase * 1.15) * 3.2);
+            HoloComputerProp.Opacity = 0.84 + ((Math.Sin(_floatPhase * 1.45) + 1) * 0.07);
+        }
 
         if (_mood is "speaking" or "responding")
         {
@@ -605,7 +722,9 @@ public partial class FloatingMascotWindow : Window
                 or "speaking" or "responding" or "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised"
                 or "confused" or "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful"
                 or "success" or "warning" or "error" or "paused" or "recovering" or "reconnecting"
-                or "camera_processing" or "interrupted" or "sleepy" or "excited" => normalized,
+                or "camera_processing" or "interrupted" or "sleepy" or "excited" or "embarrassed" or
+                "relieved" or "determined" or "confident" or "apologetic" or "frustrated" or "grateful" or
+                "celebrating" => normalized,
             _ => "idle"
         };
     }
@@ -670,7 +789,8 @@ public partial class FloatingMascotWindow : Window
         string[] tapMoods =
         {
             "happy", "greeting", "love", "laughing", "wink", "surprised",
-            "confused", "proud", "shy", "playful", "excited"
+            "confused", "proud", "shy", "playful", "excited", "embarrassed", "relieved",
+            "determined", "confident", "apologetic", "frustrated", "grateful", "celebrating"
         };
         var nextMood = tapMoods[Random.Shared.Next(tapMoods.Length)];
         for (var attempt = 0; attempt < tapMoods.Length && nextMood == _lastTapMood; attempt++)
