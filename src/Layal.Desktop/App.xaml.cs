@@ -28,7 +28,8 @@ public partial class App : Application
             AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
         AppRuntime.WorkspaceRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LayalWorkspace");
         AppRuntime.ApiConnectionService = new ApiConnectionService(Path.Combine(dataRoot, "api-connections.dpapi"));
-        AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService, AppRuntime.ApiConnectionService);
+        AppRuntime.BrowserAutomationService = new BrowserAutomationService(dataRoot);
+        AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService, AppRuntime.ApiConnectionService, AppRuntime.BrowserAutomationService);
         AppRuntime.AgentOrchestrator = new AgentOrchestrator(new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
 
         AppRuntime.ExitAction = ShutdownLayal;
