@@ -229,7 +229,7 @@ if "Run native Windows desktop mouse-drag integration" not in workflow_code or "
 # Prevent reintroducing the WPF DragMove path: it bypassed reliable movement for
 # this transparent layered overlay under native input. Keep the direct captured-pointer
 # delta implementation and its tested per-mode check counts wired into every CI run.
-if re.search(r"\\bDragMove\\s*\\(", mascot_window_code):
+if re.search(r"\bDragMove\s*\(", mascot_window_code):
     ERRORS.append("Do not reintroduce DragMove; use the tested captured-pointer delta path")
 minimum_check_rule = '$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 6 } else { 5 }'
 if native_acceptance.count(minimum_check_rule) != 2:
