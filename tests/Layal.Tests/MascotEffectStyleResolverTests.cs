@@ -6,7 +6,7 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class MascotEffectStyleResolverTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("planning", MascotEffectStyle.TaskOrbit)]
     [DataRow("researching", MascotEffectStyle.TaskOrbit)]
     [DataRow("reading", MascotEffectStyle.TaskOrbit)]
@@ -19,7 +19,7 @@ public sealed class MascotEffectStyleResolverTests
         Assert.AreEqual(expected, MascotEffectStyleResolver.Resolve(mood));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("love", MascotEffectStyle.AffectionDrift)]
     [DataRow("embarrassed", MascotEffectStyle.AffectionDrift)]
     [DataRow("greeting", MascotEffectStyle.AffectionDrift)]
@@ -31,7 +31,7 @@ public sealed class MascotEffectStyleResolverTests
         Assert.AreEqual(expected, MascotEffectStyleResolver.Resolve(mood));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("listening", MascotEffectStyle.SpeechWave)]
     [DataRow("transcribing", MascotEffectStyle.SpeechWave)]
     [DataRow("speaking", MascotEffectStyle.SpeechWave)]
