@@ -26,7 +26,7 @@ This matrix describes source-code presence and authored test coverage only; test
 | Approved single-control UI action | Implemented in source for Button/Hyperlink/MenuItem/SplitButton with exact AutomationId, unique-match validation, per-action approval, and post-action observation; CI/runtime acceptance pending | `Services/WindowsUiAutomationService.cs`, `Services/AgentToolExecutor.cs` | Test against a disposable sample app; no general mouse/keyboard typing |
 | General mouse/keyboard control and screen capture | Not implemented | — | Future milestone |
 | Screen capture/visual UI control | Not implemented | — | Future milestone |
-| Browser DOM automation/research | Not implemented; URL launching exists only | `AgentToolExecutor.cs` | Future milestone |
+| Browser automation (initial milestone) | Implemented in source: separate Edge profile, loopback DevTools, approved navigation/page disclosure, unique CSS selector click/fill, revalidation after consent, password/file fields blocked; runtime acceptance pending | `Services/BrowserAutomationService.cs`, `AgentToolExecutor.cs` | Windows manual acceptance required; advanced research/download/upload and normal browser profile reuse remain unimplemented |
 | RTSP/ONVIF video and computer vision | Not implemented | Camera tab reports limitation | Future milestone |
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |
