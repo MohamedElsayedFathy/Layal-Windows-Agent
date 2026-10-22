@@ -25,12 +25,10 @@ public partial class FloatingMascotWindow : Window
     private ModelVisual3D? _bodyRigHost;
     private ModelVisual3D? _leftArmRigHost;
     private ModelVisual3D? _rightArmRigHost;
-    private ModelVisual3D? _left3DEyeHost;
-    private ModelVisual3D? _right3DEyeHost;
+    private ModelVisual3D? _leftLegRigHost;
+    private ModelVisual3D? _rightLegRigHost;
     private ModelVisual3D? _left3DIrisHost;
     private ModelVisual3D? _right3DIrisHost;
-    private ModelVisual3D? _left3DPupilHost;
-    private ModelVisual3D? _right3DPupilHost;
     private ModelVisual3D? _left3DBrowHost;
     private ModelVisual3D? _right3DBrowHost;
     private ModelVisual3D? _left3DCheekHost;
@@ -196,12 +194,16 @@ public partial class FloatingMascotWindow : Window
         _bodyRigHost = new ModelVisual3D { Content = CreateBodyModel() };
         _leftArmRigHost = new ModelVisual3D { Content = CreateArmModel(-1) };
         _rightArmRigHost = new ModelVisual3D { Content = CreateArmModel(1) };
+        _leftLegRigHost = new ModelVisual3D { Content = CreateLegModel(-1) };
+        _rightLegRigHost = new ModelVisual3D { Content = CreateLegModel(1) };
         _headRigHost = new ModelVisual3D { Content = CreateHeadModel() };
         _avatarModelHost = _headRigHost;
 
         AvatarViewport.Children.Add(_bodyRigHost);
         AvatarViewport.Children.Add(_leftArmRigHost);
         AvatarViewport.Children.Add(_rightArmRigHost);
+        AvatarViewport.Children.Add(_leftLegRigHost);
+        AvatarViewport.Children.Add(_rightLegRigHost);
         AvatarViewport.Children.Add(_headRigHost);
 
         // Real 3D face plate and features replace the former flat Canvas face.
@@ -245,6 +247,34 @@ public partial class FloatingMascotWindow : Window
             new Point3D(0, -0.015, 0.386), 0.73, 0.49, 0.055,
             Color.FromRgb(28, 39, 67), Color.FromRgb(62, 71, 111)));
         return group;
+    }
+
+    private static Model3DGroup CreateLegModel(int side)
+    {
+        var group = new Model3DGroup();
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(side * 0.035, -0.10, 0.035), 0.115, 0.145, 0.125,
+            Color.FromRgb(213, 226, 247), Color.FromRgb(255, 255, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(side * 0.07, -0.255, 0.075), 0.092, 0.125, 0.11,
+            Color.FromRgb(200, 218, 243), Color.FromRgb(246, 251, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(side * 0.085, -0.385, 0.12), 0.145, 0.072, 0.14,
+            side < 0 ? Color.FromRgb(150, 133, 230) : Color.FromRgb(78, 191, 202),
+            Color.FromRgb(240, 247, 255)));
+        return group;
+    }
+
+    private static Transform3D CreateLegTransform(int side, double angle)
+    {
+        return new Transform3DGroup
+        {
+            Children =
+            {
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), angle)),
+                new TranslateTransform3D(side * 0.225, -0.48, 0.015)
+            }
+        };
     }
 
     private static Model3DGroup CreateBodyModel()
@@ -324,16 +354,12 @@ public partial class FloatingMascotWindow : Window
         // The iris is already parented by the eye node; keep references for mouse gaze.
         if (left)
         {
-            _left3DEyeHost = eye;
             _left3DIrisHost = iris;
-            _left3DPupilHost = pupil;
             _leftEyeBlinkTransform = blink;
         }
         else
         {
-            _right3DEyeHost = eye;
             _right3DIrisHost = iris;
-            _right3DPupilHost = pupil;
             _rightEyeBlinkTransform = blink;
         }
     }
@@ -538,7 +564,8 @@ public partial class FloatingMascotWindow : Window
     private void ApplyRigPose(double phase)
     {
         if (_headRigHost is null || _bodyRigHost is null ||
-            _leftArmRigHost is null || _rightArmRigHost is null)
+            _leftArmRigHost is null || _rightArmRigHost is null ||
+            _leftLegRigHost is null || _rightLegRigHost is null)
             return;
 
         _headRigHost.Transform = new Transform3DGroup
@@ -582,6 +609,9 @@ public partial class FloatingMascotWindow : Window
         }
         _leftArmRigHost.Transform = CreateArmTransform(-1, leftArmAngle);
         _rightArmRigHost.Transform = CreateArmTransform(1, rightArmAngle);
+        var legSwing = Math.Sin(phase * 0.72) * (_mood is "celebrating" or "excited" ? 4.5 : 2.0);
+        _leftLegRigHost.Transform = CreateLegTransform(-1, legSwing);
+        _rightLegRigHost.Transform = CreateLegTransform(1, -legSwing);
     }
 
     private static Transform3D CreateArmTransform(int side, double angle)
@@ -1290,6 +1320,8 @@ public partial class FloatingMascotWindow : Window
             if (_bodyRigHost is not null) _bodyRigHost.Transform = Transform3D.Identity;
             if (_leftArmRigHost is not null) _leftArmRigHost.Transform = CreateArmTransform(-1, 0);
             if (_rightArmRigHost is not null) _rightArmRigHost.Transform = CreateArmTransform(1, 0);
+            if (_leftLegRigHost is not null) _leftLegRigHost.Transform = CreateLegTransform(-1, 0);
+            if (_rightLegRigHost is not null) _rightLegRigHost.Transform = CreateLegTransform(1, 0);
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
             PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
             Canvas.SetTop(PaperProp, 94);
