@@ -98,7 +98,7 @@
         </Style>
 
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
             <Setter Property="TextWrapping" Value="NoWrap" />
         </Style>
@@ -106,9 +106,9 @@
         <Style TargetType="Button">
             <Setter Property="Padding" Value="14,9" />
             <Setter Property="Margin" Value="4" />
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
-            <Setter Property="Background" Value="{StaticResource Layal.PanelHover}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.PanelHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontSize" Value="13" />
@@ -132,7 +132,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource Layal.HoverSurface}" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Layal.Cyan}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.86" />
@@ -141,7 +141,7 @@
                                 </Setter>
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Layal.Purple}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource Layal.Purple}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.42" />
@@ -157,10 +157,10 @@
             <Setter Property="Padding" Value="11,9" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CaretBrush" Value="{StaticResource Layal.Cyan}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="SelectionBrush" Value="{DynamicResource Layal.Focus}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -175,7 +175,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="TextBoxChrome" Property="BorderBrush" Value="{StaticResource Layal.Cyan}" />
+                                <Setter TargetName="TextBoxChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
                                 <Setter TargetName="TextBoxChrome" Property="Background" Value="{DynamicResource Layal.InputFocus}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
@@ -191,10 +191,10 @@
             <Setter Property="Padding" Value="11,9" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CaretBrush" Value="{StaticResource Layal.Cyan}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -207,7 +207,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="PasswordChrome" Property="BorderBrush" Value="{StaticResource Layal.Cyan}" />
+                                <Setter TargetName="PasswordChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="PasswordChrome" Property="Opacity" Value="0.55" />
@@ -219,7 +219,7 @@
         </Style>
 
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="Margin" Value="4,8" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -227,20 +227,20 @@
 
         <Style TargetType="Slider">
             <Setter Property="Margin" Value="4,8" />
-            <Setter Property="Foreground" Value="{StaticResource Layal.Cyan}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Cyan}" />
         </Style>
 
         <Style TargetType="GroupBox">
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
-            <Setter Property="Background" Value="{StaticResource Layal.Panel}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="Padding" Value="12" />
         </Style>
 
         <Style TargetType="ListBox">
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Layal.Border}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="6" />
             <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
@@ -249,7 +249,7 @@
         <Style TargetType="ListBoxItem">
             <Setter Property="Padding" Value="7" />
             <Setter Property="Margin" Value="1,2" />
-            <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -267,7 +267,7 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource Layal.ListSelected}" />
-                                <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{StaticResource Layal.Cyan}" />
+                                <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ItemChrome" Property="Opacity" Value="0.45" />
@@ -292,18 +292,18 @@
                                 <ColumnDefinition Width="188" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="{StaticResource Layal.Panel}"
-                                    BorderBrush="{StaticResource Layal.Border}" BorderThickness="1"
+                            <Border Grid.Column="0" Background="{DynamicResource Layal.Panel}"
+                                    BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"
                                     CornerRadius="18" Padding="9" Margin="0,0,14,0"
-                                    Effect="{StaticResource Layal.CardShadow}">
+                                    Effect="{DynamicResource Layal.CardShadow}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                     <TabPanel x:Name="HeaderPanel" IsItemsHost="True" KeyboardNavigation.TabIndex="1"
                                               VerticalAlignment="Top" />
                                 </ScrollViewer>
                             </Border>
-                            <Border Grid.Column="1" Background="{StaticResource Layal.Panel}"
-                                    BorderBrush="{StaticResource Layal.Border}" BorderThickness="1"
-                                    CornerRadius="18" Padding="8" Effect="{StaticResource Layal.CardShadow}">
+                            <Border Grid.Column="1" Background="{DynamicResource Layal.Panel}"
+                                    BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"
+                                    CornerRadius="18" Padding="8" Effect="{DynamicResource Layal.CardShadow}">
                                 <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
                                                   Margin="0" SnapsToDevicePixels="True" />
                             </Border>
@@ -318,7 +318,7 @@
             <Setter Property="MinHeight" Value="46" />
             <Setter Property="Margin" Value="0,3" />
             <Setter Property="Padding" Value="11,10" />
-            <Setter Property="Foreground" Value="{StaticResource Layal.Muted}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Muted}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -344,12 +344,12 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="NavChrome" Property="Background" Value="{DynamicResource Layal.NavSelected}" />
                                 <Setter TargetName="NavChrome" Property="BorderBrush" Value="{DynamicResource Layal.NavSelectedBorder}" />
-                                <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
-                                <Setter TargetName="ActiveMarker" Property="Background" Value="{StaticResource Layal.Cyan}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+                                <Setter TargetName="ActiveMarker" Property="Background" Value="{DynamicResource Layal.Cyan}" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="NavChrome" Property="Background" Value="{DynamicResource Layal.NavHover}" />
-                                <Setter Property="Foreground" Value="{StaticResource Layal.Text}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="NavChrome" Property="Opacity" Value="0.45" />
@@ -361,7 +361,7 @@
         </Style>
 
         <Style TargetType="Separator">
-            <Setter Property="Background" Value="{StaticResource Layal.Border}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.Border}" />
             <Setter Property="Margin" Value="4,8" />
         </Style>
     </Application.Resources>
