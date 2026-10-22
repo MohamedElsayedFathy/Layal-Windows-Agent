@@ -159,6 +159,41 @@ else:
     if "<TargetFramework>net10.0-windows</TargetFramework>" not in project_text:
         ERRORS.append("Target framework is not the expected net10.0-windows; verify this change deliberately")
 
+# Explicitly declare per-monitor DPI behavior and the WPF runtime scaling switch.
+manifest_path = ROOT / "src/Layal.Desktop/app.manifest"
+if "<ApplicationManifest>app.manifest</ApplicationManifest>" not in project_text:
+    ERRORS.append("Project file must embed src/Layal.Desktop/app.manifest")
+if not manifest_path.is_file():
+    ERRORS.append("Per-monitor DPI application manifest is missing")
+else:
+    try:
+        manifest_root = ET.parse(manifest_path).getroot()
+        dpi_awareness = manifest_root.find(".//{http://schemas.microsoft.com/SMI/2016/WindowsSettings}dpiAwareness")
+        if dpi_awareness is None or (dpi_awareness.text or "").strip().lower() != "permonitorv2":
+            ERRORS.append("Application manifest must declare dpiAwareness=PerMonitorV2")
+    except Exception as exc:
+        ERRORS.append(f"Application manifest XML parse error: {exc}")
+
+app_config_path = ROOT / "src/Layal.Desktop/App.config"
+if not app_config_path.is_file():
+    ERRORS.append("WPF per-monitor scaling configuration src/Layal.Desktop/App.config is missing")
+else:
+    try:
+        config_root = ET.parse(app_config_path).getroot()
+        overrides = config_root.find("./runtime/AppContextSwitchOverrides")
+        switch_value = overrides.get("value", "") if overrides is not None else ""
+        if "Switch.System.Windows.DoNotScaleForDpiChanges=false" not in switch_value:
+            ERRORS.append("App.config must enable WPF scaling on DPI changes")
+    except Exception as exc:
+        ERRORS.append(f"App.config XML parse error: {exc}")
+
+hit_test_path = ROOT / "src/Layal.Desktop/Services/MascotHitTestGeometry.cs"
+hit_test_tests_path = ROOT / "tests/Layal.Tests/MascotHitTestGeometryTests.cs"
+if not hit_test_path.is_file() or not hit_test_tests_path.is_file():
+    ERRORS.append("Mascot hit-test geometry and its regression tests must both exist")
+elif "MascotHitTestGeometry.IsPointOnMascot(point, Width," not in mascot_code:
+    ERRORS.append("Floating mascot input handling is not using the testable hit-test geometry")
+
 for xaml_path in xaml_files:
     text = xaml_path.read_text(encoding="utf-8")
     for match in re.finditer(r"\{(StaticResource|DynamicResource)\s+([^}\s]+)\}", text):
