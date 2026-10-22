@@ -324,7 +324,7 @@ public partial class MainWindow : Window
             ProviderActionStatus.Text = IsArabic
                 ? "تم تبديل المظهر، لكن تعذر حفظ الاختيار."
                 : "Theme changed, but the preference could not be saved.";
-            ProviderActionStatus.Foreground = ThemeBrush("Layal.Warning", ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod));
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         }
     }
 
