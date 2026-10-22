@@ -27,11 +27,13 @@ public sealed class AgentToolExecutor
     private const int MaxProcessOutputChars = 120_000;
     private readonly string _workspaceRoot;
     private readonly MemoryService _memory;
+    private readonly ApiConnectionService? _apiConnections;
 
-    public AgentToolExecutor(string workspaceRoot, MemoryService memory)
+    public AgentToolExecutor(string workspaceRoot, MemoryService memory, ApiConnectionService? apiConnections = null)
     {
         _workspaceRoot = Path.GetFullPath(workspaceRoot);
         _memory = memory;
+        _apiConnections = apiConnections;
         Directory.CreateDirectory(_workspaceRoot);
     }
 
@@ -52,6 +54,7 @@ public sealed class AgentToolExecutor
         Definition("activate_window", "Bring a visible window with an exact title to the foreground. Requires user approval.", """{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}"""),
         Definition("inspect_window_controls", "Call this tool directly when the user asks to inspect UI elements in a known visible external window. Supply its exact title. Read-only; Layal itself displays a local consent prompt before sharing labels and identifiers with the AI provider, so do not ask a separate natural-language permission question first. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
         Definition("click_ui_control", "Invoke exactly one uniquely identified supported control in one visible external window after explicit per-action approval. Requires the exact AutomationId and supported control type; no free-form mouse/keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of the visible external window"},"control_type":{"type":"string","enum":["Button","Hyperlink","MenuItem","SplitButton"]},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"}},"required":["window_title","control_type","automation_id"],"additionalProperties":false}"""),
+        Definition("call_app_api", _apiConnections?.BuildToolDescription() ?? "No external app API connection service is available. Do not invent a connection.", """{"type":"object","properties":{"connection_name":{"type":"string","description":"Exact configured connection name from the available connections"},"method":{"type":"string","enum":["GET","POST","PUT","PATCH","DELETE"]},"path":{"type":"string","description":"Relative path beneath the configured base URL; do not include scheme, query, or fragment"},"query_json":{"type":"string","description":"Optional JSON object of query parameters; use empty string for none"},"body_json":{"type":"string","description":"Optional valid JSON request body; use empty string when not needed, and never send a body with GET"}},"required":["connection_name","method","path","query_json","body_json"],"additionalProperties":false}"""),
         Definition("run_dotnet_build", "Run dotnet build for a .sln or .csproj inside the approved workspace. Build targets may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("run_dotnet_test", "Run dotnet test for a .sln or .csproj inside the approved workspace. Tests may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("search_memory", "Search user-managed Layal memory. Always ask permission before sharing matched notes with the configured AI provider.", """{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}"""),
@@ -85,6 +88,7 @@ public sealed class AgentToolExecutor
             "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
             "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
             "click_ui_control" => await InvokeWindowControlAsync(GetString(args, "window_title"), GetString(args, "control_type"), GetString(args, "automation_id"), confirm, report, cancellationToken),
+            "call_app_api" => await CallAppApiAsync(GetString(args, "connection_name"), GetString(args, "method"), GetString(args, "path"), GetString(args, "query_json"), GetString(args, "body_json"), confirm, report, cancellationToken),
             "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "search_memory" => await SearchMemoryAsync(GetString(args, "query"), confirm, cancellationToken),
@@ -331,6 +335,32 @@ public sealed class AgentToolExecutor
         var outcome = await WindowsUiAutomationService.InvokeControlAsync(confirmedTarget, controlType, automationId, token);
         report($"One approved UI Automation action was issued to external PID {confirmedTarget.ProcessId}; application-level success still requires observing the app.");
         return WindowsUiAutomationService.FormatInvokeReport(outcome);
+    }
+
+    private async Task<string> CallAppApiAsync(
+        string connectionName,
+        string method,
+        string path,
+        string queryJson,
+        string bodyJson,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_apiConnections is null)
+            throw new InvalidOperationException("External app API connections are not initialized. Configure API integrations in Layal first.");
+        var preview = _apiConnections.PreviewRequest(connectionName, method, path, queryJson, bodyJson);
+        var warning =
+            "Send this request to the configured external application API? This can read data or create, update, or delete records depending on the method and endpoint. " +
+            "The API response will be sent back to the configured AI provider as tool output. Review the method, endpoint, and body carefully. No API credential will be shown to the model.\n\n" +
+            preview;
+        if (!await confirm("Call external application API", warning, token))
+            return "User declined the external API request. No request was sent.";
+
+        token.ThrowIfCancellationRequested();
+        var result = await _apiConnections.SendAsync(connectionName, method, path, queryJson, bodyJson, token);
+        report($"External API request to '{connectionName}' returned HTTP {result.StatusCode}; response body may have been forwarded to the configured AI provider.");
+        return result.ToDisplayText();
     }
 
     private async Task<string> RunDotnetAsync(string verb, string relativeProjectFile, string configuration, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
