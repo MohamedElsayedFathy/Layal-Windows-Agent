@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
@@ -92,6 +93,10 @@ public partial class FloatingMascotWindow : Window
     private double _rightPupilMoodX;
     private double _rightPupilMoodY;
     private string _mood = "idle";
+    private const int WmNcHitTest = 0x0084;
+    private const int HtTransparent = -1;
+    private HwndSource? _inputHitTestSource;
+
     private readonly ContextMenu _contextMenu = new();
     private readonly MenuItem _openMenuItem = new();
     private readonly MenuItem _hideMenuItem = new();
@@ -200,6 +205,38 @@ public partial class FloatingMascotWindow : Window
         _floatTimer.Start();
         UpdateLanguage();
         SetMood("idle");
+    }
+
+    /// <summary>
+    /// Lets Windows hit-test the actual mascot/task-prop region instead of the entire
+    /// transparent HWND. Empty padding should not steal clicks from applications behind Layal.
+    /// </summary>
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        _inputHitTestSource = PresentationSource.FromVisual(this) as HwndSource;
+        _inputHitTestSource?.AddHook(WindowMessageHook);
+    }
+
+    private IntPtr WindowMessageHook(
+        IntPtr hwnd,
+        int message,
+        IntPtr wParam,
+        IntPtr lParam,
+        ref bool handled)
+    {
+        if (message != WmNcHitTest || _pointerDown || _dragStarted)
+            return IntPtr.Zero;
+
+        var packedPoint = lParam.ToInt64();
+        var screenX = unchecked((short)(packedPoint & 0xFFFF));
+        var screenY = unchecked((short)((packedPoint >> 16) & 0xFFFF));
+        var localPoint = PointFromScreen(new Point(screenX, screenY));
+        if (IsPointOnMascot(localPoint))
+            return IntPtr.Zero;
+
+        handled = true;
+        return new IntPtr(HtTransparent);
     }
 
     private void InitializeAvatarRig()
