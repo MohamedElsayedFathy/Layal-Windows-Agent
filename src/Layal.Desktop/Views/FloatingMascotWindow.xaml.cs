@@ -21,6 +21,34 @@ public partial class FloatingMascotWindow : Window
     private readonly DispatcherTimer _moodResetTimer;
     private readonly DispatcherTimer _idleTimer;
     private ModelVisual3D? _avatarModelHost;
+    private ModelVisual3D? _headRigHost;
+    private ModelVisual3D? _bodyRigHost;
+    private ModelVisual3D? _leftArmRigHost;
+    private ModelVisual3D? _rightArmRigHost;
+    private ModelVisual3D? _left3DEyeHost;
+    private ModelVisual3D? _right3DEyeHost;
+    private ModelVisual3D? _left3DIrisHost;
+    private ModelVisual3D? _right3DIrisHost;
+    private ModelVisual3D? _left3DPupilHost;
+    private ModelVisual3D? _right3DPupilHost;
+    private ModelVisual3D? _left3DBrowHost;
+    private ModelVisual3D? _right3DBrowHost;
+    private ModelVisual3D? _left3DCheekHost;
+    private ModelVisual3D? _right3DCheekHost;
+    private ModelVisual3D? _mouth3DHost;
+    private ScaleTransform3D? _leftEyeBlinkTransform;
+    private ScaleTransform3D? _rightEyeBlinkTransform;
+    private readonly List<CinematicParticle> _cinematicParticles = new();
+    private int _particleSeed;
+
+    private sealed class CinematicParticle
+    {
+        public FrameworkElement Element { get; init; } = null!;
+        public double BaseX { get; init; }
+        public double BaseY { get; init; }
+        public double Phase { get; init; }
+        public double Drift { get; init; }
+    }
     private double _floatPhase;
     private bool _reactionActive;
     private DateTimeOffset _reactionStartedAt;
@@ -113,8 +141,8 @@ public partial class FloatingMascotWindow : Window
     public FloatingMascotWindow()
     {
         InitializeComponent();
-        _avatarModelHost = new ModelVisual3D { Content = CreateAvatarModel() };
-        AvatarViewport.Children.Add(_avatarModelHost);
+        InitializeAvatarRig();
+        InitializeCinematicEffects();
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
         Opacity = AppRuntime.Settings.MascotOpacity;
         ApplyScale(AppRuntime.Settings.MascotScale);
@@ -154,23 +182,51 @@ public partial class FloatingMascotWindow : Window
         SetMood("idle");
     }
 
-    private static Model3DGroup CreateAvatarModel()
+    private void InitializeAvatarRig()
+    {
+        AvatarViewport.Children.Clear();
+        var lights = new Model3DGroup();
+        lights.Children.Add(new AmbientLight(Color.FromRgb(117, 135, 168)));
+        lights.Children.Add(new DirectionalLight(Color.FromRgb(255, 252, 255), new Vector3D(-0.35, -0.55, -1)));
+        lights.Children.Add(new DirectionalLight(Color.FromRgb(110, 218, 241), new Vector3D(0.65, 0.1, -0.55)));
+        lights.Children.Add(new DirectionalLight(Color.FromRgb(183, 155, 255), new Vector3D(-0.7, 0.1, 0.3)));
+        AvatarViewport.Children.Add(new ModelVisual3D { Content = lights });
+
+        // Every anatomical section is a separate scene node with its own transform.
+        _bodyRigHost = new ModelVisual3D { Content = CreateBodyModel() };
+        _leftArmRigHost = new ModelVisual3D { Content = CreateArmModel(-1) };
+        _rightArmRigHost = new ModelVisual3D { Content = CreateArmModel(1) };
+        _headRigHost = new ModelVisual3D { Content = CreateHeadModel() };
+        _avatarModelHost = _headRigHost;
+
+        AvatarViewport.Children.Add(_bodyRigHost);
+        AvatarViewport.Children.Add(_leftArmRigHost);
+        AvatarViewport.Children.Add(_rightArmRigHost);
+        AvatarViewport.Children.Add(_headRigHost);
+
+        // Real 3D face plate and features replace the former flat Canvas face.
+        AddEyeRig(left: true);
+        AddEyeRig(left: false);
+        _left3DBrowHost = new ModelVisual3D();
+        _right3DBrowHost = new ModelVisual3D();
+        _left3DCheekHost = new ModelVisual3D();
+        _right3DCheekHost = new ModelVisual3D();
+        _mouth3DHost = new ModelVisual3D();
+        _headRigHost.Children.Add(_left3DCheekHost);
+        _headRigHost.Children.Add(_right3DCheekHost);
+        _headRigHost.Children.Add(_left3DBrowHost);
+        _headRigHost.Children.Add(_right3DBrowHost);
+        _headRigHost.Children.Add(_mouth3DHost);
+        ApplyThreeDimensionalFaceExpression(_mood);
+        ApplyRigPose(0);
+    }
+
+    private static Model3DGroup CreateHeadModel()
     {
         var group = new Model3DGroup();
-        group.Children.Add(new AmbientLight(Color.FromRgb(117, 135, 168)));
-        group.Children.Add(new DirectionalLight(Color.FromRgb(255, 252, 255), new Vector3D(-0.35, -0.55, -1)));
-        group.Children.Add(new DirectionalLight(Color.FromRgb(110, 218, 241), new Vector3D(0.65, 0.1, -0.55)));
-        group.Children.Add(new DirectionalLight(Color.FromRgb(183, 155, 255), new Vector3D(-0.7, 0.1, 0.3)));
-
-        // Smooth ellipsoid shell gives the face display real volume and reflected highlights.
         group.Children.Add(CreateEllipsoid(
             new Point3D(0, 0, 0), 1.08, 0.78, 0.40,
             Color.FromRgb(225, 237, 250), Color.FromRgb(255, 255, 255)));
-
-        // A lower pearl housing and inset cyan/lilac sensor pods extend the 3D silhouette.
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(0, -0.72, 0.01), 0.47, 0.18, 0.28,
-            Color.FromRgb(204, 220, 245), Color.FromRgb(239, 245, 255)));
         group.Children.Add(CreateEllipsoid(
             new Point3D(-0.93, -0.10, 0.015), 0.18, 0.28, 0.23,
             Color.FromRgb(190, 239, 243), Color.FromRgb(236, 255, 255)));
@@ -184,29 +240,413 @@ public partial class FloatingMascotWindow : Window
             new Point3D(0.94, -0.10, 0.22), 0.055, 0.16, 0.055,
             Color.FromRgb(133, 112, 229), Color.FromRgb(218, 207, 255)));
 
-        // Small articulated-looking arms sit behind the face overlay and stay within the
-        // transparent mascot hit area. They are simple 3D forms until a full rig is added.
+        // A shallow, rounded dark display is genuine 3D geometry rather than a flat overlay.
         group.Children.Add(CreateEllipsoid(
-            new Point3D(-1.00, -0.48, 0.04), 0.16, 0.27, 0.17,
-            Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(1.00, -0.48, 0.04), 0.16, 0.27, 0.17,
-            Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(-1.11, -0.68, 0.14), 0.115, 0.13, 0.12,
-            Color.FromRgb(131, 222, 231), Color.FromRgb(224, 255, 255)));
-        group.Children.Add(CreateEllipsoid(
-            new Point3D(1.11, -0.68, 0.14), 0.115, 0.13, 0.12,
-            Color.FromRgb(177, 163, 242), Color.FromRgb(246, 240, 255)));
+            new Point3D(0, -0.015, 0.386), 0.73, 0.49, 0.055,
+            Color.FromRgb(28, 39, 67), Color.FromRgb(62, 71, 111)));
+        return group;
+    }
 
+    private static Model3DGroup CreateBodyModel()
+    {
+        var group = new Model3DGroup();
         group.Children.Add(CreateEllipsoid(
-            new Point3D(-0.26, -0.91, 0.04), 0.22, 0.10, 0.15,
+            new Point3D(0, -0.70, 0.015), 0.49, 0.34, 0.29,
+            Color.FromRgb(206, 220, 244), Color.FromRgb(248, 252, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0, -0.47, 0.03), 0.22, 0.17, 0.20,
+            Color.FromRgb(226, 237, 250), Color.FromRgb(255, 255, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0, -0.69, 0.292), 0.19, 0.048, 0.028,
+            Color.FromRgb(67, 199, 209), Color.FromRgb(187, 250, 250)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-0.25, -0.90, 0.05), 0.22, 0.10, 0.15,
             Color.FromRgb(150, 133, 230), Color.FromRgb(224, 217, 255)));
         group.Children.Add(CreateEllipsoid(
-            new Point3D(0.26, -0.91, 0.04), 0.22, 0.10, 0.15,
+            new Point3D(0.25, -0.90, 0.05), 0.22, 0.10, 0.15,
             Color.FromRgb(78, 191, 202), Color.FromRgb(197, 250, 252)));
-
         return group;
+    }
+
+    private static Model3DGroup CreateArmModel(int side)
+    {
+        var group = new Model3DGroup();
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(side * 0.10, -0.14, 0.045), 0.145, 0.20, 0.145,
+            Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(side * 0.20, -0.30, 0.085), 0.105, 0.14, 0.125,
+            Color.FromRgb(222, 232, 249), Color.FromRgb(255, 255, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(side * 0.205, -0.275, 0.197), 0.108, 0.035, 0.026,
+            side < 0 ? Color.FromRgb(79, 207, 215) : Color.FromRgb(162, 145, 240),
+            Color.FromRgb(242, 252, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(side * 0.23, -0.425, 0.105), 0.105, 0.10, 0.11,
+            side < 0 ? Color.FromRgb(131, 222, 231) : Color.FromRgb(177, 163, 242),
+            Color.FromRgb(246, 251, 255)));
+        return group;
+    }
+
+    private void AddEyeRig(bool left)
+    {
+        var x = left ? -0.265 : 0.265;
+        const double y = 0.185;
+        const double z = 0.428;
+        var eye = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(x, y, z), 0.132, 0.165, 0.047,
+                Color.FromRgb(248, 251, 255), Color.FromRgb(255, 255, 255))
+        };
+        var blink = new ScaleTransform3D(1, 1, 1, x, y, z);
+        eye.Transform = blink;
+        var iris = new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(x, y - 0.002, 0.471), 0.064, 0.082, 0.024,
+                Color.FromRgb(91, 162, 231), Color.FromRgb(170, 237, 255))
+        };
+        var pupil = new ModelVisual3D
+        {
+            Content = new Model3DGroup
+            {
+                Children =
+                {
+                    CreateEllipsoid(new Point3D(x, y - 0.004, 0.49), 0.034, 0.049, 0.015,
+                        Color.FromRgb(16, 25, 47), Color.FromRgb(49, 73, 115)),
+                    CreateEllipsoid(new Point3D(x - 0.014, y + 0.025, 0.506), 0.012, 0.015, 0.006,
+                        Color.FromRgb(255, 255, 255), Color.FromRgb(255, 255, 255))
+                }
+            }
+        };
+        iris.Children.Add(pupil);
+        eye.Children.Add(iris);
+        _headRigHost!.Children.Add(eye);
+        _headRigHost.Children.Add(iris);
+        // The iris is already parented by the eye node; keep references for mouse gaze.
+        if (left)
+        {
+            _left3DEyeHost = eye;
+            _left3DIrisHost = iris;
+            _left3DPupilHost = pupil;
+            _leftEyeBlinkTransform = blink;
+        }
+        else
+        {
+            _right3DEyeHost = eye;
+            _right3DIrisHost = iris;
+            _right3DPupilHost = pupil;
+            _rightEyeBlinkTransform = blink;
+        }
+    }
+
+    private void InitializeCinematicEffects()
+    {
+        CinematicEffectsLayer.Children.Clear();
+        _cinematicParticles.Clear();
+    }
+
+    private void ConfigureCinematicEffects(string mood)
+    {
+        CinematicEffectsLayer.Children.Clear();
+        _cinematicParticles.Clear();
+        string[] symbols = mood switch
+        {
+            "love" or "shy" or "embarrassed" or "grateful" or "apologetic" =>
+                new[] { "💗", "💕", "🌸", "💖", "✧", "🌷", "🫧", "♥" },
+            "success" or "happy" or "excited" or "celebrating" or "proud" =>
+                new[] { "✨", "✦", "🎉", "💫", "✧", "🌟", "✴", "💖" },
+            "planning" or "researching" or "reading" or "thinking" =>
+                new[] { "✧", "◇", "✦", "🫧", "⌁", "◆", "✺", "·" },
+            "coding" or "using_tool" or "validating" or "writing" =>
+                new[] { "⌘", "⚙", "✦", "◇", "⌁", "✧", "▣", "✴" },
+            "warning" or "error" or "frustrated" =>
+                new[] { "!", "◆", "✦", "◇", "·", "⚡", "⌁", "✧" },
+            _ => new[] { "🌸", "✧", "🫧", "✦", "·", "💫", "◇", "✴" }
+        };
+        var anchors = new (double X, double Y)[]
+        {
+            (16, 48), (39, 78), (216, 38), (230, 75),
+            (13, 117), (43, 133), (205, 115), (231, 132)
+        };
+        var count = mood is "sleepy" or "offline" or "privacy" ? 0 : (IsTaskMood(mood) || _taskActive ? 8 : 5);
+        for (var i = 0; i < count; i++)
+        {
+            var anchor = anchors[i];
+            var text = new TextBlock
+            {
+                Text = symbols[(i + _particleSeed) % symbols.Length],
+                FontFamily = new FontFamily("Segoe UI Emoji"),
+                FontSize = i % 3 == 0 ? 17 : 13 + (i % 2) * 2,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = i % 3 == 0 ? Brushes.LightCyan : (i % 2 == 0 ? Brushes.Plum : Brushes.LightPink),
+                Opacity = 0.7,
+                IsHitTestVisible = false,
+                RenderTransformOrigin = new Point(0.5, 0.5)
+            };
+            Canvas.SetLeft(text, anchor.X);
+            Canvas.SetTop(text, anchor.Y);
+            CinematicEffectsLayer.Children.Add(text);
+            _cinematicParticles.Add(new CinematicParticle
+            {
+                Element = text,
+                BaseX = anchor.X,
+                BaseY = anchor.Y,
+                Phase = i * 0.91 + _particleSeed * 0.23,
+                Drift = 4.5 + (i % 4) * 2.2
+            });
+        }
+        _particleSeed++;
+        CinematicEffectsLayer.Visibility =
+            AppRuntime.Settings.MascotAnimationsEnabled && count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void AnimateCinematicEffects()
+    {
+        if (!AppRuntime.Settings.MascotAnimationsEnabled)
+        {
+            CinematicEffectsLayer.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        foreach (var particle in _cinematicParticles)
+        {
+            var wave = _floatPhase * 0.8 + particle.Phase;
+            Canvas.SetLeft(particle.Element, particle.BaseX + Math.Sin(wave) * particle.Drift);
+            Canvas.SetTop(particle.Element, particle.BaseY + Math.Cos(wave * 0.68) * 7 - Math.Abs(Math.Sin(wave * 0.32)) * 5);
+            particle.Element.Opacity = 0.20 + (Math.Sin(wave * 1.15) + 1) * 0.31;
+            var scale = 0.78 + (Math.Sin(wave * 1.7) + 1) * 0.17;
+            particle.Element.RenderTransform = new TransformGroup
+            {
+                Children =
+                {
+                    new RotateTransform(Math.Sin(wave) * 14),
+                    new ScaleTransform(scale, scale)
+                }
+            };
+        }
+    }
+
+    private void ApplyThreeDimensionalFaceExpression(string mood)
+    {
+        if (_headRigHost is null || _mouth3DHost is null ||
+            _left3DBrowHost is null || _right3DBrowHost is null ||
+            _left3DCheekHost is null || _right3DCheekHost is null)
+            return;
+
+        if (_leftEyeBlinkTransform is not null) _leftEyeBlinkTransform.ScaleY = 1;
+        if (_rightEyeBlinkTransform is not null) _rightEyeBlinkTransform.ScaleY = 1;
+
+        var leftBrowControlY = 0.445;
+        var rightBrowControlY = 0.445;
+        var leftBrowStartY = 0.385;
+        var rightBrowStartY = 0.385;
+        if (mood is "thinking" or "planning" or "researching" or "curious")
+        {
+            leftBrowControlY = 0.475;
+            rightBrowControlY = 0.435;
+        }
+        else if (mood is "sad" or "worried" or "apologetic" or "relieved")
+        {
+            leftBrowControlY = rightBrowControlY = 0.34;
+            leftBrowStartY = rightBrowStartY = 0.405;
+        }
+        else if (mood is "frustrated" or "annoyed" or "determined" or "error" or "warning")
+        {
+            leftBrowControlY = rightBrowControlY = 0.425;
+            leftBrowStartY = 0.355;
+            rightBrowStartY = 0.355;
+        }
+        else if (mood is "surprised" or "excited" or "celebrating")
+        {
+            leftBrowControlY = rightBrowControlY = 0.51;
+            leftBrowStartY = rightBrowStartY = 0.415;
+        }
+
+        _left3DBrowHost.Content = CreateCurveStrip(
+            SampleQuadraticCurve(new Point3D(-0.44, leftBrowStartY, 0.468),
+                new Point3D(-0.27, leftBrowControlY, 0.468), new Point3D(-0.105, 0.39, 0.468), 12),
+            0.018, Color.FromRgb(176, 203, 248));
+        _right3DBrowHost.Content = CreateCurveStrip(
+            SampleQuadraticCurve(new Point3D(0.105, 0.39, 0.468),
+                new Point3D(0.27, rightBrowControlY, 0.468), new Point3D(0.44, rightBrowStartY, 0.468), 12),
+            0.018, Color.FromRgb(176, 203, 248));
+
+        var cheekColor = mood is "love" or "shy" or "embarrassed" or "grateful" or "happy" or "celebrating"
+            ? Color.FromRgb(255, 129, 183)
+            : Color.FromRgb(224, 118, 168);
+        var cheekRadius = mood is "sad" or "offline" ? 0.045 : 0.073;
+        _left3DCheekHost.Content = CreateEllipsoid(
+            new Point3D(-0.50, -0.105, 0.437), cheekRadius, 0.035, 0.018, cheekColor, cheekColor);
+        _right3DCheekHost.Content = CreateEllipsoid(
+            new Point3D(0.50, -0.105, 0.437), cheekRadius, 0.035, 0.018, cheekColor, cheekColor);
+
+        if (mood is "wink" or "playful") {
+            if (_leftEyeBlinkTransform is not null) _leftEyeBlinkTransform.ScaleY = 0.13;
+            if (_rightEyeBlinkTransform is not null) _rightEyeBlinkTransform.ScaleY = 1.06;
+        }
+        else if (mood is "sleepy" or "bored") {
+            if (_leftEyeBlinkTransform is not null) _leftEyeBlinkTransform.ScaleY = 0.48;
+            if (_rightEyeBlinkTransform is not null) _rightEyeBlinkTransform.ScaleY = 0.48;
+        }
+        else if (mood is "laughing" or "celebrating") {
+            if (_leftEyeBlinkTransform is not null) _leftEyeBlinkTransform.ScaleY = 0.12;
+            if (_rightEyeBlinkTransform is not null) _rightEyeBlinkTransform.ScaleY = 0.12;
+        }
+        else if (mood is "surprised" or "excited") {
+            if (_leftEyeBlinkTransform is not null) _leftEyeBlinkTransform.ScaleY = 1.12;
+            if (_rightEyeBlinkTransform is not null) _rightEyeBlinkTransform.ScaleY = 1.12;
+        }
+
+        if (mood is "surprised" or "confused") {
+            _mouth3DHost.Content = CreateEllipsoid(
+                new Point3D(0, -0.205, 0.474), 0.070, 0.092, 0.026,
+                Color.FromRgb(96, 37, 81), Color.FromRgb(184, 75, 133));
+            return;
+        }
+        if (mood is "speaking" or "responding" or "laughing" or "excited" or "celebrating") {
+            _mouth3DHost.Content = CreateEllipsoid(
+                new Point3D(0, -0.225, 0.474), 0.112, 0.064, 0.025,
+                Color.FromRgb(112, 40, 84), Color.FromRgb(195, 90, 144));
+            return;
+        }
+
+        var left = new Point3D(-0.285, -0.205, 0.472);
+        var right = new Point3D(0.285, -0.205, 0.472);
+        var controlY = mood switch
+        {
+            "sad" or "worried" or "apologetic" or "error" => -0.105,
+            "frustrated" or "annoyed" or "warning" => -0.18,
+            "coding" or "determined" or "validating" => -0.235,
+            "idle" or "offline" or "privacy" or "paused" or "waiting" => -0.215,
+            _ => -0.34
+        };
+        if (mood is "frustrated" or "annoyed" or "error") {
+            var points = new List<Point3D>();
+            points.AddRange(SampleQuadraticCurve(left, new Point3D(-0.14, controlY - 0.025, 0.472),
+                new Point3D(-0.02, controlY + 0.015, 0.472), 8));
+            points.AddRange(SampleQuadraticCurve(new Point3D(-0.02, controlY + 0.015, 0.472),
+                new Point3D(0.12, controlY - 0.02, 0.472), right, 8).Skip(1));
+            _mouth3DHost.Content = CreateCurveStrip(points.ToArray(), 0.022, Color.FromRgb(250, 227, 244));
+        }
+        else
+        {
+            _mouth3DHost.Content = CreateCurveStrip(
+                SampleQuadraticCurve(left, new Point3D(0, controlY, 0.472), right, 18),
+                0.022, Color.FromRgb(250, 227, 244));
+        }
+    }
+
+    private void ApplyRigPose(double phase)
+    {
+        if (_headRigHost is null || _bodyRigHost is null ||
+            _leftArmRigHost is null || _rightArmRigHost is null)
+            return;
+
+        _headRigHost.Transform = new Transform3DGroup
+        {
+            Children =
+            {
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 1, 0), Math.Sin(phase * 0.22) * (_mood == "curious" ? 7.5 : 2.8))),
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(1, 0, 0), Math.Sin(phase * 0.31) * ((_mood is "thinking" or "reading") ? 3.4 : 1.6))),
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), Math.Sin(phase * 0.31) * ((_mood is "embarrassed" or "shy") ? 3.2 : 1.1))),
+                new TranslateTransform3D(0, Math.Sin(phase) * 0.012, 0)
+            }
+        };
+        var bodyRoll = _mood is "celebrating" or "excited" ? Math.Sin(phase * 1.2) * 3.3 :
+            _mood is "thinking" or "planning" or "researching" or "coding" ? Math.Sin(phase * 0.55) * 1.2 :
+            Math.Sin(phase * 0.36) * 0.7;
+        _bodyRigHost.Transform = new Transform3DGroup
+        {
+            Children =
+            {
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), bodyRoll)),
+                new TranslateTransform3D(0, Math.Sin(phase * 1.4) * 0.012, 0)
+            }
+        };
+
+        var leftArmAngle = Math.Sin(phase * 0.86) * 5.5;
+        var rightArmAngle = Math.Sin(phase * 0.91 + 1.1) * 5.5;
+        if (_mood is "writing" or "coding" or "using_tool")
+        {
+            leftArmAngle += Math.Sin(phase * 2.2) * 5;
+            rightArmAngle += Math.Cos(phase * 2.6) * 7;
+        }
+        if (_mood is "success" or "celebrating" or "excited")
+        {
+            leftArmAngle -= 25 + Math.Sin(phase * 1.8) * 6;
+            rightArmAngle += 25 + Math.Sin(phase * 1.7) * 6;
+        }
+        if (_mood is "apologetic" or "sad" or "error" or "frustrated")
+        {
+            leftArmAngle += 8;
+            rightArmAngle -= 8;
+        }
+        _leftArmRigHost.Transform = CreateArmTransform(-1, leftArmAngle);
+        _rightArmRigHost.Transform = CreateArmTransform(1, rightArmAngle);
+    }
+
+    private static Transform3D CreateArmTransform(int side, double angle)
+    {
+        return new Transform3DGroup
+        {
+            Children =
+            {
+                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), angle)),
+                new TranslateTransform3D(side * 0.70, -0.31, 0.035)
+            }
+        };
+    }
+
+    private static Point3D[] SampleQuadraticCurve(Point3D start, Point3D control, Point3D end, int segments)
+    {
+        var points = new Point3D[segments + 1];
+        for (var i = 0; i <= segments; i++)
+        {
+            var t = (double)i / segments;
+            var inverse = 1 - t;
+            points[i] = new Point3D(
+                inverse * inverse * start.X + 2 * inverse * t * control.X + t * t * end.X,
+                inverse * inverse * start.Y + 2 * inverse * t * control.Y + t * t * end.Y,
+                inverse * inverse * start.Z + 2 * inverse * t * control.Z + t * t * end.Z);
+        }
+        return points;
+    }
+
+    private static GeometryModel3D CreateCurveStrip(Point3D[] points, double thickness, Color color)
+    {
+        var mesh = new MeshGeometry3D();
+        if (points.Length < 2)
+            return new GeometryModel3D(mesh, new DiffuseMaterial(new SolidColorBrush(color)));
+
+        for (var i = 0; i < points.Length; i++)
+        {
+            var previous = points[Math.Max(0, i - 1)];
+            var next = points[Math.Min(points.Length - 1, i + 1)];
+            var tangent = new Vector3D(next.X - previous.X, next.Y - previous.Y, 0);
+            if (tangent.Length < 0.0001) tangent = new Vector3D(1, 0, 0);
+            tangent.Normalize();
+            var normal = new Vector3D(-tangent.Y, tangent.X, 0);
+            normal.Normalize();
+            var offset = normal * thickness * 0.5;
+            mesh.Positions.Add(new Point3D(points[i].X + offset.X, points[i].Y + offset.Y, points[i].Z));
+            mesh.Positions.Add(new Point3D(points[i].X - offset.X, points[i].Y - offset.Y, points[i].Z));
+            mesh.Normals.Add(new Vector3D(0, 0, 1));
+            mesh.Normals.Add(new Vector3D(0, 0, 1));
+        }
+        for (var i = 0; i < points.Length - 1; i++)
+        {
+            var index = i * 2;
+            mesh.TriangleIndices.Add(index);
+            mesh.TriangleIndices.Add(index + 1);
+            mesh.TriangleIndices.Add(index + 2);
+            mesh.TriangleIndices.Add(index + 2);
+            mesh.TriangleIndices.Add(index + 1);
+            mesh.TriangleIndices.Add(index + 3);
+        }
+        var material = new MaterialGroup();
+        material.Children.Add(new DiffuseMaterial(new SolidColorBrush(color)));
+        material.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromArgb(185, 255, 255, 255)), 35));
+        return new GeometryModel3D(mesh, material) { BackMaterial = material };
     }
 
     private static GeometryModel3D CreateEllipsoid(
@@ -687,6 +1127,8 @@ public partial class FloatingMascotWindow : Window
         Canvas.SetTop(LeftEyeShine, 23 + (LeftEye.Height - 10) / 2 - 1.5);
         Canvas.SetTop(RightEyeShine, 23 + (RightEye.Height - 10) / 2 - 1.5);
         StatusDot.Fill = status;
+        ApplyThreeDimensionalFaceExpression(_mood);
+        ConfigureCinematicEffects(_mood);
         UpdateTaskProps();
         if (showReaction && (previousMood != _mood || _mood != "idle"))
             ShowReactionForMood(_mood);
@@ -719,6 +1161,14 @@ public partial class FloatingMascotWindow : Window
         RightPupil.RenderTransform = new TranslateTransform(_rightPupilMoodX + _pointerOffsetX, _rightPupilMoodY + _pointerOffsetY);
         LeftEyeShine.RenderTransform = new TranslateTransform(_pointerOffsetX, _pointerOffsetY);
         RightEyeShine.RenderTransform = new TranslateTransform(_pointerOffsetX, _pointerOffsetY);
+        if (_left3DIrisHost is not null)
+            _left3DIrisHost.Transform = new TranslateTransform3D(
+                (_leftPupilMoodX + _pointerOffsetX) * 0.014,
+                -(_leftPupilMoodY + _pointerOffsetY) * 0.014, 0);
+        if (_right3DIrisHost is not null)
+            _right3DIrisHost.Transform = new TranslateTransform3D(
+                (_rightPupilMoodX + _pointerOffsetX) * 0.014,
+                -(_rightPupilMoodY + _pointerOffsetY) * 0.014, 0);
     }
 
     private void ResetTerminalMood()
@@ -807,9 +1257,15 @@ public partial class FloatingMascotWindow : Window
         }
 
         TaskPropsLayer.Visibility = Visibility.Visible;
-        PaperProp.Opacity = 0.96;
-        PencilProp.Opacity = 0.98;
-        HoloComputerProp.Opacity = 0.92;
+        // Prop emphasis follows the actual stage instead of showing every prop equally.
+        (PaperProp.Opacity, PencilProp.Opacity, HoloComputerProp.Opacity) = _mood switch
+        {
+            "planning" or "researching" or "reading" => (0.96, 0.42, 0.70),
+            "writing" => (0.92, 1.0, 0.44),
+            "coding" or "using_tool" or "validating" => (0.35, 0.35, 1.0),
+            "waiting" or "warning" => (0.52, 0.18, 0.84),
+            _ => (0.82, 0.72, 0.88)
+        };
     }
 
     public void ApplyScale(double scale)
@@ -828,11 +1284,17 @@ public partial class FloatingMascotWindow : Window
             Root.RenderTransform = Transform.Identity;
             AntennaDot.RenderTransform = Transform.Identity;
             if (_avatarModelHost is not null) _avatarModelHost.Transform = Transform3D.Identity;
+            if (_headRigHost is not null) _headRigHost.Transform = Transform3D.Identity;
+            if (_bodyRigHost is not null) _bodyRigHost.Transform = Transform3D.Identity;
+            if (_leftArmRigHost is not null) _leftArmRigHost.Transform = CreateArmTransform(-1, 0);
+            if (_rightArmRigHost is not null) _rightArmRigHost.Transform = CreateArmTransform(1, 0);
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
             PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
             Canvas.SetTop(PaperProp, 94);
             Canvas.SetTop(PencilProp, 89);
-            HoloComputerProp.Opacity = TaskPropsLayer.Visibility == Visibility.Visible ? 0.92 : 0;
+            UpdateTaskProps();
+            HoloComputerProp.Opacity = TaskPropsLayer.Visibility == Visibility.Visible ? HoloComputerProp.Opacity : 0;
+            CinematicEffectsLayer.Visibility = Visibility.Collapsed;
             HideReaction();
             return;
         }
@@ -863,26 +1325,26 @@ public partial class FloatingMascotWindow : Window
         AntennaDot.RenderTransform = new ScaleTransform(pulse, pulse);
         GlowHalo.Opacity = (_mood is "offline" or "privacy" ? 0.20 : 0.48) + ((Math.Sin(_floatPhase) + 1) * 0.06);
 
-        // Let the 3D housing make a restrained, smooth turn without fighting the face overlay.
-        if (_avatarModelHost is not null)
-        {
-            var yaw = Math.Sin(_floatPhase * 0.22) * (_mood == "curious" ? 2.2 : 1.15);
-            var tilt = Math.Sin(_floatPhase * 0.31) * 0.9;
-            var motion = new Transform3DGroup();
-            motion.Children.Add(new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 1, 0), yaw)));
-            motion.Children.Add(new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), tilt)));
-            _avatarModelHost.Transform = motion;
-        }
+        // Independently pose head, torso and shoulders; each is a separate 3D rig node.
+        ApplyRigPose(_floatPhase);
 
         if (TaskPropsLayer.Visibility == Visibility.Visible)
         {
             var propWave = Math.Sin(_floatPhase);
             Canvas.SetTop(PaperProp, 94 + propWave * 2.7);
-            PaperProp.RenderTransform = new RotateTransform(Math.Sin(_floatPhase * 0.72) * 4.2);
-            Canvas.SetTop(PencilProp, 89 - Math.Cos(_floatPhase * 1.05) * 1.7);
-            PencilProp.RenderTransform = new RotateTransform(-10 + Math.Sin(_floatPhase * 1.25) * 4.5);
-            HoloComputerProp.RenderTransform = new TranslateTransform(0, Math.Sin(_floatPhase * 1.15) * 3.2);
-            HoloComputerProp.Opacity = 0.84 + ((Math.Sin(_floatPhase * 1.45) + 1) * 0.07);
+            PaperProp.RenderTransform = new RotateTransform(Math.Sin(_floatPhase * (_mood == "writing" ? 1.25 : 0.72)) * 4.2);
+            Canvas.SetTop(PencilProp, 89 - Math.Cos(_floatPhase * (_mood == "writing" ? 2.35 : 1.05)) * 1.7);
+            PencilProp.RenderTransform = new RotateTransform(-10 + Math.Sin(_floatPhase * (_mood == "writing" ? 2.9 : 1.25)) * (_mood == "writing" ? 8.0 : 4.5));
+            HoloComputerProp.RenderTransform = new TranslateTransform(0, Math.Sin(_floatPhase * 1.15) * (_mood is "coding" or "using_tool" or "validating" ? 4.7 : 3.2));
+            var computerBase = _mood switch
+            {
+                "writing" => 0.42,
+                "planning" or "researching" or "reading" => 0.66,
+                "coding" or "using_tool" or "validating" => 0.92,
+                "waiting" or "warning" => 0.78,
+                _ => 0.82
+            };
+            HoloComputerProp.Opacity = computerBase * (0.88 + ((Math.Sin(_floatPhase * 1.45) + 1) * 0.06);
         }
 
         if (_mood is "speaking" or "responding")
@@ -897,6 +1359,7 @@ public partial class FloatingMascotWindow : Window
             }
         }
 
+        AnimateCinematicEffects();
         AnimateReactionTick();
     }
 
@@ -907,6 +1370,8 @@ public partial class FloatingMascotWindow : Window
         LeftEye.Height = RightEye.Height = 3;
         LeftPupil.Visibility = RightPupil.Visibility = Visibility.Collapsed;
         LeftEyeShine.Visibility = RightEyeShine.Visibility = Visibility.Collapsed;
+        if (_leftEyeBlinkTransform is not null) _leftEyeBlinkTransform.ScaleY = 0.08;
+        if (_rightEyeBlinkTransform is not null) _rightEyeBlinkTransform.ScaleY = 0.08;
         _restoreEyesTimer.Start();
     }
 
@@ -1163,6 +1628,8 @@ public partial class FloatingMascotWindow : Window
             _floatTimer.Stop();
             _moodResetTimer.Stop();
             _idleTimer.Stop();
+            CinematicEffectsLayer.Children.Clear();
+            _cinematicParticles.Clear();
         }
         base.OnClosing(e);
     }
