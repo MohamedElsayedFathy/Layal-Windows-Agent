@@ -29,6 +29,8 @@ public static class LayalNativeInput
     [StructLayout(LayoutKind.Sequential)]
     public struct Rect { public int Left; public int Top; public int Right; public int Bottom; }
     [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)]
     private struct MouseInput { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)]
     private struct Input { public uint type; public MouseInput mi; }
@@ -43,6 +45,12 @@ public static class LayalNativeInput
     [DllImport("user32.dll", SetLastError=true)]
     private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll", SetLastError=true)]
+    private static extern IntPtr WindowFromPoint(NativePoint point);
+    [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW", SetLastError=true)]
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hwnd, int index);
+    [DllImport("user32.dll", EntryPoint="GetWindowLongW", SetLastError=true)]
+    private static extern int GetWindowLong32(IntPtr hwnd, int index);
+    [DllImport("user32.dll", SetLastError=true)]
     private static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll", SetLastError=true)]
     private static extern uint SendInput(uint count, Input[] inputs, int size);
@@ -52,6 +60,16 @@ public static class LayalNativeInput
     private const uint SwpNoActivate=0x0010, InputMouse=0, LeftDown=0x0002, LeftUp=0x0004;
     public static uint ProcessIdForWindow(IntPtr hwnd) { GetWindowThreadProcessId(hwnd, out uint pid); return pid; }
     public static bool Visible(IntPtr hwnd) => IsWindowVisible(hwnd);
+    public static long ExtendedStyle(IntPtr hwnd) => IntPtr.Size == 8 ? GetWindowLongPtr64(hwnd, -20).ToInt64() : GetWindowLong32(hwnd, -20);
+    public static string DescribeWindowAt(int x, int y) {
+        IntPtr hwnd = WindowFromPoint(new NativePoint { X=x, Y=y });
+        if (hwnd == IntPtr.Zero) return "HWND=0 (desktop/no window)";
+        var title = new System.Text.StringBuilder(512);
+        GetWindowText(hwnd, title, title.Capacity);
+        GetWindowThreadProcessId(hwnd, out uint pid);
+        long style = ExtendedStyle(hwnd);
+        return "HWND=0x" + hwnd.ToInt64().ToString("X") + ", PID=" + pid + ", title='" + title + "', exStyle=0x" + style.ToString("X");
+    }
     public static IntPtr FindVisibleLayalWindowForProcess(int processId, out string diagnostic) {
         IntPtr found = IntPtr.Zero;
         var seen = new System.Collections.Generic.List<string>();
@@ -162,7 +180,7 @@ $form=New-Object System.Windows.Forms.Form
 $form.Text="Layal native click-through integration surface"
 $form.WindowState=[System.Windows.Forms.FormWindowState]::Maximized
 $form.StartPosition=[System.Windows.Forms.FormStartPosition]::CenterScreen
-$form.TopMost=$true
+$form.TopMost=$false
 $form.ShowInTaskbar=$true
 $form.KeyPreview=$true
 $form.BackColor=[System.Drawing.Color]::FromArgb(20,27,42)
@@ -259,6 +277,10 @@ try {
         $before=$script:UnderlyingClicks
         $point=Get-ScaledPoint -DesignX 8 -DesignY 8
         Move-CursorAndPump $point 450
+        $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
+        if ($nativeTarget -match ("PID=" + $script:AppProcess.Id + ", title='Layal'")) {
+            throw "Transparent padding still resolves to Layal instead of the window below. $nativeTarget"
+        }
         Send-LeftClick
         if ($script:UnderlyingClicks -ne ($before+1)) { throw "Expected underlying count $($before+1), got $script:UnderlyingClicks." }
         Write-Result "Transparent upper-left padding reaches underlying button" "passed" "Native SendInput activated the actual underlying WinForms button."
@@ -267,10 +289,14 @@ try {
     Invoke-NativeAcceptanceCase "Visible mascot receives click without underlying activation" {
         $before=$script:UnderlyingClicks
         $point=Get-ScaledPoint -DesignX 124 -DesignY 80
-        Move-CursorAndPump $point 450
+        Move-CursorAndPump $point 650
+        $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
+        if ($nativeTarget -notmatch ("PID=" + $script:AppProcess.Id + ", title='Layal'")) {
+            throw "The visible mascot is not the native hit-test target at its core. Cursor=($($point.X),$($point.Y)); $nativeTarget"
+        }
         Send-LeftClick
-        if ($script:UnderlyingClicks -ne $before) { throw "Mascot click leaked through: expected $before underlying clicks, got $script:UnderlyingClicks." }
-        Write-Result "Visible mascot receives click without underlying activation" "passed" "Native click on mascot core did not activate the underlying button."
+        if ($script:UnderlyingClicks -ne $before) { throw "Mascot click leaked through: expected $before underlying clicks, got $script:UnderlyingClicks. Native target before click: $nativeTarget" }
+        Write-Result "Visible mascot receives click without underlying activation" "passed" "WindowFromPoint targeted the actual Layal HWND and the underlying button count stayed unchanged."
     }
 
     Invoke-NativeAcceptanceCase "Transparent bottom padding reaches underlying button" {
