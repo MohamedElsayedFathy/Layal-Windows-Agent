@@ -595,13 +595,14 @@ public partial class FloatingMascotWindow : Window
         ReactionBubble.RenderTransform = Transform.Identity;
     }
 
-    private void UpdateTaskProps()
-    {
-        var showProps = _mood is "thinking" or "planning" or "researching" or "reading" or
-            "coding" or "using_tool" or "waiting" or "transcribing" or "responding" or
+    private static bool IsTaskMood(string mood) =>
+        mood is "thinking" or "planning" or "researching" or "reading" or "coding" or
+            "using_tool" or "waiting" or "warning" or "transcribing" or "responding" or
             "speaking" or "camera_processing";
 
-        if (!showProps)
+    private void UpdateTaskProps()
+    {
+        if (!IsTaskMood(_mood))
         {
             TaskPropsLayer.Visibility = Visibility.Collapsed;
             PaperProp.Opacity = PencilProp.Opacity = HoloComputerProp.Opacity = 0;
@@ -800,6 +801,15 @@ public partial class FloatingMascotWindow : Window
     private void ReactToTap()
     {
         _lastInteractionAt = DateTimeOffset.UtcNow;
+
+        // Work/approval states take priority over a cosmetic tap; respond with a reaction
+        // bubble but keep the real task face and task props intact.
+        if (IsTaskMood(_mood))
+        {
+            if (AppRuntime.Settings.MascotAnimationsEnabled) ShowReactionForMood(_mood);
+            return;
+        }
+
         if (!AppRuntime.Settings.MascotAnimationsEnabled)
         {
             // With decorative animation disabled, still provide a static facial response
