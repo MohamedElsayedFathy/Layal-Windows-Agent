@@ -2142,6 +2142,8 @@ public partial class FloatingMascotWindow : Window
 
     private void Window_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (!IsPointOnMascot(e.GetPosition(this))) return;
+
         UpdateLanguage();
         _contextMenu.IsOpen = true;
         e.Handled = true;

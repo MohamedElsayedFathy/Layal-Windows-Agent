@@ -30,6 +30,17 @@ jobs:
       - name: Static source checks
         run: python tools/validate_project.py
 
+      - name: Parse interactive click-through acceptance harness
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'tools/Test-LayalClickThrough.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+
       - name: Source hygiene checks
         run: python tools/validate_release.py
 
