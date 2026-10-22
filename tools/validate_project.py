@@ -177,7 +177,7 @@ required_controls = {
     "src/Layal.Desktop/Views/FloatingMascotWindow.xaml": [
         "Root", "AntennaDot", "GlowHalo", "LeftPupil", "RightPupil", "LeftEye", "RightEye",
         "LeftEyeShine", "RightEyeShine", "LeftBrow", "RightBrow", "CheekLeft", "CheekRight",
-        "Mouth", "StatusDot"
+        "Mouth", "StatusDot", "AvatarViewport", "TaskPropsLayer", "PaperProp", "PencilProp", "HoloComputerProp"
     ]
 }
 for xaml_file, controls in required_controls.items():
@@ -185,6 +185,31 @@ for xaml_file, controls in required_controls.items():
     for control in controls:
         if control not in xnames:
             ERRORS.append(f"Required control '{control}' missing from {xaml_file}")
+
+# Guard the new personality milestone against accidental removal of its XAML/code-behind wiring.
+mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
+main_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+mascot_code = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
+main_code = main_code_path.read_text(encoding="utf-8") if main_code_path.exists() else ""
+for required_fragment in (
+    "CreateAvatarModel()", "CreateEllipsoid(", "Viewport3D", "UpdateTaskProps()",
+    "SetTaskActive(bool active)", "IsPointOnMascot(Point point)", "IsTaskMood(string mood)",
+    "new Transform3DGroup()", "MeshGeometry3D",
+):
+    if required_fragment not in mascot_code and required_fragment not in (ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml").read_text(encoding="utf-8"):
+        ERRORS.append(f"3D/personality regression: required implementation fragment '{required_fragment}' is missing")
+if "SetTaskActive(true)" not in main_code or "SetTaskActive(false)" not in main_code:
+    ERRORS.append("Mascot task-active state is not wired to both task start and completion")
+for mood in ("embarrassed", "relieved", "determined", "confident", "apologetic", "frustrated", "grateful", "celebrating"):
+    if mascot_code.count(f'"{mood}"') < 4:
+        ERRORS.append(f"New facial mood '{mood}' is not fully wired into expression/reaction lifecycle")
+    if f'return "{mood}";' not in main_code:
+        ERRORS.append(f"Chat context is not mapped to the new facial mood '{mood}'")
+if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
+    ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
+for expected_glass_color in ("#F4FFFFFF", "#E5222B3F"):
+    if expected_glass_color not in main_code:
+        ERRORS.append(f"Expected translucent card color '{expected_glass_color}' is missing from the theme palette")
 
 cs_files = sorted(list((ROOT / "src").rglob("*.cs")) + list((ROOT / "tests").rglob("*.cs")))
 for cs_path in cs_files:
