@@ -291,6 +291,7 @@ public sealed class MainWindowVisualSmokeTests
         var background = (Color)resources["Layal.Color.Background"];
         var text = (Color)resources["Layal.Color.Text"];
         var muted = (Color)resources["Layal.Color.Muted"];
+        var scrollThumb = (Color)resources["Layal.Color.ScrollThumb"];
         var panelBrush = Application.Current.TryFindResource("Layal.Panel") as SolidColorBrush;
         var comboBackground = historySelector.Background as SolidColorBrush;
         var textBrush = Application.Current.TryFindResource("Layal.Text") as SolidColorBrush;
@@ -309,6 +310,8 @@ public sealed class MainWindowVisualSmokeTests
             $"Primary text contrast must be at least 7:1 in {theme}/{language}.");
         Assert.IsTrue(ContrastRatio(muted, background) >= 4.5,
             $"Muted text contrast must be at least 4.5:1 in {theme}/{language}.");
+        Assert.IsTrue(ContrastRatio(scrollThumb, background) >= 2.0,
+            $"Scrollbar thumb contrast must be at least 2:1 in {theme}/{language}.");
     }
 
     private static double ContrastRatio(Color first, Color second)
