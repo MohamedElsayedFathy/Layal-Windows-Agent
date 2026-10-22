@@ -167,6 +167,8 @@ public static class WindowsUiAutomationService
             throw new InvalidOperationException("The selected field is read-only. No value was set.");
 
         var runtimeId = string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (string.IsNullOrWhiteSpace(runtimeId))
+            throw new InvalidOperationException("Windows UI Automation did not provide a stable runtime identifier for the selected field. No value was set.");
         return new UiTextEntryPreview(target.Title, target.ProcessId, automationId, runtimeId, info.IsEnabled, valuePattern.Current.IsReadOnly);
     }
 
@@ -181,7 +183,8 @@ public static class WindowsUiAutomationService
         var element = FindUniqueEditableControl(target, preview.AutomationId);
         var info = element.Current;
         var currentRuntimeId = string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-        if (!string.Equals(currentRuntimeId, preview.RuntimeId, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(currentRuntimeId) || string.IsNullOrWhiteSpace(preview.RuntimeId) ||
+            !string.Equals(currentRuntimeId, preview.RuntimeId, StringComparison.Ordinal))
             throw new InvalidOperationException("The text field changed while awaiting approval. Inspect the application again; no value was set.");
         if (info.IsPassword || info.IsOffscreen || !info.IsEnabled)
             throw new InvalidOperationException("The field became protected, offscreen, or disabled while awaiting approval. No value was set.");
