@@ -554,8 +554,8 @@ public partial class FloatingMascotWindow : Window
         ReactionEmojiText.Text = choices[nextIndex];
         _lastReactionEmoji = choices[nextIndex];
         _reactionIndexes[mood] = (nextIndex + 1 + index) % choices.Length;
-        Canvas.SetLeft(ReactionBubble, 115);
-        Canvas.SetTop(ReactionBubble, 54);
+        Canvas.SetLeft(ReactionBubble, 185);
+        Canvas.SetTop(ReactionBubble, 29);
         ReactionBubble.RenderTransform = Transform.Identity;
         ReactionBubble.Visibility = Visibility.Visible;
         ReactionBubble.Opacity = 0;
@@ -578,8 +578,8 @@ public partial class FloatingMascotWindow : Window
         var fadeIn = Math.Clamp(elapsed / 0.16, 0, 1);
         var fadeOut = elapsed <= 1.62 ? 1 : Math.Clamp((duration - elapsed) / (duration - 1.62), 0, 1);
         ReactionBubble.Opacity = Math.Min(fadeIn, fadeOut);
-        Canvas.SetLeft(ReactionBubble, 115 + Math.Sin(progress * Math.PI) * 5);
-        Canvas.SetTop(ReactionBubble, 54 - (38 * progress));
+        Canvas.SetLeft(ReactionBubble, 185 + Math.Sin(progress * Math.PI) * 5);
+        Canvas.SetTop(ReactionBubble, 29 - (25 * progress));
         var scale = 0.78 + Math.Sin(progress * Math.PI) * 0.20;
         ReactionBubble.RenderTransform = new ScaleTransform(scale, scale);
     }
