@@ -132,9 +132,13 @@ public sealed class MainWindowVisualSmokeTests
             mascot.SetMood(mood, showReaction: false);
             for (var tick = 0; tick < 3; tick++) animateTick.Invoke(mascot, null);
             mascot.UpdateLayout();
-            var path = Path.Combine(outputDirectory, $"mascot-{mood}.png");
-            SaveSnapshot(mascot, path);
-            lines.Add($"{Path.GetFileName(path)} | mood={mood} | size={mascot.ActualWidth:0}x{mascot.ActualHeight:0}");
+            foreach (var scale in new[] { 1.0, 1.25, 1.5, 1.75 })
+            {
+                var suffix = (int)Math.Round(scale * 100);
+                var path = Path.Combine(outputDirectory, $"mascot-{mood}-dpi{suffix}.png");
+                SaveSnapshot(mascot, path, scale);
+                lines.Add($"{Path.GetFileName(path)} | mood={mood} | renderScale={scale:0.00} | dips={mascot.ActualWidth:0}x{mascot.ActualHeight:0}");
+            }
         }
 
         File.WriteAllLines(Path.Combine(outputDirectory, "manifest.txt"), lines);
