@@ -83,6 +83,7 @@ public partial class MainWindow : Window
         var palette = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["Layal.Color.Background"] = dark ? "#111521" : "#F4F7FC",
+            ["Layal.Color.BackgroundEnd"] = dark ? "#171B2B" : "#EEF3FB",
             ["Layal.Color.Surface"] = dark ? "#1B2233" : "#FFFFFF",
             ["Layal.Color.SurfaceRaised"] = dark ? "#232B3D" : "#FAFBFF",
             ["Layal.Color.SurfaceHover"] = dark ? "#2B354A" : "#EDF3FA",
@@ -95,11 +96,11 @@ public partial class MainWindow : Window
             ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
             ["Layal.Color.Danger"] = dark ? "#FF91A8" : "#BD3C55",
             ["Layal.Color.Focus"] = dark ? "#7C93D5" : "#AFC8F7",
-            ["Layal.Color.HeaderStart"] = dark ? "#202D43" : "#EAF5FF",
-            ["Layal.Color.HeaderMiddle"] = dark ? "#1B2233" : "#FFFFFF",
-            ["Layal.Color.HeaderEnd"] = dark ? "#2C2542" : "#F3EFFF",
-            ["Layal.Color.CardStart"] = dark ? "#222B3F" : "#FFFFFF",
-            ["Layal.Color.CardEnd"] = dark ? "#1B2335" : "#F9FBFF",
+            ["Layal.Color.HeaderStart"] = dark ? "#E6202D43" : "#EAF0F7FF",
+            ["Layal.Color.HeaderMiddle"] = dark ? "#DE1B2233" : "#FAFFFFFF",
+            ["Layal.Color.HeaderEnd"] = dark ? "#E42C2542" : "#EAF3EEFF",
+            ["Layal.Color.CardStart"] = dark ? "#E5222B3F" : "#F4FFFFFF",
+            ["Layal.Color.CardEnd"] = dark ? "#DE1B2335" : "#EEF8FAFF",
             ["Layal.Color.ButtonStart"] = dark ? "#326B78" : "#A3E3E7",
             ["Layal.Color.ButtonEnd"] = dark ? "#594C84" : "#C8C0F7",
             ["Layal.Color.BrandBorder"] = dark ? "#4C8F9B" : "#B9E6EB",
@@ -165,6 +166,9 @@ public partial class MainWindow : Window
             return brush;
         }
 
+        Application.Current.Resources["Layal.Background"] = MakeGradient(
+            ("Layal.Color.Background", 0),
+            ("Layal.Color.BackgroundEnd", 1));
         Application.Current.Resources["Layal.HeaderGradient"] = MakeGradient(
             ("Layal.Color.HeaderStart", 0),
             ("Layal.Color.HeaderMiddle", 0.56),
@@ -178,9 +182,9 @@ public partial class MainWindow : Window
         Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
         {
             Color = colors["Layal.Color.Shadow"],
-            BlurRadius = 18,
-            ShadowDepth = 3,
-            Opacity = 0.18
+            BlurRadius = 24,
+            ShadowDepth = 2,
+            Opacity = 0.14
         };
     }
 
