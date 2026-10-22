@@ -33,7 +33,7 @@
                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,26,0" />
 
             <!-- Native WPF 3D shell. Facial features remain a precise 2D overlay so moods stay readable. -->
-            <Viewport3D x:Name="AvatarViewport" Width="180" Height="150"
+            <Viewport3D x:Name="AvatarViewport" Width="180" Height="160"
                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,5,0,0"
                         IsHitTestVisible="False" ClipToBounds="True">
                 <Viewport3D.Camera>
