@@ -1875,23 +1875,8 @@ public partial class FloatingMascotWindow : Window
         return (Math.Clamp(left, minLeft, maxLeft), Math.Clamp(top, minTop, maxTop));
     }
 
-    private bool IsPointOnMascot(Point point)
-    {
-        // The larger transparent window leaves room for floating props. Normalize back to
-        // the 248x175 design coordinates so scaling never turns empty margins into click targets.
-        var scale = Math.Max(0.1, Width / 248.0);
-        point = new Point(point.X / scale, point.Y / scale);
-
-        var onCore = point.X >= 48 && point.X <= 201 && point.Y >= 12 && point.Y <= 139;
-        var onLeftSensor = point.X >= 5 && point.X <= 35 && point.Y >= 42 && point.Y <= 94;
-        var onRightSensor = point.X >= 213 && point.X <= 243 && point.Y >= 42 && point.Y <= 94;
-        var propsVisible = TaskPropsLayer.Visibility == Visibility.Visible;
-        var onPaper = propsVisible && point.X >= 3 && point.X <= 43 && point.Y >= 90 && point.Y <= 142;
-        var onPencil = propsVisible && point.X >= 28 && point.X <= 48 && point.Y >= 84 && point.Y <= 134;
-        var onComputer = propsVisible && point.X >= 190 && point.X <= 246 && point.Y >= 91 && point.Y <= 143;
-
-        return onCore || onLeftSensor || onRightSensor || onPaper || onPencil || onComputer;
-    }
+    private bool IsPointOnMascot(Point point) =>
+        MascotHitTestGeometry.IsPointOnMascot(point, Width, TaskPropsLayer.Visibility == Visibility.Visible);
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
