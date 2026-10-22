@@ -108,6 +108,16 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("LanguageButton was not found.");
         var titleText = window.FindName("TitleText") as TextBlock
             ?? throw new InvalidOperationException("TitleText was not found.");
+        var copyChatButton = window.FindName("CopyChatButton") as Button
+            ?? throw new InvalidOperationException("CopyChatButton was not found.");
+        var newConversationButton = window.FindName("NewConversationButton") as Button
+            ?? throw new InvalidOperationException("NewConversationButton was not found.");
+        var clearHistoryButton = window.FindName("ClearSavedChatHistoryButton") as Button
+            ?? throw new InvalidOperationException("ClearSavedChatHistoryButton was not found.");
+        var sendButton = window.FindName("SendButton") as Button
+            ?? throw new InvalidOperationException("SendButton was not found.");
+        var runTaskButton = window.FindName("RunAgentTaskButton") as Button
+            ?? throw new InvalidOperationException("RunAgentTaskButton was not found.");
         var baseUrlInput = window.FindName("BaseUrlInput") as TextBox
             ?? throw new InvalidOperationException("BaseUrlInput was not found.");
         var modelInput = window.FindName("ModelInput") as TextBox
@@ -140,6 +150,12 @@ public sealed class MainWindowVisualSmokeTests
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
             if (language == "ar")
             {
+                Assert.AreEqual("نسخ الشات", BidiTextNormalizer.StripDirectionalControls(copyChatButton.Content as string));
+                Assert.AreEqual("محادثة جديدة", BidiTextNormalizer.StripDirectionalControls(newConversationButton.Content as string));
+                Assert.AreEqual("مسح السجل المحفوظ", BidiTextNormalizer.StripDirectionalControls(clearHistoryButton.Content as string));
+                Assert.AreEqual("إرسال", BidiTextNormalizer.StripDirectionalControls(sendButton.Content as string));
+                Assert.AreEqual("تنفيذ المهمة", BidiTextNormalizer.StripDirectionalControls(runTaskButton.Content as string));
+
                 Assert.IsTrue((languageButton.Content as string)?.Contains("\u2066English\u2069", StringComparison.Ordinal) == true,
                     "English language-toggle text must retain left-to-right order on the Arabic screen.");
                 Assert.IsTrue(titleText.Text.Contains("\u2066Layal\u2069", StringComparison.Ordinal),
@@ -156,6 +172,14 @@ public sealed class MainWindowVisualSmokeTests
                     "API keys must stay left-to-right on the Arabic screen.");
                 Assert.AreEqual(FlowDirection.LeftToRight, githubSkillUrlInput.FlowDirection,
                     "GitHub URLs must stay left-to-right on the Arabic screen.");
+            }
+            else
+            {
+                Assert.AreEqual("Copy chat", BidiTextNormalizer.StripDirectionalControls(copyChatButton.Content as string));
+                Assert.AreEqual("New conversation", BidiTextNormalizer.StripDirectionalControls(newConversationButton.Content as string));
+                Assert.AreEqual("Clear saved history", BidiTextNormalizer.StripDirectionalControls(clearHistoryButton.Content as string));
+                Assert.AreEqual("Send", BidiTextNormalizer.StripDirectionalControls(sendButton.Content as string));
+                Assert.AreEqual("Run task", BidiTextNormalizer.StripDirectionalControls(runTaskButton.Content as string));
             }
 
             for (var index = 0; index < tabNames.Length; index++)
