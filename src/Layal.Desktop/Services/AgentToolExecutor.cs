@@ -28,12 +28,14 @@ public sealed class AgentToolExecutor
     private readonly string _workspaceRoot;
     private readonly MemoryService _memory;
     private readonly ApiConnectionService? _apiConnections;
+    private readonly BrowserAutomationService? _browser;
 
-    public AgentToolExecutor(string workspaceRoot, MemoryService memory, ApiConnectionService? apiConnections = null)
+    public AgentToolExecutor(string workspaceRoot, MemoryService memory, ApiConnectionService? apiConnections = null, BrowserAutomationService? browser = null)
     {
         _workspaceRoot = Path.GetFullPath(workspaceRoot);
         _memory = memory;
         _apiConnections = apiConnections;
+        _browser = browser;
         Directory.CreateDirectory(_workspaceRoot);
     }
 
@@ -50,6 +52,10 @@ public sealed class AgentToolExecutor
         Definition("replace_text_in_file", "Replace an exact unique string in a UTF-8 text file inside the workspace. Creates a backup and requires user approval.", """{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}"""),
         Definition("open_notepad", "Open Windows Notepad. Requires user approval.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("open_url", "Open an HTTP or HTTPS URL in the user's default browser. Requires approval.", """{"type":"object","properties":{"url":{"type":"string"}},"required":["url"],"additionalProperties":false}"""),
+        Definition("browser_navigate", "Navigate the dedicated Layal-controlled Microsoft Edge profile to an HTTP/HTTPS URL. This browser uses a separate profile and does not inherit the user's normal browser cookies or sign-in session. Ask for local approval before every navigation.", """{"type":"object","properties":{"url":{"type":"string","description":"Absolute HTTP/HTTPS URL without embedded credentials"}},"required":["url"],"additionalProperties":false}"""),
+        Definition("browser_read_page", "Read the current page from Layal's dedicated Edge session: title, URL, visible text up to 20,000 characters and bounded lists of links/buttons/fields. The page contents are sent to the AI provider as tool output, so request local approval before reading/sharing them. Navigate first.", """{"type":"object","properties":{},"additionalProperties":false}"""),
+        Definition("browser_click", "Click one visible link/button in Layal's dedicated browser using a CSS selector. Inspect the target locally, show its details, require fresh approval, and revalidate the exact page and element before dispatching a DOM click. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one intended visible link or button"}},"required":["selector"],"additionalProperties":false}"""),
+        Definition("browser_fill", "Fill a visible editable text/email/search/telephone/URL/number input, textarea, or contenteditable element in Layal's dedicated browser using a CSS selector. Password, file, hidden, and button fields are deliberately unsupported. Show the text preview, require fresh approval, and revalidate the page and element. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector for a single visible supported text field"},"text":{"type":"string","description":"Text to enter; max 10,000 characters"}},"required":["selector","text"],"additionalProperties":false}"""),
         Definition("get_open_window_titles", "Call this tool when the user asks to list visible windows. Disabled unless the user opts in; Layal itself will display a local consent prompt before titles are shared with the AI provider. Do not ask for separate permission in chat instead of calling this tool.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("activate_window", "Bring a visible window with an exact title to the foreground. Requires user approval.", """{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}"""),
         Definition("inspect_window_controls", "Call this tool directly when the user asks to inspect UI elements in a known visible external window. Supply its exact title. Read-only; Layal itself displays a local consent prompt before sharing labels and identifiers with the AI provider, so do not ask a separate natural-language permission question first. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
@@ -84,6 +90,10 @@ public sealed class AgentToolExecutor
             "replace_text_in_file" => await ReplaceTextAsync(GetString(args, "path"), GetString(args, "old_text"), GetString(args, "new_text"), confirm, report, cancellationToken),
             "open_notepad" => await OpenNotepadAsync(confirm, cancellationToken),
             "open_url" => await OpenUrlAsync(GetString(args, "url"), confirm, cancellationToken),
+            "browser_navigate" => await BrowserNavigateAsync(GetString(args, "url"), confirm, report, cancellationToken),
+            "browser_read_page" => await BrowserReadPageAsync(confirm, report, cancellationToken),
+            "browser_click" => await BrowserClickAsync(GetString(args, "selector"), confirm, report, cancellationToken),
+            "browser_fill" => await BrowserFillAsync(GetString(args, "selector"), GetString(args, "text"), confirm, report, cancellationToken),
             "get_open_window_titles" => await GetWindowTitlesAsync(confirm, cancellationToken),
             "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
             "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
@@ -335,6 +345,77 @@ public sealed class AgentToolExecutor
         var outcome = await WindowsUiAutomationService.InvokeControlAsync(confirmedTarget, controlType, automationId, token);
         report($"One approved UI Automation action was issued to external PID {confirmedTarget.ProcessId}; application-level success still requires observing the app.");
         return WindowsUiAutomationService.FormatInvokeReport(outcome);
+    }
+
+    private async Task<string> BrowserNavigateAsync(
+        string url,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        var target = BrowserAutomationService.ValidateHttpUrl(url);
+        var warning = "Open this URL in a separate Layal-controlled Microsoft Edge profile? The website will receive the request and its network-visible metadata. This profile does not reuse your normal browser sign-in session.\n\nURL: " + target.AbsoluteUri;
+        if (!await confirm("Navigate Layal browser", warning, token))
+            return "User declined browser navigation. No navigation was performed.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.NavigateAsync(target.AbsoluteUri, token);
+        report("Layal browser navigation was requested for " + target.AbsoluteUri + "; the site's intended outcome has not been verified.");
+        return result;
+    }
+
+    private async Task<string> BrowserReadPageAsync(
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        if (!await confirm("Read browser page", "Read the current page from Layal's dedicated Edge session and share its title, URL, visible text (up to 20,000 characters), and bounded link/button/field metadata with the configured AI provider? Page content may contain personal or confidential information. Navigate in Layal's browser first.", token))
+            return "User declined to share the browser page. No page content was read for the AI provider.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.ReadCurrentPageAsync(token);
+        report("The current Layal browser page metadata/text was read and returned to the AI provider.");
+        return result;
+    }
+
+    private async Task<string> BrowserClickAsync(
+        string selector,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        var preview = await _browser.PreviewElementAsync(selector, "click", token);
+        var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nElement: {preview.Tag}\nLabel/name: {Truncate(preview.Label, 160)}\nText: {Truncate(preview.Text, 160)}\nLink URL: {Truncate(preview.Href, 500)}";
+        if (!await confirm("Click browser element", "Dispatch one click to this visible link/button in Layal's dedicated browser? This may navigate, submit a form, or modify remote data. Verify the element and destination before approving.\n\n" + details, token))
+            return "User declined browser click. No click was dispatched.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.ClickElementAsync(preview, token);
+        report("One browser DOM click event was dispatched after explicit approval. The site-level outcome must be verified.");
+        return result;
+    }
+
+    private async Task<string> BrowserFillAsync(
+        string selector,
+        string text,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        if (text.Length > 10_000) throw new InvalidOperationException("Text entry is limited to 10,000 characters.");
+        var preview = await _browser.PreviewElementAsync(selector, "fill", token);
+        var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nField: {preview.Tag} {preview.Type}\nLabel/name: {Truncate(preview.Label, 160)} / {Truncate(preview.Name, 160)}\nText to enter ({text.Length} characters): {Truncate(text, 700)}";
+        if (!await confirm("Fill browser field", "Enter this text into one visible field on the current page? The text will be sent to that website. Password and file fields are blocked. Review the text and target before approving.\n\n" + details, token))
+            return "User declined browser text entry. No text was entered.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.FillElementAsync(preview, text, token);
+        report($"Text-entry events were dispatched to one approved browser field ({text.Length} characters). The site's form state and submission outcome are not confirmed.");
+        return result;
     }
 
     private async Task<string> CallAppApiAsync(
