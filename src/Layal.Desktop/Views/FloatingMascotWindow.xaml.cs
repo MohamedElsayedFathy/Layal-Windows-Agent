@@ -1513,7 +1513,8 @@ public partial class FloatingMascotWindow : Window
         {
             TaskPropsLayer.Visibility = Visibility.Collapsed;
             PaperProp.Opacity = PencilProp.Opacity = HoloComputerProp.Opacity = 0;
-            PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
+            PaperProp.RenderTransform = PencilProp.RenderTransform = Transform.Identity;
+            HoloComputerProp.RenderTransform = new ScaleTransform(0.72, 0.72);
             return;
         }
 
@@ -1597,7 +1598,14 @@ public partial class FloatingMascotWindow : Window
             PaperProp.RenderTransform = new RotateTransform(Math.Sin(_floatPhase * (_mood == "writing" ? 1.25 : 0.72)) * 4.2);
             Canvas.SetTop(PencilProp, 89 - Math.Cos(_floatPhase * (_mood == "writing" ? 2.35 : 1.05)) * 1.7);
             PencilProp.RenderTransform = new RotateTransform(-10 + Math.Sin(_floatPhase * (_mood == "writing" ? 2.9 : 1.25)) * (_mood == "writing" ? 8.0 : 4.5));
-            HoloComputerProp.RenderTransform = new TranslateTransform(0, Math.Sin(_floatPhase * 1.15) * (_mood is "coding" or "using_tool" or "validating" ? 4.7 : 3.2));
+            HoloComputerProp.RenderTransform = new TransformGroup
+            {
+                Children =
+                {
+                    new ScaleTransform(0.72, 0.72),
+                    new TranslateTransform(0, Math.Sin(_floatPhase * 1.15) * (_mood is "coding" or "using_tool" or "validating" ? 4.7 : 3.2))
+                }
+            };
             var computerBase = _mood switch
             {
                 "writing" => 0.42,
