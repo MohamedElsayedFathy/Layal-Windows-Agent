@@ -33,3 +33,4 @@ Layal agent file tools and dotnet build/test operations are limited to `%USERPRO
 - On Windows, run `powershell -ExecutionPolicy Bypass -File .\tools\VERIFY-LAYAL.ps1` to execute the static checks, restore packages, and build Release. This does not replace manual acceptance tests.
 - `.github/workflows/windows-build.yml` runs static validation, Windows Release build, and `dotnet test`; it validates non-empty TRX results and uploads build, test, and validated source artifacts.
 - `tests/Layal.Tests/` contains automated tests. They have been authored but are **not yet executed in this authoring environment** because .NET SDK is unavailable. They must pass in Windows CI before the test gate can be marked complete.
+- `docs/MANUAL_ACCEPTANCE_AR.md` provides a Windows acceptance checklist for the browser and UI Automation milestones; `tools/Start-LayalUiAutomationSample.ps1` creates a disposable local window to test safe field entry and a single approved button action.
