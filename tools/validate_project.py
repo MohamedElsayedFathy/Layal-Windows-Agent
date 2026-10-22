@@ -144,6 +144,46 @@ if main_window_xaml.exists():
         if old_color.lower() in main_text.lower():
             ERRORS.append(f"Legacy dark surface {old_color} remains in MainWindow.xaml")
 
+# Guard the exact dark-mode regression path: the visible button, resource replacement,
+# live control surfaces, and durable settings must stay tested end-to-end.
+main_window_theme_text = main_window_xaml.read_text(encoding="utf-8") if main_window_xaml.is_file() else ""
+if not re.search(r'<Button[^>]*x:Name="ThemeButton"[^>]*Click="ThemeButton_Click"', main_window_theme_text):
+    ERRORS.append("ThemeButton must remain wired to the real ThemeButton_Click event handler")
+
+main_window_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+main_window_code_text = main_window_code_path.read_text(encoding="utf-8") if main_window_code_path.is_file() else ""
+theme_handler_match = re.search(r"private void ThemeButton_Click\(.*?\n    \}", main_window_code_text, re.DOTALL)
+if not theme_handler_match:
+    ERRORS.append("Dark-mode toggle handler ThemeButton_Click is missing")
+else:
+    for fragment in (
+        'AppRuntime.Settings.ThemeMode = IsDarkTheme ? "light" : "dark";',
+        "ApplyTheme();",
+        "ApplyLanguage();",
+        "AppRuntime.SettingsStore.Save(AppRuntime.Settings);",
+    ):
+        if fragment not in theme_handler_match.group(0):
+            ERRORS.append(f"ThemeButton_Click lost required toggle/persistence behavior: {fragment}")
+
+theme_regression_test_path = ROOT / "tests/Layal.Tests/MainWindowVisualSmokeTests.cs"
+theme_regression_test = theme_regression_test_path.read_text(encoding="utf-8") if theme_regression_test_path.is_file() else ""
+if not theme_regression_test_path.is_file():
+    ERRORS.append("Dark-mode UI regression test is missing from MainWindowVisualSmokeTests.cs")
+else:
+    for fragment in (
+        "AssertThemeTogglePersistsLivePalette(window, historySelector);",
+        "private static void AssertThemeTogglePersistsLivePalette(",
+        "ThemeButton_Click",
+        "Color.FromRgb(17, 21, 33)",
+        "Color.FromRgb(244, 247, 252)",
+        'Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode)',
+        'Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode)',
+        'AssertThemeContrastAndControlSurfaces("dark", "ar", historySelector);',
+        'AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);',
+    ):
+        if fragment not in theme_regression_test:
+            ERRORS.append(f"Dark-mode UI regression test lost required coverage: {fragment}")
+
 project_file = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
 project_text = project_file.read_text(encoding="utf-8") if project_file.exists() else ""
 version_match = re.search(r"<Version>([^<]+)</Version>", project_text)

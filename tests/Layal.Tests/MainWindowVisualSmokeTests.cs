@@ -104,6 +104,7 @@ public sealed class MainWindowVisualSmokeTests
 
         var historySelector = window.FindName("ChatHistorySelector") as ComboBox
             ?? throw new InvalidOperationException("ChatHistorySelector was not found.");
+        AssertThemeTogglePersistsLivePalette(window, historySelector);
         var recentTasksGroup = window.FindName("RecentTasksGroup") as GroupBox
             ?? throw new InvalidOperationException("RecentTasksGroup was not found.");
         var languageButton = window.FindName("LanguageButton") as Button
@@ -327,6 +328,53 @@ public sealed class MainWindowVisualSmokeTests
         }
 
         return null;
+    }
+
+    private static void AssertThemeTogglePersistsLivePalette(MainWindow window, ComboBox historySelector)
+    {
+        var themeButton = window.FindName("ThemeButton") as Button
+            ?? throw new InvalidOperationException("ThemeButton was not found.");
+        var applyTheme = typeof(MainWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ApplyTheme was not found.");
+        var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ApplyLanguage was not found.");
+        var toggleTheme = typeof(MainWindow).GetMethod("ThemeButton_Click", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ThemeButton_Click was not found.");
+
+        // Exercise the actual UI event handler, not just ApplyTheme(), so a broken click
+        // binding or a missing settings save cannot slip past visual snapshot generation.
+        AppRuntime.Settings.ThemeMode = "light";
+        AppRuntime.Settings.Language = "ar";
+        applyTheme.Invoke(window, null);
+        applyLanguage.Invoke(window, null);
+
+        Assert.AreEqual(Color.FromRgb(244, 247, 252), (Color)Application.Current.Resources["Layal.Color.Background"],
+            "The light background palette must be active before the toggle.");
+        Assert.AreEqual("☾ المظهر الداكن", BidiTextNormalizer.StripDirectionalControls(themeButton.Content as string),
+            "In light mode, the button must offer switching to dark mode.");
+        AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);
+
+        toggleTheme.Invoke(window, new object?[] { themeButton, new RoutedEventArgs(Button.ClickEvent, themeButton) });
+
+        Assert.AreEqual("dark", AppRuntime.Settings.ThemeMode,
+            "Clicking the theme button must switch the selected theme to dark.");
+        Assert.AreEqual(Color.FromRgb(17, 21, 33), (Color)Application.Current.Resources["Layal.Color.Background"],
+            "Clicking the theme button must apply the dark resource palette.");
+        Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode,
+            "Clicking the theme button must persist dark mode in settings.json.");
+        Assert.AreEqual("☀ المظهر الفاتح", BidiTextNormalizer.StripDirectionalControls(themeButton.Content as string),
+            "In dark mode, the button must offer switching to light mode.");
+        AssertThemeContrastAndControlSurfaces("dark", "ar", historySelector);
+
+        toggleTheme.Invoke(window, new object?[] { themeButton, new RoutedEventArgs(Button.ClickEvent, themeButton) });
+
+        Assert.AreEqual("light", AppRuntime.Settings.ThemeMode,
+            "Clicking the theme button again must restore the light theme.");
+        Assert.AreEqual(Color.FromRgb(244, 247, 252), (Color)Application.Current.Resources["Layal.Color.Background"],
+            "Switching back must restore the light resource palette.");
+        Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,
+            "Switching back must persist light mode in settings.json.");
+        AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);
     }
 
     private static void AssertThemeContrastAndControlSurfaces(
