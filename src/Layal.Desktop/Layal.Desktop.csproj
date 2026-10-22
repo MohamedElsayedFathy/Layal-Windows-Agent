@@ -5,6 +5,8 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- WPF process DPI awareness is intentionally declared in the manifest. WinForms is only used for tray integration, so suppress its WinForms-only manifest analyzer diagnostic in this mixed WPF host. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
