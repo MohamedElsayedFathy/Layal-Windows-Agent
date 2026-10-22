@@ -85,6 +85,7 @@ public partial class FloatingMascotWindow : Window
     private bool _pointerDown;
     private bool _dragStarted;
     private Point _pointerDownPosition;
+    private Point _lastDragScreenPosition;
     private DateTimeOffset _lastInteractionAt = DateTimeOffset.UtcNow;
     private string _lastTapMood = string.Empty;
     private string _lastReactionEmoji = string.Empty;
@@ -1997,6 +1998,7 @@ public partial class FloatingMascotWindow : Window
         // A single tap is a personality interaction; dragging is detected only after
         // the pointer crosses the normal Windows drag threshold.
         _pointerDownPosition = e.GetPosition(this);
+        _lastDragScreenPosition = PointToScreen(_pointerDownPosition);
         _pointerDown = true;
         _dragStarted = false;
         CaptureMouse();
@@ -2012,6 +2014,8 @@ public partial class FloatingMascotWindow : Window
 
         if (!_dragStarted)
             ReactToTap();
+        else
+            SaveMascotPosition();
 
         _dragStarted = false;
         e.Handled = true;
@@ -2089,33 +2093,35 @@ public partial class FloatingMascotWindow : Window
     {
         if (!IsVisible) return;
 
-        if (_pointerDown && e.LeftButton == MouseButtonState.Pressed && !_dragStarted)
+        if (_pointerDown && e.LeftButton == MouseButtonState.Pressed)
         {
             var currentPoint = e.GetPosition(this);
-            var dx = Math.Abs(currentPoint.X - _pointerDownPosition.X);
-            var dy = Math.Abs(currentPoint.Y - _pointerDownPosition.Y);
-            if (dx >= SystemParameters.MinimumHorizontalDragDistance ||
-                dy >= SystemParameters.MinimumVerticalDragDistance)
+            if (!_dragStarted)
             {
-                _pointerDown = false;
-                _dragStarted = true;
-                try
-                {
-                    // Keep the active left-button gesture intact until WPF's native
-                    // window-move loop starts. Releasing capture first can turn DragMove
-                    // into a no-op on some Windows input paths.
-                    DragMove();
-                }
-                catch (InvalidOperationException)
-                {
-                    // The app remains usable if Windows rejects a drag after focus changes.
-                }
-                finally
-                {
-                    if (IsMouseCaptured) ReleaseMouseCapture();
-                    SaveMascotPosition();
-                    _dragStarted = false;
-                }
+                var dx = Math.Abs(currentPoint.X - _pointerDownPosition.X);
+                var dy = Math.Abs(currentPoint.Y - _pointerDownPosition.Y);
+                _dragStarted =
+                    dx >= SystemParameters.MinimumHorizontalDragDistance ||
+                    dy >= SystemParameters.MinimumVerticalDragDistance;
+            }
+
+            if (_dragStarted)
+            {
+                // Move the borderless layered window directly while retaining WPF's mouse
+                // capture. DragMove() starts a separate native move loop, which proved
+                // unreliable when the transparent overlay and native injected input are
+                // involved. PointToScreen keeps the delta in screen pixels even as the
+                // window itself moves; TransformFromDevice converts it back to DIPs.
+                var currentScreenPoint = PointToScreen(currentPoint);
+                var delta = currentScreenPoint - _lastDragScreenPosition;
+                if (PresentationSource.FromVisual(this)?.CompositionTarget is { } target)
+                    delta = target.TransformFromDevice.Transform(delta);
+
+                var nextPosition = ClampToVirtualScreen(Left + delta.X, Top + delta.Y);
+                Left = nextPosition.Left;
+                Top = nextPosition.Top;
+                _lastDragScreenPosition = currentScreenPoint;
+                e.Handled = true;
                 return;
             }
         }
