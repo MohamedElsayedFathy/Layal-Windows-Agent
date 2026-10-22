@@ -14,8 +14,8 @@ public sealed class SettingsStoreTests
         var settings = new SettingsStore(temp.Path).Load();
 
         Assert.AreEqual("ar", settings.Language);
-        Assert.AreEqual("http://127.0.0.1:31415/v1", settings.ProviderBaseUrl);
-        Assert.AreEqual("auto", settings.ModelId);
+        Assert.AreEqual(string.Empty, settings.ProviderBaseUrl);
+        Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.IsTrue(settings.MascotAlwaysOnTop);
         Assert.IsTrue(settings.MascotAnimationsEnabled);
     }
@@ -30,7 +30,7 @@ public sealed class SettingsStoreTests
         var settings = new SettingsStore(temp.Path).Load();
 
         Assert.AreEqual("ar", settings.Language);
-        Assert.AreEqual("http://127.0.0.1:31415/v1", settings.ProviderBaseUrl);
+        Assert.AreEqual(string.Empty, settings.ProviderBaseUrl);
         Assert.AreEqual("auto", settings.ModelId);
         Assert.AreEqual(1.8, settings.MascotScale, 0.0001);
         Assert.AreEqual(0.35, settings.MascotOpacity, 0.0001);
