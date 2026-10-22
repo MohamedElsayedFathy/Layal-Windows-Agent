@@ -140,7 +140,7 @@
             <Canvas x:Name="TaskPropsLayer" Width="248" Height="175"
                     IsHitTestVisible="False" ClipToBounds="False" Visibility="Collapsed">
                 <!-- A floating task sheet with animated writing lines. -->
-                <Canvas x:Name="PaperProp" Width="33" Height="45" Canvas.Left="7" Canvas.Top="72"
+                <Canvas x:Name="PaperProp" Width="33" Height="45" Canvas.Left="7" Canvas.Top="94"
                         Opacity="0" RenderTransformOrigin="0.5,0.5">
                     <Border Width="31" Height="42" CornerRadius="4"
                             Background="#F7FFFFFF" BorderBrush="#9ADDE8" BorderThickness="1"
@@ -167,7 +167,7 @@
                 </Canvas>
 
                 <!-- A tiny pearl-and-lilac pencil, angled as though making notes. -->
-                <Canvas x:Name="PencilProp" Width="9" Height="40" Canvas.Left="35" Canvas.Top="69"
+                <Canvas x:Name="PencilProp" Width="9" Height="40" Canvas.Left="35" Canvas.Top="89"
                         Opacity="0" RenderTransformOrigin="0.5,0.5">
                     <Border Width="6" Height="29" Canvas.Left="1.5" Canvas.Top="1"
                             CornerRadius="2" Background="#DCD7FF" BorderBrush="#9587E8" BorderThickness="0.8"/>
@@ -178,7 +178,7 @@
                 </Canvas>
 
                 <!-- A hovering translucent holo-computer with a tiny live-looking display. -->
-                <Canvas x:Name="HoloComputerProp" Width="48" Height="43" Canvas.Left="194" Canvas.Top="76"
+                <Canvas x:Name="HoloComputerProp" Width="48" Height="43" Canvas.Left="194" Canvas.Top="95"
                         Opacity="0" RenderTransformOrigin="0.5,0.5">
                     <Border Width="46" Height="30" CornerRadius="6"
                             BorderBrush="#9CE9F0" BorderThickness="1.2"
