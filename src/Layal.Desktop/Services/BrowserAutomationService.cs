@@ -329,7 +329,9 @@ public sealed class BrowserAutomationService
                 x.GetProperty("webSocketDebuggerUrl").GetString() ?? string.Empty))
             .ToList();
 
-        var page = pages.LastOrDefault(x => !x.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase));
+        var page = pages.LastOrDefault(x =>
+            !x.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase) &&
+            IsTrustedBrowserWebSocketUrl(x.WebSocketUrl));
         return page ?? throw new InvalidOperationException("The Layal-controlled browser has no page target. Ask Layal to navigate to an HTTP/HTTPS URL first.");
     }
 
@@ -414,6 +416,20 @@ public sealed class BrowserAutomationService
         {
             throw new TimeoutException($"Browser DevTools request '{method}' timed out after {CdpRequestTimeout.TotalSeconds:0} seconds.");
         }
+    }
+
+    private bool IsTrustedBrowserWebSocketUrl(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals("ws", StringComparison.OrdinalIgnoreCase) ||
+            uri.Port != _debugPort ||
+            !string.IsNullOrEmpty(uri.UserInfo))
+            return false;
+
+        var loopbackHost = uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+            uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            uri.Host.Equals("::1", StringComparison.OrdinalIgnoreCase);
+        return loopbackHost && uri.AbsolutePath.StartsWith("/devtools/page/", StringComparison.Ordinal);
     }
 
     private string DebugEndpoint(string route) => $"http://127.0.0.1:{_debugPort}/{route}";
