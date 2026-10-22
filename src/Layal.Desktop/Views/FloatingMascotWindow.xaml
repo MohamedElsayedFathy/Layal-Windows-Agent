@@ -70,11 +70,11 @@
                 </Border.Effect>
                 <Grid>
                     <Border Margin="9" CornerRadius="25" BorderThickness="1.4" BorderBrush="#AFC7EB"
-                            Background="{StaticResource Layal.MascotFaceGradient}">
+                            Background="Transparent">
                         <Grid>
                             <Border Height="18" Margin="7,4,7,0" VerticalAlignment="Top" CornerRadius="18"
                                     Background="#16FFFFFF" IsHitTestVisible="False" />
-                            <Canvas x:Name="FaceCanvas" ClipToBounds="True">
+                            <Canvas x:Name="FaceCanvas" ClipToBounds="True" Opacity="0">
                                 <!-- Brows -->
                                 <Path x:Name="LeftBrow" Data="M 26,18 Q 34,14 42,18" Stroke="#B7CCF7"
                                       StrokeThickness="2.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
@@ -229,6 +229,10 @@
                     <Ellipse Width="4" Height="4" Fill="#9AEAF2" Canvas.Left="40" Canvas.Top="39" Opacity="0.9"/>
                 </Canvas>
             </Canvas>
+
+            <!-- Procedural cinematic particles: hearts, flowers, glints and task-stage glyphs. -->
+            <Canvas x:Name="CinematicEffectsLayer" Width="248" Height="175"
+                    IsHitTestVisible="False" ClipToBounds="False" Visibility="Collapsed" />
 
             <!-- Short-lived, animated reaction bubble; it never intercepts pointer input. -->
             <Canvas x:Name="ReactionLayer" IsHitTestVisible="False" ClipToBounds="False">
