@@ -104,6 +104,8 @@ public sealed class MainWindowVisualSmokeTests
 
         var historySelector = window.FindName("ChatHistorySelector") as ComboBox
             ?? throw new InvalidOperationException("ChatHistorySelector was not found.");
+        var recentTasksGroup = window.FindName("RecentTasksGroup") as GroupBox
+            ?? throw new InvalidOperationException("RecentTasksGroup was not found.");
         var languageButton = window.FindName("LanguageButton") as Button
             ?? throw new InvalidOperationException("LanguageButton was not found.");
         var titleText = window.FindName("TitleText") as TextBlock
@@ -212,6 +214,18 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+
+                if (tabNames[index] == "tasks")
+                {
+                    var expectedBorder = Application.Current.TryFindResource("Layal.Border") as SolidColorBrush
+                        ?? throw new InvalidOperationException("Layal.Border was not resolved.");
+                    var actualBorder = recentTasksGroup.BorderBrush as SolidColorBrush
+                        ?? throw new InvalidOperationException("Task GroupBox border is not a theme brush.");
+                    Assert.AreEqual(expectedBorder.Color, actualBorder.Color,
+                        $"Task GroupBox border does not follow the active theme ({theme}/{language}).");
+                    Assert.IsNull(recentTasksGroup.FocusVisualStyle,
+                        "Task GroupBox must not add a system focus outline over the themed border.");
+                }
 
                 foreach (var scale in new[] { 1.0, 1.25, 1.5, 1.75 })
                 {
