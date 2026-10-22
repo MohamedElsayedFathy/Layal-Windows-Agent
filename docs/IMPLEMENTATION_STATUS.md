@@ -1,4 +1,4 @@
-# Layal 0.5.2 — implementation status register
+# Layal development preview — implementation status register
 
 This matrix describes source-code presence and authored test coverage only; test pass status requires Windows CI evidence. Because the .NET SDK was unavailable in the authoring environment, Windows compilation/runtime behavior has not been verified. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds a C# automated test project and Windows CI test execution. Treat the source as statically reviewed, not runtime-proven, until Windows CI passes.
 
@@ -8,7 +8,7 @@ This matrix describes source-code presence and authored test coverage only; test
 | Tray actions, branded icon, live language switching, show/hide and exit | Implemented in source, unverified on Windows | `Services/TrayService.cs`, `App.xaml.cs` | Needs Windows test |
 | Arabic/English UI foundation | Implemented, partially localized | `Views/MainWindow.xaml.cs` | Manual RTL/LTR and translation checks needed |
 | DPAPI provider key | Implemented in source | `Services/DpapiSecretStore.cs` | Windows DPAPI test needed |
-| OpenAI-compatible model probe/chat | Implemented in source | `Services/OpenAiCompatibleClient.cs` | Requires real configured endpoint/key |
+| OpenAI-compatible model probe/chat | Implemented in source; no hardcoded FreeLLM default on new install | `Services/OpenAiCompatibleClient.cs`, `Models/UserSettings.cs` | Requires user-configured compatible endpoint/key |\n| External application REST/JSON APIs | Implemented in source: named connections, None/Bearer/custom-header auth, encrypted profile store, request test, `call_app_api` with explicit per-request consent and response-size limits; runtime acceptance pending | `Services/ApiConnectionService.cs`, `Models/ApiConnectionProfile.cs`, API integrations tab, `AgentToolExecutor.cs` | Windows CI and manual API test required; interactive OAuth and non-HTTP protocols are not supported by this generic connector |
 | Tool calling client | Implemented in source | `OpenAiCompatibleClient.cs` | Model/provider tool-call compatibility unverified |
 | Bounded multi-step agent loop with warning state for tool failure/declined actions | Implemented in source | `Services/AgentOrchestrator.cs`, `Views/MainWindow.xaml.cs` | Integration tests needed |
 | Current time/system/workspace tools | Implemented in source | `Services/AgentToolExecutor.cs` | Requires runtime tests |
@@ -30,7 +30,7 @@ This matrix describes source-code presence and authored test coverage only; test
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |
 | Installer/updater/signing | Not implemented | Publish script only | Future milestone |
-| Automated C# test project | Added in 0.5.2, tests not run in authoring environment | `tests/Layal.Tests/` | Must pass Windows CI; actual WPF/voice/camera acceptance remains separate |
+| Automated C# test project | Includes REST API connection tests; latest CI result must be reviewed | `tests/Layal.Tests/` | Must pass Windows CI; actual WPF/voice/camera/API-app acceptance remains separate |
 
 ## Design/reliability changes carried forward from 0.4.0
 
