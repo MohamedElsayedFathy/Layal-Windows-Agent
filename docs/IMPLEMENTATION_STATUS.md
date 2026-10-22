@@ -54,11 +54,11 @@ The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a 
 
 
 ## Visual personality follow-up — reactive task props
-- The current floating character remains a WPF vector illustration; it is not a rigged 3D model.
-- The new visual-personality branch adds floating WPF task props (paper, pencil, holographic computer) tied to work-related moods, with gentle idle motion.
+- This branch adds a procedural native WPF 3D pearlescent shell (Viewport3D/MeshGeometry3D with lighting/specular materials) behind the expressive 2D face overlay; the avatar is not yet a full rigged 3D character.
+- The visual-personality branch adds floating WPF task props (paper, pencil, holographic computer) tied to work-related moods, with gentle idle motion.
 - The branch adds eight moods whose facial features are changed on Layal's face and whose reaction emoji pools are selected separately.
 - Reduced-motion behavior keeps the work state visible while freezing the decorative prop animation.
-- **Verification status:** awaiting this branch's Windows CI and manual Windows visual acceptance; do not treat the props as true 3D or as proof of the full redesign.
+- **Verification status:** awaiting fresh Windows CI for the current branch head and manual Windows visual acceptance; the task props are 2D WPF elements. The shell is genuine WPF 3D geometry, but the face remains a 2D overlay and the full rigged 3D character/full app redesign are incomplete.
 
 ## Version 0.5.2 — automated regression test foundation
 
