@@ -3,16 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         Title="Layal | ليال" Icon="pack://application:,,,/Assets/layal-tray.ico" Width="1320" Height="860" MinWidth="1060" MinHeight="700"
-        Background="{StaticResource Layal.Background}" Foreground="{StaticResource Layal.Text}" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Layal.Background}" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
         Closing="Window_Closing">
     <Grid Margin="20">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-        <Border Grid.Row="0" Background="{StaticResource Layal.HeaderGradient}" CornerRadius="18" Padding="18" Margin="0,0,0,14" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+        <Border Grid.Row="0" Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="18" Padding="18" Margin="0,0,0,14" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="46" Height="46" CornerRadius="15" Background="{StaticResource Layal.PrimaryButtonGradient}" Margin="0,0,13,0" BorderBrush="{DynamicResource Layal.BrandBorder}" BorderThickness="1">
+                    <Border Width="46" Height="46" CornerRadius="15" Background="{DynamicResource Layal.PrimaryButtonGradient}" Margin="0,0,13,0" BorderBrush="{DynamicResource Layal.BrandBorder}" BorderThickness="1">
                         <Grid>
                             <TextBlock Text="L" FontSize="27" FontWeight="Bold" Foreground="{DynamicResource Layal.Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <Ellipse Width="7" Height="7" Fill="{DynamicResource Layal.DecorativeAmber}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"/>
@@ -20,12 +20,12 @@
                     </Border>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock x:Name="TitleText" Text="Layal | ليال" FontSize="24" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="SubtitleText" Text="وكيل ذكاء اصطناعي مستقل لسطح المكتب" Foreground="{StaticResource Layal.Muted}" FontSize="12" Margin="0,2,0,0"/>
+                        <TextBlock x:Name="SubtitleText" Text="وكيل ذكاء اصطناعي مستقل لسطح المكتب" Foreground="{DynamicResource Layal.Muted}" FontSize="12" Margin="0,2,0,0"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border CornerRadius="11" Background="{DynamicResource Layal.Panel}" Padding="12,8" Margin="4" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
-                        <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{StaticResource Layal.Warning}" FontSize="12" FontWeight="SemiBold"/>
+                    <Border CornerRadius="11" Background="{DynamicResource Layal.Panel}" Padding="12,8" Margin="4" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
+                        <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}" FontSize="12" FontWeight="SemiBold"/>
                     </Border>
                     <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="82"/>
                     <Button x:Name="ThemeButton" Content="الوضع الداكن" Click="ThemeButton_Click" MinWidth="96"/>
@@ -41,25 +41,25 @@
                         <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <TextBlock x:Name="HomeDescription" Text="هذه النسخة هي الأساس الأصلي لتطبيق Windows. ابدأ بربط نموذج حقيقي من الإعدادات." Foreground="{DynamicResource Layal.Muted}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,20"/>
                         <UniformGrid Columns="2" Rows="2" Margin="0,0,0,12">
-                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                                 <StackPanel><TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardAiValue" Text="غير متصل" Foreground="{DynamicResource Layal.Warning}" Margin="0,8,0,0"/><TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
-                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                                 <StackPanel><TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardMascotValue" Text="نافذة Windows أصلية" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardMascotHint" Text="اسحب ليال في سطح المكتب، وانقر مرتين لفتح الواجهة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
-                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                                 <StackPanel><TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardToolsValue" Text="أداة آمنة متاحة" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
-                            <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                                 <StackPanel><TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardSkillsValue" Text="استيراد ZIP مع التحقق" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
                         </UniformGrid>
                         <WrapPanel Margin="0,4,0,10">
-                            <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/>
+                            <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
                             <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"/>
                             <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"/>
                         </WrapPanel>
-                        <Border Background="{StaticResource Layal.HeaderGradient}" CornerRadius="14" Padding="16" Margin="4,8,4,0" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                        <Border Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="14" Padding="16" Margin="4,8,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                             <TextBlock x:Name="HomeCaveat" Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"/>
                         </Border>
                         <TextBlock x:Name="HomeResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="6,12,6,0"/>
@@ -90,7 +90,7 @@
                     <ListBox x:Name="ChatMessagesList" Grid.Row="1" ItemsSource="{Binding ChatMessages}" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="8" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="12" Padding="12" Margin="3" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
+                                <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="12" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
                                     <Border.ContextMenu>
                                         <ContextMenu>
                                             <MenuItem Header="نسخ الرسالة / Copy message" Click="CopyChatMessage_Click"/>
@@ -125,7 +125,7 @@
                     <StackPanel Grid.Row="2" Margin="0,0,0,10">
                         <TextBox x:Name="TaskInput" MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="اكتب المهمة بالعربية أو الإنجليزية"/>
                         <WrapPanel Margin="0,8,0,0">
-                            <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/>
+                            <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
                             <Button x:Name="CancelAgentTaskButton" Content="إيقاف المهمة" Click="CancelAgentTaskButton_Click" IsEnabled="False" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
                             <Button x:Name="TaskOpenNotepadButton" Content="فتح المفكرة (اختبار)" Click="OpenNotepadButton_Click"/>
                         </WrapPanel>
@@ -144,7 +144,7 @@
                         </GroupBox>
                         <GroupBox Grid.Column="1" x:Name="RecentTasksGroup" Header="المهام السابقة" Foreground="{DynamicResource Layal.Text}" BorderBrush="{DynamicResource Layal.Border}" Background="{DynamicResource Layal.Panel}" Padding="8" Margin="6,0,0,0">
                             <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" SelectionChanged="RecentTasksList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="4">
-                                <ListBox.ItemTemplate><DataTemplate><Border Background="{StaticResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding Status}" Foreground="{DynamicResource Layal.Cyan}" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:g}}" Foreground="{DynamicResource Layal.Muted}" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                                <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding Status}" Foreground="{DynamicResource Layal.Cyan}" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:g}}" Foreground="{DynamicResource Layal.Muted}" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                             </ListBox>
                         </GroupBox>
                     </Grid>
@@ -167,7 +167,7 @@
                     <TextBlock x:Name="SkillsHeading" Text="مدير المهارات" FontSize="22" FontWeight="SemiBold"/>
                     <TextBlock x:Name="SkillsDescription" Grid.Row="1" Text="استورد ZIP أو رابط GitHub لمجلد مهارة. حدد حتى 3 مهارات لاستخدام نصوصها كمراجع فقط؛ السكربتات لا تُشغّل." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,7,0,12"/>
                     <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
-                        <ListBox.ItemTemplate><DataTemplate><Border Background="{StaticResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}"/><TextBlock Text="{Binding Description}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                        <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}"/><TextBlock Text="{Binding Description}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
                     <StackPanel Grid.Row="3" Margin="0,10,0,0">
                         <WrapPanel><Button x:Name="ImportSkillButton" Content="استيراد ZIP" Click="ImportSkillButton_Click"/><Button x:Name="RefreshSkillsButton" Content="تحديث القائمة" Click="RefreshSkillsButton_Click"/></WrapPanel>
@@ -183,7 +183,7 @@
             <TabItem x:Name="CamerasTab" Header="الكاميرات">
                 <StackPanel Margin="20">
                     <TextBlock x:Name="CamerasHeading" Text="الكاميرات والرؤية الحاسوبية" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <Border Background="{DynamicResource Layal.Panel}" CornerRadius="14" Padding="16" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+                    <Border Background="{DynamicResource Layal.Panel}" CornerRadius="14" Padding="16" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                         <StackPanel>
                             <TextBlock x:Name="CameraStatus" Text="غير متصل — التكامل الحقيقي غير منفذ في إصدار الأساس" Foreground="{DynamicResource Layal.Warning}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
                             <TextBlock x:Name="CameraDescription" Text="سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
@@ -242,7 +242,7 @@
                                      Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="5" MinHeight="220">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
+                                        <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/>
                                                 <TextBlock Text="{Binding BaseUrl}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
@@ -280,7 +280,7 @@
                                          ToolTip="اكتب المسارات وطريقة الاستخدام التي تريد أن تعرفها ليال."/>
                                 <WrapPanel Margin="0,10,0,0">
                                     <Button x:Name="SaveApiConnectionButton" Content="حفظ الاتصال" Click="SaveApiConnectionButton_Click"/>
-                                    <Button x:Name="TestApiConnectionButton" Content="اختبار API" Click="TestApiConnectionButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/>
+                                    <Button x:Name="TestApiConnectionButton" Content="اختبار API" Click="TestApiConnectionButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
                                     <Button x:Name="DeleteApiConnectionButton" Content="حذف الاتصال المحدد" Click="DeleteApiConnectionButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
                                 </WrapPanel>
                             </StackPanel>
@@ -305,7 +305,7 @@
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight"/>
                         <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4"/>
-                        <WrapPanel><Button x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"/><Button x:Name="TestProviderButton" Content="اختبار الاتصال" Click="TestProviderButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/><Button x:Name="DeleteKeyButton" Content="حذف المفتاح المحفوظ" Click="DeleteKeyButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/></WrapPanel>
+                        <WrapPanel><Button x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"/><Button x:Name="TestProviderButton" Content="اختبار الاتصال" Click="TestProviderButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/><Button x:Name="DeleteKeyButton" Content="حذف المفتاح المحفوظ" Click="DeleteKeyButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/></WrapPanel>
                         <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
