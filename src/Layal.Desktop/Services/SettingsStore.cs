@@ -21,8 +21,8 @@ public sealed class SettingsStore
             if (!File.Exists(_settingsPath)) return new UserSettings();
             var settings = JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(_settingsPath), Options) ?? new UserSettings();
             if (settings.Language is not ("ar" or "en")) settings.Language = "ar";
-            if (string.IsNullOrWhiteSpace(settings.ProviderBaseUrl)) settings.ProviderBaseUrl = "http://127.0.0.1:31415/v1";
-            if (string.IsNullOrWhiteSpace(settings.ModelId)) settings.ModelId = "auto";
+            settings.ProviderBaseUrl ??= string.Empty;
+            settings.ModelId ??= string.Empty;
             settings.MascotScale = Math.Clamp(settings.MascotScale, 0.65, 1.8);
             settings.MascotOpacity = Math.Clamp(settings.MascotOpacity, 0.35, 1.0);
             return settings;
