@@ -173,7 +173,7 @@ public sealed class ApiConnectionService
         using (response)
         {
             var (responseBody, truncated) = await ReadLimitedBodyAsync(response.Content, timeout.Token);
-            var note = response.StatusCode is >= HttpStatusCode.MultipleChoices and < HttpStatusCode.BadRequest
+            var note = (int)response.StatusCode >= 300 && (int)response.StatusCode < 400
                 ? " Redirects are not followed automatically; verify the endpoint URL."
                 : string.Empty;
             return new ApiConnectionCallResult(
@@ -239,7 +239,7 @@ public sealed class ApiConnectionService
         if (string.IsNullOrWhiteSpace(path)) path = string.Empty;
         if (path.Length > 2048 || path.Contains('?') || path.Contains('#') || path.Contains('\\') ||
             path.Any(char.IsControl) || path.StartsWith("//", StringComparison.Ordinal) ||
-            Uri.TryCreate(path, UriKind.Absolute, out _))
+            path.Contains("://", StringComparison.Ordinal))
             throw new InvalidOperationException("API path must be a relative path of at most 2048 characters, without query strings, fragments, or absolute URLs.");
 
         var relative = path.Trim().TrimStart('/');
@@ -321,7 +321,7 @@ public sealed class ApiConnectionService
             BaseUrl = baseUrl,
             AuthenticationType = authType,
             AuthHeaderName = authType == "CustomHeader" ? headerName : "X-API-Key",
-            AuthSecret = secret,
+            AuthSecret = authType == "None" ? string.Empty : secret,
             Instructions = (profile.Instructions ?? string.Empty).Trim(),
             TestPath = testPath
         };
