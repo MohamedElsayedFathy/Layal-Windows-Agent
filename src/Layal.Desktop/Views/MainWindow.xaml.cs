@@ -1129,22 +1129,36 @@ public partial class MainWindow : Window
             var mood = toolName switch
             {
                 "list_workspace_files" or "get_current_time" or "get_system_info" or
-                    "get_workspace_info" or "get_open_window_titles" or "open_url" => "researching",
+                    "get_workspace_info" or "get_open_window_titles" => "researching",
                 "read_text_file" or "search_memory" => "reading",
                 "create_text_file" or "replace_text_in_file" or "save_memory" => "writing",
                 "run_dotnet_build" or "run_dotnet_test" => "coding",
-                "activate_window" or "open_notepad" => "using_tool",
+                "activate_window" or "open_notepad" or "open_url" => "using_tool",
                 _ => "using_tool"
             };
             mascot?.SetMood(mood);
         }
         else if (text.Contains("Tool result recorded:", StringComparison.OrdinalIgnoreCase))
         {
-            var lower = text.ToLowerInvariant();
-            mascot?.SetMood(lower.Contains("run_dotnet_build", StringComparison.Ordinal) ||
-                            lower.Contains("run_dotnet_test", StringComparison.Ordinal)
-                ? "validating"
-                : "responding", showReaction: false);
+            // Preserve a meaningful failure/decline reaction after the orchestrator records its
+            // tool-result envelope; do not immediately replace it with a generic response face.
+            var recentEvents = TaskEvents.TakeLast(3).ToArray();
+            if (recentEvents.Any(line => line.Contains("Tool failed", StringComparison.OrdinalIgnoreCase)))
+            {
+                mascot?.SetMood("error");
+            }
+            else if (recentEvents.Any(line => line.Contains("declined", StringComparison.OrdinalIgnoreCase)))
+            {
+                mascot?.SetMood("warning");
+            }
+            else
+            {
+                var lower = text.ToLowerInvariant();
+                mascot?.SetMood(lower.Contains("run_dotnet_build", StringComparison.Ordinal) ||
+                                lower.Contains("run_dotnet_test", StringComparison.Ordinal)
+                    ? "validating"
+                    : "responding", showReaction: false);
+            }
         }
         else if (text.Contains("Tool failed", StringComparison.OrdinalIgnoreCase) || text.Contains("Task failed", StringComparison.OrdinalIgnoreCase))
         {
