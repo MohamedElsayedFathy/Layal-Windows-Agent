@@ -70,6 +70,8 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.MainWindow = window;
         window.Show();
         window.UpdateLayout();
+        var windowContent = window.Content as FrameworkElement
+            ?? throw new InvalidOperationException("MainWindow content root was not found.");
 
         var tabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
@@ -105,8 +107,8 @@ public sealed class MainWindowVisualSmokeTests
                 {
                     var suffix = (int)Math.Round(scale * 100);
                     var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}-dpi{suffix}.png");
-                    SaveSnapshot(window, path, scale);
-                    lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | dips={window.ActualWidth:0}x{window.ActualHeight:0}");
+                    SaveSnapshot(windowContent, path, scale);
+                    lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}");
                 }
             }
         }
