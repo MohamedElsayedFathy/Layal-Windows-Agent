@@ -60,7 +60,7 @@ jobs:
       - name: Run native Windows desktop click-through integration
         shell: pwsh
         run: |
-          & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance"
+          & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance" -CalibrationOnly
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run automated tests

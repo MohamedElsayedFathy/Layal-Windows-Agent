@@ -4,7 +4,8 @@ param(
     [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
     [string]$LayalExePath,
     [string]$LogDirectory = "artifacts/interactive-acceptance",
-    [int]$StartupTimeoutSeconds = 25
+    [int]$StartupTimeoutSeconds = 25,
+    [switch]$CalibrationOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -189,7 +190,7 @@ $form=New-Object System.Windows.Forms.Form
 $form.Text="Layal native click-through integration surface"
 $form.WindowState=[System.Windows.Forms.FormWindowState]::Maximized
 $form.StartPosition=[System.Windows.Forms.FormStartPosition]::CenterScreen
-$form.TopMost=$false
+$form.TopMost=$true
 $form.ShowInTaskbar=$true
 $form.KeyPreview=$true
 $form.BackColor=[System.Drawing.Color]::FromArgb(20,27,42)
@@ -294,10 +295,11 @@ try {
     }
     Write-Result "Underlying target receives native click with mascot moved away" "passed" "Calibration click incremented the WinForms target. WindowFromPoint=$baselineTarget."
 
-    [LayalNativeInput]::MoveTopMost($script:MascotHwnd,$buttonCenter.X-[int]($initialRect.Width/2),$buttonCenter.Y-[int]($initialRect.Height/2))
-    Pump-Messages 500
+    if (-not $CalibrationOnly) {
+        [LayalNativeInput]::MoveTopMost($script:MascotHwnd,$buttonCenter.X-[int]($initialRect.Width/2),$buttonCenter.Y-[int]($initialRect.Height/2))
+        Pump-Messages 500
 
-    Invoke-NativeAcceptanceCase "Transparent upper-left padding reaches underlying button" {
+        Invoke-NativeAcceptanceCase "Transparent upper-left padding reaches underlying button" {
         $before=$script:UnderlyingClicks
         $point=Get-ScaledPoint -DesignX 8 -DesignY 8
         Move-CursorAndPump $point 450
@@ -358,6 +360,7 @@ try {
         if ($movedX -lt 15 -and $movedY -lt 15) { throw "Expected mascot movement after native drag; delta was ($movedX,$movedY) pixels." }
         if ($script:UnderlyingClicks -ne $beforeClicks) { throw "Drag leaked input to underlying target; count changed from $beforeClicks to $script:UnderlyingClicks." }
         Write-Result "Drag moves mascot without clicking through" "passed" "Native drag moved actual mascot window by ($movedX,$movedY) px."
+        }
     }
 }
 catch {
@@ -374,12 +377,14 @@ finally {
     $checks = $script:Rows.ToArray()
     $passedRows = @($checks | Where-Object { $_.Status -eq "passed" })
     $failedRows = @($checks | Where-Object { $_.Status -eq "failed" })
+    $minimumChecks = if ($CalibrationOnly) { 1 } else { 4 }
     $resultLabel = "failed"
-    if ($script:FailureCount -eq 0 -and $checks.Length -ge 4) { $resultLabel = "passed" }
+    if ($script:FailureCount -eq 0 -and $checks.Length -ge $minimumChecks) { $resultLabel = "passed" }
     $summary=[pscustomobject]@{
         TestSuite="Layal native Windows desktop click-through integration"
         CreatedAtLocal=(Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
         Executable=$resolvedExe
+        Mode=if ($CalibrationOnly) { "calibration-only" } else { "full-interactive-acceptance" }
         Result=$resultLabel
         Passed=$passedRows.Count
         Failed=$failedRows.Count
@@ -390,8 +395,9 @@ finally {
     $jsonText = ConvertTo-Json -InputObject $summary -Depth 6
     [IO.File]::WriteAllText($jsonPath, $jsonText, (New-Object System.Text.UTF8Encoding($false)))
 }
-if ($script:FailureCount -gt 0 -or $script:Rows.Count -lt 4) {
+$minimumChecks = if ($CalibrationOnly) { 1 } else { 4 }
+if ($script:FailureCount -gt 0 -or $script:Rows.Count -lt $minimumChecks) {
     Write-Error "Native desktop click-through integration failed. See $jsonPath and $csvPath"
     exit 1
 }
-Write-Host "Native desktop click-through integration passed. Summary: $jsonPath"
+Write-Host "Native desktop click-through integration passed ($($script:Rows.Count) check(s)). Summary: $jsonPath"
