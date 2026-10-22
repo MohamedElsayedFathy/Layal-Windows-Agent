@@ -59,7 +59,15 @@ public partial class FloatingMascotWindow : Window
         public double Phase { get; init; }
         public double Drift { get; init; }
         public double Speed { get; init; }
+        public double DirectionX { get; init; }
+        public double DirectionY { get; init; }
+        public double StartDelaySeconds { get; init; }
+        public double DurationSeconds { get; init; } = 1.2;
+        public double BurstDistance { get; init; } = 18;
     }
+
+    private MascotEffectStyle _cinematicStyle = MascotEffectStyle.GentleFloat;
+    private DateTimeOffset _cinematicStartedAt = DateTimeOffset.UtcNow;
     private double _floatPhase;
     private bool _reactionActive;
     private DateTimeOffset _reactionStartedAt;
@@ -485,46 +493,84 @@ public partial class FloatingMascotWindow : Window
     {
         CinematicEffectsLayer.Children.Clear();
         _cinematicParticles.Clear();
+        _cinematicStyle = MascotEffectStyleResolver.Resolve(mood);
+        _cinematicStartedAt = DateTimeOffset.UtcNow;
+
+        // Choose symbols for the actual work phase, rather than changing only the tint.
         string[] symbols = mood switch
         {
+            "planning" => new[] { "◇", "🧭", "✦", "📌", "⌁", "✧", "🗂", "✦" },
+            "researching" or "reading" => new[] { "⌕", "📚", "🔎", "·", "✧", "◇", "🫧", "⌁" },
+            "writing" => new[] { "✎", "📝", "✧", "·", "📄", "✦", "✎", "⋯" },
+            "coding" => new[] { "⌘", "⚙", "▣", "⌁", "✦", "◇", "⟲", "▤" },
+            "using_tool" => new[] { "⚙", "↗", "✦", "⟲", "▣", "⌁", "🔧", "✧" },
+            "validating" => new[] { "✓", "◉", "✧", "🔍", "▤", "◇", "✓", "✦" },
+            "waiting" => new[] { "⋯", "⏳", "·", "🫧", "◌" },
+            "speaking" or "responding" => new[] { "〰", "💬", "✧", "〰", "·", "🫧", "✦" },
             "love" or "shy" or "embarrassed" or "grateful" or "apologetic" =>
-                new[] { "💗", "💕", "🌸", "💖", "✧", "🌷", "🫧", "♥" },
+                new[] { "💗", "💕", "🌸", "💖", "✧", "🌷", "🫧", "♥", "🌸" },
             "success" or "happy" or "excited" or "celebrating" or "proud" =>
-                new[] { "✨", "✦", "🎉", "💫", "✧", "🌟", "✴", "💖" },
-            "planning" or "researching" or "reading" or "thinking" =>
-                new[] { "✧", "◇", "✦", "🫧", "⌁", "◆", "✺", "·" },
-            "coding" or "using_tool" or "validating" or "writing" =>
-                new[] { "⌘", "⚙", "✦", "◇", "⌁", "✧", "▣", "✴" },
-            "warning" or "error" or "frustrated" =>
-                new[] { "!", "◆", "✦", "◇", "·", "⚡", "⌁", "✧" },
-            _ => new[] { "🌸", "✧", "🫧", "✦", "·", "💫", "◇", "✴" }
+                new[] { "✨", "✦", "🎉", "💫", "🌟", "✴", "💖", "🎊", "✓", "✧", "🌟", "💫" },
+            "warning" or "error" or "frustrated" or "interrupted" =>
+                new[] { "!", "◆", "⚡", "◇", "·", "⚠" },
+            _ => _cinematicStyle switch
+            {
+                MascotEffectStyle.AffectionDrift => new[] { "💗", "🌸", "💕", "✧", "🌷", "🫧", "♥", "💖" },
+                MascotEffectStyle.CelebrationBurst => new[] { "✨", "✦", "🎉", "💫", "🌟", "✴", "💖", "🎊", "✓", "✧", "🌟", "💫" },
+                MascotEffectStyle.AlertPulse => new[] { "!", "◆", "⚡", "◇", "·", "⚠" },
+                MascotEffectStyle.SpeechWave => new[] { "〰", "💬", "✧", "〰", "·", "🫧", "✦" },
+                MascotEffectStyle.WaitingPulse => new[] { "⋯", "⏳", "·", "🫧", "◌" },
+                MascotEffectStyle.TaskOrbit => new[] { "⌘", "⚙", "✦", "◇", "⌁", "✧", "▣", "✴" },
+                _ => new[] { "🌸", "✧", "🫧", "✦" }
+            }
         };
-        var particlePalette = mood switch
+
+        var particlePalette = _cinematicStyle switch
         {
-            "love" or "shy" or "embarrassed" or "grateful" or "apologetic" =>
+            MascotEffectStyle.AffectionDrift =>
                 (Primary: Brushes.LightPink, Secondary: Brushes.HotPink, Accent: Brushes.Plum),
-            "success" or "happy" or "excited" or "celebrating" or "proud" =>
+            MascotEffectStyle.CelebrationBurst =>
                 (Primary: Brushes.Gold, Secondary: Brushes.LightGreen, Accent: Brushes.HotPink),
-            "warning" or "error" or "frustrated" =>
+            MascotEffectStyle.AlertPulse =>
                 (Primary: Brushes.Gold, Secondary: Brushes.OrangeRed, Accent: Brushes.Orange),
-            "planning" or "researching" or "reading" or "thinking" or "coding" or "using_tool" or "validating" or "writing" =>
+            MascotEffectStyle.TaskOrbit or MascotEffectStyle.SpeechWave =>
                 (Primary: Brushes.LightCyan, Secondary: Brushes.Plum, Accent: Brushes.SkyBlue),
+            MascotEffectStyle.WaitingPulse =>
+                (Primary: Brushes.LightCyan, Secondary: Brushes.LightSteelBlue, Accent: Brushes.Plum),
             _ => (Primary: Brushes.LightCyan, Secondary: Brushes.Plum, Accent: Brushes.LightPink)
         };
+
+        // Leave breathing room around the face and task props. Celebration particles travel
+        // outwards from these edge anchors, while other styles use the same anchors as orbits.
         var anchors = new (double X, double Y)[]
         {
-            (16, 48), (39, 78), (216, 38), (230, 75),
-            (13, 117), (43, 133), (205, 115), (231, 132)
+            (10, 44), (22, 76), (12, 111), (37, 143),
+            (65, 42), (183, 40), (218, 49), (235, 83),
+            (232, 119), (207, 146), (178, 151), (67, 146)
         };
-        var count = mood is "sleepy" or "offline" or "privacy" ? 0 : (IsTaskMood(mood) || _taskActive ? 8 : 5);
+
+        var count = _cinematicStyle switch
+        {
+            MascotEffectStyle.Quiet => 0,
+            MascotEffectStyle.CelebrationBurst => 12,
+            MascotEffectStyle.AlertPulse => 6,
+            MascotEffectStyle.AffectionDrift => 9,
+            MascotEffectStyle.TaskOrbit => 8,
+            MascotEffectStyle.SpeechWave => 7,
+            MascotEffectStyle.WaitingPulse => 5,
+            _ => 4
+        };
+
         for (var i = 0; i < count; i++)
         {
-            var anchor = anchors[i];
+            var anchor = anchors[i % anchors.Length];
             var text = new TextBlock
             {
                 Text = symbols[(i + _particleSeed) % symbols.Length],
                 FontFamily = new FontFamily("Segoe UI Emoji"),
-                FontSize = i % 3 == 0 ? 17 : 13 + (i % 2) * 2,
+                FontSize = _cinematicStyle == MascotEffectStyle.CelebrationBurst
+                    ? (i % 3 == 0 ? 19 : 14 + (i % 2) * 2)
+                    : (i % 3 == 0 ? 16 : 12 + (i % 2) * 2),
                 FontWeight = FontWeights.SemiBold,
                 Foreground = (i % 3) switch
                 {
@@ -532,26 +578,45 @@ public partial class FloatingMascotWindow : Window
                     1 => particlePalette.Secondary,
                     _ => particlePalette.Accent
                 },
-                Opacity = 0.7,
+                Opacity = 0,
                 IsHitTestVisible = false,
                 RenderTransformOrigin = new Point(0.5, 0.5)
             };
             Canvas.SetLeft(text, anchor.X);
             Canvas.SetTop(text, anchor.Y);
             CinematicEffectsLayer.Children.Add(text);
+
+            var dx = anchor.X - 124;
+            var dy = anchor.Y - 83;
+            var length = Math.Max(1, Math.Sqrt(dx * dx + dy * dy));
             _cinematicParticles.Add(new CinematicParticle
             {
                 Element = text,
                 BaseX = anchor.X,
                 BaseY = anchor.Y,
                 Phase = i * 0.91 + _particleSeed * 0.23,
-                Drift = 4.5 + (i % 4) * 2.2,
-                Speed = 0.44 + (i % 4) * 0.11
+                Drift = 3.2 + (i % 4) * 1.7,
+                Speed = _cinematicStyle switch
+                {
+                    MascotEffectStyle.TaskOrbit => 1.3 + (i % 4) * 0.13,
+                    MascotEffectStyle.AffectionDrift => 0.68 + (i % 3) * 0.09,
+                    MascotEffectStyle.SpeechWave => 2.1 + (i % 3) * 0.16,
+                    MascotEffectStyle.WaitingPulse => 1.6 + (i % 3) * 0.12,
+                    _ => 1.05 + (i % 3) * 0.1
+                },
+                DirectionX = dx / length,
+                DirectionY = dy / length,
+                StartDelaySeconds = _cinematicStyle == MascotEffectStyle.CelebrationBurst ? i * 0.045 : 0,
+                DurationSeconds = 0.98 + (i % 4) * 0.17,
+                BurstDistance = 18 + (i % 4) * 5
             });
         }
+
         _particleSeed++;
         CinematicEffectsLayer.Visibility =
-            AppRuntime.Settings.MascotAnimationsEnabled && count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            AppRuntime.Settings.MascotAnimationsEnabled && count > 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     private void AnimateCinematicEffects()
@@ -562,25 +627,112 @@ public partial class FloatingMascotWindow : Window
             return;
         }
 
-        // Restore the layer when animation is re-enabled without requiring a mood change.
         CinematicEffectsLayer.Visibility = Visibility.Visible;
+        var elapsed = Math.Max(0, (DateTimeOffset.UtcNow - _cinematicStartedAt).TotalSeconds);
+
+        // Celebration is a short, staggered burst with eased travel and gravity, not a
+        // perpetual loop. The layer is removed when the last particle has faded away.
+        if (_cinematicStyle == MascotEffectStyle.CelebrationBurst)
+        {
+            var anyActive = false;
+            foreach (var particle in _cinematicParticles)
+            {
+                var age = elapsed - particle.StartDelaySeconds;
+                if (age < 0 || age >= particle.DurationSeconds)
+                {
+                    particle.Element.Opacity = 0;
+                    continue;
+                }
+
+                anyActive = true;
+                var progress = age / particle.DurationSeconds;
+                var eased = 1 - Math.Pow(1 - progress, 3);
+                var travel = particle.BurstDistance * eased;
+                var wobble = Math.Sin(progress * Math.PI * 3 + particle.Phase) * 2.2;
+                Canvas.SetLeft(particle.Element,
+                    particle.BaseX + particle.DirectionX * travel + wobble);
+                Canvas.SetTop(particle.Element,
+                    particle.BaseY + particle.DirectionY * travel + 7 * progress * progress);
+                particle.Element.Opacity = Math.Pow(1 - progress, 1.25) * 0.92;
+                var scale = 0.62 + Math.Sin(Math.Min(1, progress * 1.7) * Math.PI) * 0.62;
+                var rotation = Math.Sin(particle.Phase + progress * 4.6) * 25 + particle.DirectionX * progress * 75;
+                particle.Element.RenderTransform = new TransformGroup
+                {
+                    Children = { new RotateTransform(rotation), new ScaleTransform(scale, scale) }
+                };
+            }
+
+            if (!anyActive && elapsed > 1.8)
+                CinematicEffectsLayer.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         foreach (var particle in _cinematicParticles)
         {
-            // Each glyph follows a staggered rise/fade cycle; different speeds keep the
-            // burst from looking like a synchronized row of labels.
-            var cycle = (_floatPhase * particle.Speed + particle.Phase) % (Math.PI * 2);
-            if (cycle < 0) cycle += Math.PI * 2;
-            var progress = cycle / (Math.PI * 2);
-            var rise = progress * (IsTaskMood(_mood) || _taskActive ? 28 : 20);
-            var wave = cycle * 1.7;
-            var outward = particle.BaseX < 124 ? -1.0 : 1.0;
-            var burst = _mood is "success" or "happy" or "excited" or "celebrating" ? Math.Sin(progress * Math.PI) * 5.5 : 0;
-            Canvas.SetLeft(particle.Element, particle.BaseX + Math.Sin(wave) * particle.Drift + outward * burst);
-            Canvas.SetTop(particle.Element, particle.BaseY - rise + Math.Cos(wave * 0.68) * 3.5);
-            var fade = Math.Sin(progress * Math.PI);
-            particle.Element.Opacity = 0.12 + fade * 0.68;
-            var scale = 0.60 + fade * 0.45 + Math.Sin(wave * 1.7) * 0.06;
-            var rotation = Math.Sin(wave * 0.75) * (IsTaskMood(_mood) ? 22 : 34);
+            var cycle = elapsed * particle.Speed + particle.Phase;
+            var wave = cycle * 1.22;
+            var fade = 0.5 + 0.5 * Math.Sin(cycle);
+            double left;
+            double top;
+            double opacity;
+            double scale;
+            double rotation;
+
+            switch (_cinematicStyle)
+            {
+                case MascotEffectStyle.AffectionDrift:
+                {
+                    var progress = (cycle % (Math.PI * 2)) / (Math.PI * 2);
+                    left = particle.BaseX + Math.Sin(wave) * particle.Drift * 1.35;
+                    top = particle.BaseY - progress * 18 + Math.Cos(wave * 0.6) * 2.5;
+                    opacity = 0.18 + Math.Sin(progress * Math.PI) * 0.68;
+                    scale = 0.66 + Math.Sin(progress * Math.PI) * 0.42;
+                    rotation = Math.Sin(wave * 0.75) * 22;
+                    break;
+                }
+                case MascotEffectStyle.TaskOrbit:
+                {
+                    var progress = (cycle % (Math.PI * 2)) / (Math.PI * 2);
+                    left = particle.BaseX + Math.Sin(wave) * particle.Drift;
+                    top = particle.BaseY - progress * 10 + Math.Cos(wave * 0.68) * 2;
+                    opacity = 0.20 + Math.Sin(progress * Math.PI) * 0.58;
+                    scale = 0.68 + Math.Sin(progress * Math.PI) * 0.30;
+                    rotation = Math.Sin(wave * 0.75) * 20;
+                    break;
+                }
+                case MascotEffectStyle.SpeechWave:
+                    left = particle.BaseX + Math.Sin(wave) * particle.Drift * 1.8;
+                    top = particle.BaseY - Math.Cos(cycle * 0.72) * 3.2;
+                    opacity = 0.24 + fade * 0.58;
+                    scale = 0.72 + fade * 0.24;
+                    rotation = Math.Sin(wave) * 11;
+                    break;
+                case MascotEffectStyle.WaitingPulse:
+                    left = particle.BaseX + Math.Sin(wave * 0.5) * 2.2;
+                    top = particle.BaseY + Math.Sin(cycle) * 4;
+                    opacity = 0.25 + fade * 0.58;
+                    scale = 0.72 + fade * 0.24;
+                    rotation = Math.Sin(cycle * 0.4) * 8;
+                    break;
+                case MascotEffectStyle.AlertPulse:
+                    left = particle.BaseX + Math.Sin(wave * 2) * 1.6;
+                    top = particle.BaseY + Math.Cos(cycle * 1.2) * 1.8;
+                    opacity = 0.24 + fade * 0.62;
+                    scale = 0.82 + fade * 0.22;
+                    rotation = Math.Sin(cycle * 0.6) * 9;
+                    break;
+                default:
+                    left = particle.BaseX + Math.Sin(wave) * particle.Drift * 0.8;
+                    top = particle.BaseY + Math.Cos(wave * 0.7) * 2.6;
+                    opacity = 0.18 + fade * 0.35;
+                    scale = 0.72 + fade * 0.20;
+                    rotation = Math.Sin(wave * 0.5) * 12;
+                    break;
+            }
+
+            Canvas.SetLeft(particle.Element, left);
+            Canvas.SetTop(particle.Element, top);
+            particle.Element.Opacity = Math.Clamp(opacity, 0, 1);
             particle.Element.RenderTransform = new TransformGroup
             {
                 Children =
