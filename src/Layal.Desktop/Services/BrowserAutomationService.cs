@@ -243,7 +243,8 @@ public sealed class BrowserAutomationService
 
     private async Task<CdpPageTarget> GetPageTargetAsync(CancellationToken token)
     {
-        await EnsureBrowserStartedAsync(token);
+        if (_debugPort <= 0 || _browserProcess is null || _browserProcess.HasExited)
+            throw new InvalidOperationException("No Layal-controlled browser session is active. Use browser_navigate first; Layal will launch a dedicated Edge profile after you approve navigation.");
         using var response = await _http.GetAsync(DebugEndpoint("json/list"), token);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync(token);
