@@ -450,6 +450,18 @@ public partial class FloatingMascotWindow : Window
                 new[] { "!", "◆", "✦", "◇", "·", "⚡", "⌁", "✧" },
             _ => new[] { "🌸", "✧", "🫧", "✦", "·", "💫", "◇", "✴" }
         };
+        var particlePalette = mood switch
+        {
+            "love" or "shy" or "embarrassed" or "grateful" or "apologetic" =>
+                (Primary: Brushes.LightPink, Secondary: Brushes.HotPink, Accent: Brushes.Plum),
+            "success" or "happy" or "excited" or "celebrating" or "proud" =>
+                (Primary: Brushes.Gold, Secondary: Brushes.LightGreen, Accent: Brushes.HotPink),
+            "warning" or "error" or "frustrated" =>
+                (Primary: Brushes.Gold, Secondary: Brushes.OrangeRed, Accent: Brushes.Orange),
+            "planning" or "researching" or "reading" or "thinking" or "coding" or "using_tool" or "validating" or "writing" =>
+                (Primary: Brushes.LightCyan, Secondary: Brushes.Plum, Accent: Brushes.SkyBlue),
+            _ => (Primary: Brushes.LightCyan, Secondary: Brushes.Plum, Accent: Brushes.LightPink)
+        };
         var anchors = new (double X, double Y)[]
         {
             (16, 48), (39, 78), (216, 38), (230, 75),
@@ -465,7 +477,12 @@ public partial class FloatingMascotWindow : Window
                 FontFamily = new FontFamily("Segoe UI Emoji"),
                 FontSize = i % 3 == 0 ? 17 : 13 + (i % 2) * 2,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = i % 3 == 0 ? Brushes.LightCyan : (i % 2 == 0 ? Brushes.Plum : Brushes.LightPink),
+                Foreground = i % 3 switch
+                {
+                    0 => particlePalette.Primary,
+                    1 => particlePalette.Secondary,
+                    _ => particlePalette.Accent
+                },
                 Opacity = 0.7,
                 IsHitTestVisible = false,
                 RenderTransformOrigin = new Point(0.5, 0.5)
@@ -490,12 +507,14 @@ public partial class FloatingMascotWindow : Window
 
     private void AnimateCinematicEffects()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled)
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || _cinematicParticles.Count == 0)
         {
             CinematicEffectsLayer.Visibility = Visibility.Collapsed;
             return;
         }
 
+        // Restore the layer when animation is re-enabled without requiring a mood change.
+        CinematicEffectsLayer.Visibility = Visibility.Visible;
         foreach (var particle in _cinematicParticles)
         {
             // Each glyph follows a staggered rise/fade cycle; different speeds keep the
@@ -664,8 +683,11 @@ public partial class FloatingMascotWindow : Window
         {
             Children =
             {
-                new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(0, 0, 1), bodyRoll)),
-                new TranslateTransform3D(0, Math.Sin(phase * 1.4) * 0.012, 0)
+                // Rotate about the torso/pelvis centre, not the world origin, so the head
+                // and limbs inherit a believable body sway rather than orbiting the scene.
+                new RotateTransform3D(
+                    new AxisAngleRotation3D(new Vector3D(0, 0, 1), bodyRoll), 0, -0.70, 0),
+                new TranslateTransform3D(0, Math.Sin(phase * 1.4) * 0.018, 0)
             }
         };
 
