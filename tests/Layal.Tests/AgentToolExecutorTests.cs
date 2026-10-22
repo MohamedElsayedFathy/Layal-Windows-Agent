@@ -26,6 +26,33 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task NativeTextEntryRequiresWindowInspectionOptInBeforeLookingForAWindow()
+    {
+        var previousSettings = Layal.AppRuntime.Settings;
+        try
+        {
+            Layal.AppRuntime.Settings = new Layal.Models.UserSettings { AllowWindowTitleInspection = false };
+            using var temp = new TestTempDirectory();
+            var executor = CreateExecutor(temp.Path);
+            var approvalCalled = false;
+
+            var result = await executor.ExecuteAsync(
+                "fill_ui_text",
+                "{\"window_title\":\"Nonexistent test window\",\"automation_id\":\"inputText\",\"text\":\"hello\"}",
+                (_, _, _) => { approvalCalled = true; return Task.FromResult(false); },
+                _ => { },
+                CancellationToken.None);
+
+            StringAssert.Contains(result, "disabled in Layal settings");
+            Assert.IsFalse(approvalCalled, "No approval prompt or native window lookup should occur until the opt-in setting is enabled.");
+        }
+        finally
+        {
+            Layal.AppRuntime.Settings = previousSettings;
+        }
+    }
+
+    [TestMethod]
     public void ClickToolRequiresAnExactSupportedSelector()
     {
         Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.NormalizeInvokeControlType("Edit"));
