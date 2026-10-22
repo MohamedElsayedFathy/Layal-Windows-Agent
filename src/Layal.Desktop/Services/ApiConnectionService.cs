@@ -283,8 +283,8 @@ public sealed class ApiConnectionService
         var decoded = relative;
         for (var decodePass = 0; decodePass < 5; decodePass++)
         {
-            if (decoded.Split('/', StringSplitOptions.None).Any(segment => segment is "." or ".."))
-                throw new InvalidOperationException("API paths cannot traverse parent directories.");
+            if (decoded.Contains('\\') || decoded.Split('/', StringSplitOptions.None).Any(segment => segment is "." or ".."))
+                throw new InvalidOperationException("API paths cannot traverse parent directories or contain decoded backslashes.");
 
             string next;
             try { next = Uri.UnescapeDataString(decoded); }
@@ -299,8 +299,8 @@ public sealed class ApiConnectionService
                 throw new InvalidOperationException("API path uses excessive nested percent-encoding.");
         }
 
-        if (decoded.Split('/', StringSplitOptions.None).Any(segment => segment is "." or ".."))
-            throw new InvalidOperationException("API paths cannot traverse parent directories.");
+        if (decoded.Contains('\\') || decoded.Split('/', StringSplitOptions.None).Any(segment => segment is "." or ".."))
+            throw new InvalidOperationException("API paths cannot traverse parent directories or contain decoded backslashes.");
 
         var baseUri = new Uri(baseUrl, UriKind.Absolute);
         var uri = new Uri(baseUri, relative);
