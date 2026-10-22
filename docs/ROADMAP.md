@@ -66,8 +66,8 @@
 - [ ] Microphone permissions, mute, interruption, and privacy indicators.
 
 ## 0.8 — Browser/research
-- [ ] Actual browser automation adapter and page reading.
-- [ ] Source-grounded research, downloads, and approval gates.
+- [x] Initial dedicated Microsoft Edge/CDP adapter: approved navigation, bounded page text/links/buttons/fields, and approved selector click/fill. Manual Windows acceptance remains pending.
+- [ ] Source-grounded research with citations, downloads/uploads, complex tab/frame handling, and provenance logs.
 
 ## 0.9 — Skills and MCP
 - [ ] Dependency/license inspection and provenance reporting.
