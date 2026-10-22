@@ -122,8 +122,9 @@ public sealed class MainWindowVisualSmokeTests
             "Layal Windows WPF visual smoke snapshots",
             $"Window Width/Height DIPs after show: {window.Width:0}x{window.Height:0}",
             $"Actual client content DIPs: {windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}",
-            "RenderTargetBitmap captures use 96 DPI multiplied by renderScale. These do not emulate physical Windows monitor DPI, display changes, or multi-monitor movement.",
-            "Coverage: 7 sections x 2 themes x 2 languages x 4 render scales = 112 main-window PNG snapshots."
+            "RenderTargetBitmap uses 96 DPI multiplied by renderScale; it does not emulate physical monitor DPI or multi-monitor movement.",
+            "Coverage: 112 full-window images (7 sections x 2 themes x 2 languages x 4 render scales), plus 28 compact-window images (7 sections x 2 themes x 2 languages at 900x560 DIPs).",
+            "Compact captures test window resizing only; they do not certify OS display scaling at 100%, 125%, 150%, or 175%."
         };
 
         foreach (var theme in new[] { "light", "dark" })
@@ -171,9 +172,48 @@ public sealed class MainWindowVisualSmokeTests
                     var suffix = (int)Math.Round(scale * 100);
                     var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}-scale{suffix}.png");
                     SaveSnapshot(windowContent, path, scale);
-                    lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}");
+                    lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | windowDips={window.Width:0}x{window.Height:0} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}");
                 }
             }
+
+            // Add a smaller window pass to expose clipped controls and fixed-layout assumptions.
+            var fullContentWidth = windowContent.ActualWidth;
+            var fullContentHeight = windowContent.ActualHeight;
+            window.Width = 900;
+            window.Height = 560;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            windowContent.UpdateLayout();
+
+            Assert.IsTrue(windowContent.ActualWidth < fullContentWidth,
+                $"Window width did not shrink for compact capture ({theme}/{language}).");
+            Assert.IsTrue(windowContent.ActualHeight < fullContentHeight,
+                $"Window height did not shrink for compact capture ({theme}/{language}).");
+
+            for (var index = 0; index < tabNames.Length; index++)
+            {
+                tabs.SelectedIndex = index;
+                tabs.UpdateLayout();
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Keyboard.ClearFocus();
+
+                var selectedTab = tabs.SelectedItem as TabItem
+                    ?? throw new InvalidOperationException($"Selected tab '{tabNames[index]}' is not a TabItem at compact size.");
+                var tabContent = selectedTab.Content as FrameworkElement
+                    ?? throw new InvalidOperationException($"Compact content for tab '{tabNames[index]}' was not found.");
+                Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
+                    $"Compact tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+
+                var compactPath = Path.Combine(outputDirectory, $"app-compact-{theme}-{language}-{tabNames[index]}-scale100.png");
+                SaveSnapshot(windowContent, compactPath, 1.0);
+                lines.Add($"{Path.GetFileName(compactPath)} | tab={tabNames[index]} | theme={theme} | language={language} | windowDips={window.Width:0}x{window.Height:0} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0} | compactResize=true");
+            }
+
+            window.Width = 1320;
+            window.Height = 860;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         }
 
         // Render the actual mascot Visual3D tree under representative task and social states.
