@@ -30,6 +30,7 @@ public partial class FloatingMascotWindow : Window
     private int _speechFrame;
     private bool _blinked;
     private bool _isPointerOver;
+    private bool _taskActive;
     private bool _pointerDown;
     private bool _dragStarted;
     private Point _pointerDownPosition;
@@ -251,6 +252,19 @@ public partial class FloatingMascotWindow : Window
     }
 
     public string CurrentMood => _mood;
+    public bool IsTaskActive => _taskActive;
+
+    public void SetTaskActive(bool active)
+    {
+        _taskActive = active;
+        if (active)
+        {
+            _lastInteractionAt = DateTimeOffset.UtcNow;
+            if (_mood is "idle" or "curious" or "sleepy")
+                SetMood("thinking", showReaction: false);
+        }
+        UpdateTaskProps();
+    }
 
     public void ShowAgain()
     {
@@ -611,11 +625,12 @@ public partial class FloatingMascotWindow : Window
         };
 
         _moodResetTimer.Stop();
-        if (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
+        if (!(_taskActive && IsTaskMood(_mood)) &&
+            (_mood is "success" or "error" or "warning" or "paused" or "interrupted" or
             "happy" or "greeting" or "love" or "laughing" or "wink" or "surprised" or "confused" or
             "sad" or "worried" or "proud" or "shy" or "annoyed" or "bored" or "playful" or "excited" or
             "embarrassed" or "relieved" or "determined" or "confident" or "apologetic" or "frustrated" or
-            "grateful" or "celebrating")
+            "grateful" or "celebrating"))
         {
             _moodResetTimer.Interval = _mood is "success" or "happy" or "greeting" or "love" or "laughing" or "proud"
                 ? TimeSpan.FromMilliseconds(2800)
@@ -705,7 +720,7 @@ public partial class FloatingMascotWindow : Window
 
     private void UpdateTaskProps()
     {
-        if (!IsTaskMood(_mood))
+        if (!_taskActive && !IsTaskMood(_mood))
         {
             TaskPropsLayer.Visibility = Visibility.Collapsed;
             PaperProp.Opacity = PencilProp.Opacity = HoloComputerProp.Opacity = 0;
@@ -919,7 +934,7 @@ public partial class FloatingMascotWindow : Window
 
         // Work/approval states take priority over a cosmetic tap; respond with a reaction
         // bubble but keep the real task face and task props intact.
-        if (IsTaskMood(_mood))
+        if (_taskActive || IsTaskMood(_mood))
         {
             if (AppRuntime.Settings.MascotAnimationsEnabled) ShowReactionForMood(_mood);
             return;
@@ -964,7 +979,7 @@ public partial class FloatingMascotWindow : Window
         if (!IsVisible || _isPointerOver || _pointerDown)
             return;
 
-        if ((_mood is "idle" or "curious") &&
+        if (!_taskActive && (_mood is "idle" or "curious") &&
             DateTimeOffset.UtcNow - _lastInteractionAt >= TimeSpan.FromMinutes(2))
         {
             SetMood("sleepy", showReaction: false);
