@@ -277,35 +277,35 @@ public partial class FloatingMascotWindow : Window
         // Hip, knee and ankle nodes form a true parent-child transform chain.
         var root = new ModelVisual3D
         {
-            // Hips are offset from the torso centre and pulled forward so the thighs and shins
-            // stay visible in front of the lower body rather than merging into the pearl torso.
-            Transform = new TranslateTransform3D(side * 0.31, -0.78, 0.36)
+            // Hips sit outside the torso centre and forward of its surface; elongated segments
+            // read as thighs and shins rather than a pair of tiny feet beneath the shell.
+            Transform = new TranslateTransform3D(side * 0.31, -0.72, 0.36)
         };
         root.Children.Add(new ModelVisual3D
         {
             Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.105, 0.10, 0.10,
-                Color.FromRgb(105, 168, 218), Color.FromRgb(226, 247, 255))
+                Color.FromRgb(91, 157, 211), Color.FromRgb(220, 245, 255))
         });
         thigh = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.012, -0.035, 0.025), 0.09, 0.095, 0.09,
-                side < 0 ? Color.FromRgb(117, 166, 217) : Color.FromRgb(145, 142, 222),
-                Color.FromRgb(235, 248, 255))
+            Content = CreateEllipsoid(new Point3D(side * 0.012, -0.06, 0.025), 0.078, 0.112, 0.075,
+                side < 0 ? Color.FromRgb(105, 157, 211) : Color.FromRgb(136, 132, 216),
+                Color.FromRgb(232, 247, 255))
         };
-        var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.085, 0.01) };
+        var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.14, 0.01) };
         kneeAnchor.Children.Add(new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, 0, 0.075), 0.063, 0.055, 0.025,
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.075), 0.063, 0.057, 0.025,
                 side < 0 ? Color.FromRgb(63, 198, 211) : Color.FromRgb(165, 137, 235),
                 Color.FromRgb(240, 251, 255))
         });
         shin = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.04, 0.025), 0.077, 0.085, 0.082,
-                side < 0 ? Color.FromRgb(151, 205, 232) : Color.FromRgb(189, 174, 235),
+            Content = CreateEllipsoid(new Point3D(0, -0.06, 0.025), 0.067, 0.105, 0.067,
+                side < 0 ? Color.FromRgb(145, 202, 234) : Color.FromRgb(184, 169, 231),
                 Color.FromRgb(245, 251, 255))
         };
-        var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.075, 0.02) };
+        var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.12, 0.02) };
         foot = new ModelVisual3D
         {
             Content = CreateEllipsoid(new Point3D(side * 0.03, -0.005, 0.065), 0.135, 0.07, 0.13,
@@ -329,38 +329,61 @@ public partial class FloatingMascotWindow : Window
         // Shoulder, elbow and wrist are separate transformable scene nodes.
         var root = new ModelVisual3D
         {
-            // Shoulders sit just outside the head's widest silhouette and in front of the shell.
-            Transform = new TranslateTransform3D(side * 0.91, -0.30, 0.36)
+            // Shoulders sit just outside the head silhouette, in front of the shell.
+            Transform = new TranslateTransform3D(side * 0.91, -0.31, 0.36)
         };
         root.Children.Add(new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.13, 0.13, 0.12,
-                Color.FromRgb(123, 178, 224), Color.FromRgb(230, 248, 255))
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.02), 0.125, 0.12, 0.115,
+                Color.FromRgb(105, 171, 220), Color.FromRgb(230, 248, 255))
         });
         upperArm = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.10, -0.03, 0.025), 0.108, 0.092, 0.10,
-                Color.FromRgb(159, 194, 233), Color.FromRgb(236, 247, 255))
+            Content = CreateEllipsoid(new Point3D(side * 0.02, -0.06, 0.025), 0.078, 0.112, 0.075,
+                Color.FromRgb(130, 180, 223), Color.FromRgb(236, 247, 255))
         };
-        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.10, -0.08, 0.005) };
+        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.045, -0.105, 0.005) };
+        // Visible joint caps make the elbow read as a mechanical pivot while the forearm rotates.
+        elbowAnchor.Children.Add(new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(0, 0, 0.07), 0.061, 0.052, 0.022,
+                side < 0 ? Color.FromRgb(62, 198, 211) : Color.FromRgb(161, 139, 235),
+                Color.FromRgb(244, 252, 255))
+        });
         forearm = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.035, 0.02), 0.091, 0.085, 0.09,
-                Color.FromRgb(186, 211, 241), Color.FromRgb(255, 255, 255))
+            Content = CreateEllipsoid(new Point3D(side * 0.025, -0.06, 0.02), 0.066, 0.096, 0.07,
+                Color.FromRgb(181, 211, 238), Color.FromRgb(255, 255, 255))
         };
         forearm.Children.Add(new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.075, 0.083), 0.091, 0.026, 0.024,
+            Content = CreateEllipsoid(new Point3D(side * 0.025, -0.095, 0.083), 0.066, 0.022, 0.018,
                 side < 0 ? Color.FromRgb(79, 207, 215) : Color.FromRgb(162, 145, 240),
                 Color.FromRgb(242, 252, 255))
         });
-        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.05, -0.075, 0.015) };
+        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.025, -0.10, 0.015) };
         hand = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.02, -0.004, 0.035), 0.105, 0.09, 0.10,
+            Content = CreateEllipsoid(new Point3D(side * 0.015, -0.005, 0.035), 0.086, 0.061, 0.08,
                 side < 0 ? Color.FromRgb(131, 222, 231) : Color.FromRgb(177, 163, 242),
                 Color.FromRgb(246, 251, 255))
         };
+        // Three soft finger pads and a thumb add a readable little robot hand at the target size.
+        foreach (var fingerY in new[] { -0.035, -0.005, 0.025 })
+        {
+            hand.Children.Add(new ModelVisual3D
+            {
+                Content = CreateEllipsoid(new Point3D(side * 0.078, fingerY, 0.078), 0.027, 0.018, 0.022,
+                    side < 0 ? Color.FromRgb(143, 227, 235) : Color.FromRgb(187, 174, 246),
+                    Color.FromRgb(246, 253, 255))
+            });
+        }
+        hand.Children.Add(new ModelVisual3D
+        {
+            Content = CreateEllipsoid(new Point3D(side * 0.055, -0.063, 0.072), 0.032, 0.022, 0.025,
+                side < 0 ? Color.FromRgb(143, 227, 235) : Color.FromRgb(187, 174, 246),
+                Color.FromRgb(246, 253, 255))
+        });
         wristAnchor.Children.Add(hand);
         forearm.Children.Add(wristAnchor);
         elbowAnchor.Children.Add(forearm);
