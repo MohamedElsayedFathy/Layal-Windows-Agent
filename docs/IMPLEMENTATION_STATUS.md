@@ -53,15 +53,14 @@ This matrix describes source-code presence and authored test coverage only; test
 The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a CSV copy in `REQUIREMENT_TRACEABILITY.csv`. Check that ledger before every milestone/release.
 
 
-## Visual personality follow-up — reactive task props
-- This branch adds a procedural native WPF 3D pearlescent head/shell with simple side arm/wrist forms (Viewport3D/MeshGeometry3D with lighting/specular materials) behind the expressive 2D face overlay; the avatar is not yet a full rigged 3D character.
-- The visual-personality branch adds floating WPF task props (paper, pencil, holographic computer) tied to work-related moods, with gentle idle motion.
-- The branch adds eight expressive social moods plus distinct work-stage faces for planning, research, reading, writing, coding and validation. Arabic/English context and task-engine events select these moods.
-- The selected UI language is passed into the chat and task system prompt so Arabic mode uses natural Egyptian Arabic and English mode uses clear English; tests cover both preferences.
-- `TaskMoodResolver` isolates task-event-to-expression routing and regression tests cover planning, reading, writing, build/test validation, failure precedence and declined approvals.
-- Reduced-motion behavior keeps the work state visible while freezing the decorative prop animation.
-- The same branch adds a theme-aware background gradient and lightly translucent card/header gradients to give the app a restrained glass-like finish; it does not use true desktop acrylic blur.
-- **Verification status:** awaiting fresh Windows CI for the current branch head and manual Windows visual acceptance; the task props are 2D WPF elements. The shell is genuine WPF 3D geometry, but the face remains a 2D overlay and the full rigged 3D character/full app redesign are incomplete.
+## Visual personality follow-up — articulated 3D rig and cinematic task effects
+- The source constructs independent WPF 3D scene nodes for the head, torso, both arms and both legs. Each part receives its own transform, with poses varying by mood and task stage.
+- The face uses 3D geometry for eye whites, irises, pupils, brows, cheeks and mouth. Mood changes alter geometry/scale, pointer input updates pupil gaze, and blinking scales the 3D eye groups. The former 2D face remains at zero opacity for pointer-coordinate compatibility.
+- A non-interactive WPF particle layer cycles hearts, flowers, sparkles and technology glyphs by mood/task stage. Paper, pencil and holographic-computer companions remain 2D WPF props, but their prominence and movement now vary by work phase.
+- Social moods and task-stage states continue to be driven by TaskMoodResolver and task-engine events. The selected interface language still affects Arabic/English response style.
+- Reduced-motion behavior is intended to freeze posing/effects while retaining readable task indicators; this still requires a running Windows session check.
+- The theme-aware background gradient and lightly translucent card/header surfaces provide a restrained glass-like finish, not true desktop acrylic blur.
+- **Verification boundary:** these avatar/effect changes are source-level implementations until Windows CI and visual acceptance on a real interactive Windows desktop succeed. 3D/2D alignment, lighting, render order, click-through areas, monitor bounds, light/dark consistency and the 100–175% DPI matrix have not been confirmed with actual screenshots. The complete app-wide redesign remains an acceptance item.
 
 ## Version 0.5.2 — automated regression test foundation
 
