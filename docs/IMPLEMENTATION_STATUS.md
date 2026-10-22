@@ -1,6 +1,6 @@
 # Layal development preview — implementation status register
 
-This matrix describes source-code presence and verification boundaries. Windows CI run 39750965626 for commit 59803b6 completed the Release build and passed all 64 C# tests (0 failed, 0 skipped), including source/static and PowerShell sample syntax checks. The local authoring environment does not contain the .NET SDK. CI does not prove that real external applications, Edge pages, provider tool-calls, or WPF interactions behave correctly on a user's desktop; those still require manual acceptance. Version 0.5.0 refreshed presentation resources and mascot XAML; version 0.5.1 added traceability/build checks; version 0.5.2 added automated C# tests.
+This matrix describes source-code presence and verification boundaries. Windows CI baseline run [39760491462](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39760491462) for source commit `c1556493` completed the Release build and passed all 64 C# tests (0 failed, 0 skipped), including source/static and PowerShell sample syntax checks. The current security change adds regression cases for percent-encoded backslash traversal; its corresponding latest CI run must be checked for the exact branch head. The local authoring environment does not contain the .NET SDK. CI does not prove that real external applications, Edge pages, provider tool-calls, or WPF interactions behave correctly on a user's desktop; those still require manual acceptance. Version 0.5.0 refreshed presentation resources and mascot XAML; version 0.5.1 added traceability/build checks; version 0.5.2 added automated C# tests.
 
 | Requirement | Status in source | Relevant files | Verification |
 |---|---|---|---|
@@ -31,7 +31,7 @@ This matrix describes source-code presence and verification boundaries. Windows 
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |
 | Installer/updater/signing | Not implemented | Publish script only | Future milestone |
-| Automated C# test project | 64 tests passed, 0 failed and 0 skipped in Windows CI run 39750965626 for commit 59803b6 | `tests/Layal.Tests/` | CI confirms automated tests only; actual WPF/voice/camera/API-app acceptance remains separate |
+| Automated C# test project | Baseline: 64 tests passed, 0 failed and 0 skipped in Windows CI run 39760491462 for commit `c1556493`; check the latest branch-head run after the encoded-backslash regression patch | `tests/Layal.Tests/` | CI confirms automated tests only; actual WPF/voice/camera/API-app acceptance remains separate |
 
 ## Design/reliability changes carried forward from 0.4.0
 
