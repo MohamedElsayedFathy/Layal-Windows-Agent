@@ -332,10 +332,7 @@ public partial class MainWindow : Window
     private void ApiConnectionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ApiConnectionList.SelectedItem is not ApiConnectionProfile profile)
-        {
-            _selectedApiConnectionName = null;
             return;
-        }
 
         ApiConnectionNameInput.Text = profile.Name;
         ApiConnectionBaseUrlInput.Text = profile.BaseUrl;
