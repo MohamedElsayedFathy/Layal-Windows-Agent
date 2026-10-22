@@ -465,20 +465,20 @@ finally {
         }
     })
 
-    $samples = $script:Samples.ToArray()
-    if ($samples.Count -gt 0) {
-        $samples | Export-Csv -LiteralPath $csvPath -NoTypeInformation
+    $capturedSamples = $script:Samples.ToArray()
+    if ($capturedSamples.Count -gt 0) {
+        $capturedSamples | Export-Csv -LiteralPath $csvPath -NoTypeInformation
     }
-    $uniqueMonitorHandles = @($samples | Select-Object -ExpandProperty MonitorHandle -Unique)
-    $uniqueWindowDpis = @($samples | Select-Object -ExpandProperty WindowDpi -Unique)
-    $checks = $script:Checks.ToArray()
-    $failRows = @($checks | Where-Object { $_.Result -eq "failed" })
+    $uniqueMonitorHandles = @($capturedSamples | Select-Object -ExpandProperty MonitorHandle -Unique)
+    $uniqueWindowDpis = @($capturedSamples | Select-Object -ExpandProperty WindowDpi -Unique)
+    $capturedChecks = $script:Checks.ToArray()
+    $failRows = @($capturedChecks | Where-Object { $_.Result -eq "failed" })
     $resultLabel = if ($failRows.Count -eq 0 -and $script:Checks.Count -gt 0) { "passed" } else { "failed" }
     $monitorTransitionCount = 0
     $dpiTransitionCount = 0
-    for ($index = 1; $index -lt $samples.Count; $index++) {
-        if ($samples[$index].MonitorHandle -ne $samples[$index - 1].MonitorHandle) { $monitorTransitionCount++ }
-        if ($samples[$index].WindowDpi -ne $samples[$index - 1].WindowDpi) { $dpiTransitionCount++ }
+    for ($index = 1; $index -lt $capturedSamples.Count; $index++) {
+        if ($capturedSamples[$index].MonitorHandle -ne $capturedSamples[$index - 1].MonitorHandle) { $monitorTransitionCount++ }
+        if ($capturedSamples[$index].WindowDpi -ne $capturedSamples[$index - 1].WindowDpi) { $dpiTransitionCount++ }
     }
     $summary = [pscustomobject]@{
         TestSuite="Layal Windows display/DPI topology diagnostic"
@@ -493,13 +493,13 @@ finally {
         RequireDpiTransition=[bool]$RequireDpiTransition
         MonitorCount=$script:MonitorList.Count
         MonitorRecords=$monitorOutput
-        WindowSampleCount=$samples.Count
+        WindowSampleCount=$capturedSamples.Count
         ObservedMonitorHandleCount=$uniqueMonitorHandles.Count
         ObservedWindowDpis=@($uniqueWindowDpis | Sort-Object)
         MonitorTransitionCount=$monitorTransitionCount
         DpiTransitionCount=$dpiTransitionCount
-        Samples=$samples
-        Checks=$checks
+        Samples=$capturedSamples
+        Checks=$capturedChecks
         Scope="The workflow smoke test records the CI display topology. Physical multi-monitor acceptance requires running this script on the target PC with RequireMonitorTransition and RequireDpiTransition."
     }
     [IO.File]::WriteAllText($jsonPath,(ConvertTo-Json -InputObject $summary -Depth 8),(New-Object System.Text.UTF8Encoding($false)))
