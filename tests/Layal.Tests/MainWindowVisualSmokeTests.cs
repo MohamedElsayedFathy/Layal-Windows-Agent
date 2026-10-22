@@ -231,7 +231,7 @@ public sealed class MainWindowVisualSmokeTests
                 {
                     var suffix = (int)Math.Round(scale * 100);
                     var path = Path.Combine(outputDirectory, $"app-{theme}-{language}-{tabNames[index]}-scale{suffix}.png");
-                    SaveSnapshot(window, path, scale);
+                    SaveSnapshot(window, path, scale, Application.Current.TryFindResource("Layal.Background") as Brush);
                     lines.Add($"{Path.GetFileName(path)} | tab={tabNames[index]} | theme={theme} | language={language} | renderScale={scale:0.00} | windowDips={window.Width:0}x{window.Height:0} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}");
                 }
             }
@@ -266,7 +266,7 @@ public sealed class MainWindowVisualSmokeTests
                     $"Compact tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
 
                 var compactPath = Path.Combine(outputDirectory, $"app-compact-{theme}-{language}-{tabNames[index]}-scale100.png");
-                SaveSnapshot(window, compactPath, 1.0);
+                SaveSnapshot(window, compactPath, 1.0, Application.Current.TryFindResource("Layal.Background") as Brush);
                 lines.Add($"{Path.GetFileName(compactPath)} | tab={tabNames[index]} | theme={theme} | language={language} | windowDips={window.Width:0}x{window.Height:0} | contentDips={windowContent.ActualWidth:0}x{windowContent.ActualHeight:0} | compactResize=true");
             }
 
@@ -404,15 +404,42 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.IsExiting = false;
     }
 
-    private static void SaveSnapshot(FrameworkElement visual, string path, double renderScale = 1.0)
+    private static void SaveSnapshot(
+        FrameworkElement visual,
+        string path,
+        double renderScale = 1.0,
+        Brush? backdrop = null)
     {
         visual.UpdateLayout();
         renderScale = Math.Clamp(renderScale, 1.0, 2.0);
         var dpi = 96.0 * renderScale;
-        var width = Math.Max(1, (int)Math.Ceiling(visual.ActualWidth * renderScale));
-        var height = Math.Max(1, (int)Math.Ceiling(visual.ActualHeight * renderScale));
+        var widthDips = Math.Max(1, visual.ActualWidth);
+        var heightDips = Math.Max(1, visual.ActualHeight);
+        var width = Math.Max(1, (int)Math.Ceiling(widthDips * renderScale));
+        var height = Math.Max(1, (int)Math.Ceiling(heightDips * renderScale));
+
+        Visual renderSource = visual;
+        if (backdrop is not null)
+        {
+            // WPF's Window/root content can include transparent margins and shadow pixels.
+            // Composite the actual theme background behind the visual to make the PNG match
+            // how those same pixels appear inside the live window instead of viewer black/blue.
+            var composite = new DrawingVisual();
+            using (var drawing = composite.RenderOpen())
+            {
+                var bounds = new Rect(0, 0, widthDips, heightDips);
+                drawing.DrawRectangle(backdrop, null, bounds);
+                drawing.DrawRectangle(
+                    new VisualBrush(visual) { Stretch = Stretch.Fill },
+                    null,
+                    bounds);
+            }
+
+            renderSource = composite;
+        }
+
         var bitmap = new RenderTargetBitmap(width, height, dpi, dpi, PixelFormats.Pbgra32);
-        bitmap.Render(visual);
+        bitmap.Render(renderSource);
         if (bitmap.PixelWidth < 1 || bitmap.PixelHeight < 1)
             throw new InvalidOperationException($"Empty snapshot generated for {visual.GetType().Name}.");
         var encoder = new PngBitmapEncoder();
