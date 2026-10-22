@@ -277,7 +277,7 @@ public partial class FloatingMascotWindow : Window
         // Hip, knee and ankle nodes form a true parent-child transform chain.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.28, -0.60, 0.27)
+            Transform = new TranslateTransform3D(side * 0.24, -0.70, 0.27)
         };
         root.Children.Add(new ModelVisual3D
         {
@@ -286,16 +286,16 @@ public partial class FloatingMascotWindow : Window
         });
         thigh = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.015, -0.045, 0.025), 0.095, 0.105, 0.10,
+            Content = CreateEllipsoid(new Point3D(side * 0.012, -0.035, 0.025), 0.095, 0.09, 0.10,
                 Color.FromRgb(213, 226, 247), Color.FromRgb(255, 255, 255))
         };
-        var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.015, -0.10, 0.01) };
+        var kneeAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.085, 0.01) };
         shin = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(0, -0.045, 0.025), 0.08, 0.095, 0.087,
+            Content = CreateEllipsoid(new Point3D(0, -0.04, 0.025), 0.08, 0.085, 0.087,
                 Color.FromRgb(200, 218, 243), Color.FromRgb(246, 251, 255))
         };
-        var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.015, -0.095, 0.02) };
+        var ankleAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.012, -0.075, 0.02) };
         foot = new ModelVisual3D
         {
             Content = CreateEllipsoid(new Point3D(side * 0.03, -0.005, 0.065), 0.135, 0.07, 0.13,
@@ -319,7 +319,7 @@ public partial class FloatingMascotWindow : Window
         // Shoulder, elbow and wrist are separate transformable scene nodes.
         var root = new ModelVisual3D
         {
-            Transform = new TranslateTransform3D(side * 0.62, -0.36, 0.28)
+            Transform = new TranslateTransform3D(side * 0.57, -0.48, 0.28)
         };
         root.Children.Add(new ModelVisual3D
         {
@@ -328,10 +328,10 @@ public partial class FloatingMascotWindow : Window
         });
         upperArm = new ModelVisual3D
         {
-            Content = CreateEllipsoid(new Point3D(side * 0.08, -0.105, 0.025), 0.103, 0.135, 0.104,
+            Content = CreateEllipsoid(new Point3D(side * 0.07, -0.105, 0.025), 0.103, 0.135, 0.104,
                 Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255))
         };
-        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.15, -0.17, 0.005) };
+        var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.14, -0.17, 0.005) };
         forearm = new ModelVisual3D
         {
             Content = CreateEllipsoid(new Point3D(side * 0.07, -0.075, 0.02), 0.087, 0.115, 0.09,
@@ -343,7 +343,7 @@ public partial class FloatingMascotWindow : Window
                 side < 0 ? Color.FromRgb(79, 207, 215) : Color.FromRgb(162, 145, 240),
                 Color.FromRgb(242, 252, 255))
         });
-        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.08, -0.135, 0.015) };
+        var wristAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.07, -0.135, 0.015) };
         hand = new ModelVisual3D
         {
             Content = CreateEllipsoid(new Point3D(side * 0.025, -0.004, 0.035), 0.095, 0.088, 0.092,
@@ -362,13 +362,13 @@ public partial class FloatingMascotWindow : Window
     {
         var group = new Model3DGroup();
         group.Children.Add(CreateEllipsoid(
-            new Point3D(0, -0.70, 0.015), 0.49, 0.34, 0.29,
+            new Point3D(0, -0.76, 0.015), 0.44, 0.29, 0.26,
             Color.FromRgb(206, 220, 244), Color.FromRgb(248, 252, 255)));
         group.Children.Add(CreateEllipsoid(
-            new Point3D(0, -0.47, 0.03), 0.22, 0.17, 0.20,
+            new Point3D(0, -0.54, 0.03), 0.20, 0.14, 0.17,
             Color.FromRgb(226, 237, 250), Color.FromRgb(255, 255, 255)));
         group.Children.Add(CreateEllipsoid(
-            new Point3D(0, -0.69, 0.292), 0.19, 0.048, 0.028,
+            new Point3D(0, -0.76, 0.264), 0.15, 0.042, 0.025,
             Color.FromRgb(67, 199, 209), Color.FromRgb(187, 250, 250)));
         return group;
     }
@@ -689,7 +689,7 @@ public partial class FloatingMascotWindow : Window
                 // Rotate about the torso/pelvis centre, not the world origin, so the head
                 // and limbs inherit a believable body sway rather than orbiting the scene.
                 new RotateTransform3D(
-                    new AxisAngleRotation3D(new Vector3D(0, 0, 1), bodyRoll), 0, -0.70, 0),
+                    new AxisAngleRotation3D(new Vector3D(0, 0, 1), bodyRoll), 0, -0.76, 0),
                 new TranslateTransform3D(0, Math.Sin(phase * 1.4) * 0.018, 0)
             }
         };
