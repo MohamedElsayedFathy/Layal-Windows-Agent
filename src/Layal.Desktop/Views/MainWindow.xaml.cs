@@ -27,7 +27,6 @@ public partial class MainWindow : Window
     private bool _providerTestPassed;
     private string? _testedBaseUrl;
     private string? _testedModelId;
-    private string? _selectedApiConnectionName;
     private string _currentConversationId = string.Empty;
     private bool _refreshingChatSessions;
 
@@ -298,7 +297,6 @@ public partial class MainWindow : Window
 
     private void ClearApiConnectionForm()
     {
-        _selectedApiConnectionName = null;
         ApiConnectionNameInput.Text = string.Empty;
         ApiConnectionBaseUrlInput.Text = string.Empty;
         ApiAuthHeaderNameInput.Text = "X-API-Key";
@@ -339,7 +337,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _selectedApiConnectionName = profile.Name;
         ApiConnectionNameInput.Text = profile.Name;
         ApiConnectionBaseUrlInput.Text = profile.BaseUrl;
         ApiAuthHeaderNameInput.Text = profile.AuthHeaderName;
@@ -366,7 +363,6 @@ public partial class MainWindow : Window
         {
             var profile = BuildApiConnectionProfile();
             AppRuntime.ApiConnectionService.Save(profile);
-            _selectedApiConnectionName = profile.Name;
             RefreshApiConnections(profile.Name);
             ApiConnectionsStatus.Text = IsArabic
                 ? $"تم حفظ اتصال API «{profile.Name}» في مخزن محمي. اختبره قبل استخدامه."
