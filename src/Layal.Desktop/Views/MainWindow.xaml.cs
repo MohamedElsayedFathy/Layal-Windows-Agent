@@ -741,6 +741,12 @@ public partial class MainWindow : Window
         CopyChatTextToClipboard(transcript, IsArabic ? "المحادثة" : "chat");
     }
 
+    private void ChatMessageContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu menu && menu.Items.Count > 0 && menu.Items[0] is MenuItem item)
+            item.Header = IsArabic ? "نسخ الرسالة" : "Copy message";
+    }
+
     private void CopyChatMessage_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem menuItem &&
