@@ -55,6 +55,7 @@ public partial class MainWindow : Window
         RefreshSkills();
         RefreshApiConnections();
         RefreshMemoryNotes();
+        ApplyTheme();
         ApplyLanguage();
         RefreshProviderStatus();
     }
@@ -67,6 +68,54 @@ public partial class MainWindow : Window
     }
 
     private bool IsArabic => AppRuntime.Settings.Language == "ar";
+    private bool IsDarkTheme => AppRuntime.Settings.ThemeMode == "dark";
+
+    private static System.Windows.Media.Brush ThemeBrush(string key, System.Windows.Media.Brush fallback) =>
+        Application.Current.TryFindResource(key) as System.Windows.Media.Brush ?? fallback;
+
+    private void ApplyTheme()
+    {
+        var dark = IsDarkTheme;
+        (string Key, string Value)[] palette =
+        {
+            ("Layal.Color.Background", dark ? "#111521" : "#F4F7FC"),
+            ("Layal.Color.Surface", dark ? "#1B2233" : "#FFFFFF"),
+            ("Layal.Color.SurfaceRaised", dark ? "#232B3D" : "#FAFBFF"),
+            ("Layal.Color.SurfaceHover", dark ? "#2B354A" : "#EDF3FA"),
+            ("Layal.Color.Border", dark ? "#3A465E" : "#DCE5F0"),
+            ("Layal.Color.Cyan", dark ? "#76DFE8" : "#087B8F"),
+            ("Layal.Color.Purple", dark ? "#B6A5FF" : "#7563D6"),
+            ("Layal.Color.Text", dark ? "#EDF2FF" : "#1C2940"),
+            ("Layal.Color.Muted", dark ? "#A8B4C9" : "#63738A"),
+            ("Layal.Color.Success", dark ? "#73DEAA" : "#177A57"),
+            ("Layal.Color.Warning", dark ? "#FFD17D" : "#946200"),
+            ("Layal.Color.Danger", dark ? "#FF91A8" : "#BD3C55"),
+            ("Layal.Color.Focus", dark ? "#7C93D5" : "#AFC8F7"),
+            ("Layal.Color.HeaderStart", dark ? "#202D43" : "#EAF5FF"),
+            ("Layal.Color.HeaderMiddle", dark ? "#1B2233" : "#FFFFFF"),
+            ("Layal.Color.HeaderEnd", dark ? "#2C2542" : "#F3EFFF"),
+            ("Layal.Color.CardStart", dark ? "#222B3F" : "#FFFFFF"),
+            ("Layal.Color.CardEnd", dark ? "#1B2335" : "#F9FBFF"),
+            ("Layal.Color.ButtonStart", dark ? "#326B78" : "#A3E3E7"),
+            ("Layal.Color.ButtonEnd", dark ? "#594C84" : "#C8C0F7"),
+            ("Layal.Color.BrandBorder", dark ? "#4C8F9B" : "#B9E6EB"),
+            ("Layal.Color.BrandDot", dark ? "#FFD36E" : "#E8B451"),
+            ("Layal.Color.DangerSurface", dark ? "#452735" : "#FBECEF"),
+            ("Layal.Color.DangerBorder", dark ? "#794154" : "#E9C3CC"),
+            ("Layal.Color.NavSelected", dark ? "#283B50" : "#E2F2F6"),
+            ("Layal.Color.NavSelectedBorder", dark ? "#4F8190" : "#C6E8ED"),
+            ("Layal.Color.NavHover", dark ? "#242F43" : "#F0F5FC"),
+            ("Layal.Color.ListHover", dark ? "#263247" : "#F0F6FC"),
+            ("Layal.Color.ListSelected", dark ? "#2C4155" : "#E3F3F6"),
+            ("Layal.Color.InputFocus", dark ? "#222E43" : "#FBFDFF"),
+            ("Layal.Color.HoverSurface", dark ? "#2C3B50" : "#E8F5F7"),
+            ("Layal.Color.Shadow", dark ? "#080B13" : "#A8B9D6")
+        };
+
+        foreach (var (key, value) in palette)
+            Application.Current.Resources[key] =
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value)!;
+    }
 
     private void ApplyLanguage()
     {
@@ -90,6 +139,12 @@ public partial class MainWindow : Window
         TitleText.Text = ar ? "ليال | Layal" : "Layal | Bilingual Desktop AI";
         SubtitleText.Text = ar ? "وكيل ذكاء اصطناعي مستقل لسطح المكتب" : "A bilingual Windows AI desktop companion";
         LanguageButton.Content = ar ? "English" : "العربية";
+        ThemeButton.Content = IsDarkTheme
+            ? (ar ? "☀ المظهر الفاتح" : "☀ Light theme")
+            : (ar ? "☾ المظهر الداكن" : "☾ Dark theme");
+        ThemeButton.ToolTip = IsDarkTheme
+            ? (ar ? "التبديل إلى المظهر الفاتح" : "Switch to light theme")
+            : (ar ? "التبديل إلى المظهر الداكن" : "Switch to dark theme");
         ShowMascotButton.Content = ar ? "إظهار الشخصية" : "Show mascot";
 
         HomeTab.Header = ar ? "⌂  الرئيسية" : "⌂  Home";
@@ -239,9 +294,9 @@ public partial class MainWindow : Window
         ConnectionStatusText.Text = tested ? (IsArabic ? "AI: الاتصال مختبَر" : "AI: Connection tested")
             : ready ? (IsArabic ? "AI: الإعداد محفوظ؛ غير مختبَر" : "AI: Configured; not tested")
             : (IsArabic ? "AI: غير متصل" : "AI: Not connected");
-        ConnectionStatusText.Foreground = tested ? System.Windows.Media.Brushes.ForestGreen : System.Windows.Media.Brushes.DarkGoldenrod;
+        ConnectionStatusText.Foreground = tested ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         CardAiValue.Text = tested ? (IsArabic ? "تم اختبار الاتصال" : "Connection tested") : ready ? (IsArabic ? "إعداد محفوظ — لم يُختبر" : "Configured — not tested") : (IsArabic ? "غير متصل" : "Not connected");
-        CardAiValue.Foreground = tested ? System.Windows.Media.Brushes.ForestGreen : System.Windows.Media.Brushes.DarkGoldenrod;
+        CardAiValue.Foreground = tested ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         ChatProviderStatus.Text = tested ? (IsArabic ? "تم اختبار نقطة الاتصال في هذه الجلسة" : "Endpoint tested in this session")
             : ready ? (IsArabic ? "إعداد محفوظ؛ اختبر الاتصال" : "Configured; test connection")
             : (IsArabic ? "لا يوجد اتصال مختبَر" : "Not connected/tested");
@@ -253,6 +308,24 @@ public partial class MainWindow : Window
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         ApplyLanguage();
         AppRuntime.Tray?.SetLanguage(language);
+    }
+
+    private void ThemeButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppRuntime.Settings.ThemeMode = IsDarkTheme ? "light" : "dark";
+        ApplyTheme();
+        ApplyLanguage();
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        }
+        catch
+        {
+            ProviderActionStatus.Text = IsArabic
+                ? "تم تبديل المظهر، لكن تعذر حفظ الاختيار."
+                : "Theme changed, but the preference could not be saved.";
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Warning", ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod));
+        }
     }
 
     private void LanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage(IsArabic ? "en" : "ar");
@@ -354,7 +427,7 @@ public partial class MainWindow : Window
         ApiConnectionList.SelectedItem = null;
         ClearApiConnectionForm();
         ApiConnectionsStatus.Text = IsArabic ? "أدخل بيانات الاتصال واحفظها قبل استخدامها في المهام." : "Enter connection details and save before using it in tasks.";
-        ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+        ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         ApiConnectionNameInput.Focus();
     }
 
@@ -368,12 +441,12 @@ public partial class MainWindow : Window
             ApiConnectionsStatus.Text = IsArabic
                 ? $"تم حفظ اتصال API «{profile.Name}» في مخزن محمي. اختبره قبل استخدامه."
                 : $"API connection '{profile.Name}' was saved in encrypted storage. Test it before using it.";
-            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
             ApiConnectionsStatus.Text = (IsArabic ? "تعذر حفظ اتصال API: " : "Could not save API connection: ") + ex.Message;
-            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -384,26 +457,26 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ApiConnectionsStatus.Text = ex.Message;
-            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             return;
         }
 
         TestApiConnectionButton.IsEnabled = false;
         ApiConnectionsStatus.Text = IsArabic ? "جارٍ إرسال طلب GET لمسار الاختبار..." : "Sending GET request to the configured test path...";
-        ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.SteelBlue;
+        ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
         try
         {
             var result = await AppRuntime.ApiConnectionService.TestAsync(profile, profile.TestPath);
             var bodyPreview = result.Body.Length > 700 ? result.Body[..700] + "…" : result.Body;
             ApiConnectionsStatus.Text = $"HTTP {result.StatusCode} {result.ReasonPhrase}{Environment.NewLine}{result.RequestUrl}{Environment.NewLine}{bodyPreview}";
             ApiConnectionsStatus.Foreground = result.StatusCode is >= 200 and < 300
-                ? System.Windows.Media.Brushes.ForestGreen
-                : System.Windows.Media.Brushes.DarkGoldenrod;
+                ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen)
+                : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         }
         catch (Exception ex)
         {
             ApiConnectionsStatus.Text = (IsArabic ? "فشل اختبار API: " : "API test failed: ") + ex.Message;
-            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally { TestApiConnectionButton.IsEnabled = true; }
     }
@@ -414,7 +487,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(name) || AppRuntime.ApiConnectionService.Find(name) is null)
         {
             ApiConnectionsStatus.Text = IsArabic ? "حدد اتصالًا محفوظًا لحذفه." : "Select a saved connection to delete.";
-            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
 
@@ -427,7 +500,7 @@ public partial class MainWindow : Window
         AppRuntime.ApiConnectionService.Delete(name);
         RefreshApiConnections();
         ApiConnectionsStatus.Text = IsArabic ? "تم حذف الاتصال." : "Connection deleted.";
-        ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        ApiConnectionsStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
     }
 
     private void SaveProviderButton_Click(object sender, RoutedEventArgs e)
@@ -450,13 +523,13 @@ public partial class MainWindow : Window
             }
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
             ProviderActionStatus.Text = IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.";
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
             RefreshProviderStatus();
         }
         catch (Exception ex)
         {
             ProviderActionStatus.Text = ex.Message;
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -467,12 +540,12 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(key))
         {
             ProviderActionStatus.Text = IsArabic ? "أدخل مفتاح API ثم اختبر الاتصال. لن يتم حفظه إلا إذا ضغطت حفظ الإعدادات." : "Enter an API key to test. It is saved only when you select Save settings.";
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
         TestProviderButton.IsEnabled = false;
         ProviderActionStatus.Text = IsArabic ? "جارٍ اختبار الاتصال الفعلي..." : "Testing the actual endpoint...";
-        ProviderActionStatus.Foreground = System.Windows.Media.Brushes.SteelBlue;
+        ProviderActionStatus.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
         try
         {
             var result = await _aiClient.ProbeAsync(baseUrl, key);
@@ -480,13 +553,13 @@ public partial class MainWindow : Window
             _testedBaseUrl = baseUrl.TrimEnd('/');
             _testedModelId = ModelInput.Text.Trim();
             ProviderActionStatus.Text = IsArabic ? $"نجح الاختبار: {result}" : result;
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
             _providerTestPassed = false;
             ProviderActionStatus.Text = (IsArabic ? "فشل اختبار الاتصال: " : "Connection test failed: ") + ex.Message;
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally
         {
@@ -504,7 +577,7 @@ public partial class MainWindow : Window
         AppRuntime.SecretStore.Delete();
         ApiKeyInput.Clear();
         ProviderActionStatus.Text = IsArabic ? "تم حذف المفتاح المحفوظ." : "Saved key deleted.";
-        ProviderActionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         RefreshProviderStatus();
     }
 
@@ -755,7 +828,7 @@ public partial class MainWindow : Window
         }
 
         ChatCopyStatus.Text = IsArabic ? "تعذر تحديد الرسالة لنسخها." : "Could not identify the message to copy.";
-        ChatCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+        ChatCopyStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
     }
 
     private void CopyChatTextToClipboard(string? text, string label)
@@ -763,7 +836,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(text))
         {
             ChatCopyStatus.Text = IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.";
-            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            ChatCopyStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
 
@@ -771,12 +844,12 @@ public partial class MainWindow : Window
         {
             Clipboard.SetText(text);
             ChatCopyStatus.Text = IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"{label} copied to the clipboard.";
-            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            ChatCopyStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
             ChatCopyStatus.Text = (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message;
-            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ChatCopyStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -908,12 +981,12 @@ public partial class MainWindow : Window
             }
             RefreshSkills();
             SkillsResult.Text = (IsArabic ? "تم استيراد بيانات المهارة: " : "Skill metadata imported: ") + record.Name;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            SkillsResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
             SkillsResult.Text = (IsArabic ? "تعذر استيراد المهارة: " : "Skill import failed: ") + ex.Message;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SkillsResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -934,12 +1007,12 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(url))
         {
             SkillsResult.Text = IsArabic ? "أدخل رابط GitHub أولًا." : "Enter a GitHub URL first.";
-            SkillsResult.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            SkillsResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
         ImportGitHubSkillButton.IsEnabled = false;
         SkillsResult.Text = IsArabic ? "جارٍ تنزيل المستودع وفحص ملفات المهارة..." : "Downloading repository and validating skill files...";
-        SkillsResult.Foreground = System.Windows.Media.Brushes.SteelBlue;
+        SkillsResult.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
         try
         {
             SkillRecord record;
@@ -954,13 +1027,13 @@ public partial class MainWindow : Window
             }
             RefreshSkills();
             SkillsResult.Text = (IsArabic ? "تم استيراد المهارة: " : "Imported skill: ") + record.Name + Environment.NewLine + record.Description;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            SkillsResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
             GitHubSkillUrlInput.Clear();
         }
         catch (Exception ex)
         {
             SkillsResult.Text = (IsArabic ? "تعذر استيراد المهارة من GitHub: " : "GitHub skill import failed: ") + ex.Message;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SkillsResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally { ImportGitHubSkillButton.IsEnabled = true; }
     }
@@ -1019,22 +1092,22 @@ public partial class MainWindow : Window
                 "Cancelled" => "paused",
                 _ => "error"
             };
-            TaskResult.Foreground = record.Status == "Completed" ? System.Windows.Media.Brushes.ForestGreen :
-                record.Status is "CompletedWithWarnings" or "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod :
-                System.Windows.Media.Brushes.Firebrick;
+            TaskResult.Foreground = record.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
+                record.Status is "CompletedWithWarnings" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
+                ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             RefreshRecentTasks(record.Id);
         }
         catch (OperationCanceledException)
         {
             TaskResult.Text = IsArabic ? "تم إلغاء المهمة." : "Task was cancelled.";
-            TaskResult.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            TaskResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             AddTaskEvent("Task cancelled by the user.");
             finalMood = "paused";
         }
         catch (Exception ex)
         {
             TaskResult.Text = (IsArabic ? "فشلت المهمة: " : "Task failed: ") + ex.Message;
-            TaskResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            TaskResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             AddTaskEvent("Task failed: " + ex.Message);
             finalMood = "error";
         }
@@ -1063,19 +1136,19 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(text))
         {
             TaskCopyStatus.Text = IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.";
-            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            TaskCopyStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
         try
         {
             Clipboard.SetText(text);
             TaskCopyStatus.Text = IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"Copied {label} to the clipboard.";
-            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            TaskCopyStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
             TaskCopyStatus.Text = (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message;
-            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            TaskCopyStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -1123,9 +1196,9 @@ public partial class MainWindow : Window
         TaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
         TaskResult.Text = $"{task.Status}{Environment.NewLine}{task.Result}";
-        TaskResult.Foreground = task.Status == "Completed" ? System.Windows.Media.Brushes.ForestGreen :
-            task.Status is "CompletedWithWarnings" or "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod :
-            System.Windows.Media.Brushes.Firebrick;
+        TaskResult.Foreground = task.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
+            task.Status is "CompletedWithWarnings" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
+            ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         AppRuntime.MascotWindow?.SetMood(task.Status switch
         {
             "Completed" => "success",
@@ -1178,12 +1251,12 @@ public partial class MainWindow : Window
             RefreshMemoryNotes(MemorySearchInput.Text);
             MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(n => n.Id == note.Id);
             MemoryResult.Text = IsArabic ? "تم حفظ الملاحظة محليًا بصورة مشفرة." : "Note saved locally with encryption.";
-            MemoryResult.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            MemoryResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
             MemoryResult.Text = ex.Message;
-            MemoryResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            MemoryResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -1224,12 +1297,12 @@ public partial class MainWindow : Window
         {
             await File.WriteAllTextAsync(dialog.FileName, AppRuntime.MemoryService.ExportJson(), new UTF8Encoding(false));
             MemoryResult.Text = IsArabic ? "تم تصدير الذاكرة. الملف غير مشفر." : "Memory exported. The file is not encrypted.";
-            MemoryResult.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            MemoryResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         }
         catch (Exception ex)
         {
             MemoryResult.Text = ex.Message;
-            MemoryResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            MemoryResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
