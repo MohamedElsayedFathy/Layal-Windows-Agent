@@ -190,6 +190,22 @@ public sealed class MainWindowVisualSmokeTests
                 window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
                 Keyboard.ClearFocus();
 
+                if (tabNames[index] == "chat")
+                {
+                    var expectedCopy = language == "ar" ? "نسخ الشات" : "Copy chat";
+                    var expectedNew = language == "ar" ? "محادثة جديدة" : "New conversation";
+                    var expectedClear = language == "ar" ? "مسح السجل المحفوظ" : "Clear saved history";
+                    Assert.AreEqual(expectedCopy,
+                        BidiTextNormalizer.StripDirectionalControls(FindVisualText(copyChatButton)),
+                        $"Rendered copy button text is incorrect for {theme}/{language}.");
+                    Assert.AreEqual(expectedNew,
+                        BidiTextNormalizer.StripDirectionalControls(FindVisualText(newConversationButton)),
+                        $"Rendered new-conversation button text is incorrect for {theme}/{language}.");
+                    Assert.AreEqual(expectedClear,
+                        BidiTextNormalizer.StripDirectionalControls(FindVisualText(clearHistoryButton)),
+                        $"Rendered clear-history button text is incorrect for {theme}/{language}.");
+                }
+
                 var selectedTab = tabs.SelectedItem as TabItem
                     ?? throw new InvalidOperationException($"Selected tab '{tabNames[index]}' is not a TabItem.");
                 var tabContent = selectedTab.Content as FrameworkElement
@@ -280,6 +296,23 @@ public sealed class MainWindowVisualSmokeTests
         window.Close();
         app.Shutdown();
         App.SuppressStartupForTests = false;
+    }
+
+    private static string? FindVisualText(DependencyObject root)
+    {
+        var childCount = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is TextBlock textBlock && !string.IsNullOrEmpty(textBlock.Text))
+                return textBlock.Text;
+
+            var nested = FindVisualText(child);
+            if (!string.IsNullOrEmpty(nested))
+                return nested;
+        }
+
+        return null;
     }
 
     private static void AssertThemeContrastAndControlSurfaces(
