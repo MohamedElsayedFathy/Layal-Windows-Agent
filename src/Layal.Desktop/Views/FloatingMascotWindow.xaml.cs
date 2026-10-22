@@ -329,13 +329,13 @@ public partial class FloatingMascotWindow : Window
         upperArm = new ModelVisual3D
         {
             Content = CreateEllipsoid(new Point3D(side * 0.10, -0.03, 0.025), 0.108, 0.092, 0.10,
-                Color.FromRgb(207, 224, 245), Color.FromRgb(246, 251, 255))
+                Color.FromRgb(159, 194, 233), Color.FromRgb(236, 247, 255))
         };
         var elbowAnchor = new ModelVisual3D { Transform = new TranslateTransform3D(side * 0.10, -0.08, 0.005) };
         forearm = new ModelVisual3D
         {
             Content = CreateEllipsoid(new Point3D(side * 0.07, -0.035, 0.02), 0.091, 0.085, 0.09,
-                Color.FromRgb(222, 232, 249), Color.FromRgb(255, 255, 255))
+                Color.FromRgb(186, 211, 241), Color.FromRgb(255, 255, 255))
         };
         forearm.Children.Add(new ModelVisual3D
         {
@@ -361,15 +361,30 @@ public partial class FloatingMascotWindow : Window
     private static Model3DGroup CreateBodyModel()
     {
         var group = new Model3DGroup();
+        // Slightly deeper pearl-blue material separates the torso from the translucent desktop
+        // background while keeping the face shell the brightest part of the character.
         group.Children.Add(CreateEllipsoid(
             new Point3D(0, -0.76, 0.015), 0.44, 0.29, 0.26,
-            Color.FromRgb(206, 220, 244), Color.FromRgb(248, 252, 255)));
+            Color.FromRgb(174, 200, 235), Color.FromRgb(244, 249, 255)));
         group.Children.Add(CreateEllipsoid(
             new Point3D(0, -0.54, 0.03), 0.20, 0.14, 0.17,
-            Color.FromRgb(226, 237, 250), Color.FromRgb(255, 255, 255)));
+            Color.FromRgb(203, 220, 244), Color.FromRgb(255, 255, 255)));
+        // Raised cyan breastplate with paired lilac/cyan status studs reads clearly at mascot scale.
         group.Children.Add(CreateEllipsoid(
-            new Point3D(0, -0.76, 0.264), 0.15, 0.042, 0.025,
-            Color.FromRgb(67, 199, 209), Color.FromRgb(187, 250, 250)));
+            new Point3D(0, -0.715, 0.271), 0.19, 0.082, 0.025,
+            Color.FromRgb(93, 205, 221), Color.FromRgb(207, 250, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-0.075, -0.705, 0.294), 0.026, 0.026, 0.011,
+            Color.FromRgb(172, 143, 245), Color.FromRgb(240, 229, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0.075, -0.705, 0.294), 0.026, 0.026, 0.011,
+            Color.FromRgb(255, 206, 110), Color.FromRgb(255, 248, 207)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(-0.30, -0.76, 0.21), 0.045, 0.14, 0.025,
+            Color.FromRgb(105, 195, 224), Color.FromRgb(207, 244, 255)));
+        group.Children.Add(CreateEllipsoid(
+            new Point3D(0.30, -0.76, 0.21), 0.045, 0.14, 0.025,
+            Color.FromRgb(163, 144, 234), Color.FromRgb(237, 230, 255)));
         return group;
     }
 
