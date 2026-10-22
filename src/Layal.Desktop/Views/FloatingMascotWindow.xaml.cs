@@ -2108,9 +2108,9 @@ public partial class FloatingMascotWindow : Window
             if (_dragStarted)
             {
                 // Move the borderless layered window directly while retaining WPF's mouse
-                // capture. DragMove() starts a separate native move loop, which proved
-                // unreliable when the transparent overlay and native injected input are
-                // involved. PointToScreen keeps the delta in screen pixels even as the
+                // capture. WPF's built-in move loop proved unreliable when the
+                // transparent overlay and native injected input are involved.
+                // PointToScreen keeps the delta in screen pixels even as the
                 // window itself moves; TransformFromDevice converts it back to DIPs.
                 var currentScreenPoint = PointToScreen(currentPoint);
                 var delta = currentScreenPoint - _lastDragScreenPosition;
