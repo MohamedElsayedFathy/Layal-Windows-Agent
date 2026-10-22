@@ -34,6 +34,14 @@ public sealed class SkillPackageServiceTests
         Assert.AreEqual(
             "Use when the user asks about WPF. Preserve data binding and accessibility.",
             importedBlock.Description);
+
+        var literalZip = CreateSkillZip(
+            temp.Path,
+            "literal-skill",
+            "|-\n  First description line.\n  Second description line.",
+            "# Literal\nBody");
+        var importedLiteral = service.ImportZip(literalZip, overwrite: false);
+        Assert.AreEqual("First description line." + Environment.NewLine + "Second description line.", importedLiteral.Description);
     }
 
     [TestMethod]

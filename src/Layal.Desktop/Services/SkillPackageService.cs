@@ -306,7 +306,7 @@ public sealed class SkillPackageService
                         i++;
                     }
 
-                    description = value.StartsWith('|', StringComparison.Ordinal)
+                    description = value.StartsWith("|", StringComparison.Ordinal)
                         ? string.Join(Environment.NewLine, blockLines).Trim()
                         : FoldDescriptionLines(blockLines);
                 }
