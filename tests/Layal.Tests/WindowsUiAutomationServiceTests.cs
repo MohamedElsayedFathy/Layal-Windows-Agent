@@ -77,7 +77,7 @@ public sealed class WindowsUiAutomationServiceTests
         Assert.AreEqual("saveButton", WindowsUiAutomationService.ValidateAutomationId("saveButton"));
         Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId(" "));
         Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId(new string('x', 101)));
-        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId("save\\nButton"));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId("save\nButton"));
     }
 
     [TestMethod]

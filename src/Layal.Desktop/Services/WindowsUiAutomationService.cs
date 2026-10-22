@@ -5,8 +5,8 @@ using System.Windows.Automation;
 namespace Layal.Services;
 
 /// <summary>
-/// Read-only UI Automation for a specifically selected external top-level window.
-/// This service deliberately never reads ValuePattern/TextPattern content or invokes controls.
+/// Bounded UI Automation for a specifically selected external top-level window.
+/// Inspection never reads editable values; action support is limited to one approved InvokePattern call.
 /// </summary>
 public static class WindowsUiAutomationService
 {
@@ -458,6 +458,36 @@ public static class WindowsUiAutomationService
         ControlType.MenuItem.ProgrammaticName,
         ControlType.SplitButton.ProgrammaticName
     };
+
+    public static string FormatInvokeReport(UiInvokeOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(outcome);
+        var output = new StringBuilder();
+        output.AppendLine($"Window: {Sanitize(outcome.WindowTitle, 200)} (PID {outcome.ProcessId})");
+        output.AppendLine($"Invoked one {Sanitize(outcome.ControlType, 40)} control (AutomationId: {Sanitize(outcome.AutomationId, 100)}).");
+        output.AppendLine("The InvokePattern call returned without throwing; this does not by itself prove the application's requested operation succeeded.");
+
+        if (!outcome.WindowStillVisible)
+        {
+            output.Append("Observed after 250 ms: the selected window was no longer visible with the same title and process. Check the resulting application state.");
+        }
+        else if (outcome.ControlStillPresent == false)
+        {
+            output.Append("Observed after 250 ms: the target control was no longer found in the accessible UI tree. The UI changed, but the intended business result is not proven.");
+        }
+        else if (outcome.ControlStillPresent == true)
+        {
+            output.Append("Observed after 250 ms: the target control remained in the accessible UI tree; enabled state after the action: ")
+                .Append(outcome.ControlStillEnabled is true ? "enabled." : outcome.ControlStillEnabled is false ? "disabled." : "unknown.");
+            output.Append(" Verify the application's result before continuing.");
+        }
+        else
+        {
+            output.Append("Observed after 250 ms: the target UI state could not be determined safely. Verify the application manually before continuing.");
+        }
+
+        return output.ToString();
+    }
 
     public static string FormatReport(string windowTitle, uint processId, IReadOnlyList<UiControlSummary> controls)
     {
