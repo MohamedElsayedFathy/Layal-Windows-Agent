@@ -99,7 +99,9 @@
                                     </Border.ContextMenu>
                                     <StackPanel>
                                         <TextBlock Text="{Binding DisplayRole}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,0,5"/>
-                                        <emoji:TextBlock Text="{Binding Content}" TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" FlowDirection="{Binding Direction}"/>
+                                        <emoji:TextBlock Text="{Binding Content}" TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}"
+                                                         FlowDirection="{Binding Direction}"
+                                                         TextAlignment="{Binding Direction, Converter={StaticResource Layal.TextDirectionConverter}}"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
