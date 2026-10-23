@@ -89,8 +89,12 @@ def release_clearance_errors(
     for key, entry in sorted(packages.items()):
         label = str(entry.get("id") or key)
         status = str(entry.get("reviewStatus") or "")
-        if not status.strip() or "pending" in status.lower():
-            problems.append(f"{label}: human license review is still pending.")
+        if (
+            not status.strip()
+            or "pending" in status.lower()
+            or not any(term in status.lower() for term in ("approved", "reviewed", "cleared"))
+        ):
+            problems.append(f"{label}: human license review is not explicitly approved.")
         for field in ("reviewedBy", "reviewedOn", "reviewEvidence"):
             if not str(entry.get(field) or "").strip():
                 problems.append(f"{label}: release clearance is missing {field}.")
@@ -219,8 +223,13 @@ def validate_manifest(document: Any) -> dict[str, dict[str, Any]]:
         for name in packages:
             if name not in notice_text:
                 ERRORS.append(f"Third-party notices do not mention package {name}.")
-    if PROJECT_STATUS.is_file() and "لم تُحدَّد رخصة" not in PROJECT_STATUS.read_text(encoding="utf-8"):
-        ERRORS.append("Project license status document must state that licensing is undecided.")
+    if PROJECT_STATUS.is_file():
+        project_status_text = PROJECT_STATUS.read_text(encoding="utf-8")
+        declared_status = isinstance(document, dict) and document.get("projectLicense", {}).get("status") == "DECLARED"
+        if declared_status and "لم تُحدَّد رخصة" in project_status_text:
+            ERRORS.append("Project license status document still claims the project license is undecided.")
+        if not declared_status and "لم تُحدَّد رخصة" not in project_status_text:
+            ERRORS.append("Project license status document must explain that the project license is undecided.")
 
     for dependency in sorted(direct_dependencies()):
         if dependency not in packages:
