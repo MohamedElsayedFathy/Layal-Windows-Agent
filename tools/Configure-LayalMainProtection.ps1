@@ -77,6 +77,11 @@ if ($LASTEXITCODE -ne 0) {
     throw 'GitHub rejected the protection update. Check repository-plan support and Admin permission; no successful result is claimed.'
 }
 
+$branchJson = & $gh.Source api "repos/$repository/branches/$branch"
+if ($LASTEXITCODE -ne 0) { throw 'Update returned success but the branch status could not be read back.' }
+$branchInfo = $branchJson | ConvertFrom-Json
+if (-not $branchInfo.protected) { throw 'GitHub read-back reports that main is not protected.' }
+
 $verifyJson = & $gh.Source api "repos/$repository/branches/$branch/protection"
 if ($LASTEXITCODE -ne 0) { throw 'Update returned success but the protection settings could not be read back.' }
 $verify = $verifyJson | ConvertFrom-Json
@@ -90,7 +95,7 @@ $missingContexts = @($expectedContexts | Where-Object { $_ -notin $actualContext
 $resolutionEnabled = ($verify.required_conversation_resolution -eq $true) -or ($verify.required_conversation_resolution.enabled -eq $true)
 $adminsEnabled = ($verify.enforce_admins -eq $true) -or ($verify.enforce_admins.enabled -eq $true)
 $reviews = $verify.required_pull_request_reviews
-if ($missingContexts.Count -gt 0 -or -not $verify.protected -or -not $adminsEnabled -or -not $resolutionEnabled -or
+if ($missingContexts.Count -gt 0 -or -not $branchInfo.protected -or -not $adminsEnabled -or -not $resolutionEnabled -or
     $reviews.required_approving_review_count -lt $RequiredApprovingReviews -or
     -not $verify.required_status_checks.strict -or
     $verify.allow_force_pushes.enabled -eq $true -or
