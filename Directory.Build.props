@@ -5,6 +5,6 @@
     <NuGetAuditMode>all</NuGetAuditMode>
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <!-- Fail closed if NuGet cannot obtain advisory data. -->
-    <WarningsAsErrors>$(WarningsAsErrors);NU1900</WarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1900;NU1905</WarningsAsErrors>
   </PropertyGroup>
 </Project>

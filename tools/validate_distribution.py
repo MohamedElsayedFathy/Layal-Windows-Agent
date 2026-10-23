@@ -21,8 +21,20 @@ required_source_files = [
     "tools/Build-LayalDistribution.ps1",
     "BUILD-DISTRIBUTION.bat",
     "tools/Test-LayalInstaller.ps1",
-    "docs/DISTRIBUTION_AR.md",
+    "tools/audit_nuget.py",
+    "tools/validate_licenses.py",
+    "Directory.Build.props",
+    ".github/dependabot.yml",
     ".github/workflows/windows-build.yml",
+    ".github/workflows/security-supply-chain.yml",
+    "docs/DISTRIBUTION_AR.md",
+    "docs/THIRD_PARTY_LICENSES.json",
+    "docs/THIRD_PARTY_NOTICES.md",
+    "docs/PROJECT_LICENSE_STATUS_AR.md",
+    "docs/SECURITY_SUPPLY_CHAIN_AR.md",
+    "licenses/WTFPL.txt",
+    "licenses/MIT-JeremyAnsel.HLSL.Targets.txt",
+    "licenses/PROJECT-LICENSE-STATUS.md",
 ]
 for rel in required_source_files:
     if not (ROOT / rel).is_file():
@@ -69,6 +81,9 @@ for needle, label in [
     ("CycloneDX", "SBOM generation"),
     ("SHA256SUMS.txt", "SHA-256 manifest"),
     ("Test-LayalInstaller.ps1", "installer lifecycle test"),
+    ("validate_licenses.py", "SBOM license inventory validation"),
+    ("THIRD-PARTY-NOTICES.md", "third-party notice payload"),
+    ("PROJECT-LICENSE-STATUS.md", "project-license status disclosure"),
     ("PASS: fresh install, upgrade, rollback", "successful installer lifecycle evidence"),
     ("NOT RUN", "explicit status when lifecycle tests are skipped"),
     ("NOT SIGNED", "explicit unsigned-release warning"),
@@ -115,6 +130,11 @@ if args.artifacts:
             distribution / f"Layal-{version}-dependencies.txt",
             distribution / f"Layal-{version}-release-status.txt",
             distribution / "sbom" / f"Layal-{version}.cdx.json",
+            distribution / "licenses" / f"Layal-{version}-license-audit.md",
+            distribution / "licenses" / "THIRD-PARTY-NOTICES.md",
+            distribution / "licenses" / "WTFPL.txt",
+            distribution / "licenses" / "MIT-JeremyAnsel.HLSL.Targets.txt",
+            distribution / "licenses" / "PROJECT-LICENSE-STATUS.md",
             distribution / "SHA256SUMS.txt",
         ]
         for path in required_outputs:
@@ -130,9 +150,15 @@ if args.artifacts:
                 with zipfile.ZipFile(portable) as archive:
                     damaged = archive.testzip()
                     names = set(archive.namelist())
-                    for member in ("Layal.exe", "coreclr.dll", "hostfxr.dll"):
+                    for member in (
+                        "Layal.exe", "coreclr.dll", "hostfxr.dll",
+                        "licenses/THIRD-PARTY-NOTICES.md",
+                        "licenses/WTFPL.txt",
+                        "licenses/MIT-JeremyAnsel.HLSL.Targets.txt",
+                        "licenses/PROJECT-LICENSE-STATUS.md",
+                    ):
                         if member not in names:
-                            errors.append(f"Portable archive is not self-contained; missing {member}.")
+                            errors.append(f"Portable archive is missing runtime/license file: {member}.")
                     if damaged:
                         errors.append(f"Portable archive CRC check failed at {damaged}.")
             except zipfile.BadZipFile:
@@ -166,6 +192,12 @@ if args.artifacts:
                 actual = hashlib.sha256(target.read_bytes()).hexdigest()
                 if actual != expected:
                     errors.append(f"SHA-256 mismatch: {relative}")
+        license_report = distribution / "licenses" / f"Layal-{version}-license-audit.md"
+        if license_report.is_file():
+            license_text = license_report.read_text(encoding="utf-8-sig").lower()
+            for needle in ("undeclared", "asset provenance", "human legal review"):
+                if needle not in license_text:
+                    errors.append(f"License audit report must disclose unresolved legal gate: {needle}")
         status_file = distribution / f"Layal-{version}-release-status.txt"
         if status_file.is_file():
             status_text = status_file.read_text(encoding="utf-8-sig")

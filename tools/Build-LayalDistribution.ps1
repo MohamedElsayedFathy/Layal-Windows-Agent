@@ -53,6 +53,8 @@ if ($patch -gt 0) {
 $assemblyVersion = "$major.$minor.$patch.0"
 $previousAssemblyVersion = (($previousVersion.Split('.') | Select-Object -First 3) -join '.') + '.0'
 
+# Clear generated distribution outputs so stale SBOMs or notices cannot survive a rebuild.
+Remove-Item -LiteralPath $Distribution -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Artifacts, $Distribution, $SbomDirectory | Out-Null
 Remove-Item -LiteralPath $PublishDirectory -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $PublishDirectory | Out-Null
@@ -75,6 +77,14 @@ foreach ($requiredPath in @($exePath, $coreClrPath, $hostFxrPath)) {
     }
 }
 Write-Host 'PASS: Layal.exe and bundled .NET runtime files exist.'
+
+# Include license notices in the installed application payload and portable ZIP.
+$payloadLicenseDirectory = Join-Path $PublishDirectory 'licenses'
+New-Item -ItemType Directory -Force -Path $payloadLicenseDirectory | Out-Null
+Copy-Item -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_NOTICES.md') -Destination (Join-Path $payloadLicenseDirectory 'THIRD-PARTY-NOTICES.md') -Force
+Copy-Item -LiteralPath (Join-Path $Root 'licenses/WTFPL.txt') -Destination (Join-Path $payloadLicenseDirectory 'WTFPL.txt') -Force
+Copy-Item -LiteralPath (Join-Path $Root 'licenses/MIT-JeremyAnsel.HLSL.Targets.txt') -Destination (Join-Path $payloadLicenseDirectory 'MIT-JeremyAnsel.HLSL.Targets.txt') -Force
+Copy-Item -LiteralPath (Join-Path $Root 'licenses/PROJECT-LICENSE-STATUS.md') -Destination (Join-Path $payloadLicenseDirectory 'PROJECT-LICENSE-STATUS.md') -Force
 
 $portableZip = Join-Path $Distribution "Layal-$version-portable-win-x64.zip"
 Remove-Item -LiteralPath $portableZip -Force -ErrorAction SilentlyContinue
@@ -111,6 +121,20 @@ foreach ($sbomFile in $sbomFiles) {
 if (-not $validSbom) {
     throw 'CycloneDX did not produce a valid JSON SBOM with dependency components.'
 }
+
+$expectedSbom = Join-Path $SbomDirectory "Layal-$version.cdx.json"
+$distributionLicenseDirectory = Join-Path $Distribution 'licenses'
+New-Item -ItemType Directory -Force -Path $distributionLicenseDirectory | Out-Null
+Copy-Item -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_NOTICES.md') -Destination (Join-Path $distributionLicenseDirectory 'THIRD-PARTY-NOTICES.md') -Force
+Copy-Item -LiteralPath (Join-Path $Root 'licenses/WTFPL.txt') -Destination (Join-Path $distributionLicenseDirectory 'WTFPL.txt') -Force
+Copy-Item -LiteralPath (Join-Path $Root 'licenses/MIT-JeremyAnsel.HLSL.Targets.txt') -Destination (Join-Path $distributionLicenseDirectory 'MIT-JeremyAnsel.HLSL.Targets.txt') -Force
+Copy-Item -LiteralPath (Join-Path $Root 'licenses/PROJECT-LICENSE-STATUS.md') -Destination (Join-Path $distributionLicenseDirectory 'PROJECT-LICENSE-STATUS.md') -Force
+$licenseAuditReport = Join-Path $distributionLicenseDirectory "Layal-$version-license-audit.md"
+Invoke-Checked -Executable 'python' -Arguments @(
+    (Join-Path $PSScriptRoot 'validate_licenses.py'),
+    '--sbom', $expectedSbom,
+    '--report', $licenseAuditReport
+) -Description 'Validate CycloneDX SBOM against the curated license inventory'
 
 $dependencyReport = Join-Path $Distribution "Layal-$version-dependencies.txt"
 $dependencyOutput = & dotnet list $ProjectPath package --include-transitive 2>&1

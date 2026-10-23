@@ -31,6 +31,7 @@ jobs:
         run: |
           python tools/validate_project.py
           python tools/validate_distribution.py
+          python tools/validate_licenses.py --manifest-only --report artifacts/security/license-manifest-validation.md
 
       - name: Parse interactive click-through acceptance harness
         shell: pwsh
@@ -60,6 +61,9 @@ jobs:
 
       - name: Restore
         run: dotnet restore Layal.sln --nologo
+
+      - name: Audit all direct and transitive NuGet dependencies
+        run: python tools/audit_nuget.py --solution Layal.sln --output artifacts/security/nuget-vulnerability-audit.json
 
       - name: Release build
         run: dotnet build Layal.sln --configuration Release --no-restore --nologo
