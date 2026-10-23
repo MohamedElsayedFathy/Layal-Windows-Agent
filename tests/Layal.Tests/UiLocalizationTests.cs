@@ -46,6 +46,17 @@ public sealed class UiLocalizationTests
     }
 
     [TestMethod]
+    public void DynamicStatusPrefixesSwitchLanguagesWithoutDamagingTheirPayload()
+    {
+        const string english = "Test succeeded: model-42";
+        var arabic = UiLocalization.TranslateKnownFeedback(english, isArabic: true);
+        var roundTrip = UiLocalization.TranslateKnownFeedback(arabic, isArabic: false);
+
+        Assert.AreEqual("نجح الاختبار: model-42", arabic);
+        Assert.AreEqual(english, roundTrip);
+    }
+
+    [TestMethod]
     public void UnrecognizedModelOutputIsPreservedVerbatim()
     {
         const string output = "This is a user-facing answer in a language selected by the user.";
