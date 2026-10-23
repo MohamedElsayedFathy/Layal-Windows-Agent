@@ -351,7 +351,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(SkillsResult, ar ? "نتيجة استيراد المهارة" : "Skill import status");
         AutomationProperties.SetName(MemoryResult, ar ? "نتيجة إجراء الذاكرة" : "Memory action status");
         AutomationProperties.SetName(ProviderActionStatus, ar ? "حالة إعداد المزود" : "Provider settings status");
-        ChatActivityStatus.Text = TranslateChatActivityStatus(ChatActivityStatus.Text, ar);
+        SetAccessibleStatusText(ChatActivityStatus, TranslateChatActivityStatus(ChatActivityStatus.Text, ar));
         AutomationProperties.SetName(ChatActivityStatus, ar ? "حالة المحادثة" : "Chat activity status");
         AutomationProperties.SetHelpText(ChatActivityStatus, ar
             ? "تُعلن هنا حالة إرسال الرد أو إيقافه أو فشله."
