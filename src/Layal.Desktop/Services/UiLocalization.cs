@@ -32,6 +32,31 @@ public static class UiLocalization
     public static string FormatTaskResult(AgentTaskRecord task, bool isArabic) =>
         $"{FormatTaskStatus(task.Status, isArabic)}{Environment.NewLine}{FormatKnownTaskResult(task.Result, isArabic)}";
 
+    public static string TranslateTaskResultDisplay(string value, bool isArabic)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value;
+        var newline = value.IndexOf(Environment.NewLine, StringComparison.Ordinal);
+        if (newline < 0) return TranslateKnownFeedback(FormatKnownTaskResult(value, isArabic), isArabic);
+
+        var status = value[..newline];
+        var result = value[(newline + Environment.NewLine.Length)..];
+        var knownStatus = status is "Pending" or "Running" or "Completed" or "CompletedWithWarnings" or "Failed" or "Cancelled"
+            or "قيد الانتظار" or "قيد التنفيذ" or "مكتملة" or "مكتملة مع تحذيرات" or "فشلت" or "أُلغيت";
+        return knownStatus
+            ? $"{FormatTaskStatus(status, isArabic)}{Environment.NewLine}{FormatKnownTaskResult(result, isArabic)}"
+            : TranslateKnownFeedback(value, isArabic);
+    }
+
+    public static string FormatNotepadResult(string result, bool isArabic)
+    {
+        var match = Regex.Match(result, @"^Notepad launch requested\. Process ID: (?<pid>\d+)\.$");
+        return match.Success
+            ? isArabic
+                ? $"تم طلب فتح المفكرة. معرّف العملية: {match.Groups["pid"].Value}."
+                : $"Notepad launch requested. Process ID: {match.Groups["pid"].Value}."
+            : result;
+    }
+
     public static string FormatKnownTaskResult(string result, bool isArabic)
     {
         if (result == "The model returned an empty final answer.")
@@ -111,6 +136,9 @@ public static class UiLocalization
         if (message.StartsWith("Tool failed: ", StringComparison.Ordinal))
             return isArabic ? "فشل تنفيذ الأداة: " + message["Tool failed: ".Length..] : message;
 
+        if (message.StartsWith("Tool declined: ", StringComparison.Ordinal))
+            return isArabic ? "رُفض الإجراء المطلوب: " + message["Tool declined: ".Length..] : message;
+
         if (message.StartsWith("Task failed: ", StringComparison.Ordinal))
             return isArabic ? "فشلت المهمة: " + message["Task failed: ".Length..] : message;
 
@@ -149,6 +177,9 @@ public static class UiLocalization
 
         if (details == "Allow Layal to launch the Windows Notepad application?")
             return "هل تسمح لليال بفتح تطبيق المفكرة في Windows؟";
+
+        if (details == "This note will be saved locally encrypted with DPAPI for the current Windows user. Do not store secrets or passwords. Continue?")
+            return "ستُحفظ هذه الملاحظة محليًا بتشفير DPAPI لمستخدم Windows الحالي. لا تحفظ أسرارًا أو كلمات مرور. هل تريد المتابعة؟";
 
         if (details.StartsWith("Open this URL in the default browser?\n", StringComparison.Ordinal))
             return "هل تريد فتح الرابط التالي في المتصفح الافتراضي؟\n" + details["Open this URL in the default browser?\n".Length..];
@@ -238,7 +269,13 @@ public static class UiLocalization
             ("تم حفظ الملاحظة محليًا بصورة مشفرة.", "Note saved locally with encryption."),
             ("حدد ملاحظة لحذفها.", "Select a note to delete."),
             ("تم حذف الملاحظة.", "Memory note deleted."),
-            ("تم تصدير الذاكرة. الملف غير مشفر.", "Memory exported. The file is not encrypted.")
+            ("تم تصدير الذاكرة. الملف غير مشفر.", "Memory exported. The file is not encrypted."),
+            ("نجح الاختبار:", "Test succeeded:"),
+            ("تم نسخ ", " copied to the clipboard."),
+            ("تم استيراد بيانات المهارة: ", "Skill metadata imported: "),
+            ("تم استيراد المهارة: ", "Imported skill: "),
+            ("تم استيراد المهارة: ", "Skill metadata imported: "),
+            ("تم إلغاء المهمة.", "Task was cancelled.")
         };
 
         foreach (var pair in pairs)
