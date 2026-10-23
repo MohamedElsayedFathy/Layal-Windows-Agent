@@ -271,11 +271,8 @@ public static class UiLocalization
             ("تم حذف الملاحظة.", "Memory note deleted."),
             ("تم تصدير الذاكرة. الملف غير مشفر.", "Memory exported. The file is not encrypted."),
             ("نجح الاختبار:", "Test succeeded:"),
-            ("تم نسخ ", " copied to the clipboard."),
             ("تم استيراد بيانات المهارة: ", "Skill metadata imported: "),
-            ("تم استيراد المهارة: ", "Imported skill: "),
-            ("تم استيراد المهارة: ", "Skill metadata imported: "),
-            ("تم إلغاء المهمة.", "Task was cancelled.")
+            ("تم استيراد المهارة: ", "Imported skill: ")
         };
 
         foreach (var pair in pairs)
@@ -286,6 +283,25 @@ public static class UiLocalization
             if (value.StartsWith(pair.Arabic, StringComparison.Ordinal))
                 return (isArabic ? pair.Arabic : pair.English) + value[pair.Arabic.Length..];
 
+            if (value.StartsWith(pair.English, StringComparison.Ordinal))
+                return (isArabic ? pair.Arabic : pair.English) + value[pair.English.Length..];
+        }
+
+        var technicalPrefixes = new (string Arabic, string English)[]
+        {
+            ("تعذر حفظ الإعدادات (", "Could not save settings ("),
+            ("فشل اختبار الاتصال (", "Connection test failed ("),
+            ("تعذر فتح المفكرة (", "Could not launch Notepad ("),
+            ("تعذر حفظ الملاحظة (", "Could not save the note ("),
+            ("تعذر تصدير الذاكرة (", "Could not export memory ("),
+            ("تعذر استيراد المهارة (", "Skill import failed ("),
+            ("تعذر استيراد المهارة من GitHub (", "GitHub skill import failed ("),
+            ("فشلت المهمة (", "Task failed (")
+        };
+        foreach (var pair in technicalPrefixes)
+        {
+            if (value.StartsWith(pair.Arabic, StringComparison.Ordinal))
+                return (isArabic ? pair.Arabic : pair.English) + value[pair.Arabic.Length..];
             if (value.StartsWith(pair.English, StringComparison.Ordinal))
                 return (isArabic ? pair.Arabic : pair.English) + value[pair.English.Length..];
         }
