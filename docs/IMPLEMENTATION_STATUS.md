@@ -118,3 +118,10 @@ Artifacts uploaded by this run include the Windows Release build, interactive-ac
 - validate_project.py guards key XAML event wiring and the language/settings/provider save handlers, as well as the new end-to-end WPF regression assertions.
 - **Windows CI verification passed:** [run 39862792692](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39862792692), commit `e1fe6f990aa95684bda0925a6f95885023073d5b`: Release build 0 warnings / 0 errors; 77 passed, 0 failed, 0 skipped; native click-through 4/4; drag/restart 6/6; display/DPI topology smoke 11 checks; artifacts uploaded.
 - **Live Windows acceptance remains pending:** manually verify single/double click behavior, context-menu hide/show, restart persistence, and all configuration options in a user desktop session. The CI environment does not replace actual mouse interaction and restart testing on the target Windows machine.
+
+
+## مطابقة المتطلبات وقبول حزمة الإصدار — 23 أكتوبر 2026
+
+أُعيدت مطابقة سجل المتطلبات ومصفوفة `REQUIREMENT_TRACEABILITY.csv` بالأدلة الفعلية لحزمة 0.5.2. Windows CI الحالي [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) على رأس الفرع `034fa598d8ec219e6c59019984013ac649055e5b` اجتاز Release build (**0 تحذيرات / 0 أخطاء**)، والاختبارات (**77/77**)، وتمرير النقرات (**4/4**)، والسحب/حفظ/استعادة الموضع (**6/6**)، وتشخيص DPI (**11 تحققًا**)، والتحقق من حزمة المصدر ورفع artifacts.
+
+تم تحديث حالة المتطلبات التي لها دليل آلي محدد فقط. لم تُحوّل واجهات أو تكاملات غير مختبرة إلى «متحققة». لا تزال بوابات القبول اليدوي على Windows فعلية مطلوبة، خصوصًا tray والإخفاء/الإظهار، والنقر المفرد والمزدوج والقائمة السياقية، وإعادة التشغيل، ومقاييس 100/125/150/175%، وعبور شاشتين مختلفتي DPI. كشف CI شاشة واحدة عند 96 DPI / 100% فقط. كما أن Gate E غير مكتمل: المثبّت والتحديث والتراجع والإزالة والتوقيع الرقمي ومراجعة التراخيص/SBOM ليست مثبتة كجزء من حزمة الإصدار الحالية.
