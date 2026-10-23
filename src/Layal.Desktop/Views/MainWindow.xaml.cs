@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Text;
 using System.Net;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -213,6 +214,34 @@ public partial class MainWindow : Window
             ? (ar ? "التبديل إلى المظهر الفاتح" : "Switch to light theme")
             : (ar ? "التبديل إلى المظهر الداكن" : "Switch to dark theme");
         ShowMascotButton.Content = ar ? "إظهار الشخصية" : "Show mascot";
+        KeyboardHelpButton.Content = ar ? "_اختصارات" : "_Shortcuts";
+        KeyboardHelpButton.ToolTip = ar ? "F1 — عرض اختصارات لوحة المفاتيح" : "F1 — Show keyboard shortcuts";
+        AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
+        AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
+        AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
+        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 7 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+7 to switch tabs.");
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
+        AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
+        AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
+        AutomationProperties.SetName(ChatMessagesList, ar ? "رسائل المحادثة" : "Chat messages");
+        AutomationProperties.SetHelpText(ChatMessagesList, ar ? "استخدم الأسهم لاستعراض الرسائل." : "Use the arrow keys to review messages.");
+        AutomationProperties.SetName(ChatInput, ar ? "الرسالة" : "Message");
+        AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة واضغط Enter للإرسال. Ctrl+2 ينقل التركيز إلى هذا الحقل." : "Type a message and press Enter to send. Ctrl+2 focuses this field.");
+        AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
+        AutomationProperties.SetHelpText(TaskInput, ar ? "اكتب المهمة ثم استخدم Tab للوصول إلى زر تنفيذ المهمة." : "Describe the task, then press Tab to reach Run task.");
+        AutomationProperties.SetName(TaskEventsList, ar ? "سجل أحداث المهمة" : "Task event log");
+        AutomationProperties.SetName(RecentTasksList, ar ? "المهام السابقة" : "Recent tasks");
+        AutomationProperties.SetHelpText(RecentTasksList, ar ? "اختر مهمة سابقة لعرض تفاصيلها." : "Select a previous task to view its details.");
+        AutomationProperties.SetName(SkillsList, ar ? "المهارات المثبتة" : "Installed skills");
+        AutomationProperties.SetHelpText(SkillsList, ar ? "يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." : "Select multiple skills with Ctrl or Shift and the arrow keys.");
+        AutomationProperties.SetName(GitHubSkillUrlInput, ar ? "رابط مهارة GitHub" : "GitHub skill URL");
+        AutomationProperties.SetHelpText(GitHubSkillUrlInput, ar ? "أدخل رابط مستودع أو مجلد يحتوي على SKILL.md." : "Enter a repository or folder URL containing SKILL.md.");
+        AutomationProperties.SetHelpText(BaseUrlInput, ar ? "عنوان HTTP أو HTTPS الأساسي لمزود الذكاء الاصطناعي." : "HTTP or HTTPS base URL for the provider.");
+        AutomationProperties.SetHelpText(ApiKeyInput, ar ? "يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي." : "The API key is saved encrypted for the current Windows user.");
+        AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory");
+        AutomationProperties.SetHelpText(MemorySearchInput, ar ? "أدخل كلمات البحث ثم استخدم زر بحث." : "Enter search terms, then activate Search.");
+        AutomationProperties.SetName(MemoryList, ar ? "ملاحظات الذاكرة" : "Memory notes");
+        AutomationProperties.SetHelpText(MemoryList, ar ? "اختر ملاحظة لعرضها أو تعديلها." : "Select a note to view or edit it.");
 
         HomeTab.Header = ar ? "⌂  الرئيسية" : "⌂  Home";
         ChatTab.Header = ar ? "✦  المحادثة" : "✦  Chat";
@@ -367,6 +396,109 @@ public partial class MainWindow : Window
                 : "Theme changed, but the preference could not be saved.";
             HomeResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         }
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.F1)
+        {
+            ShowKeyboardHelp();
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers != ModifierKeys.Control)
+            return;
+
+        TabItem? requestedTab = e.Key switch
+        {
+            Key.D1 or Key.NumPad1 => HomeTab,
+            Key.D2 or Key.NumPad2 => ChatTab,
+            Key.D3 or Key.NumPad3 => TasksTab,
+            Key.D4 or Key.NumPad4 => SkillsTab,
+            Key.D5 or Key.NumPad5 => CamerasTab,
+            Key.D6 or Key.NumPad6 => MemoryTab,
+            Key.D7 or Key.NumPad7 => SettingsTab,
+            _ => null
+        };
+
+        if (requestedTab is null)
+            return;
+
+        MainTabs.SelectedItem = requestedTab;
+        MainTabs.UpdateLayout();
+
+        if (requestedTab == ChatTab)
+        {
+            ChatInput.Focus();
+        }
+        else if (MainTabs.SelectedContent is DependencyObject content &&
+                 FindFirstFocusableControl(content) is { } firstControl &&
+                 firstControl.Focus())
+        {
+            // Focus the first usable control in the newly selected tab.
+        }
+        else
+        {
+            requestedTab.Focus();
+        }
+
+        e.Handled = true;
+    }
+
+    private static Control? FindFirstFocusableControl(DependencyObject parent)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            if (child is Control control &&
+                control.IsEnabled &&
+                control.IsVisible &&
+                control.Focusable &&
+                control.IsTabStop)
+            {
+                return control;
+            }
+
+            var nested = FindFirstFocusableControl(child);
+            if (nested is not null)
+                return nested;
+        }
+
+        return null;
+    }
+
+    private void KeyboardHelpButton_Click(object sender, RoutedEventArgs e) => ShowKeyboardHelp();
+
+    private void ShowKeyboardHelp()
+    {
+        var message = IsArabic
+            ? "اختصارات لوحة المفاتيح\n\n" +
+              "Ctrl+1 — الرئيسية\n" +
+              "Ctrl+2 — المحادثة (ينقل التركيز إلى حقل الرسالة)\n" +
+              "Ctrl+3 — المهام\n" +
+              "Ctrl+4 — المهارات\n" +
+              "Ctrl+5 — الكاميرات\n" +
+              "Ctrl+6 — الذاكرة\n" +
+              "Ctrl+7 — الإعدادات\n" +
+              "F1 — عرض هذه المساعدة\n\n" +
+              "استخدم Tab للتنقل للأمام وShift+Tab للرجوع. استخدم الأسهم داخل قوائم التبويبات والقوائم، وSpace لتبديل مربعات الاختيار، والأسهم لتعديل أشرطة التمرير. في حقل المحادثة، Enter يرسل الرسالة."
+            : "Keyboard shortcuts\n\n" +
+              "Ctrl+1 — Home\n" +
+              "Ctrl+2 — Chat (focuses the message field)\n" +
+              "Ctrl+3 — Tasks\n" +
+              "Ctrl+4 — Skills\n" +
+              "Ctrl+5 — Cameras\n" +
+              "Ctrl+6 — Memory\n" +
+              "Ctrl+7 — Settings\n" +
+              "F1 — Show this help\n\n" +
+              "Use Tab to move forward and Shift+Tab to move backward. Use the arrow keys inside tab and list controls, Space to toggle checkboxes, and the arrow keys to adjust sliders. In the chat field, Enter sends the message.";
+
+        MessageBox.Show(
+            this,
+            message,
+            IsArabic ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private void LanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage(IsArabic ? "en" : "ar");
