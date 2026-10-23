@@ -4,6 +4,7 @@ using System.Text;
 using System.Net;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -342,6 +343,11 @@ public partial class MainWindow : Window
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
         ChatNotice.Text = ar ? "تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." : "Configure a valid API endpoint and key in Settings to send real messages.";
+        ChatActivityStatus.Text = TranslateChatActivityStatus(ChatActivityStatus.Text, ar);
+        AutomationProperties.SetName(ChatActivityStatus, ar ? "حالة المحادثة" : "Chat activity status");
+        AutomationProperties.SetHelpText(ChatActivityStatus, ar
+            ? "تُعلن هنا حالة إرسال الرد أو إيقافه أو فشله."
+            : "Announces when a response starts, completes, is cancelled, or fails.");
         ChatEmptyStateText.Text = ar
             ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة."
             : "No messages yet. Type a message below to start the conversation.";
@@ -460,6 +466,53 @@ public partial class MainWindow : Window
         AppRuntime.Tray?.SetLanguage(AppRuntime.Settings.Language);
         AppRuntime.MascotWindow?.UpdateLanguage();
         RefreshProviderStatus();
+    }
+
+    private void SetChatActivityStatus(string message)
+    {
+        ChatActivityStatus.Text = message;
+        NotifyLiveRegion(ChatActivityStatus);
+    }
+
+    private static string TranslateChatActivityStatus(string message, bool arabic) => message switch
+    {
+        "Waiting for the first response chunk..." or "بانتظار أول جزء من الرد..." =>
+            arabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...",
+        "Layal is responding..." or "ليال بتكتب..." =>
+            arabic ? "ليال بتكتب..." : "Layal is responding...",
+        "Response completed" or "اكتمل الرد" =>
+            arabic ? "اكتمل الرد" : "Response completed",
+        "Cancelled" or "تم الإيقاف" =>
+            arabic ? "تم الإيقاف" : "Cancelled",
+        "Request failed" or "فشل الطلب" =>
+            arabic ? "فشل الطلب" : "Request failed",
+        "Cancel the active response before starting a new conversation." or "أوقف الرد الحالي قبل بدء محادثة جديدة." =>
+            arabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.",
+        "New conversation started. Previous conversations remain saved in the selector." or "بدأت محادثة جديدة؛ المحادثات السابقة ما زالت محفوظة ويمكن اختيارها من القائمة." =>
+            arabic ? "بدأت محادثة جديدة؛ المحادثات السابقة ما زالت محفوظة ويمكن اختيارها من القائمة." : "New conversation started. Previous conversations remain saved in the selector.",
+        "Cancel the active response before clearing history." or "أوقف الرد الحالي قبل مسح السجل." =>
+            arabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.",
+        "Saved chat history was cleared. A fresh conversation is ready." or "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." =>
+            arabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.",
+        "Cancel the active response before switching conversations." or "أوقف الرد الحالي قبل تبديل المحادثة." =>
+            arabic ? "أوقف الرد الحالي قبل تبديل المحادثة." : "Cancel the active response before switching conversations.",
+        "Saved conversation loaded." or "تم تحميل المحادثة المحفوظة." =>
+            arabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.",
+        _ => message
+    };
+
+    private static void NotifyLiveRegion(FrameworkElement element)
+    {
+        try
+        {
+            var peer = FrameworkElementAutomationPeer.FromElement(element)
+                ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
+            peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        }
+        catch
+        {
+            // A UI Automation client failure must never interrupt the user action itself.
+        }
     }
 
     private void RefreshProviderStatus()
@@ -825,7 +878,7 @@ public partial class MainWindow : Window
         _chatCancellation = new CancellationTokenSource();
         SendButton.IsEnabled = false;
         CancelResponseButton.IsEnabled = true;
-        ChatProviderStatus.Text = IsArabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...";
+        SetChatActivityStatus(IsArabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...");
         AppRuntime.MascotWindow?.SetMood("thinking");
         try
         {
@@ -843,7 +896,7 @@ public partial class MainWindow : Window
                     if (liveAssistantMessage is null)
                     {
                         AppRuntime.MascotWindow?.SetMood("responding");
-                        ChatProviderStatus.Text = IsArabic ? "ليال بتكتب..." : "Layal is responding...";
+                        SetChatActivityStatus(IsArabic ? "ليال بتكتب..." : "Layal is responding...");
                         liveAssistantMessage = AddMessage("assistant", delta);
                     }
                     else
@@ -872,19 +925,19 @@ public partial class MainWindow : Window
                 SaveCurrentChatMessages();
             }
             AppRuntime.MascotWindow?.SetMood(SelectChatMood(text, response));
-            ChatProviderStatus.Text = IsArabic ? "اكتمل الرد" : "Response completed";
+            SetChatActivityStatus(IsArabic ? "اكتمل الرد" : "Response completed");
         }
         catch (OperationCanceledException)
         {
             AddMessage("status", IsArabic ? "تم إيقاف الطلب." : "Request cancelled.");
             AppRuntime.MascotWindow?.SetMood("paused");
-            ChatProviderStatus.Text = IsArabic ? "تم الإيقاف" : "Cancelled";
+            SetChatActivityStatus(IsArabic ? "تم الإيقاف" : "Cancelled");
         }
         catch (Exception ex)
         {
             AddMessage("status", (IsArabic ? "فشل طلب النموذج: " : "Model request failed: ") + ex.Message);
             AppRuntime.MascotWindow?.SetMood("error");
-            ChatProviderStatus.Text = IsArabic ? "فشل الطلب" : "Request failed";
+            SetChatActivityStatus(IsArabic ? "فشل الطلب" : "Request failed");
         }
         finally
         {
@@ -1108,7 +1161,7 @@ public partial class MainWindow : Window
     {
         if (_chatCancellation is not null)
         {
-            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.";
+            SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.");
             return;
         }
         var conversation = AppRuntime.ChatSessionService.CreateNewConversation(IsArabic ? "محادثة جديدة" : "New conversation");
@@ -1116,9 +1169,9 @@ public partial class MainWindow : Window
         ChatMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
-        ChatProviderStatus.Text = IsArabic
+        SetChatActivityStatus(IsArabic
             ? "بدأت محادثة جديدة؛ المحادثات السابقة ما زالت محفوظة ويمكن اختيارها من القائمة."
-            : "New conversation started. Previous conversations remain saved in the selector.";
+            : "New conversation started. Previous conversations remain saved in the selector.");
         AppRuntime.MascotWindow?.SetMood("excited");
         ChatInput.Focus();
     }
@@ -1127,7 +1180,7 @@ public partial class MainWindow : Window
     {
         if (_chatCancellation is not null)
         {
-            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.";
+            SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.");
             return;
         }
 
@@ -1144,7 +1197,7 @@ public partial class MainWindow : Window
         ChatMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
-        ChatProviderStatus.Text = IsArabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.";
+        SetChatActivityStatus(IsArabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.");
         AppRuntime.MascotWindow?.SetMood("success");
     }
 
@@ -1157,7 +1210,7 @@ public partial class MainWindow : Window
         if (_chatCancellation is not null)
         {
             RefreshChatSessions(_currentConversationId);
-            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل تبديل المحادثة." : "Cancel the active response before switching conversations.";
+            SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل تبديل المحادثة." : "Cancel the active response before switching conversations.");
             return;
         }
 
@@ -1177,7 +1230,7 @@ public partial class MainWindow : Window
         }
         ChatMessagesList.Items.Refresh();
         RefreshChatSessions(_currentConversationId);
-        ChatProviderStatus.Text = IsArabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.";
+        SetChatActivityStatus(IsArabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.");
     }
 
     private void CancelResponseButton_Click(object sender, RoutedEventArgs e) => _chatCancellation?.Cancel();
