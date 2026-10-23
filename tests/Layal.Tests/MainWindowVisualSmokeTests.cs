@@ -390,6 +390,20 @@ public sealed class MainWindowVisualSmokeTests
 
         Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
             "The whole window must not be mirrored to achieve Arabic RTL text.");
+
+        var taskResult = window.FindName("TaskResult") as TextBox
+            ?? throw new InvalidOperationException("TaskResult was not found.");
+        Assert.AreEqual(ar ? "نتيجة المهمة" : "Task result",
+            System.Windows.Automation.AutomationProperties.GetName(taskResult),
+            "Task result must have a localized accessible name.");
+        Assert.AreEqual(ar
+                ? "يعرض النتيجة النهائية وحالة المهمة، بما في ذلك التحذيرات أو الإخفاق."
+                : "Shows the final task result and its status, including warnings or failures.",
+            System.Windows.Automation.AutomationProperties.GetHelpText(taskResult),
+            "Task result must expose localized context to assistive technology.");
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(taskResult),
+            "Task result must announce polite live updates to assistive technology.");
     }
 
     private static void AssertHighContrastPaletteCanBeApplied(MainWindow window, MethodInfo applyTheme)
