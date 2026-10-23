@@ -166,6 +166,7 @@ $licenseAuditReport = Join-Path $distributionLicenseDirectory "Layal-$version-li
 $licenseArguments = @(
     (Join-Path $PSScriptRoot 'validate_licenses.py'),
     '--sbom', $expectedSbom,
+    '--enrich-sbom-license-metadata',
     '--report', $licenseAuditReport
 )
 if ($RequireCodeSigning) { $licenseArguments += '--require-release-clearance' }
