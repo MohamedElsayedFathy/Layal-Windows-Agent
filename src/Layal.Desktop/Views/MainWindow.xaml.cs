@@ -125,6 +125,8 @@ public partial class MainWindow : Window
         MinHeight = Math.Min(MinHeight, availableHeight);
         Width = Math.Min(Width, availableWidth);
         Height = Math.Min(Height, availableHeight);
+        Left = Math.Clamp(Left, workArea.Left, workArea.Right - Width);
+        Top = Math.Clamp(Top, workArea.Top, workArea.Bottom - Height);
     }
 
     private void UpdateEmptyStateHints()
