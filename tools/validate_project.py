@@ -184,6 +184,27 @@ else:
         if fragment not in theme_regression_test:
             ERRORS.append(f"Dark-mode UI regression test lost required coverage: {fragment}")
 
+# Accessibility regression gate: interactive controls must not suppress keyboard focus feedback.
+if 'x:Key="Layal.KeyboardFocusVisual"' not in app_text:
+    ERRORS.append("Shared Layal keyboard-focus visual resource is missing")
+if app_text.count('<Setter Property="FocusVisualStyle" Value="{x:Null}" />') != 1:
+    ERRORS.append("FocusVisualStyle must not be suppressed on interactive controls; only the non-focusable GroupBox style may opt out")
+if 'KeyboardNavigation.DirectionalNavigation="Cycle"' not in app_text:
+    ERRORS.append("Tab-strip directional keyboard navigation must cycle between navigation tabs")
+for fragment in (
+    'AutomationProperties.SetName(HomeTab,',
+    'AutomationProperties.SetName(ChatInput,',
+    'AutomationProperties.SetName(TaskInput,',
+    'AutomationProperties.SetName(BaseUrlInput,',
+    'AutomationProperties.SetName(ApiKeyInput,',
+    'AutomationProperties.SetName(MemoryTitleInput,',
+    'AutomationProperties.SetName(MascotSizeSlider,',
+):
+    if fragment not in main_window_code_text:
+        ERRORS.append(f"Accessible control naming is missing: {fragment}")
+if "AssertKeyboardAccessibility(window, sendButton" not in theme_regression_test:
+    ERRORS.append("Keyboard focus and UI Automation accessibility regression test is missing")
+
 # Guard the real interaction/settings paths so their UI bindings, persistence, and regression tests cannot silently disappear.
 interaction_ui_needles = (
     'x:Name="LanguageButton" Content="English" Click="LanguageButton_Click"',
