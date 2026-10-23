@@ -21,6 +21,8 @@ On Windows 10/11 x64 with the .NET 10 SDK:
 Layal agent file tools and dotnet build/test operations are limited to `%USERPROFILE%\Documents\LayalWorkspace`; build/test commands can still execute project-defined targets and should only be run on trusted projects. See README_AR.md for limits, safeguards, and data locations.
 
 
+- Release preparation: [release Go/No-Go approval gate](docs/RELEASE_APPROVAL_AR.md) and [unpublished 0.5.2 candidate notes](docs/RELEASE_NOTES_0.5.2_AR.md). Current decision is **NO-GO**; do not publish unsigned CI artifacts.
+
 ## Quality gates and traceability
 
 - `docs/MASTER_REQUIREMENT_REGISTER_AR.md` is the source of truth for feature status and acceptance evidence.
