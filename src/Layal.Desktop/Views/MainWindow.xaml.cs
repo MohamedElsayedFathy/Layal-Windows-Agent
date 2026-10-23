@@ -871,6 +871,9 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(key))
         {
             AddMessage("status", IsArabic ? "لم يتم ضبط اتصال حقيقي بعد. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا." : "No real AI connection is configured. Open Settings and provide a valid API URL and key.");
+            SetChatActivityStatus(IsArabic
+                ? "لا يوجد اتصال حقيقي مضبوط. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا."
+                : "No real AI connection is configured. Open Settings and provide a valid API URL and key.");
             MainTabs.SelectedItem = ChatTab;
             return;
         }
@@ -1331,12 +1334,14 @@ public partial class MainWindow : Window
         if (goal.Length == 0)
         {
             TaskResult.Text = IsArabic ? "اكتب وصف المهمة أولًا." : "Enter a task first.";
+            NotifyLiveRegion(TaskResult);
             return;
         }
         var key = AppRuntime.SecretStore.Load();
         if (string.IsNullOrWhiteSpace(key))
         {
             TaskResult.Text = IsArabic ? "لا يوجد مفتاح API محفوظ. افتح الإعدادات واختبر الاتصال أولًا." : "No saved API key. Configure and test the provider in Settings first.";
+            NotifyLiveRegion(TaskResult);
             MainTabs.SelectedItem = SettingsTab;
             return;
         }
@@ -1346,12 +1351,14 @@ public partial class MainWindow : Window
         if (SkillsList.SelectedItems.Count > 3)
         {
             TaskResult.Text = IsArabic ? "استخدم 3 مهارات كحد أقصى في المهمة الواحدة." : "Select no more than 3 skills for one task.";
+            NotifyLiveRegion(TaskResult);
             return;
         }
 
         TaskEvents.Clear();
         _rawTaskEvents.Clear();
         TaskResult.Text = IsArabic ? "بدأت المهمة. راقب سجل التنفيذ والموافقات." : "Task started. Watch the activity log and approval prompts.";
+        NotifyLiveRegion(TaskResult);
         TaskCopyStatus.Text = string.Empty;
         var cancellation = new CancellationTokenSource();
         _agentTaskCancellation = cancellation;
@@ -1414,6 +1421,8 @@ public partial class MainWindow : Window
         // Set terminal state only after task history and event controls finish updating.
         // The mascot resets success/error/paused to idle after displaying the outcome briefly.
         AppRuntime.MascotWindow?.SetMood(finalMood);
+        NotifyLiveRegion(TaskResult);
+        NotifyLiveRegion(TaskEventsList);
     }
 
     private void CopyTaskResultButton_Click(object sender, RoutedEventArgs e) =>
@@ -1501,6 +1510,7 @@ public partial class MainWindow : Window
         _rawTaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
         TaskResult.Text = UiLocalization.FormatTaskResult(task, IsArabic);
+        NotifyLiveRegion(TaskResult);
         TaskResult.Foreground = task.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
             task.Status is "CompletedWithWarnings" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
             ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
