@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload full-history Gitleaks report
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: Layal-gitleaks-full-history
           path: artifacts/security/gitleaks-full-history.sarif
@@ -87,7 +87,7 @@ jobs:
 
       - name: Upload security audit evidence
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: Layal-${{ github.sha }}-security-audit
           path: artifacts/security/**/*

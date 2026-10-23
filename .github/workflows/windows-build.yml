@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload native desktop acceptance evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Layal-${{ github.sha }}-interactive-acceptance
           path: artifacts/interactive-acceptance/**/*
@@ -111,7 +111,7 @@ jobs:
  
       - name: Upload display and DPI topology evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Layal-${{ github.sha }}-display-dpi
           path: artifacts/display-dpi/**/*
@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload WPF visual smoke screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Layal-${{ github.sha }}-visual-smoke
           path: artifacts/visual-smoke/**/*
@@ -165,7 +165,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Layal-${{ github.sha }}-test-results
           path: artifacts/test-results/**/*.trx
@@ -174,7 +174,7 @@ jobs:
 
       - name: Upload validated source package
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Layal-${{ github.sha }}-source
           path: artifacts/Layal-Windows-Agent-*-source.zip
@@ -183,7 +183,7 @@ jobs:
 
       - name: Upload self-contained Windows publish output
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Layal-${{ github.sha }}-self-contained-publish
           path: artifacts/publish/win-x64/
@@ -192,7 +192,7 @@ jobs:
 
       - name: Upload installer, portable ZIP, SBOM and SHA-256 manifest
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Layal-${{ github.sha }}-distribution
           path: artifacts/distribution/**/*
