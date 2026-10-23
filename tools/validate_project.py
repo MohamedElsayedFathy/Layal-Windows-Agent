@@ -202,8 +202,44 @@ for fragment in (
 ):
     if fragment not in main_window_code_text:
         ERRORS.append(f"Accessible control naming is missing: {fragment}")
+if "AssertChatMessageDirectionContracts(window, applyLanguage)" not in theme_regression_test:
+    ERRORS.append("Mixed Arabic/Latin and English message flow-direction regression test is missing")
+
 if "AssertKeyboardAccessibility(window, sendButton" not in theme_regression_test:
     ERRORS.append("Keyboard focus and UI Automation accessibility regression test is missing")
+
+# High-contrast response, adaptive initial window sizing, and informative empty states.
+for required in (
+    "SystemParameters.HighContrast",
+    "SystemParameters.StaticPropertyChanged",
+    "ApplyThemeCore(bool highContrast)",
+    "SystemColors.HighlightColor",
+    "SystemColors.HighlightTextColor",
+    "AutomationEvents.LiveRegionChanged",
+    "SubscribeLiveRegion(",
+    "_liveRegionSubscriptions",
+    "private void UpdateEmptyStateHints()",
+    "private void MainWindow_Loaded(",
+    "private void AssertInitialWindowFitsWorkArea(",
+    "private void AssertEmptyStateLocalization(",
+    "private void AssertLanguageLayoutContracts(",
+):
+    if required not in main_window_code_text:
+        ERRORS.append(f"Accessibility/high-contrast/responsive design behavior is missing: {required}")
+
+for required in (
+    'Loaded="MainWindow_Loaded"',
+    'x:Name="ChatEmptyState"',
+    'x:Name="TaskEventsEmptyState"',
+    'x:Name="RecentTasksEmptyState"',
+    'x:Name="SkillsEmptyState"',
+    'x:Name="MemoryEmptyState"',
+    'AutomationProperties.LiveSetting="Polite"',
+    'AutomationProperties.Name="نتيجة المهمة / Task result"',
+    'AutomationProperties.SetHelpText(TaskResult',
+):
+    if required not in main_window_theme_text:
+        ERRORS.append(f"Accessible empty/status UI markup is missing: {required}")
 
 # Guard the real interaction/settings paths so their UI bindings, persistence, and regression tests cannot silently disappear.
 interaction_ui_needles = (

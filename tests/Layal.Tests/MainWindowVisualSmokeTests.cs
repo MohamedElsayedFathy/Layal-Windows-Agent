@@ -1,3 +1,4 @@
+using System.Windows.Media.Effects;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -71,6 +72,7 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.MainWindow = window;
         window.Show();
         window.UpdateLayout();
+        AssertInitialWindowFitsWorkArea(window);
         var windowContent = window.Content as FrameworkElement
             ?? throw new InvalidOperationException("MainWindow content root was not found.");
 
@@ -132,6 +134,8 @@ public sealed class MainWindowVisualSmokeTests
 
         AssertKeyboardAccessibility(window, sendButton, window.FindName("ChatInput") as TextBox
             ?? throw new InvalidOperationException("ChatInput was not found."));
+        AssertHighContrastPaletteCanBeApplied(window, applyTheme);
+        AssertEmptyStatePlaceholdersTrackCollections(window);
 
         var lines = new List<string>
         {
@@ -151,6 +155,9 @@ public sealed class MainWindowVisualSmokeTests
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
             window.UpdateLayout();
+            AssertEmptyStateLocalization(window, language);
+            AssertLanguageLayoutContracts(window, language);
+            AssertChatMessageDirectionContracts(window, applyLanguage);
             Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
                 "The root window must not horizontally mirror icons or glyphs in RTL mode.");
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
@@ -317,6 +324,165 @@ public sealed class MainWindowVisualSmokeTests
         window.Close();
         app.Shutdown();
         App.SuppressStartupForTests = false;
+    }
+
+    private static void AssertChatMessageDirectionContracts(MainWindow window, MethodInfo applyLanguage)
+    {
+        var arabicMixed = new ChatMessage
+        {
+            Role = "user",
+            Content = "راجع الرابط https://example.com/v1/models/gpt-4o مع المعرّف model-2026"
+        };
+        var englishOnly = new ChatMessage
+        {
+            Role = "assistant",
+            Content = "Check https://example.com/v1/models/gpt-4o and model-2026"
+        };
+
+        window.ChatMessages.Add(arabicMixed);
+        window.ChatMessages.Add(englishOnly);
+        applyLanguage.Invoke(window, null);
+
+        Assert.AreEqual(FlowDirection.RightToLeft, arabicMixed.Direction,
+            "A message containing Arabic with Latin technical tokens must use RTL paragraph flow.");
+        Assert.AreEqual(FlowDirection.LeftToRight, englishOnly.Direction,
+            "An English-only message must retain LTR paragraph flow.");
+
+        window.ChatMessages.Remove(arabicMixed);
+        window.ChatMessages.Remove(englishOnly);
+        applyLanguage.Invoke(window, null);
+        AssertEmptyStatePlaceholdersTrackCollections(window);
+    }
+
+    private static void AssertInitialWindowFitsWorkArea(MainWindow window)
+    {
+        var workArea = SystemParameters.WorkArea;
+        Assert.IsTrue(workArea.Width > 0 && workArea.Height > 0,
+            "Windows must report a usable work area for responsive sizing.");
+        Assert.IsTrue(window.Width <= workArea.Width,
+            $"Initial window width {window.Width:0.##} DIPs exceeds work area width {workArea.Width:0.##} DIPs.");
+        Assert.IsTrue(window.Height <= workArea.Height,
+            $"Initial window height {window.Height:0.##} DIPs exceeds work area height {workArea.Height:0.##} DIPs.");
+        Assert.IsTrue(window.Left >= workArea.Left && window.Top >= workArea.Top &&
+                      window.Left + window.Width <= workArea.Right &&
+                      window.Top + window.Height <= workArea.Bottom,
+            "Initial main window must be positioned fully inside the Windows work area.");
+        Assert.IsTrue(window.MinWidth <= window.Width && window.MinHeight <= window.Height,
+            "Responsive initial sizing must keep minimum dimensions at or below the applied window dimensions.");
+    }
+
+    private static void AssertEmptyStateLocalization(MainWindow window, string language)
+    {
+        var ar = language == "ar";
+        var expectations = new[]
+        {
+            ("ChatEmptyState", ar ? "لا توجد رسائل بعد. اكتب رسالة بالأسفل للبدء." : "No messages yet. Type below to start."),
+            ("TaskEventsEmptyState", ar ? "سيظهر سجل النشاط هنا بعد بدء مهمة." : "Task activity will appear here after a task starts."),
+            ("RecentTasksEmptyState", ar ? "لا توجد مهام محفوظة بعد." : "No saved tasks yet."),
+            ("SkillsEmptyState", ar ? "لا توجد مهارات مثبتة. استورد ZIP أو رابط GitHub للبدء." : "No skills installed. Import a ZIP or GitHub URL to get started."),
+            ("MemoryEmptyState", ar ? "لا توجد ملاحظات مطابقة. أنشئ ملاحظة جديدة أو غيّر عبارة البحث." : "No matching notes. Create a note or change your search.")
+        };
+
+        foreach (var (name, expectedText) in expectations)
+        {
+            var hint = window.FindName(name) as TextBlock
+                ?? throw new InvalidOperationException($"Expected localized empty-state '{name}' was not found.");
+            Assert.AreEqual(expectedText, hint.Text,
+                $"Empty-state text '{name}' was not localized for {language}.");
+        }
+    }
+
+    private static void AssertLanguageLayoutContracts(MainWindow window, string language)
+    {
+        var ar = language == "ar";
+        var expectedWritingDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        var proseFields = new[]
+        {
+            "ChatInput", "TaskInput", "MemoryTitleInput", "MemoryContentInput", "MemorySearchInput"
+        };
+
+        foreach (var fieldName in proseFields)
+        {
+            var field = window.FindName(fieldName) as Control
+                ?? throw new InvalidOperationException($"Expected prose input '{fieldName}' was not found.");
+            Assert.AreEqual(expectedWritingDirection, field.FlowDirection,
+                $"Prose field '{fieldName}' has the wrong flow direction for {language}.");
+        }
+
+        foreach (var fieldName in new[] { "BaseUrlInput", "ModelInput", "ApiKeyInput", "GitHubSkillUrlInput" })
+        {
+            var field = window.FindName(fieldName) as Control
+                ?? throw new InvalidOperationException($"Expected technical input '{fieldName}' was not found.");
+            Assert.AreEqual(FlowDirection.LeftToRight, field.FlowDirection,
+                $"Technical field '{fieldName}' must remain LTR for {language}.");
+        }
+
+        Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
+            "The whole window must not be mirrored to achieve Arabic RTL text.");
+
+        var taskResult = window.FindName("TaskResult") as TextBox
+            ?? throw new InvalidOperationException("TaskResult was not found.");
+        Assert.AreEqual(ar ? "نتيجة المهمة" : "Task result",
+            System.Windows.Automation.AutomationProperties.GetName(taskResult),
+            "Task result must have a localized accessible name.");
+        Assert.AreEqual(ar
+                ? "يعرض النتيجة النهائية وحالة المهمة، بما في ذلك التحذيرات أو الإخفاق."
+                : "Shows the final task result and its status, including warnings or failures.",
+            System.Windows.Automation.AutomationProperties.GetHelpText(taskResult),
+            "Task result must expose localized context to assistive technology.");
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(taskResult),
+            "Task result must announce polite live updates to assistive technology.");
+    }
+
+    private static void AssertHighContrastPaletteCanBeApplied(MainWindow window, MethodInfo applyTheme)
+    {
+        var applyPalette = typeof(MainWindow).GetMethod("ApplyThemeCore", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("High Contrast palette helper was not found.");
+
+        applyPalette.Invoke(window, new object[] { true });
+        var panel = Application.Current.Resources["Layal.Panel"] as SolidColorBrush
+            ?? throw new InvalidOperationException("Layal.Panel high-contrast brush was not created.");
+        var selected = Application.Current.Resources["Layal.ListSelected"] as SolidColorBrush
+            ?? throw new InvalidOperationException("Layal.ListSelected high-contrast brush was not created.");
+        var highlightText = Application.Current.Resources["Layal.HighlightText"] as SolidColorBrush
+            ?? throw new InvalidOperationException("Layal.HighlightText high-contrast brush was not created.");
+        var shadow = Application.Current.Resources["Layal.CardShadow"] as DropShadowEffect
+            ?? throw new InvalidOperationException("Layal.CardShadow resource was not created.");
+
+        Assert.AreEqual(SystemColors.WindowColor, panel.Color,
+            "High Contrast panels must follow the active Windows window color.");
+        Assert.AreEqual(SystemColors.HighlightColor, selected.Color,
+            "Selected list items must use the Windows highlight color.");
+        Assert.AreEqual(SystemColors.HighlightTextColor, highlightText.Color,
+            "Selected controls must use the Windows highlight-text color.");
+        Assert.AreEqual(0d, shadow.Opacity,
+            "Decorative shadows must be removed in High Contrast mode.");
+
+        // Restore the current runner's actual system setting before producing snapshots.
+        applyTheme.Invoke(window, null);
+    }
+
+    private static void AssertEmptyStatePlaceholdersTrackCollections(MainWindow window)
+    {
+        var expectations = new[]
+        {
+            ("ChatEmptyState", window.FindName("ChatMessagesList") as ItemsControl),
+            ("TaskEventsEmptyState", window.FindName("TaskEventsList") as ItemsControl),
+            ("RecentTasksEmptyState", window.FindName("RecentTasksList") as ItemsControl),
+            ("SkillsEmptyState", window.FindName("SkillsList") as ItemsControl),
+            ("MemoryEmptyState", window.FindName("MemoryList") as ItemsControl)
+        };
+
+        foreach (var (hintName, list) in expectations)
+        {
+            Assert.IsNotNull(list, $"Expected list control for empty state '{hintName}' was not found.");
+            var hint = window.FindName(hintName) as FrameworkElement
+                ?? throw new InvalidOperationException($"Expected empty-state hint '{hintName}' was not found.");
+            var expected = list!.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            Assert.AreEqual(expected, hint.Visibility,
+                $"Empty-state hint '{hintName}' visibility does not match the current list content.");
+        }
     }
 
     private static void AssertKeyboardAccessibility(MainWindow window, Button primaryButton, TextBox chatInput)
