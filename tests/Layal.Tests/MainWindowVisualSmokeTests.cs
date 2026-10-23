@@ -370,12 +370,23 @@ public sealed class MainWindowVisualSmokeTests
         var taskResult = window.FindName("TaskResult") as TextBox
             ?? throw new InvalidOperationException("TaskResult was not found.");
 
-        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
-            System.Windows.Automation.AutomationProperties.GetLiveSetting(chatActivity));
-        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
-            System.Windows.Automation.AutomationProperties.GetLiveSetting(connectionStatus));
-        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
-            System.Windows.Automation.AutomationProperties.GetLiveSetting(taskResult));
+        var liveStatusNames = new[]
+        {
+            "ConnectionStatusText", "HomeResult", "ChatActivityStatus", "ChatCopyStatus",
+            "TaskResult", "TaskCopyStatus", "TaskEventsList", "SkillsResult",
+            "MemoryResult", "ProviderActionStatus"
+        };
+        foreach (var name in liveStatusNames)
+        {
+            var status = window.FindName(name) as FrameworkElement
+                ?? throw new InvalidOperationException($"Live status element '{name}' was not found.");
+            Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+                System.Windows.Automation.AutomationProperties.GetLiveSetting(status),
+                $"Live status '{name}' must use non-interruptive announcements.");
+        }
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Off,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(providerStatus),
+            "Provider setup summary must not repeat every transient chat activity announcement.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(chatActivity)),
             "Chat activity must have a localized accessible name.");
