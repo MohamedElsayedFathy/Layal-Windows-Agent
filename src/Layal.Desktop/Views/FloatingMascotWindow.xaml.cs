@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Runtime.InteropServices;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using Layal.Services;
 
 namespace Layal.Views;
@@ -23,6 +24,9 @@ public partial class FloatingMascotWindow : Window
     private readonly DispatcherTimer _moodResetTimer;
     private readonly DispatcherTimer _idleTimer;
     private readonly DispatcherTimer _hitTestTimer;
+    private readonly Brush _normalShellBorderBrush;
+    private readonly Thickness _normalShellBorderThickness;
+    private readonly System.Windows.Media.Effects.Effect? _normalShellEffect;
     private ModelVisual3D? _avatarModelHost;
     private ModelVisual3D? _headRigHost;
     private ModelVisual3D? _bodyRigHost;
@@ -199,8 +203,14 @@ public partial class FloatingMascotWindow : Window
     public FloatingMascotWindow()
     {
         InitializeComponent();
+        _normalShellBorderBrush = Shell.BorderBrush;
+        _normalShellBorderThickness = Shell.BorderThickness;
+        _normalShellEffect = Shell.Effect;
+        SystemEvents.UserPreferenceChanged += Mascot_UserPreferenceChanged;
+        Closed += MascotWindow_Closed;
         InitializeAvatarRig();
         InitializeCinematicEffects();
+        ApplySystemAccessibilityAppearance();
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
         Opacity = AppRuntime.Settings.MascotOpacity;
         ApplyScale(AppRuntime.Settings.MascotScale);
@@ -250,6 +260,36 @@ public partial class FloatingMascotWindow : Window
     {
         base.OnSourceInitialized(e);
         UpdateHitTestTransparency();
+    }
+
+    private void Mascot_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (IsLoaded && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+                ApplySystemAccessibilityAppearance();
+        }), DispatcherPriority.ApplicationIdle);
+    }
+
+    private void MascotWindow_Closed(object? sender, EventArgs e)
+    {
+        SystemEvents.UserPreferenceChanged -= Mascot_UserPreferenceChanged;
+        Closed -= MascotWindow_Closed;
+    }
+
+    private void ApplySystemAccessibilityAppearance()
+    {
+        var highContrast = SystemParameters.HighContrast;
+        GlowHalo.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
+        Shell.BorderBrush = highContrast ? SystemColors.WindowTextBrush : _normalShellBorderBrush;
+        Shell.BorderThickness = highContrast ? new Thickness(3) : _normalShellBorderThickness;
+        Shell.Effect = highContrast ? null : _normalShellEffect;
+
+        if (highContrast)
+            CinematicEffectsLayer.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>
@@ -739,14 +779,14 @@ public partial class FloatingMascotWindow : Window
 
         _particleSeed++;
         CinematicEffectsLayer.Visibility =
-            AppRuntime.Settings.MascotAnimationsEnabled && count > 0
+            AppRuntime.Settings.MascotAnimationsEnabled && !SystemParameters.HighContrast && count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
 
     private void AnimateCinematicEffects()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || _cinematicParticles.Count == 0)
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || SystemParameters.HighContrast || _cinematicParticles.Count == 0)
         {
             CinematicEffectsLayer.Visibility = Visibility.Collapsed;
             return;
@@ -2197,6 +2237,8 @@ public partial class FloatingMascotWindow : Window
             _floatTimer.Stop();
             _moodResetTimer.Stop();
             _idleTimer.Stop();
+            SystemEvents.UserPreferenceChanged -= Mascot_UserPreferenceChanged;
+            Closed -= MascotWindow_Closed;
             CinematicEffectsLayer.Children.Clear();
             _cinematicParticles.Clear();
         }
