@@ -101,6 +101,7 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsNotNull(expectedTabs[i], $"Expected named tab '{tabNames[i]}' was not found.");
             Assert.AreSame(expectedTabs[i], tabs.Items[i], $"Tab order mismatch at '{tabNames[i]}'.");
         }
+        AssertAccessibleStatusRegions(window);
 
         var historySelector = window.FindName("ChatHistorySelector") as ComboBox
             ?? throw new InvalidOperationException("ChatHistorySelector was not found.");
@@ -356,6 +357,44 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
+    }
+
+    private static void AssertAccessibleStatusRegions(MainWindow window)
+    {
+        var chatActivity = window.FindName("ChatActivityStatus") as TextBlock
+            ?? throw new InvalidOperationException("ChatActivityStatus was not found.");
+        var providerStatus = window.FindName("ChatProviderStatus") as TextBlock
+            ?? throw new InvalidOperationException("ChatProviderStatus was not found.");
+        var connectionStatus = window.FindName("ConnectionStatusText") as TextBlock
+            ?? throw new InvalidOperationException("ConnectionStatusText was not found.");
+        var taskResult = window.FindName("TaskResult") as TextBox
+            ?? throw new InvalidOperationException("TaskResult was not found.");
+
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(chatActivity));
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(connectionStatus));
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(taskResult));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(chatActivity)),
+            "Chat activity must have a localized accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(providerStatus)),
+            "Provider status must have a separate accessible name.");
+
+        var setActivityStatus = typeof(MainWindow).GetMethod("SetChatActivityStatus", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SetChatActivityStatus was not found.");
+        var refreshProviderStatus = typeof(MainWindow).GetMethod("RefreshProviderStatus", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("RefreshProviderStatus was not found.");
+        const string marker = "activity status remains separate";
+        setActivityStatus.Invoke(window, new object[] { marker });
+        refreshProviderStatus.Invoke(window, null);
+        Assert.AreEqual(marker, BidiTextNormalizer.StripDirectionalControls(chatActivity.Text),
+            "Refreshing provider connectivity must not overwrite the chat's current activity state.");
+        Assert.AreNotEqual(marker, BidiTextNormalizer.StripDirectionalControls(providerStatus.Text),
+            "Provider connectivity must remain a separate status from chat activity.");
+        setActivityStatus.Invoke(window, new object[] { string.Empty });
     }
 
     private static void AssertMascotHighContrastAppearance(FloatingMascotWindow mascot)
