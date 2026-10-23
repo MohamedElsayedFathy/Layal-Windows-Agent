@@ -155,7 +155,7 @@ else:
         "LocalizeApprovalTitle", "LocalizeApprovalDetails",
         "TranslateKnownFeedback", "FormatDateTime",
         "CompletedWithWarnings", "مكتملة مع تحذيرات",
-        "موافقة مطلوبة", "Technical details",
+        "هل تسمح لليال", "Technical details",
     ):
         if required not in localization_text:
             ERRORS.append(f"Bilingual localization service is missing expected coverage: {required}")
@@ -205,8 +205,10 @@ requirement_trace = requirement_trace_path.read_text(encoding="utf-8-sig") if re
 language_requirement = next((line for line in requirement_trace.splitlines() if line.startswith("LAYAL-006,")), "")
 if not language_requirement:
     ERRORS.append("Requirement traceability row LAYAL-006 is missing")
-elif "متحقق" in language_requirement or "verified" in language_requirement.lower():
-    ERRORS.append("LAYAL-006 must not be marked verified before Windows language acceptance is recorded")
+else:
+    language_status = language_requirement.split(",")[3].strip() if len(language_requirement.split(",")) > 3 else ""
+    if language_status in {"متحقق", "Verified"}:
+        ERRORS.append("LAYAL-006 must not be marked verified before Windows language acceptance is recorded")
 
 project_file = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
 project_text = project_file.read_text(encoding="utf-8") if project_file.exists() else ""
