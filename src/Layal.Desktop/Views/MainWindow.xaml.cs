@@ -119,8 +119,8 @@ public partial class MainWindow : Window
         if (workArea.Width <= 0 || workArea.Height <= 0)
             return;
 
-        var availableWidth = Math.Max(480d, workArea.Width - 32d);
-        var availableHeight = Math.Max(380d, workArea.Height - 32d);
+        var availableWidth = Math.Max(1d, workArea.Width - 32d);
+        var availableHeight = Math.Max(1d, workArea.Height - 32d);
         MinWidth = Math.Min(MinWidth, availableWidth);
         MinHeight = Math.Min(MinHeight, availableHeight);
         Width = Math.Min(Width, availableWidth);
