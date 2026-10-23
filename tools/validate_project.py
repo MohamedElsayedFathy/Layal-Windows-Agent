@@ -86,7 +86,7 @@ for xaml_path in xaml_files:
             if attr.endswith("}Name"):
                 names.append(value)
             if attr in {
-                "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "Closing",
+                "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "PreviewKeyDown", "Closing",
                 "MouseLeftButtonDown", "MouseRightButtonUp", "MouseEnter", "MouseLeave",
                 "Loaded", "Unloaded", "TextChanged", "ValueChanged", "LostFocus"
             }:
@@ -134,6 +134,7 @@ else:
         ERRORS.append(f"Main application background does not appear light: {background_match.group(1)}")
 
 main_window_xaml = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml"
+main_text = ""
 if main_window_xaml.exists():
     main_text = main_window_xaml.read_text(encoding="utf-8")
     legacy_dark_surfaces = (
@@ -143,6 +144,40 @@ if main_window_xaml.exists():
     for old_color in legacy_dark_surfaces:
         if old_color.lower() in main_text.lower():
             ERRORS.append(f"Legacy dark surface {old_color} remains in MainWindow.xaml")
+
+# Accessibility guardrails: prevent accidental removal of keyboard routes, focus indicators, or UIA labels.
+main_window_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+main_window_code = main_window_code_path.read_text(encoding="utf-8") if main_window_code_path.exists() else ""
+for required in (
+    'PreviewKeyDown="MainWindow_PreviewKeyDown"',
+    'x:Name="KeyboardHelpButton"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"',
+):
+    if required not in main_text:
+        ERRORS.append(f"Keyboard/accessibility requirement missing from MainWindow.xaml: {required}")
+
+if 'x:Key="Layal.AccessibleFocusVisual"' not in app_text:
+    ERRORS.append("Accessible keyboard focus visual is missing from App.xaml")
+if 'FocusVisualStyle" Value="{x:Null}"' in app_text:
+    ERRORS.append("A control style still disables FocusVisualStyle in App.xaml")
+if len(re.findall(r'FocusVisualStyle[^>]*Layal\.AccessibleFocusVisual', app_text)) < 8:
+    ERRORS.append("Accessible focus visual is not applied to all required control styles")
+if not main_window_code:
+    ERRORS.append("MainWindow code-behind is missing; cannot verify keyboard navigation")
+else:
+    if not re.search(r"private\s+void\s+MainWindow_PreviewKeyDown\s*\(", main_window_code):
+        ERRORS.append("MainWindow keyboard preview handler is missing")
+    if "Key.F1" not in main_window_code or "ShowKeyboardHelp()" not in main_window_code:
+        ERRORS.append("F1 keyboard help shortcut is missing")
+    for digit in range(1, 8):
+        if f"Key.D{digit} or Key.NumPad{digit}" not in main_window_code:
+            ERRORS.append(f"Ctrl+{digit} tab shortcut is missing")
+    if "FindFirstFocusableControl" not in main_window_code:
+        ERRORS.append("Keyboard tab switching does not attempt to focus tab content")
 
 project_file = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
 project_text = project_file.read_text(encoding="utf-8") if project_file.exists() else ""
@@ -169,7 +204,7 @@ for xaml_path in xaml_files:
 # Ensure key code-behind controls still exist after view redesign.
 required_controls = {
     "src/Layal.Desktop/Views/MainWindow.xaml": [
-        "BaseUrlInput", "ModelInput", "ApiKeyInput", "MainTabs", "ChatInput", "TaskInput",
+        "BaseUrlInput", "ModelInput", "ApiKeyInput", "MainTabs", "KeyboardHelpButton", "ChatInput", "TaskInput",
         "SkillsList", "MemoryList", "TaskEventsList", "RecentTasksList", "ConnectionStatusText",
         "AlwaysOnTopCheckbox", "AnimationsCheckbox", "WindowInspectionCheckbox", "MascotSizeSlider",
         "MascotOpacitySlider", "TestProviderButton", "ProviderActionStatus", "TaskResult", "ChatMessagesList"
