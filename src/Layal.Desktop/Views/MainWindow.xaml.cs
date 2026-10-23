@@ -467,11 +467,8 @@ public partial class MainWindow : Window
         RefreshProviderStatus();
     }
 
-    private void SetChatActivityStatus(string message)
-    {
-        ChatActivityStatus.Text = message;
-        NotifyLiveRegion(ChatActivityStatus);
-    }
+    private void SetChatActivityStatus(string message) =>
+        SetAccessibleStatusText(ChatActivityStatus, message);
 
     private static string TranslateChatActivityStatus(string message, bool arabic) => message switch
     {
@@ -502,6 +499,15 @@ public partial class MainWindow : Window
 
     private void SetAccessibleStatusText(FrameworkElement element, string message)
     {
+        var previous = element switch
+        {
+            TextBlock textBlock => textBlock.Text,
+            TextBox textBox => textBox.Text,
+            _ => throw new ArgumentException("The status element must be a TextBlock or TextBox.", nameof(element))
+        };
+        if (string.Equals(previous, message, StringComparison.Ordinal))
+            return;
+
         switch (element)
         {
             case TextBlock textBlock:
@@ -510,11 +516,10 @@ public partial class MainWindow : Window
             case TextBox textBox:
                 textBox.Text = message;
                 break;
-            default:
-                throw new ArgumentException("The status element must be a TextBlock or TextBox.", nameof(element));
         }
 
-        NotifyLiveRegion(element);
+        if (!string.IsNullOrWhiteSpace(message))
+            NotifyLiveRegion(element);
     }
 
     private static void NotifyLiveRegion(FrameworkElement element)
