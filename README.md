@@ -40,3 +40,8 @@ Layal agent file tools and dotnet build/test operations are limited to `%USERPRO
 - tools/validate_licenses.py with --manifest-only checks the curated third-party notices; passing --sbom cross-checks the generated CycloneDX package inventory.
 - The security workflow runs Gitleaks on the selected commit range and also invokes an explicit full-history scan across all fetched refs, uploading a SARIF report. Dependabot proposes weekly NuGet and GitHub Actions updates; updates still require review.
 - Third-party notices and known license texts are packaged with the installer and portable ZIP. Layal itself still has no declared project-wide license, and the source/redistribution rights for mascot/reference/tray assets remain unresolved. These are release blockers, not rights granted by third-party notices.
+
+
+## Digital signatures and file integrity
+
+The normal PR/CI build remains explicitly unsigned. A version tag matching `v*` enters a fail-closed release path that requires a trusted Authenticode Code Signing certificate configured through GitHub Actions repository secrets. That path signs `Layal.exe` and the setup EXE with SHA-256 and an RFC 3161 timestamp, verifies both signatures, and regenerates the SHA-256 manifest after signing. See `docs/CODE_SIGNING_AR.md` and `docs/DISTRIBUTION_AR.md`. A real signing certificate has not yet been provisioned; the release path will not publish an unsigned tag build.
