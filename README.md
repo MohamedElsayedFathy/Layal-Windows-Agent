@@ -32,3 +32,11 @@ Layal agent file tools and dotnet build/test operations are limited to `%USERPRO
 - On Windows, run `powershell -ExecutionPolicy Bypass -File .\tools\VERIFY-LAYAL.ps1` to execute the static checks, restore packages, and build Release. This does not replace manual acceptance tests.
 - `.github/workflows/windows-build.yml` runs static validation, Windows Release build, and `dotnet test`; it validates non-empty TRX results and uploads build, test, and validated source artifacts.
 - `tests/Layal.Tests/` contains automated tests. The authoring environment lacks the .NET SDK, but Windows CI run [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) executed the suite successfully for code commit `034fa598d8ec219e6c59019984013ac649055e5b`: **77 passed, 0 failed, 0 skipped**. The automated-test gate passed for that code commit; manual Windows acceptance and external provider/device integration tests remain separate.
+
+
+## Security, dependencies, and licensing
+
+- tools/audit_nuget.py checks direct and transitive NuGet packages against current vulnerability advisories; CI fails on reported advisories or an unreadable audit report.
+- tools/validate_licenses.py with --manifest-only checks the curated third-party notices; passing --sbom cross-checks the generated CycloneDX package inventory.
+- The security workflow scans full Git history with Gitleaks. Dependabot proposes weekly NuGet and GitHub Actions updates; updates still require review.
+- Third-party notices and known license texts are packaged with the installer and portable ZIP. Layal itself still has no declared project-wide license, and the source/redistribution rights for mascot/reference/tray assets remain unresolved. These are release blockers, not rights granted by third-party notices.
