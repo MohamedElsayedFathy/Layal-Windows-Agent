@@ -1,3 +1,4 @@
+using System.Windows.Media.Effects;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -132,6 +133,8 @@ public sealed class MainWindowVisualSmokeTests
 
         AssertKeyboardAccessibility(window, sendButton, window.FindName("ChatInput") as TextBox
             ?? throw new InvalidOperationException("ChatInput was not found."));
+        AssertHighContrastPaletteCanBeApplied(window, applyTheme);
+        AssertEmptyStatePlaceholdersTrackCollections(window);
 
         var lines = new List<string>
         {
@@ -317,6 +320,56 @@ public sealed class MainWindowVisualSmokeTests
         window.Close();
         app.Shutdown();
         App.SuppressStartupForTests = false;
+    }
+
+    private static void AssertHighContrastPaletteCanBeApplied(MainWindow window, MethodInfo applyTheme)
+    {
+        var applyPalette = typeof(MainWindow).GetMethod("ApplyThemeCore", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("High Contrast palette helper was not found.");
+
+        applyPalette.Invoke(window, new object[] { true });
+        var panel = Application.Current.Resources["Layal.Panel"] as SolidColorBrush
+            ?? throw new InvalidOperationException("Layal.Panel high-contrast brush was not created.");
+        var selected = Application.Current.Resources["Layal.ListSelected"] as SolidColorBrush
+            ?? throw new InvalidOperationException("Layal.ListSelected high-contrast brush was not created.");
+        var highlightText = Application.Current.Resources["Layal.HighlightText"] as SolidColorBrush
+            ?? throw new InvalidOperationException("Layal.HighlightText high-contrast brush was not created.");
+        var shadow = Application.Current.Resources["Layal.CardShadow"] as DropShadowEffect
+            ?? throw new InvalidOperationException("Layal.CardShadow resource was not created.");
+
+        Assert.AreEqual(SystemColors.WindowColor, panel.Color,
+            "High Contrast panels must follow the active Windows window color.");
+        Assert.AreEqual(SystemColors.HighlightColor, selected.Color,
+            "Selected list items must use the Windows highlight color.");
+        Assert.AreEqual(SystemColors.HighlightTextColor, highlightText.Color,
+            "Selected controls must use the Windows highlight-text color.");
+        Assert.AreEqual(0d, shadow.Opacity,
+            "Decorative shadows must be removed in High Contrast mode.");
+
+        // Restore the current runner's actual system setting before producing snapshots.
+        applyTheme.Invoke(window, null);
+    }
+
+    private static void AssertEmptyStatePlaceholdersTrackCollections(MainWindow window)
+    {
+        var expectations = new[]
+        {
+            ("ChatEmptyState", window.FindName("ChatMessagesList") as ItemsControl),
+            ("TaskEventsEmptyState", window.FindName("TaskEventsList") as ItemsControl),
+            ("RecentTasksEmptyState", window.FindName("RecentTasksList") as ItemsControl),
+            ("SkillsEmptyState", window.FindName("SkillsList") as ItemsControl),
+            ("MemoryEmptyState", window.FindName("MemoryList") as ItemsControl)
+        };
+
+        foreach (var (hintName, list) in expectations)
+        {
+            Assert.IsNotNull(list, $"Expected list control for empty state '{hintName}' was not found.");
+            var hint = window.FindName(hintName) as FrameworkElement
+                ?? throw new InvalidOperationException($"Expected empty-state hint '{hintName}' was not found.");
+            var expected = list!.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            Assert.AreEqual(expected, hint.Visibility,
+                $"Empty-state hint '{hintName}' visibility does not match the current list content.");
+        }
     }
 
     private static void AssertKeyboardAccessibility(MainWindow window, Button primaryButton, TextBox chatInput)
