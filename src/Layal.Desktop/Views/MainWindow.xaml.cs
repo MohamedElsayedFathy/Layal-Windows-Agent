@@ -343,6 +343,14 @@ public partial class MainWindow : Window
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
         ChatNotice.Text = ar ? "تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." : "Configure a valid API endpoint and key in Settings to send real messages.";
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال المزود" : "Provider connection status");
+        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة إعداد الاتصال" : "Provider configuration status");
+        AutomationProperties.SetName(HomeResult, ar ? "نتيجة الإجراء" : "Action result");
+        AutomationProperties.SetName(ChatCopyStatus, ar ? "حالة النسخ" : "Copy status");
+        AutomationProperties.SetName(TaskCopyStatus, ar ? "حالة نسخ النتيجة" : "Result copy status");
+        AutomationProperties.SetName(SkillsResult, ar ? "نتيجة استيراد المهارة" : "Skill import status");
+        AutomationProperties.SetName(MemoryResult, ar ? "نتيجة إجراء الذاكرة" : "Memory action status");
+        AutomationProperties.SetName(ProviderActionStatus, ar ? "حالة إعداد المزود" : "Provider settings status");
         ChatActivityStatus.Text = TranslateChatActivityStatus(ChatActivityStatus.Text, ar);
         AutomationProperties.SetName(ChatActivityStatus, ar ? "حالة المحادثة" : "Chat activity status");
         AutomationProperties.SetHelpText(ChatActivityStatus, ar
