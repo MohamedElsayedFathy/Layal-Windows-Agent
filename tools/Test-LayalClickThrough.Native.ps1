@@ -92,8 +92,14 @@ public static class LayalNativeInput
                     bounds = new int[] { rect.Left, rect.Top, rect.Right, rect.Bottom };
                 seen.Add("hwnd=0x" + hwnd.ToInt64().ToString("X") + ", visible=" + isVisible +
                     ", title='" + title + "', bounds=" + (bounds == null ? "unknown" : string.Join(",", bounds)));
-                if (isVisible && title.ToString() == "Layal" && bounds != null &&
-                    bounds[2]-bounds[0] > 100 && bounds[3]-bounds[1] > 80) {
+                var windowTitle = title.ToString();
+                int windowWidth = bounds == null ? 0 : bounds[2]-bounds[0];
+                int windowHeight = bounds == null ? 0 : bounds[3]-bounds[1];
+                bool isLayalTitle = windowTitle == "Layal" || windowTitle == "ليال";
+                // The floating mascot has a compact, known design size; the main window may
+                // share a localized title and must not be selected as the transparent overlay.
+                if (isVisible && isLayalTitle && bounds != null &&
+                    windowWidth > 100 && windowHeight > 80 && windowWidth < 500 && windowHeight < 400) {
                     found = hwnd;
                     return false;
                 }
@@ -328,7 +334,9 @@ try {
         $point=Get-ScaledPoint -DesignX 124 -DesignY 80
         Move-CursorAndPump $point 650
         $nativeTarget=[LayalNativeInput]::DescribeWindowAt($point.X,$point.Y)
-        if ($nativeTarget -notmatch ("PID=" + $script:AppProcess.Id + ", title='Layal'")) {
+        $targetPid = "PID=" + $script:AppProcess.Id + ", title='"
+        $hasLocalizedMascotTitle = $nativeTarget.Contains($targetPid + "Layal'") -or $nativeTarget.Contains($targetPid + "ليال'")
+        if (-not $hasLocalizedMascotTitle) {
             throw "The visible mascot is not the native hit-test target at its core. Cursor=($($point.X),$($point.Y)); $nativeTarget"
         }
         $exStyle=[LayalNativeInput]::ExtendedStyle($script:MascotHwnd)
