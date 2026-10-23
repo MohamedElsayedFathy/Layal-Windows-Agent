@@ -338,7 +338,7 @@ def main() -> int:
                     ERRORS.append(f"Could not write enriched CycloneDX SBOM: {exc}")
                     enriched_components = []
 
-        seen: set[str] = []
+        seen: set[str] = set()
         for component in components:
             name = get_package_id(component)
             if not name:
