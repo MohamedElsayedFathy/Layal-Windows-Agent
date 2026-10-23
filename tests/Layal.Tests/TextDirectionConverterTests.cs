@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -15,6 +16,15 @@ public sealed class TextDirectionConverterTests
     {
         Assert.AreEqual(FlowDirection.RightToLeft, Convert("مهمة جديدة"));
         Assert.AreEqual(FlowDirection.RightToLeft, Convert("OpenAI API — اشرح النتيجة"));
+    }
+
+    [TestMethod]
+    public void DirectionConverterAlsoReturnsMatchingTextAlignment()
+    {
+        Assert.AreEqual(TextAlignment.Right,
+            _converter.Convert("نتيجة المهمة", typeof(TextAlignment), parameter: null!, CultureInfo.InvariantCulture));
+        Assert.AreEqual(TextAlignment.Left,
+            _converter.Convert("model-42", typeof(TextAlignment), parameter: null!, CultureInfo.InvariantCulture));
     }
 
     [TestMethod]
