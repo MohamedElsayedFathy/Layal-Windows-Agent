@@ -19,7 +19,26 @@ public partial class MainWindow : Window
     public ObservableCollection<ChatConversation> ChatConversations { get; } = new();
     public ObservableCollection<SkillRecord> InstalledSkills { get; } = new();
     public ObservableCollection<string> TaskEvents { get; } = new();
-    public ObservableCollection<AgentTaskRecord> RecentTasks { get; } = new();
+    public ObservableCollection<TaskHistoryListItem> RecentTasks { get; } = new();
+
+    private readonly List<string> _rawTaskEvents = new();
+
+    private sealed class TaskHistoryListItem
+    {
+        private readonly bool _isArabic;
+
+        public AgentTaskRecord Record { get; }
+        public string Id => Record.Id;
+        public string Goal => Record.Goal;
+        public string DisplayStatus => UiLocalization.FormatTaskStatus(Record.Status, _isArabic);
+        public string DisplayUpdatedAt => UiLocalization.FormatDateTime(Record.UpdatedAt.LocalDateTime, _isArabic);
+
+        public TaskHistoryListItem(AgentTaskRecord record, bool isArabic)
+        {
+            Record = record;
+            _isArabic = isArabic;
+        }
+    }
     public ObservableCollection<MemoryNote> MemoryNotes { get; } = new();
 
     private readonly OpenAiCompatibleClient _aiClient = new();
@@ -50,7 +69,11 @@ public partial class MainWindow : Window
         var recent = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         if (recent is not null)
         {
-            foreach (var line in recent.Events.TakeLast(100)) TaskEvents.Add(UiLocalization.FormatTaskEvent(line, IsArabic));
+            foreach (var line in recent.Events.TakeLast(100))
+            {
+                _rawTaskEvents.Add(line);
+                TaskEvents.Add(UiLocalization.FormatTaskEvent(line, IsArabic));
+            }
             TaskResult.Text = UiLocalization.FormatTaskResult(recent, IsArabic);
         }
         RefreshRecentTasks();
@@ -229,6 +252,11 @@ public partial class MainWindow : Window
         else
             MemoryResult.Text = UiLocalization.TranslateKnownFeedback(MemoryResult.Text, ar);
         TaskResult.Text = UiLocalization.TranslateTaskResultDisplay(TaskResult.Text, ar);
+
+        TaskEvents.Clear();
+        foreach (var line in _rawTaskEvents)
+            TaskEvents.Add(UiLocalization.FormatTaskEvent(line, ar));
+        RefreshRecentTasks();
 
         HomeTab.Header = ar ? "⌂  الرئيسية" : "⌂  Home";
         ChatTab.Header = ar ? "✦  المحادثة" : "✦  Chat";
@@ -975,6 +1003,7 @@ public partial class MainWindow : Window
         }
 
         TaskEvents.Clear();
+        _rawTaskEvents.Clear();
         TaskResult.Text = IsArabic ? "بدأت المهمة. راقب سجل التنفيذ والموافقات." : "Task started. Watch the activity log and approval prompts.";
         TaskCopyStatus.Text = string.Empty;
         var cancellation = new CancellationTokenSource();
@@ -1085,6 +1114,8 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => AddTaskEvent(text));
             return;
         }
+        _rawTaskEvents.Add(text);
+        while (_rawTaskEvents.Count > 300) _rawTaskEvents.RemoveAt(0);
         TaskEvents.Add(UiLocalization.FormatTaskEvent(text, IsArabic));
         while (TaskEvents.Count > 300) TaskEvents.RemoveAt(0);
         if (TaskEventsList.Items.Count > 0) TaskEventsList.ScrollIntoView(TaskEventsList.Items[^1]);
@@ -1099,15 +1130,20 @@ public partial class MainWindow : Window
     private void RefreshRecentTasks(string? selectTaskId = null)
     {
         RecentTasks.Clear();
-        foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30)) RecentTasks.Add(task);
-        if (!string.IsNullOrWhiteSpace(selectTaskId))
-            RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == selectTaskId);
+        var previouslySelectedId = (RecentTasksList.SelectedItem as TaskHistoryListItem)?.Id;
+        var idToSelect = string.IsNullOrWhiteSpace(selectTaskId) ? previouslySelectedId : selectTaskId;
+        foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30))
+            RecentTasks.Add(new TaskHistoryListItem(task, IsArabic));
+        if (!string.IsNullOrWhiteSpace(idToSelect))
+            RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == idToSelect);
     }
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (RecentTasksList.SelectedItem is not AgentTaskRecord task) return;
+        if (RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
+        var task = selectedTask.Record;
         TaskEvents.Clear();
+        _rawTaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
         TaskResult.Text = UiLocalization.FormatTaskResult(task, IsArabic);
         TaskResult.Foreground = task.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
