@@ -353,7 +353,6 @@ public partial class MainWindow : Window
             : "No messages yet. Type a message below to start the conversation.";
         AutomationProperties.SetName(ChatEmptyStateText, ar ? "حالة المحادثة الفارغة" : "Chat empty state");
         AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "أرسل رسالة أو استقبل ردًا لتظهر الرسائل في هذه القائمة." : "Send or receive a message to populate this list.");
-        AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "ستظهر الرسائل هنا بعد الإرسال أو الاستلام." : "Messages appear here after you send or receive one.");
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
