@@ -157,6 +157,7 @@ public sealed class MainWindowVisualSmokeTests
             window.UpdateLayout();
             AssertEmptyStateLocalization(window, language);
             AssertLanguageLayoutContracts(window, language);
+            AssertChatMessageDirectionContracts(window, applyLanguage);
             Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
                 "The root window must not horizontally mirror icons or glyphs in RTL mode.");
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
@@ -323,6 +324,34 @@ public sealed class MainWindowVisualSmokeTests
         window.Close();
         app.Shutdown();
         App.SuppressStartupForTests = false;
+    }
+
+    private static void AssertChatMessageDirectionContracts(MainWindow window, MethodInfo applyLanguage)
+    {
+        var arabicMixed = new ChatMessage
+        {
+            Role = "user",
+            Content = "راجع الرابط https://example.com/v1/models/gpt-4o مع المعرّف model-2026"
+        };
+        var englishOnly = new ChatMessage
+        {
+            Role = "assistant",
+            Content = "Check https://example.com/v1/models/gpt-4o and model-2026"
+        };
+
+        window.ChatMessages.Add(arabicMixed);
+        window.ChatMessages.Add(englishOnly);
+        applyLanguage.Invoke(window, null);
+
+        Assert.AreEqual(FlowDirection.RightToLeft, arabicMixed.Direction,
+            "A message containing Arabic with Latin technical tokens must use RTL paragraph flow.");
+        Assert.AreEqual(FlowDirection.LeftToRight, englishOnly.Direction,
+            "An English-only message must retain LTR paragraph flow.");
+
+        window.ChatMessages.Remove(arabicMixed);
+        window.ChatMessages.Remove(englishOnly);
+        applyLanguage.Invoke(window, null);
+        AssertEmptyStatePlaceholdersTrackCollections(window);
     }
 
     private static void AssertInitialWindowFitsWorkArea(MainWindow window)
