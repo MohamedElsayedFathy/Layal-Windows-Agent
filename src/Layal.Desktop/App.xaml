@@ -122,6 +122,20 @@
             <Setter Property="TextWrapping" Value="NoWrap" />
         </Style>
 
+        <!-- Reusable, readable empty-state treatment. Specific lists opt in and supply their own count trigger. -->
+        <Style x:Key="Layal.EmptyStateText" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Muted}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="18" />
+            <Setter Property="MaxWidth" Value="420" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
+
         <Style TargetType="Button">
             <Setter Property="Padding" Value="14,9" />
             <Setter Property="Margin" Value="4" />
