@@ -1239,7 +1239,7 @@ public partial class MainWindow : Window
         var dialog = new SaveFileDialog
         {
             Title = IsArabic ? "تصدير الذاكرة إلى JSON غير مشفر" : "Export memory to unencrypted JSON",
-            Filter = "JSON files (*.json)|*.json",
+            Filter = IsArabic ? "ملفات JSON (*.json)|*.json" : "JSON files (*.json)|*.json",
             FileName = "layal-memory-export.json",
             AddExtension = true,
             DefaultExt = ".json"
