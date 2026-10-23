@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     public ObservableCollection<ChatMessage> ChatMessages { get; } = new();
     public ObservableCollection<ChatConversation> ChatConversations { get; } = new();
     public ObservableCollection<SkillRecord> InstalledSkills { get; } = new();
+    public ObservableCollection<ApiConnectionProfile> ApiConnections { get; } = new();
     public ObservableCollection<string> TaskEvents { get; } = new();
     public ObservableCollection<TaskHistoryListItem> RecentTasks { get; } = new();
 
@@ -84,6 +85,7 @@ public partial class MainWindow : Window
         }
         RefreshRecentTasks();
         RefreshSkills();
+        RefreshApiConnections();
         RefreshMemoryNotes();
         ApplyTheme();
         ApplyLanguage();
@@ -420,11 +422,37 @@ public partial class MainWindow : Window
             ? "سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا."
             : "RTSP/ONVIF and video processing will be added after the camera service is implemented and tested on Windows with an authorized device. This release does not show fake streams.";
 
+
+        ApiIntegrationsTab.Header = ar ? "تكاملات API" : "API integrations";
+        ApiIntegrationsHeading.Text = ar ? "ربط التطبيقات عبر API" : "Connect applications through APIs";
+        ApiIntegrationsDescription.Text = ar
+            ? "أضف تطبيقات توفر REST/JSON API. بيانات المصادقة تُحفظ مشفرة محليًا. كل طلب تنفذه ليال يحتاج موافقتك، بما فيه طلبات القراءة."
+            : "Add applications that expose a REST/JSON API. Credentials are encrypted locally. Every request initiated by Layal requires your approval, including reads.";
+        ApiConnectionsListLabel.Text = ar ? "التطبيقات المتصلة" : "Connected applications";
+        NewApiConnectionButton.Content = ar ? "إضافة اتصال جديد" : "Add connection";
+        ApiConnectionsPrivacyNote.Text = ar
+            ? "لا تضع المفاتيح في المحادثة أو ملاحظات التوثيق. أدخلها هنا؛ تُحفظ بتشفير Windows DPAPI لهذا المستخدم."
+            : "Do not paste API keys in chat or API notes. Enter them here; they are stored with Windows DPAPI for this Windows user.";
+        ApiConnectionNameLabel.Text = ar ? "اسم التطبيق / الاتصال" : "Application / connection name";
+        ApiConnectionBaseUrlLabel.Text = ar ? "عنوان API الأساسي (Base URL)" : "API base URL";
+        ApiAuthTypeLabel.Text = ar ? "طريقة المصادقة" : "Authentication type";
+        ApiAuthHeaderNameLabel.Text = ar ? "اسم ترويسة المصادقة (Custom header)" : "Authentication header name (Custom header)";
+        ApiAuthSecretLabel.Text = ar ? "Token / API key / قيمة الترويسة" : "Token / API key / header value";
+        ApiAdditionalHeadersLabel.Text = ar ? "ترويسات HTTP إضافية غير سرية (JSON)" : "Additional non-secret HTTP headers (JSON)";
+        ApiTestPathLabel.Text = ar ? "مسار اختبار الاتصال (GET)، مثل health أو users/me" : "Connection test path (GET), e.g. health or users/me";
+        ApiInstructionsLabel.Text = ar ? "ملاحظات التوثيق ونقاط النهاية (اختياري، بدون أسرار)" : "API docs and endpoint notes (optional; do not include secrets)";
+        SaveApiConnectionButton.Content = ar ? "حفظ الاتصال" : "Save connection";
+        TestApiConnectionButton.Content = ar ? "اختبار API" : "Test API";
+        DeleteApiConnectionButton.Content = ar ? "حذف الاتصال المحدد" : "Delete selected connection";
+        ((ComboBoxItem)ApiAuthTypeComboBox.Items[0]).Content = ar ? "بدون مصادقة / None" : "No authentication";
+        ((ComboBoxItem)ApiAuthTypeComboBox.Items[1]).Content = "Bearer token";
+        ((ComboBoxItem)ApiAuthTypeComboBox.Items[2]).Content = ar ? "ترويسة مخصصة (API key)" : "Custom header (API key)";
+
         SettingsHeading.Text = ar ? "الإعدادات والاتصال" : "Settings and connections";
         LanguageSettingLabel.Text = ar ? "لغة الواجهة" : "Interface language";
         ArabicLanguageButton.Content = "العربية";
         EnglishLanguageButton.Content = "English";
-        ProviderSectionTitle.Text = ar ? "مزود ذكاء اصطناعي متوافق مع OpenAI API" : "OpenAI-compatible AI provider";
+        ProviderSectionTitle.Text = ar ? "محرك الذكاء الاصطناعي (بروتوكول OpenAI-compatible)" : "AI model endpoint (OpenAI-compatible protocol)";
         EndpointLabel.Text = ar ? "عنوان API الأساسي (Base URL)" : "API base URL";
         ModelLabel.Text = ar ? "معرّف النموذج" : "Model ID";
         ApiKeyLabel.Text = ar ? "مفتاح API / Unified API Key" : "API key / Unified API key";
@@ -449,7 +477,7 @@ public partial class MainWindow : Window
         SettingsLimitations.Text = ar
             ? "ما زالت وظائف الصوت الحقيقي، وأتمتة المتصفح، والتحكم العام بالماوس والكيبورد، وبث الكاميرات، وMCP غير منفذة. لا يتم عرضها كوظائف مكتملة."
             : "Real voice, browser automation, general mouse/keyboard control, camera streaming, and MCP are not implemented yet and are not presented as completed features.";
-        WindowInspectionCheckbox.Content = ar ? "السماح بقراءة عناوين النوافذ عند الطلب (تتطلب مشاركة العناوين موافقة)" : "Allow window-title inspection on request (sharing titles still requires approval)";
+        WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة وتنفيذ فعل واحد بموافقة" : "Allow window/UI inspection and one approved control action";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
         MemoryEmptyStateText.Text = ar
@@ -779,6 +807,155 @@ public partial class MainWindow : Window
             SetAccessibleStatusText(TaskResult, message);
             AppRuntime.MascotWindow?.SetMood("error");
         }
+    }
+
+    private void RefreshApiConnections(string? selectedName = null)
+    {
+        if (ApiConnectionList is null || AppRuntime.ApiConnectionService is null) return;
+        ApiConnections.Clear();
+        foreach (var profile in AppRuntime.ApiConnectionService.GetAll())
+            ApiConnections.Add(profile);
+
+        var selected = ApiConnections.FirstOrDefault(x =>
+            !string.IsNullOrWhiteSpace(selectedName) &&
+            string.Equals(x.Name, selectedName, StringComparison.OrdinalIgnoreCase));
+        selected ??= ApiConnections.FirstOrDefault();
+        ApiConnectionList.SelectedItem = selected;
+        if (selected is null) ClearApiConnectionForm();
+    }
+
+    private void ClearApiConnectionForm()
+    {
+        ApiConnectionNameInput.Text = string.Empty;
+        ApiConnectionBaseUrlInput.Text = string.Empty;
+        ApiAuthHeaderNameInput.Text = "X-API-Key";
+        ApiAuthSecretInput.Clear();
+        ApiAdditionalHeadersInput.Clear();
+        ApiTestPathInput.Text = string.Empty;
+        ApiInstructionsInput.Clear();
+        ApiAuthTypeComboBox.SelectedIndex = 1;
+    }
+
+    private string SelectedApiAuthenticationType =>
+        (ApiAuthTypeComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Bearer";
+
+    private ApiConnectionProfile BuildApiConnectionProfile()
+    {
+        var name = ApiConnectionNameInput.Text.Trim();
+        var existing = AppRuntime.ApiConnectionService.Find(name);
+        var secret = ApiAuthSecretInput.Password;
+        if (string.IsNullOrWhiteSpace(secret) && existing is not null)
+            secret = existing.AuthSecret;
+
+        return new ApiConnectionProfile
+        {
+            Name = name,
+            BaseUrl = ApiConnectionBaseUrlInput.Text.Trim(),
+            AuthenticationType = SelectedApiAuthenticationType,
+            AuthHeaderName = ApiAuthHeaderNameInput.Text.Trim(),
+            AuthSecret = secret,
+            AdditionalHeadersJson = ApiAdditionalHeadersInput.Text.Trim(),
+            TestPath = ApiTestPathInput.Text.Trim(),
+            Instructions = ApiInstructionsInput.Text.Trim()
+        };
+    }
+
+    private void ApiConnectionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ApiConnectionList.SelectedItem is not ApiConnectionProfile profile)
+            return;
+
+        ApiConnectionNameInput.Text = profile.Name;
+        ApiConnectionBaseUrlInput.Text = profile.BaseUrl;
+        ApiAuthHeaderNameInput.Text = profile.AuthHeaderName;
+        ApiAuthSecretInput.Password = profile.AuthSecret;
+        ApiAdditionalHeadersInput.Text = profile.AdditionalHeadersJson;
+        ApiTestPathInput.Text = profile.TestPath;
+        ApiInstructionsInput.Text = profile.Instructions;
+        ApiAuthTypeComboBox.SelectedItem = ApiAuthTypeComboBox.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), profile.AuthenticationType, StringComparison.Ordinal));
+    }
+
+    private void NewApiConnectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        ApiConnectionList.SelectedItem = null;
+        ClearApiConnectionForm();
+        ApiConnectionsStatus.Text = IsArabic ? "أدخل بيانات الاتصال واحفظها قبل استخدامها في المهام." : "Enter connection details and save before using it in tasks.";
+        ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+        ApiConnectionNameInput.Focus();
+    }
+
+    private void SaveApiConnectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var profile = BuildApiConnectionProfile();
+            AppRuntime.ApiConnectionService.Save(profile);
+            RefreshApiConnections(profile.Name);
+            ApiConnectionsStatus.Text = IsArabic
+                ? $"تم حفظ اتصال API «{profile.Name}» في مخزن محمي. اختبره قبل استخدامه."
+                : $"API connection '{profile.Name}' was saved in encrypted storage. Test it before using it.";
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        }
+        catch (Exception ex)
+        {
+            ApiConnectionsStatus.Text = (IsArabic ? "تعذر حفظ اتصال API: " : "Could not save API connection: ") + ex.Message;
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+        }
+    }
+
+    private async void TestApiConnectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        ApiConnectionProfile profile;
+        try { profile = BuildApiConnectionProfile(); }
+        catch (Exception ex)
+        {
+            ApiConnectionsStatus.Text = ex.Message;
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            return;
+        }
+
+        TestApiConnectionButton.IsEnabled = false;
+        ApiConnectionsStatus.Text = IsArabic ? "جارٍ إرسال طلب GET لمسار الاختبار..." : "Sending GET request to the configured test path...";
+        ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.SteelBlue;
+        try
+        {
+            var result = await AppRuntime.ApiConnectionService.TestAsync(profile, profile.TestPath);
+            var bodyPreview = result.Body.Length > 700 ? result.Body[..700] + "…" : result.Body;
+            ApiConnectionsStatus.Text = $"HTTP {result.StatusCode} {result.ReasonPhrase}{Environment.NewLine}{result.RequestUrl}{Environment.NewLine}{bodyPreview}";
+            ApiConnectionsStatus.Foreground = result.StatusCode is >= 200 and < 300
+                ? System.Windows.Media.Brushes.ForestGreen
+                : System.Windows.Media.Brushes.DarkGoldenrod;
+        }
+        catch (Exception ex)
+        {
+            ApiConnectionsStatus.Text = (IsArabic ? "فشل اختبار API: " : "API test failed: ") + ex.Message;
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+        }
+        finally { TestApiConnectionButton.IsEnabled = true; }
+    }
+
+    private void DeleteApiConnectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        var name = ApiConnectionNameInput.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name) || AppRuntime.ApiConnectionService.Find(name) is null)
+        {
+            ApiConnectionsStatus.Text = IsArabic ? "حدد اتصالًا محفوظًا لحذفه." : "Select a saved connection to delete.";
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            return;
+        }
+
+        var answer = MessageBox.Show(this,
+            IsArabic ? $"هل تريد حذف اتصال API «{name}» وبيانات المصادقة المحفوظة؟" : $"Delete API connection '{name}' and its stored authentication data?",
+            IsArabic ? "تأكيد حذف الاتصال" : "Confirm API connection deletion",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+
+        AppRuntime.ApiConnectionService.Delete(name);
+        RefreshApiConnections();
+        ApiConnectionsStatus.Text = IsArabic ? "تم حذف الاتصال." : "Connection deleted.";
+        ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
     }
 
     private void SaveProviderButton_Click(object sender, RoutedEventArgs e)
