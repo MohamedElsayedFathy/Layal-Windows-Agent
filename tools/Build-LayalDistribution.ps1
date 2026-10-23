@@ -164,7 +164,7 @@ if ($RunInstallerLifecycleTests) {
         throw 'Rollback fixture did not contain Layal.exe.'
     }
 
-    $oldVersionDefine = '/DAppVersion="' + $previousVersion + '"'
+    $oldVersionDefine = '/DAppVersion=' + $previousVersion
     $oldPublishDefine = '/DPublishDir="' + $previousPublishDirectory + '"'
     Invoke-Checked -Executable $iscc -Arguments @($oldVersionDefine, $oldPublishDefine, $InstallerScript) -Description "Compile installer fixture $previousVersion"
     if (-not (Test-Path -LiteralPath $previousInstallerInDistribution -PathType Leaf)) {
@@ -173,7 +173,7 @@ if ($RunInstallerLifecycleTests) {
     Move-Item -LiteralPath $previousInstallerInDistribution -Destination $previousInstallerForTest -Force
 }
 
-$currentVersionDefine = '/DAppVersion="' + $version + '"'
+$currentVersionDefine = '/DAppVersion=' + $version
 $currentPublishDefine = '/DPublishDir="' + $PublishDirectory + '"'
 Invoke-Checked -Executable $iscc -Arguments @($currentVersionDefine, $currentPublishDefine, $InstallerScript) -Description "Compile Layal installer $version"
 
