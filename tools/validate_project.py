@@ -229,6 +229,8 @@ for required in (
     'x:Name="SkillsEmptyState"',
     'x:Name="MemoryEmptyState"',
     'AutomationProperties.LiveSetting="Polite"',
+    'AutomationProperties.Name="نتيجة المهمة / Task result"',
+    'AutomationProperties.SetHelpText(TaskResult',
 ):
     if required not in main_window_theme_text:
         ERRORS.append(f"Accessible empty/status UI markup is missing: {required}")
