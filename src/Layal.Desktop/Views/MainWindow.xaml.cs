@@ -223,7 +223,11 @@ public partial class MainWindow : Window
         ChatCopyStatus.Text = UiLocalization.TranslateKnownFeedback(ChatCopyStatus.Text, ar);
         TaskCopyStatus.Text = UiLocalization.TranslateKnownFeedback(TaskCopyStatus.Text, ar);
         SkillsResult.Text = UiLocalization.TranslateKnownFeedback(SkillsResult.Text, ar);
-        MemoryResult.Text = UiLocalization.TranslateKnownFeedback(MemoryResult.Text, ar);
+        if (MemoryList.SelectedItem is MemoryNote selectedMemory &&
+            UiLocalization.IsFormattedDateTime(MemoryResult.Text, !ar))
+            MemoryResult.Text = UiLocalization.FormatDateTime(selectedMemory.UpdatedAt.LocalDateTime, ar);
+        else
+            MemoryResult.Text = UiLocalization.TranslateKnownFeedback(MemoryResult.Text, ar);
         TaskResult.Text = UiLocalization.TranslateTaskResultDisplay(TaskResult.Text, ar);
 
         HomeTab.Header = ar ? "⌂  الرئيسية" : "⌂  Home";
@@ -459,7 +463,8 @@ public partial class MainWindow : Window
             _providerTestPassed = true;
             _testedBaseUrl = baseUrl.TrimEnd('/');
             _testedModelId = ModelInput.Text.Trim();
-            ProviderActionStatus.Text = IsArabic ? $"نجح الاختبار: {result}" : result;
+            var testSummary = IsArabic ? $"نجح الاختبار: {result}" : $"Test succeeded: {result}";
+            ProviderActionStatus.Text = UiLocalization.TranslateKnownFeedback(testSummary, IsArabic);
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
