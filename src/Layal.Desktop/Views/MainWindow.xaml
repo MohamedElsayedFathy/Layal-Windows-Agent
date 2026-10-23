@@ -161,7 +161,7 @@
                         </WrapPanel>
                         <TextBox x:Name="TaskResult" Text="لم تُنفذ أي عملية بعد." IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                 MinHeight="68" MaxHeight="170" Padding="9" Margin="0,4,0,0"
+                                 MinHeight="68" MaxHeight="170" Padding="9" Margin="0,4,0,0" AutomationProperties.LiveSetting="Polite"
                                  Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Success}"/>
                         <TextBlock x:Name="TaskCopyStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="3,3,3,0" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
