@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   secrets:
-    name: Scan repository history for exposed secrets
+    name: Scan Git commit range for exposed secrets
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
