@@ -68,6 +68,13 @@ if ($anySigningConfigured -and -not $signingConfigured) {
 if ($RequireCodeSigning -and -not $signingConfigured) {
     throw 'A tagged release requires code signing. Configure LAYAL_SIGNING_CERTIFICATE_BASE64, LAYAL_SIGNING_CERTIFICATE_PASSWORD, and LAYAL_SIGNING_CERTIFICATE_THUMBPRINT in GitHub Actions repository secrets.'
 }
+if ($RequireCodeSigning) {
+    # Fail before publishing or signing anything if owner-approved licensing/provenance is incomplete.
+    Invoke-Checked -Executable 'python' -Arguments @(
+        (Join-Path $PSScriptRoot 'validate_licenses.py'),
+        '--manifest-only', '--require-release-clearance'
+    ) -Description 'Enforce release legal/license and asset-provenance preflight'
+}
 
 # Clear generated distribution outputs so stale SBOMs or notices cannot survive a rebuild.
 Remove-Item -LiteralPath $Distribution -Recurse -Force -ErrorAction SilentlyContinue
@@ -156,11 +163,13 @@ Copy-Item -LiteralPath (Join-Path $Root 'licenses/WTFPL.txt') -Destination (Join
 Copy-Item -LiteralPath (Join-Path $Root 'licenses/MIT-JeremyAnsel.HLSL.Targets.txt') -Destination (Join-Path $distributionLicenseDirectory 'MIT-JeremyAnsel.HLSL.Targets.txt') -Force
 Copy-Item -LiteralPath (Join-Path $Root 'licenses/PROJECT-LICENSE-STATUS.md') -Destination (Join-Path $distributionLicenseDirectory 'PROJECT-LICENSE-STATUS.md') -Force
 $licenseAuditReport = Join-Path $distributionLicenseDirectory "Layal-$version-license-audit.md"
-Invoke-Checked -Executable 'python' -Arguments @(
+$licenseArguments = @(
     (Join-Path $PSScriptRoot 'validate_licenses.py'),
     '--sbom', $expectedSbom,
     '--report', $licenseAuditReport
-) -Description 'Validate CycloneDX SBOM against the curated license inventory'
+)
+if ($RequireCodeSigning) { $licenseArguments += '--require-release-clearance' }
+Invoke-Checked -Executable 'python' -Arguments $licenseArguments -Description 'Validate CycloneDX SBOM and enforce legal clearance for release builds'
 
 $dependencyReport = Join-Path $Distribution "Layal-$version-dependencies.txt"
 $dependencyOutput = & dotnet list $ProjectPath package --include-transitive 2>&1
