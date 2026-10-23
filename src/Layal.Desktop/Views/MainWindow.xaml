@@ -159,7 +159,7 @@
                             <Grid>
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                                 <Button x:Name="CopyTaskLogButton" Grid.Row="0" Content="نسخ سجل التنفيذ" Click="CopyTaskLogButton_Click" HorizontalAlignment="Right" Margin="2,0,2,6"/>
-                                <ListBox x:Name="TaskEventsList" Grid.Row="1" ItemsSource="{Binding TaskEvents}" AutomationProperties.Name="سجل أحداث المهمة" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Text}" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox x:Name="TaskEventsList" Grid.Row="1" ItemsSource="{Binding TaskEvents}" AutomationProperties.Name="سجل أحداث المهمة" AutomationProperties.LiveSetting="Polite" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Text}" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding}"
