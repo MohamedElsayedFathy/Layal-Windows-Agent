@@ -480,6 +480,39 @@ finally {
         if ($capturedSamples[$index].MonitorHandle -ne $capturedSamples[$index - 1].MonitorHandle) { $monitorTransitionCount++ }
         if ($capturedSamples[$index].WindowDpi -ne $capturedSamples[$index - 1].WindowDpi) { $dpiTransitionCount++ }
     }
+    # "Result" only reports whether checks required by this invocation failed.
+    # The default CI smoke run intentionally does not require two physical monitors.
+    # Keep certification separate so a one-monitor smoke run cannot be mistaken for
+    # completion of the real multi-monitor acceptance gate.
+    $physicalAcceptanceCertified = (
+        $script:MonitorList.Count -ge 2 -and
+        $uniqueMonitorHandles.Count -ge 2 -and
+        $uniqueWindowDpis.Count -ge 2 -and
+        $monitorTransitionCount -gt 0 -and
+        $dpiTransitionCount -gt 0 -and
+        $failRows.Count -eq 0
+    )
+    $acceptanceStatus = if ($failRows.Count -gt 0) {
+        "failed"
+    } elseif ($physicalAcceptanceCertified) {
+        "passed"
+    } else {
+        "not-certified"
+    }
+    $acceptanceStatusDetail = if ($failRows.Count -gt 0) {
+        "One or more checks required by this run failed; inspect Checks for details."
+    } elseif ($physicalAcceptanceCertified) {
+        "Two or more monitors and at least one actual monitor and window-DPI transition were observed."
+    } elseif ($script:MonitorList.Count -lt 2) {
+        "Only one active monitor was detected; this run cannot certify multi-monitor behavior."
+    } elseif ($uniqueMonitorHandles.Count -lt 2 -or $monitorTransitionCount -eq 0) {
+        "Multiple monitors may be configured, but no actual cross-monitor transition was recorded."
+    } elseif ($uniqueWindowDpis.Count -lt 2 -or $dpiTransitionCount -eq 0) {
+        "No actual window-DPI transition was recorded; use displays with different Windows scale factors."
+    } else {
+        "The complete physical multi-monitor acceptance criteria were not met."
+    }
+
     $summary = [pscustomobject]@{
         TestSuite="Layal Windows display/DPI topology diagnostic"
         CreatedAtLocal=(Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
@@ -487,6 +520,16 @@ finally {
         Executable=$resolvedExe
         ProcessId=if ($script:AppProcess) { $script:AppProcess.Id } else { $null }
         Result=$resultLabel
+        AcceptanceStatus=$acceptanceStatus
+        AcceptanceStatusDetail=$acceptanceStatusDetail
+        PhysicalAcceptanceCertified=[bool]$physicalAcceptanceCertified
+        AcceptanceCriteria=[pscustomobject]@{
+            AtLeastTwoMonitorsDetected=($script:MonitorList.Count -ge 2)
+            AtLeastTwoMonitorsObservedInSamples=($uniqueMonitorHandles.Count -ge 2)
+            MonitorTransitionObserved=($monitorTransitionCount -gt 0)
+            AtLeastTwoWindowDpisObserved=($uniqueWindowDpis.Count -ge 2)
+            WindowDpiTransitionObserved=($dpiTransitionCount -gt 0)
+        }
         ObserveSeconds=$ObserveSeconds
         RequireMultipleMonitors=[bool]$RequireMultipleMonitors
         RequireMonitorTransition=[bool]$RequireMonitorTransition
@@ -503,7 +546,7 @@ finally {
         Scope="The workflow smoke test records the CI display topology. Physical multi-monitor acceptance requires running this script on the target PC with RequireMonitorTransition and RequireDpiTransition."
     }
     [IO.File]::WriteAllText($jsonPath,(ConvertTo-Json -InputObject $summary -Depth 8),(New-Object System.Text.UTF8Encoding($false)))
-    Write-Host ("Display/DPI diagnostic result: {0}. JSON: {1}; CSV: {2}" -f $resultLabel,$jsonPath,$csvPath)
+    Write-Host ("Display/DPI smoke result: {0}; physical multi-monitor acceptance: {1} ({2}). JSON: {3}; CSV: {4}" -f $resultLabel,$acceptanceStatus,$acceptanceStatusDetail,$jsonPath,$csvPath)
 }
 
 $finalFailures = @($script:Checks.ToArray() | Where-Object { $_.Result -eq "failed" })
