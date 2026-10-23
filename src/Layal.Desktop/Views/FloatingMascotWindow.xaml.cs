@@ -292,8 +292,10 @@ public partial class FloatingMascotWindow : Window
         Shell.BorderThickness = highContrast ? new Thickness(3) : _normalShellBorderThickness;
         Shell.Effect = highContrast ? null : _normalShellEffect;
 
-        if (highContrast)
-            CinematicEffectsLayer.Visibility = Visibility.Collapsed;
+        CinematicEffectsLayer.Visibility =
+            !highContrast && AppRuntime.Settings.MascotAnimationsEnabled && _cinematicParticles.Count > 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     /// <summary>
