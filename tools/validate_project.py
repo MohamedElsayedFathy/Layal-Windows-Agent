@@ -86,7 +86,7 @@ for xaml_path in xaml_files:
             if attr.endswith("}Name"):
                 names.append(value)
             if attr in {
-                "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "Closing",
+                "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "Opened", "Closing",
                 "MouseLeftButtonDown", "MouseRightButtonUp", "MouseEnter", "MouseLeave",
                 "Loaded", "Unloaded", "TextChanged", "ValueChanged", "LostFocus"
             }:
@@ -165,7 +165,7 @@ main_window_code = main_window_code_path.read_text(encoding="utf-8") if main_win
 for required in (
     "UiLocalization.FormatTaskResult", "UiLocalization.FormatTaskEvent",
     "UiLocalization.LocalizeApprovalDetails", "UiLocalization.TranslateKnownFeedback",
-    "ChatSessionService.SetDefaultTitle", "CopyChatMessageMenuItem.Header",
+    "ChatSessionService.SetDefaultTitle", "ChatMessageContextMenu_Opening",
     "Filter = IsArabic ?",
 ):
     if required not in main_window_code:
@@ -173,8 +173,8 @@ for required in (
 
 if "نسخ الرسالة / Copy message" in main_text:
     ERRORS.append("A mixed Arabic/English static chat context-menu label remains in MainWindow.xaml")
-if 'x:Name="CopyChatMessageMenuItem"' not in main_text:
-    ERRORS.append("Chat message context menu is not addressable for runtime localization")
+if 'Opened="ChatMessageContextMenu_Opening"' not in main_text or "private void ChatMessageContextMenu_Opening" not in main_window_code:
+    ERRORS.append("Chat message context menu is not localized at runtime")
 
 chat_session_path = ROOT / "src/Layal.Desktop/Services/ChatSessionService.cs"
 chat_session_text = chat_session_path.read_text(encoding="utf-8") if chat_session_path.exists() else ""
