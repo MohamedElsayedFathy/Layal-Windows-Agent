@@ -33,6 +33,30 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_VERSION: "8.24.3"
+
+      - name: Scan all fetched Git history for exposed secrets
+        shell: bash
+        run: |
+          mkdir -p artifacts/security
+          GITLEAKS_BIN="/tmp/gitleaks-8.24.3/gitleaks"
+          if [ ! -x "$GITLEAKS_BIN" ]; then
+            GITLEAKS_BIN="$(command -v gitleaks || true)"
+          fi
+          if [ -z "$GITLEAKS_BIN" ] || [ ! -x "$GITLEAKS_BIN" ]; then
+            echo "Gitleaks CLI was not available for the full-history scan."
+            exit 1
+          fi
+          "$GITLEAKS_BIN" detect --redact --exit-code=2 --report-format=sarif --report-path=artifacts/security/gitleaks-full-history.sarif --log-opts="--all --no-merges"
+
+      - name: Upload full-history Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: Layal-gitleaks-full-history
+          path: artifacts/security/gitleaks-full-history.sarif
+          if-no-files-found: warn
+          retention-days: 30
 
   nuget-and-license-audit:
     name: Audit NuGet advisories and license inventory

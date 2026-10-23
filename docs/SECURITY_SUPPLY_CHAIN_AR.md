@@ -5,7 +5,7 @@
 - Directory.Build.props يفعّل NuGet Audit للشجرة الكاملة (NuGetAuditMode=all) ويطلب مستوى تدقيق low، بما يشمل الحزم المتعدية.
 - tools/audit_nuget.py يشغّل dotnet package list --vulnerable --include-transitive --format json، ويحفظ التقرير الخام وملخص النتائج، ويفشل إذا ظهرت استشارة ثغرة أو تعذّر تفسير تقرير NuGet.
 - tools/validate_licenses.py يقارن مكونات SBOM بجرد رخص محدد، ويرفض المكونات غير المسجلة أو اختلاف الرخصة المعلنة عن الجرد، ويتأكد من وجود نصوص الإشعارات.
-- gitleaks/gitleaks-action مفصول في Workflow أمني ويفحص نطاق الـ commits الذي حدده التشغيل (مثل commits فرع PR)، ويحفظ تقرير SARIF عند توافر نتيجة. هذا لا يعني تلقائيًا أن كل تاريخ Git القديم خارج النطاق قد أُعيد فحصه.
+- gitleaks/gitleaks-action يفحص نطاق الـ commits الخاص بالتشغيل، ثم يشغّل workflow فحصًا صريحًا ثانيًا عبر Gitleaks CLI مع خيار all على جميع المراجع والتاريخ المتاح في checkout. يُرفع تقرير SARIF للفحص الكامل في artifact مستقل.
 - .github/dependabot.yml يطلب تحديثات أسبوعية لاعتماديات NuGet وGitHub Actions؛ لا تُدمج تحديثاته تلقائيًا.
 - tools/validate_release.py يحتفظ بفحوص أنماط الأسرار المعروفة، مع التنبيه إلى أن فحص الأنماط وحده ليس ماسح أسرار كاملًا.
 
