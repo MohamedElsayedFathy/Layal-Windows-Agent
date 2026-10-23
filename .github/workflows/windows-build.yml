@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -28,14 +28,16 @@ jobs:
           python-version: '3.x'
 
       - name: Static source checks
-        run: python tools/validate_project.py
+        run: |
+          python tools/validate_project.py
+          python tools/validate_distribution.py
 
       - name: Parse interactive click-through acceptance harness
         shell: pwsh
         run: |
           $tokens = $null
           $parseErrors = $null
-          foreach ($relativePath in @('tools/Test-LayalClickThrough.ps1', 'tools/Test-LayalClickThrough.Native.ps1', 'tools/Test-LayalDisplayDpi.ps1')) {
+          foreach ($relativePath in @('tools/Test-LayalClickThrough.ps1', 'tools/Test-LayalClickThrough.Native.ps1', 'tools/Test-LayalDisplayDpi.ps1', 'tools/Build-LayalDistribution.ps1', 'tools/Test-LayalInstaller.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $relativePath), [ref]$tokens, [ref]$parseErrors) | Out-Null
@@ -49,7 +51,12 @@ jobs:
         run: python tools/validate_release.py
 
       - name: Package source and validate ZIP
-        run: python tools/package_source.py --output artifacts/Layal-Windows-Agent-0.5.2-source.zip
+        shell: pwsh
+        run: |
+          [xml]$projectXml = Get-Content -LiteralPath 'src/Layal.Desktop/Layal.Desktop.csproj' -Raw
+          $version = $projectXml.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
+          python tools/package_source.py --output "artifacts/Layal-Windows-Agent-$version-source.zip"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Restore
         run: dotnet restore Layal.sln --nologo
@@ -117,6 +124,15 @@ jobs:
         if: success()
         run: python tools/validate_test_results.py artifacts/test-results
 
+      - name: Build self-contained Windows distribution and test installer lifecycle
+        if: success()
+        shell: pwsh
+        run: |
+          & .\\tools\\Build-LayalDistribution.ps1 -RunInstallerLifecycleTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/validate_distribution.py --artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -131,15 +147,24 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Layal-${{ github.sha }}-source
-          path: artifacts/Layal-Windows-Agent-0.5.2-source.zip
+          path: artifacts/Layal-Windows-Agent-*-source.zip
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload build output
+      - name: Upload self-contained Windows publish output
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Layal-${{ github.sha }}-windows-release
-          path: src/Layal.Desktop/bin/Release/net10.0-windows/
+          name: Layal-${{ github.sha }}-self-contained-publish
+          path: artifacts/publish/win-x64/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installer, portable ZIP, SBOM and SHA-256 manifest
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Layal-${{ github.sha }}-distribution
+          path: artifacts/distribution/**/*
           if-no-files-found: error
           retention-days: 14
