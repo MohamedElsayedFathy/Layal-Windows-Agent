@@ -323,31 +323,25 @@ public sealed class MainWindowVisualSmokeTests
     {
         var focusStyle = Application.Current.TryFindResource("Layal.KeyboardFocusVisual") as Style;
         Assert.IsNotNull(focusStyle, "The shared keyboard-focus visual resource must be defined.");
-        Assert.AreSame(focusStyle, primaryButton.FocusVisualStyle,
-            "Buttons must expose the shared visible keyboard-focus ring.");
+        AssertStyleUsesKeyboardFocusRing(primaryButton.Style, focusStyle!, "Button");
 
         var checkbox = window.FindName("AnimationsCheckbox") as CheckBox
             ?? throw new InvalidOperationException("AnimationsCheckbox was not found.");
-        Assert.AreSame(focusStyle, checkbox.FocusVisualStyle,
-            "Checkboxes must expose a visible keyboard-focus ring.");
+        AssertStyleUsesKeyboardFocusRing(checkbox.Style, focusStyle!, "CheckBox");
         var slider = window.FindName("MascotSizeSlider") as Slider
             ?? throw new InvalidOperationException("MascotSizeSlider was not found.");
-        Assert.AreSame(focusStyle, slider.FocusVisualStyle,
-            "Sliders must expose a visible keyboard-focus ring.");
+        AssertStyleUsesKeyboardFocusRing(slider.Style, focusStyle!, "Slider");
         var homeTab = window.FindName("HomeTab") as TabItem
             ?? throw new InvalidOperationException("HomeTab was not found.");
-        Assert.AreSame(focusStyle, homeTab.FocusVisualStyle,
-            "Navigation tabs must expose a visible keyboard-focus ring.");
+        var navigationStyle = Application.Current.TryFindResource("Layal.NavTabItemStyle") as Style;
+        Assert.IsNotNull(navigationStyle, "The navigation tab style must be available.");
+        AssertStyleUsesKeyboardFocusRing(navigationStyle!, focusStyle!, "TabItem");
 
         foreach (var controlType in new[] { typeof(ComboBoxItem), typeof(ListBoxItem) })
         {
             var itemStyle = Application.Current.TryFindResource(controlType) as Style;
             Assert.IsNotNull(itemStyle, $"Implicit {controlType.Name} style must be available.");
-            var focusSetter = itemStyle!.Setters.OfType<Setter>()
-                .FirstOrDefault(setter => setter.Property == Control.FocusVisualStyleProperty);
-            Assert.IsNotNull(focusSetter, $"{controlType.Name} must declare its keyboard focus visual.");
-            Assert.AreSame(focusStyle, focusSetter!.Value,
-                $"{controlType.Name} must use the shared keyboard-focus ring.");
+            AssertStyleUsesKeyboardFocusRing(itemStyle!, focusStyle!, controlType.Name);
         }
 
         Assert.IsFalse(string.IsNullOrWhiteSpace(
@@ -359,6 +353,15 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
+    }
+
+    private static void AssertStyleUsesKeyboardFocusRing(Style style, Style focusStyle, string controlName)
+    {
+        var focusSetter = style.Setters.OfType<Setter>()
+            .FirstOrDefault(setter => setter.Property == Control.FocusVisualStyleProperty);
+        Assert.IsNotNull(focusSetter, $"{controlName} style must declare its keyboard focus visual.");
+        Assert.AreSame(focusStyle, focusSetter!.Value,
+            $"{controlName} style must use the shared keyboard-focus ring.");
     }
 
     private static string? FindVisualText(DependencyObject root)
