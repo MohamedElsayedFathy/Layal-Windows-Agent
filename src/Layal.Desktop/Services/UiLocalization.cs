@@ -49,11 +49,15 @@ public static class UiLocalization
 
     public static string FormatNotepadResult(string result, bool isArabic)
     {
-        var match = Regex.Match(result, @"^Notepad launch requested\. Process ID: (?<pid>\d+)\.$");
-        return match.Success
-            ? isArabic
-                ? $"تم طلب فتح المفكرة. معرّف العملية: {match.Groups["pid"].Value}."
-                : $"Notepad launch requested. Process ID: {match.Groups["pid"].Value}."
+        var english = Regex.Match(result, @"^Notepad launch requested\. Process ID: (?<pid>\d+)\.$");
+        if (english.Success)
+            return isArabic
+                ? $"تم طلب فتح المفكرة. معرّف العملية: {english.Groups["pid"].Value}."
+                : result;
+
+        var arabic = Regex.Match(result, @"^تم طلب فتح المفكرة\. معرّف العملية: (?<pid>\d+)\.$");
+        return arabic.Success && !isArabic
+            ? $"Notepad launch requested. Process ID: {arabic.Groups["pid"].Value}."
             : result;
     }
 
@@ -245,6 +249,46 @@ public static class UiLocalization
 
     public static string TranslateKnownFeedback(string value, bool isArabic)
     {
+        value = FormatNotepadResult(value, isArabic);
+
+        var copyArabicSuffix = " إلى الحافظة.";
+        if (value.StartsWith("تم نسخ ", StringComparison.Ordinal) && value.EndsWith(copyArabicSuffix, StringComparison.Ordinal))
+        {
+            var label = value["تم نسخ ".Length..^copyArabicSuffix.Length];
+            var englishLabel = label switch
+            {
+                "المحادثة" => "chat",
+                "الرسالة" => "message",
+                "النتيجة" => "task result",
+                "سجل التنفيذ" => "task log",
+                _ => label
+            };
+            var arabicLabel = label switch
+            {
+                "chat" => "المحادثة",
+                "message" => "الرسالة",
+                "task result" => "النتيجة",
+                "task log" => "سجل التنفيذ",
+                _ => label
+            };
+            return isArabic ? $"تم نسخ {arabicLabel} إلى الحافظة." : $"{englishLabel} copied to the clipboard.";
+        }
+
+        var englishCopySuffix = " copied to the clipboard.";
+        if (value.EndsWith(englishCopySuffix, StringComparison.Ordinal))
+        {
+            var label = value[..^englishCopySuffix.Length];
+            var arabicLabel = label switch
+            {
+                "chat" => "المحادثة",
+                "message" => "الرسالة",
+                "task result" => "النتيجة",
+                "task log" => "سجل التنفيذ",
+                _ => label
+            };
+            return isArabic ? $"تم نسخ {arabicLabel} إلى الحافظة." : value;
+        }
+
         var pairs = new (string Arabic, string English)[]
         {
             ("تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال.", "Settings saved. Connectivity is not confirmed yet; run the connection test."),
