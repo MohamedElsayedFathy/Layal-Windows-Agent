@@ -34,7 +34,7 @@
             </Grid>
         </Border>
 
-        <TabControl x:Name="MainTabs" Grid.Row="1" Background="Transparent" BorderBrush="Transparent" SelectionChanged="MainTabs_SelectionChanged">
+        <TabControl x:Name="MainTabs" Grid.Row="1" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged">
             <TabItem x:Name="HomeTab" Header="الرئيسية">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="18">
@@ -79,7 +79,7 @@
                         <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,7,0,0">
                             <ComboBox x:Name="ChatHistorySelector" ItemsSource="{Binding ChatConversations}" DisplayMemberPath="Title"
                                       SelectionChanged="ChatHistorySelector_SelectionChanged" MinWidth="190" MaxWidth="300"
-                                      ToolTip="المحادثات المحفوظة" VerticalContentAlignment="Center"/>
+                                      ToolTip="المحادثات المحفوظة" AutomationProperties.Name="المحادثات المحفوظة / Saved conversations" VerticalContentAlignment="Center"/>
                             <Button x:Name="CopyChatButton" Content="نسخ الشات" Click="CopyChatButton_Click"
                                     ToolTip="نسخ المحادثة كاملة إلى الحافظة"/>
                             <Button x:Name="NewConversationButton" Content="محادثة جديدة" Click="NewConversationButton_Click"/>
@@ -110,7 +110,7 @@
                     </StackPanel>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBox x:Name="ChatInput" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="42" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter"/>
+                        <TextBox x:Name="ChatInput" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="42" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send."/>
                         <Button x:Name="SendButton" Grid.Column="1" Content="إرسال" Click="SendButton_Click" MinWidth="72"/>
                         <Button x:Name="CancelResponseButton" Grid.Column="2" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
@@ -123,7 +123,7 @@
                     <TextBlock x:Name="TasksHeading" Text="مركز المهام" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock x:Name="TasksDescription" Grid.Row="1" Text="اكتب مهمة. ستطلب ليال موافقتك قبل الأدوات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات." TextWrapping="Wrap" Foreground="{DynamicResource Layal.Muted}" Margin="0,0,0,12"/>
                     <StackPanel Grid.Row="2" Margin="0,0,0,10">
-                        <TextBox x:Name="TaskInput" MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="اكتب المهمة بالعربية أو الإنجليزية"/>
+                        <TextBox x:Name="TaskInput" MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="اكتب المهمة بالعربية أو الإنجليزية" AutomationProperties.Name="وصف المهمة / Task description" AutomationProperties.HelpText="صف المهمة التي تريد تنفيذها / Describe the task you want to perform."/>
                         <WrapPanel Margin="0,8,0,0">
                             <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
                             <Button x:Name="CancelAgentTaskButton" Content="إيقاف المهمة" Click="CancelAgentTaskButton_Click" IsEnabled="False" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
@@ -173,7 +173,7 @@
                         <WrapPanel><Button x:Name="ImportSkillButton" Content="استيراد ZIP" Click="ImportSkillButton_Click"/><Button x:Name="RefreshSkillsButton" Content="تحديث القائمة" Click="RefreshSkillsButton_Click"/></WrapPanel>
                         <DockPanel Margin="0,7,0,0">
                             <Button x:Name="ImportGitHubSkillButton" Content="استيراد من GitHub" Click="ImportGitHubSkillButton_Click" DockPanel.Dock="Right"/>
-                            <TextBox x:Name="GitHubSkillUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://github.com/owner/repo/tree/main/path/to/skill"/>
+                            <TextBox x:Name="GitHubSkillUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://github.com/owner/repo/tree/main/path/to/skill" AutomationProperties.Name="رابط مستودع المهارة / Skill repository URL"/>
                         </DockPanel>
                         <TextBlock x:Name="SkillsResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,5,5,0"/>
                     </StackPanel>
@@ -201,7 +201,7 @@
                     </StackPanel>
                     <Grid Grid.Row="1" Margin="0,0,0,10">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="32" ToolTip="بحث في الذاكرة"/>
+                        <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="32" ToolTip="بحث في الذاكرة" AutomationProperties.Name="البحث في الذاكرة / Search memory notes"/>
                         <Button x:Name="MemorySearchButton" Grid.Column="1" Content="بحث" Click="MemorySearchButton_Click"/>
                         <Button x:Name="NewMemoryButton" Grid.Column="2" Content="ملاحظة جديدة" Click="NewMemoryButton_Click"/>
                     </Grid>
@@ -211,9 +211,9 @@
                         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="12,0,0,0">
                             <StackPanel>
                                 <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,0,0,4"/>
-                                <TextBox x:Name="MemoryTitleInput" MinHeight="32"/>
+                                <TextBox x:Name="MemoryTitleInput" MinHeight="32" AutomationProperties.Name="عنوان الملاحظة / Memory note title"/>
                                 <TextBlock x:Name="MemoryContentLabel" Text="المحتوى" Margin="0,10,0,4"/>
-                                <TextBox x:Name="MemoryContentInput" MinHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                                <TextBox x:Name="MemoryContentInput" MinHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="محتوى الملاحظة / Memory note content"/>
                                 <WrapPanel Margin="0,10,0,0">
                                     <Button x:Name="SaveMemoryButton" Content="حفظ الملاحظة" Click="SaveMemoryButton_Click"/>
                                     <Button x:Name="DeleteMemoryButton" Content="حذف" Click="DeleteMemoryButton_Click"/>
@@ -236,11 +236,11 @@
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="ProviderSectionTitle" Text="مزود ذكاء اصطناعي متوافق مع OpenAI API" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
-                        <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1"/>
+                        <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1" AutomationProperties.Name="عنوان API الأساسي / API base URL"/>
                         <TextBlock x:Name="ModelLabel" Text="معرّف النموذج" Margin="4,5,4,0"/>
-                        <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto"/>
+                        <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto" AutomationProperties.Name="معرّف النموذج / Model ID"/>
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
-                        <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight"/>
+                        <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key"/>
                         <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4"/>
                         <WrapPanel><Button x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"/><Button x:Name="TestProviderButton" Content="اختبار الاتصال" Click="TestProviderButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/><Button x:Name="DeleteKeyButton" Content="حذف المفتاح المحفوظ" Click="DeleteKeyButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/></WrapPanel>
                         <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12"/>
