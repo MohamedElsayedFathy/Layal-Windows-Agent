@@ -451,6 +451,7 @@ public partial class MainWindow : Window
         foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
         {
             if (child is Control control &&
+                control is not ScrollViewer &&
                 control.IsEnabled &&
                 control.IsVisible &&
                 control.Focusable &&
