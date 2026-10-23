@@ -14,7 +14,10 @@ ROOT = Path(__file__).resolve().parent.parent
 errors: list[str] = []
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--artifacts", action="store_true", help="Validate the generated Windows distribution folder.")
+parser.add_argument("--require-signed", action="store_true", help="Reject unsigned artifacts; use only for tagged release validation.")
 args = parser.parse_args()
+if args.require_signed and not args.artifacts:
+    parser.error("--require-signed requires --artifacts")
 
 required_source_files = [
     "installer/Layal.iss",
@@ -23,6 +26,9 @@ required_source_files = [
     "tools/Test-LayalInstaller.ps1",
     "tools/audit_nuget.py",
     "tools/validate_licenses.py",
+    "tools/Sign-LayalFile.ps1",
+    "tools/Verify-LayalDistributionIntegrity.ps1",
+    "docs/CODE_SIGNING_AR.md",
     "Directory.Build.props",
     ".github/dependabot.yml",
     ".github/workflows/windows-build.yml",
@@ -87,6 +93,11 @@ for needle, label in [
     ("PASS: fresh install, upgrade, rollback", "successful installer lifecycle evidence"),
     ("NOT RUN", "explicit status when lifecycle tests are skipped"),
     ("NOT SIGNED", "explicit unsigned-release warning"),
+    ("RequireCodeSigning", "tagged-release fail-closed signing gate"),
+    ("Sign-LayalFile.ps1", "Authenticode signing script"),
+    ("Verify-LayalDistributionIntegrity.ps1", "signature and checksum coverage verification"),
+    ("SIGNED AND VERIFIED", "positive signed-release status"),
+    ("RFC 3161", "trusted timestamp configuration"),
 ]:
     if needle not in builder:
         errors.append(f"Distribution builder is missing: {label}")
@@ -172,16 +183,25 @@ if args.artifacts:
             except (OSError, json.JSONDecodeError):
                 errors.append("SBOM JSON is invalid.")
         checksum_file = distribution / "SHA256SUMS.txt"
+        manifest_paths: set[str] = set()
         if checksum_file.is_file():
             lines = checksum_file.read_text(encoding="ascii").splitlines()
             if not lines:
                 errors.append("SHA256SUMS.txt is empty.")
             for line in lines:
-                match = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
+                match = re.fullmatch(r"([0-9a-fA-F]{64})  (.+)", line)
                 if not match:
                     errors.append(f"Malformed SHA-256 line: {line}")
                     continue
                 expected, relative = match.groups()
+                relative = relative.replace("\\", "/")
+                if relative.startswith("/") or ".." in relative.split("/") or relative == "SHA256SUMS.txt":
+                    errors.append(f"Unsafe SHA-256 manifest path: {relative}")
+                    continue
+                if relative in manifest_paths:
+                    errors.append(f"Duplicate SHA-256 manifest entry: {relative}")
+                    continue
+                manifest_paths.add(relative)
                 target = (distribution / relative).resolve()
                 if distribution.resolve() not in target.parents:
                     errors.append(f"Checksum path escapes distribution folder: {relative}")
@@ -190,8 +210,17 @@ if args.artifacts:
                     errors.append(f"Checksum references missing file: {relative}")
                     continue
                 actual = hashlib.sha256(target.read_bytes()).hexdigest()
-                if actual != expected:
+                if actual.lower() != expected.lower():
                     errors.append(f"SHA-256 mismatch: {relative}")
+            actual_paths = {
+                item.relative_to(distribution).as_posix()
+                for item in distribution.rglob("*")
+                if item.is_file() and item.resolve() != checksum_file.resolve()
+            }
+            for missing in sorted(actual_paths - manifest_paths):
+                errors.append(f"File is not covered by SHA256SUMS.txt: {missing}")
+            for extra in sorted(manifest_paths - actual_paths):
+                errors.append(f"SHA256SUMS.txt contains a path not in the distribution: {extra}")
         license_report = distribution / "licenses" / f"Layal-{version}-license-audit.md"
         if license_report.is_file():
             license_text = license_report.read_text(encoding="utf-8-sig").lower()
@@ -201,9 +230,22 @@ if args.artifacts:
         status_file = distribution / f"Layal-{version}-release-status.txt"
         if status_file.is_file():
             status_text = status_file.read_text(encoding="utf-8-sig")
-            for needle in ("NOT SIGNED", "NOT CERTIFIED"):
-                if needle not in status_text:
-                    errors.append(f"Release status file must disclose: {needle}")
+            if "NOT CERTIFIED" not in status_text:
+                errors.append("Release status file must disclose that the legal/SBOM review is not certified.")
+            signed_status = "Code signing: SIGNED AND VERIFIED" in status_text
+            unsigned_status = "Code signing: NOT SIGNED" in status_text
+            if not signed_status and not unsigned_status:
+                errors.append("Release status file must explicitly report whether code signing was verified.")
+            if signed_status:
+                if not re.search(r"(?m)^Signing certificate thumbprint: [0-9A-F]{40}$", status_text):
+                    errors.append("Signed release status must include the validated certificate thumbprint.")
+                for required_status in ("Authenticode verification: PASS", "RFC 3161 timestamp: PASS"):
+                    if required_status not in status_text:
+                        errors.append(f"Signed release status is missing: {required_status}")
+            elif "Authenticode verification: NOT RUN" not in status_text:
+                errors.append("Unsigned builds must explicitly state that Authenticode verification was not run.")
+            if args.require_signed and not signed_status:
+                errors.append("This tagged release requires SIGNED AND VERIFIED artifacts.")
             if "Installer lifecycle CI: PASS:" not in status_text:
                 errors.append("Release artifacts require a passing installer lifecycle test; rebuild with -RunInstallerLifecycleTests.")
         print(f"Generated outputs checked for version: {version}")

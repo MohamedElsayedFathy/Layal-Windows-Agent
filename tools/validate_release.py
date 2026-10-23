@@ -46,6 +46,9 @@ required = [
     "tools/Build-LayalDistribution.ps1",
     "tools/Test-LayalInstaller.ps1",
     "tools/validate_distribution.py",
+    "tools/Sign-LayalFile.ps1",
+    "tools/Verify-LayalDistributionIntegrity.ps1",
+    "docs/CODE_SIGNING_AR.md",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -61,10 +64,12 @@ sensitive_patterns = [
     (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"), "possible GitHub fine-grained token"),
     (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\s+[A-Za-z0-9+/=\r\n]{100,}-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "private key material block"),
 ]
-scan_suffixes = {".cs", ".csproj", ".sln", ".props", ".targets", ".xaml", ".json", ".toml", ".yml", ".yaml", ".md", ".ps1", ".bat", ".config", ".iss", ".py"}
+scan_suffixes = {".cs", ".csproj", ".sln", ".props", ".targets", ".xaml", ".json", ".toml", ".yml", ".yaml", ".md", ".ps1", ".bat", ".config", ".iss", ".py", ".xml", ".txt", ".sh"}
 for path in ROOT.rglob("*"):
     if not path.is_file() or any(part in {"bin", "obj", ".git", ".vs"} for part in path.parts):
         continue
+    if path.suffix.lower() in {".pfx", ".p12", ".key"}:
+        errors.append(f"Private signing key file must never be committed: {path.relative_to(ROOT)}")
     if path.suffix.lower() not in scan_suffixes:
         continue
     try:

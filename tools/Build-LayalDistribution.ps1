@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$RunInstallerLifecycleTests
+    [switch]$RunInstallerLifecycleTests,
+    [switch]$RequireCodeSigning
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,6 +54,21 @@ if ($patch -gt 0) {
 $assemblyVersion = "$major.$minor.$patch.0"
 $previousAssemblyVersion = (($previousVersion.Split('.') | Select-Object -First 3) -join '.') + '.0'
 
+$signingValues = @(
+    $env:LAYAL_SIGNING_CERTIFICATE_BASE64,
+    $env:LAYAL_SIGNING_CERTIFICATE_PASSWORD,
+    $env:LAYAL_SIGNING_CERTIFICATE_THUMBPRINT
+)
+$signingPresent = @($signingValues | ForEach-Object { -not [string]::IsNullOrWhiteSpace($_) })
+$signingConfigured = $signingPresent -notcontains $false
+$anySigningConfigured = $signingPresent -contains $true
+if ($anySigningConfigured -and -not $signingConfigured) {
+    throw 'Partial code-signing configuration detected. Configure all three LAYAL_SIGNING_CERTIFICATE_* secrets or configure none.'
+}
+if ($RequireCodeSigning -and -not $signingConfigured) {
+    throw 'A tagged release requires code signing. Configure LAYAL_SIGNING_CERTIFICATE_BASE64, LAYAL_SIGNING_CERTIFICATE_PASSWORD, and LAYAL_SIGNING_CERTIFICATE_THUMBPRINT in GitHub Actions repository secrets.'
+}
+
 # Clear generated distribution outputs so stale SBOMs or notices cannot survive a rebuild.
 Remove-Item -LiteralPath $Distribution -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Artifacts, $Distribution, $SbomDirectory | Out-Null
@@ -77,6 +93,12 @@ foreach ($requiredPath in @($exePath, $coreClrPath, $hostFxrPath)) {
     }
 }
 Write-Host 'PASS: Layal.exe and bundled .NET runtime files exist.'
+
+$signerScript = Join-Path $PSScriptRoot 'Sign-LayalFile.ps1'
+& $signerScript -FilePath $exePath -RequireSignature:$RequireCodeSigning
+if (-not $signingConfigured) {
+    Write-Host 'NOT SIGNED: Layal.exe remains unsigned for this non-release CI build.'
+}
 
 # Include license notices in the installed application payload and portable ZIP.
 $payloadLicenseDirectory = Join-Path $PublishDirectory 'licenses'
@@ -209,6 +231,8 @@ if ((Get-Item -LiteralPath $currentInstaller).Length -lt 1000000) {
 }
 Write-Host "PASS: installer created: $currentInstaller"
 
+& $signerScript -FilePath $currentInstaller -RequireSignature:$RequireCodeSigning
+
 if ($RunInstallerLifecycleTests) {
     & (Join-Path $PSScriptRoot 'Test-LayalInstaller.ps1') -PreviousInstallerPath $previousInstallerForTest -CurrentInstallerPath $currentInstaller -PreviousVersion $previousVersion -CurrentVersion $version
     if ($LASTEXITCODE -ne 0) {
@@ -226,7 +250,11 @@ $distributionStatus = Join-Path $Distribution "Layal-$version-release-status.txt
     "User data: stored outside the installation directory and intentionally preserved by uninstall."
     "Installer lifecycle CI: $(if ($RunInstallerLifecycleTests) { 'PASS: fresh install, upgrade, rollback, app startup, shortcut/registry cleanup, and user-data preservation' } else { 'NOT RUN: use -RunInstallerLifecycleTests before release validation' })"
     "Rollback fixture: synthetic lower version from current source; not a historical release binary."
-    "Code signing: NOT SIGNED by this build script. Do not present this artifact as a signed public release."
+    $(if ($signingConfigured) { "Code signing: SIGNED AND VERIFIED" } else { "Code signing: NOT SIGNED by this build script. Do not present this artifact as a signed public release." })
+    $(if ($signingConfigured) { "Signing certificate thumbprint: $(($env:LAYAL_SIGNING_CERTIFICATE_THUMBPRINT -replace '\s','').ToUpperInvariant())" } else { "Signing certificate thumbprint: NOT AVAILABLE" })
+    $(if ($signingConfigured) { "Authenticode verification: PASS (SignTool and Get-AuthenticodeSignature)" } else { "Authenticode verification: NOT RUN (no signing certificate configured)" })
+    $(if ($signingConfigured) { "RFC 3161 timestamp: PASS (SHA-256)" } else { "RFC 3161 timestamp: NOT RUN" })
+    $(if ($signingConfigured) { "Signed files: Layal.exe; Layal-Setup-$version-win-x64.exe" } else { "Signed files: NONE" })
     "License review: NOT CERTIFIED by generated SBOM. Review all direct/transitive dependencies and included assets before public/commercial distribution."
     "Manual Windows acceptance: still required on a clean target PC, including display/DPI and user-session behavior."
 ) | Set-Content -LiteralPath $distributionStatus -Encoding utf8
@@ -240,6 +268,11 @@ $hashLines = foreach ($file in (Get-ChildItem -LiteralPath $Distribution -File -
     "$hash  $relative"
 }
 $hashLines | Set-Content -LiteralPath $checksumPath -Encoding ascii
+
+$integrityVerifier = Join-Path $PSScriptRoot 'Verify-LayalDistributionIntegrity.ps1'
+$verifyArguments = @('-DistributionDirectory', $Distribution)
+if ($RequireCodeSigning) { $verifyArguments += '-RequireSignature' }
+& $integrityVerifier @verifyArguments
 
 Write-Host ''
 Write-Host "Distribution folder: $Distribution"

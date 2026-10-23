@@ -3,6 +3,7 @@ name: Layal Windows build
 on:
   push:
     branches: [main, master]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -16,6 +17,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install .NET 10 SDK
         uses: actions/setup-dotnet@v4
@@ -38,7 +41,7 @@ jobs:
         run: |
           $tokens = $null
           $parseErrors = $null
-          foreach ($relativePath in @('tools/Test-LayalClickThrough.ps1', 'tools/Test-LayalClickThrough.Native.ps1', 'tools/Test-LayalDisplayDpi.ps1', 'tools/Build-LayalDistribution.ps1', 'tools/Test-LayalInstaller.ps1')) {
+          foreach ($relativePath in @('tools/Test-LayalClickThrough.ps1', 'tools/Test-LayalClickThrough.Native.ps1', 'tools/Test-LayalDisplayDpi.ps1', 'tools/Build-LayalDistribution.ps1', 'tools/Test-LayalInstaller.ps1', 'tools/Sign-LayalFile.ps1', 'tools/Verify-LayalDistributionIntegrity.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $relativePath), [ref]$tokens, [ref]$parseErrors) | Out-Null
@@ -128,11 +131,34 @@ jobs:
         if: success()
         run: python tools/validate_test_results.py artifacts/test-results
 
-      - name: Build self-contained Windows distribution and test installer lifecycle
-        if: success()
+      - name: Validate release tag belongs to main history
+        id: release_guard
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
-          & .\\tools\\Build-LayalDistribution.ps1 -RunInstallerLifecycleTests
+          git fetch origin main --prune
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw "Release tags must point to a commit already reachable from origin/main." }
+          "approved=true" >> $env:GITHUB_OUTPUT
+
+      - name: Build signed and verified release distribution
+        if: success() && startsWith(github.ref, 'refs/tags/v') && steps.release_guard.outputs.approved == 'true'
+        shell: pwsh
+        env:
+          LAYAL_SIGNING_CERTIFICATE_BASE64: ${{ secrets.LAYAL_SIGNING_CERTIFICATE_BASE64 }}
+          LAYAL_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.LAYAL_SIGNING_CERTIFICATE_PASSWORD }}
+          LAYAL_SIGNING_CERTIFICATE_THUMBPRINT: ${{ secrets.LAYAL_SIGNING_CERTIFICATE_THUMBPRINT }}
+        run: |
+          & .\tools\Build-LayalDistribution.ps1 -RunInstallerLifecycleTests -RequireCodeSigning
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/validate_distribution.py --artifacts --require-signed
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build unsigned CI distribution and test installer lifecycle
+        if: success() && !startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          & .\tools\Build-LayalDistribution.ps1 -RunInstallerLifecycleTests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_distribution.py --artifacts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
