@@ -100,15 +100,18 @@ if ($isSigned) {
     try {
         Expand-Archive -LiteralPath $portable.FullName -DestinationPath $temporaryExtraction -Force
         $portableExe = Join-Path $temporaryExtraction 'Layal.exe'
+        $portableAssembly = Join-Path $temporaryExtraction 'Layal.dll'
         if (-not (Test-Path -LiteralPath $portableExe -PathType Leaf)) { throw 'Portable ZIP does not contain Layal.exe at its root.' }
+        if (-not (Test-Path -LiteralPath $portableAssembly -PathType Leaf)) { throw 'Portable ZIP does not contain Layal.dll at its root.' }
         Assert-AuthenticodeSignature -Path $portableExe -Thumbprint $thumbprint
+        Assert-AuthenticodeSignature -Path $portableAssembly -Thumbprint $thumbprint
     }
     finally {
         if (Test-Path -LiteralPath $temporaryExtraction) {
             Remove-Item -LiteralPath $temporaryExtraction -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
-    Write-Host 'PASS: signed installer and portable application use the configured, trusted certificate.'
+    Write-Host 'PASS: signed installer, Layal.exe, and Layal.dll use the configured, trusted certificate.'
 }
 else {
     if ($RequireSignature) { throw 'Unsigned artifacts are not permitted for this validation run.' }
@@ -120,10 +123,14 @@ else {
     try {
         Expand-Archive -LiteralPath $portable.FullName -DestinationPath $temporaryExtraction -Force
         $portableExe = Join-Path $temporaryExtraction 'Layal.exe'
+        $portableAssembly = Join-Path $temporaryExtraction 'Layal.dll'
         if (-not (Test-Path -LiteralPath $portableExe -PathType Leaf)) { throw 'Portable ZIP does not contain Layal.exe at its root.' }
-        $signature = Get-AuthenticodeSignature -FilePath $portableExe
-        if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::NotSigned) {
-            throw "Release status says unsigned, but the portable executable reports Authenticode status $($signature.Status)."
+        if (-not (Test-Path -LiteralPath $portableAssembly -PathType Leaf)) { throw 'Portable ZIP does not contain Layal.dll at its root.' }
+        foreach ($portableBinary in @($portableExe, $portableAssembly)) {
+            $signature = Get-AuthenticodeSignature -FilePath $portableBinary
+            if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::NotSigned) {
+                throw "Release status says unsigned, but $portableBinary reports Authenticode status $($signature.Status)."
+            }
         }
     }
     finally {

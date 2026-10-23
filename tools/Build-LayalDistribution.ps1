@@ -85,9 +85,10 @@ Invoke-Checked -Executable 'dotnet' -Arguments @(
 ) -Description "Publish self-contained Layal $version (win-x64)"
 
 $exePath = Join-Path $PublishDirectory 'Layal.exe'
+$appAssemblyPath = Join-Path $PublishDirectory 'Layal.dll'
 $coreClrPath = Join-Path $PublishDirectory 'coreclr.dll'
 $hostFxrPath = Join-Path $PublishDirectory 'hostfxr.dll'
-foreach ($requiredPath in @($exePath, $coreClrPath, $hostFxrPath)) {
+foreach ($requiredPath in @($exePath, $appAssemblyPath, $coreClrPath, $hostFxrPath)) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
         throw "Self-contained publish is incomplete; expected file missing: $requiredPath"
     }
@@ -96,8 +97,11 @@ Write-Host 'PASS: Layal.exe and bundled .NET runtime files exist.'
 
 $signerScript = Join-Path $PSScriptRoot 'Sign-LayalFile.ps1'
 & $signerScript -FilePath $exePath -RequireSignature:$RequireCodeSigning
+if ($LASTEXITCODE -ne 0) { throw "Authenticode signing/verification failed for Layal.exe (exit code $LASTEXITCODE)." }
+& $signerScript -FilePath $appAssemblyPath -RequireSignature:$RequireCodeSigning
+if ($LASTEXITCODE -ne 0) { throw "Authenticode signing/verification failed for Layal.dll (exit code $LASTEXITCODE)." }
 if (-not $signingConfigured) {
-    Write-Host 'NOT SIGNED: Layal.exe remains unsigned for this non-release CI build.'
+    Write-Host 'NOT SIGNED: Layal.exe and Layal.dll remain unsigned for this non-release CI build.'
 }
 
 # Include license notices in the installed application payload and portable ZIP.
@@ -254,7 +258,7 @@ $distributionStatus = Join-Path $Distribution "Layal-$version-release-status.txt
     $(if ($signingConfigured) { "Signing certificate thumbprint: $(($env:LAYAL_SIGNING_CERTIFICATE_THUMBPRINT -replace '\s','').ToUpperInvariant())" } else { "Signing certificate thumbprint: NOT AVAILABLE" })
     $(if ($signingConfigured) { "Authenticode verification: PASS (SignTool and Get-AuthenticodeSignature)" } else { "Authenticode verification: NOT RUN (no signing certificate configured)" })
     $(if ($signingConfigured) { "RFC 3161 timestamp: PASS (SHA-256)" } else { "RFC 3161 timestamp: NOT RUN" })
-    $(if ($signingConfigured) { "Signed files: Layal.exe; Layal-Setup-$version-win-x64.exe" } else { "Signed files: NONE" })
+    $(if ($signingConfigured) { "Signed files: Layal.exe; Layal.dll; Layal-Setup-$version-win-x64.exe" } else { "Signed files: NONE" })
     "License review: NOT CERTIFIED by generated SBOM. Review all direct/transitive dependencies and included assets before public/commercial distribution."
     "Manual Windows acceptance: still required on a clean target PC, including display/DPI and user-session behavior."
 ) | Set-Content -LiteralPath $distributionStatus -Encoding utf8

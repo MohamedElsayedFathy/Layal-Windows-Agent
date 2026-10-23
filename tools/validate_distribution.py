@@ -97,6 +97,7 @@ for needle, label in [
     ("Sign-LayalFile.ps1", "Authenticode signing script"),
     ("Verify-LayalDistributionIntegrity.ps1", "signature and checksum coverage verification"),
     ("SIGNED AND VERIFIED", "positive signed-release status"),
+    ("Layal.dll", "signed managed application assembly"),
     ("RFC 3161", "trusted timestamp configuration"),
 ]:
     if needle not in builder:
@@ -162,7 +163,7 @@ if args.artifacts:
                     damaged = archive.testzip()
                     names = set(archive.namelist())
                     for member in (
-                        "Layal.exe", "coreclr.dll", "hostfxr.dll",
+                        "Layal.exe", "Layal.dll", "coreclr.dll", "hostfxr.dll",
                         "licenses/THIRD-PARTY-NOTICES.md",
                         "licenses/WTFPL.txt",
                         "licenses/MIT-JeremyAnsel.HLSL.Targets.txt",
@@ -239,7 +240,7 @@ if args.artifacts:
             if signed_status:
                 if not re.search(r"(?m)^Signing certificate thumbprint: [0-9A-F]{40}$", status_text):
                     errors.append("Signed release status must include the validated certificate thumbprint.")
-                for required_status in ("Authenticode verification: PASS", "RFC 3161 timestamp: PASS"):
+                for required_status in ("Authenticode verification: PASS", "RFC 3161 timestamp: PASS", "Layal.dll"):
                     if required_status not in status_text:
                         errors.append(f"Signed release status is missing: {required_status}")
             elif "Authenticode verification: NOT RUN" not in status_text:
