@@ -31,11 +31,16 @@ jobs:
           python-version: '3.x'
 
       - name: Static source checks
+        shell: pwsh
         run: |
           python tools/validate_project.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_distribution.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_licenses.py --manifest-only --report artifacts/security/license-manifest-validation.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests/python -p "test_*.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Parse interactive click-through acceptance harness
         shell: pwsh

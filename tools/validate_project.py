@@ -438,6 +438,8 @@ mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
 main_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
 mascot_code = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
 main_code = main_code_path.read_text(encoding="utf-8") if main_code_path.exists() else ""
+palette_path = ROOT / "src/Layal.Desktop/Services/UiThemePalette.cs"
+palette_code = palette_path.read_text(encoding="utf-8") if palette_path.exists() else ""
 resolver_path = ROOT / "src/Layal.Desktop/Services/TaskMoodResolver.cs"
 resolver_code = resolver_path.read_text(encoding="utf-8") if resolver_path.exists() else ""
 if not resolver_path.exists():
@@ -475,7 +477,7 @@ if "ChatMessageContextMenu_Opened" not in main_code:
 if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
     ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
 for expected_glass_color in ("#F4FFFFFF", "#E5222B3F"):
-    if expected_glass_color not in main_code:
+    if expected_glass_color not in palette_code:
         ERRORS.append(f"Expected translucent card color '{expected_glass_color}' is missing from the theme palette")
 
 
