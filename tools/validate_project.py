@@ -144,6 +144,70 @@ if main_window_xaml.exists():
         if old_color.lower() in main_text.lower():
             ERRORS.append(f"Legacy dark surface {old_color} remains in MainWindow.xaml")
 
+# Bilingual presentation guardrails for requirement LAYAL-006.
+localization_path = ROOT / "src/Layal.Desktop/Services/UiLocalization.cs"
+localization_text = localization_path.read_text(encoding="utf-8") if localization_path.exists() else ""
+if not localization_text:
+    ERRORS.append("Shared UI localization service is missing: src/Layal.Desktop/Services/UiLocalization.cs")
+else:
+    for required in (
+        "FormatTaskStatus", "FormatTaskResult", "FormatTaskEvent",
+        "LocalizeApprovalTitle", "LocalizeApprovalDetails",
+        "TranslateKnownFeedback", "FormatDateTime",
+        "CompletedWithWarnings", "مكتملة مع تحذيرات",
+        "موافقة مطلوبة", "Technical details",
+    ):
+        if required not in localization_text:
+            ERRORS.append(f"Bilingual localization service is missing expected coverage: {required}")
+
+main_window_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+main_window_code = main_window_code_path.read_text(encoding="utf-8") if main_window_code_path.exists() else ""
+for required in (
+    "UiLocalization.FormatTaskResult", "UiLocalization.FormatTaskEvent",
+    "UiLocalization.LocalizeApprovalDetails", "UiLocalization.TranslateKnownFeedback",
+    "ChatSessionService.SetDefaultTitle", "CopyChatMessageMenuItem.Header",
+    "Filter = IsArabic ?",
+):
+    if required not in main_window_code:
+        ERRORS.append(f"Bilingual UI integration is missing expected wiring: {required}")
+
+if "نسخ الرسالة / Copy message" in main_text:
+    ERRORS.append("A mixed Arabic/English static chat context-menu label remains in MainWindow.xaml")
+if 'x:Name="CopyChatMessageMenuItem"' not in main_text:
+    ERRORS.append("Chat message context menu is not addressable for runtime localization")
+
+chat_session_path = ROOT / "src/Layal.Desktop/Services/ChatSessionService.cs"
+chat_session_text = chat_session_path.read_text(encoding="utf-8") if chat_session_path.exists() else ""
+if "public void SetDefaultTitle(string defaultTitle)" not in chat_session_text:
+    ERRORS.append("Conversation placeholder titles cannot follow the selected UI language")
+
+app_code_path = ROOT / "src/Layal.Desktop/App.xaml.cs"
+app_code_text = app_code_path.read_text(encoding="utf-8") if app_code_path.exists() else ""
+if "ChatSessionService.SetDefaultTitle" not in app_code_text:
+    ERRORS.append("Saved blank conversation titles are not normalized to the startup language")
+
+mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
+mascot_code_text = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
+if "Root.ToolTip = localizedToolTip" not in mascot_code_text or 'Title = ar ? "ليال" : "Layal"' not in mascot_code_text:
+    ERRORS.append("Floating mascot title/tooltip is not fully localized")
+
+localization_test = ROOT / "tests/Layal.Tests/UiLocalizationTests.cs"
+if not localization_test.is_file():
+    ERRORS.append("Automated bilingual localization tests are missing: tests/Layal.Tests/UiLocalizationTests.cs")
+else:
+    localization_test_text = localization_test.read_text(encoding="utf-8")
+    for required in ("TaskStatusesAreRenderedInTheSelectedLanguage", "TaskEventTranslationRetainsTimestamp", "ApprovalDetailsAreLocalized", "UnrecognizedModelOutputIsPreserved", "PlaceholderFeedbackCanBeSwitched"):
+        if required not in localization_test_text:
+            ERRORS.append(f"Bilingual localization test coverage is missing: {required}")
+
+requirement_trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
+requirement_trace = requirement_trace_path.read_text(encoding="utf-8-sig") if requirement_trace_path.exists() else ""
+language_requirement = next((line for line in requirement_trace.splitlines() if line.startswith("LAYAL-006,")), "")
+if not language_requirement:
+    ERRORS.append("Requirement traceability row LAYAL-006 is missing")
+elif "متحقق" in language_requirement or "verified" in language_requirement.lower():
+    ERRORS.append("LAYAL-006 must not be marked verified before Windows language acceptance is recorded")
+
 project_file = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
 project_text = project_file.read_text(encoding="utf-8") if project_file.exists() else ""
 version_match = re.search(r"<Version>([^<]+)</Version>", project_text)
