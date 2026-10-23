@@ -90,7 +90,7 @@ if (-not (Test-Path -LiteralPath $sbomCommand -PathType Leaf)) {
         'tool', 'install', 'CycloneDX', '--tool-path', $toolDirectory, '--version', '6.3.1'
     ) -Description 'Install pinned CycloneDX .NET SBOM generator'
 }
-Invoke-Checked -Executable $sbomCommand -Arguments @($ProjectPath, '-o', $SbomDirectory) -Description 'Generate CycloneDX SBOM'
+Invoke-Checked -Executable $sbomCommand -Arguments @($ProjectPath, '-o', $SbomDirectory, '--output-format', 'json') -Description 'Generate CycloneDX SBOM in JSON format'
 $sbomFiles = @(Get-ChildItem -LiteralPath $SbomDirectory -Filter '*.json' -File -Recurse)
 $validSbom = $false
 foreach ($sbomFile in $sbomFiles) {
