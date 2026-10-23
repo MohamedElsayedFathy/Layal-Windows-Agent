@@ -39,6 +39,15 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 - Tool failures or declined actions prevent the task from being shown as a clean success.
 - Static XAML/resource/event validation script added under `tools/validate_project.py`.
 
+## المرحلة الخامسة — القبول النهائي على Windows فعلي — 23 أكتوبر 2026
+
+**الحالة: PENDING — بوابة القبول الحي لم تُغلق.** لا تتوفر في جلسة العمل هذه جلسة سطح مكتب Windows فعلية متصلة بجهاز الهدف؛ لذلك لم يتم تنفيذ اختبار يدوي على جهاز المستخدم، ولا يجوز وصف القبول الحقيقي بأنه ناجح.
+
+- سُجلت أدلة CI للتفاعل وDPI بصفتها اختبارات داخل عامل Windows، لا بديلًا عن شاشة/ماوس الجهاز المستهدف. أحدث تشغيل للفرع هو [Windows build run 39982626010](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39982626010) على commit `53f31318051ddaef914da70804656bc25b782cfc`؛ كانت خطوات النقر الأصلي والسحب وفحص العرض/DPI ورفع أدلتها ناجحة، بينما ظل التشغيل نفسه قيد التنفيذ في خطوة حزمة التوزيع عند التحقق الأخير.
+- أُضيف [سجل القبول الحي على Windows](WINDOWS_LIVE_ACCEPTANCE_REPORT_AR.md) ويتضمن مصفوفة حالات قابلة للتسجيل، وبيانات بيئة الاختبار، وأوامر تشخيص الشاشة/DPI وتمرير النقرات، وشروط PASS/FAIL/BLOCKED/NOT TESTED.
+- لإغلاق البوابة، يجب تنفيذ القائمة على جهاز Windows تفاعلي باستخدام commit وartifact محددين؛ وحفظ الصور والسجلات وSHA-256؛ ومراجعة كل حالات الفشل/الحظر قبل إصدار قرار. لا تُعد نتائج RenderTargetBitmap أو عامل CI شهادة بتغيّر DPI الفعلي أو التعدد الفيزيائي للشاشات.
+- تظل بوابتا التوقيع بشهادة Code Signing موثوقة ومراجعة تراخيص المشروع/الأصول منفصلتين عن القبول الحي، وتظل PR #6 مسودة وغير مدمجة.
+
 ## Remaining acceptance and integration gates
 
 1. Execute the [manual Windows acceptance checklist](MANUAL_ACCEPTANCE_AR.md) on the target PC: tray/hide/show/exit, single/double/context clicks, keyboard focus, and settings persistence after a real restart.
