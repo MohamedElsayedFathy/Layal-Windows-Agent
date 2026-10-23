@@ -62,6 +62,41 @@ def component_licenses(component: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(values))
 
 
+def enrich_missing_license_metadata(
+    components: list[dict[str, Any]],
+    packages: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Fill absent CycloneDX license fields from the reviewed inventory, with source properties."""
+    enriched: list[str] = []
+    for component in components:
+        if component_licenses(component):
+            continue
+        package_id = get_package_id(component)
+        entry = packages.get(package_id)
+        expression = str(entry.get("licenseExpression") or "").strip() if entry else ""
+        if not expression:
+            continue
+
+        # Preserve the distinction between technical SBOM metadata and legal release approval.
+        component["licenses"] = [{"expression": expression}]
+        properties = component.get("properties")
+        if not isinstance(properties, list):
+            properties = []
+            component["properties"] = properties
+        for property_name, property_value in (
+            ("layal:license-metadata-source", str(entry.get("sourceUrl") or "")),
+            ("layal:license-metadata-license-url", str(entry.get("licenseUrl") or "")),
+            ("layal:license-metadata-status", "derived from curated inventory; human legal review still required"),
+        ):
+            if property_value and not any(
+                isinstance(item, dict) and item.get("name") == property_name
+                for item in properties
+            ):
+                properties.append({"name": property_name, "value": property_value})
+        enriched.append(f"{entry.get('id') or package_id} ({expression})")
+    return enriched
+
+
 def release_clearance_errors(
     document: Any,
     packages: dict[str, dict[str, Any]],
@@ -241,6 +276,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest-only", action="store_true", help="Validate static notices without an SBOM.")
     parser.add_argument("--sbom", type=Path, help="CycloneDX JSON SBOM to compare against the inventory.")
+    parser.add_argument(
+        "--enrich-sbom-license-metadata",
+        action="store_true",
+        help="Fill missing CycloneDX license fields from the curated package inventory and record metadata-source properties; this does not grant legal clearance.",
+    )
     parser.add_argument("--report", type=Path, help="Write a Markdown report.")
     parser.add_argument("--require-project-license", action="store_true", help="Fail unless the rights holder declared a project license.")
     parser.add_argument(
@@ -251,11 +291,14 @@ def main() -> int:
     args = parser.parse_args()
     if not args.manifest_only and args.sbom is None:
         parser.error("provide --manifest-only or --sbom")
+    if args.enrich_sbom_license_metadata and args.sbom is None:
+        parser.error("--enrich-sbom-license-metadata requires --sbom")
 
     document = read_json(MANIFEST)
     packages = validate_manifest(document)
     components: list[dict[str, Any]] = []
     sbom_label = "not provided"
+    enriched_components: list[str] = []
     if args.sbom is not None:
         sbom_path = args.sbom if args.sbom.is_absolute() else ROOT / args.sbom
         sbom_label = str(sbom_path)
@@ -269,7 +312,19 @@ def main() -> int:
             else:
                 components = [item for item in raw if isinstance(item, dict)]
 
-        seen: set[str] = set()
+        if args.enrich_sbom_license_metadata and isinstance(bom, dict) and components:
+            enriched_components = enrich_missing_license_metadata(components, packages)
+            if enriched_components:
+                try:
+                    sbom_path.write_text(
+                        json.dumps(bom, ensure_ascii=False, indent=2) + "\\n",
+                        encoding="utf-8",
+                    )
+                except OSError as exc:
+                    ERRORS.append(f"Could not write enriched CycloneDX SBOM: {exc}")
+                    enriched_components = []
+
+        seen: set[str] = []
         for component in components:
             name = get_package_id(component)
             if not name:
@@ -326,6 +381,7 @@ def main() -> int:
         f"- SBOM: {sbom_label}",
         f"- Third-party packages in inventory: {len(packages)}",
         f"- SBOM components inspected: {len(components)}",
+        f"- SBOM components enriched from inventory: {len(enriched_components)}",
         f"- Asset provenance reviews still open: {len(pending_assets)}",
         "",
         "## Package inventory",
@@ -384,6 +440,9 @@ def main() -> int:
         print(f"License audit report: {report}")
     print(f"License inventory: {validation_label}")
     print(f"SBOM components inspected: {len(components)}")
+    if enriched_components:
+        print("SBOM license metadata enriched from curated inventory: " + "; ".join(enriched_components))
+        print("NOTE: enrichment is metadata completion only; human legal review remains independently required.")
     for warning in WARNINGS:
         print("WARNING:", warning)
     for error in ERRORS:
