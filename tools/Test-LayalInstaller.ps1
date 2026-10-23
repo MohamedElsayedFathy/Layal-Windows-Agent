@@ -22,6 +22,9 @@ $installDirectory = Join-Path $env:LOCALAPPDATA "Temp\Layal-InstallerAcceptance-
 $userDataDirectory = Join-Path $env:LOCALAPPDATA 'Layal'
 $sentinelPath = Join-Path $userDataDirectory "release-readiness-$testId.txt"
 $appProcess = $null
+if ($env:GITHUB_ACTIONS -ne 'true' -and $env:LAYAL_ALLOW_INSTALLER_TESTS -ne '1') {
+    throw 'Refusing to run destructive installer tests outside CI unless LAYAL_ALLOW_INSTALLER_TESTS=1 is explicitly set in a disposable VM.'
+}
 
 function Assert-InstalledVersion {
     param([Parameter(Mandatory = $true)][string]$ExpectedVersion)
@@ -65,12 +68,13 @@ function Test-AppStartup {
 
 function Invoke-QuietInstaller {
     param([Parameter(Mandatory = $true)][string]$Path)
+    $directoryArgument = '/DIR="' + $installDirectory + '"'
     $arguments = @(
         '/VERYSILENT',
         '/SUPPRESSMSGBOXES',
         '/NORESTART',
         '/SP-',
-        "/DIR=""$installDirectory"""
+        $directoryArgument
     )
     $process = Start-Process -FilePath $Path -ArgumentList $arguments -Wait -PassThru
     if ($process.ExitCode -ne 0) {
