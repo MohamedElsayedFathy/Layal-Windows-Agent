@@ -26,6 +26,8 @@ public partial class App : Application
             Path.Combine(dataRoot, "chat-sessions.dpapi"),
             AppRuntime.ChatHistoryStore,
             AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
+        // Normalize empty history placeholders to the persisted UI language when an old history is reopened.
+        AppRuntime.ChatSessionService.SetDefaultTitle(AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
         AppRuntime.WorkspaceRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LayalWorkspace");
         AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService);
         AppRuntime.AgentOrchestrator = new AgentOrchestrator(new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
