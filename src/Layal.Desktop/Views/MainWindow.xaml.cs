@@ -176,7 +176,7 @@ public partial class MainWindow : Window
 
         var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.FromElement(element)
             ?? System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(element);
-        peer?.RaiseAutomationEvent(System.Windows.Automation.AutomationEvents.LiveRegionChanged);
+        peer?.RaiseAutomationEvent(System.Windows.Automation.Peers.AutomationEvents.LiveRegionChanged);
     }
 
     private void UpdateEmptyStateHints()
