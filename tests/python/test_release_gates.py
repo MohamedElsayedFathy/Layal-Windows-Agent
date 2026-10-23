@@ -79,6 +79,34 @@ class ReleaseClearanceTests(unittest.TestCase):
         errors = validate_licenses.release_clearance_errors(document, packages, components, True)
         self.assertTrue(any("SBOM license metadata is missing" in error for error in errors))
 
+    def test_missing_sbom_license_is_enriched_from_inventory_with_source(self):
+        document, packages, components = valid_review_fixture()
+        component = components[0]
+        component.pop("licenses")
+        packages["example.package"]["licenseExpression"] = "MIT"
+        packages["example.package"]["sourceUrl"] = "https://packages.example.invalid/Example.Package"
+        packages["example.package"]["licenseUrl"] = "https://licenses.example.invalid/MIT"
+
+        enriched = validate_licenses.enrich_missing_license_metadata(components, packages)
+
+        self.assertEqual(["Example.Package (MIT)"], enriched)
+        self.assertEqual(["MIT"], validate_licenses.component_licenses(component))
+        properties = {item["name"]: item["value"] for item in component["properties"]}
+        self.assertEqual(
+            "https://packages.example.invalid/Example.Package",
+            properties["layal:license-metadata-source"],
+        )
+        self.assertIn("human legal review still required", properties["layal:license-metadata-status"])
+
+    def test_existing_sbom_license_is_not_overwritten(self):
+        document, packages, components = valid_review_fixture()
+        packages["example.package"]["licenseExpression"] = "MIT"
+        components[0]["licenses"] = [{"expression": "Apache-2.0"}]
+        before = components[0]["licenses"].copy()
+        enriched = validate_licenses.enrich_missing_license_metadata(components, packages)
+        self.assertEqual([], enriched)
+        self.assertEqual(before, components[0]["licenses"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
