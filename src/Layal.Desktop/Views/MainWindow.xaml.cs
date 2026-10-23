@@ -230,6 +230,16 @@ public partial class MainWindow : Window
         CamerasTab.Header = ar ? "◉  الكاميرات" : "◉  Cameras";
         MemoryTab.Header = ar ? "▤  الذاكرة" : "▤  Memory";
         SettingsTab.Header = ar ? "⚙  الإعدادات" : "⚙  Settings";
+        System.Windows.Automation.AutomationProperties.SetName(HomeTab, ar ? "الرئيسية" : "Home");
+        System.Windows.Automation.AutomationProperties.SetName(ChatTab, ar ? "المحادثة" : "Chat");
+        System.Windows.Automation.AutomationProperties.SetName(TasksTab, ar ? "المهام" : "Tasks");
+        System.Windows.Automation.AutomationProperties.SetName(SkillsTab, ar ? "المهارات" : "Skills");
+        System.Windows.Automation.AutomationProperties.SetName(CamerasTab, ar ? "الكاميرات" : "Cameras");
+        System.Windows.Automation.AutomationProperties.SetName(MemoryTab, ar ? "الذاكرة" : "Memory");
+        System.Windows.Automation.AutomationProperties.SetName(SettingsTab, ar ? "الإعدادات" : "Settings");
+        System.Windows.Automation.AutomationProperties.SetName(LanguageButton, ar ? "تغيير لغة الواجهة" : "Change interface language");
+        System.Windows.Automation.AutomationProperties.SetName(ThemeButton, ThemeButton.ToolTip as string ?? (ar ? "تغيير المظهر" : "Change theme"));
+        System.Windows.Automation.AutomationProperties.SetName(ShowMascotButton, ar ? "إظهار الشخصية" : "Show mascot");
 
         HomeHeading.Text = ar ? "أهلًا، أنا ليال" : "Hello, I'm Layal";
         HomeDescription.Text = ar
@@ -258,6 +268,9 @@ public partial class MainWindow : Window
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
+        System.Windows.Automation.AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
+        System.Windows.Automation.AutomationProperties.SetName(ChatInput, ar ? "رسالة المحادثة" : "Chat message");
+        System.Windows.Automation.AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة ثم اضغط Enter لإرسالها." : "Type a message and press Enter to send.");
         CopyChatButton.Content = ar ? "نسخ الشات" : "Copy chat";
         CopyChatButton.ToolTip = ar ? "نسخ المحادثة كاملة إلى الحافظة" : "Copy the entire conversation to the clipboard";
         SendButton.Content = ar ? "إرسال" : "Send";
@@ -274,6 +287,9 @@ public partial class MainWindow : Window
         RunAgentTaskButton.Content = ar ? "تنفيذ المهمة" : "Run task";
         CancelAgentTaskButton.Content = ar ? "إيقاف المهمة" : "Stop task";
         TaskInput.ToolTip = ar ? "اكتب المهمة بالعربية أو الإنجليزية" : "Describe the task in Arabic or English";
+        System.Windows.Automation.AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
+        System.Windows.Automation.AutomationProperties.SetHelpText(TaskInput, ar ? "صف ما تريد من ليال تنفيذه." : "Describe what you want Layal to do.");
+        System.Windows.Automation.AutomationProperties.SetName(TaskResult, ar ? "نتيجة المهمة" : "Task result");
         TaskSkillHint.Text = ar ? "يمكن تحديد حتى 3 مهارات من تبويب المهارات؛ نصوص المهارات تُعامل كمراجع غير موثوقة." : "Select up to 3 skills in Skills; skill text is treated as untrusted reference material.";
         CopyTaskResultButton.Content = ar ? "نسخ النتيجة" : "Copy result";
         CopyTaskLogButton.Content = ar ? "نسخ سجل التنفيذ" : "Copy task log";
@@ -286,6 +302,8 @@ public partial class MainWindow : Window
         RecentTasksGroup.Header = ar ? "المهام السابقة" : "Recent tasks";
         ImportGitHubSkillButton.Content = ar ? "استيراد من GitHub" : "Import from GitHub";
         GitHubSkillUrlInput.ToolTip = ar ? "رابط مستودع أو مجلد يحتوي على SKILL.md" : "Repository or directory URL containing SKILL.md";
+        System.Windows.Automation.AutomationProperties.SetName(GitHubSkillUrlInput, ar ? "رابط مستودع المهارة" : "Skill repository URL");
+        System.Windows.Automation.AutomationProperties.SetHelpText(GitHubSkillUrlInput, ar ? "الصق رابط GitHub لمجلد يحتوي على SKILL.md." : "Paste a GitHub URL to a directory containing SKILL.md.");
 
         CamerasHeading.Text = ar ? "الكاميرات والرؤية الحاسوبية" : "Cameras and computer vision";
         CameraStatus.Text = ar ? "غير متصل — التكامل الحقيقي غير منفذ في إصدار الأساس" : "Not connected — real camera integration is not implemented in this foundation release";
@@ -301,6 +319,10 @@ public partial class MainWindow : Window
         EndpointLabel.Text = ar ? "عنوان API الأساسي (Base URL)" : "API base URL";
         ModelLabel.Text = ar ? "معرّف النموذج" : "Model ID";
         ApiKeyLabel.Text = ar ? "مفتاح API / Unified API Key" : "API key / Unified API key";
+        System.Windows.Automation.AutomationProperties.SetName(BaseUrlInput, EndpointLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetName(ModelInput, ModelLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetName(ApiKeyInput, ApiKeyLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetHelpText(ApiKeyInput, ar ? "يُخزن المفتاح مشفرًا للمستخدم الحالي." : "The key is encrypted for the current Windows user.");
         KeyStorageNote.Text = ar ? "يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في ملف الإعدادات النصي." : "The key is encrypted with Windows DPAPI for the current user and is not stored in the plain settings file.";
         SaveProviderButton.Content = ar ? "حفظ الإعدادات" : "Save settings";
         TestProviderButton.Content = ar ? "اختبار الاتصال" : "Test connection";
@@ -310,6 +332,10 @@ public partial class MainWindow : Window
         AnimationsCheckbox.Content = ar ? "تفعيل حركة الشخصية والرمش" : "Enable mascot movement and blinking";
         MascotSizeLabel.Text = ar ? "حجم الشخصية" : "Mascot size";
         MascotOpacityLabel.Text = ar ? "شفافية الشخصية" : "Mascot opacity";
+        System.Windows.Automation.AutomationProperties.SetName(MascotSizeSlider, MascotSizeLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetHelpText(MascotSizeSlider, ar ? "عدّل القيمة باستخدام الأسهم بعد الوصول إلى شريط التمرير." : "Use the arrow keys to adjust this slider when focused.");
+        System.Windows.Automation.AutomationProperties.SetName(MascotOpacitySlider, MascotOpacityLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetHelpText(MascotOpacitySlider, ar ? "عدّل القيمة باستخدام الأسهم بعد الوصول إلى شريط التمرير." : "Use the arrow keys to adjust this slider when focused.");
         ApplyMascotSettingsButton.Content = ar ? "تطبيق إعدادات الشخصية" : "Apply mascot settings";
         SettingsLimitations.Text = ar
             ? "ما زالت وظائف الصوت الحقيقي، وأتمتة المتصفح، والتحكم العام بالماوس والكيبورد، وبث الكاميرات، وMCP غير منفذة. لا يتم عرضها كوظائف مكتملة."
@@ -318,10 +344,13 @@ public partial class MainWindow : Window
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
         MemorySearchInput.ToolTip = ar ? "بحث في الملاحظات" : "Search memory notes";
+        System.Windows.Automation.AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory notes");
         MemorySearchButton.Content = ar ? "بحث" : "Search";
         NewMemoryButton.Content = ar ? "ملاحظة جديدة" : "New note";
         MemoryTitleLabel.Text = ar ? "العنوان" : "Title";
         MemoryContentLabel.Text = ar ? "المحتوى" : "Content";
+        System.Windows.Automation.AutomationProperties.SetName(MemoryTitleInput, MemoryTitleLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetName(MemoryContentInput, MemoryContentLabel.Text);
         SaveMemoryButton.Content = ar ? "حفظ الملاحظة" : "Save note";
         DeleteMemoryButton.Content = ar ? "حذف الملاحظة" : "Delete note";
         ExportMemoryButton.Content = ar ? "تصدير JSON" : "Export JSON";
