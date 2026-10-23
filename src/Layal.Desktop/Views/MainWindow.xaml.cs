@@ -96,12 +96,9 @@ public partial class MainWindow : Window
 
     private void SystemParameters_StaticPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Re-evaluate only when High Contrast changes or while it is enabled and its
-        // system color scheme is being updated.
-        if (!SystemParameters.HighContrast &&
-            !string.Equals(e.PropertyName, nameof(SystemParameters.HighContrast), StringComparison.Ordinal))
-            return;
-
+        // Windows may report a null property name for grouped settings changes. Reapply
+        // the palette for each notification so turning High Contrast off also restores
+        // the selected light/dark theme immediately.
         if (Dispatcher.CheckAccess())
             ApplyTheme();
         else
@@ -561,6 +558,7 @@ public partial class MainWindow : Window
         AppRuntime.Tray?.SetLanguage(AppRuntime.Settings.Language);
         AppRuntime.MascotWindow?.UpdateLanguage();
         RefreshProviderStatus();
+        UpdateEmptyStateHints();
     }
 
     private void RefreshProviderStatus()
@@ -767,7 +765,6 @@ public partial class MainWindow : Window
             IsArabic ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
-        UpdateEmptyStateHints();
     }
 
     private void LanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage(IsArabic ? "en" : "ar");
