@@ -1,11 +1,11 @@
 # Layal 0.5.2 — implementation status register
 
-This matrix separates source presence, automated Windows CI evidence, and live interactive acceptance. The authoring environment itself lacks the .NET SDK, but Windows CI run [39825663174](${runUrl}) successfully built the current PR head with 0 warnings/0 errors and ran 73 passing tests. These results prove the CI build/tests, not live input or physical monitor-DPI behavior. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds automated C# tests and Windows CI execution.
+This matrix separates source presence, automated Windows CI evidence, and live interactive acceptance. The authoring environment lacks the .NET SDK. Windows CI run [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) on code commit `034fa598d8ec219e6c59019984013ac649055e5b` built Release with 0 warnings/0 errors, passed 77/77 C# tests, passed native transparent-padding click-through 4/4 and drag/save/restore 6/6, and recorded 11 display/DPI checks. Its desktop runner exposed one display at 96 DPI (100%); physical multi-monitor movement and real Windows scale transitions remain unverified on the target PC. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds automated C# tests and Windows CI execution.
 
 | Requirement | Status in source | Relevant files | Verification |
 |---|---|---|---|
-| Native WPF application and refreshed floating mascot | Implemented in source, unverified on Windows | `App.xaml`, `Views/FloatingMascotWindow.*` | Needs Windows build/manual test |
-| Tray actions, branded icon, live language switching, show/hide and exit | Implemented in source, unverified on Windows | `Services/TrayService.cs`, `App.xaml.cs` | Needs Windows test |
+| Native WPF application and refreshed floating mascot | Release build and limited native input behavior verified in Windows CI; target-desktop visual acceptance pending | `App.xaml`, `Views/FloatingMascotWindow.*` | CI run 39863364728 plus manual Windows checklist |
+| Tray actions, branded icon, live language switching, show/hide and exit | Implemented in source; tray-specific live hide/show, restart, and exit acceptance still pending | `Services/TrayService.cs`, `App.xaml.cs` | Manual target-desktop acceptance |
 | Arabic/English UI foundation | Implemented, partially localized | `Views/MainWindow.xaml.cs` | Manual RTL/LTR and translation checks needed |
 | DPAPI provider key | Implemented in source | `Services/DpapiSecretStore.cs` | Windows DPAPI test needed |
 | OpenAI-compatible model probe/chat | Implemented in source | `Services/OpenAiCompatibleClient.cs` | Requires real configured endpoint/key |
@@ -28,7 +28,7 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |
 | Installer/updater/signing | Not implemented | Publish script only | Future milestone |
-| Automated C# test project | Added in 0.5.2, tests not run in authoring environment | `tests/Layal.Tests/` | Must pass Windows CI; actual WPF/voice/camera acceptance remains separate |
+| Automated C# test project | Windows CI passed 77/77 tests for code commit `034fa598d8ec219e6c59019984013ac649055e5b`; not run in the SDK-less authoring environment | `tests/Layal.Tests/` | CI run 39863364728; broader manual/integration acceptance remains separate |
 
 ## Design/reliability changes carried forward from 0.4.0
 
@@ -39,21 +39,20 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 - Tool failures or declined actions prevent the task from being shown as a clean success.
 - Static XAML/resource/event validation script added under `tools/validate_project.py`.
 
-## Required next verification
+## Remaining acceptance and integration gates
 
-1. Run `BUILD-LAYAL.bat` on Windows with .NET 10 SDK and fix all compile errors.
-2. Test the floating window, tray, language switch, DPAPI storage, and app restart behavior.
-3. Verify provider tool calling with a model known to support it; `auto` routing may select a model with different capabilities.
-4. Exercise each tool using a disposable test workspace and verify that denied approvals cause no side effects.
-5. Test GitHub import with a valid skill folder, invalid YAML, duplicate name, large archive, missing `SKILL.md`, and path/symlink edge cases.
-6. Test memory save/edit/search/delete, chat/task history persistence, and plaintext JSON export warnings.
-7. Run `dotnet test` on Windows CI and fix any failures before broad use. Current authoring environment lacks .NET SDK, so these tests have not been executed here.
+1. Execute the [manual Windows acceptance checklist](MANUAL_ACCEPTANCE_AR.md) on the target PC: tray/hide/show/exit, single/double/context clicks, keyboard focus, and settings persistence after a real restart.
+2. Test actual Windows scaling at 100%, 125%, 150%, and 175%. On a two-monitor setup with different scale factors, run the DPI harness for 90 seconds while dragging Layal between displays and retain JSON/CSV evidence plus screenshots.
+3. Verify real provider connection and tool-calling behavior with an explicitly configured compatible model; mocked HTTP tests do not establish external-service availability.
+4. Exercise consequential tool approvals and denial paths with a disposable trusted workspace; confirm rejected approvals produce no side effects.
+5. Complete live GitHub skill-import checks and Windows DPAPI persistence/export-warning checks. Camera, voice, MCP, browser DOM automation, installer/updater, and other features marked not implemented remain outside the verified 0.5.2 scope.
+6. Run `VERIFY-LAYAL.ps1` on the target Windows machine if that machine is to be the acceptance environment, and retain the complete logs. Windows CI already passed the automated test gate for the code commit cited above; it does not close these remaining live-acceptance gates.
 
 
 The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a CSV copy in `REQUIREMENT_TRACEABILITY.csv`. Check that ledger before every milestone/release.
 
 
-## Phased visual-personality work — Stages 1–2 and Stage 3 Part 1 implemented; Part 2 automation in progress, live acceptance pending
+## Phased visual-personality work — Stages 1–2 and Stage 3 Part 1 implemented; Part 2 automation verified in CI, live acceptance pending
 - **Stage 1 — articulated 3D avatar:** separate WPF 3D nodes represent the head, torso, upper arms, forearms, hands, thighs, shins and feet. Independent joint transforms support posing; the 3D face includes eye whites, irises, pupils, brows, cheeks and mouth.
 - **Stage 2 — cinematic motion and task-synchronized effects:** `MascotEffectStyleResolver` selects distinct motion styles for affection, task-orbit, speech, waiting, celebration, alerts, quiet states and default idle. Task symbols, colors and motion cadence vary by planning/research/reading/writing/coding/tool/validation/waiting/success/error state.
 - Celebration particles use staggered eased bursts that fade out rather than repeating endlessly; hearts/flowers drift, task glyphs orbit, speech symbols wave, and warning/error glyphs pulse. Head, torso and joint pose values use damped transitions.
@@ -74,7 +73,7 @@ The authoritative current ledger is `MASTER_REQUIREMENT_REGISTER_AR.md`, with a 
 - Added Windows DPAPI-backed memory tests for save/search/update/delete persistence and JSON export; these are expected to run on Windows CI only.
 - Expanded static validation to scan C# test sources and validate the test-project configuration.
 - Updated Windows GitHub Actions to restore, build, run tests, and upload TRX results.
-- **Execution status:** source written and statically checked; `dotnet test` has not run in the current authoring environment because .NET SDK is unavailable. Do not mark the test requirement verified until Windows CI shows a passing result.
+- **Execution status:** the current authoring environment lacks the .NET SDK, so `dotnet test` was not run locally. Windows CI later executed the suite successfully: 77 passed, 0 failed, 0 skipped in [run 39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) for code commit `034fa598d8ec219e6c59019984013ac649055e5b`. This verifies the automated-test gate for that commit; live acceptance remains separate.
 
 ## Final native input verification and anti-regression gate — 22 October 2026
 
@@ -125,3 +124,14 @@ Artifacts uploaded by this run include the Windows Release build, interactive-ac
 أُعيدت مطابقة سجل المتطلبات ومصفوفة `REQUIREMENT_TRACEABILITY.csv` بالأدلة الفعلية لحزمة 0.5.2. Windows CI الحالي [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) على رأس الفرع `034fa598d8ec219e6c59019984013ac649055e5b` اجتاز Release build (**0 تحذيرات / 0 أخطاء**)، والاختبارات (**77/77**)، وتمرير النقرات (**4/4**)، والسحب/حفظ/استعادة الموضع (**6/6**)، وتشخيص DPI (**11 تحققًا**)، والتحقق من حزمة المصدر ورفع artifacts.
 
 تم تحديث حالة المتطلبات التي لها دليل آلي محدد فقط. لم تُحوّل واجهات أو تكاملات غير مختبرة إلى «متحققة». لا تزال بوابات القبول اليدوي على Windows فعلية مطلوبة، خصوصًا tray والإخفاء/الإظهار، والنقر المفرد والمزدوج والقائمة السياقية، وإعادة التشغيل، ومقاييس 100/125/150/175%، وعبور شاشتين مختلفتي DPI. كشف CI شاشة واحدة عند 96 DPI / 100% فقط. كما أن Gate E غير مكتمل: المثبّت والتحديث والتراجع والإزالة والتوقيع الرقمي ومراجعة التراخيص/SBOM ليست مثبتة كجزء من حزمة الإصدار الحالية.
+
+
+## المرحلة الرابعة — القرار النهائي للتجميع والجاهزية — 23 أكتوبر 2026
+
+**القرار: صالح للاختبار الداخلي/التجريبي فقط؛ غير معتمد للدمج أو التوزيع النهائي حتى إغلاق بوابات القبول اليدوي.**
+
+- اجتاز Windows CI run [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) جميع خطوات workflow لشفرة الإصدار 0.5.2: فحص المصدر، والتحقق من ZIP، وRestore، وبناء Release، والاختبارات، ورفع الأدلة.
+- تقرير TRX المحفوظ في artifact يثبت **77/77 اختبارًا ناجحًا**، دون فشل أو أخطاء أو timeouts. تقرير تمرير النقرات يثبت **4/4**، وتقرير السحب/الحفظ/الاستعادة بعد إعادة التشغيل يثبت **6/6**.
+- اجتاز تشخيص العرض داخل CI، لكنه سجّل شاشة واحدة فقط عند **96 DPI / 100%** ولم يرصد انتقال شاشة أو DPI. لذلك تظل مقاييس Windows الحقيقية وتعدد الشاشات غير معتمدين.
+- فُحصت سلامة ZIP لأرشيفات الأدلة والحزمة المستخرجة؛ حزمة Windows الحالية تحتوي `Layal.exe` وملفات DLL و`Layal.runtimeconfig.json` الذي يطلب `Microsoft.NETCore.App 10.0.0` و`Microsoft.WindowsDesktop.App 10.0.0`. هذه حزمة تشغيل معتمدة على تثبيت .NET 10، وليست مثبتًا ذاتي الاحتواء.
+- **قرار PR #6: إبقاؤه Draft وعدم دمجه** حتى توثيق القبول الحي للماوس وTray وإعادة التشغيل واللغة/الثيم والشاشات وDPI على جهاز Windows الهدف. ولا تُعد النسخة منتجًا نهائيًا قابلًا للتوزيع؛ فالمثبت والتحديث والتراجع والإزالة والتوقيع ومراجعة SBOM/التراخيص ما زالت خارج الحزمة المتحققة.
