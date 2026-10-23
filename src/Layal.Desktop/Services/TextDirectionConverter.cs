@@ -13,7 +13,12 @@ public sealed class TextDirectionConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        var isRightToLeft = value is string text && ContainsRightToLeftLetter(text);
+        var isRightToLeft = value switch
+        {
+            FlowDirection direction => direction == FlowDirection.RightToLeft,
+            string text => ContainsRightToLeftLetter(text),
+            _ => false
+        };
 
         if (targetType == typeof(TextAlignment))
             return isRightToLeft ? TextAlignment.Right : TextAlignment.Left;
