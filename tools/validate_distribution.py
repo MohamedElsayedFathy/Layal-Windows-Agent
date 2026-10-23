@@ -89,6 +89,7 @@ for needle, label in [
     ("SHA256SUMS.txt", "SHA-256 manifest"),
     ("Test-LayalInstaller.ps1", "installer lifecycle test"),
     ("validate_licenses.py", "SBOM license inventory validation"),
+    ("--enrich-sbom-license-metadata", "explicit CycloneDX license metadata enrichment from cited inventory"),
     ("THIRD-PARTY-NOTICES.md", "third-party notice payload"),
     ("PROJECT-LICENSE-STATUS.md", "project-license status disclosure"),
     ("PASS: fresh install, upgrade, rollback", "successful installer lifecycle evidence"),
