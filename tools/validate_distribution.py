@@ -55,7 +55,7 @@ installer_requirements = {
     "install path separate from user data": r"(?im)^DefaultDirName=\{localappdata\}\\Programs\\Layal\s*$",
     "uninstaller enabled": r"(?im)^Uninstallable=yes\s*$",
     "active app close handling": r"(?im)^CloseApplications=yes\s*$",
-    "self-contained publish payload reference": r"(?im)^Source: "\{#PublishDir\}\\\*"",
+    "self-contained publish payload reference": r'Source: "\{#PublishDir\}\\\*',
 }
 for label, pattern in installer_requirements.items():
     if not re.search(pattern, installer):
@@ -73,7 +73,7 @@ for needle, label in [
     if needle not in builder:
         errors.append(f"Distribution builder is missing: {label}")
 for needle, label in [
-    ("User data sentinel", "test data sentinel"),
+    ("sentinelPath", "test data sentinel"),
     ("sentinel was removed during upgrade", "upgrade data-preservation assertion"),
     ("sentinel was removed during rollback", "rollback data-preservation assertion"),
     ("sentinel was removed during uninstall", "uninstall data-preservation assertion"),
