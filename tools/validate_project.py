@@ -341,6 +341,14 @@ if "Run Windows display and DPI topology smoke test" not in display_dpi_workflow
     ERRORS.append("Windows CI must run the display/DPI topology smoke test")
 if "Upload display and DPI topology evidence" not in display_dpi_workflow_code or "artifacts/display-dpi/**/*" not in display_dpi_workflow_code:
     ERRORS.append("Windows CI must upload display/DPI topology evidence")
+for fragment in (
+    "ConvertFrom-Json",
+    '$summary.ManualVisualAcceptanceStatus -ne "pending"',
+    '$summary.MonitorCount -lt 2 -and $summary.TopologyDpiGateStatus -ne "not-certified"',
+    '$summary.TopologyDpiGateStatus -eq "passed" -and -not $summary.TopologyDpiTransitionsObserved',
+):
+    if fragment not in display_dpi_workflow_code:
+        ERRORS.append(f"Windows CI must assert accurate multi-monitor acceptance reporting: {fragment}")
 
 # Keep native acceptance from silently regressing to a one-off movement check. The Windows
 # job must replay opposite-direction drags and verify persisted position after process restart.
