@@ -26,7 +26,7 @@ public sealed class UiLocalizationTests
         var arabic = UiLocalization.FormatTaskEvent(original, isArabic: true);
         var english = UiLocalization.FormatTaskEvent(original, isArabic: false);
 
-        StringAssert.StartsWith(arabic, "12:34:56  طلبت المهمة الأداة:");
+        Assert.IsTrue(arabic.StartsWith("12:34:56  طلبت المهمة الأداة:", StringComparison.Ordinal));
         StringAssert.Contains(arabic, "create_text_file");
         Assert.AreEqual(original, english);
     }
