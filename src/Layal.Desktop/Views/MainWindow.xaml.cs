@@ -1017,8 +1017,11 @@ public partial class MainWindow : Window
     }
 
     private void ChatMessageContextMenu_Opening(object sender, RoutedEventArgs e)
+    {
         if (sender is ContextMenu menu && menu.Items.OfType<MenuItem>().FirstOrDefault() is { } copyItem)
             copyItem.Header = IsArabic ? "نسخ الرسالة" : "Copy message";
+    }
+
     private void CopyChatMessage_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem menuItem &&
