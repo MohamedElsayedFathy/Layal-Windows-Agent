@@ -334,6 +334,10 @@ public sealed class MainWindowVisualSmokeTests
             $"Initial window width {window.Width:0.##} DIPs exceeds work area width {workArea.Width:0.##} DIPs.");
         Assert.IsTrue(window.Height <= workArea.Height,
             $"Initial window height {window.Height:0.##} DIPs exceeds work area height {workArea.Height:0.##} DIPs.");
+        Assert.IsTrue(window.Left >= workArea.Left && window.Top >= workArea.Top &&
+                      window.Left + window.Width <= workArea.Right &&
+                      window.Top + window.Height <= workArea.Bottom,
+            "Initial main window must be positioned fully inside the Windows work area.");
         Assert.IsTrue(window.MinWidth <= window.Width && window.MinHeight <= window.Height,
             "Responsive initial sizing must keep minimum dimensions at or below the applied window dimensions.");
     }
