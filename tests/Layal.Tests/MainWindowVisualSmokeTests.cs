@@ -130,6 +130,9 @@ public sealed class MainWindowVisualSmokeTests
         var githubSkillUrlInput = window.FindName("GitHubSkillUrlInput") as TextBox
             ?? throw new InvalidOperationException("GitHubSkillUrlInput was not found.");
 
+        AssertKeyboardAccessibility(window, sendButton, window.FindName("ChatInput") as TextBox
+            ?? throw new InvalidOperationException("ChatInput was not found."));
+
         var lines = new List<string>
         {
             "Layal Windows WPF visual smoke snapshots",
@@ -314,6 +317,48 @@ public sealed class MainWindowVisualSmokeTests
         window.Close();
         app.Shutdown();
         App.SuppressStartupForTests = false;
+    }
+
+    private static void AssertKeyboardAccessibility(MainWindow window, Button primaryButton, TextBox chatInput)
+    {
+        var focusStyle = Application.Current.TryFindResource("Layal.KeyboardFocusVisual") as Style;
+        Assert.IsNotNull(focusStyle, "The shared keyboard-focus visual resource must be defined.");
+        Assert.AreSame(focusStyle, primaryButton.FocusVisualStyle,
+            "Buttons must expose the shared visible keyboard-focus ring.");
+
+        var checkbox = window.FindName("AnimationsCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("AnimationsCheckbox was not found.");
+        Assert.AreSame(focusStyle, checkbox.FocusVisualStyle,
+            "Checkboxes must expose a visible keyboard-focus ring.");
+        var slider = window.FindName("MascotSizeSlider") as Slider
+            ?? throw new InvalidOperationException("MascotSizeSlider was not found.");
+        Assert.AreSame(focusStyle, slider.FocusVisualStyle,
+            "Sliders must expose a visible keyboard-focus ring.");
+        var homeTab = window.FindName("HomeTab") as TabItem
+            ?? throw new InvalidOperationException("HomeTab was not found.");
+        Assert.AreSame(focusStyle, homeTab.FocusVisualStyle,
+            "Navigation tabs must expose a visible keyboard-focus ring.");
+
+        foreach (var controlType in new[] { typeof(ComboBoxItem), typeof(ListBoxItem) })
+        {
+            var itemStyle = Application.Current.TryFindResource(controlType) as Style;
+            Assert.IsNotNull(itemStyle, $"Implicit {controlType.Name} style must be available.");
+            var focusSetter = itemStyle!.Setters.OfType<Setter>()
+                .FirstOrDefault(setter => setter.Property == Control.FocusVisualStyleProperty);
+            Assert.IsNotNull(focusSetter, $"{controlType.Name} must declare its keyboard focus visual.");
+            Assert.AreSame(focusStyle, focusSetter!.Value,
+                $"{controlType.Name} must use the shared keyboard-focus ring.");
+        }
+
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(chatInput)),
+            "Chat input must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(homeTab)),
+            "Navigation tabs must expose language-appropriate accessible names.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
+            "Provider fields must expose accessible names.");
     }
 
     private static string? FindVisualText(DependencyObject root)
