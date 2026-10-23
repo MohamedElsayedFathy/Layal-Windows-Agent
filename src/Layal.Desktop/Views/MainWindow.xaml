@@ -105,6 +105,20 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    <TextBlock x:Name="ChatEmptyStateText" Grid.Row="1"
+                               Text="No messages yet. Type a message below to start the conversation."
+                               AutomationProperties.Name="Chat empty state"
+                               AutomationProperties.HelpText="The message list becomes populated after you send or receive a message.">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ChatMessages.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <StackPanel Grid.Row="2" Margin="4,8">
                         <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,0,0,2"/>
                         <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"/>
@@ -141,12 +155,40 @@
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                                 <Button x:Name="CopyTaskLogButton" Grid.Row="0" Content="نسخ سجل التنفيذ" Click="CopyTaskLogButton_Click" HorizontalAlignment="Right" Margin="2,0,2,6"/>
                                 <ListBox x:Name="TaskEventsList" Grid.Row="1" ItemsSource="{Binding TaskEvents}" AutomationProperties.Name="سجل أحداث المهمة" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Text}" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                <TextBlock x:Name="TaskEventsEmptyStateText" Grid.Row="1"
+                                           Text="No task activity yet. Start a task to see its events here."
+                                           AutomationProperties.Name="Task activity empty state">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TaskEvents.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </Grid>
                         </GroupBox>
                         <GroupBox Grid.Column="1" x:Name="RecentTasksGroup" Header="المهام السابقة" Foreground="{DynamicResource Layal.Text}" BorderBrush="{DynamicResource Layal.Border}" Background="{DynamicResource Layal.Panel}" Padding="8" Margin="6,0,0,0">
-                            <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" AutomationProperties.Name="المهام السابقة" AutomationProperties.HelpText="اختر مهمة سابقة لعرض تفاصيلها." SelectionChanged="RecentTasksList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="4">
-                                <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding DisplayStatus}" Foreground="{DynamicResource Layal.Cyan}" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding DisplayUpdatedAt}" Foreground="{DynamicResource Layal.Muted}" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
-                            </ListBox>
+                            <Grid>
+                                <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" AutomationProperties.Name="المهام السابقة" AutomationProperties.HelpText="اختر مهمة سابقة لعرض تفاصيلها." SelectionChanged="RecentTasksList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="4">
+                                    <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding DisplayStatus}" Foreground="{DynamicResource Layal.Cyan}" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding DisplayUpdatedAt}" Foreground="{DynamicResource Layal.Muted}" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="RecentTasksEmptyStateText"
+                                           Text="No previous tasks yet."
+                                           AutomationProperties.Name="Recent tasks empty state">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RecentTasks.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
                         </GroupBox>
                     </Grid>
                     <StackPanel Grid.Row="4" Margin="4,10,4,0">
@@ -170,6 +212,19 @@
                     <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" AutomationProperties.Name="المهارات المثبتة" AutomationProperties.HelpText="يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
                         <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}"/><TextBlock Text="{Binding Description}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
+                    <TextBlock x:Name="SkillsEmptyStateText" Grid.Row="2"
+                               Text="No skills installed. Import a ZIP or GitHub folder to get started."
+                               AutomationProperties.Name="Skills empty state">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InstalledSkills.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <StackPanel Grid.Row="3" Margin="0,10,0,0">
                         <WrapPanel><Button x:Name="ImportSkillButton" Content="استيراد ZIP" Click="ImportSkillButton_Click"/><Button x:Name="RefreshSkillsButton" Content="تحديث القائمة" Click="RefreshSkillsButton_Click"/></WrapPanel>
                         <DockPanel Margin="0,7,0,0">
@@ -209,6 +264,19 @@
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
                         <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" AutomationProperties.Name="ملاحظات الذاكرة" AutomationProperties.HelpText="اختر ملاحظة لعرضها أو تعديلها." SelectionChanged="MemoryList_SelectionChanged" DisplayMemberPath="Title" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6"/>
+                        <TextBlock x:Name="MemoryEmptyStateText" Grid.Column="0"
+                                   Text="No saved notes. Create a note to get started."
+                                   AutomationProperties.Name="Memory empty state">
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MemoryNotes.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="12,0,0,0">
                             <StackPanel>
                                 <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,0,0,4"/>
