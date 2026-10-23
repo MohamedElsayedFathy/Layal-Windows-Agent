@@ -392,6 +392,8 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
         AutomationProperties.SetHelpText(TaskInput, ar ? "اكتب المهمة ثم استخدم Tab للوصول إلى زر تنفيذ المهمة." : "Describe the task, then press Tab to reach Run task.");
         AutomationProperties.SetName(TaskEventsList, ar ? "سجل أحداث المهمة" : "Task event log");
+        AutomationProperties.SetName(TaskResult, ar ? "نتيجة المهمة" : "Task result");
+        AutomationProperties.SetHelpText(TaskResult, ar ? "يعرض النتيجة النهائية وحالة المهمة، بما في ذلك التحذيرات أو الإخفاق." : "Shows the final task result and its status, including warnings or failures.");
         AutomationProperties.SetName(RecentTasksList, ar ? "المهام السابقة" : "Recent tasks");
         AutomationProperties.SetHelpText(RecentTasksList, ar ? "اختر مهمة سابقة لعرض تفاصيلها." : "Select a previous task to view its details.");
         AutomationProperties.SetName(SkillsList, ar ? "المهارات المثبتة" : "Installed skills");
