@@ -480,11 +480,11 @@ finally {
         if ($capturedSamples[$index].MonitorHandle -ne $capturedSamples[$index - 1].MonitorHandle) { $monitorTransitionCount++ }
         if ($capturedSamples[$index].WindowDpi -ne $capturedSamples[$index - 1].WindowDpi) { $dpiTransitionCount++ }
     }
-    # "Result" only reports whether checks required by this invocation failed.
-    # The default CI smoke run intentionally does not require two physical monitors.
-    # Keep certification separate so a one-monitor smoke run cannot be mistaken for
-    # completion of the real multi-monitor acceptance gate.
-    $physicalAcceptanceCertified = (
+    # "Result" reports whether checks required by this invocation failed.
+    # The CI smoke run does not require two physical displays and cannot certify
+    # cross-monitor behavior. This gate only certifies that monitor/DPI transitions
+    # were observed; visual clipping and interactive acceptance remain a separate manual gate.
+    $topologyDpiGateSatisfied = (
         $script:MonitorList.Count -ge 2 -and
         $uniqueMonitorHandles.Count -ge 2 -and
         $uniqueWindowDpis.Count -ge 2 -and
@@ -492,17 +492,17 @@ finally {
         $dpiTransitionCount -gt 0 -and
         $failRows.Count -eq 0
     )
-    $acceptanceStatus = if ($failRows.Count -gt 0) {
+    $topologyDpiGateStatus = if ($failRows.Count -gt 0) {
         "failed"
-    } elseif ($physicalAcceptanceCertified) {
+    } elseif ($topologyDpiGateSatisfied) {
         "passed"
     } else {
         "not-certified"
     }
-    $acceptanceStatusDetail = if ($failRows.Count -gt 0) {
+    $topologyDpiGateDetail = if ($failRows.Count -gt 0) {
         "One or more checks required by this run failed; inspect Checks for details."
-    } elseif ($physicalAcceptanceCertified) {
-        "Two or more monitors and at least one actual monitor and window-DPI transition were observed."
+    } elseif ($topologyDpiGateSatisfied) {
+        "Two or more monitors and actual monitor and window-DPI transitions were observed. Visual and interactive acceptance remains separate."
     } elseif ($script:MonitorList.Count -lt 2) {
         "Only one active monitor was detected; this run cannot certify multi-monitor behavior."
     } elseif ($uniqueMonitorHandles.Count -lt 2 -or $monitorTransitionCount -eq 0) {
@@ -510,7 +510,7 @@ finally {
     } elseif ($uniqueWindowDpis.Count -lt 2 -or $dpiTransitionCount -eq 0) {
         "No actual window-DPI transition was recorded; use displays with different Windows scale factors."
     } else {
-        "The complete physical multi-monitor acceptance criteria were not met."
+        "The monitor and DPI transition conditions were not fully met."
     }
 
     $summary = [pscustomobject]@{
@@ -520,10 +520,11 @@ finally {
         Executable=$resolvedExe
         ProcessId=if ($script:AppProcess) { $script:AppProcess.Id } else { $null }
         Result=$resultLabel
-        AcceptanceStatus=$acceptanceStatus
-        AcceptanceStatusDetail=$acceptanceStatusDetail
-        PhysicalAcceptanceCertified=[bool]$physicalAcceptanceCertified
-        AcceptanceCriteria=[pscustomobject]@{
+        TopologyDpiGateStatus=$topologyDpiGateStatus
+        TopologyDpiGateDetail=$topologyDpiGateDetail
+        TopologyDpiTransitionsObserved=[bool]$topologyDpiGateSatisfied
+        ManualVisualAcceptanceStatus="pending"
+        TopologyDpiEvidenceCriteria=[pscustomobject]@{
             AtLeastTwoMonitorsDetected=($script:MonitorList.Count -ge 2)
             AtLeastTwoMonitorsObservedInSamples=($uniqueMonitorHandles.Count -ge 2)
             MonitorTransitionObserved=($monitorTransitionCount -gt 0)
@@ -543,10 +544,10 @@ finally {
         DpiTransitionCount=$dpiTransitionCount
         Samples=$capturedSamples
         Checks=$capturedChecks
-        Scope="The workflow smoke test records the CI display topology. Physical multi-monitor acceptance requires running this script on the target PC with RequireMonitorTransition and RequireDpiTransition."
+        Scope="This script records monitor topology and observes actual monitor/DPI transitions. A passing topology/DPI gate does not certify clipping, appearance, mouse behavior, or all manual acceptance criteria. Physical testing requires running this script on the target PC with RequireMonitorTransition and RequireDpiTransition."
     }
     [IO.File]::WriteAllText($jsonPath,(ConvertTo-Json -InputObject $summary -Depth 8),(New-Object System.Text.UTF8Encoding($false)))
-    Write-Host ("Display/DPI smoke result: {0}; physical multi-monitor acceptance: {1} ({2}). JSON: {3}; CSV: {4}" -f $resultLabel,$acceptanceStatus,$acceptanceStatusDetail,$jsonPath,$csvPath)
+    Write-Host ("Display/DPI smoke result: {0}; monitor/DPI transition gate: {1} ({2}); manual visual acceptance: pending. JSON: {3}; CSV: {4}" -f $resultLabel,$topologyDpiGateStatus,$topologyDpiGateDetail,$jsonPath,$csvPath)
 }
 
 $finalFailures = @($script:Checks.ToArray() | Where-Object { $_.Result -eq "failed" })
