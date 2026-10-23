@@ -317,7 +317,7 @@ def main() -> int:
             if enriched_components:
                 try:
                     sbom_path.write_text(
-                        json.dumps(bom, ensure_ascii=False, indent=2) + "\\n",
+                        json.dumps(bom, ensure_ascii=False, indent=2) + "\n",
                         encoding="utf-8",
                     )
                 except OSError as exc:
