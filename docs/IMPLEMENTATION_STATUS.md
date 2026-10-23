@@ -176,3 +176,6 @@ Artifacts uploaded by this run include the Windows Release build, interactive-ac
 
 
 مراجعة إضافية لمرحلة 4: تم توسيع التوقيع والتحقق ليشملا Layal.dll أيضًا، لأنها تجميعة .NET التي تحتوي شفرة التطبيق وليس Layal.exe وحده. عند توفر شهادة موثوقة، يجب أن يُوقَّع الملفان قبل إنشاء ZIP، ثم يتحقق الفاحص من توقيع الاثنين بالإضافة إلى المُثبّت. ويظل تشغيل PR CI الحالي غير موقّع لأن مسار PR لا يستخدم أسرار الشهادة.
+
+
+دليل CI لتوسيع سلامة التوزيع: [run 39981225471](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39981225471) على commit `216b16df00a6bf8719bb4560306f144a72956555` اجتاز جميع خطوات Windows CI. أظهر سجل البناء أن `Layal.exe` و`Layal.dll` والمُثبّت غير موقعة لعدم وجود أسرار الشهادة، وأن مدقق التوزيع تحقق من 10 بصمات SHA-256 وأعاد `Generated package validation: PASS`. هذا دليل على سلامة الحزمة غير الموقعة، وليس اعتماد هوية ناشرها.

@@ -50,8 +50,8 @@ Get-FileHash .\\Layal-Setup-0.5.2-win-x64.exe -Algorithm SHA256
 
 ## Evidence from CI — 23 October 2026
 
-- Windows CI run [39976840663](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39976840663), commit `19fd097d5f3232158c70858c3a570ca54c6fa0c8`, completed successfully.
-- `Verify-LayalDistributionIntegrity.ps1` verified SHA-256 entries for **10 distribution files**, checked that the installer and portable `Layal.exe` are explicitly unsigned on this non-release run, and returned `PASS`.
-- Final distribution validation returned `Generated package validation: PASS` and `RESULT: PASS`. The [distribution artifact](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39976840663/artifacts/12511818014) was uploaded.
+- Windows CI run [39981225471](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39981225471), commit `216b16df00a6bf8719bb4560306f144a72956555`, completed successfully after extending the signing/integrity scope to `Layal.dll`.
+- `Verify-LayalDistributionIntegrity.ps1` verified SHA-256 entries for **10 distribution files**, checked that the installer and both portable application binaries (`Layal.exe` and `Layal.dll`) are explicitly unsigned on this non-release run, and returned `PASS`.
+- Final distribution validation returned `Generated package validation: PASS` and `RESULT: PASS`. The [distribution artifact](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39981225471/artifacts/12514051489) was uploaded.
 - The tagged-release signing step was skipped because this was a branch/PR CI run, not a `v*` tag. The log explicitly reported `NOT SIGNED` because certificate secrets were not configured in this job. This confirms checksum/integrity verification for the unsigned build only; it does **not** prove a trusted Authenticode signature.
 - A trusted certificate, configured repository secrets, and a successful tagged-release run remain mandatory to close the actual signing gate.

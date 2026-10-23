@@ -129,3 +129,6 @@
 
 
 - **دليل مرحلة 4 على فرع التطوير:** [Windows CI run 39976840663](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39976840663) على commit `19fd097d5f3232158c70858c3a570ca54c6fa0c8) اجتاز بناء الحزمة والتحقق النهائي. فاحص السلامة تحقق من بصمات SHA-256 لـ 10 ملفات وأكد أن المخرجات غير موقعة في هذا التشغيل، ثم انتهى `Generated package validation: PASS`. مسار التوقيع الخاص بـ tags لم يُختبر بتوقيع فعلي؛ لا بد من شهادة موثوقة وتشغيل tag ناجح لإغلاقه.
+
+
+- **دليل بعد توسيع نطاق التوقيع:** [Windows CI run 39981225471](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39981225471) على commit `216b16df00a6bf8719bb4560306f144a72956555` اجتاز التحقق النهائي بعد إدراج `Layal.dll` في التوقيع/التحقق. تحقق الفاحص من SHA-256 لـ 10 ملفات، وأكد صراحةً أن المُثبّت وملفي `Layal.exe` و`Layal.dll` غير موقّعة في PR CI لعدم ضبط أسرار الشهادة. لم يُختبر بعد إصدار tag بتوقيع موثوق.
