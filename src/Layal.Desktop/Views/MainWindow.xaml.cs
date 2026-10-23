@@ -156,12 +156,7 @@ public partial class MainWindow : Window
 
         EventHandler handler = (_, _) =>
         {
-            void RaiseChangedEvent()
-            {
-                var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.FromElement(element)
-                    ?? System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(element);
-                peer?.RaiseAutomationEvent(System.Windows.Automation.AutomationEvents.LiveRegionChanged);
-            }
+            void RaiseChangedEvent() => RaiseLiveRegionChanged(element);
 
             if (element.Dispatcher.CheckAccess())
                 RaiseChangedEvent();
@@ -171,6 +166,17 @@ public partial class MainWindow : Window
 
         descriptor.AddValueChanged(element, handler);
         _liveRegionSubscriptions.Add((descriptor, element, handler));
+    }
+
+    private static void RaiseLiveRegionChanged(FrameworkElement element)
+    {
+        // Do not make a collapsed tab or hidden placeholder announce background changes.
+        if (!element.IsVisible)
+            return;
+
+        var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.FromElement(element)
+            ?? System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(element);
+        peer?.RaiseAutomationEvent(System.Windows.Automation.AutomationEvents.LiveRegionChanged);
     }
 
     private void UpdateEmptyStateHints()
@@ -195,11 +201,18 @@ public partial class MainWindow : Window
             ar ? "لا توجد ملاحظات مطابقة. أنشئ ملاحظة جديدة أو غيّر عبارة البحث." : "No matching notes. Create a note or change your search.",
             ar ? "لا توجد ملاحظات مطابقة" : "No matching memory notes");
 
-        static void SetHint(TextBlock target, bool visible, string message, string accessibleName)
+        void SetHint(TextBlock target, bool visible, string message, string accessibleName)
         {
-            target.Text = message;
-            target.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            var wasVisible = target.IsVisible;
+            var textAlreadyMatches = string.Equals(target.Text, message, StringComparison.Ordinal);
             AutomationProperties.SetName(target, accessibleName);
+            target.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            target.Text = message;
+
+            // Text change raises via the dependency-property subscription. If the same
+            // message becomes visible again, explicitly notify UI Automation once.
+            if (visible && !wasVisible && textAlreadyMatches)
+                RaiseLiveRegionChanged(target);
         }
     }
 
