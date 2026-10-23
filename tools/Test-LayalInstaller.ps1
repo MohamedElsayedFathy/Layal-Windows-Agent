@@ -26,6 +26,7 @@ $userDataDirectory = Join-Path $env:LOCALAPPDATA 'Layal'
 $sentinelPath = Join-Path $userDataDirectory "release-readiness-$testId.txt"
 $sentinelContents = "Layal installer data-preservation test $testId"
 $appProcess = $null
+$testOwnsInstall = $false
 if ($env:GITHUB_ACTIONS -ne 'true' -and $env:LAYAL_ALLOW_INSTALLER_TESTS -ne '1') {
     throw 'Refusing to run destructive installer tests outside CI unless LAYAL_ALLOW_INSTALLER_TESTS=1 is explicitly set in a disposable VM.'
 }
@@ -191,6 +192,9 @@ try {
     New-Item -ItemType Directory -Force -Path $userDataDirectory | Out-Null
     Set-Content -LiteralPath $sentinelPath -Value $sentinelContents -Encoding utf8
 
+    # From this point the test may create an installation that its finally block owns.
+    # A preflight refusal above must never trigger uninstallation of a pre-existing app.
+    $testOwnsInstall = $true
     Write-Host "--- Install baseline version $PreviousVersion ---"
     Invoke-QuietInstaller -Path $previousSetup
     Assert-InstalledVersion -ExpectedVersion $PreviousVersion
@@ -219,6 +223,7 @@ try {
         throw "Uninstaller failed with exit code $($uninstall.ExitCode)."
     }
     Assert-Uninstalled
+    $testOwnsInstall = $false
     Assert-UserDataSentinel -Stage 'uninstall' -ExpectedContents $sentinelContents
 
     Write-Host 'PASS: default-path install, upgrade, rollback, launch smoke, uninstall registration/shortcut cleanup, and user-data preservation.'
@@ -233,7 +238,7 @@ finally {
 
     # Best-effort cleanup if a test failed before uninstall completed.
     $uninstaller = Join-Path $installDirectory 'unins000.exe'
-    if (Test-Path -LiteralPath $uninstaller -PathType Leaf) {
+    if ($testOwnsInstall -and (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         try {
             $cleanup = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
             if ($cleanup.ExitCode -ne 0) { Write-Warning "Best-effort test cleanup returned $($cleanup.ExitCode)." }
