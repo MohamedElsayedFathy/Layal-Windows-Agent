@@ -165,7 +165,7 @@ if ($RunInstallerLifecycleTests) {
     }
 
     $oldVersionDefine = '/DAppVersion=' + $previousVersion
-    $oldPublishDefine = '/DPublishDir="' + $previousPublishDirectory + '"'
+    $oldPublishDefine = '/DPublishDir=' + $previousPublishDirectory
     Invoke-Checked -Executable $iscc -Arguments @($oldVersionDefine, $oldPublishDefine, $InstallerScript) -Description "Compile installer fixture $previousVersion"
     if (-not (Test-Path -LiteralPath $previousInstallerInDistribution -PathType Leaf)) {
         throw "Compiled previous-version installer was not found: $previousInstallerInDistribution"
@@ -174,7 +174,7 @@ if ($RunInstallerLifecycleTests) {
 }
 
 $currentVersionDefine = '/DAppVersion=' + $version
-$currentPublishDefine = '/DPublishDir="' + $PublishDirectory + '"'
+$currentPublishDefine = '/DPublishDir=' + $PublishDirectory
 Invoke-Checked -Executable $iscc -Arguments @($currentVersionDefine, $currentPublishDefine, $InstallerScript) -Description "Compile Layal installer $version"
 
 if (-not (Test-Path -LiteralPath $currentInstaller -PathType Leaf)) {
