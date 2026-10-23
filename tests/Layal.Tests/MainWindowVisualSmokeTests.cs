@@ -287,6 +287,7 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.MascotWindow = mascot;
         mascot.Show();
         mascot.UpdateLayout();
+        AssertMascotHighContrastAppearance(mascot);
         var animateTick = typeof(FloatingMascotWindow).GetMethod("AnimateMoodTick", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("AnimateMoodTick was not found.");
         var mascotMoods = new[]
@@ -355,6 +356,45 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
+    }
+
+    private static void AssertMascotHighContrastAppearance(FloatingMascotWindow mascot)
+    {
+        var applyAppearance = typeof(FloatingMascotWindow)
+            .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(method => method.Name == "ApplySystemAccessibilityAppearance" && method.GetParameters().Length == 1);
+        var shell = mascot.FindName("Shell") as Border
+            ?? throw new InvalidOperationException("Mascot shell border was not found.");
+        var halo = mascot.FindName("GlowHalo") as FrameworkElement
+            ?? throw new InvalidOperationException("Mascot glow halo was not found.");
+        var effects = mascot.FindName("CinematicEffectsLayer") as FrameworkElement
+            ?? throw new InvalidOperationException("Mascot cinematic effects layer was not found.");
+
+        var originalBrush = shell.BorderBrush;
+        var originalThickness = shell.BorderThickness;
+        var originalEffect = shell.Effect;
+        var originalHaloVisibility = halo.Visibility;
+        var originalEffectsVisibility = effects.Visibility;
+        var systemHighContrast = SystemParameters.HighContrast;
+
+        applyAppearance.Invoke(mascot, new object[] { true });
+
+        Assert.AreEqual(new Thickness(3), shell.BorderThickness,
+            "High Contrast must give the floating mascot a visible solid outline.");
+        Assert.AreEqual(SystemColors.WindowTextColor, ((SolidColorBrush)shell.BorderBrush).Color,
+            "The mascot outline must use the Windows system text color.");
+        Assert.IsNull(shell.Effect, "High Contrast must remove the mascot's decorative shell shadow.");
+        Assert.AreEqual(Visibility.Collapsed, halo.Visibility,
+            "High Contrast must suppress the low-contrast decorative glow.");
+        Assert.AreEqual(Visibility.Collapsed, effects.Visibility,
+            "High Contrast must suppress decorative particles.");
+        
+        applyAppearance.Invoke(mascot, new object[] { systemHighContrast });
+        Assert.AreEqual(originalBrush, shell.BorderBrush, "The mascot border must restore to the system-selected appearance.");
+        Assert.AreEqual(originalThickness, shell.BorderThickness, "The mascot border thickness must restore after the forced test state.");
+        Assert.AreEqual(originalEffect, shell.Effect, "The mascot shell effect must restore after the forced test state.");
+        Assert.AreEqual(originalHaloVisibility, halo.Visibility, "The mascot glow visibility must restore after the forced test state.");
+        Assert.AreEqual(originalEffectsVisibility, effects.Visibility, "The cinematic layer visibility must restore after the forced test state.");
     }
 
     private static void AssertEmptyStateLocalizationAndVisibility(MainWindow window, string language)
