@@ -238,7 +238,6 @@ public partial class MainWindow : Window
             ? (ar ? "التبديل إلى المظهر الفاتح" : "Switch to light theme")
             : (ar ? "التبديل إلى المظهر الداكن" : "Switch to dark theme");
         ShowMascotButton.Content = ar ? "إظهار الشخصية" : "Show mascot";
-        CopyChatMessageMenuItem.Header = ar ? "نسخ الرسالة" : "Copy message";
 
         // Refresh transient feedback in the newly selected language. Unknown model/tool output
         // is intentionally preserved rather than guessed at or translated destructively.
@@ -755,6 +754,12 @@ public partial class MainWindow : Window
     {
         var transcript = ChatTranscriptFormatter.Format(ChatMessages);
         CopyChatTextToClipboard(transcript, IsArabic ? "المحادثة" : "chat");
+    }
+
+    private void ChatMessageContextMenu_Opening(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu menu && menu.Items.OfType<MenuItem>().FirstOrDefault() is { } copyItem)
+            copyItem.Header = IsArabic ? "نسخ الرسالة" : "Copy message";
     }
 
     private void CopyChatMessage_Click(object sender, RoutedEventArgs e)
