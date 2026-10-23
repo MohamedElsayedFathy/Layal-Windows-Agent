@@ -42,7 +42,7 @@ VersionInfoCompany=Layal Project
 VersionInfoDescription=Layal Windows desktop companion installer
 VersionInfoProductName=Layal
 VersionInfoProductVersion={#AppVersion}
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
