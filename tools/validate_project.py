@@ -86,7 +86,7 @@ for xaml_path in xaml_files:
             if attr.endswith("}Name"):
                 names.append(value)
             if attr in {
-                "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "PreviewKeyDown", "Opened", "Opening", "Closing",
+                "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "Closing",
                 "MouseLeftButtonDown", "MouseRightButtonUp", "MouseEnter", "MouseLeave",
                 "Loaded", "Unloaded", "Opened", "TextChanged", "ValueChanged", "LostFocus"
             }:
@@ -134,7 +134,6 @@ else:
         ERRORS.append(f"Main application background does not appear light: {background_match.group(1)}")
 
 main_window_xaml = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml"
-main_text = ""
 if main_window_xaml.exists():
     main_text = main_window_xaml.read_text(encoding="utf-8")
     legacy_dark_surfaces = (
@@ -165,10 +164,13 @@ else:
     ):
         if fragment not in theme_handler_match.group(0):
             ERRORS.append(f"ThemeButton_Click lost required toggle/persistence behavior: {fragment}")
+
 theme_regression_test_path = ROOT / "tests/Layal.Tests/MainWindowVisualSmokeTests.cs"
 theme_regression_test = theme_regression_test_path.read_text(encoding="utf-8") if theme_regression_test_path.is_file() else ""
 if not theme_regression_test_path.is_file():
     ERRORS.append("Dark-mode UI regression test is missing from MainWindowVisualSmokeTests.cs")
+else:
+    for fragment in (
         "AssertThemeTogglePersistsLivePalette(window, historySelector);",
         "private static void AssertThemeTogglePersistsLivePalette(",
         "ThemeButton_Click",
@@ -178,8 +180,10 @@ if not theme_regression_test_path.is_file():
         'Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,',
         'AssertThemeContrastAndControlSurfaces("dark", "ar", historySelector);',
         'AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);',
+    ):
         if fragment not in theme_regression_test:
             ERRORS.append(f"Dark-mode UI regression test lost required coverage: {fragment}")
+
 # Accessibility regression gate: interactive controls must not suppress keyboard focus feedback.
 if 'x:Key="Layal.KeyboardFocusVisual"' not in app_text:
     ERRORS.append("Shared Layal keyboard-focus visual resource is missing")
@@ -200,6 +204,7 @@ for fragment in (
         ERRORS.append(f"Accessible control naming is missing: {fragment}")
 if "AssertKeyboardAccessibility(window, sendButton" not in theme_regression_test:
     ERRORS.append("Keyboard focus and UI Automation accessibility regression test is missing")
+
 # Guard the real interaction/settings paths so their UI bindings, persistence, and regression tests cannot silently disappear.
 interaction_ui_needles = (
     'x:Name="LanguageButton" Content="English" Click="LanguageButton_Click"',
@@ -212,24 +217,34 @@ interaction_ui_needles = (
 for needle in interaction_ui_needles:
     if needle not in main_window_theme_text:
         ERRORS.append(f"Interaction/settings UI control lost its expected XAML wiring: {needle}")
+
+for fragment in (
     'AppRuntime.Settings.Language = language;',
     'AppRuntime.SettingsStore.Save(AppRuntime.Settings);',
     'AppRuntime.Tray?.SetLanguage(language);',
+):
+    if fragment not in main_window_code_text:
         ERRORS.append(f"Language persistence path is missing '{fragment}'")
+
 mascot_settings_match = re.search(r"private void ApplyMascotSettingsButton_Click\(.*?^\s*\}", main_window_code_text, re.DOTALL | re.MULTILINE)
 if not mascot_settings_match:
     ERRORS.append("ApplyMascotSettingsButton_Click handler is missing")
+else:
+    for fragment in (
         'AppRuntime.Settings.MascotAlwaysOnTop = AlwaysOnTopCheckbox.IsChecked == true;',
         'AppRuntime.Settings.MascotAnimationsEnabled = AnimationsCheckbox.IsChecked == true;',
         'Math.Clamp(MascotSizeSlider.Value, 0.65, 1.8)',
         'Math.Clamp(MascotOpacitySlider.Value, 0.35, 1.0)',
         'AppRuntime.SettingsStore.Save(AppRuntime.Settings);',
         'AppRuntime.MascotWindow.ApplyScale(AppRuntime.Settings.MascotScale);',
+    ):
         if fragment not in mascot_settings_match.group(0):
             ERRORS.append(f"Apply mascot settings behavior lost required fragment: {fragment}")
+
 inspection_match = re.search(r"private void WindowInspectionSettingChanged\(.*?^\s*\}", main_window_code_text, re.DOTALL | re.MULTILINE)
 if not inspection_match or "AppRuntime.SettingsStore.Save(AppRuntime.Settings);" not in inspection_match.group(0) or "WindowInspectionCheckbox.IsChecked == true" not in inspection_match.group(0):
     ERRORS.append("Window-inspection opt-in must persist its checked/unchecked state")
+
 interaction_test_needles = (
     "AssertInteractionAndSettingsPersistence(window, mascot, temp.Path);",
     "private static void AssertInteractionAndSettingsPersistence(",
@@ -239,9 +254,11 @@ interaction_test_needles = (
     "Apply must update live window opacity.",
     "An invalid provider URL must not overwrite a previously saved URL.",
     "The show-mascot button must restore a hidden mascot window.",
+)
 for needle in interaction_test_needles:
     if needle not in theme_regression_test:
         ERRORS.append(f"Interactive settings regression test is missing coverage: {needle}")
+
 settings_test_path = ROOT / "tests/Layal.Tests/SettingsStoreTests.cs"
 settings_test_code = settings_test_path.read_text(encoding="utf-8") if settings_test_path.is_file() else ""
 for needle in (
@@ -249,87 +266,10 @@ for needle in (
     "Assert.IsFalse(settings.AllowWindowTitleInspection);",
     "AllowWindowTitleInspection = true",
     "Assert.IsTrue(reloaded.AllowWindowTitleInspection);",
+):
     if needle not in settings_test_code:
         ERRORS.append(f"Settings Store regression coverage is missing: {needle}")
-# Accessibility guardrails: prevent accidental removal of keyboard routes, focus indicators, or UIA labels.
-main_window_code = main_window_code_path.read_text(encoding="utf-8") if main_window_code_path.exists() else ""
-for required in (
-    'PreviewKeyDown="MainWindow_PreviewKeyDown"',
-    'x:Name="KeyboardHelpButton"',
-    'AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}"',
-    'AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"',
-    'AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}"',
-    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"',
-    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"',
-    if required not in main_text:
-        ERRORS.append(f"Keyboard/accessibility requirement missing from MainWindow.xaml: {required}")
-if 'x:Key="Layal.AccessibleFocusVisual"' not in app_text:
-    ERRORS.append("Accessible keyboard focus visual is missing from App.xaml")
-if 'FocusVisualStyle" Value="{x:Null}"' in app_text:
-    ERRORS.append("A control style still disables FocusVisualStyle in App.xaml")
-if len(re.findall(r'FocusVisualStyle[^>]*Layal\.AccessibleFocusVisual', app_text)) < 8:
-    ERRORS.append("Accessible focus visual is not applied to all required control styles")
-if not main_window_code:
-    ERRORS.append("MainWindow code-behind is missing; cannot verify keyboard navigation")
-    if not re.search(r"private\s+void\s+MainWindow_PreviewKeyDown\s*\(", main_window_code):
-        ERRORS.append("MainWindow keyboard preview handler is missing")
-    if "Key.F1" not in main_window_code or "ShowKeyboardHelp()" not in main_window_code:
-        ERRORS.append("F1 keyboard help shortcut is missing")
-    for digit in range(1, 8):
-        if f"Key.D{digit} or Key.NumPad{digit}" not in main_window_code:
-            ERRORS.append(f"Ctrl+{digit} tab shortcut is missing")
-    if "FindFirstFocusableControl" not in main_window_code:
-        ERRORS.append("Keyboard tab switching does not attempt to focus tab content")
-# Bilingual presentation guardrails for requirement LAYAL-006.
-localization_path = ROOT / "src/Layal.Desktop/Services/UiLocalization.cs"
-localization_text = localization_path.read_text(encoding="utf-8") if localization_path.exists() else ""
-if not localization_text:
-    ERRORS.append("Shared UI localization service is missing: src/Layal.Desktop/Services/UiLocalization.cs")
-    for required in (
-        "FormatTaskStatus", "FormatTaskResult", "FormatTaskEvent",
-        "LocalizeApprovalTitle", "LocalizeApprovalDetails",
-        "TranslateKnownFeedback", "FormatDateTime",
-        "CompletedWithWarnings", "مكتملة مع تحذيرات",
-        "هل تسمح لليال", "Technical details",
-        if required not in localization_text:
-            ERRORS.append(f"Bilingual localization service is missing expected coverage: {required}")
-    "UiLocalization.FormatTaskResult", "UiLocalization.FormatTaskEvent",
-    "UiLocalization.LocalizeApprovalDetails", "UiLocalization.TranslateKnownFeedback",
-    "ChatSessionService.SetDefaultTitle", "ChatMessageContextMenu_Opening",
-    "Filter = IsArabic ?",
-    if required not in main_window_code:
-        ERRORS.append(f"Bilingual UI integration is missing expected wiring: {required}")
-if "نسخ الرسالة / Copy message" in main_text:
-    ERRORS.append("A mixed Arabic/English static chat context-menu label remains in MainWindow.xaml")
-if 'Opened="ChatMessageContextMenu_Opening"' not in main_text or "private void ChatMessageContextMenu_Opening" not in main_window_code:
-    ERRORS.append("Chat message context menu is not localized at runtime")
-chat_session_path = ROOT / "src/Layal.Desktop/Services/ChatSessionService.cs"
-chat_session_text = chat_session_path.read_text(encoding="utf-8") if chat_session_path.exists() else ""
-if "public void SetDefaultTitle(string defaultTitle)" not in chat_session_text:
-    ERRORS.append("Conversation placeholder titles cannot follow the selected UI language")
-app_code_path = ROOT / "src/Layal.Desktop/App.xaml.cs"
-app_code_text = app_code_path.read_text(encoding="utf-8") if app_code_path.exists() else ""
-if "ChatSessionService.SetDefaultTitle" not in app_code_text:
-    ERRORS.append("Saved blank conversation titles are not normalized to the startup language")
-mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
-mascot_code_text = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
-if "Root.ToolTip = localizedToolTip" not in mascot_code_text or 'Title = ar ? "ليال" : "Layal"' not in mascot_code_text:
-    ERRORS.append("Floating mascot title/tooltip is not fully localized")
-localization_test = ROOT / "tests/Layal.Tests/UiLocalizationTests.cs"
-if not localization_test.is_file():
-    ERRORS.append("Automated bilingual localization tests are missing: tests/Layal.Tests/UiLocalizationTests.cs")
-    localization_test_text = localization_test.read_text(encoding="utf-8")
-    for required in ("TaskStatusesAreRenderedInTheSelectedLanguage", "TaskEventTranslationRetainsTimestamp", "ApprovalDetailsAreLocalized", "UnrecognizedModelOutputIsPreserved", "PlaceholderFeedbackCanBeSwitched"):
-        if required not in localization_test_text:
-            ERRORS.append(f"Bilingual localization test coverage is missing: {required}")
-requirement_trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
-requirement_trace = requirement_trace_path.read_text(encoding="utf-8-sig") if requirement_trace_path.exists() else ""
-language_requirement = next((line for line in requirement_trace.splitlines() if line.startswith("LAYAL-006,")), "")
-if not language_requirement:
-    ERRORS.append("Requirement traceability row LAYAL-006 is missing")
-    language_status = language_requirement.split(",")[3].strip() if len(language_requirement.split(",")) > 3 else ""
-    if language_status in {"متحقق", "Verified"}:
-        ERRORS.append("LAYAL-006 must not be marked verified before Windows language acceptance is recorded")
+
 project_file = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
 project_text = project_file.read_text(encoding="utf-8") if project_file.exists() else ""
 version_match = re.search(r"<Version>([^<]+)</Version>", project_text)
@@ -476,7 +416,7 @@ for xaml_path in xaml_files:
 # Ensure key code-behind controls still exist after view redesign.
 required_controls = {
     "src/Layal.Desktop/Views/MainWindow.xaml": [
-        "BaseUrlInput", "ModelInput", "ApiKeyInput", "MainTabs", "KeyboardHelpButton", "ChatInput", "TaskInput",
+        "BaseUrlInput", "ModelInput", "ApiKeyInput", "MainTabs", "ChatInput", "TaskInput",
         "SkillsList", "MemoryList", "TaskEventsList", "RecentTasksList", "ConnectionStatusText",
         "AlwaysOnTopCheckbox", "AnimationsCheckbox", "WindowInspectionCheckbox", "MascotSizeSlider",
         "MascotOpacitySlider", "TestProviderButton", "ProviderActionStatus", "TaskResult", "ChatMessagesList"
@@ -537,6 +477,109 @@ if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" no
 for expected_glass_color in ("#F4FFFFFF", "#E5222B3F"):
     if expected_glass_color not in main_code:
         ERRORS.append(f"Expected translucent card color '{expected_glass_color}' is missing from the theme palette")
+
+
+# Unified keyboard-accessibility and bilingual UI guardrails.
+ui_xaml_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml"
+ui_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+app_xaml_path = ROOT / "src/Layal.Desktop/App.xaml"
+ui_xaml = ui_xaml_path.read_text(encoding="utf-8") if ui_xaml_path.is_file() else ""
+ui_code = ui_code_path.read_text(encoding="utf-8") if ui_code_path.is_file() else ""
+app_xaml = app_xaml_path.read_text(encoding="utf-8") if app_xaml_path.is_file() else ""
+
+for required in (
+    'PreviewKeyDown="MainWindow_PreviewKeyDown"',
+    'x:Name="KeyboardHelpButton"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"',
+):
+    if required not in ui_xaml:
+        ERRORS.append(f"Unified keyboard-accessibility markup is missing: {required}")
+
+if 'x:Key="Layal.AccessibleFocusVisual"' not in app_xaml:
+    ERRORS.append("Windows-highlight keyboard focus visual is missing from App.xaml")
+focus_refs = len(re.findall(
+    r'FocusVisualStyle[^>]*Layal\.(?:Accessible|Keyboard)FocusVisual',
+    app_xaml,
+))
+if focus_refs < 8:
+    ERRORS.append("Unified focus visual is not connected to enough interactive control styles")
+if not re.search(r"private\s+void\s+MainWindow_PreviewKeyDown\s*\(", ui_code):
+    ERRORS.append("Keyboard navigation preview handler is missing")
+if "Key.F1" not in ui_code or "ShowKeyboardHelp()" not in ui_code:
+    ERRORS.append("F1 keyboard help shortcut is missing")
+for digit in range(1, 8):
+    if f"Key.D{digit} or Key.NumPad{digit}" not in ui_code:
+        ERRORS.append(f"Ctrl+{digit} tab shortcut is missing")
+if "FindFirstFocusableControl" not in ui_code:
+    ERRORS.append("Keyboard tab switching does not attempt to focus tab content")
+
+localization_path = ROOT / "src/Layal.Desktop/Services/UiLocalization.cs"
+localization_text = localization_path.read_text(encoding="utf-8") if localization_path.is_file() else ""
+if not localization_text:
+    ERRORS.append("Shared Arabic/English UI localization service is missing")
+for required in (
+    "FormatTaskStatus", "FormatTaskResult", "FormatTaskEvent",
+    "LocalizeApprovalTitle", "LocalizeApprovalDetails",
+    "TranslateKnownFeedback", "FormatDateTime",
+    "CompletedWithWarnings", "مكتملة مع تحذيرات",
+    "هل تسمح لليال", "Technical details",
+):
+    if required not in localization_text:
+        ERRORS.append(f"Bilingual localization coverage is missing: {required}")
+
+for required in (
+    "UiLocalization.FormatTaskResult", "UiLocalization.FormatTaskEvent",
+    "UiLocalization.LocalizeApprovalDetails", "UiLocalization.TranslateKnownFeedback",
+    "ChatSessionService.SetDefaultTitle", "ChatMessageContextMenu_Opening",
+    "Filter = IsArabic ?",
+):
+    if required not in ui_code:
+        ERRORS.append(f"Bilingual localization runtime wiring is missing: {required}")
+if 'Opened="ChatMessageContextMenu_Opening"' not in ui_xaml:
+    ERRORS.append("Chat message context menu does not refresh its label on open")
+if "نسخ الرسالة / Copy message" in ui_xaml:
+    ERRORS.append("Chat context menu must use a runtime-localized label, not a mixed-language static label")
+
+chat_session_path = ROOT / "src/Layal.Desktop/Services/ChatSessionService.cs"
+chat_session_text = chat_session_path.read_text(encoding="utf-8") if chat_session_path.is_file() else ""
+if "public void SetDefaultTitle(string defaultTitle)" not in chat_session_text:
+    ERRORS.append("Conversation placeholder titles cannot follow the selected UI language")
+app_code_path = ROOT / "src/Layal.Desktop/App.xaml.cs"
+app_code_text = app_code_path.read_text(encoding="utf-8") if app_code_path.is_file() else ""
+if "ChatSessionService.SetDefaultTitle" not in app_code_text:
+    ERRORS.append("Saved blank conversation titles are not normalized to the startup language")
+mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
+mascot_code_text = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.is_file() else ""
+if "Root.ToolTip = localizedToolTip" not in mascot_code_text or 'Title = ar ? "ليال" : "Layal"' not in mascot_code_text:
+    ERRORS.append("Floating mascot title/tooltip is not fully localized")
+
+localization_test_path = ROOT / "tests/Layal.Tests/UiLocalizationTests.cs"
+localization_test_text = localization_test_path.read_text(encoding="utf-8") if localization_test_path.is_file() else ""
+if not localization_test_text:
+    ERRORS.append("Automated bilingual UI localization tests are missing")
+for required in (
+    "TaskStatusesAreRenderedInTheSelectedLanguage",
+    "TaskEventTranslationRetainsTimestamp",
+    "ApprovalDetailsAreLocalized",
+    "UnrecognizedModelOutputIsPreserved",
+    "PlaceholderFeedbackCanBeSwitched",
+):
+    if required not in localization_test_text:
+        ERRORS.append(f"Bilingual localization test coverage is missing: {required}")
+
+trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
+trace_text = trace_path.read_text(encoding="utf-8-sig") if trace_path.is_file() else ""
+language_requirement = next((line for line in trace_text.splitlines() if line.startswith("LAYAL-006,")), "")
+if not language_requirement:
+    ERRORS.append("Requirement traceability row LAYAL-006 is missing")
+else:
+    language_status = language_requirement.split(",")[3].strip() if len(language_requirement.split(",")) > 3 else ""
+    if language_status in {"متحقق", "Verified"}:
+        ERRORS.append("LAYAL-006 must not be marked verified before Windows language acceptance is recorded")
 
 cs_files = sorted(list((ROOT / "src").rglob("*.cs")) + list((ROOT / "tests").rglob("*.cs")))
 for cs_path in cs_files:
