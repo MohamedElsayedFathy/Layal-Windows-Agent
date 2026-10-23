@@ -93,21 +93,11 @@
         <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="18" ShadowDepth="3" Opacity="0.18" />
 
         <!-- Shared high-visibility keyboard focus ring for controls without a custom focus state. -->
-        <Style x:Key="Layal.KeyboardFocusVisual">
-            <Setter Property="Control.Template">
-                <Setter.Value>
-                    <ControlTemplate>
-                        <Border Margin="1"
-                                Background="Transparent"
-                                BorderBrush="{DynamicResource Layal.Purple}"
-                                BorderThickness="2"
-                                CornerRadius="6"
-                                SnapsToDevicePixels="True" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
+        <Style x:Key="Layal.AccessibleFocusVisual" TargetType="{x:Type Control}">
+            <Setter Property="Template">
+                                BorderBrush="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"
+                                BorderThickness="3"
+                                CornerRadius="4"
         <Style TargetType="Window">
             <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="FontSize" Value="13" />
@@ -115,6 +105,12 @@
             <Setter Property="UseLayoutRounding" Value="True" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
         </Style>
+
+        <Style x:Key="Layal.KeyboardFocusVisual" TargetType="{x:Type Control}" BasedOn="{StaticResource Layal.AccessibleFocusVisual}" />
+
+        <!-- Keyboard focus must remain unmistakable and should follow the Windows highlight color,
+             which also respects the user's configured high-contrast palette. -->
+        
 
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
@@ -178,6 +174,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="SelectionBrush" Value="{DynamicResource Layal.Focus}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
@@ -191,7 +188,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="TextBoxChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                                <Setter TargetName="TextBoxChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                                <Setter TargetName="TextBoxChrome" Property="BorderThickness" Value="2" />
                                 <Setter TargetName="TextBoxChrome" Property="BorderThickness" Value="2" />
                                 <Setter TargetName="TextBoxChrome" Property="Background" Value="{DynamicResource Layal.InputFocus}" />
                             </Trigger>
@@ -213,6 +211,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="FontSize" Value="13" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="PasswordBox">
@@ -224,7 +223,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="PasswordChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                                <Setter TargetName="PasswordChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                                <Setter TargetName="PasswordChrome" Property="BorderThickness" Value="2" />
                                 <Setter TargetName="PasswordChrome" Property="BorderThickness" Value="2" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
@@ -451,6 +451,7 @@
             <Setter Property="Margin" Value="4,8" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
         </Style>
 
         <Style TargetType="GroupBox">
@@ -497,6 +498,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="6" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
             <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
         </Style>
 
@@ -522,6 +524,10 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource Layal.ListSelected}" />
                                 <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                                <Setter TargetName="ItemChrome" Property="BorderThickness" Value="3" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ItemChrome" Property="Opacity" Value="0.45" />
@@ -579,6 +585,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -605,6 +612,10 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="NavChrome" Property="Background" Value="{DynamicResource Layal.NavHover}" />
                                 <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="NavChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                                <Setter TargetName="NavChrome" Property="BorderThickness" Value="3" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="NavChrome" Property="Opacity" Value="0.45" />

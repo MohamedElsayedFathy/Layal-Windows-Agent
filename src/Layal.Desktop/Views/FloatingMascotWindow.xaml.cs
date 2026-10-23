@@ -1278,7 +1278,10 @@ public partial class FloatingMascotWindow : Window
     public void UpdateLanguage()
     {
         var ar = AppRuntime.Settings.Language == "ar";
-        ToolTip = ar ? "ليال | انقر مرتين لفتح الواجهة" : "Layal | Double-click to open the full interface";
+        Title = ar ? "ليال" : "Layal";
+        var localizedToolTip = ar ? "ليال | انقر مرتين لفتح الواجهة" : "Layal | Double-click to open the full interface";
+        ToolTip = localizedToolTip;
+        Root.ToolTip = localizedToolTip;
         _openMenuItem.Header = ar ? "فتح ليال" : "Open Layal";
         _hideMenuItem.Header = ar ? "إخفاء الشخصية" : "Hide mascot";
         _exitMenuItem.Header = ar ? "خروج" : "Exit";
