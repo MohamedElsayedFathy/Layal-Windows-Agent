@@ -108,9 +108,7 @@
             </Setter>
         </Style>
 
-        <Style x:Key="Layal.AccessibleFocusVisual" TargetType="{x:Type Control}" BasedOn="{StaticResource Layal.KeyboardFocusVisual}" />
-
-        <Style TargetType="Window">
+                <Style TargetType="Window">
             <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
@@ -172,7 +170,7 @@
         </Style>
 
         <Style TargetType="TextBox">
-            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Setter Property="Padding" Value="11,9" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
@@ -208,7 +206,7 @@
         </Style>
 
         <Style TargetType="PasswordBox">
-            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Setter Property="Padding" Value="11,9" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
@@ -242,7 +240,7 @@
 
         <!-- Theme-aware ComboBox; avoid the native light selection surface leaking into dark mode. -->
         <Style TargetType="ComboBox">
-            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Padding" Value="10,6" />
             <Setter Property="MinHeight" Value="36" />
@@ -583,7 +581,7 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.AccessibleFocusVisual}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Setter Property="KeyboardNavigation.DirectionalNavigation" Value="Cycle" />
             <Setter Property="Template">
                 <Setter.Value>
