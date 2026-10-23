@@ -41,7 +41,7 @@ SetupLogging=yes
 VersionInfoCompany=Layal Project
 VersionInfoDescription=Layal Windows desktop companion installer
 VersionInfoProductName=Layal
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#AppVersion}.0
 VersionInfoVersion={#AppVersion}.0
 
 [Languages]
