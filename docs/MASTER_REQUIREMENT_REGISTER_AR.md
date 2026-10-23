@@ -122,8 +122,8 @@
 
 ## المرحلة الرابعة — التوقيع الرقمي وسلامة الملفات — 23 أكتوبر 2026
 
-- أضيف `tools/Sign-LayalFile.ps1` لتوقيع ملف التطبيق والمُثبّت عبر SHA-256 وRFC 3161، مع فحص EKU وصلاحية الشهادة وthumbprint قبل التوقيع.
-- أضيف `tools/Verify-LayalDistributionIntegrity.ps1` للتحقق من جميع بصمات SHA256SUMS.txt وتغطية كل ملفات التوزيع، وفحص Authenticode للمُثبّت وLayal.exe داخل ZIP.
+- أضيف `tools/Sign-LayalFile.ps1` لتوقيع مشغّل التطبيق وتجميعة .NET (`Layal.exe` و`Layal.dll`) والمُثبّت عبر SHA-256 وRFC 3161، مع فحص EKU وصلاحية الشهادة وthumbprint قبل التوقيع.
+- أضيف `tools/Verify-LayalDistributionIntegrity.ps1` للتحقق من جميع بصمات SHA256SUMS.txt وتغطية كل ملفات التوزيع، وفحص Authenticode للمُثبّت وLayal.exe وLayal.dll داخل ZIP.
 - بناء CI العادي يوسم المخرجات غير الموقعة صراحةً؛ tags من النمط `v*` تتطلب التوقيع وتفشل إذا لم تُضبط أسرار الشهادة أو فشل التحقق.
 - لم تُضبط شهادة موثوقة فعلية في GitHub ضمن هذا العمل؛ لذلك **التوقيع الفعلي غير مثبت إلى أن يُضف السر وتنجح عملية إصدار موقّع**.
 
