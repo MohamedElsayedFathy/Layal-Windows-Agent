@@ -20,6 +20,9 @@ def valid_review_fixture():
         "assetsRequiringProvenanceReview": [{
             "path": "Assets/mascot.png",
             "status": "REVIEWED",
+            "sourceDescription": "Created specifically for this test fixture.",
+            "licenseExpression": "CC0-1.0",
+            "redistributionPermission": "Rights-holder approval evidence fixture.",
             "reviewedBy": "asset-reviewer",
             "reviewedOn": "2026-10-23",
             "evidence": "source-and-redistribution-proof-001",
@@ -72,6 +75,12 @@ class ReleaseClearanceTests(unittest.TestCase):
         errors = validate_licenses.release_clearance_errors(document, packages, components, True)
         self.assertTrue(any("human license review is not explicitly approved" in error for error in errors))
         self.assertTrue(any("reviewEvidence" in error for error in errors))
+
+    def test_asset_without_explicit_redistribution_permission_blocks_release(self):
+        document, packages, components = valid_review_fixture()
+        document["assetsRequiringProvenanceReview"][0].pop("redistributionPermission")
+        errors = validate_licenses.release_clearance_errors(document, packages, components, True)
+        self.assertTrue(any("explicit redistribution permission is missing" in error for error in errors))
 
     def test_sbom_component_without_license_blocks_release(self):
         document, packages, components = valid_review_fixture()
