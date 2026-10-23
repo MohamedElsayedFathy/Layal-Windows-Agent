@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "projectLicense": {
+    "status": "UNDECLARED",
+    "releaseBlocker": true,
+    "note": "No project-wide license has been selected or declared in the repository. This inventory does not grant rights to Layal itself."
+  },
+  "assetsRequiringProvenanceReview": [
+    {
+      "path": "src/Layal.Desktop/Assets/layal-mascot-modern-preview.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/layal-mascot-reference.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/layal-tray.ico",
+      "status": "PROVENANCE_REVIEW_REQUIRED"
+    }
+  ],
+  "packages": [
+    {
+      "id": "Emoji.Wpf",
+      "licenseExpression": "WTFPL",
+      "versionPolicy": "direct dependency pinned to 0.3.4",
+      "sourceUrl": "https://www.nuget.org/packages/Emoji.Wpf/0.3.4",
+      "licenseUrl": "https://licenses.nuget.org/WTFPL",
+      "licenseTextPath": "licenses/WTFPL.txt",
+      "copyright": "Copyright (C) 2017-2023 Sam Hocevar",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "Stfu",
+      "licenseExpression": "WTFPL",
+      "versionPolicy": "transitive dependency resolved from Emoji.Wpf's NuGet dependency range; exact version is recorded in the SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/Stfu",
+      "licenseUrl": "https://licenses.nuget.org/WTFPL",
+      "licenseTextPath": "licenses/WTFPL.txt",
+      "copyright": "Copyright (C) 2017-2024 Sam Hocevar",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "JeremyAnsel.HLSL.Targets",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency resolved from Emoji.Wpf's NuGet dependency range; exact version is recorded in the SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/JeremyAnsel.HLSL.Targets",
+      "licenseUrl": "https://github.com/JeremyAnsel/JeremyAnsel.HLSL.Targets",
+      "licenseTextPath": "licenses/MIT-JeremyAnsel.HLSL.Targets.txt",
+      "copyright": "Copyright (c) 2019-2022 Jérémy Ansel",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    }
+  ]
+}

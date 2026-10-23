@@ -51,6 +51,23 @@
 - [x] CI now runs `dotnet test`, validates non-empty TRX results, and stores test/source artifacts.
 - [ ] Observe a passing Windows CI run and fix any failures before treating the test gate as complete.
 
+## 0.5.3 — Reactive mascot personality (this branch)
+- [x] Show lightweight animated task props (work sheet, pencil, holographic computer) for working moods in the floating mascot.
+- [x] Add eight additional face-driven moods and matching non-repeating emoji reaction groups.
+- [x] Map planning, research, reading, writing, coding, tool use, and validation events to distinct facial acting.
+- [x] Extract task-stage routing into a testable resolver with coverage for failures and declined approvals.
+- [x] Apply the selected interface language to Layal's response voice and test Arabic/English prompt selection.
+- [x] Keep task props visible but static when decorative animation is disabled.
+- [ ] Pass Windows Release build and automated regression tests on this branch.
+- [ ] Manually verify click/drag/double-click, display scaling, task transitions, and reduced-motion behavior on Windows.
+- [x] Replace the static shell group with separate 3D head, torso, arm and leg rig nodes that receive independent transforms.
+- [x] Add 3D eye/iris/pupil, brow, cheek and mouth geometry; drive gaze, blink scaling and facial shapes from mood and pointer input.
+- [x] Add lightweight animated heart, flower, sparkle and technology glyph particles chosen by the current mood/task stage.
+- [x] Emphasize paper/pencil/hologram props by task phase and vary head/body/arm/leg motion with task context.
+- [x] Add a soft background gradient and restrained translucent/glossy header and card surfaces for both themes.
+- [ ] Visually verify the articulated avatar alignment, lighting, movement bounds and reduced-motion behavior on Windows.
+- [ ] Redesign and visually validate every application section in both themes and at multiple Windows display scaling factors.
+
 ## 0.6 — Native automation and safety hardening
 - [ ] Windows UI Automation adapter for approved apps.
 - [ ] Explicit mouse/keyboard adapter, screen capture approvals, and outcome checks.

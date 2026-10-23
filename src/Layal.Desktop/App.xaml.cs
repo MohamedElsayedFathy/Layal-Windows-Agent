@@ -8,9 +8,15 @@ namespace Layal;
 
 public partial class App : Application
 {
+    // Test harnesses can instantiate the real application resource dictionary without
+    // launching a second tray agent/window set from the WPF dispatcher startup event.
+    public static bool SuppressStartupForTests { get; set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (SuppressStartupForTests) return;
+
         var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Layal");
         Directory.CreateDirectory(dataRoot);
 
@@ -26,6 +32,8 @@ public partial class App : Application
             Path.Combine(dataRoot, "chat-sessions.dpapi"),
             AppRuntime.ChatHistoryStore,
             AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
+        // Normalize empty history placeholders to the persisted UI language when an old history is reopened.
+        AppRuntime.ChatSessionService.SetDefaultTitle(AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
         AppRuntime.WorkspaceRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LayalWorkspace");
         AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService);
         AppRuntime.AgentOrchestrator = new AgentOrchestrator(new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);

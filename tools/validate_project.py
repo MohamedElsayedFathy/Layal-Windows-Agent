@@ -88,7 +88,7 @@ for xaml_path in xaml_files:
             if attr in {
                 "Click", "Checked", "Unchecked", "SelectionChanged", "KeyDown", "Closing",
                 "MouseLeftButtonDown", "MouseRightButtonUp", "MouseEnter", "MouseLeave",
-                "Loaded", "Unloaded", "TextChanged", "ValueChanged", "LostFocus"
+                "Loaded", "Unloaded", "Opened", "TextChanged", "ValueChanged", "LostFocus"
             }:
                 handlers.append(value)
     # App.xaml contains multiple separate ControlTemplate name scopes, each legitimately uses PART_ContentHost.
@@ -144,6 +144,132 @@ if main_window_xaml.exists():
         if old_color.lower() in main_text.lower():
             ERRORS.append(f"Legacy dark surface {old_color} remains in MainWindow.xaml")
 
+# Guard the exact dark-mode regression path: the visible button, resource replacement,
+# live control surfaces, and durable settings must stay tested end-to-end.
+main_window_theme_text = main_window_xaml.read_text(encoding="utf-8") if main_window_xaml.is_file() else ""
+if not re.search(r'<Button[^>]*x:Name="ThemeButton"[^>]*Click="ThemeButton_Click"', main_window_theme_text):
+    ERRORS.append("ThemeButton must remain wired to the real ThemeButton_Click event handler")
+
+main_window_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+main_window_code_text = main_window_code_path.read_text(encoding="utf-8") if main_window_code_path.is_file() else ""
+theme_handler_match = re.search(r"private void ThemeButton_Click\(.*?\n    \}", main_window_code_text, re.DOTALL)
+if not theme_handler_match:
+    ERRORS.append("Dark-mode toggle handler ThemeButton_Click is missing")
+else:
+    for fragment in (
+        'AppRuntime.Settings.ThemeMode = IsDarkTheme ? "light" : "dark";',
+        "ApplyTheme();",
+        "ApplyLanguage();",
+        "AppRuntime.SettingsStore.Save(AppRuntime.Settings);",
+    ):
+        if fragment not in theme_handler_match.group(0):
+            ERRORS.append(f"ThemeButton_Click lost required toggle/persistence behavior: {fragment}")
+
+theme_regression_test_path = ROOT / "tests/Layal.Tests/MainWindowVisualSmokeTests.cs"
+theme_regression_test = theme_regression_test_path.read_text(encoding="utf-8") if theme_regression_test_path.is_file() else ""
+if not theme_regression_test_path.is_file():
+    ERRORS.append("Dark-mode UI regression test is missing from MainWindowVisualSmokeTests.cs")
+else:
+    for fragment in (
+        "AssertThemeTogglePersistsLivePalette(window, historySelector);",
+        "private static void AssertThemeTogglePersistsLivePalette(",
+        "ThemeButton_Click",
+        "Color.FromRgb(17, 21, 33)",
+        "Color.FromRgb(244, 247, 252)",
+        'Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode,',
+        'Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,',
+        'AssertThemeContrastAndControlSurfaces("dark", "ar", historySelector);',
+        'AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);',
+    ):
+        if fragment not in theme_regression_test:
+            ERRORS.append(f"Dark-mode UI regression test lost required coverage: {fragment}")
+
+# Accessibility regression gate: interactive controls must not suppress keyboard focus feedback.
+if 'x:Key="Layal.KeyboardFocusVisual"' not in app_text:
+    ERRORS.append("Shared Layal keyboard-focus visual resource is missing")
+if app_text.count('<Setter Property="FocusVisualStyle" Value="{x:Null}" />') != 1:
+    ERRORS.append("FocusVisualStyle must not be suppressed on interactive controls; only the non-focusable GroupBox style may opt out")
+if 'KeyboardNavigation.DirectionalNavigation="Cycle"' not in app_text:
+    ERRORS.append("Tab-strip directional keyboard navigation must cycle between navigation tabs")
+for fragment in (
+    'AutomationProperties.SetName(HomeTab,',
+    'AutomationProperties.SetName(ChatInput,',
+    'AutomationProperties.SetName(TaskInput,',
+    'AutomationProperties.SetName(BaseUrlInput,',
+    'AutomationProperties.SetName(ApiKeyInput,',
+    'AutomationProperties.SetName(MemoryTitleInput,',
+    'AutomationProperties.SetName(MascotSizeSlider,',
+):
+    if fragment not in main_window_code_text:
+        ERRORS.append(f"Accessible control naming is missing: {fragment}")
+if "AssertKeyboardAccessibility(window, sendButton" not in theme_regression_test:
+    ERRORS.append("Keyboard focus and UI Automation accessibility regression test is missing")
+
+# Guard the real interaction/settings paths so their UI bindings, persistence, and regression tests cannot silently disappear.
+interaction_ui_needles = (
+    'x:Name="LanguageButton" Content="English" Click="LanguageButton_Click"',
+    'x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"',
+    'x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"',
+    'x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"',
+    'x:Name="ApplyMascotSettingsButton" Content="تطبيق إعدادات الشخصية" Click="ApplyMascotSettingsButton_Click"',
+    'x:Name="WindowInspectionCheckbox"',
+)
+for needle in interaction_ui_needles:
+    if needle not in main_window_theme_text:
+        ERRORS.append(f"Interaction/settings UI control lost its expected XAML wiring: {needle}")
+
+for fragment in (
+    'AppRuntime.Settings.Language = language;',
+    'AppRuntime.SettingsStore.Save(AppRuntime.Settings);',
+    'AppRuntime.Tray?.SetLanguage(language);',
+):
+    if fragment not in main_window_code_text:
+        ERRORS.append(f"Language persistence path is missing '{fragment}'")
+
+mascot_settings_match = re.search(r"private void ApplyMascotSettingsButton_Click\(.*?^\s*\}", main_window_code_text, re.DOTALL | re.MULTILINE)
+if not mascot_settings_match:
+    ERRORS.append("ApplyMascotSettingsButton_Click handler is missing")
+else:
+    for fragment in (
+        'AppRuntime.Settings.MascotAlwaysOnTop = AlwaysOnTopCheckbox.IsChecked == true;',
+        'AppRuntime.Settings.MascotAnimationsEnabled = AnimationsCheckbox.IsChecked == true;',
+        'Math.Clamp(MascotSizeSlider.Value, 0.65, 1.8)',
+        'Math.Clamp(MascotOpacitySlider.Value, 0.35, 1.0)',
+        'AppRuntime.SettingsStore.Save(AppRuntime.Settings);',
+        'AppRuntime.MascotWindow.ApplyScale(AppRuntime.Settings.MascotScale);',
+    ):
+        if fragment not in mascot_settings_match.group(0):
+            ERRORS.append(f"Apply mascot settings behavior lost required fragment: {fragment}")
+
+inspection_match = re.search(r"private void WindowInspectionSettingChanged\(.*?^\s*\}", main_window_code_text, re.DOTALL | re.MULTILINE)
+if not inspection_match or "AppRuntime.SettingsStore.Save(AppRuntime.Settings);" not in inspection_match.group(0) or "WindowInspectionCheckbox.IsChecked == true" not in inspection_match.group(0):
+    ERRORS.append("Window-inspection opt-in must persist its checked/unchecked state")
+
+interaction_test_needles = (
+    "AssertInteractionAndSettingsPersistence(window, mascot, temp.Path);",
+    "private static void AssertInteractionAndSettingsPersistence(",
+    "The language change must survive reloading settings.json.",
+    "The live mascot must stop staying above other windows.",
+    "Enabling optional window-title inspection must persist.",
+    "Apply must update live window opacity.",
+    "An invalid provider URL must not overwrite a previously saved URL.",
+    "The show-mascot button must restore a hidden mascot window.",
+)
+for needle in interaction_test_needles:
+    if needle not in theme_regression_test:
+        ERRORS.append(f"Interactive settings regression test is missing coverage: {needle}")
+
+settings_test_path = ROOT / "tests/Layal.Tests/SettingsStoreTests.cs"
+settings_test_code = settings_test_path.read_text(encoding="utf-8") if settings_test_path.is_file() else ""
+for needle in (
+    'Assert.AreEqual("light", settings.ThemeMode);',
+    "Assert.IsFalse(settings.AllowWindowTitleInspection);",
+    "AllowWindowTitleInspection = true",
+    "Assert.IsTrue(reloaded.AllowWindowTitleInspection);",
+):
+    if needle not in settings_test_code:
+        ERRORS.append(f"Settings Store regression coverage is missing: {needle}")
+
 project_file = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
 project_text = project_file.read_text(encoding="utf-8") if project_file.exists() else ""
 version_match = re.search(r"<Version>([^<]+)</Version>", project_text)
@@ -158,6 +284,127 @@ else:
         ERRORS.append(f"README_AR.md source version does not match project version {project_version}")
     if "<TargetFramework>net10.0-windows</TargetFramework>" not in project_text:
         ERRORS.append("Target framework is not the expected net10.0-windows; verify this change deliberately")
+
+# Explicitly declare per-monitor DPI behavior and the WPF runtime scaling switch.
+manifest_path = ROOT / "src/Layal.Desktop/app.manifest"
+if "<ApplicationManifest>app.manifest</ApplicationManifest>" not in project_text:
+    ERRORS.append("Project file must embed src/Layal.Desktop/app.manifest")
+if not manifest_path.is_file():
+    ERRORS.append("Per-monitor DPI application manifest is missing")
+else:
+    try:
+        manifest_root = ET.parse(manifest_path).getroot()
+        dpi_awareness = manifest_root.find(".//{http://schemas.microsoft.com/SMI/2016/WindowsSettings}dpiAwareness")
+        if dpi_awareness is None or (dpi_awareness.text or "").strip().lower() != "permonitorv2":
+            ERRORS.append("Application manifest must declare dpiAwareness=PerMonitorV2")
+    except Exception as exc:
+        ERRORS.append(f"Application manifest XML parse error: {exc}")
+
+app_config_path = ROOT / "src/Layal.Desktop/App.config"
+if not app_config_path.is_file():
+    ERRORS.append("WPF per-monitor scaling configuration src/Layal.Desktop/App.config is missing")
+else:
+    try:
+        config_root = ET.parse(app_config_path).getroot()
+        overrides = config_root.find("./runtime/AppContextSwitchOverrides")
+        switch_value = overrides.get("value", "") if overrides is not None else ""
+        if "Switch.System.Windows.DoNotScaleForDpiChanges=false" not in switch_value:
+            ERRORS.append("App.config must enable WPF scaling on DPI changes")
+    except Exception as exc:
+        ERRORS.append(f"App.config XML parse error: {exc}")
+
+hit_test_path = ROOT / "src/Layal.Desktop/Services/MascotHitTestGeometry.cs"
+hit_test_tests_path = ROOT / "tests/Layal.Tests/MascotHitTestGeometryTests.cs"
+if not hit_test_path.is_file() or not hit_test_tests_path.is_file():
+    ERRORS.append("Mascot hit-test geometry and its regression tests must both exist")
+else:
+    mascot_window_code = (ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs").read_text(encoding="utf-8")
+    if "MascotHitTestGeometry.IsPointOnMascot(point, Width," not in mascot_window_code:
+        ERRORS.append("Floating mascot input handling is not using the testable hit-test geometry")
+    for fragment in ("_hitTestTimer", "UpdateHitTestTransparency()", "WsExTransparent", "GetCursorPos(out NativePoint point)", "SetWindowLongPtrCompat(hwnd, GwlExStyle"):
+        if fragment not in mascot_window_code:
+            ERRORS.append(f"Cross-process transparent-padding click-through wiring is missing '{fragment}'")
+    for fragment in ("_lastDragScreenPosition", "TransformFromDevice.Transform(delta)", "ClampToVirtualScreen(Left + delta.X, Top + delta.Y)", "SaveMascotPosition()"):
+        if fragment not in mascot_window_code:
+            ERRORS.append(f"Captured-pointer mascot drag wiring is missing '{fragment}'")
+
+# Keep real Windows monitor/DPI diagnostics runnable in CI and on a physical multi-monitor machine.
+display_dpi_harness_path = ROOT / "tools/Test-LayalDisplayDpi.ps1"
+display_dpi_harness = display_dpi_harness_path.read_text(encoding="utf-8") if display_dpi_harness_path.is_file() else ""
+if not display_dpi_harness_path.is_file():
+    ERRORS.append("Display/DPI acceptance harness is missing: tools/Test-LayalDisplayDpi.ps1")
+else:
+    for fragment in (
+        "EnumDisplayMonitors",
+        "GetMonitorInfo",
+        "GetDpiForMonitor",
+        "GetDpiForWindow",
+        "GetWindowDpiAwarenessContext",
+        "RequireMultipleMonitors",
+        "RequireMonitorTransition",
+        "RequireDpiTransition",
+        "TopologyDpiGateStatus",
+        "TopologyDpiGateDetail",
+        "TopologyDpiTransitionsObserved",
+        "ManualVisualAcceptanceStatus",
+        "pending",
+        "not-certified",
+        "$monitorTransitionCount -gt 0",
+        "$dpiTransitionCount -gt 0",
+        "display-dpi-summary.json",
+        "display-dpi-samples.csv",
+    ):
+        if fragment not in display_dpi_harness:
+            ERRORS.append(f"Display/DPI acceptance coverage is missing '{fragment}'")
+display_dpi_workflow_path = ROOT / ".github/workflows/windows-build.yml"
+display_dpi_workflow_code = display_dpi_workflow_path.read_text(encoding="utf-8") if display_dpi_workflow_path.is_file() else ""
+if "Run Windows display and DPI topology smoke test" not in display_dpi_workflow_code or "Test-LayalDisplayDpi.ps1" not in display_dpi_workflow_code or "-ObserveSeconds 3" not in display_dpi_workflow_code:
+    ERRORS.append("Windows CI must run the display/DPI topology smoke test")
+if "Upload display and DPI topology evidence" not in display_dpi_workflow_code or "artifacts/display-dpi/**/*" not in display_dpi_workflow_code:
+    ERRORS.append("Windows CI must upload display/DPI topology evidence")
+for fragment in (
+    "ConvertFrom-Json",
+    '$summary.ManualVisualAcceptanceStatus -ne "pending"',
+    '$summary.MonitorCount -lt 2 -and $summary.TopologyDpiGateStatus -ne "not-certified"',
+    '$summary.TopologyDpiGateStatus -eq "passed" -and -not $summary.TopologyDpiTransitionsObserved',
+):
+    if fragment not in display_dpi_workflow_code:
+        ERRORS.append(f"Windows CI must assert accurate multi-monitor acceptance reporting: {fragment}")
+
+# Keep native acceptance from silently regressing to a one-off movement check. The Windows
+# job must replay opposite-direction drags and verify persisted position after process restart.
+native_acceptance_path = ROOT / "tools/Test-LayalClickThrough.Native.ps1"
+workflow_path = ROOT / ".github/workflows/windows-build.yml"
+native_acceptance = native_acceptance_path.read_text(encoding="utf-8") if native_acceptance_path.is_file() else ""
+workflow_code = workflow_path.read_text(encoding="utf-8") if workflow_path.is_file() else ""
+if not native_acceptance_path.is_file():
+    ERRORS.append("Native Windows interaction acceptance harness is missing")
+else:
+    for fragment in (
+        "$dragVectors = @(@{X=42;Y=28}",
+        "Native mouse drag cycle $iteration",
+        "Dragged position persisted to settings",
+        "Dragged position restored after app restart",
+        "DpiScaleForWindow",
+        "UnderlyingClicks -ne $beforeClicks",
+    ):
+        if fragment not in native_acceptance:
+            ERRORS.append(f"Native drag regression coverage is missing '{fragment}'")
+if "Run native Windows desktop click-through integration" not in workflow_code or "-ClickThroughOnly" not in workflow_code:
+    ERRORS.append("Windows CI must execute the isolated native click-through regression suite")
+if "Run native Windows desktop mouse-drag integration" not in workflow_code or "-DragOnly" not in workflow_code:
+    ERRORS.append("Windows CI must execute the isolated native mouse-drag regression suite")
+
+# Prevent reintroducing the WPF DragMove path: it bypassed reliable movement for
+# this transparent layered overlay under native input. Keep the direct captured-pointer
+# delta implementation and its tested per-mode check counts wired into every CI run.
+if re.search(r"\bDragMove\s*\(", mascot_window_code):
+    ERRORS.append("Do not reintroduce DragMove; use the tested captured-pointer delta path")
+minimum_check_rule = '$minimumChecks = if ($CalibrationOnly) { 1 } elseif ($ClickThroughOnly) { 4 } elseif ($DragOnly) { 6 } else { 5 }'
+if native_acceptance.count(minimum_check_rule) != 2:
+    ERRORS.append("Native acceptance check-count thresholds changed unexpectedly; update both summary and exit guard deliberately")
+if 'Mode=if ($CalibrationOnly) { "calibration-only" } elseif ($ClickThroughOnly) { "click-through-only" } elseif ($DragOnly) { "drag-only" } else { "full-interactive-acceptance" }' not in native_acceptance:
+    ERRORS.append("Native acceptance summary must identify the active test mode accurately")
 
 for xaml_path in xaml_files:
     text = xaml_path.read_text(encoding="utf-8")
@@ -177,7 +424,7 @@ required_controls = {
     "src/Layal.Desktop/Views/FloatingMascotWindow.xaml": [
         "Root", "AntennaDot", "GlowHalo", "LeftPupil", "RightPupil", "LeftEye", "RightEye",
         "LeftEyeShine", "RightEyeShine", "LeftBrow", "RightBrow", "CheekLeft", "CheekRight",
-        "Mouth", "StatusDot"
+        "Mouth", "StatusDot", "AvatarViewport", "TaskPropsLayer", "PaperProp", "PencilProp", "HoloComputerProp", "CinematicEffectsLayer"
     ]
 }
 for xaml_file, controls in required_controls.items():
@@ -185,6 +432,154 @@ for xaml_file, controls in required_controls.items():
     for control in controls:
         if control not in xnames:
             ERRORS.append(f"Required control '{control}' missing from {xaml_file}")
+
+# Guard the new personality milestone against accidental removal of its XAML/code-behind wiring.
+mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
+main_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+mascot_code = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
+main_code = main_code_path.read_text(encoding="utf-8") if main_code_path.exists() else ""
+resolver_path = ROOT / "src/Layal.Desktop/Services/TaskMoodResolver.cs"
+resolver_code = resolver_path.read_text(encoding="utf-8") if resolver_path.exists() else ""
+if not resolver_path.exists():
+    ERRORS.append("Task-stage mood resolver is missing: src/Layal.Desktop/Services/TaskMoodResolver.cs")
+if "TaskMoodResolver.Resolve(text, TaskEvents.TakeLast(4))" not in main_code:
+    ERRORS.append("Main window is not using the tested task-stage mood resolver")
+for required_fragment in (
+    "InitializeAvatarRig()", "CreateHeadModel()", "CreateBodyModel()", "CreateArticulatedArmRig(",
+    "CreateArticulatedLegRig(", "AddEyeRig(bool left)", "SetJointRotation(",
+    "_leftForearmJointHost", "_rightHandJointHost", "_leftLowerLegJointHost", "_rightFootJointHost",
+    "ApplyThreeDimensionalFaceExpression(", "CreateCurveStrip(", "ConfigureCinematicEffects(",
+    "AnimateCinematicEffects()", "ApplyRigPose(_floatPhase)", "CreateEllipsoid(", "Viewport3D",
+    "UpdateTaskProps()", "SetTaskActive(bool active)", "IsPointOnMascot(Point point)",
+    "IsTaskMood(string mood)", "Transform3DGroup", "MeshGeometry3D",
+):
+    if required_fragment not in mascot_code and required_fragment not in (ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml").read_text(encoding="utf-8"):
+        ERRORS.append(f"3D/personality regression: required implementation fragment '{required_fragment}' is missing")
+if "SetTaskActive(true)" not in main_code or "SetTaskActive(false)" not in main_code:
+    ERRORS.append("Mascot task-active state is not wired to both task start and completion")
+for mood in ("embarrassed", "relieved", "determined", "confident", "apologetic", "frustrated", "grateful", "celebrating"):
+    if mascot_code.count(f'"{mood}"') < 4:
+        ERRORS.append(f"New facial mood '{mood}' is not fully wired into expression/reaction lifecycle")
+    if f'return "{mood}";' not in main_code:
+        ERRORS.append(f"Chat context is not mapped to the new facial mood '{mood}'")
+for mood in ("writing", "validating"):
+    if mascot_code.count(f'"{mood}"') < 4:
+        ERRORS.append(f"Task-stage mood '{mood}' is not fully wired into the mascot expression/reaction lifecycle")
+    if f'"{mood}"' not in resolver_code:
+        ERRORS.append(f"Task-stage resolver does not route mood '{mood}'")
+if "ForInterfaceLanguage(string? language)" not in (ROOT / "src/Layal.Desktop/Services/LayalIdentity.cs").read_text(encoding="utf-8"):
+    ERRORS.append("Selected interface language is not applied to Layal's system prompt")
+if "ChatMessageContextMenu_Opened" not in main_code:
+    ERRORS.append("Chat message context menu does not switch its label with the interface language")
+
+if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
+    ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
+for expected_glass_color in ("#F4FFFFFF", "#E5222B3F"):
+    if expected_glass_color not in main_code:
+        ERRORS.append(f"Expected translucent card color '{expected_glass_color}' is missing from the theme palette")
+
+
+# Unified keyboard-accessibility and bilingual UI guardrails.
+ui_xaml_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml"
+ui_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
+app_xaml_path = ROOT / "src/Layal.Desktop/App.xaml"
+ui_xaml = ui_xaml_path.read_text(encoding="utf-8") if ui_xaml_path.is_file() else ""
+ui_code = ui_code_path.read_text(encoding="utf-8") if ui_code_path.is_file() else ""
+app_xaml = app_xaml_path.read_text(encoding="utf-8") if app_xaml_path.is_file() else ""
+
+for required in (
+    'PreviewKeyDown="MainWindow_PreviewKeyDown"',
+    'x:Name="KeyboardHelpButton"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"',
+    'AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"',
+):
+    if required not in ui_xaml:
+        ERRORS.append(f"Unified keyboard-accessibility markup is missing: {required}")
+
+if 'x:Key="Layal.KeyboardFocusVisual"' not in app_xaml:
+    ERRORS.append("Windows-highlight keyboard focus visual is missing from App.xaml")
+focus_refs = len(re.findall(
+    r'FocusVisualStyle[^>]*Layal\.KeyboardFocusVisual',
+    app_xaml,
+))
+if focus_refs < 8:
+    ERRORS.append("Unified focus visual is not connected to enough interactive control styles")
+if not re.search(r"private\s+void\s+MainWindow_PreviewKeyDown\s*\(", ui_code):
+    ERRORS.append("Keyboard navigation preview handler is missing")
+if "Key.F1" not in ui_code or "ShowKeyboardHelp()" not in ui_code:
+    ERRORS.append("F1 keyboard help shortcut is missing")
+for digit in range(1, 8):
+    if f"Key.D{digit} or Key.NumPad{digit}" not in ui_code:
+        ERRORS.append(f"Ctrl+{digit} tab shortcut is missing")
+if "FindFirstFocusableControl" not in ui_code:
+    ERRORS.append("Keyboard tab switching does not attempt to focus tab content")
+
+localization_path = ROOT / "src/Layal.Desktop/Services/UiLocalization.cs"
+localization_text = localization_path.read_text(encoding="utf-8") if localization_path.is_file() else ""
+if not localization_text:
+    ERRORS.append("Shared Arabic/English UI localization service is missing")
+for required in (
+    "FormatTaskStatus", "FormatTaskResult", "FormatTaskEvent",
+    "LocalizeApprovalTitle", "LocalizeApprovalDetails",
+    "TranslateKnownFeedback", "FormatDateTime",
+    "CompletedWithWarnings", "مكتملة مع تحذيرات",
+    "هل تسمح لليال", "Technical details",
+):
+    if required not in localization_text:
+        ERRORS.append(f"Bilingual localization coverage is missing: {required}")
+
+for required in (
+    "UiLocalization.FormatTaskResult", "UiLocalization.FormatTaskEvent",
+    "UiLocalization.LocalizeApprovalDetails", "UiLocalization.TranslateKnownFeedback",
+    "ChatSessionService.SetDefaultTitle", "ChatMessageContextMenu_Opening",
+    "Filter = IsArabic ?",
+):
+    if required not in ui_code:
+        ERRORS.append(f"Bilingual localization runtime wiring is missing: {required}")
+if 'Opened="ChatMessageContextMenu_Opening"' not in ui_xaml:
+    ERRORS.append("Chat message context menu does not refresh its label on open")
+if "نسخ الرسالة / Copy message" in ui_xaml:
+    ERRORS.append("Chat context menu must use a runtime-localized label, not a mixed-language static label")
+
+chat_session_path = ROOT / "src/Layal.Desktop/Services/ChatSessionService.cs"
+chat_session_text = chat_session_path.read_text(encoding="utf-8") if chat_session_path.is_file() else ""
+if "public void SetDefaultTitle(string defaultTitle)" not in chat_session_text:
+    ERRORS.append("Conversation placeholder titles cannot follow the selected UI language")
+app_code_path = ROOT / "src/Layal.Desktop/App.xaml.cs"
+app_code_text = app_code_path.read_text(encoding="utf-8") if app_code_path.is_file() else ""
+if "ChatSessionService.SetDefaultTitle" not in app_code_text:
+    ERRORS.append("Saved blank conversation titles are not normalized to the startup language")
+mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
+mascot_code_text = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.is_file() else ""
+if "Root.ToolTip = localizedToolTip" not in mascot_code_text or 'Title = ar ? "ليال" : "Layal"' not in mascot_code_text:
+    ERRORS.append("Floating mascot title/tooltip is not fully localized")
+
+localization_test_path = ROOT / "tests/Layal.Tests/UiLocalizationTests.cs"
+localization_test_text = localization_test_path.read_text(encoding="utf-8") if localization_test_path.is_file() else ""
+if not localization_test_text:
+    ERRORS.append("Automated bilingual UI localization tests are missing")
+for required in (
+    "TaskStatusesAreRenderedInTheSelectedLanguage",
+    "TaskEventTranslationRetainsTimestamp",
+    "ApprovalDetailsAreLocalized",
+    "UnrecognizedModelOutputIsPreserved",
+    "PlaceholderFeedbackCanBeSwitched",
+):
+    if required not in localization_test_text:
+        ERRORS.append(f"Bilingual localization test coverage is missing: {required}")
+
+trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
+trace_text = trace_path.read_text(encoding="utf-8-sig") if trace_path.is_file() else ""
+language_requirement = next((line for line in trace_text.splitlines() if line.startswith("LAYAL-006,")), "")
+if not language_requirement:
+    ERRORS.append("Requirement traceability row LAYAL-006 is missing")
+else:
+    language_status = language_requirement.split(",")[3].strip() if len(language_requirement.split(",")) > 3 else ""
+    if language_status in {"متحقق", "Verified"}:
+        ERRORS.append("LAYAL-006 must not be marked verified before Windows language acceptance is recorded")
 
 cs_files = sorted(list((ROOT / "src").rglob("*.cs")) + list((ROOT / "tests").rglob("*.cs")))
 for cs_path in cs_files:
