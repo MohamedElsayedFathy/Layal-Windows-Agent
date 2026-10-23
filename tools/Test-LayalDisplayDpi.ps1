@@ -229,7 +229,11 @@ public static class LayalDisplayDpiNative
                     seen.Add("hwnd=0x" + hwnd.ToInt64().ToString("X") + ", visible=" + visible +
                         ", title='" + title + "', bounds=(" + rect.Left + "," + rect.Top + "," +
                         rect.Right + "," + rect.Bottom + ")");
-                    if (visible && title.ToString() == "Layal" && width > 100 && height > 80)
+                    string windowTitle = title.ToString();
+                    bool isLayalTitle = windowTitle == "Layal" || windowTitle == "ليال";
+                    // The floating mascot uses a compact 248x175 design surface. The localized
+                    // main window can also contain "Layal" in its title, so reject large windows.
+                    if (visible && isLayalTitle && width > 100 && height > 80 && width < 500 && height < 400)
                     {
                         found = hwnd;
                         return false;
