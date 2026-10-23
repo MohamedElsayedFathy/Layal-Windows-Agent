@@ -342,6 +342,11 @@ public partial class MainWindow : Window
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
         ChatNotice.Text = ar ? "تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." : "Configure a valid API endpoint and key in Settings to send real messages.";
+        ChatEmptyStateText.Text = ar
+            ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة."
+            : "No messages yet. Type a message below to start the conversation.";
+        AutomationProperties.SetName(ChatEmptyStateText, ar ? "حالة المحادثة الفارغة" : "Chat empty state");
+        AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "ستظهر الرسائل هنا بعد الإرسال أو الاستلام." : "Messages appear here after you send or receive one.");
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
@@ -370,10 +375,20 @@ public partial class MainWindow : Window
         TaskSkillHint.Text = ar ? "يمكن تحديد حتى 3 مهارات من تبويب المهارات؛ نصوص المهارات تُعامل كمراجع غير موثوقة." : "Select up to 3 skills in Skills; skill text is treated as untrusted reference material.";
         CopyTaskResultButton.Content = ar ? "نسخ النتيجة" : "Copy result";
         CopyTaskLogButton.Content = ar ? "نسخ سجل التنفيذ" : "Copy task log";
+        TaskEventsEmptyStateText.Text = ar
+            ? "لا يوجد سجل نشاط بعد. ابدأ مهمة لعرض أحداث تنفيذها هنا."
+            : "No task activity yet. Start a task to see its events here.";
+        AutomationProperties.SetName(TaskEventsEmptyStateText, ar ? "حالة سجل المهام الفارغ" : "Task activity empty state");
+        RecentTasksEmptyStateText.Text = ar ? "لا توجد مهام سابقة بعد." : "No previous tasks yet.";
+        AutomationProperties.SetName(RecentTasksEmptyStateText, ar ? "حالة المهام السابقة الفارغة" : "Recent tasks empty state");
         if (string.IsNullOrEmpty(TaskResult.Text)) TaskResult.Text = ar ? "لم تُنفذ أي عملية بعد." : "No operation has been run yet.";
 
         SkillsHeading.Text = ar ? "مدير المهارات" : "Skills manager";
         SkillsDescription.Text = ar ? "استيراد حزمة ZIP والتحقق من SKILL.md. لا يتم استخراج الحزمة أو تشغيل سكربتاتها." : "Import a ZIP and validate SKILL.md. The package is stored without extraction or script execution.";
+        SkillsEmptyStateText.Text = ar
+            ? "لا توجد مهارات مثبتة. استورد ملف ZIP أو مجلدًا من GitHub للبدء."
+            : "No skills installed. Import a ZIP or GitHub folder to get started.";
+        AutomationProperties.SetName(SkillsEmptyStateText, ar ? "حالة قائمة المهارات الفارغة" : "Skills empty state");
         ImportSkillButton.Content = ar ? "استيراد ZIP" : "Import ZIP";
         RefreshSkillsButton.Content = ar ? "تحديث القائمة" : "Refresh list";
         RecentTasksGroup.Header = ar ? "المهام السابقة" : "Recent tasks";
@@ -420,6 +435,10 @@ public partial class MainWindow : Window
         WindowInspectionCheckbox.Content = ar ? "السماح بقراءة عناوين النوافذ عند الطلب (تتطلب مشاركة العناوين موافقة)" : "Allow window-title inspection on request (sharing titles still requires approval)";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
+        MemoryEmptyStateText.Text = ar
+            ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء."
+            : "No saved notes. Create a note to get started.";
+        AutomationProperties.SetName(MemoryEmptyStateText, ar ? "حالة الذاكرة الفارغة" : "Memory empty state");
         MemorySearchInput.ToolTip = ar ? "بحث في الملاحظات" : "Search memory notes";
         System.Windows.Automation.AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory notes");
         MemorySearchButton.Content = ar ? "بحث" : "Search";
