@@ -1325,6 +1325,10 @@ public partial class FloatingMascotWindow : Window
     {
         var ar = AppRuntime.Settings.Language == "ar";
         Title = ar ? "ليال" : "Layal";
+        AutomationProperties.SetName(this, ar ? "شخصية ليال العائمة" : "Layal floating assistant");
+        AutomationProperties.SetHelpText(this, ar
+            ? "انقر مرتين لفتح الواجهة الرئيسية. انقر بزر الماوس الأيمن لإظهار الخيارات."
+            : "Double-click to open the main interface. Right-click to show options.");
         var localizedToolTip = ar ? "ليال | انقر مرتين لفتح الواجهة" : "Layal | Double-click to open the full interface";
         ToolTip = localizedToolTip;
         Root.ToolTip = localizedToolTip;
