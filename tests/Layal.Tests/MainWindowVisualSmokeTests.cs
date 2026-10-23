@@ -101,6 +101,7 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsNotNull(expectedTabs[i], $"Expected named tab '{tabNames[i]}' was not found.");
             Assert.AreSame(expectedTabs[i], tabs.Items[i], $"Tab order mismatch at '{tabNames[i]}'.");
         }
+        AssertAccessibleStatusRegions(window);
 
         var historySelector = window.FindName("ChatHistorySelector") as ComboBox
             ?? throw new InvalidOperationException("ChatHistorySelector was not found.");
@@ -151,6 +152,8 @@ public sealed class MainWindowVisualSmokeTests
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
             window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            AssertEmptyStateLocalizationAndVisibility(window, language);
             Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
                 "The root window must not horizontally mirror icons or glyphs in RTL mode.");
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
@@ -285,6 +288,7 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.MascotWindow = mascot;
         mascot.Show();
         mascot.UpdateLayout();
+        AssertMascotHighContrastAppearance(mascot);
         var animateTick = typeof(FloatingMascotWindow).GetMethod("AnimateMoodTick", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("AnimateMoodTick was not found.");
         var mascotMoods = new[]
@@ -353,6 +357,134 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
+    }
+
+    private static void AssertAccessibleStatusRegions(MainWindow window)
+    {
+        var chatActivity = window.FindName("ChatActivityStatus") as TextBlock
+            ?? throw new InvalidOperationException("ChatActivityStatus was not found.");
+        var providerStatus = window.FindName("ChatProviderStatus") as TextBlock
+            ?? throw new InvalidOperationException("ChatProviderStatus was not found.");
+        var connectionStatus = window.FindName("ConnectionStatusText") as TextBlock
+            ?? throw new InvalidOperationException("ConnectionStatusText was not found.");
+        var taskResult = window.FindName("TaskResult") as TextBox
+            ?? throw new InvalidOperationException("TaskResult was not found.");
+
+        var liveStatusNames = new[]
+        {
+            "ConnectionStatusText", "HomeResult", "ChatActivityStatus", "ChatCopyStatus",
+            "TaskResult", "TaskCopyStatus", "TaskEventsList", "SkillsResult",
+            "MemoryResult", "ProviderActionStatus"
+        };
+        foreach (var name in liveStatusNames)
+        {
+            var status = window.FindName(name) as FrameworkElement
+                ?? throw new InvalidOperationException($"Live status element '{name}' was not found.");
+            Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+                System.Windows.Automation.AutomationProperties.GetLiveSetting(status),
+                $"Live status '{name}' must use non-interruptive announcements.");
+        }
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Off,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(providerStatus),
+            "Provider setup summary must not repeat every transient chat activity announcement.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(chatActivity)),
+            "Chat activity must have a localized accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(providerStatus)),
+            "Provider status must have a separate accessible name.");
+
+        var setActivityStatus = typeof(MainWindow).GetMethod("SetChatActivityStatus", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SetChatActivityStatus was not found.");
+        var refreshProviderStatus = typeof(MainWindow).GetMethod("RefreshProviderStatus", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("RefreshProviderStatus was not found.");
+        const string marker = "activity status remains separate";
+        setActivityStatus.Invoke(window, new object[] { marker });
+        refreshProviderStatus.Invoke(window, null);
+        Assert.AreEqual(marker, BidiTextNormalizer.StripDirectionalControls(chatActivity.Text),
+            "Refreshing provider connectivity must not overwrite the chat's current activity state.");
+        Assert.AreNotEqual(marker, BidiTextNormalizer.StripDirectionalControls(providerStatus.Text),
+            "Provider connectivity must remain a separate status from chat activity.");
+        setActivityStatus.Invoke(window, new object[] { string.Empty });
+    }
+
+    private static void AssertMascotHighContrastAppearance(FloatingMascotWindow mascot)
+    {
+        var applyAppearance = typeof(FloatingMascotWindow)
+            .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(method => method.Name == "ApplySystemAccessibilityAppearance" && method.GetParameters().Length == 1);
+        var shell = mascot.FindName("Shell") as Border
+            ?? throw new InvalidOperationException("Mascot shell border was not found.");
+        var halo = mascot.FindName("GlowHalo") as FrameworkElement
+            ?? throw new InvalidOperationException("Mascot glow halo was not found.");
+        var effects = mascot.FindName("CinematicEffectsLayer") as FrameworkElement
+            ?? throw new InvalidOperationException("Mascot cinematic effects layer was not found.");
+
+        var originalBrush = shell.BorderBrush;
+        var originalThickness = shell.BorderThickness;
+        var originalEffect = shell.Effect;
+        var originalHaloVisibility = halo.Visibility;
+        var originalEffectsVisibility = effects.Visibility;
+        var systemHighContrast = SystemParameters.HighContrast;
+
+        applyAppearance.Invoke(mascot, new object[] { true });
+
+        Assert.AreEqual(new Thickness(3), shell.BorderThickness,
+            "High Contrast must give the floating mascot a visible solid outline.");
+        Assert.AreEqual(SystemColors.WindowTextColor, ((SolidColorBrush)shell.BorderBrush).Color,
+            "The mascot outline must use the Windows system text color.");
+        Assert.IsNull(shell.Effect, "High Contrast must remove the mascot's decorative shell shadow.");
+        Assert.AreEqual(Visibility.Collapsed, halo.Visibility,
+            "High Contrast must suppress the low-contrast decorative glow.");
+        Assert.AreEqual(Visibility.Collapsed, effects.Visibility,
+            "High Contrast must suppress decorative particles.");
+        
+        applyAppearance.Invoke(mascot, new object[] { systemHighContrast });
+        Assert.AreEqual(originalBrush, shell.BorderBrush, "The mascot border must restore to the system-selected appearance.");
+        Assert.AreEqual(originalThickness, shell.BorderThickness, "The mascot border thickness must restore after the forced test state.");
+        Assert.AreEqual(originalEffect, shell.Effect, "The mascot shell effect must restore after the forced test state.");
+        Assert.AreEqual(originalHaloVisibility, halo.Visibility, "The mascot glow visibility must restore after the forced test state.");
+        Assert.AreEqual(originalEffectsVisibility, effects.Visibility, "The cinematic layer visibility must restore after the forced test state.");
+    }
+
+    private static void AssertEmptyStateLocalizationAndVisibility(MainWindow window, string language)
+    {
+        var isArabic = language == "ar";
+        AssertEmptyState(window, "ChatEmptyStateText", window.ChatMessages.Count,
+            isArabic ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة." : "No messages yet. Type a message below to start the conversation.",
+            isArabic ? "حالة المحادثة الفارغة" : "Chat empty state");
+        AssertEmptyState(window, "TaskEventsEmptyStateText", window.TaskEvents.Count,
+            isArabic ? "لا يوجد سجل نشاط بعد. ابدأ مهمة لعرض أحداث تنفيذها هنا." : "No task activity yet. Start a task to see its events here.",
+            isArabic ? "حالة سجل المهام الفارغ" : "Task activity empty state");
+        AssertEmptyState(window, "RecentTasksEmptyStateText", window.RecentTasks.Count,
+            isArabic ? "لا توجد مهام سابقة بعد." : "No previous tasks yet.",
+            isArabic ? "حالة المهام السابقة الفارغة" : "Recent tasks empty state");
+        AssertEmptyState(window, "SkillsEmptyStateText", window.InstalledSkills.Count,
+            isArabic ? "لا توجد مهارات مثبتة. استورد ملف ZIP أو مجلدًا من GitHub للبدء." : "No skills installed. Import a ZIP or GitHub folder to get started.",
+            isArabic ? "حالة قائمة المهارات الفارغة" : "Skills empty state");
+        AssertEmptyState(window, "MemoryEmptyStateText", window.MemoryNotes.Count,
+            isArabic ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء." : "No saved notes. Create a note to get started.",
+            isArabic ? "حالة الذاكرة الفارغة" : "Memory empty state");
+    }
+
+    private static void AssertEmptyState(
+        MainWindow window,
+        string elementName,
+        int itemCount,
+        string expectedText,
+        string expectedAutomationName)
+    {
+        var emptyState = window.FindName(elementName) as TextBlock
+            ?? throw new InvalidOperationException($"Empty-state element '{elementName}' was not found.");
+        Assert.AreEqual(expectedText, BidiTextNormalizer.StripDirectionalControls(emptyState.Text),
+            $"Empty state '{elementName}' must be localized in the selected language.");
+        Assert.AreEqual(expectedAutomationName,
+            System.Windows.Automation.AutomationProperties.GetName(emptyState),
+            $"Empty state '{elementName}' must expose a localized UI Automation name.");
+        Assert.AreEqual(itemCount == 0 ? Visibility.Visible : Visibility.Collapsed, emptyState.Visibility,
+            $"Empty state '{elementName}' must only be visible when its source collection is empty.");
+        Assert.AreEqual(TextWrapping.Wrap, emptyState.TextWrapping,
+            $"Empty state '{elementName}' must support multiline copy at high scaling.");
     }
 
     private static void AssertStyleUsesKeyboardFocusRing(Style style, Style focusStyle, string controlName)

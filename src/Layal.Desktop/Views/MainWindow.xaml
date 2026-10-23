@@ -25,7 +25,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" KeyboardNavigation.TabNavigation="Local">
                     <Border CornerRadius="11" Background="{DynamicResource Layal.Panel}" Padding="12,8" Margin="4" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
-                        <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}" FontSize="12" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}" FontSize="12" FontWeight="SemiBold" AutomationProperties.Name="حالة اتصال المزود" AutomationProperties.LiveSetting="Polite"/>
                     </Border>
                     <Button x:Name="KeyboardHelpButton" Content="_اختصارات" Click="KeyboardHelpButton_Click" MinWidth="78" ToolTip="F1 — اختصارات لوحة المفاتيح" AutomationProperties.Name="اختصارات لوحة المفاتيح" />
                     <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="82"/>
@@ -63,7 +63,7 @@
                         <Border Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="14" Padding="16" Margin="4,8,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                             <TextBlock x:Name="HomeCaveat" Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"/>
                         </Border>
-                        <TextBlock x:Name="HomeResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="6,12,6,0"/>
+                        <TextBlock x:Name="HomeResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="6,12,6,0" AutomationProperties.Name="نتيجة الإجراء" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -75,7 +75,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <DockPanel Grid.Row="0">
                             <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="20" FontWeight="SemiBold" DockPanel.Dock="Left"/>
-                            <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="{DynamicResource Layal.Warning}" HorizontalAlignment="Right"/>
+                            <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="{DynamicResource Layal.Warning}" HorizontalAlignment="Right" AutomationProperties.Name="حالة اتصال المزود"/>
                         </DockPanel>
                         <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,7,0,0">
                             <ComboBox x:Name="ChatHistorySelector" ItemsSource="{Binding ChatConversations}" DisplayMemberPath="Title"
@@ -99,15 +99,34 @@
                                     </Border.ContextMenu>
                                     <StackPanel>
                                         <TextBlock Text="{Binding DisplayRole}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,0,5"/>
-                                        <emoji:TextBlock Text="{Binding Content}" TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" FlowDirection="{Binding Direction}"/>
+                                        <emoji:TextBlock Text="{Binding Content}" TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}"
+                                                         FlowDirection="{Binding Direction}"
+                                                         TextAlignment="{Binding Direction, Converter={StaticResource Layal.TextDirectionConverter}}"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    <TextBlock x:Name="ChatEmptyStateText" Grid.Row="1"
+                               Text="No messages yet. Type a message below to start the conversation."
+                               AutomationProperties.Name="Chat empty state"
+                               AutomationProperties.HelpText="The message list becomes populated after you send or receive a message.">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ChatMessages.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <StackPanel Grid.Row="2" Margin="4,8">
                         <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,0,0,2"/>
-                        <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                   AutomationProperties.Name="حالة المحادثة" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"
+                                   AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -140,13 +159,50 @@
                             <Grid>
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                                 <Button x:Name="CopyTaskLogButton" Grid.Row="0" Content="نسخ سجل التنفيذ" Click="CopyTaskLogButton_Click" HorizontalAlignment="Right" Margin="2,0,2,6"/>
-                                <ListBox x:Name="TaskEventsList" Grid.Row="1" ItemsSource="{Binding TaskEvents}" AutomationProperties.Name="سجل أحداث المهمة" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Text}" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                <ListBox x:Name="TaskEventsList" Grid.Row="1" ItemsSource="{Binding TaskEvents}" AutomationProperties.Name="سجل أحداث المهمة" AutomationProperties.LiveSetting="Polite" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Text}" Padding="6" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}"
+                                                       FlowDirection="{Binding Converter={StaticResource Layal.TextDirectionConverter}}"
+                                                       TextAlignment="{Binding Converter={StaticResource Layal.TextDirectionConverter}}"
+                                                       TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="TaskEventsEmptyStateText" Grid.Row="1"
+                                           Text="No task activity yet. Start a task to see its events here."
+                                           AutomationProperties.Name="Task activity empty state">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TaskEvents.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </Grid>
                         </GroupBox>
                         <GroupBox Grid.Column="1" x:Name="RecentTasksGroup" Header="المهام السابقة" Foreground="{DynamicResource Layal.Text}" BorderBrush="{DynamicResource Layal.Border}" Background="{DynamicResource Layal.Panel}" Padding="8" Margin="6,0,0,0">
-                            <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" AutomationProperties.Name="المهام السابقة" AutomationProperties.HelpText="اختر مهمة سابقة لعرض تفاصيلها." SelectionChanged="RecentTasksList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="4">
-                                <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding DisplayStatus}" Foreground="{DynamicResource Layal.Cyan}" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding DisplayUpdatedAt}" Foreground="{DynamicResource Layal.Muted}" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
-                            </ListBox>
+                            <Grid>
+                                <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" AutomationProperties.Name="المهام السابقة" AutomationProperties.HelpText="اختر مهمة سابقة لعرض تفاصيلها." SelectionChanged="RecentTasksList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="4">
+                                    <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FlowDirection="{Binding Goal, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Goal, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding DisplayStatus}" FlowDirection="{Binding DisplayStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding DisplayStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Cyan}" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding DisplayUpdatedAt}" FlowDirection="{Binding DisplayUpdatedAt, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding DisplayUpdatedAt, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="RecentTasksEmptyStateText"
+                                           Text="No previous tasks yet."
+                                           AutomationProperties.Name="Recent tasks empty state">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RecentTasks.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
                         </GroupBox>
                     </Grid>
                     <StackPanel Grid.Row="4" Margin="4,10,4,0">
@@ -156,8 +212,8 @@
                         <TextBox x:Name="TaskResult" Text="لم تُنفذ أي عملية بعد." IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                  MinHeight="68" MaxHeight="170" Padding="9" Margin="0,4,0,0"
-                                 Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Success}"/>
-                        <TextBlock x:Name="TaskCopyStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="3,3,3,0"/>
+                                 Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Success}" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock x:Name="TaskCopyStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="3,3,3,0" AutomationProperties.Name="حالة نسخ النتيجة" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -168,15 +224,28 @@
                     <TextBlock x:Name="SkillsHeading" Text="مدير المهارات" FontSize="22" FontWeight="SemiBold"/>
                     <TextBlock x:Name="SkillsDescription" Grid.Row="1" Text="استورد ZIP أو رابط GitHub لمجلد مهارة. حدد حتى 3 مهارات لاستخدام نصوصها كمراجع فقط؛ السكربتات لا تُشغّل." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,7,0,12"/>
                     <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" AutomationProperties.Name="المهارات المثبتة" AutomationProperties.HelpText="يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
-                        <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}"/><TextBlock Text="{Binding Description}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                        <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FlowDirection="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" FlowDirection="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" FlowDirection="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
+                    <TextBlock x:Name="SkillsEmptyStateText" Grid.Row="2"
+                               Text="No skills installed. Import a ZIP or GitHub folder to get started."
+                               AutomationProperties.Name="Skills empty state">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InstalledSkills.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <StackPanel Grid.Row="3" Margin="0,10,0,0">
                         <WrapPanel><Button x:Name="ImportSkillButton" Content="استيراد ZIP" Click="ImportSkillButton_Click"/><Button x:Name="RefreshSkillsButton" Content="تحديث القائمة" Click="RefreshSkillsButton_Click"/></WrapPanel>
                         <DockPanel Margin="0,7,0,0">
                             <Button x:Name="ImportGitHubSkillButton" Content="استيراد من GitHub" Click="ImportGitHubSkillButton_Click" DockPanel.Dock="Right"/>
                             <TextBox x:Name="GitHubSkillUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://github.com/owner/repo/tree/main/path/to/skill" AutomationProperties.Name="رابط مستودع المهارة / Skill repository URL" AutomationProperties.HelpText="أدخل رابط مستودع أو مجلد يحتوي على SKILL.md / Enter a repository or folder containing SKILL.md."/>
                         </DockPanel>
-                        <TextBlock x:Name="SkillsResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,5,5,0"/>
+                        <TextBlock x:Name="SkillsResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,5,5,0" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -208,7 +277,29 @@
                     </Grid>
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
-                        <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" AutomationProperties.Name="ملاحظات الذاكرة" AutomationProperties.HelpText="اختر ملاحظة لعرضها أو تعديلها." SelectionChanged="MemoryList_SelectionChanged" DisplayMemberPath="Title" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6"/>
+                        <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" AutomationProperties.Name="ملاحظات الذاكرة" AutomationProperties.HelpText="اختر ملاحظة لعرضها أو تعديلها." SelectionChanged="MemoryList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Title}"
+                                               FlowDirection="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
+                                               TextAlignment="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
+                                               TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock x:Name="MemoryEmptyStateText" Grid.Column="0"
+                                   Text="No saved notes. Create a note to get started."
+                                   AutomationProperties.Name="Memory empty state">
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MemoryNotes.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="12,0,0,0">
                             <StackPanel>
                                 <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,0,0,4"/>
@@ -220,7 +311,7 @@
                                     <Button x:Name="DeleteMemoryButton" Content="حذف" Click="DeleteMemoryButton_Click"/>
                                     <Button x:Name="ExportMemoryButton" Content="تصدير JSON" Click="ExportMemoryButton_Click"/>
                                 </WrapPanel>
-                                <TextBlock x:Name="MemoryResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                                <TextBlock x:Name="MemoryResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0" AutomationProperties.LiveSetting="Polite"/>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
@@ -244,7 +335,7 @@
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>
                         <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4"/>
                         <WrapPanel><Button x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"/><Button x:Name="TestProviderButton" Content="اختبار الاتصال" Click="TestProviderButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/><Button x:Name="DeleteKeyButton" Content="حذف المفتاح المحفوظ" Click="DeleteKeyButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/></WrapPanel>
-                        <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12"/>
+                        <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12" AutomationProperties.LiveSetting="Polite"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="AlwaysOnTopCheckbox" Content="إبقاء الشخصية فوق النوافذ الأخرى" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>

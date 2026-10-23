@@ -1,8 +1,11 @@
 <Application x:Class="Layal.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="clr-namespace:Layal.Services"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
+        <services:TextDirectionConverter x:Key="Layal.TextDirectionConverter" />
+
         <!-- Layal Calm Light design system: soft surfaces, strong text contrast, restrained accents. -->
         <Color x:Key="Layal.Color.Background">#F4F7FC</Color>
         <Color x:Key="Layal.Color.BackgroundEnd">#EEF3FB</Color>
@@ -120,6 +123,20 @@
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
             <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+
+        <!-- Reusable, readable empty-state treatment. Specific lists opt in and supply their own count trigger. -->
+        <Style x:Key="Layal.EmptyStateText" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Muted}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="18" />
+            <Setter Property="MaxWidth" Value="420" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Visibility" Value="Collapsed" />
         </Style>
 
         <Style TargetType="Button">
