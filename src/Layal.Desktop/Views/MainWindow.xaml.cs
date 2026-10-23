@@ -22,8 +22,9 @@ public partial class MainWindow : Window
     public ObservableCollection<TaskHistoryListItem> RecentTasks { get; } = new();
 
     private readonly List<string> _rawTaskEvents = new();
+    private bool _refreshingRecentTasks;
 
-    private sealed class TaskHistoryListItem
+    public sealed class TaskHistoryListItem
     {
         private readonly bool _isArabic;
 
@@ -1129,18 +1130,23 @@ public partial class MainWindow : Window
 
     private void RefreshRecentTasks(string? selectTaskId = null)
     {
-        RecentTasks.Clear();
         var previouslySelectedId = (RecentTasksList.SelectedItem as TaskHistoryListItem)?.Id;
         var idToSelect = string.IsNullOrWhiteSpace(selectTaskId) ? previouslySelectedId : selectTaskId;
-        foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30))
-            RecentTasks.Add(new TaskHistoryListItem(task, IsArabic));
-        if (!string.IsNullOrWhiteSpace(idToSelect))
-            RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == idToSelect);
+        _refreshingRecentTasks = true;
+        try
+        {
+            RecentTasks.Clear();
+            foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30))
+                RecentTasks.Add(new TaskHistoryListItem(task, IsArabic));
+            if (!string.IsNullOrWhiteSpace(idToSelect))
+                RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == idToSelect);
+        }
+        finally { _refreshingRecentTasks = false; }
     }
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
+        if (_refreshingRecentTasks || RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
         var task = selectedTask.Record;
         TaskEvents.Clear();
         _rawTaskEvents.Clear();
