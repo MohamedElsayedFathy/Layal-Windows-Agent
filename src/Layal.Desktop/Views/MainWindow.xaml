@@ -93,7 +93,7 @@
                                 <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="12" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
                                     <Border.ContextMenu>
                                         <ContextMenu>
-                                            <MenuItem Header="نسخ الرسالة / Copy message" Click="CopyChatMessage_Click"/>
+                                            <MenuItem x:Name="CopyChatMessageMenuItem" Header="نسخ الرسالة" Click="CopyChatMessage_Click"/>
                                         </ContextMenu>
                                     </Border.ContextMenu>
                                     <StackPanel>
