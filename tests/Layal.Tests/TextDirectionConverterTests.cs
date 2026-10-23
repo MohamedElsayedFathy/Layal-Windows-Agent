@@ -28,6 +28,15 @@ public sealed class TextDirectionConverterTests
     }
 
     [TestMethod]
+    public void ExistingResolvedFlowDirectionCanDriveTextAlignment()
+    {
+        Assert.AreEqual(TextAlignment.Right,
+            _converter.Convert(FlowDirection.RightToLeft, typeof(TextAlignment), parameter: null!, CultureInfo.InvariantCulture));
+        Assert.AreEqual(TextAlignment.Left,
+            _converter.Convert(FlowDirection.LeftToRight, typeof(TextAlignment), parameter: null!, CultureInfo.InvariantCulture));
+    }
+
+    [TestMethod]
     public void LatinUrlsIdentifiersAndEmptyValuesRemainLeftToRight()
     {
         Assert.AreEqual(FlowDirection.LeftToRight, Convert("https://example.test/v1"));
