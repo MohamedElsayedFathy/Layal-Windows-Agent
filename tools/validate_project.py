@@ -322,6 +322,12 @@ else:
         "RequireMultipleMonitors",
         "RequireMonitorTransition",
         "RequireDpiTransition",
+        "AcceptanceStatus",
+        "AcceptanceStatusDetail",
+        "PhysicalAcceptanceCertified",
+        "not-certified",
+        "$monitorTransitionCount -gt 0",
+        "$dpiTransitionCount -gt 0",
         "display-dpi-summary.json",
         "display-dpi-samples.csv",
     ):
