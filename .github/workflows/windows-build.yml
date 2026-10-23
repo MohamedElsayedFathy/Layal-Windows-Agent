@@ -74,6 +74,14 @@ jobs:
         run: |
           & .\\tools\\Test-LayalDisplayDpi.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -ObserveSeconds 3 -LogDirectory "artifacts/display-dpi"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $summaryPath = "artifacts/display-dpi/display-dpi-summary.json"
+          if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { throw "Display/DPI diagnostic did not write its JSON summary." }
+          $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+          if ($summary.Result -ne "passed") { throw "Display/DPI smoke diagnostic did not pass its requested checks." }
+          if ($summary.ManualVisualAcceptanceStatus -ne "pending") { throw "The diagnostic must not claim that manual visual acceptance was completed." }
+          if ($summary.MonitorCount -lt 2 -and $summary.TopologyDpiGateStatus -ne "not-certified") { throw "A single-monitor smoke run must not certify the multi-monitor DPI gate." }
+          if ($summary.TopologyDpiGateStatus -eq "passed" -and -not $summary.TopologyDpiTransitionsObserved) { throw "The topology/DPI gate is marked passed without recorded transitions." }
+          Write-Host ("Topology/DPI gate: {0}; manual visual acceptance: {1}" -f $summary.TopologyDpiGateStatus, $summary.ManualVisualAcceptanceStatus)
 
       - name: Run automated tests
         run: dotnet test Layal.sln --configuration Release --no-build --no-restore --nologo --logger "trx;LogFileName=Layal.Tests.trx" --results-directory artifacts/test-results
