@@ -346,6 +346,7 @@ public partial class MainWindow : Window
             ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة."
             : "No messages yet. Type a message below to start the conversation.";
         AutomationProperties.SetName(ChatEmptyStateText, ar ? "حالة المحادثة الفارغة" : "Chat empty state");
+        AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "أرسل رسالة أو استقبل ردًا لتظهر الرسائل في هذه القائمة." : "Send or receive a message to populate this list.");
         AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "ستظهر الرسائل هنا بعد الإرسال أو الاستلام." : "Messages appear here after you send or receive one.");
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
@@ -379,8 +380,10 @@ public partial class MainWindow : Window
             ? "لا يوجد سجل نشاط بعد. ابدأ مهمة لعرض أحداث تنفيذها هنا."
             : "No task activity yet. Start a task to see its events here.";
         AutomationProperties.SetName(TaskEventsEmptyStateText, ar ? "حالة سجل المهام الفارغ" : "Task activity empty state");
+        AutomationProperties.SetHelpText(TaskEventsEmptyStateText, ar ? "ستظهر أحداث التنفيذ هنا عند بدء مهمة." : "Task events appear here after a task starts.");
         RecentTasksEmptyStateText.Text = ar ? "لا توجد مهام سابقة بعد." : "No previous tasks yet.";
         AutomationProperties.SetName(RecentTasksEmptyStateText, ar ? "حالة المهام السابقة الفارغة" : "Recent tasks empty state");
+        AutomationProperties.SetHelpText(RecentTasksEmptyStateText, ar ? "تظهر المهام السابقة بعد تشغيل المهام وحفظ سجلاتها." : "Previous tasks appear after tasks run and their history is saved.");
         if (string.IsNullOrEmpty(TaskResult.Text)) TaskResult.Text = ar ? "لم تُنفذ أي عملية بعد." : "No operation has been run yet.";
 
         SkillsHeading.Text = ar ? "مدير المهارات" : "Skills manager";
@@ -389,6 +392,7 @@ public partial class MainWindow : Window
             ? "لا توجد مهارات مثبتة. استورد ملف ZIP أو مجلدًا من GitHub للبدء."
             : "No skills installed. Import a ZIP or GitHub folder to get started.";
         AutomationProperties.SetName(SkillsEmptyStateText, ar ? "حالة قائمة المهارات الفارغة" : "Skills empty state");
+        AutomationProperties.SetHelpText(SkillsEmptyStateText, ar ? "استخدم زري استيراد ZIP أو GitHub لإضافة مهارة." : "Use Import ZIP or Import from GitHub to add a skill.");
         ImportSkillButton.Content = ar ? "استيراد ZIP" : "Import ZIP";
         RefreshSkillsButton.Content = ar ? "تحديث القائمة" : "Refresh list";
         RecentTasksGroup.Header = ar ? "المهام السابقة" : "Recent tasks";
@@ -439,6 +443,7 @@ public partial class MainWindow : Window
             ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء."
             : "No saved notes. Create a note to get started.";
         AutomationProperties.SetName(MemoryEmptyStateText, ar ? "حالة الذاكرة الفارغة" : "Memory empty state");
+        AutomationProperties.SetHelpText(MemoryEmptyStateText, ar ? "استخدم زر ملاحظة جديدة لإضافة محتوى إلى الذاكرة." : "Use New note to add content to memory.");
         MemorySearchInput.ToolTip = ar ? "بحث في الملاحظات" : "Search memory notes";
         System.Windows.Automation.AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory notes");
         MemorySearchButton.Content = ar ? "بحث" : "Search";
