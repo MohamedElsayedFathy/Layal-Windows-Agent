@@ -214,6 +214,9 @@ for required in (
     "SystemColors.HighlightTextColor",
     "private void UpdateEmptyStateHints()",
     "private void MainWindow_Loaded(",
+    "private void AssertInitialWindowFitsWorkArea(",
+    "private void AssertEmptyStateLocalization(",
+    "private void AssertLanguageLayoutContracts(",
 ):
     if required not in main_window_code_text:
         ERRORS.append(f"Accessibility/high-contrast/responsive design behavior is missing: {required}")
