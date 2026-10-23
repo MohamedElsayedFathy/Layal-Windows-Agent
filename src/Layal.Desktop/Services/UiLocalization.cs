@@ -252,6 +252,9 @@ public static class UiLocalization
     public static string TranslateKnownFeedback(string value, bool isArabic)
     {
         value = FormatNotepadResult(value, isArabic);
+        value = isArabic
+            ? value.Replace("(Technical details:", "(التفاصيل التقنية:", StringComparison.Ordinal)
+            : value.Replace("(التفاصيل التقنية:", "(Technical details:", StringComparison.Ordinal);
 
         var copyArabicSuffix = " إلى الحافظة.";
         if (value.StartsWith("تم نسخ ", StringComparison.Ordinal) && value.EndsWith(copyArabicSuffix, StringComparison.Ordinal))
