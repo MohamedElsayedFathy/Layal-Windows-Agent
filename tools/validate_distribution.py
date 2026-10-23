@@ -19,6 +19,7 @@ args = parser.parse_args()
 required_source_files = [
     "installer/Layal.iss",
     "tools/Build-LayalDistribution.ps1",
+    "BUILD-DISTRIBUTION.bat",
     "tools/Test-LayalInstaller.ps1",
     "docs/DISTRIBUTION_AR.md",
     ".github/workflows/windows-build.yml",
@@ -85,7 +86,7 @@ if "-RunInstallerLifecycleTests" not in workflow or "artifacts/distribution/**/*
     errors.append("Windows CI must run installer lifecycle tests and upload the distribution artifact.")
 if "<Version>" not in project:
     errors.append("Could not find a source version to bind distribution artifacts.")
-if "NOT SIGNED" not in doc or "SBOM" not in doc or "القبول اليدوي" not in doc:
+if "التوقيع الرقمي" not in doc or "SBOM" not in doc or "القبول اليدوي" not in doc:
     errors.append("Distribution documentation must state signing, SBOM/license, and manual acceptance limitations.")
 
 print("Layal distribution source validation")
