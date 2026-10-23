@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
@@ -57,7 +58,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SystemParameters.StaticPropertyChanged += SystemParameters_StaticPropertyChanged;
         DataContext = this;
+        ChatMessages.CollectionChanged += (_, _) => UpdateEmptyStateHints();
+        TaskEvents.CollectionChanged += (_, _) => UpdateEmptyStateHints();
+        RecentTasks.CollectionChanged += (_, _) => UpdateEmptyStateHints();
+        InstalledSkills.CollectionChanged += (_, _) => UpdateEmptyStateHints();
+        MemoryNotes.CollectionChanged += (_, _) => UpdateEmptyStateHints();
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         ModelInput.Text = AppRuntime.Settings.ModelId;
         AlwaysOnTopCheckbox.IsChecked = AppRuntime.Settings.MascotAlwaysOnTop;
@@ -87,6 +94,72 @@ public partial class MainWindow : Window
         RefreshProviderStatus();
     }
 
+    private void SystemParameters_StaticPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Re-evaluate only when High Contrast changes or while it is enabled and its
+        // system color scheme is being updated.
+        if (!SystemParameters.HighContrast &&
+            !string.Equals(e.PropertyName, nameof(SystemParameters.HighContrast), StringComparison.Ordinal))
+            return;
+
+        if (Dispatcher.CheckAccess())
+            ApplyTheme();
+        else
+            Dispatcher.BeginInvoke(new Action(ApplyTheme));
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        SystemParameters.StaticPropertyChanged -= SystemParameters_StaticPropertyChanged;
+        base.OnClosed(e);
+    }
+
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Keep the initial window inside a usable work area on small/high-DPI displays.
+        // WorkArea and WPF Width/Height are measured in device-independent units.
+        var workArea = SystemParameters.WorkArea;
+        if (workArea.Width <= 0 || workArea.Height <= 0)
+            return;
+
+        var availableWidth = Math.Max(480d, workArea.Width - 32d);
+        var availableHeight = Math.Max(380d, workArea.Height - 32d);
+        MinWidth = Math.Min(MinWidth, availableWidth);
+        MinHeight = Math.Min(MinHeight, availableHeight);
+        Width = Math.Min(Width, availableWidth);
+        Height = Math.Min(Height, availableHeight);
+    }
+
+    private void UpdateEmptyStateHints()
+    {
+        if (ChatEmptyState is null)
+            return;
+
+        var ar = IsArabic;
+        SetHint(ChatEmptyState, ChatMessages.Count == 0,
+            ar ? "لا توجد رسائل بعد. اكتب رسالة بالأسفل للبدء." : "No messages yet. Type below to start.",
+            ar ? "حالة المحادثة الفارغة" : "Empty chat state");
+        SetHint(TaskEventsEmptyState, TaskEvents.Count == 0,
+            ar ? "سيظهر سجل النشاط هنا بعد بدء مهمة." : "Task activity will appear here after a task starts.",
+            ar ? "سجل مهمة فارغ" : "Empty task activity");
+        SetHint(RecentTasksEmptyState, RecentTasks.Count == 0,
+            ar ? "لا توجد مهام محفوظة بعد." : "No saved tasks yet.",
+            ar ? "لا توجد مهام محفوظة" : "No saved tasks");
+        SetHint(SkillsEmptyState, InstalledSkills.Count == 0,
+            ar ? "لا توجد مهارات مثبتة. استورد ZIP أو رابط GitHub للبدء." : "No skills installed. Import a ZIP or GitHub URL to get started.",
+            ar ? "لا توجد مهارات مثبتة" : "No installed skills");
+        SetHint(MemoryEmptyState, MemoryNotes.Count == 0,
+            ar ? "لا توجد ملاحظات مطابقة. أنشئ ملاحظة جديدة أو غيّر عبارة البحث." : "No matching notes. Create a note or change your search.",
+            ar ? "لا توجد ملاحظات مطابقة" : "No matching memory notes");
+
+        static void SetHint(TextBlock target, bool visible, string message, string accessibleName)
+        {
+            target.Text = message;
+            target.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            AutomationProperties.SetName(target, accessibleName);
+        }
+    }
+
     public void ShowFromTray()
     {
         if (!IsVisible) Show();
@@ -100,7 +173,11 @@ public partial class MainWindow : Window
     private static System.Windows.Media.Brush ThemeBrush(string key, System.Windows.Media.Brush fallback) =>
         Application.Current.TryFindResource(key) as System.Windows.Media.Brush ?? fallback;
 
-    private void ApplyTheme()
+    private void ApplyTheme() => ApplyThemeCore(SystemParameters.HighContrast);
+
+    // Kept separate so the visual smoke test can exercise the high-contrast resource map
+    // even when the CI runner itself is not configured with a Windows contrast theme.
+    private void ApplyThemeCore(bool highContrast)
     {
         // Replace the theme brushes and gradients themselves, not only their source colors.
         // DynamicResource consumers then receive the replacement even if a control was
@@ -123,6 +200,7 @@ public partial class MainWindow : Window
             ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
             ["Layal.Color.Danger"] = dark ? "#FF91A8" : "#BD3C55",
             ["Layal.Color.Focus"] = dark ? "#7C93D5" : "#AFC8F7",
+            ["Layal.Color.HighlightText"] = dark ? "#FFFFFF" : "#1C2940",
             ["Layal.Color.HeaderStart"] = dark ? "#E6202D43" : "#EAF0F7FF",
             ["Layal.Color.HeaderMiddle"] = dark ? "#DE1B2233" : "#FAFFFFFF",
             ["Layal.Color.HeaderEnd"] = dark ? "#E42C2542" : "#EAF3EEFF",
@@ -143,6 +221,56 @@ public partial class MainWindow : Window
             ["Layal.Color.HoverSurface"] = dark ? "#2C3B50" : "#E8F5F7",
             ["Layal.Color.Shadow"] = dark ? "#080B13" : "#A8B9D6"
         };
+
+
+        if (highContrast)
+        {
+            // Use the active Windows contrast scheme as the source of truth. The gradient
+            // stops intentionally collapse to system colors so decorative gradients do not
+            // dilute text or control contrast.
+            var window = SystemColors.WindowColor.ToString();
+            var windowText = SystemColors.WindowTextColor.ToString();
+            var control = SystemColors.ControlColor.ToString();
+            var highlight = SystemColors.HighlightColor.ToString();
+            var highlightText = SystemColors.HighlightTextColor.ToString();
+
+            foreach (var key in new[]
+            {
+                "Layal.Color.Background", "Layal.Color.BackgroundEnd",
+                "Layal.Color.Surface", "Layal.Color.SurfaceRaised",
+                "Layal.Color.HeaderStart", "Layal.Color.HeaderMiddle", "Layal.Color.HeaderEnd",
+                "Layal.Color.CardStart", "Layal.Color.CardEnd", "Layal.Color.InputFocus"
+            })
+                palette[key] = window;
+
+            foreach (var key in new[]
+            {
+                "Layal.Color.SurfaceHover", "Layal.Color.NavHover",
+                "Layal.Color.ListHover", "Layal.Color.ButtonStart", "Layal.Color.ButtonEnd",
+                "Layal.Color.DangerSurface", "Layal.Color.HoverSurface"
+            })
+                palette[key] = control;
+
+            foreach (var key in new[]
+            {
+                "Layal.Color.Border", "Layal.Color.Text", "Layal.Color.Muted",
+                "Layal.Color.ScrollThumb", "Layal.Color.Purple", "Layal.Color.Success",
+                "Layal.Color.Warning", "Layal.Color.Danger", "Layal.Color.BrandBorder",
+                "Layal.Color.DangerBorder", "Layal.Color.Shadow"
+            })
+                palette[key] = windowText;
+
+            foreach (var key in new[]
+            {
+                "Layal.Color.Cyan", "Layal.Color.Focus", "Layal.Color.BrandDot",
+                "Layal.Color.NavSelectedBorder"
+            })
+                palette[key] = highlight;
+
+            palette["Layal.Color.NavSelected"] = highlight;
+            palette["Layal.Color.ListSelected"] = highlight;
+            palette["Layal.Color.HighlightText"] = highlightText;
+        }
 
         var colors = new Dictionary<string, Color>(StringComparer.Ordinal);
         foreach (var (key, value) in palette)
@@ -169,6 +297,7 @@ public partial class MainWindow : Window
         SetSolidBrush("Layal.Warning", "Layal.Color.Warning");
         SetSolidBrush("Layal.Danger", "Layal.Color.Danger");
         SetSolidBrush("Layal.Focus", "Layal.Color.Focus");
+        SetSolidBrush("Layal.HighlightText", "Layal.Color.HighlightText");
         SetSolidBrush("Layal.White", "Layal.Color.Surface");
         SetSolidBrush("Layal.BrandBorder", "Layal.Color.BrandBorder");
         SetSolidBrush("Layal.DecorativeAmber", "Layal.Color.BrandDot");
@@ -210,9 +339,9 @@ public partial class MainWindow : Window
         Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
         {
             Color = colors["Layal.Color.Shadow"],
-            BlurRadius = 24,
-            ShadowDepth = 2,
-            Opacity = 0.14
+            BlurRadius = highContrast ? 0 : 24,
+            ShadowDepth = highContrast ? 0 : 2,
+            Opacity = highContrast ? 0 : 0.14
         };
     }
 
@@ -638,6 +767,7 @@ public partial class MainWindow : Window
             IsArabic ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+        UpdateEmptyStateHints();
     }
 
     private void LanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage(IsArabic ? "en" : "ar");
