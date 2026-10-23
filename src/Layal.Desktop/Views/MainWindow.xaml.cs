@@ -57,6 +57,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SystemEvents.UserPreferenceChanged += MainWindow_UserPreferenceChanged;
+        Closed += MainWindow_Closed;
         DataContext = this;
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         ModelInput.Text = AppRuntime.Settings.ModelId;
@@ -105,44 +107,8 @@ public partial class MainWindow : Window
         // Replace the theme brushes and gradients themselves, not only their source colors.
         // DynamicResource consumers then receive the replacement even if a control was
         // constructed before the user switched themes.
-        var dark = IsDarkTheme;
-        var palette = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["Layal.Color.Background"] = dark ? "#111521" : "#F4F7FC",
-            ["Layal.Color.BackgroundEnd"] = dark ? "#171B2B" : "#EEF3FB",
-            ["Layal.Color.Surface"] = dark ? "#1B2233" : "#FFFFFF",
-            ["Layal.Color.SurfaceRaised"] = dark ? "#232B3D" : "#FAFBFF",
-            ["Layal.Color.SurfaceHover"] = dark ? "#2B354A" : "#EDF3FA",
-            ["Layal.Color.Border"] = dark ? "#3A465E" : "#DCE5F0",
-            ["Layal.Color.Cyan"] = dark ? "#76DFE8" : "#087B8F",
-            ["Layal.Color.Purple"] = dark ? "#B6A5FF" : "#7563D6",
-            ["Layal.Color.Text"] = dark ? "#EDF2FF" : "#1C2940",
-            ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#5D6D84",
-            ["Layal.Color.ScrollThumb"] = dark ? "#50617A" : "#9BAEC7",
-            ["Layal.Color.Success"] = dark ? "#73DEAA" : "#177A57",
-            ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
-            ["Layal.Color.Danger"] = dark ? "#FF91A8" : "#BD3C55",
-            ["Layal.Color.Focus"] = dark ? "#7C93D5" : "#AFC8F7",
-            ["Layal.Color.HeaderStart"] = dark ? "#E6202D43" : "#EAF0F7FF",
-            ["Layal.Color.HeaderMiddle"] = dark ? "#DE1B2233" : "#FAFFFFFF",
-            ["Layal.Color.HeaderEnd"] = dark ? "#E42C2542" : "#EAF3EEFF",
-            ["Layal.Color.CardStart"] = dark ? "#E5222B3F" : "#F4FFFFFF",
-            ["Layal.Color.CardEnd"] = dark ? "#DE1B2335" : "#EEF8FAFF",
-            ["Layal.Color.ButtonStart"] = dark ? "#326B78" : "#A3E3E7",
-            ["Layal.Color.ButtonEnd"] = dark ? "#594C84" : "#C8C0F7",
-            ["Layal.Color.BrandBorder"] = dark ? "#4C8F9B" : "#B9E6EB",
-            ["Layal.Color.BrandDot"] = dark ? "#FFD36E" : "#E8B451",
-            ["Layal.Color.DangerSurface"] = dark ? "#452735" : "#FBECEF",
-            ["Layal.Color.DangerBorder"] = dark ? "#794154" : "#E9C3CC",
-            ["Layal.Color.NavSelected"] = dark ? "#283B50" : "#E2F2F6",
-            ["Layal.Color.NavSelectedBorder"] = dark ? "#4F8190" : "#C6E8ED",
-            ["Layal.Color.NavHover"] = dark ? "#242F43" : "#F0F5FC",
-            ["Layal.Color.ListHover"] = dark ? "#263247" : "#F0F6FC",
-            ["Layal.Color.ListSelected"] = dark ? "#2C4155" : "#E3F3F6",
-            ["Layal.Color.InputFocus"] = dark ? "#222E43" : "#FBFDFF",
-            ["Layal.Color.HoverSurface"] = dark ? "#2C3B50" : "#E8F5F7",
-            ["Layal.Color.Shadow"] = dark ? "#080B13" : "#A8B9D6"
-        };
+        var highContrast = SystemParameters.HighContrast;
+        var palette = UiThemePalette.Create(IsDarkTheme, highContrast);
 
         var colors = new Dictionary<string, Color>(StringComparer.Ordinal);
         foreach (var (key, value) in palette)
@@ -214,6 +180,44 @@ public partial class MainWindow : Window
             ShadowDepth = 2,
             Opacity = 0.14
         };
+
+        if (highContrast)
+        {
+            // High Contrast is controlled by Windows and must override app-authored gradients,
+            // shadows and accent surfaces rather than merely recoloring their source stops.
+            var systemSurface = new SolidColorBrush(SystemColors.WindowColor);
+            Application.Current.Resources["Layal.Background"] = systemSurface;
+            Application.Current.Resources["Layal.HeaderGradient"] = systemSurface;
+            Application.Current.Resources["Layal.CardGradient"] = systemSurface;
+            Application.Current.Resources["Layal.PrimaryButtonGradient"] = systemSurface;
+            Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
+            {
+                Color = SystemColors.WindowTextColor,
+                BlurRadius = 0,
+                ShadowDepth = 0,
+                Opacity = 0
+            };
+        }
+    }
+
+    private void MainWindow_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        // Windows raises this notification outside the WPF dispatcher. Reapply after system
+        // accessibility/color changes so High Contrast works without restarting Layal.
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (IsLoaded && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+                ApplyTheme();
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        SystemEvents.UserPreferenceChanged -= MainWindow_UserPreferenceChanged;
+        Closed -= MainWindow_Closed;
     }
 
     private void ApplyLanguage()
