@@ -1,0 +1,468 @@
+#!/usr/bin/env python3
+"""Validate the curated third-party license inventory and optionally a CycloneDX SBOM."""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parent.parent
+MANIFEST = ROOT / "docs/THIRD_PARTY_LICENSES.json"
+APP_PROJECT = ROOT / "src/Layal.Desktop/Layal.Desktop.csproj"
+NOTICES = ROOT / "docs/THIRD_PARTY_NOTICES.md"
+PROJECT_STATUS = ROOT / "docs/PROJECT_LICENSE_STATUS_AR.md"
+ERRORS: list[str] = []
+WARNINGS: list[str] = []
+
+
+def read_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        ERRORS.append(f"Could not read valid JSON from {path.name}: {exc}")
+        return None
+
+
+def normalize_license(value: str) -> str:
+    token = re.sub(r"[^A-Z0-9]+", "", value.upper())
+    if "WTFPL" in token or "DOWHATTHEFUCKYOUWANT" in token:
+        return "WTFPL"
+    if token == "MIT" or ("MIT" in token and "LICENSE" in token):
+        return "MIT"
+    return token
+
+
+def get_package_id(component: dict[str, Any]) -> str:
+    purl = str(component.get("purl") or "")
+    match = re.match(r"pkg:nuget/([^@?]+)", purl, re.IGNORECASE)
+    if match:
+        return match.group(1).replace("%2f", "/").lower()
+    return str(component.get("name") or "").lower()
+
+
+def component_licenses(component: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    expression = component.get("licenseExpression")
+    if isinstance(expression, str) and expression.strip():
+        values.append(expression.strip())
+    for entry in component.get("licenses") or []:
+        if not isinstance(entry, dict):
+            continue
+        if isinstance(entry.get("expression"), str):
+            values.append(entry["expression"])
+        license_obj = entry.get("license")
+        if isinstance(license_obj, dict):
+            for field in ("id", "name"):
+                if isinstance(license_obj.get(field), str):
+                    values.append(license_obj[field])
+    return list(dict.fromkeys(values))
+
+
+def enrich_missing_license_metadata(
+    components: list[dict[str, Any]],
+    packages: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Fill absent CycloneDX license fields from the reviewed inventory, with source properties."""
+    enriched: list[str] = []
+    for component in components:
+        if component_licenses(component):
+            continue
+        package_id = get_package_id(component)
+        entry = packages.get(package_id)
+        expression = str(entry.get("licenseExpression") or "").strip() if entry else ""
+        if not expression:
+            continue
+
+        # Preserve the distinction between technical SBOM metadata and legal release approval.
+        component["licenses"] = [{"expression": expression}]
+        properties = component.get("properties")
+        if not isinstance(properties, list):
+            properties = []
+            component["properties"] = properties
+        for property_name, property_value in (
+            ("layal:license-metadata-source", str(entry.get("sourceUrl") or "")),
+            ("layal:license-metadata-license-url", str(entry.get("licenseUrl") or "")),
+            ("layal:license-metadata-status", "derived from curated inventory; human legal review still required"),
+        ):
+            if property_value and not any(
+                isinstance(item, dict) and item.get("name") == property_name
+                for item in properties
+            ):
+                properties.append({"name": property_name, "value": property_value})
+        enriched.append(f"{entry.get('id') or package_id} ({expression})")
+    return enriched
+
+
+def release_clearance_errors(
+    document: Any,
+    packages: dict[str, dict[str, Any]],
+    components: list[dict[str, Any]],
+    sbom_provided: bool,
+) -> list[str]:
+    """Return fail-closed legal/provenance issues for an explicitly approved public release."""
+    problems: list[str] = []
+    if not isinstance(document, dict):
+        return ["Release clearance requires a valid license/provenance manifest."]
+
+    project = document.get("projectLicense")
+    if not isinstance(project, dict):
+        project = {}
+    if project.get("status") != "DECLARED":
+        problems.append("Project-wide license is not declared by the rights holder.")
+    if project.get("releaseBlocker") is not False:
+        problems.append("Project license still declares a release blocker.")
+    for field in ("approvedBy", "approvalDate", "approvalEvidence"):
+        if not str(project.get(field) or "").strip():
+            problems.append(f"Project license release clearance is missing {field}.")
+
+    if not packages:
+        problems.append("Release clearance requires a non-empty third-party package inventory.")
+    for key, entry in sorted(packages.items()):
+        label = str(entry.get("id") or key)
+        status = str(entry.get("reviewStatus") or "")
+        if (
+            not status.strip()
+            or "pending" in status.lower()
+            or not any(term in status.lower() for term in ("approved", "reviewed", "cleared"))
+        ):
+            problems.append(f"{label}: human license review is not explicitly approved.")
+        for field in ("reviewedBy", "reviewedOn", "reviewEvidence"):
+            if not str(entry.get(field) or "").strip():
+                problems.append(f"{label}: release clearance is missing {field}.")
+
+    assets = document.get("assetsRequiringProvenanceReview")
+    if not isinstance(assets, list) or not assets:
+        problems.append("Release clearance requires explicit asset-provenance records.")
+        assets = []
+    for asset in assets:
+        if not isinstance(asset, dict):
+            problems.append("Release clearance contains a malformed asset-provenance entry.")
+            continue
+        path = str(asset.get("path") or "(missing path)")
+        if asset.get("status") != "REVIEWED":
+            problems.append(f"{path}: source, license, and redistribution rights are not approved.")
+        source_record = asset.get("sourceUrl") or asset.get("sourceDescription") or asset.get("originDescription")
+        if not str(source_record or "").strip():
+            problems.append(f"{path}: asset provenance is missing sourceUrl/sourceDescription.")
+        license_record = asset.get("licenseExpression") or asset.get("license")
+        if not str(license_record or "").strip():
+            problems.append(f"{path}: asset provenance is missing licenseExpression/license.")
+        if not str(asset.get("redistributionPermission") or "").strip():
+            problems.append(f"{path}: explicit redistribution permission is missing.")
+        for field in ("reviewedBy", "reviewedOn", "evidence"):
+            if not str(asset.get(field) or "").strip():
+                problems.append(f"{path}: provenance clearance is missing {field}.")
+
+    if sbom_provided:
+        if not components:
+            problems.append("Release clearance requires a non-empty CycloneDX SBOM.")
+        for component in components:
+            if not component_licenses(component):
+                problems.append(
+                    f"{component.get('name', 'Unknown component')}: SBOM license metadata is missing; "
+                    "resolve it before public distribution."
+                )
+    return problems
+
+
+def direct_dependencies() -> set[str]:
+    try:
+        project = ET.parse(APP_PROJECT).getroot()
+    except (OSError, ET.ParseError) as exc:
+        ERRORS.append(f"Could not parse application project file: {exc}")
+        return set()
+    return {
+        item.attrib.get("Include", "").lower()
+        for item in project.findall(".//PackageReference")
+        if item.attrib.get("Include")
+    }
+
+
+def validate_manifest(document: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(document, dict) or document.get("schemaVersion") != 1:
+        ERRORS.append("License manifest schemaVersion must be 1.")
+        return {}
+
+    project = document.get("projectLicense")
+    if not isinstance(project, dict):
+        ERRORS.append("Manifest must explicitly state the project license status.")
+        project = {}
+    state = project.get("status")
+    if state == "UNDECLARED":
+        if not project.get("releaseBlocker"):
+            ERRORS.append("An undeclared project license must remain a release blocker.")
+    elif state == "DECLARED":
+        if project.get("releaseBlocker"):
+            ERRORS.append("A declared project license cannot remain blocked in the manifest.")
+        license_file = ROOT / "LICENSE"
+        if not license_file.is_file() or not license_file.read_text(encoding="utf-8").strip():
+            ERRORS.append("Project license status is DECLARED but root LICENSE is missing or empty.")
+    else:
+        ERRORS.append("Project license status must be UNDECLARED or DECLARED.")
+
+    entries = document.get("packages")
+    if not isinstance(entries, list) or not entries:
+        ERRORS.append("License manifest must list third-party packages.")
+        return {}
+
+    packages: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            ERRORS.append("Malformed third-party package entry.")
+            continue
+        name = str(entry.get("id") or "").strip()
+        if not name:
+            ERRORS.append("Third-party package entry has no id.")
+            continue
+        key = name.lower()
+        if key in packages:
+            ERRORS.append(f"Duplicate license manifest package: {name}")
+            continue
+        packages[key] = entry
+        for field in ("licenseExpression", "sourceUrl", "licenseUrl", "licenseTextPath", "reviewStatus"):
+            if not str(entry.get(field) or "").strip():
+                ERRORS.append(f"{name} is missing required license metadata: {field}")
+        license_path = ROOT / str(entry.get("licenseTextPath") or "")
+        if not license_path.is_file():
+            ERRORS.append(f"License text missing for {name}: {entry.get('licenseTextPath')}")
+        if not str(entry.get("reviewStatus", "")).lower().endswith("pending."):
+            WARNINGS.append(f"{name}: human legal review is not explicitly recorded as pending.")
+
+    assets = document.get("assetsRequiringProvenanceReview")
+    if not isinstance(assets, list) or not assets:
+        ERRORS.append("Asset provenance review list must not be empty until reviewed.")
+        assets = []
+    for asset in assets:
+        if not isinstance(asset, dict):
+            ERRORS.append("Malformed asset provenance entry.")
+            continue
+        path = str(asset.get("path") or "")
+        status = asset.get("status")
+        if not path or not (ROOT / path).is_file():
+            ERRORS.append(f"Asset in provenance register is missing: {path}")
+        if status not in {"PROVENANCE_REVIEW_REQUIRED", "REVIEWED"}:
+            ERRORS.append(f"Invalid provenance status for asset {path}: {status}")
+        if status == "REVIEWED" and not str(asset.get("evidence") or "").strip():
+            ERRORS.append(f"Reviewed asset requires provenance/permission evidence: {path}")
+
+    expected_assets = {
+        "src/Layal.Desktop/Assets/layal-mascot-modern-preview.png",
+        "src/Layal.Desktop/Assets/layal-mascot-reference.png",
+        "src/Layal.Desktop/Assets/layal-tray.ico",
+    }
+    listed_assets = {item.get("path") for item in assets if isinstance(item, dict)}
+    for path in sorted(expected_assets - listed_assets):
+        ERRORS.append(f"Asset provenance register is missing: {path}")
+    asset_root = ROOT / "src/Layal.Desktop/Assets"
+    if asset_root.is_dir():
+        for asset_file in sorted(item for item in asset_root.rglob("*") if item.is_file()):
+            relative_asset = asset_file.relative_to(ROOT).as_posix()
+            if relative_asset not in listed_assets:
+                ERRORS.append(f"Asset provenance register is missing newly added asset: {relative_asset}")
+
+    for required in (NOTICES, PROJECT_STATUS, ROOT / "licenses/PROJECT-LICENSE-STATUS.md"):
+        if not required.is_file():
+            ERRORS.append(f"Required license notice/status file is missing: {required.relative_to(ROOT)}")
+    if NOTICES.is_file():
+        notice_text = NOTICES.read_text(encoding="utf-8").lower()
+        for name in packages:
+            if name not in notice_text:
+                ERRORS.append(f"Third-party notices do not mention package {name}.")
+    if PROJECT_STATUS.is_file():
+        project_status_text = PROJECT_STATUS.read_text(encoding="utf-8")
+        declared_status = isinstance(document, dict) and document.get("projectLicense", {}).get("status") == "DECLARED"
+        if declared_status and "لم تُحدَّد رخصة" in project_status_text:
+            ERRORS.append("Project license status document still claims the project license is undecided.")
+        if not declared_status and "لم تُحدَّد رخصة" not in project_status_text:
+            ERRORS.append("Project license status document must explain that the project license is undecided.")
+
+    for dependency in sorted(direct_dependencies()):
+        if dependency not in packages:
+            ERRORS.append(f"Direct app dependency is absent from the license manifest: {dependency}.")
+    return packages
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest-only", action="store_true", help="Validate static notices without an SBOM.")
+    parser.add_argument("--sbom", type=Path, help="CycloneDX JSON SBOM to compare against the inventory.")
+    parser.add_argument(
+        "--enrich-sbom-license-metadata",
+        action="store_true",
+        help="Fill missing CycloneDX license fields from the curated package inventory and record metadata-source properties; this does not grant legal clearance.",
+    )
+    parser.add_argument("--report", type=Path, help="Write a Markdown report.")
+    parser.add_argument("--require-project-license", action="store_true", help="Fail unless the rights holder declared a project license.")
+    parser.add_argument(
+        "--require-release-clearance",
+        action="store_true",
+        help="Fail closed unless the project license, every package review, asset provenance, and supplied SBOM license metadata have explicit evidence.",
+    )
+    args = parser.parse_args()
+    if not args.manifest_only and args.sbom is None:
+        parser.error("provide --manifest-only or --sbom")
+    if args.enrich_sbom_license_metadata and args.sbom is None:
+        parser.error("--enrich-sbom-license-metadata requires --sbom")
+
+    document = read_json(MANIFEST)
+    packages = validate_manifest(document)
+    components: list[dict[str, Any]] = []
+    sbom_label = "not provided"
+    enriched_components: list[str] = []
+    if args.sbom is not None:
+        sbom_path = args.sbom if args.sbom.is_absolute() else ROOT / args.sbom
+        sbom_label = str(sbom_path)
+        bom = read_json(sbom_path)
+        if not isinstance(bom, dict) or bom.get("bomFormat") != "CycloneDX":
+            ERRORS.append("SBOM is not valid CycloneDX JSON.")
+        else:
+            raw = bom.get("components")
+            if not isinstance(raw, list) or not raw:
+                ERRORS.append("CycloneDX SBOM contains no components.")
+            else:
+                components = [item for item in raw if isinstance(item, dict)]
+
+        if args.enrich_sbom_license_metadata and isinstance(bom, dict) and components:
+            enriched_components = enrich_missing_license_metadata(components, packages)
+            if enriched_components:
+                try:
+                    sbom_path.write_text(
+                        json.dumps(bom, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                except OSError as exc:
+                    ERRORS.append(f"Could not write enriched CycloneDX SBOM: {exc}")
+                    enriched_components = []
+
+        seen: set[str] = set()
+        for component in components:
+            name = get_package_id(component)
+            if not name:
+                ERRORS.append(f"SBOM component has no package name or NuGet purl: {component.get('name')}")
+                continue
+            seen.add(name)
+            entry = packages.get(name)
+            if entry is None:
+                ERRORS.append(
+                    f"SBOM contains unmapped package {component.get('name')} "
+                    f"(version {component.get('version', 'unknown')}); review and add it to the inventory."
+                )
+                continue
+            expected = normalize_license(str(entry.get("licenseExpression") or ""))
+            observed = component_licenses(component)
+            if observed and expected not in {normalize_license(value) for value in observed}:
+                ERRORS.append(
+                    f"License mismatch for {entry['id']} {component.get('version', '')}: "
+                    f"inventory={entry.get('licenseExpression')}, SBOM={observed}."
+                )
+            elif not observed:
+                message = (
+                    f"{entry['id']} {component.get('version', '')}: SBOM omits a license field; "
+                    "the inventory relies on cited upstream package metadata."
+                )
+                if args.require_release_clearance:
+                    ERRORS.append(message)
+                else:
+                    WARNINGS.append(message)
+        for dependency in sorted(direct_dependencies()):
+            if dependency not in seen:
+                ERRORS.append(f"Direct app package missing from product SBOM: {dependency}.")
+
+    if args.require_project_license and not args.require_release_clearance and (
+        not isinstance(document, dict) or document.get("projectLicense", {}).get("status") != "DECLARED"
+    ):
+        ERRORS.append("Project-wide license has not been declared by the rights holder.")
+
+    if args.require_release_clearance:
+        ERRORS.extend(
+            release_clearance_errors(document, packages, components, args.sbom is not None)
+        )
+
+    status = document.get("projectLicense", {}).get("status", "UNKNOWN") if isinstance(document, dict) else "UNKNOWN"
+    asset_items = document.get("assetsRequiringProvenanceReview", []) if isinstance(document, dict) else []
+    pending_assets = [
+        item.get("path") for item in asset_items
+        if isinstance(item, dict) and item.get("status") != "REVIEWED"
+    ]
+    lines = [
+        "# Layal license inventory audit",
+        "",
+        f"- Project license status: {status}",
+        f"- SBOM: {sbom_label}",
+        f"- Third-party packages in inventory: {len(packages)}",
+        f"- SBOM components inspected: {len(components)}",
+        f"- SBOM components enriched from inventory: {len(enriched_components)}",
+        f"- Asset provenance reviews still open: {len(pending_assets)}",
+        "",
+        "## Package inventory",
+        "",
+        "| Package ID | Resolved SBOM version | Declared license | Source | Review status |",
+        "|---|---|---|---|---|",
+    ]
+    versions = {get_package_id(item): str(item.get("version") or "not present in this SBOM") for item in components}
+    for key, entry in sorted(packages.items()):
+        lines.append(
+            f"| {entry['id']} | {versions.get(key, 'not present in product SBOM')} "
+            f"| {entry['licenseExpression']} | [Upstream package]({entry['sourceUrl']}) "
+            f"| {entry['reviewStatus']} |"
+        )
+    open_gates: list[str] = []
+    project_record = document.get("projectLicense", {}) if isinstance(document, dict) else {}
+    if project_record.get("status") != "DECLARED" or project_record.get("releaseBlocker") is not False:
+        open_gates.append("The rights holder has not declared and approved a project-wide license.")
+    if pending_assets:
+        open_gates.append("Asset provenance and redistribution permissions remain unverified for: " + ", ".join(str(p) for p in pending_assets))
+    pending_package_reviews = [
+        str(entry.get("id") or key)
+        for key, entry in packages.items()
+        if "pending" in str(entry.get("reviewStatus") or "").lower()
+        or not str(entry.get("reviewEvidence") or "").strip()
+    ]
+    if pending_package_reviews:
+        open_gates.append("Human license review evidence is incomplete for packages: " + ", ".join(pending_package_reviews))
+    missing_sbom_license = [
+        str(component.get("name") or "unknown component")
+        for component in components
+        if not component_licenses(component)
+    ]
+    if missing_sbom_license:
+        open_gates.append("SBOM license fields are missing for: " + ", ".join(missing_sbom_license))
+    lines += ["", "## Release gates", ""]
+    lines.extend([f"- {gate}" for gate in open_gates] or ["- No manifest-declared release gate is open."])
+    lines += [
+        "",
+        "This inventory is not legal advice. Human approval must be accurate, evidence-backed, and supplied by the rights holder/reviewer.",
+        "",
+        "## Warnings",
+        "",
+    ]
+    lines.extend([f"- {warning}" for warning in WARNINGS] or ["- None."])
+    has_open_gates = bool(open_gates)
+    validation_label = "FAIL" if ERRORS else ("PASS WITH OPEN LEGAL GATES" if has_open_gates else "PASS")
+    if args.require_release_clearance and not ERRORS and args.sbom is None:
+        validation_label = "PASS (MANIFEST CLEARANCE ONLY)"
+    lines += ["", "## Validation result", "", f"**{validation_label}**", ""]
+    lines.extend([f"- ERROR: {error}" for error in ERRORS])
+    if args.report:
+        report = args.report if args.report.is_absolute() else ROOT / args.report
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(f"License audit report: {report}")
+    print(f"License inventory: {validation_label}")
+    print(f"SBOM components inspected: {len(components)}")
+    if enriched_components:
+        print("SBOM license metadata enriched from curated inventory: " + "; ".join(enriched_components))
+        print("NOTE: enrichment is metadata completion only; human legal review remains independently required.")
+    for warning in WARNINGS:
+        print("WARNING:", warning)
+    for error in ERRORS:
+        print("ERROR:", error)
+    return 1 if ERRORS else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

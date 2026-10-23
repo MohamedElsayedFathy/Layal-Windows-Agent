@@ -1,0 +1,95 @@
+name: Security and supply-chain checks
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    - cron: "15 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Scan Git commit range for exposed secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      # GITLEAKS_LICENSE is required for organization-owned repositories,
+      # but not for this personal repository.
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_VERSION: "8.30.1"
+
+      - name: Scan all fetched Git history for exposed secrets
+        shell: bash
+        run: |
+          mkdir -p artifacts/security
+          GITLEAKS_BIN="/tmp/gitleaks-8.30.1/gitleaks"
+          if [ ! -x "$GITLEAKS_BIN" ]; then
+            GITLEAKS_BIN="$(command -v gitleaks || true)"
+          fi
+          if [ -z "$GITLEAKS_BIN" ] || [ ! -x "$GITLEAKS_BIN" ]; then
+            echo "Gitleaks CLI was not available for the full-history scan."
+            exit 1
+          fi
+          "$GITLEAKS_BIN" detect --redact --exit-code=2 --report-format=sarif --report-path=artifacts/security/gitleaks-full-history.sarif --log-opts="--all --no-merges"
+
+      - name: Upload full-history Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Layal-gitleaks-full-history
+          path: artifacts/security/gitleaks-full-history.sarif
+          if-no-files-found: warn
+          retention-days: 30
+
+  nuget-and-license-audit:
+    name: Audit NuGet advisories and license inventory
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.x"
+
+      - name: Restore with NuGet Audit enabled
+        run: dotnet restore Layal.sln --nologo
+
+      - name: Audit all direct and transitive NuGet packages
+        run: python tools/audit_nuget.py --solution Layal.sln --output artifacts/security/nuget-vulnerability-audit.json
+
+      - name: Validate license inventory and notices
+        run: python tools/validate_licenses.py --manifest-only --report artifacts/security/license-manifest-validation.md
+
+      - name: Upload security audit evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Layal-${{ github.sha }}-security-audit
+          path: artifacts/security/**/*
+          if-no-files-found: ignore
+          retention-days: 30

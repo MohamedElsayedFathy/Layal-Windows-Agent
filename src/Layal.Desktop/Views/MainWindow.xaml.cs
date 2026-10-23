@@ -1,9 +1,15 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Net;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
 using Layal.Models;
 using Layal.Services;
 using Microsoft.Win32;
@@ -17,7 +23,27 @@ public partial class MainWindow : Window
     public ObservableCollection<SkillRecord> InstalledSkills { get; } = new();
     public ObservableCollection<ApiConnectionProfile> ApiConnections { get; } = new();
     public ObservableCollection<string> TaskEvents { get; } = new();
-    public ObservableCollection<AgentTaskRecord> RecentTasks { get; } = new();
+    public ObservableCollection<TaskHistoryListItem> RecentTasks { get; } = new();
+
+    private readonly List<string> _rawTaskEvents = new();
+    private bool _refreshingRecentTasks;
+
+    public sealed class TaskHistoryListItem
+    {
+        private readonly bool _isArabic;
+
+        public AgentTaskRecord Record { get; }
+        public string Id => Record.Id;
+        public string Goal => Record.Goal;
+        public string DisplayStatus => UiLocalization.FormatTaskStatus(Record.Status, _isArabic);
+        public string DisplayUpdatedAt => UiLocalization.FormatDateTime(Record.UpdatedAt.LocalDateTime, _isArabic);
+
+        public TaskHistoryListItem(AgentTaskRecord record, bool isArabic)
+        {
+            Record = record;
+            _isArabic = isArabic;
+        }
+    }
     public ObservableCollection<MemoryNote> MemoryNotes { get; } = new();
 
     private readonly OpenAiCompatibleClient _aiClient = new();
@@ -33,6 +59,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SystemEvents.UserPreferenceChanged += MainWindow_UserPreferenceChanged;
+        Closed += MainWindow_Closed;
         DataContext = this;
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         ModelInput.Text = AppRuntime.Settings.ModelId;
@@ -48,13 +76,18 @@ public partial class MainWindow : Window
         var recent = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         if (recent is not null)
         {
-            foreach (var line in recent.Events.TakeLast(100)) TaskEvents.Add(line);
-            TaskResult.Text = $"{recent.Status}: {recent.Result}";
+            foreach (var line in recent.Events.TakeLast(100))
+            {
+                _rawTaskEvents.Add(line);
+                TaskEvents.Add(UiLocalization.FormatTaskEvent(line, IsArabic));
+            }
+            SetAccessibleStatusText(TaskResult, UiLocalization.FormatTaskResult(recent, IsArabic));
         }
         RefreshRecentTasks();
         RefreshSkills();
         RefreshApiConnections();
         RefreshMemoryNotes();
+        ApplyTheme();
         ApplyLanguage();
         RefreshProviderStatus();
     }
@@ -67,12 +100,137 @@ public partial class MainWindow : Window
     }
 
     private bool IsArabic => AppRuntime.Settings.Language == "ar";
+    private bool IsDarkTheme => AppRuntime.Settings.ThemeMode == "dark";
+
+    private static System.Windows.Media.Brush ThemeBrush(string key, System.Windows.Media.Brush fallback) =>
+        Application.Current.TryFindResource(key) as System.Windows.Media.Brush ?? fallback;
+
+    private void ApplyTheme()
+    {
+        // Replace the theme brushes and gradients themselves, not only their source colors.
+        // DynamicResource consumers then receive the replacement even if a control was
+        // constructed before the user switched themes.
+        var highContrast = SystemParameters.HighContrast;
+        var palette = UiThemePalette.Create(IsDarkTheme, highContrast);
+
+        var colors = new Dictionary<string, Color>(StringComparer.Ordinal);
+        foreach (var (key, value) in palette)
+        {
+            var color = (Color)ColorConverter.ConvertFromString(value)!;
+            colors[key] = color;
+            Application.Current.Resources[key] = color;
+        }
+
+        void SetSolidBrush(string brushKey, string colorKey) =>
+            Application.Current.Resources[brushKey] = new SolidColorBrush(colors[colorKey]);
+
+        SetSolidBrush("Layal.Background", "Layal.Color.Background");
+        SetSolidBrush("Layal.Panel", "Layal.Color.Surface");
+        SetSolidBrush("Layal.PanelAlt", "Layal.Color.SurfaceRaised");
+        SetSolidBrush("Layal.PanelHover", "Layal.Color.SurfaceHover");
+        SetSolidBrush("Layal.Border", "Layal.Color.Border");
+        SetSolidBrush("Layal.Cyan", "Layal.Color.Cyan");
+        SetSolidBrush("Layal.Purple", "Layal.Color.Purple");
+        SetSolidBrush("Layal.Text", "Layal.Color.Text");
+        SetSolidBrush("Layal.Muted", "Layal.Color.Muted");
+        SetSolidBrush("Layal.ScrollThumb", "Layal.Color.ScrollThumb");
+        SetSolidBrush("Layal.Success", "Layal.Color.Success");
+        SetSolidBrush("Layal.Warning", "Layal.Color.Warning");
+        SetSolidBrush("Layal.Danger", "Layal.Color.Danger");
+        SetSolidBrush("Layal.Focus", "Layal.Color.Focus");
+        SetSolidBrush("Layal.White", "Layal.Color.Surface");
+        SetSolidBrush("Layal.BrandBorder", "Layal.Color.BrandBorder");
+        SetSolidBrush("Layal.DecorativeAmber", "Layal.Color.BrandDot");
+        SetSolidBrush("Layal.DangerSurface", "Layal.Color.DangerSurface");
+        SetSolidBrush("Layal.DangerBorder", "Layal.Color.DangerBorder");
+        SetSolidBrush("Layal.HoverSurface", "Layal.Color.HoverSurface");
+        SetSolidBrush("Layal.InputFocus", "Layal.Color.InputFocus");
+        SetSolidBrush("Layal.ListHover", "Layal.Color.ListHover");
+        SetSolidBrush("Layal.ListSelected", "Layal.Color.ListSelected");
+        SetSolidBrush("Layal.NavSelected", "Layal.Color.NavSelected");
+        SetSolidBrush("Layal.NavSelectedBorder", "Layal.Color.NavSelectedBorder");
+        SetSolidBrush("Layal.NavHover", "Layal.Color.NavHover");
+
+        LinearGradientBrush MakeGradient(params (string Key, double Offset)[] stops)
+        {
+            var brush = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(1, 1)
+            };
+            foreach (var stop in stops)
+                brush.GradientStops.Add(new GradientStop(colors[stop.Key], stop.Offset));
+            return brush;
+        }
+
+        Application.Current.Resources["Layal.Background"] = MakeGradient(
+            ("Layal.Color.Background", 0),
+            ("Layal.Color.BackgroundEnd", 1));
+        Application.Current.Resources["Layal.HeaderGradient"] = MakeGradient(
+            ("Layal.Color.HeaderStart", 0),
+            ("Layal.Color.HeaderMiddle", 0.56),
+            ("Layal.Color.HeaderEnd", 1));
+        Application.Current.Resources["Layal.CardGradient"] = MakeGradient(
+            ("Layal.Color.CardStart", 0),
+            ("Layal.Color.CardEnd", 1));
+        Application.Current.Resources["Layal.PrimaryButtonGradient"] = MakeGradient(
+            ("Layal.Color.ButtonStart", 0),
+            ("Layal.Color.ButtonEnd", 1));
+        Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
+        {
+            Color = colors["Layal.Color.Shadow"],
+            BlurRadius = 24,
+            ShadowDepth = 2,
+            Opacity = 0.14
+        };
+
+        if (highContrast)
+        {
+            // High Contrast is controlled by Windows and must override app-authored gradients,
+            // shadows and accent surfaces rather than merely recoloring their source stops.
+            var systemSurface = new SolidColorBrush(SystemColors.WindowColor);
+            Application.Current.Resources["Layal.Background"] = systemSurface;
+            Application.Current.Resources["Layal.HeaderGradient"] = systemSurface;
+            Application.Current.Resources["Layal.CardGradient"] = systemSurface;
+            Application.Current.Resources["Layal.PrimaryButtonGradient"] = systemSurface;
+            Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
+            {
+                Color = SystemColors.WindowTextColor,
+                BlurRadius = 0,
+                ShadowDepth = 0,
+                Opacity = 0
+            };
+        }
+    }
+
+    private void MainWindow_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        // Windows raises this notification outside the WPF dispatcher. Reapply after system
+        // accessibility/color changes so High Contrast works without restarting Layal.
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (IsLoaded && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+                ApplyTheme();
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        SystemEvents.UserPreferenceChanged -= MainWindow_UserPreferenceChanged;
+        Closed -= MainWindow_Closed;
+    }
 
     private void ApplyLanguage()
     {
         var ar = IsArabic;
-        FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        // Keep the root visual tree LTR: setting RTL on the entire Window mirrors glyphs and icons.
+        // Apply RTL to input fields and Arabic text runs locally instead of flipping all visuals.
+        FlowDirection = FlowDirection.LeftToRight;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        TaskResult.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         BaseUrlInput.FlowDirection = ModelInput.FlowDirection = ApiKeyInput.FlowDirection = GitHubSkillUrlInput.FlowDirection = FlowDirection.LeftToRight;
         foreach (var message in ChatMessages)
         {
@@ -90,7 +248,60 @@ public partial class MainWindow : Window
         TitleText.Text = ar ? "ليال | Layal" : "Layal | Bilingual Desktop AI";
         SubtitleText.Text = ar ? "وكيل ذكاء اصطناعي مستقل لسطح المكتب" : "A bilingual Windows AI desktop companion";
         LanguageButton.Content = ar ? "English" : "العربية";
+        ThemeButton.Content = IsDarkTheme
+            ? (ar ? "☀ المظهر الفاتح" : "☀ Light theme")
+            : (ar ? "☾ المظهر الداكن" : "☾ Dark theme");
+        ThemeButton.ToolTip = IsDarkTheme
+            ? (ar ? "التبديل إلى المظهر الفاتح" : "Switch to light theme")
+            : (ar ? "التبديل إلى المظهر الداكن" : "Switch to dark theme");
         ShowMascotButton.Content = ar ? "إظهار الشخصية" : "Show mascot";
+        KeyboardHelpButton.Content = ar ? "_اختصارات" : "_Shortcuts";
+        KeyboardHelpButton.ToolTip = ar ? "F1 — عرض اختصارات لوحة المفاتيح" : "F1 — Show keyboard shortcuts";
+        AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
+        AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
+        AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
+        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 7 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+7 to switch tabs.");
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
+        AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
+        AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
+        AutomationProperties.SetName(ChatMessagesList, ar ? "رسائل المحادثة" : "Chat messages");
+        AutomationProperties.SetHelpText(ChatMessagesList, ar ? "استخدم الأسهم لاستعراض الرسائل." : "Use the arrow keys to review messages.");
+        AutomationProperties.SetName(ChatInput, ar ? "الرسالة" : "Message");
+        AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة واضغط Enter للإرسال. Ctrl+2 ينقل التركيز إلى هذا الحقل." : "Type a message and press Enter to send. Ctrl+2 focuses this field.");
+        AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
+        AutomationProperties.SetHelpText(TaskInput, ar ? "اكتب المهمة ثم استخدم Tab للوصول إلى زر تنفيذ المهمة." : "Describe the task, then press Tab to reach Run task.");
+        AutomationProperties.SetName(TaskEventsList, ar ? "سجل أحداث المهمة" : "Task event log");
+        AutomationProperties.SetName(RecentTasksList, ar ? "المهام السابقة" : "Recent tasks");
+        AutomationProperties.SetHelpText(RecentTasksList, ar ? "اختر مهمة سابقة لعرض تفاصيلها." : "Select a previous task to view its details.");
+        AutomationProperties.SetName(SkillsList, ar ? "المهارات المثبتة" : "Installed skills");
+        AutomationProperties.SetHelpText(SkillsList, ar ? "يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." : "Select multiple skills with Ctrl or Shift and the arrow keys.");
+        AutomationProperties.SetName(GitHubSkillUrlInput, ar ? "رابط مهارة GitHub" : "GitHub skill URL");
+        AutomationProperties.SetHelpText(GitHubSkillUrlInput, ar ? "أدخل رابط مستودع أو مجلد يحتوي على SKILL.md." : "Enter a repository or folder URL containing SKILL.md.");
+        AutomationProperties.SetHelpText(BaseUrlInput, ar ? "عنوان HTTP أو HTTPS الأساسي لمزود الذكاء الاصطناعي." : "HTTP or HTTPS base URL for the provider.");
+        AutomationProperties.SetHelpText(ApiKeyInput, ar ? "يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي." : "The API key is saved encrypted for the current Windows user.");
+        AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory");
+        AutomationProperties.SetHelpText(MemorySearchInput, ar ? "أدخل كلمات البحث ثم استخدم زر بحث." : "Enter search terms, then activate Search.");
+        AutomationProperties.SetName(MemoryList, ar ? "ملاحظات الذاكرة" : "Memory notes");
+        AutomationProperties.SetHelpText(MemoryList, ar ? "اختر ملاحظة لعرضها أو تعديلها." : "Select a note to view or edit it.");
+
+        // Refresh transient feedback in the newly selected language. Unknown model/tool output
+        // is intentionally preserved rather than guessed at or translated destructively.
+        SetAccessibleStatusText(HomeResult, UiLocalization.TranslateKnownFeedback(HomeResult.Text, ar));
+        SetAccessibleStatusText(ProviderActionStatus, UiLocalization.TranslateKnownFeedback(ProviderActionStatus.Text, ar));
+        SetAccessibleStatusText(ChatCopyStatus, UiLocalization.TranslateKnownFeedback(ChatCopyStatus.Text, ar));
+        SetAccessibleStatusText(TaskCopyStatus, UiLocalization.TranslateKnownFeedback(TaskCopyStatus.Text, ar));
+        SetAccessibleStatusText(SkillsResult, UiLocalization.TranslateKnownFeedback(SkillsResult.Text, ar));
+        if (MemoryList.SelectedItem is MemoryNote selectedMemory &&
+            UiLocalization.IsFormattedDateTime(MemoryResult.Text, !ar))
+            SetAccessibleStatusText(MemoryResult, UiLocalization.FormatDateTime(selectedMemory.UpdatedAt.LocalDateTime, ar));
+        else
+            SetAccessibleStatusText(MemoryResult, UiLocalization.TranslateKnownFeedback(MemoryResult.Text, ar));
+        SetAccessibleStatusText(TaskResult, UiLocalization.TranslateTaskResultDisplay(TaskResult.Text, ar));
+
+        TaskEvents.Clear();
+        foreach (var line in _rawTaskEvents)
+            TaskEvents.Add(UiLocalization.FormatTaskEvent(line, ar));
+        RefreshRecentTasks();
 
         HomeTab.Header = ar ? "⌂  الرئيسية" : "⌂  Home";
         ChatTab.Header = ar ? "✦  المحادثة" : "✦  Chat";
@@ -99,6 +310,16 @@ public partial class MainWindow : Window
         CamerasTab.Header = ar ? "◉  الكاميرات" : "◉  Cameras";
         MemoryTab.Header = ar ? "▤  الذاكرة" : "▤  Memory";
         SettingsTab.Header = ar ? "⚙  الإعدادات" : "⚙  Settings";
+        System.Windows.Automation.AutomationProperties.SetName(HomeTab, ar ? "الرئيسية" : "Home");
+        System.Windows.Automation.AutomationProperties.SetName(ChatTab, ar ? "المحادثة" : "Chat");
+        System.Windows.Automation.AutomationProperties.SetName(TasksTab, ar ? "المهام" : "Tasks");
+        System.Windows.Automation.AutomationProperties.SetName(SkillsTab, ar ? "المهارات" : "Skills");
+        System.Windows.Automation.AutomationProperties.SetName(CamerasTab, ar ? "الكاميرات" : "Cameras");
+        System.Windows.Automation.AutomationProperties.SetName(MemoryTab, ar ? "الذاكرة" : "Memory");
+        System.Windows.Automation.AutomationProperties.SetName(SettingsTab, ar ? "الإعدادات" : "Settings");
+        System.Windows.Automation.AutomationProperties.SetName(LanguageButton, ar ? "تغيير لغة الواجهة" : "Change interface language");
+        System.Windows.Automation.AutomationProperties.SetName(ThemeButton, ThemeButton.ToolTip as string ?? (ar ? "تغيير المظهر" : "Change theme"));
+        System.Windows.Automation.AutomationProperties.SetName(ShowMascotButton, ar ? "إظهار الشخصية" : "Show mascot");
 
         HomeHeading.Text = ar ? "أهلًا، أنا ليال" : "Hello, I'm Layal";
         HomeDescription.Text = ar
@@ -124,9 +345,30 @@ public partial class MainWindow : Window
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
         ChatNotice.Text = ar ? "تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." : "Configure a valid API endpoint and key in Settings to send real messages.";
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال المزود" : "Provider connection status");
+        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة إعداد الاتصال" : "Provider configuration status");
+        AutomationProperties.SetName(HomeResult, ar ? "نتيجة الإجراء" : "Action result");
+        AutomationProperties.SetName(ChatCopyStatus, ar ? "حالة النسخ" : "Copy status");
+        AutomationProperties.SetName(TaskCopyStatus, ar ? "حالة نسخ النتيجة" : "Result copy status");
+        AutomationProperties.SetName(SkillsResult, ar ? "نتيجة استيراد المهارة" : "Skill import status");
+        AutomationProperties.SetName(MemoryResult, ar ? "نتيجة إجراء الذاكرة" : "Memory action status");
+        AutomationProperties.SetName(ProviderActionStatus, ar ? "حالة إعداد المزود" : "Provider settings status");
+        SetAccessibleStatusText(ChatActivityStatus, TranslateChatActivityStatus(ChatActivityStatus.Text, ar));
+        AutomationProperties.SetName(ChatActivityStatus, ar ? "حالة المحادثة" : "Chat activity status");
+        AutomationProperties.SetHelpText(ChatActivityStatus, ar
+            ? "تُعلن هنا حالة إرسال الرد أو إيقافه أو فشله."
+            : "Announces when a response starts, completes, is cancelled, or fails.");
+        ChatEmptyStateText.Text = ar
+            ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة."
+            : "No messages yet. Type a message below to start the conversation.";
+        AutomationProperties.SetName(ChatEmptyStateText, ar ? "حالة المحادثة الفارغة" : "Chat empty state");
+        AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "أرسل رسالة أو استقبل ردًا لتظهر الرسائل في هذه القائمة." : "Send or receive a message to populate this list.");
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
+        System.Windows.Automation.AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
+        System.Windows.Automation.AutomationProperties.SetName(ChatInput, ar ? "رسالة المحادثة" : "Chat message");
+        System.Windows.Automation.AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة ثم اضغط Enter لإرسالها." : "Type a message and press Enter to send.");
         CopyChatButton.Content = ar ? "نسخ الشات" : "Copy chat";
         CopyChatButton.ToolTip = ar ? "نسخ المحادثة كاملة إلى الحافظة" : "Copy the entire conversation to the clipboard";
         SendButton.Content = ar ? "إرسال" : "Send";
@@ -143,18 +385,36 @@ public partial class MainWindow : Window
         RunAgentTaskButton.Content = ar ? "تنفيذ المهمة" : "Run task";
         CancelAgentTaskButton.Content = ar ? "إيقاف المهمة" : "Stop task";
         TaskInput.ToolTip = ar ? "اكتب المهمة بالعربية أو الإنجليزية" : "Describe the task in Arabic or English";
+        System.Windows.Automation.AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
+        System.Windows.Automation.AutomationProperties.SetHelpText(TaskInput, ar ? "صف ما تريد من ليال تنفيذه." : "Describe what you want Layal to do.");
+        System.Windows.Automation.AutomationProperties.SetName(TaskResult, ar ? "نتيجة المهمة" : "Task result");
         TaskSkillHint.Text = ar ? "يمكن تحديد حتى 3 مهارات من تبويب المهارات؛ نصوص المهارات تُعامل كمراجع غير موثوقة." : "Select up to 3 skills in Skills; skill text is treated as untrusted reference material.";
         CopyTaskResultButton.Content = ar ? "نسخ النتيجة" : "Copy result";
         CopyTaskLogButton.Content = ar ? "نسخ سجل التنفيذ" : "Copy task log";
-        if (string.IsNullOrEmpty(TaskResult.Text)) TaskResult.Text = ar ? "لم تُنفذ أي عملية بعد." : "No operation has been run yet.";
+        TaskEventsEmptyStateText.Text = ar
+            ? "لا يوجد سجل نشاط بعد. ابدأ مهمة لعرض أحداث تنفيذها هنا."
+            : "No task activity yet. Start a task to see its events here.";
+        AutomationProperties.SetName(TaskEventsEmptyStateText, ar ? "حالة سجل المهام الفارغ" : "Task activity empty state");
+        AutomationProperties.SetHelpText(TaskEventsEmptyStateText, ar ? "ستظهر أحداث التنفيذ هنا عند بدء مهمة." : "Task events appear here after a task starts.");
+        RecentTasksEmptyStateText.Text = ar ? "لا توجد مهام سابقة بعد." : "No previous tasks yet.";
+        AutomationProperties.SetName(RecentTasksEmptyStateText, ar ? "حالة المهام السابقة الفارغة" : "Recent tasks empty state");
+        AutomationProperties.SetHelpText(RecentTasksEmptyStateText, ar ? "تظهر المهام السابقة بعد تشغيل المهام وحفظ سجلاتها." : "Previous tasks appear after tasks run and their history is saved.");
+        if (string.IsNullOrEmpty(TaskResult.Text)) SetAccessibleStatusText(TaskResult, ar ? "لم تُنفذ أي عملية بعد." : "No operation has been run yet.");
 
         SkillsHeading.Text = ar ? "مدير المهارات" : "Skills manager";
         SkillsDescription.Text = ar ? "استيراد حزمة ZIP والتحقق من SKILL.md. لا يتم استخراج الحزمة أو تشغيل سكربتاتها." : "Import a ZIP and validate SKILL.md. The package is stored without extraction or script execution.";
+        SkillsEmptyStateText.Text = ar
+            ? "لا توجد مهارات مثبتة. استورد ملف ZIP أو مجلدًا من GitHub للبدء."
+            : "No skills installed. Import a ZIP or GitHub folder to get started.";
+        AutomationProperties.SetName(SkillsEmptyStateText, ar ? "حالة قائمة المهارات الفارغة" : "Skills empty state");
+        AutomationProperties.SetHelpText(SkillsEmptyStateText, ar ? "استخدم زري استيراد ZIP أو GitHub لإضافة مهارة." : "Use Import ZIP or Import from GitHub to add a skill.");
         ImportSkillButton.Content = ar ? "استيراد ZIP" : "Import ZIP";
         RefreshSkillsButton.Content = ar ? "تحديث القائمة" : "Refresh list";
         RecentTasksGroup.Header = ar ? "المهام السابقة" : "Recent tasks";
         ImportGitHubSkillButton.Content = ar ? "استيراد من GitHub" : "Import from GitHub";
         GitHubSkillUrlInput.ToolTip = ar ? "رابط مستودع أو مجلد يحتوي على SKILL.md" : "Repository or directory URL containing SKILL.md";
+        System.Windows.Automation.AutomationProperties.SetName(GitHubSkillUrlInput, ar ? "رابط مستودع المهارة" : "Skill repository URL");
+        System.Windows.Automation.AutomationProperties.SetHelpText(GitHubSkillUrlInput, ar ? "الصق رابط GitHub لمجلد يحتوي على SKILL.md." : "Paste a GitHub URL to a directory containing SKILL.md.");
 
         CamerasHeading.Text = ar ? "الكاميرات والرؤية الحاسوبية" : "Cameras and computer vision";
         CameraStatus.Text = ar ? "غير متصل — التكامل الحقيقي غير منفذ في إصدار الأساس" : "Not connected — real camera integration is not implemented in this foundation release";
@@ -195,7 +455,11 @@ public partial class MainWindow : Window
         ProviderSectionTitle.Text = ar ? "محرك الذكاء الاصطناعي (بروتوكول OpenAI-compatible)" : "AI model endpoint (OpenAI-compatible protocol)";
         EndpointLabel.Text = ar ? "عنوان API الأساسي (Base URL)" : "API base URL";
         ModelLabel.Text = ar ? "معرّف النموذج" : "Model ID";
-        ApiKeyLabel.Text = ar ? "مفتاح API للنموذج" : "AI model API key";
+        ApiKeyLabel.Text = ar ? "مفتاح API / Unified API Key" : "API key / Unified API key";
+        System.Windows.Automation.AutomationProperties.SetName(BaseUrlInput, EndpointLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetName(ModelInput, ModelLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetName(ApiKeyInput, ApiKeyLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetHelpText(ApiKeyInput, ar ? "يُخزن المفتاح مشفرًا للمستخدم الحالي." : "The key is encrypted for the current Windows user.");
         KeyStorageNote.Text = ar ? "يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في ملف الإعدادات النصي." : "The key is encrypted with Windows DPAPI for the current user and is not stored in the plain settings file.";
         SaveProviderButton.Content = ar ? "حفظ الإعدادات" : "Save settings";
         TestProviderButton.Content = ar ? "اختبار الاتصال" : "Test connection";
@@ -205,6 +469,10 @@ public partial class MainWindow : Window
         AnimationsCheckbox.Content = ar ? "تفعيل حركة الشخصية والرمش" : "Enable mascot movement and blinking";
         MascotSizeLabel.Text = ar ? "حجم الشخصية" : "Mascot size";
         MascotOpacityLabel.Text = ar ? "شفافية الشخصية" : "Mascot opacity";
+        System.Windows.Automation.AutomationProperties.SetName(MascotSizeSlider, MascotSizeLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetHelpText(MascotSizeSlider, ar ? "عدّل القيمة باستخدام الأسهم بعد الوصول إلى شريط التمرير." : "Use the arrow keys to adjust this slider when focused.");
+        System.Windows.Automation.AutomationProperties.SetName(MascotOpacitySlider, MascotOpacityLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetHelpText(MascotOpacitySlider, ar ? "عدّل القيمة باستخدام الأسهم بعد الوصول إلى شريط التمرير." : "Use the arrow keys to adjust this slider when focused.");
         ApplyMascotSettingsButton.Content = ar ? "تطبيق إعدادات الشخصية" : "Apply mascot settings";
         SettingsLimitations.Text = ar
             ? "ما زالت وظائف الصوت الحقيقي، وأتمتة المتصفح، والتحكم العام بالماوس والكيبورد، وبث الكاميرات، وMCP غير منفذة. لا يتم عرضها كوظائف مكتملة."
@@ -212,11 +480,19 @@ public partial class MainWindow : Window
         WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة وتنفيذ فعل واحد بموافقة" : "Allow window/UI inspection and one approved control action";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
+        MemoryEmptyStateText.Text = ar
+            ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء."
+            : "No saved notes. Create a note to get started.";
+        AutomationProperties.SetName(MemoryEmptyStateText, ar ? "حالة الذاكرة الفارغة" : "Memory empty state");
+        AutomationProperties.SetHelpText(MemoryEmptyStateText, ar ? "استخدم زر ملاحظة جديدة لإضافة محتوى إلى الذاكرة." : "Use New note to add content to memory.");
         MemorySearchInput.ToolTip = ar ? "بحث في الملاحظات" : "Search memory notes";
+        System.Windows.Automation.AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory notes");
         MemorySearchButton.Content = ar ? "بحث" : "Search";
         NewMemoryButton.Content = ar ? "ملاحظة جديدة" : "New note";
         MemoryTitleLabel.Text = ar ? "العنوان" : "Title";
         MemoryContentLabel.Text = ar ? "المحتوى" : "Content";
+        System.Windows.Automation.AutomationProperties.SetName(MemoryTitleInput, MemoryTitleLabel.Text);
+        System.Windows.Automation.AutomationProperties.SetName(MemoryContentInput, MemoryContentLabel.Text);
         SaveMemoryButton.Content = ar ? "حفظ الملاحظة" : "Save note";
         DeleteMemoryButton.Content = ar ? "حذف الملاحظة" : "Delete note";
         ExportMemoryButton.Content = ar ? "تصدير JSON" : "Export JSON";
@@ -227,8 +503,78 @@ public partial class MainWindow : Window
         RefreshProviderStatus();
     }
 
+    private void SetChatActivityStatus(string message) =>
+        SetAccessibleStatusText(ChatActivityStatus, message);
+
+    private static string TranslateChatActivityStatus(string message, bool arabic) => message switch
+    {
+        "Waiting for the first response chunk..." or "بانتظار أول جزء من الرد..." =>
+            arabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...",
+        "Layal is responding..." or "ليال بتكتب..." =>
+            arabic ? "ليال بتكتب..." : "Layal is responding...",
+        "Response completed" or "اكتمل الرد" =>
+            arabic ? "اكتمل الرد" : "Response completed",
+        "Cancelled" or "تم الإيقاف" =>
+            arabic ? "تم الإيقاف" : "Cancelled",
+        "Request failed" or "فشل الطلب" =>
+            arabic ? "فشل الطلب" : "Request failed",
+        "Cancel the active response before starting a new conversation." or "أوقف الرد الحالي قبل بدء محادثة جديدة." =>
+            arabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.",
+        "New conversation started. Previous conversations remain saved in the selector." or "بدأت محادثة جديدة؛ المحادثات السابقة ما زالت محفوظة ويمكن اختيارها من القائمة." =>
+            arabic ? "بدأت محادثة جديدة؛ المحادثات السابقة ما زالت محفوظة ويمكن اختيارها من القائمة." : "New conversation started. Previous conversations remain saved in the selector.",
+        "Cancel the active response before clearing history." or "أوقف الرد الحالي قبل مسح السجل." =>
+            arabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.",
+        "Saved chat history was cleared. A fresh conversation is ready." or "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." =>
+            arabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.",
+        "Cancel the active response before switching conversations." or "أوقف الرد الحالي قبل تبديل المحادثة." =>
+            arabic ? "أوقف الرد الحالي قبل تبديل المحادثة." : "Cancel the active response before switching conversations.",
+        "Saved conversation loaded." or "تم تحميل المحادثة المحفوظة." =>
+            arabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.",
+        _ => message
+    };
+
+    private void SetAccessibleStatusText(FrameworkElement element, string message)
+    {
+        var previous = element switch
+        {
+            TextBlock textBlock => textBlock.Text,
+            TextBox textBox => textBox.Text,
+            _ => throw new ArgumentException("The status element must be a TextBlock or TextBox.", nameof(element))
+        };
+        if (string.Equals(previous, message, StringComparison.Ordinal))
+            return;
+
+        switch (element)
+        {
+            case TextBlock textBlock:
+                textBlock.Text = message;
+                break;
+            case TextBox textBox:
+                textBox.Text = message;
+                break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(message))
+            NotifyLiveRegion(element);
+    }
+
+    private static void NotifyLiveRegion(FrameworkElement element)
+    {
+        try
+        {
+            var peer = FrameworkElementAutomationPeer.FromElement(element)
+                ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
+            peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        }
+        catch
+        {
+            // A UI Automation client failure must never interrupt the user action itself.
+        }
+    }
+
     private void RefreshProviderStatus()
     {
+        var previousConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
         var hasKey = !string.IsNullOrWhiteSpace(AppRuntime.SecretStore?.Load());
         var hasConfig = Uri.TryCreate(AppRuntime.Settings.ProviderBaseUrl, UriKind.Absolute, out var uri) &&
                         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
@@ -239,20 +585,201 @@ public partial class MainWindow : Window
         ConnectionStatusText.Text = tested ? (IsArabic ? "AI: الاتصال مختبَر" : "AI: Connection tested")
             : ready ? (IsArabic ? "AI: الإعداد محفوظ؛ غير مختبَر" : "AI: Configured; not tested")
             : (IsArabic ? "AI: غير متصل" : "AI: Not connected");
-        ConnectionStatusText.Foreground = tested ? System.Windows.Media.Brushes.ForestGreen : System.Windows.Media.Brushes.DarkGoldenrod;
+        ConnectionStatusText.Foreground = tested ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         CardAiValue.Text = tested ? (IsArabic ? "تم اختبار الاتصال" : "Connection tested") : ready ? (IsArabic ? "إعداد محفوظ — لم يُختبر" : "Configured — not tested") : (IsArabic ? "غير متصل" : "Not connected");
-        CardAiValue.Foreground = tested ? System.Windows.Media.Brushes.ForestGreen : System.Windows.Media.Brushes.DarkGoldenrod;
+        CardAiValue.Foreground = tested ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         ChatProviderStatus.Text = tested ? (IsArabic ? "تم اختبار نقطة الاتصال في هذه الجلسة" : "Endpoint tested in this session")
             : ready ? (IsArabic ? "إعداد محفوظ؛ اختبر الاتصال" : "Configured; test connection")
             : (IsArabic ? "لا يوجد اتصال مختبَر" : "Not connected/tested");
+
+        NormalizeBidiTextInTree();
+        var currentConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
+        if (IsLoaded && !string.Equals(previousConnectionStatus, currentConnectionStatus, StringComparison.Ordinal))
+            NotifyLiveRegion(ConnectionStatusText);
+    }
+
+    private void NormalizeBidiTextInTree()
+    {
+        // Preserve the RTL layout of Arabic screens while isolating embedded Latin terms
+        // such as English labels, API names and file formats from the surrounding direction.
+        var pending = new Stack<DependencyObject>();
+        var visited = new HashSet<DependencyObject>();
+        pending.Push(this);
+
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (!visited.Add(current))
+                continue;
+
+            if (current is Window currentWindow)
+                currentWindow.Title = BidiTextNormalizer.NormalizeMixedText(currentWindow.Title);
+
+            if (current is TextBlock textBlock &&
+                !BindingOperations.IsDataBound(textBlock, TextBlock.TextProperty))
+            {
+                var hasArabic = ContainsArabic(textBlock.Text);
+                // Localize text direction without flipping the containing visual tree.
+                textBlock.FlowDirection = FlowDirection.LeftToRight;
+                textBlock.TextAlignment = hasArabic ? TextAlignment.Right : TextAlignment.Left;
+                textBlock.Text = BidiTextNormalizer.NormalizeMixedText(textBlock.Text);
+            }
+
+            if (current is ContentControl contentControl &&
+                contentControl.Content is string content &&
+                !BindingOperations.IsDataBound(contentControl, ContentControl.ContentProperty))
+            {
+                contentControl.Content = BidiTextNormalizer.NormalizeMixedText(content);
+            }
+
+            if (current is HeaderedContentControl headeredContent &&
+                headeredContent.Header is string header &&
+                !BindingOperations.IsDataBound(headeredContent, HeaderedContentControl.HeaderProperty))
+            {
+                headeredContent.Header = BidiTextNormalizer.NormalizeMixedText(header);
+            }
+
+            foreach (var child in LogicalTreeHelper.GetChildren(current))
+            {
+                if (child is DependencyObject dependencyChild)
+                    pending.Push(dependencyChild);
+            }
+
+            // Intentionally traverse the logical tree only. Template-generated visual children
+            // (e.g. AccessText inside a Button) must remain bound to their owning Content property.
+        }
     }
 
     private void SetLanguage(string language)
     {
+        AppRuntime.ChatSessionService.SetDefaultTitle(language == "ar" ? "محادثة جديدة" : "New conversation");
         AppRuntime.Settings.Language = language;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        ChatHistorySelector.Items.Refresh();
         ApplyLanguage();
         AppRuntime.Tray?.SetLanguage(language);
+    }
+
+    private void ThemeButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppRuntime.Settings.ThemeMode = IsDarkTheme ? "light" : "dark";
+        ApplyTheme();
+        ApplyLanguage();
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        }
+        catch
+        {
+            SetAccessibleStatusText(HomeResult, IsArabic
+                ? "تم تغيير المظهر، لكن تعذر حفظ التفضيل."
+                : "Theme changed, but the preference could not be saved.");
+            HomeResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+        }
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.F1)
+        {
+            ShowKeyboardHelp();
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers != ModifierKeys.Control)
+            return;
+
+        TabItem? requestedTab = e.Key switch
+        {
+            Key.D1 or Key.NumPad1 => HomeTab,
+            Key.D2 or Key.NumPad2 => ChatTab,
+            Key.D3 or Key.NumPad3 => TasksTab,
+            Key.D4 or Key.NumPad4 => SkillsTab,
+            Key.D5 or Key.NumPad5 => CamerasTab,
+            Key.D6 or Key.NumPad6 => MemoryTab,
+            Key.D7 or Key.NumPad7 => SettingsTab,
+            _ => null
+        };
+
+        if (requestedTab is null)
+            return;
+
+        MainTabs.SelectedItem = requestedTab;
+        MainTabs.UpdateLayout();
+
+        if (requestedTab == ChatTab)
+        {
+            ChatInput.Focus();
+        }
+        else if (MainTabs.SelectedContent is DependencyObject content &&
+                 FindFirstFocusableControl(content) is { } firstControl &&
+                 firstControl.Focus())
+        {
+            // Focus the first usable control in the newly selected tab.
+        }
+        else
+        {
+            requestedTab.Focus();
+        }
+
+        e.Handled = true;
+    }
+
+    private static Control? FindFirstFocusableControl(DependencyObject parent)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            if (child is Control control &&
+                control is not ScrollViewer &&
+                control.IsEnabled &&
+                control.IsVisible &&
+                control.Focusable &&
+                control.IsTabStop)
+            {
+                return control;
+            }
+
+            var nested = FindFirstFocusableControl(child);
+            if (nested is not null)
+                return nested;
+        }
+
+        return null;
+    }
+
+    private void KeyboardHelpButton_Click(object sender, RoutedEventArgs e) => ShowKeyboardHelp();
+
+    private void ShowKeyboardHelp()
+    {
+        var message = IsArabic
+            ? "اختصارات لوحة المفاتيح\n\n" +
+              "Ctrl+1 — الرئيسية\n" +
+              "Ctrl+2 — المحادثة (ينقل التركيز إلى حقل الرسالة)\n" +
+              "Ctrl+3 — المهام\n" +
+              "Ctrl+4 — المهارات\n" +
+              "Ctrl+5 — الكاميرات\n" +
+              "Ctrl+6 — الذاكرة\n" +
+              "Ctrl+7 — الإعدادات\n" +
+              "F1 — عرض هذه المساعدة\n\n" +
+              "استخدم Tab للتنقل للأمام وShift+Tab للرجوع. استخدم الأسهم داخل قوائم التبويبات والقوائم، وSpace لتبديل مربعات الاختيار، والأسهم لتعديل أشرطة التمرير. في حقل المحادثة، Enter يرسل الرسالة."
+            : "Keyboard shortcuts\n\n" +
+              "Ctrl+1 — Home\n" +
+              "Ctrl+2 — Chat (focuses the message field)\n" +
+              "Ctrl+3 — Tasks\n" +
+              "Ctrl+4 — Skills\n" +
+              "Ctrl+5 — Cameras\n" +
+              "Ctrl+6 — Memory\n" +
+              "Ctrl+7 — Settings\n" +
+              "F1 — Show this help\n\n" +
+              "Use Tab to move forward and Shift+Tab to move backward. Use the arrow keys inside tab and list controls, Space to toggle checkboxes, and the arrow keys to adjust sliders. In the chat field, Enter sends the message.";
+
+        MessageBox.Show(
+            this,
+            message,
+            IsArabic ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private void LanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage(IsArabic ? "en" : "ar");
@@ -268,15 +795,16 @@ public partial class MainWindow : Window
         try
         {
             var result = SafeWindowsTools.LaunchNotepad();
-            HomeResult.Text = result;
-            TaskResult.Text = result;
+            var displayResult = UiLocalization.FormatNotepadResult(result, IsArabic);
+            SetAccessibleStatusText(HomeResult, displayResult);
+            SetAccessibleStatusText(TaskResult, displayResult);
             AppRuntime.MascotWindow?.SetMood("success");
         }
         catch (Exception ex)
         {
-            var message = IsArabic ? $"تعذر فتح المفكرة: {ex.Message}" : $"Could not launch Notepad: {ex.Message}";
-            HomeResult.Text = message;
-            TaskResult.Text = message;
+            var message = UiLocalization.FormatTechnicalError("تعذر فتح المفكرة", "Could not launch Notepad", ex, IsArabic);
+            SetAccessibleStatusText(HomeResult, message);
+            SetAccessibleStatusText(TaskResult, message);
             AppRuntime.MascotWindow?.SetMood("error");
         }
     }
@@ -449,14 +977,14 @@ public partial class MainWindow : Window
                 ApiKeyInput.Clear();
             }
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
-            ProviderActionStatus.Text = IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.";
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.");
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
             RefreshProviderStatus();
         }
         catch (Exception ex)
         {
-            ProviderActionStatus.Text = ex.Message;
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("تعذر حفظ الإعدادات", "Could not save settings", ex, IsArabic));
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -466,27 +994,28 @@ public partial class MainWindow : Window
         var key = string.IsNullOrWhiteSpace(ApiKeyInput.Password) ? AppRuntime.SecretStore.Load() : ApiKeyInput.Password;
         if (string.IsNullOrWhiteSpace(key))
         {
-            ProviderActionStatus.Text = IsArabic ? "أدخل مفتاح API ثم اختبر الاتصال. لن يتم حفظه إلا إذا ضغطت حفظ الإعدادات." : "Enter an API key to test. It is saved only when you select Save settings.";
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "أدخل مفتاح API ثم اختبر الاتصال. لن يتم حفظه إلا إذا ضغطت حفظ الإعدادات." : "Enter an API key to test. It is saved only when you select Save settings.");
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
         TestProviderButton.IsEnabled = false;
-        ProviderActionStatus.Text = IsArabic ? "جارٍ اختبار الاتصال الفعلي..." : "Testing the actual endpoint...";
-        ProviderActionStatus.Foreground = System.Windows.Media.Brushes.SteelBlue;
+        SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "جارٍ اختبار الاتصال الفعلي..." : "Testing the actual endpoint...");
+        ProviderActionStatus.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
         try
         {
             var result = await _aiClient.ProbeAsync(baseUrl, key);
             _providerTestPassed = true;
             _testedBaseUrl = baseUrl.TrimEnd('/');
             _testedModelId = ModelInput.Text.Trim();
-            ProviderActionStatus.Text = IsArabic ? $"نجح الاختبار: {result}" : result;
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            var testSummary = IsArabic ? $"نجح الاختبار: {result}" : $"Test succeeded: {result}";
+            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.TranslateKnownFeedback(testSummary, IsArabic));
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
             _providerTestPassed = false;
-            ProviderActionStatus.Text = (IsArabic ? "فشل اختبار الاتصال: " : "Connection test failed: ") + ex.Message;
-            ProviderActionStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("فشل اختبار الاتصال", "Connection test failed", ex, IsArabic));
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally
         {
@@ -503,8 +1032,8 @@ public partial class MainWindow : Window
         if (result != MessageBoxResult.Yes) return;
         AppRuntime.SecretStore.Delete();
         ApiKeyInput.Clear();
-        ProviderActionStatus.Text = IsArabic ? "تم حذف المفتاح المحفوظ." : "Saved key deleted.";
-        ProviderActionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حذف المفتاح المحفوظ." : "Saved key deleted.");
+        ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         RefreshProviderStatus();
     }
 
@@ -537,7 +1066,7 @@ public partial class MainWindow : Window
             AppRuntime.MascotWindow.Opacity = AppRuntime.Settings.MascotOpacity;
             AppRuntime.MascotWindow.ApplyScale(AppRuntime.Settings.MascotScale);
         }
-        ProviderActionStatus.Text = IsArabic ? "تم تطبيق إعدادات الشخصية." : "Mascot settings applied.";
+        SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم تطبيق إعدادات الشخصية." : "Mascot settings applied.");
     }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
@@ -552,6 +1081,9 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(key))
         {
             AddMessage("status", IsArabic ? "لم يتم ضبط اتصال حقيقي بعد. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا." : "No real AI connection is configured. Open Settings and provide a valid API URL and key.");
+            SetChatActivityStatus(IsArabic
+                ? "لا يوجد اتصال حقيقي مضبوط. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا."
+                : "No real AI connection is configured. Open Settings and provide a valid API URL and key.");
             MainTabs.SelectedItem = ChatTab;
             return;
         }
@@ -559,12 +1091,12 @@ public partial class MainWindow : Window
         _chatCancellation = new CancellationTokenSource();
         SendButton.IsEnabled = false;
         CancelResponseButton.IsEnabled = true;
-        ChatProviderStatus.Text = IsArabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...";
+        SetChatActivityStatus(IsArabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...");
         AppRuntime.MascotWindow?.SetMood("thinking");
         try
         {
             // Keep the most recent chat context bounded; archive history remains saved locally.
-            var history = ChatContextBuilder.Build(LayalIdentity.SystemPrompt, ChatMessages);
+            var history = ChatContextBuilder.Build(LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language), ChatMessages);
             ChatMessage? liveAssistantMessage = null;
             var streamedChunks = 0;
             var response = await _aiClient.ChatStreamAsync(
@@ -577,7 +1109,7 @@ public partial class MainWindow : Window
                     if (liveAssistantMessage is null)
                     {
                         AppRuntime.MascotWindow?.SetMood("responding");
-                        ChatProviderStatus.Text = IsArabic ? "ليال بتكتب..." : "Layal is responding...";
+                        SetChatActivityStatus(IsArabic ? "ليال بتكتب..." : "Layal is responding...");
                         liveAssistantMessage = AddMessage("assistant", delta);
                     }
                     else
@@ -606,19 +1138,19 @@ public partial class MainWindow : Window
                 SaveCurrentChatMessages();
             }
             AppRuntime.MascotWindow?.SetMood(SelectChatMood(text, response));
-            ChatProviderStatus.Text = IsArabic ? "اكتمل الرد" : "Response completed";
+            SetChatActivityStatus(IsArabic ? "اكتمل الرد" : "Response completed");
         }
         catch (OperationCanceledException)
         {
             AddMessage("status", IsArabic ? "تم إيقاف الطلب." : "Request cancelled.");
             AppRuntime.MascotWindow?.SetMood("paused");
-            ChatProviderStatus.Text = IsArabic ? "تم الإيقاف" : "Cancelled";
+            SetChatActivityStatus(IsArabic ? "تم الإيقاف" : "Cancelled");
         }
         catch (Exception ex)
         {
             AddMessage("status", (IsArabic ? "فشل طلب النموذج: " : "Model request failed: ") + ex.Message);
             AppRuntime.MascotWindow?.SetMood("error");
-            ChatProviderStatus.Text = IsArabic ? "فشل الطلب" : "Request failed";
+            SetChatActivityStatus(IsArabic ? "فشل الطلب" : "Request failed");
         }
         finally
         {
@@ -692,6 +1224,35 @@ public partial class MainWindow : Window
             input.Contains("show your expressions", StringComparison.Ordinal))
             return "playful";
 
+        if (input.Contains("مكسوف", StringComparison.Ordinal) || input.Contains("محرج", StringComparison.Ordinal) ||
+            input.Contains("embarrassed", StringComparison.Ordinal))
+            return "embarrassed";
+
+        if (input.Contains("ارتحت", StringComparison.Ordinal) || input.Contains("اطمنت", StringComparison.Ordinal) ||
+            input.Contains("that's a relief", StringComparison.Ordinal) || input.Contains("relieved", StringComparison.Ordinal))
+            return "relieved";
+
+        if (input.Contains("أنا آسف", StringComparison.Ordinal) || input.Contains("انا اسف", StringComparison.Ordinal) ||
+            input.Contains("حقك علي", StringComparison.Ordinal) || input.Contains("sorry", StringComparison.Ordinal) ||
+            input.Contains("my apologies", StringComparison.Ordinal))
+            return "apologetic";
+
+        if (input.Contains("محبط", StringComparison.Ordinal) || input.Contains("زهقت من", StringComparison.Ordinal) ||
+            input.Contains("frustrated", StringComparison.Ordinal))
+            return "frustrated";
+
+        if (input.Contains("خلينا نبدأ", StringComparison.Ordinal) || input.Contains("نقدر نعملها", StringComparison.Ordinal) ||
+            input.Contains("let's do this", StringComparison.Ordinal) || input.Contains("determined", StringComparison.Ordinal))
+            return "determined";
+
+        if (input.Contains("واثق", StringComparison.Ordinal) || input.Contains("confident", StringComparison.Ordinal) ||
+            input.Contains("i've got this", StringComparison.Ordinal))
+            return "confident";
+
+        if (input.Contains("مبروك", StringComparison.Ordinal) || input.Contains("نجحنا", StringComparison.Ordinal) ||
+            input.Contains("we did it", StringComparison.Ordinal) || input.Contains("congratulations", StringComparison.Ordinal))
+            return "celebrating";
+
         if (input.Contains("أنا زعلان", StringComparison.Ordinal) || input.Contains("انا زعلان", StringComparison.Ordinal) ||
             input.Contains("أنا حزينة", StringComparison.Ordinal) || input.Contains("انا حزين", StringComparison.Ordinal) ||
             input.Contains("i feel sad", StringComparison.Ordinal) || input.Contains("i'm sad", StringComparison.Ordinal))
@@ -706,7 +1267,7 @@ public partial class MainWindow : Window
         if (input.Contains("شكرا", StringComparison.Ordinal) || input.Contains("شكرًا", StringComparison.Ordinal) ||
             input.Contains("متشكر", StringComparison.Ordinal) || input.Contains("تسلم", StringComparison.Ordinal) ||
             input.Contains("thank you", StringComparison.Ordinal) || input.Contains("thanks", StringComparison.Ordinal))
-            return "love";
+            return "grateful";
 
         if (input.Contains("السلام عليكم", StringComparison.Ordinal) || input.Contains("صباح الخير", StringComparison.Ordinal) ||
             input.Contains("مساء الخير", StringComparison.Ordinal) || input.Contains("اهلا", StringComparison.Ordinal) ||
@@ -743,6 +1304,18 @@ public partial class MainWindow : Window
         CopyChatTextToClipboard(transcript, IsArabic ? "المحادثة" : "chat");
     }
 
+    private void ChatMessageContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu menu && menu.Items.Count > 0 && menu.Items[0] is MenuItem item)
+            item.Header = IsArabic ? "نسخ الرسالة" : "Copy message";
+    }
+
+    private void ChatMessageContextMenu_Opening(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu menu && menu.Items.OfType<MenuItem>().FirstOrDefault() is { } copyItem)
+            copyItem.Header = IsArabic ? "نسخ الرسالة" : "Copy message";
+    }
+
     private void CopyChatMessage_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem menuItem &&
@@ -754,29 +1327,29 @@ public partial class MainWindow : Window
             return;
         }
 
-        ChatCopyStatus.Text = IsArabic ? "تعذر تحديد الرسالة لنسخها." : "Could not identify the message to copy.";
-        ChatCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+        SetAccessibleStatusText(ChatCopyStatus, IsArabic ? "تعذر تحديد الرسالة لنسخها." : "Could not identify the message to copy.");
+        ChatCopyStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
     }
 
     private void CopyChatTextToClipboard(string? text, string label)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            ChatCopyStatus.Text = IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.";
-            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            SetAccessibleStatusText(ChatCopyStatus, IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.");
+            ChatCopyStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
 
         try
         {
-            Clipboard.SetText(text);
-            ChatCopyStatus.Text = IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"{label} copied to the clipboard.";
-            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            Clipboard.SetText(BidiTextNormalizer.StripDirectionalControls(text));
+            SetAccessibleStatusText(ChatCopyStatus, IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"{label} copied to the clipboard.");
+            ChatCopyStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
-            ChatCopyStatus.Text = (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message;
-            ChatCopyStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(ChatCopyStatus, (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message);
+            ChatCopyStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -801,7 +1374,7 @@ public partial class MainWindow : Window
     {
         if (_chatCancellation is not null)
         {
-            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.";
+            SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.");
             return;
         }
         var conversation = AppRuntime.ChatSessionService.CreateNewConversation(IsArabic ? "محادثة جديدة" : "New conversation");
@@ -809,9 +1382,9 @@ public partial class MainWindow : Window
         ChatMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
-        ChatProviderStatus.Text = IsArabic
+        SetChatActivityStatus(IsArabic
             ? "بدأت محادثة جديدة؛ المحادثات السابقة ما زالت محفوظة ويمكن اختيارها من القائمة."
-            : "New conversation started. Previous conversations remain saved in the selector.";
+            : "New conversation started. Previous conversations remain saved in the selector.");
         AppRuntime.MascotWindow?.SetMood("excited");
         ChatInput.Focus();
     }
@@ -820,7 +1393,7 @@ public partial class MainWindow : Window
     {
         if (_chatCancellation is not null)
         {
-            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.";
+            SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.");
             return;
         }
 
@@ -837,7 +1410,7 @@ public partial class MainWindow : Window
         ChatMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
-        ChatProviderStatus.Text = IsArabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.";
+        SetChatActivityStatus(IsArabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.");
         AppRuntime.MascotWindow?.SetMood("success");
     }
 
@@ -850,7 +1423,7 @@ public partial class MainWindow : Window
         if (_chatCancellation is not null)
         {
             RefreshChatSessions(_currentConversationId);
-            ChatProviderStatus.Text = IsArabic ? "أوقف الرد الحالي قبل تبديل المحادثة." : "Cancel the active response before switching conversations.";
+            SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل تبديل المحادثة." : "Cancel the active response before switching conversations.");
             return;
         }
 
@@ -870,7 +1443,7 @@ public partial class MainWindow : Window
         }
         ChatMessagesList.Items.Refresh();
         RefreshChatSessions(_currentConversationId);
-        ChatProviderStatus.Text = IsArabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.";
+        SetChatActivityStatus(IsArabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.");
     }
 
     private void CancelResponseButton_Click(object sender, RoutedEventArgs e) => _chatCancellation?.Cancel();
@@ -889,7 +1462,7 @@ public partial class MainWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = IsArabic ? "اختيار حزمة مهارة ZIP" : "Select skill ZIP package",
-            Filter = "Skill packages (*.zip)|*.zip|All files (*.*)|*.*",
+            Filter = IsArabic ? "حزم المهارات (*.zip)|*.zip|كل الملفات (*.*)|*.*" : "Skill packages (*.zip)|*.zip|All files (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false
         };
@@ -907,13 +1480,13 @@ public partial class MainWindow : Window
                 record = AppRuntime.SkillPackageService.ImportZip(dialog.FileName, overwrite: true);
             }
             RefreshSkills();
-            SkillsResult.Text = (IsArabic ? "تم استيراد بيانات المهارة: " : "Skill metadata imported: ") + record.Name;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            SetAccessibleStatusText(SkillsResult, (IsArabic ? "تم استيراد بيانات المهارة: " : "Skill metadata imported: ") + record.Name);
+            SkillsResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
-            SkillsResult.Text = (IsArabic ? "تعذر استيراد المهارة: " : "Skill import failed: ") + ex.Message;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(SkillsResult, UiLocalization.FormatTechnicalError("تعذر استيراد المهارة", "Skill import failed", ex, IsArabic));
+            SkillsResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -933,13 +1506,13 @@ public partial class MainWindow : Window
         var url = GitHubSkillUrlInput.Text.Trim();
         if (string.IsNullOrWhiteSpace(url))
         {
-            SkillsResult.Text = IsArabic ? "أدخل رابط GitHub أولًا." : "Enter a GitHub URL first.";
-            SkillsResult.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            SetAccessibleStatusText(SkillsResult, IsArabic ? "أدخل رابط GitHub أولًا." : "Enter a GitHub URL first.");
+            SkillsResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
         ImportGitHubSkillButton.IsEnabled = false;
-        SkillsResult.Text = IsArabic ? "جارٍ تنزيل المستودع وفحص ملفات المهارة..." : "Downloading repository and validating skill files...";
-        SkillsResult.Foreground = System.Windows.Media.Brushes.SteelBlue;
+        SetAccessibleStatusText(SkillsResult, IsArabic ? "جارٍ تنزيل المستودع وفحص ملفات المهارة..." : "Downloading repository and validating skill files...");
+        SkillsResult.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
         try
         {
             SkillRecord record;
@@ -953,14 +1526,14 @@ public partial class MainWindow : Window
                 record = await AppRuntime.SkillPackageService.ImportFromGitHubAsync(url, overwrite: true);
             }
             RefreshSkills();
-            SkillsResult.Text = (IsArabic ? "تم استيراد المهارة: " : "Imported skill: ") + record.Name + Environment.NewLine + record.Description;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            SetAccessibleStatusText(SkillsResult, (IsArabic ? "تم استيراد المهارة: " : "Imported skill: ") + record.Name + Environment.NewLine + record.Description);
+            SkillsResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
             GitHubSkillUrlInput.Clear();
         }
         catch (Exception ex)
         {
-            SkillsResult.Text = (IsArabic ? "تعذر استيراد المهارة من GitHub: " : "GitHub skill import failed: ") + ex.Message;
-            SkillsResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(SkillsResult, UiLocalization.FormatTechnicalError("تعذر استيراد المهارة من GitHub", "GitHub skill import failed", ex, IsArabic));
+            SkillsResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally { ImportGitHubSkillButton.IsEnabled = true; }
     }
@@ -970,13 +1543,15 @@ public partial class MainWindow : Window
         var goal = TaskInput.Text.Trim();
         if (goal.Length == 0)
         {
-            TaskResult.Text = IsArabic ? "اكتب وصف المهمة أولًا." : "Enter a task first.";
+            SetAccessibleStatusText(TaskResult, IsArabic ? "اكتب وصف المهمة أولًا." : "Enter a task first.");
+
             return;
         }
         var key = AppRuntime.SecretStore.Load();
         if (string.IsNullOrWhiteSpace(key))
         {
-            TaskResult.Text = IsArabic ? "لا يوجد مفتاح API محفوظ. افتح الإعدادات واختبر الاتصال أولًا." : "No saved API key. Configure and test the provider in Settings first.";
+            SetAccessibleStatusText(TaskResult, IsArabic ? "لا يوجد مفتاح API محفوظ. افتح الإعدادات واختبر الاتصال أولًا." : "No saved API key. Configure and test the provider in Settings first.");
+
             MainTabs.SelectedItem = SettingsTab;
             return;
         }
@@ -985,17 +1560,21 @@ public partial class MainWindow : Window
         var selectedSkills = SkillsList.SelectedItems.Cast<SkillRecord>().Take(3).ToList();
         if (SkillsList.SelectedItems.Count > 3)
         {
-            TaskResult.Text = IsArabic ? "استخدم 3 مهارات كحد أقصى في المهمة الواحدة." : "Select no more than 3 skills for one task.";
+            SetAccessibleStatusText(TaskResult, IsArabic ? "استخدم 3 مهارات كحد أقصى في المهمة الواحدة." : "Select no more than 3 skills for one task.");
+
             return;
         }
 
         TaskEvents.Clear();
-        TaskResult.Text = IsArabic ? "بدأت المهمة. راقب سجل التنفيذ والموافقات." : "Task started. Watch the activity log and approval prompts.";
-        TaskCopyStatus.Text = string.Empty;
+        _rawTaskEvents.Clear();
+        SetAccessibleStatusText(TaskResult, IsArabic ? "بدأت المهمة. راقب سجل التنفيذ والموافقات." : "Task started. Watch the activity log and approval prompts.");
+
+        SetAccessibleStatusText(TaskCopyStatus, string.Empty);
         var cancellation = new CancellationTokenSource();
         _agentTaskCancellation = cancellation;
         RunAgentTaskButton.IsEnabled = false;
         CancelAgentTaskButton.IsEnabled = true;
+        AppRuntime.MascotWindow?.SetTaskActive(true);
         AppRuntime.MascotWindow?.SetMood("thinking");
 
         var finalMood = "error";
@@ -1009,9 +1588,10 @@ public partial class MainWindow : Window
                 selectedSkills,
                 ConfirmToolActionAsync,
                 AddTaskEvent,
-                cancellation.Token);
+                cancellation.Token,
+                AppRuntime.Settings.Language);
 
-            TaskResult.Text = $"{record.Status}{Environment.NewLine}{record.Result}";
+            SetAccessibleStatusText(TaskResult, UiLocalization.FormatTaskResult(record, IsArabic));
             finalMood = record.Status switch
             {
                 "Completed" => "success",
@@ -1019,22 +1599,22 @@ public partial class MainWindow : Window
                 "Cancelled" => "paused",
                 _ => "error"
             };
-            TaskResult.Foreground = record.Status == "Completed" ? System.Windows.Media.Brushes.ForestGreen :
-                record.Status is "CompletedWithWarnings" or "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod :
-                System.Windows.Media.Brushes.Firebrick;
+            TaskResult.Foreground = record.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
+                record.Status is "CompletedWithWarnings" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
+                ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             RefreshRecentTasks(record.Id);
         }
         catch (OperationCanceledException)
         {
-            TaskResult.Text = IsArabic ? "تم إلغاء المهمة." : "Task was cancelled.";
-            TaskResult.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            SetAccessibleStatusText(TaskResult, IsArabic ? "تم إلغاء المهمة." : "Task was cancelled.");
+            TaskResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             AddTaskEvent("Task cancelled by the user.");
             finalMood = "paused";
         }
         catch (Exception ex)
         {
-            TaskResult.Text = (IsArabic ? "فشلت المهمة: " : "Task failed: ") + ex.Message;
-            TaskResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError("فشلت المهمة", "Task failed", ex, IsArabic));
+            TaskResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             AddTaskEvent("Task failed: " + ex.Message);
             finalMood = "error";
         }
@@ -1045,11 +1625,14 @@ public partial class MainWindow : Window
                 _agentTaskCancellation = null;
             RunAgentTaskButton.IsEnabled = true;
             CancelAgentTaskButton.IsEnabled = false;
+            AppRuntime.MascotWindow?.SetTaskActive(false);
         }
 
         // Set terminal state only after task history and event controls finish updating.
         // The mascot resets success/error/paused to idle after displaying the outcome briefly.
         AppRuntime.MascotWindow?.SetMood(finalMood);
+
+        NotifyLiveRegion(TaskEventsList);
     }
 
     private void CopyTaskResultButton_Click(object sender, RoutedEventArgs e) =>
@@ -1062,20 +1645,20 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            TaskCopyStatus.Text = IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.";
-            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            SetAccessibleStatusText(TaskCopyStatus, IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.");
+            TaskCopyStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
         try
         {
             Clipboard.SetText(text);
-            TaskCopyStatus.Text = IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"Copied {label} to the clipboard.";
-            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            SetAccessibleStatusText(TaskCopyStatus, IsArabic ? $"تم نسخ {label} إلى الحافظة." : $"Copied {label} to the clipboard.");
+            TaskCopyStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
-            TaskCopyStatus.Text = (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message;
-            TaskCopyStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(TaskCopyStatus, (IsArabic ? "تعذر النسخ: " : "Copy failed: ") + ex.Message);
+            TaskCopyStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -1085,8 +1668,10 @@ public partial class MainWindow : Window
     {
         cancellationToken.ThrowIfCancellationRequested();
         var heading = IsArabic ? "موافقة مطلوبة من ليال" : "Layal requires approval";
-        var text = (IsArabic ? "الإجراء التالي يحتاج موافقتك:\n\n" : "The following action requires your approval:\n\n") + details;
-        var result = MessageBox.Show(this, text, string.IsNullOrWhiteSpace(title) ? heading : heading + " — " + title,
+        var localizedTitle = UiLocalization.LocalizeApprovalTitle(title, IsArabic);
+        var localizedDetails = UiLocalization.LocalizeApprovalDetails(details, IsArabic);
+        var text = (IsArabic ? "الإجراء التالي يحتاج موافقتك:\n\n" : "The following action requires your approval:\n\n") + localizedDetails;
+        var result = MessageBox.Show(this, text, string.IsNullOrWhiteSpace(localizedTitle) ? heading : heading + " — " + localizedTitle,
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         return Task.FromResult(result == MessageBoxResult.Yes && !cancellationToken.IsCancellationRequested);
     }
@@ -1098,34 +1683,47 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => AddTaskEvent(text));
             return;
         }
-        TaskEvents.Add(text);
+        _rawTaskEvents.Add(text);
+        while (_rawTaskEvents.Count > 300) _rawTaskEvents.RemoveAt(0);
+        TaskEvents.Add(UiLocalization.FormatTaskEvent(text, IsArabic));
         while (TaskEvents.Count > 300) TaskEvents.RemoveAt(0);
         if (TaskEventsList.Items.Count > 0) TaskEventsList.ScrollIntoView(TaskEventsList.Items[^1]);
 
-        // Keep the mascot's expression synchronized with real task-engine events.
-        if (text.Contains("Tool requested", StringComparison.OrdinalIgnoreCase)) AppRuntime.MascotWindow?.SetMood("using_tool");
-        else if (text.Contains("Requesting model turn", StringComparison.OrdinalIgnoreCase) || text.Contains("Task accepted", StringComparison.OrdinalIgnoreCase)) AppRuntime.MascotWindow?.SetMood("thinking");
-        else if (text.Contains("Tool failed", StringComparison.OrdinalIgnoreCase) || text.Contains("Task failed", StringComparison.OrdinalIgnoreCase)) AppRuntime.MascotWindow?.SetMood("error");
-        else if (text.Contains("approval", StringComparison.OrdinalIgnoreCase) || text.Contains("requires approval", StringComparison.OrdinalIgnoreCase)) AppRuntime.MascotWindow?.SetMood("warning");
+        // Drive facial acting from actual engine events through a unit-testable resolver.
+        var mascotMood = TaskMoodResolver.Resolve(text, TaskEvents.TakeLast(4));
+        if (mascotMood is not null)
+            AppRuntime.MascotWindow?.SetMood(mascotMood,
+                showReaction: !text.Contains("Tool result recorded:", StringComparison.OrdinalIgnoreCase));
     }
 
     private void RefreshRecentTasks(string? selectTaskId = null)
     {
-        RecentTasks.Clear();
-        foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30)) RecentTasks.Add(task);
-        if (!string.IsNullOrWhiteSpace(selectTaskId))
-            RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == selectTaskId);
+        var previouslySelectedId = (RecentTasksList.SelectedItem as TaskHistoryListItem)?.Id;
+        var idToSelect = string.IsNullOrWhiteSpace(selectTaskId) ? previouslySelectedId : selectTaskId;
+        _refreshingRecentTasks = true;
+        try
+        {
+            RecentTasks.Clear();
+            foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30))
+                RecentTasks.Add(new TaskHistoryListItem(task, IsArabic));
+            if (!string.IsNullOrWhiteSpace(idToSelect))
+                RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == idToSelect);
+        }
+        finally { _refreshingRecentTasks = false; }
     }
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (RecentTasksList.SelectedItem is not AgentTaskRecord task) return;
+        if (_refreshingRecentTasks || RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
+        var task = selectedTask.Record;
         TaskEvents.Clear();
+        _rawTaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
-        TaskResult.Text = $"{task.Status}{Environment.NewLine}{task.Result}";
-        TaskResult.Foreground = task.Status == "Completed" ? System.Windows.Media.Brushes.ForestGreen :
-            task.Status is "CompletedWithWarnings" or "Cancelled" ? System.Windows.Media.Brushes.DarkGoldenrod :
-            System.Windows.Media.Brushes.Firebrick;
+        SetAccessibleStatusText(TaskResult, UiLocalization.FormatTaskResult(task, IsArabic));
+
+        TaskResult.Foreground = task.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
+            task.Status is "CompletedWithWarnings" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
+            ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         AppRuntime.MascotWindow?.SetMood(task.Status switch
         {
             "Completed" => "success",
@@ -1150,7 +1748,7 @@ public partial class MainWindow : Window
         MemoryList.SelectedItem = null;
         MemoryTitleInput.Clear();
         MemoryContentInput.Clear();
-        MemoryResult.Text = IsArabic ? "اكتب ملاحظة جديدة ثم اضغط حفظ." : "Write a new note and select Save.";
+        SetAccessibleStatusText(MemoryResult, IsArabic ? "اكتب ملاحظة جديدة ثم اضغط حفظ." : "Write a new note and select Save.");
         MemoryTitleInput.Focus();
     }
 
@@ -1160,7 +1758,7 @@ public partial class MainWindow : Window
         _selectedMemoryId = note.Id;
         MemoryTitleInput.Text = note.Title;
         MemoryContentInput.Text = note.Content;
-        MemoryResult.Text = $"{note.UpdatedAt.LocalDateTime:g}";
+        SetAccessibleStatusText(MemoryResult, UiLocalization.FormatDateTime(note.UpdatedAt.LocalDateTime, IsArabic));
     }
 
     private void SaveMemoryButton_Click(object sender, RoutedEventArgs e)
@@ -1177,13 +1775,13 @@ public partial class MainWindow : Window
             _selectedMemoryId = note.Id;
             RefreshMemoryNotes(MemorySearchInput.Text);
             MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(n => n.Id == note.Id);
-            MemoryResult.Text = IsArabic ? "تم حفظ الملاحظة محليًا بصورة مشفرة." : "Note saved locally with encryption.";
-            MemoryResult.Foreground = System.Windows.Media.Brushes.ForestGreen;
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "تم حفظ الملاحظة محليًا بصورة مشفرة." : "Note saved locally with encryption.");
+            MemoryResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
-            MemoryResult.Text = ex.Message;
-            MemoryResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(MemoryResult, UiLocalization.FormatTechnicalError("تعذر حفظ الملاحظة", "Could not save the note", ex, IsArabic));
+            MemoryResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 
@@ -1191,7 +1789,7 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(_selectedMemoryId))
         {
-            MemoryResult.Text = IsArabic ? "حدد ملاحظة لحذفها." : "Select a note to delete.";
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "حدد ملاحظة لحذفها." : "Select a note to delete.");
             return;
         }
         var answer = MessageBox.Show(this, IsArabic ? "هل تريد حذف الملاحظة المحددة نهائيًا؟" : "Permanently delete the selected memory note?",
@@ -1202,7 +1800,7 @@ public partial class MainWindow : Window
         MemoryTitleInput.Clear();
         MemoryContentInput.Clear();
         RefreshMemoryNotes(MemorySearchInput.Text);
-        MemoryResult.Text = IsArabic ? "تم حذف الملاحظة." : "Memory note deleted.";
+        SetAccessibleStatusText(MemoryResult, IsArabic ? "تم حذف الملاحظة." : "Memory note deleted.");
     }
 
     private async void ExportMemoryButton_Click(object sender, RoutedEventArgs e)
@@ -1210,7 +1808,7 @@ public partial class MainWindow : Window
         var dialog = new SaveFileDialog
         {
             Title = IsArabic ? "تصدير الذاكرة إلى JSON غير مشفر" : "Export memory to unencrypted JSON",
-            Filter = "JSON files (*.json)|*.json",
+            Filter = IsArabic ? "ملفات JSON (*.json)|*.json" : "JSON files (*.json)|*.json",
             FileName = "layal-memory-export.json",
             AddExtension = true,
             DefaultExt = ".json"
@@ -1223,13 +1821,13 @@ public partial class MainWindow : Window
         try
         {
             await File.WriteAllTextAsync(dialog.FileName, AppRuntime.MemoryService.ExportJson(), new UTF8Encoding(false));
-            MemoryResult.Text = IsArabic ? "تم تصدير الذاكرة. الملف غير مشفر." : "Memory exported. The file is not encrypted.";
-            MemoryResult.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "تم تصدير الذاكرة. الملف غير مشفر." : "Memory exported. The file is not encrypted.");
+            MemoryResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         }
         catch (Exception ex)
         {
-            MemoryResult.Text = ex.Message;
-            MemoryResult.Foreground = System.Windows.Media.Brushes.Firebrick;
+            SetAccessibleStatusText(MemoryResult, UiLocalization.FormatTechnicalError("تعذر تصدير الذاكرة", "Could not export memory", ex, IsArabic));
+            MemoryResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
     }
 

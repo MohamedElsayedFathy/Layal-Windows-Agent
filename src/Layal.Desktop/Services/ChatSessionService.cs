@@ -11,7 +11,7 @@ public sealed class ChatSessionService
     private readonly ProtectedJsonStore<List<ChatConversation>> _store;
     private readonly ProtectedJsonStore<List<ChatMessage>> _legacyStore;
     private readonly List<ChatConversation> _sessions;
-    private readonly string _defaultTitle;
+    private string _defaultTitle;
     private string _currentId = string.Empty;
 
     public ChatSessionService(string path, ProtectedJsonStore<List<ChatMessage>> legacyStore, string defaultTitle = "New conversation")
@@ -44,6 +44,28 @@ public sealed class ChatSessionService
             _sessions.Add(CreateRecord(_defaultTitle));
 
         _currentId = _sessions.OrderByDescending(s => s.UpdatedAt).First().Id;
+        Save();
+    }
+
+    /// <summary>Updates the localized placeholder title without renaming user-authored conversations.</summary>
+    public void SetDefaultTitle(string defaultTitle)
+    {
+        if (string.IsNullOrWhiteSpace(defaultTitle)) return;
+
+        var previousDefault = _defaultTitle;
+        var nextDefault = defaultTitle.Trim();
+        _defaultTitle = nextDefault;
+
+        foreach (var session in _sessions)
+        {
+            if (session.Messages.Count == 0 &&
+                (string.Equals(session.Title, previousDefault, StringComparison.Ordinal) ||
+                 session.Title is "New conversation" or "محادثة جديدة"))
+            {
+                session.Title = nextDefault;
+            }
+        }
+
         Save();
     }
 
