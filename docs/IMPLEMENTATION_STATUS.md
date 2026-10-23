@@ -48,6 +48,16 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 - لإغلاق البوابة، يجب تنفيذ القائمة على جهاز Windows تفاعلي باستخدام commit وartifact محددين؛ وحفظ الصور والسجلات وSHA-256؛ ومراجعة كل حالات الفشل/الحظر قبل إصدار قرار. لا تُعد نتائج RenderTargetBitmap أو عامل CI شهادة بتغيّر DPI الفعلي أو التعدد الفيزيائي للشاشات.
 - تظل بوابتا التوقيع بشهادة Code Signing موثوقة ومراجعة تراخيص المشروع/الأصول منفصلتين عن القبول الحي، وتظل PR #6 مسودة وغير مدمجة.
 
+## المرحلة السادسة — اعتماد الإصدار والإعداد للنشر — 23 أكتوبر 2026
+
+**قرار الاعتماد الحالي: NO-GO — لا يُنشر إصدار عام الآن.** إعدادات الإصدار والمستندات جاهزة للمراجعة، لكن البوابات التقنية والقانونية والقبول الحي لم تُغلق كلها.
+
+- أحدث Windows CI على commit `c5138a4ccae9b4b66215be03b8cd2bc4e1cce7ea` نجح: [run 39983593458](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39983593458). سجل 77/77 اختبارًا ناجحًا، و4/4 اختبارات تمرير نقرات، و6/6 اختبارات سحب/استعادة، و11 تحققًا آليًا للشاشة/DPI، ودورة حياة المثبّت والتحقق من 10 بصمات SHA-256. فحص الشاشة رصد شاشة واحدة فقط عند 96 DPI/100%، وأكد صراحةً أن اعتماد الشاشات/DPI غير مكتمل وأن القبول البصري اليدوي ما زال pending.
+- نجحت فحوص الأمان/سلسلة التوريد في [run 39983593523](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39983593523)، بما فيها Gitleaks وNuGet vulnerability audit. جرد الرخص نفسه يسجل **PASS WITH OPEN LEGAL GATES** وليس اعتمادًا قانونيًا نهائيًا.
+- أُضيف [سجل قرار الإصدار Go/No-Go](RELEASE_APPROVAL_AR.md) و[مسودة ملاحظات الإصدار 0.5.2](RELEASE_NOTES_0.5.2_AR.md). وتُميز الوثيقتان بين أدلة CI ومتطلبات النشر الفعلية.
+- حزمة التوزيع المرجعية من CI [artifact 12514233645](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39983593458/artifacts/12514233645) غير موقعة ومحدودة الاحتفاظ؛ لا تُستخدم بدلًا من مخرجات tag إصدار موثوق.
+- ما زال القبول على جهاز Windows فعلي والتوقيع الموثوق ومراجعة رخصة المشروع وحقوق الأصول ودمج معتمد على `main` وتشغيل tag موقّع ونشر GitHub Release بوابات مفتوحة. لم تُنشأ tag أو صفحة إصدار خلال هذه المرحلة؛ PR #6 ما زال Draft وغير مدمج.
+
 ## Remaining acceptance and integration gates
 
 1. Execute the [manual Windows acceptance checklist](MANUAL_ACCEPTANCE_AR.md) on the target PC: tray/hide/show/exit, single/double/context clicks, keyboard focus, and settings persistence after a real restart.
