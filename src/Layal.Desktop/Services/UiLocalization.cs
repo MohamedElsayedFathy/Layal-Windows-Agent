@@ -18,6 +18,9 @@ public static class UiLocalization
     public static string FormatDateTime(DateTime value, bool isArabic) =>
         value.ToString("g", GetCulture(isArabic));
 
+    public static bool IsFormattedDateTime(string value, bool cultureIsArabic) =>
+        DateTime.TryParse(value, GetCulture(cultureIsArabic), DateTimeStyles.None, out _);
+
     public static string FormatTaskStatus(string status, bool isArabic) => status switch
     {
         "Pending" => isArabic ? "قيد الانتظار" : "Pending",
@@ -221,7 +224,6 @@ public static class UiLocalization
             if (match.Success)
             {
                 var verb = match.Groups["verb"].Value;
-                var action = verb == "build" ? "البناء" : "الاختبار";
                 return $"هل تريد تشغيل dotnet {verb} على المشروع '{match.Groups["path"].Value}' باستخدام {match.Groups["config"].Value}؟ قد تنفذ أهداف المشروع كودًا وتستعيد حزمًا من الإنترنت. لا تتابع إلا إذا كنت تثق بالمشروع.";
             }
         }
