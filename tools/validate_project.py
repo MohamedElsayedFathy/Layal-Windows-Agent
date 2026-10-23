@@ -499,10 +499,10 @@ for required in (
     if required not in ui_xaml:
         ERRORS.append(f"Unified keyboard-accessibility markup is missing: {required}")
 
-if 'x:Key="Layal.AccessibleFocusVisual"' not in app_xaml:
+if 'x:Key="Layal.KeyboardFocusVisual"' not in app_xaml:
     ERRORS.append("Windows-highlight keyboard focus visual is missing from App.xaml")
 focus_refs = len(re.findall(
-    r'FocusVisualStyle[^>]*Layal\.(?:Accessible|Keyboard)FocusVisual',
+    r'FocusVisualStyle[^>]*Layal\.KeyboardFocusVisual',
     app_xaml,
 ))
 if focus_refs < 8:
