@@ -70,7 +70,7 @@ class ReleaseClearanceTests(unittest.TestCase):
         packages["example.package"]["reviewStatus"] = "Human legal review pending."
         packages["example.package"].pop("reviewEvidence")
         errors = validate_licenses.release_clearance_errors(document, packages, components, True)
-        self.assertTrue(any("human license review is still pending" in error for error in errors))
+        self.assertTrue(any("human license review is not explicitly approved" in error for error in errors))
         self.assertTrue(any("reviewEvidence" in error for error in errors))
 
     def test_sbom_component_without_license_blocks_release(self):
