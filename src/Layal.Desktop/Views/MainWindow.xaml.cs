@@ -517,6 +517,7 @@ public partial class MainWindow : Window
 
     private void RefreshProviderStatus()
     {
+        var previousConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
         var hasKey = !string.IsNullOrWhiteSpace(AppRuntime.SecretStore?.Load());
         var hasConfig = Uri.TryCreate(AppRuntime.Settings.ProviderBaseUrl, UriKind.Absolute, out var uri) &&
                         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
@@ -535,6 +536,9 @@ public partial class MainWindow : Window
             : (IsArabic ? "لا يوجد اتصال مختبَر" : "Not connected/tested");
 
         NormalizeBidiTextInTree();
+        var currentConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
+        if (IsLoaded && !string.Equals(previousConnectionStatus, currentConnectionStatus, StringComparison.Ordinal))
+            NotifyLiveRegion(ConnectionStatusText);
     }
 
     private void NormalizeBidiTextInTree()
