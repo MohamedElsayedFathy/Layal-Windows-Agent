@@ -75,9 +75,14 @@ for needle, label in [
         errors.append(f"Distribution builder is missing: {label}")
 for needle, label in [
     ("sentinelPath", "test data sentinel"),
-    ("sentinel was removed during upgrade", "upgrade data-preservation assertion"),
-    ("sentinel was removed during rollback", "rollback data-preservation assertion"),
-    ("sentinel was removed during uninstall", "uninstall data-preservation assertion"),
+    ("sentinelContents", "test data sentinel content fingerprint"),
+    ("Assert-UserDataSentinel", "data-preservation assertions across lifecycle stages"),
+    ("Programs\\Layal", "default per-user installation path test"),
+    ("Get-LayalUninstallEntries", "Add/Remove Programs registry inspection"),
+    ("Assert-StartMenuShortcut", "Start Menu shortcut target validation"),
+    ("Start Menu shortcut remains after uninstall", "shortcut cleanup assertion"),
+    ("Assert-Uninstalled", "post-uninstall cleanup assertions"),
+    ("Refusing to overwrite a pre-existing default install folder", "safe clean-profile preflight"),
     ("unins000.exe", "uninstall test"),
 ]:
     if needle.lower() not in lifecycle.lower():
