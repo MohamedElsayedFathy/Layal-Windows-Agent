@@ -72,6 +72,7 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.MainWindow = window;
         window.Show();
         window.UpdateLayout();
+        AssertInitialWindowFitsWorkArea(window);
         var windowContent = window.Content as FrameworkElement
             ?? throw new InvalidOperationException("MainWindow content root was not found.");
 
@@ -154,6 +155,8 @@ public sealed class MainWindowVisualSmokeTests
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
             window.UpdateLayout();
+            AssertEmptyStateLocalization(window, language);
+            AssertLanguageLayoutContracts(window, language);
             Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
                 "The root window must not horizontally mirror icons or glyphs in RTL mode.");
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
@@ -320,6 +323,69 @@ public sealed class MainWindowVisualSmokeTests
         window.Close();
         app.Shutdown();
         App.SuppressStartupForTests = false;
+    }
+
+    private static void AssertInitialWindowFitsWorkArea(MainWindow window)
+    {
+        var workArea = SystemParameters.WorkArea;
+        Assert.IsTrue(workArea.Width > 0 && workArea.Height > 0,
+            "Windows must report a usable work area for responsive sizing.");
+        Assert.IsTrue(window.Width <= workArea.Width,
+            $"Initial window width {window.Width:0.##} DIPs exceeds work area width {workArea.Width:0.##} DIPs.");
+        Assert.IsTrue(window.Height <= workArea.Height,
+            $"Initial window height {window.Height:0.##} DIPs exceeds work area height {workArea.Height:0.##} DIPs.");
+        Assert.IsTrue(window.MinWidth <= window.Width && window.MinHeight <= window.Height,
+            "Responsive initial sizing must keep minimum dimensions at or below the applied window dimensions.");
+    }
+
+    private static void AssertEmptyStateLocalization(MainWindow window, string language)
+    {
+        var ar = language == "ar";
+        var expectations = new[]
+        {
+            ("ChatEmptyState", ar ? "لا توجد رسائل بعد. اكتب رسالة بالأسفل للبدء." : "No messages yet. Type below to start."),
+            ("TaskEventsEmptyState", ar ? "سيظهر سجل النشاط هنا بعد بدء مهمة." : "Task activity will appear here after a task starts."),
+            ("RecentTasksEmptyState", ar ? "لا توجد مهام محفوظة بعد." : "No saved tasks yet."),
+            ("SkillsEmptyState", ar ? "لا توجد مهارات مثبتة. استورد ZIP أو رابط GitHub للبدء." : "No skills installed. Import a ZIP or GitHub URL to get started."),
+            ("MemoryEmptyState", ar ? "لا توجد ملاحظات مطابقة. أنشئ ملاحظة جديدة أو غيّر عبارة البحث." : "No matching notes. Create a note or change your search.")
+        };
+
+        foreach (var (name, expectedText) in expectations)
+        {
+            var hint = window.FindName(name) as TextBlock
+                ?? throw new InvalidOperationException($"Expected localized empty-state '{name}' was not found.");
+            Assert.AreEqual(expectedText, hint.Text,
+                $"Empty-state text '{name}' was not localized for {language}.");
+        }
+    }
+
+    private static void AssertLanguageLayoutContracts(MainWindow window, string language)
+    {
+        var ar = language == "ar";
+        var expectedWritingDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        var proseFields = new[]
+        {
+            "ChatInput", "TaskInput", "MemoryTitleInput", "MemoryContentInput", "MemorySearchInput"
+        };
+
+        foreach (var fieldName in proseFields)
+        {
+            var field = window.FindName(fieldName) as Control
+                ?? throw new InvalidOperationException($"Expected prose input '{fieldName}' was not found.");
+            Assert.AreEqual(expectedWritingDirection, field.FlowDirection,
+                $"Prose field '{fieldName}' has the wrong flow direction for {language}.");
+        }
+
+        foreach (var fieldName in new[] { "BaseUrlInput", "ModelInput", "ApiKeyInput", "GitHubSkillUrlInput" })
+        {
+            var field = window.FindName(fieldName) as Control
+                ?? throw new InvalidOperationException($"Expected technical input '{fieldName}' was not found.");
+            Assert.AreEqual(FlowDirection.LeftToRight, field.FlowDirection,
+                $"Technical field '{fieldName}' must remain LTR for {language}.");
+        }
+
+        Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
+            "The whole window must not be mirrored to achieve Arabic RTL text.");
     }
 
     private static void AssertHighContrastPaletteCanBeApplied(MainWindow window, MethodInfo applyTheme)
