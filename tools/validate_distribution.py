@@ -69,6 +69,8 @@ for needle, label in [
     ("CycloneDX", "SBOM generation"),
     ("SHA256SUMS.txt", "SHA-256 manifest"),
     ("Test-LayalInstaller.ps1", "installer lifecycle test"),
+    ("PASS: fresh install, upgrade, rollback", "successful installer lifecycle evidence"),
+    ("NOT RUN", "explicit status when lifecycle tests are skipped"),
     ("NOT SIGNED", "explicit unsigned-release warning"),
 ]:
     if needle not in builder:
@@ -83,6 +85,8 @@ for needle, label in [
     ("Start Menu shortcut remains after uninstall", "shortcut cleanup assertion"),
     ("Assert-Uninstalled", "post-uninstall cleanup assertions"),
     ("Refusing to overwrite a pre-existing default install folder", "safe clean-profile preflight"),
+    ("$testOwnsInstall", "cleanup ownership state"),
+    ("if ($testOwnsInstall -and", "cleanup restricted to test-owned installs"),
     ("unins000.exe", "uninstall test"),
 ]:
     if needle.lower() not in lifecycle.lower():
@@ -168,6 +172,8 @@ if args.artifacts:
             for needle in ("NOT SIGNED", "NOT CERTIFIED"):
                 if needle not in status_text:
                     errors.append(f"Release status file must disclose: {needle}")
+            if "Installer lifecycle CI: PASS:" not in status_text:
+                errors.append("Release artifacts require a passing installer lifecycle test; rebuild with -RunInstallerLifecycleTests.")
         print(f"Generated outputs checked for version: {version}")
         print("Generated package validation: " + ("PASS" if not errors else "FAIL"))
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
