@@ -270,9 +270,9 @@ $hashLines = foreach ($file in (Get-ChildItem -LiteralPath $Distribution -File -
 $hashLines | Set-Content -LiteralPath $checksumPath -Encoding ascii
 
 $integrityVerifier = Join-Path $PSScriptRoot 'Verify-LayalDistributionIntegrity.ps1'
-$verifyArguments = @('-DistributionDirectory', $Distribution)
-if ($RequireCodeSigning) { $verifyArguments += '-RequireSignature' }
-& $integrityVerifier @verifyArguments
+$verifyParameters = @{ DistributionDirectory = $Distribution }
+if ($RequireCodeSigning) { $verifyParameters.RequireSignature = $true }
+& $integrityVerifier @verifyParameters
 
 Write-Host ''
 Write-Host "Distribution folder: $Distribution"
