@@ -63,7 +63,7 @@
                         <Border Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="14" Padding="16" Margin="4,8,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                             <TextBlock x:Name="HomeCaveat" Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"/>
                         </Border>
-                        <TextBlock x:Name="HomeResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="6,12,6,0"/>
+                        <TextBlock x:Name="HomeResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="6,12,6,0"/ AutomationProperties.Name="نتيجة الإجراء" AutomationProperties.LiveSetting="Polite">
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -75,7 +75,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <DockPanel Grid.Row="0">
                             <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="20" FontWeight="SemiBold" DockPanel.Dock="Left"/>
-                            <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="{DynamicResource Layal.Warning}" HorizontalAlignment="Right"/>
+                            <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="{DynamicResource Layal.Warning}" HorizontalAlignment="Right"/ AutomationProperties.Name="حالة الاتصال" AutomationProperties.LiveSetting="Polite">
                         </DockPanel>
                         <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,7,0,0">
                             <ComboBox x:Name="ChatHistorySelector" ItemsSource="{Binding ChatConversations}" DisplayMemberPath="Title"
@@ -123,7 +123,10 @@
                     </TextBlock>
                     <StackPanel Grid.Row="2" Margin="4,8">
                         <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,0,0,2"/>
-                        <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                   AutomationProperties.Name="حالة المحادثة" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"
+                                   AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -209,8 +212,8 @@
                         <TextBox x:Name="TaskResult" Text="لم تُنفذ أي عملية بعد." IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                  MinHeight="68" MaxHeight="170" Padding="9" Margin="0,4,0,0"
-                                 Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Success}"/>
-                        <TextBlock x:Name="TaskCopyStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="3,3,3,0"/>
+                                 Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Foreground="{DynamicResource Layal.Success}"/ AutomationProperties.LiveSetting="Polite">
+                        <TextBlock x:Name="TaskCopyStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="3,3,3,0"/ AutomationProperties.Name="حالة نسخ النتيجة" AutomationProperties.LiveSetting="Polite">
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -242,7 +245,7 @@
                             <Button x:Name="ImportGitHubSkillButton" Content="استيراد من GitHub" Click="ImportGitHubSkillButton_Click" DockPanel.Dock="Right"/>
                             <TextBox x:Name="GitHubSkillUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://github.com/owner/repo/tree/main/path/to/skill" AutomationProperties.Name="رابط مستودع المهارة / Skill repository URL" AutomationProperties.HelpText="أدخل رابط مستودع أو مجلد يحتوي على SKILL.md / Enter a repository or folder containing SKILL.md."/>
                         </DockPanel>
-                        <TextBlock x:Name="SkillsResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,5,5,0"/>
+                        <TextBlock x:Name="SkillsResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,5,5,0"/ AutomationProperties.LiveSetting="Polite">
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -308,7 +311,7 @@
                                     <Button x:Name="DeleteMemoryButton" Content="حذف" Click="DeleteMemoryButton_Click"/>
                                     <Button x:Name="ExportMemoryButton" Content="تصدير JSON" Click="ExportMemoryButton_Click"/>
                                 </WrapPanel>
-                                <TextBlock x:Name="MemoryResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                                <TextBlock x:Name="MemoryResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0"/ AutomationProperties.LiveSetting="Polite">
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
@@ -332,7 +335,7 @@
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>
                         <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4"/>
                         <WrapPanel><Button x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"/><Button x:Name="TestProviderButton" Content="اختبار الاتصال" Click="TestProviderButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/><Button x:Name="DeleteKeyButton" Content="حذف المفتاح المحفوظ" Click="DeleteKeyButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/></WrapPanel>
-                        <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12"/>
+                        <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12"/ AutomationProperties.LiveSetting="Polite">
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="AlwaysOnTopCheckbox" Content="إبقاء الشخصية فوق النوافذ الأخرى" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
