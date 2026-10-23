@@ -145,6 +145,14 @@ def release_clearance_errors(
         path = str(asset.get("path") or "(missing path)")
         if asset.get("status") != "REVIEWED":
             problems.append(f"{path}: source, license, and redistribution rights are not approved.")
+        source_record = asset.get("sourceUrl") or asset.get("sourceDescription") or asset.get("originDescription")
+        if not str(source_record or "").strip():
+            problems.append(f"{path}: asset provenance is missing sourceUrl/sourceDescription.")
+        license_record = asset.get("licenseExpression") or asset.get("license")
+        if not str(license_record or "").strip():
+            problems.append(f"{path}: asset provenance is missing licenseExpression/license.")
+        if not str(asset.get("redistributionPermission") or "").strip():
+            problems.append(f"{path}: explicit redistribution permission is missing.")
         for field in ("reviewedBy", "reviewedOn", "evidence"):
             if not str(asset.get(field) or "").strip():
                 problems.append(f"{path}: provenance clearance is missing {field}.")
@@ -249,6 +257,12 @@ def validate_manifest(document: Any) -> dict[str, dict[str, Any]]:
     listed_assets = {item.get("path") for item in assets if isinstance(item, dict)}
     for path in sorted(expected_assets - listed_assets):
         ERRORS.append(f"Asset provenance register is missing: {path}")
+    asset_root = ROOT / "src/Layal.Desktop/Assets"
+    if asset_root.is_dir():
+        for asset_file in sorted(item for item in asset_root.rglob("*") if item.is_file()):
+            relative_asset = asset_file.relative_to(ROOT).as_posix()
+            if relative_asset not in listed_assets:
+                ERRORS.append(f"Asset provenance register is missing newly added asset: {relative_asset}")
 
     for required in (NOTICES, PROJECT_STATUS, ROOT / "licenses/PROJECT-LICENSE-STATUS.md"):
         if not required.is_file():
