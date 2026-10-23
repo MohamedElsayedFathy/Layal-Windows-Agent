@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     public ObservableCollection<TaskHistoryListItem> RecentTasks { get; } = new();
 
     private readonly List<string> _rawTaskEvents = new();
+    private readonly List<(DependencyPropertyDescriptor Descriptor, DependencyObject Target, EventHandler Handler)> _liveRegionSubscriptions = new();
     private bool _refreshingRecentTasks;
 
     public sealed class TaskHistoryListItem
@@ -108,6 +109,9 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         SystemParameters.StaticPropertyChanged -= SystemParameters_StaticPropertyChanged;
+        foreach (var (descriptor, target, handler) in _liveRegionSubscriptions)
+            descriptor.RemoveValueChanged(target, handler);
+        _liveRegionSubscriptions.Clear();
         base.OnClosed(e);
     }
 
@@ -127,6 +131,46 @@ public partial class MainWindow : Window
         Height = Math.Min(Height, availableHeight);
         Left = Math.Clamp(Left, workArea.Left, workArea.Right - Width);
         Top = Math.Clamp(Top, workArea.Top, workArea.Bottom - Height);
+
+        // LiveSetting describes a region to UI Automation; explicitly raise the
+        // LiveRegionChanged event when its text changes so screen readers can announce it.
+        if (_liveRegionSubscriptions.Count == 0)
+        {
+            foreach (var region in new FrameworkElement[]
+            {
+                ChatEmptyState, TaskEventsEmptyState, RecentTasksEmptyState, SkillsEmptyState, MemoryEmptyState,
+                ConnectionStatusText, ChatProviderStatus, HomeResult, ProviderActionStatus,
+                ChatCopyStatus, SkillsResult, TaskCopyStatus, MemoryResult
+            })
+                SubscribeLiveRegion(region, TextBlock.TextProperty);
+
+            SubscribeLiveRegion(TaskResult, TextBox.TextProperty);
+        }
+    }
+
+    private void SubscribeLiveRegion(FrameworkElement element, DependencyProperty property)
+    {
+        var descriptor = DependencyPropertyDescriptor.FromProperty(property, element.GetType());
+        if (descriptor is null)
+            return;
+
+        EventHandler handler = (_, _) =>
+        {
+            void RaiseChangedEvent()
+            {
+                var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.FromElement(element)
+                    ?? System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(element);
+                peer?.RaiseAutomationEvent(System.Windows.Automation.AutomationEvents.LiveRegionChanged);
+            }
+
+            if (element.Dispatcher.CheckAccess())
+                RaiseChangedEvent();
+            else
+                element.Dispatcher.BeginInvoke(new Action(RaiseChangedEvent));
+        };
+
+        descriptor.AddValueChanged(element, handler);
+        _liveRegionSubscriptions.Add((descriptor, element, handler));
     }
 
     private void UpdateEmptyStateHints()
