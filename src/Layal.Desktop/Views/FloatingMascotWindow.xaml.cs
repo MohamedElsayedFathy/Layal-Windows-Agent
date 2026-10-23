@@ -280,9 +280,13 @@ public partial class FloatingMascotWindow : Window
         Closed -= MascotWindow_Closed;
     }
 
-    private void ApplySystemAccessibilityAppearance()
+    private void ApplySystemAccessibilityAppearance() =>
+        ApplySystemAccessibilityAppearance(SystemParameters.HighContrast);
+
+    private void ApplySystemAccessibilityAppearance(bool highContrast)
     {
-        var highContrast = SystemParameters.HighContrast;
+        // Preserve the mascot's identity but replace low-contrast glow/shadows with a
+        // system-colored outline when Windows High Contrast is enabled.
         GlowHalo.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
         Shell.BorderBrush = highContrast ? SystemColors.WindowTextBrush : _normalShellBorderBrush;
         Shell.BorderThickness = highContrast ? new Thickness(3) : _normalShellBorderThickness;
