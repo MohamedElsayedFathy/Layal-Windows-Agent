@@ -70,7 +70,8 @@ doc = read_text(doc_path)
 installer_requirements = {
     "stable product identity": r"(?im)^AppId=\{\{[0-9A-F-]{36}\}",
     "per-user install": r"(?im)^PrivilegesRequired=lowest\s*$",
-    "x64-only installer": r"(?im)^ArchitecturesAllowed=x64\s*$",
+    "x64-compatible Windows installer": r"(?im)^ArchitecturesAllowed=x64compatible\s*$",
+    "64-bit install mode uses x64-compatible Windows": r"(?im)^ArchitecturesInstallIn64BitMode=x64compatible\s*$",
     "install path separate from user data": r"(?im)^DefaultDirName=\{localappdata\}\\Programs\\Layal\s*$",
     "uninstaller enabled": r"(?im)^Uninstallable=yes\s*$",
     "active app close handling": r"(?im)^CloseApplications=yes\s*$",
@@ -88,12 +89,14 @@ for needle, label in [
     ("SHA256SUMS.txt", "SHA-256 manifest"),
     ("Test-LayalInstaller.ps1", "installer lifecycle test"),
     ("validate_licenses.py", "SBOM license inventory validation"),
+    ("--enrich-sbom-license-metadata", "explicit CycloneDX license metadata enrichment from cited inventory"),
     ("THIRD-PARTY-NOTICES.md", "third-party notice payload"),
     ("PROJECT-LICENSE-STATUS.md", "project-license status disclosure"),
     ("PASS: fresh install, upgrade, rollback", "successful installer lifecycle evidence"),
     ("NOT RUN", "explicit status when lifecycle tests are skipped"),
     ("NOT SIGNED", "explicit unsigned-release warning"),
     ("RequireCodeSigning", "tagged-release fail-closed signing gate"),
+    ("--require-release-clearance", "tagged-release legal/provenance clearance gate"),
     ("Sign-LayalFile.ps1", "Authenticode signing script"),
     ("Verify-LayalDistributionIntegrity.ps1", "signature and checksum coverage verification"),
     ("SIGNED AND VERIFIED", "positive signed-release status"),
@@ -225,9 +228,14 @@ if args.artifacts:
         license_report = distribution / "licenses" / f"Layal-{version}-license-audit.md"
         if license_report.is_file():
             license_text = license_report.read_text(encoding="utf-8-sig").lower()
-            for needle in ("undeclared", "asset provenance", "human legal review"):
+            for needle in ("project license status", "asset provenance", "review"):
                 if needle not in license_text:
-                    errors.append(f"License audit report must disclose unresolved legal gate: {needle}")
+                    errors.append(f"License audit report is missing required inventory context: {needle}")
+            if args.require_signed and (
+                "**pass with open legal gates**" in license_text
+                or "**fail**" in license_text
+            ):
+                errors.append("A signed public release cannot contain unresolved project/package/asset legal gates.")
         status_file = distribution / f"Layal-{version}-release-status.txt"
         if status_file.is_file():
             status_text = status_file.read_text(encoding="utf-8-sig")
