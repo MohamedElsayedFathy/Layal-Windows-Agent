@@ -151,6 +151,8 @@ public sealed class MainWindowVisualSmokeTests
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
             window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            AssertEmptyStateLocalizationAndVisibility(window, language);
             Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
                 "The root window must not horizontally mirror icons or glyphs in RTL mode.");
             AssertThemeContrastAndControlSurfaces(theme, language, historySelector);
@@ -353,6 +355,46 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
+    }
+
+    private static void AssertEmptyStateLocalizationAndVisibility(MainWindow window, string language)
+    {
+        var isArabic = language == "ar";
+        AssertEmptyState(window, "ChatEmptyStateText", window.ChatMessages.Count,
+            isArabic ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة." : "No messages yet. Type a message below to start the conversation.",
+            isArabic ? "حالة المحادثة الفارغة" : "Chat empty state");
+        AssertEmptyState(window, "TaskEventsEmptyStateText", window.TaskEvents.Count,
+            isArabic ? "لا يوجد سجل نشاط بعد. ابدأ مهمة لعرض أحداث تنفيذها هنا." : "No task activity yet. Start a task to see its events here.",
+            isArabic ? "حالة سجل المهام الفارغ" : "Task activity empty state");
+        AssertEmptyState(window, "RecentTasksEmptyStateText", window.RecentTasks.Count,
+            isArabic ? "لا توجد مهام سابقة بعد." : "No previous tasks yet.",
+            isArabic ? "حالة المهام السابقة الفارغة" : "Recent tasks empty state");
+        AssertEmptyState(window, "SkillsEmptyStateText", window.InstalledSkills.Count,
+            isArabic ? "لا توجد مهارات مثبتة. استورد ملف ZIP أو مجلدًا من GitHub للبدء." : "No skills installed. Import a ZIP or GitHub folder to get started.",
+            isArabic ? "حالة قائمة المهارات الفارغة" : "Skills empty state");
+        AssertEmptyState(window, "MemoryEmptyStateText", window.MemoryNotes.Count,
+            isArabic ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء." : "No saved notes. Create a note to get started.",
+            isArabic ? "حالة الذاكرة الفارغة" : "Memory empty state");
+    }
+
+    private static void AssertEmptyState(
+        MainWindow window,
+        string elementName,
+        int itemCount,
+        string expectedText,
+        string expectedAutomationName)
+    {
+        var emptyState = window.FindName(elementName) as TextBlock
+            ?? throw new InvalidOperationException($"Empty-state element '{elementName}' was not found.");
+        Assert.AreEqual(expectedText, BidiTextNormalizer.StripDirectionalControls(emptyState.Text),
+            $"Empty state '{elementName}' must be localized in the selected language.");
+        Assert.AreEqual(expectedAutomationName,
+            System.Windows.Automation.AutomationProperties.GetName(emptyState),
+            $"Empty state '{elementName}' must expose a localized UI Automation name.");
+        Assert.AreEqual(itemCount == 0 ? Visibility.Visible : Visibility.Collapsed, emptyState.Visibility,
+            $"Empty state '{elementName}' must only be visible when its source collection is empty.");
+        Assert.AreEqual(TextWrapping.Wrap, emptyState.TextWrapping,
+            $"Empty state '{elementName}' must support multiline copy at high scaling.");
     }
 
     private static void AssertStyleUsesKeyboardFocusRing(Style style, Style focusStyle, string controlName)
