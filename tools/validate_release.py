@@ -30,6 +30,7 @@ required = [
     "docs/AUTOMATED_TESTS_AR.md",
     "docs/DISTRIBUTION_AR.md",
     "installer/Layal.iss",
+    "BUILD-DISTRIBUTION.bat",
     "tools/Build-LayalDistribution.ps1",
     "tools/Test-LayalInstaller.ps1",
     "tools/validate_distribution.py",
