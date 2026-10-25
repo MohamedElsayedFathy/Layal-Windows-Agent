@@ -29,6 +29,20 @@ public sealed class OnvifCameraDiscoveryServiceTests
     }
 
     [TestMethod]
+    public void TryParseProbeResponseRejectsDifferentPrivateEndpointFromSender()
+    {
+        const string xml = """
+            <Envelope><ProbeMatch>
+              <XAddrs>http://10.2.3.4/onvif/device_service</XAddrs>
+            </ProbeMatch></Envelope>
+            """;
+
+        // Even though both addresses are private, an ONVIF reply must not redirect the app
+        // from the host that sent the discovery packet to a different private host.
+        Assert.IsNull(OnvifCameraDiscoveryService.TryParseProbeResponse(xml, IPAddress.Parse("192.168.1.44")));
+    }
+
+    [TestMethod]
     public void TryParseProbeResponseRejectsPublicEndpointEvenWhenReplyComesFromLan()
     {
         const string xml = """
@@ -110,6 +124,16 @@ public sealed class OnvifCameraDiscoveryServiceTests
         Assert.IsFalse(OnvifCameraDiscoveryService.IsPrivateCameraEndpointHost("8.8.8.8"));
         Assert.IsTrue(OnvifCameraDiscoveryService.IsPrivateCameraEndpointHost("192.168.1.44"));
     }
+    [TestMethod]
+    public void SameCameraHostValidationRejectsForeignPrivateAndUntrustedEndpoints()
+    {
+        Assert.IsTrue(OnvifCameraDiscoveryService.IsSamePrivateCameraEndpointHost("192.168.1.44", "192.168.1.44"));
+        Assert.IsFalse(OnvifCameraDiscoveryService.IsSamePrivateCameraEndpointHost("10.2.3.4", "192.168.1.44"));
+        Assert.IsFalse(OnvifCameraDiscoveryService.IsSamePrivateCameraEndpointHost("8.8.8.8", "192.168.1.44"));
+        Assert.IsFalse(OnvifCameraDiscoveryService.IsSamePrivateCameraEndpointHost("127.0.0.1", "192.168.1.44"));
+        Assert.IsFalse(OnvifCameraDiscoveryService.IsSamePrivateCameraEndpointHost("camera.local", "192.168.1.44"));
+    }
+
     [TestMethod]
     public void IsPrivateHostOnlyAllowsLoopbackAndLocalPrivateAddressRanges()
     {
