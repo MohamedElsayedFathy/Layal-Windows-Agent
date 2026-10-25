@@ -32,6 +32,7 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     public bool CameraIsRunning => _captureReady && IsVisible;
     public bool IsNetworkCamera => _isNetworkCamera;
+    public bool SpeakAutomaticObservations => SpeakCameraObservationsCheckBox.IsChecked == true;
 
     public event Action<bool>? CameraStatusChanged;
     public event Action<byte[]>? AnalyzeRequested;
@@ -59,6 +60,11 @@ public partial class VisionCameraWindow : System.Windows.Window
             : "The preview stays local. Frames are sent to your AI provider only when you analyze one or enable automatic observation. Automatic mode sends one still image every 10 seconds, not a video stream. Turn it off or close the camera at any time. Facial expressions are visible cues, not proof of someone's feelings.";
         ContinuousObservationCheckBox.Content = _isArabic ? "تحليل تلقائي كل 10 ثوانٍ" : "Analyze automatically every 10 seconds";
         AnalyzeCurrentFrameButton.Content = _isArabic ? "حلّل اللقطة الحالية" : "Analyze current frame";
+        SpeakCameraObservationsCheckBox.Content = _isArabic ? "قراءة الملاحظات الصوتية تلقائيًا" : "Speak camera observations automatically";
+        AutomationProperties.SetName(SpeakCameraObservationsCheckBox, _isArabic ? "قراءة الملاحظات البصرية تلقائيًا بصوت ليال" : "Read visual observations aloud automatically");
+        AutomationProperties.SetHelpText(SpeakCameraObservationsCheckBox, _isArabic
+            ? "اختياري؛ تتحدث ليال عند ملاحظة تغير بصري إذا كانت الردود الصوتية مفعلة في الإعدادات."
+            : "Optional; Layal speaks when a visual change is detected if voice replies are enabled in Settings.");
         ScanSurroundingsButton.Content = _isArabic ? "امسح المكان حول الكاميرا" : "Scan visible surroundings";
         AutomationProperties.SetName(ScanSurroundingsButton, _isArabic ? "مسح المكان الظاهر حول الكاميرا" : "Scan visible surroundings around the camera");
         AutomationProperties.SetHelpText(ScanSurroundingsButton, _isArabic
