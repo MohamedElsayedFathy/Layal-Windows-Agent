@@ -37,6 +37,16 @@
                                        Foreground="{DynamicResource Layal.Text}" AutomationProperties.LiveSetting="Polite"/>
                         </StackPanel>
                     </Border>
+                    <Border x:Name="CameraVisionIndicator" Visibility="Collapsed" CornerRadius="11"
+                            Background="{DynamicResource Layal.Panel}" Padding="10,8" Margin="4"
+                            BorderBrush="{DynamicResource Layal.DangerBorder}" BorderThickness="1"
+                            AutomationProperties.Name="حالة كاميرا الرؤية" AutomationProperties.LiveSetting="Polite">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse x:Name="CameraVisionDot" Width="9" Height="9" Fill="{DynamicResource Layal.Danger}" Margin="0,0,7,0"/>
+                            <TextBlock x:Name="CameraVisionStatusText" Text="الكاميرا نشطة" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Layal.Text}" AutomationProperties.LiveSetting="Polite"/>
+                        </StackPanel>
+                    </Border>
                     <Button x:Name="KeyboardHelpButton" Content="_اختصارات" Click="KeyboardHelpButton_Click" MinWidth="78" ToolTip="F1 — اختصارات لوحة المفاتيح" AutomationProperties.Name="اختصارات لوحة المفاتيح" />
                     <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="82"/>
                     <Button x:Name="ThemeButton" Content="الوضع الداكن" Click="ThemeButton_Click" MinWidth="96"/>
@@ -146,6 +156,21 @@
                         </TextBlock.Style>
                     </TextBlock>
                     <StackPanel Grid.Row="2" Margin="4,8">
+                        <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,6">
+                            <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
+                                    ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
+                                    AutomationProperties.Name="إرفاق صورة أو لقطة شاشة"
+                                    AutomationProperties.HelpText="اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."/>
+                            <Button x:Name="ClearVisionImageButton" Content="إزالة الصورة" Click="ClearVisionImageButton_Click"
+                                    Visibility="Collapsed" MinWidth="90" ToolTip="إزالة الصورة المرفقة قبل الإرسال."/>
+                            <Button x:Name="CameraVisionButton" Content="فتح الكاميرا" Click="CameraVisionButton_Click"
+                                    ToolTip="معاينة الكاميرا محليًا وتحليل لقطة عند الطلب." MinWidth="110"
+                                    AutomationProperties.Name="فتح كاميرا الرؤية"
+                                    AutomationProperties.HelpText="يفتح معاينة الكاميرا بعد موافقتك. لا تُرسل اللقطات إلا عند التحليل اليدوي أو تفعيل التحليل التلقائي."/>
+                            <TextBlock x:Name="VisionAttachmentStatus" Text="لا توجد صورة مرفقة" VerticalAlignment="Center"
+                                       Margin="8,0,4,0" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                       AutomationProperties.Name="حالة الصورة المرفقة" AutomationProperties.LiveSetting="Polite"/>
+                        </WrapPanel>
                         <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,0,0,2"/>
                         <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
                                    AutomationProperties.Name="حالة المحادثة" AutomationProperties.LiveSetting="Polite"/>
