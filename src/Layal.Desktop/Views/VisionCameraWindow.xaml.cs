@@ -129,6 +129,18 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
     }
 
+    public void StopAutomaticObservation()
+    {
+        _observationTimer.Stop();
+        if (ContinuousObservationCheckBox.IsChecked != true) return;
+
+        ContinuousObservationCheckBox.IsChecked = false;
+        CameraStatusText.Text = _isArabic
+            ? "تم إيقاف التحليل التلقائي."
+            : "Automatic observation has stopped.";
+        AutomaticObservationChanged?.Invoke(false);
+    }
+
     private void ObservationTimer_Tick(object? sender, EventArgs e)
     {
         if (!_captureReady || _isClosing || ContinuousObservationCheckBox.IsChecked != true || _latestJpeg is null)
