@@ -406,6 +406,9 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
         System.Windows.Automation.AutomationProperties.SetHelpText(TaskInput, ar ? "صف ما تريد من ليال تنفيذه." : "Describe what you want Layal to do.");
         System.Windows.Automation.AutomationProperties.SetName(TaskResult, ar ? "نتيجة المهمة" : "Task result");
+        System.Windows.Automation.AutomationProperties.SetHelpText(TaskResult, ar
+            ? "يعرض النتيجة النهائية وحالة المهمة، بما في ذلك التحذيرات أو الإخفاق."
+            : "Shows the final task result and its status, including warnings or failures.");
         TaskSkillHint.Text = ar ? "يمكن تحديد حتى 3 مهارات من تبويب المهارات؛ نصوص المهارات تُعامل كمراجع غير موثوقة." : "Select up to 3 skills in Skills; skill text is treated as untrusted reference material.";
         CopyTaskResultButton.Content = ar ? "نسخ النتيجة" : "Copy result";
         CopyTaskLogButton.Content = ar ? "نسخ سجل التنفيذ" : "Copy task log";
