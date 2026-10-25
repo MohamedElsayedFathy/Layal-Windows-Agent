@@ -828,6 +828,57 @@ if "SpeakAutomaticObservations" not in camera_code_text or "SpeakAutomaticObserv
 if "ScanSurroundingsRequested" not in ui_code or "CameraVisionWindow_ScanSurroundingsRequested" not in ui_code:
     ERRORS.append("Main chat does not route one-shot surroundings scans to image analysis")
 
+
+# Home dashboard clock/date and configurable current weather.
+weather_service_path = ROOT / "src/Layal.Desktop/Services/WeatherService.cs"
+weather_test_path = ROOT / "tests/Layal.Tests/WeatherServiceTests.cs"
+weather_service_text = weather_service_path.read_text(encoding="utf-8") if weather_service_path.is_file() else ""
+weather_test_text = weather_test_path.read_text(encoding="utf-8") if weather_test_path.is_file() else ""
+for required in (
+    "GetCurrentWeatherAsync(",
+    "geocoding-api.open-meteo.com",
+    "api.open-meteo.com/v1/forecast",
+    "GetConditionText(",
+    "GetConditionIcon(",
+):
+    if required not in weather_service_text:
+        ERRORS.append(f"Clock/weather service behavior is missing: {required}")
+for required in (
+    "GetCurrentWeatherAsyncUsesGeocodingAndReturnsCurrentConditions",
+    "GetCurrentWeatherAsyncRejectsUnknownCity",
+    "GetCurrentWeatherAsyncRejectsEmptyCityWithoutNetworkRequest",
+    "WeatherCodeDescriptionsAreLocalized",
+):
+    if required not in weather_test_text:
+        ERRORS.append(f"Weather service regression test is missing: {required}")
+for required in (
+    'x:Name="ClockTimeText"',
+    'x:Name="CurrentDateText"',
+    'x:Name="WeatherTemperatureText"',
+    'x:Name="WeatherSummaryText"',
+    'x:Name="WeatherLocationInput"',
+    'x:Name="SaveWeatherLocationButton"',
+    'x:Name="RefreshWeatherButton"',
+    'x:Name="WeatherPrivacyNote"',
+):
+    if required not in ui_xaml:
+        ERRORS.append(f"Clock/weather UI control is missing: {required}")
+for required in (
+    "ClockTimer_Tick",
+    "UpdateClockDisplay()",
+    "WeatherRefreshTimer_Tick",
+    "RefreshWeatherAsync()",
+    "SaveWeatherLocationButton_Click",
+    "WeatherService.GetConditionText(",
+    "AppRuntime.Settings.WeatherLocation = location;",
+):
+    if required not in ui_code:
+        ERRORS.append(f"Clock/weather UI wiring is missing: {required}")
+if "WeatherLocation" not in (ROOT / "src/Layal.Desktop/Models/UserSettings.cs").read_text(encoding="utf-8"):
+    ERRORS.append("Weather city preference is not persisted in UserSettings.cs")
+if "docs/CLOCK_WEATHER_AR.md" not in (ROOT / "README_AR.md").read_text(encoding="utf-8"):
+    ERRORS.append("Clock/weather documentation is not linked from README_AR.md")
+
 trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
 trace_text = trace_path.read_text(encoding="utf-8-sig") if trace_path.is_file() else ""
 language_requirement = next((line for line in trace_text.splitlines() if line.startswith("LAYAL-006,")), "")
