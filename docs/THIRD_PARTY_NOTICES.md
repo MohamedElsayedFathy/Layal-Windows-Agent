@@ -81,3 +81,12 @@ These notices capture license declarations published by the package sources. The
 - License text: licenses/Apache-2.0-OpenCvSharp.txt
 
 These upstream license declarations are recorded for notice completeness; project-level redistribution and legal review remain pending.
+
+## Microsoft.Windows.SDK.NET.Ref
+
+- Package: Microsoft.Windows.SDK.NET.Ref version 10.0.28000.87
+- Purpose: Windows SDK targeting pack for .NET 9 and later, used to compile against the Windows Location API; this is not the user's location data source.
+- Package/source: https://www.nuget.org/packages/Microsoft.Windows.SDK.NET.Ref/10.0.28000.87
+- License information: Microsoft Windows SDK license terms at https://aka.ms/WinSDKLicenseURL
+- Local license reference: licenses/Microsoft-Windows-SDK-Notice.txt
+- Status: package-specific license expression and redistribution compatibility remain pending human review.
