@@ -766,6 +766,59 @@ for required in ("OpenCvSharp4", "OpenCvSharp4.runtime.win"):
     if required not in project_text:
         ERRORS.append(f"Camera vision runtime dependency is missing from Layal.Desktop.csproj: {required}")
 
+# Local-network ONVIF camera discovery and authenticated RTSP preview.
+onvif_service_path = ROOT / "src/Layal.Desktop/Services/OnvifCameraDiscoveryService.cs"
+onvif_test_path = ROOT / "tests/Layal.Tests/OnvifCameraDiscoveryServiceTests.cs"
+onvif_text = onvif_service_path.read_text(encoding="utf-8") if onvif_service_path.is_file() else ""
+onvif_test_text = onvif_test_path.read_text(encoding="utf-8") if onvif_test_path.is_file() else ""
+if not onvif_text:
+    ERRORS.append("Local ONVIF camera discovery service is missing")
+for required in (
+    "239.255.255.250",
+    "DiscoverAsync(",
+    "TryParseProbeResponse(",
+    "GetAuthenticatedStreamUriAsync(",
+    "BuildAuthenticatedStreamAddress(",
+    "IsPrivateHost(",
+    "DtdProcessing = DtdProcessing.Prohibit",
+    "AllowAutoRedirect = false",
+    "RandomNumberGenerator.GetBytes",
+):
+    if required not in onvif_text:
+        ERRORS.append(f"ONVIF/RTSP security behavior is missing: {required}")
+for required in (
+    "TryParseProbeResponseAcceptsPrivateLocalOnvifEndpoint",
+    "TryParseProbeResponseRejectsPublicEndpointEvenWhenReplyComesFromLan",
+    "TryParseProbeResponseRejectsRemoteOrMalformedXml",
+    "BuildAuthenticatedStreamAddressRejectsNonLocalStreamsAndMissingCredentials",
+    "IsPrivateHostOnlyAllowsLoopbackAndLocalPrivateAddressRanges",
+):
+    if required not in onvif_test_text:
+        ERRORS.append(f"ONVIF/RTSP regression test is missing: {required}")
+for required in (
+    'x:Name="ScanNetworkCamerasButton"',
+    'x:Name="DiscoveredCamerasSelector"',
+    'x:Name="ManualRtspAddressInput"',
+    'x:Name="CameraUsernameInput"',
+    'x:Name="CameraPasswordInput"',
+    'x:Name="ConnectNetworkCameraButton"',
+    'x:Name="ScanSurroundingsButton"',
+):
+    if required not in camera_xaml_text:
+        ERRORS.append(f"Camera/network discovery control is missing: {required}")
+for required in (
+    "ScanNetworkCamerasButton_Click",
+    "ConnectNetworkCameraButton_Click",
+    "UseLocalCameraButton_Click",
+    "ScanSurroundingsButton_Click",
+    "ScanSurroundingsRequested?.Invoke",
+    "CameraPasswordInput.Clear()",
+):
+    if required not in camera_code_text:
+        ERRORS.append(f"Camera/network discovery flow is missing: {required}")
+if "ScanSurroundingsRequested" not in ui_code or "CameraVisionWindow_ScanSurroundingsRequested" not in ui_code:
+    ERRORS.append("Main chat does not route one-shot surroundings scans to image analysis")
+
 trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
 trace_text = trace_path.read_text(encoding="utf-8-sig") if trace_path.is_file() else ""
 language_requirement = next((line for line in trace_text.splitlines() if line.startswith("LAYAL-006,")), "")
