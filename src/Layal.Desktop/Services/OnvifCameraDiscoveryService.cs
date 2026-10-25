@@ -30,7 +30,6 @@ public sealed class OnvifCameraDiscoveryService
     private static readonly XNamespace WsSecurity = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd";
     private static readonly XNamespace WsUtility = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd";
     private static readonly XNamespace DeviceNs = "http://www.onvif.org/ver10/device/wsdl";
-    private static readonly XNamespace MediaNs = "http://www.onvif.org/ver10/media/wsdl";
 
     public async Task<IReadOnlyList<OnvifCameraDevice>> DiscoverAsync(
         TimeSpan? discoveryWindow = null,
@@ -85,7 +84,7 @@ public sealed class OnvifCameraDiscoveryService
             var addresses = probeMatch.Elements().FirstOrDefault(element => element.Name.LocalName == "XAddrs")?.Value;
             if (string.IsNullOrWhiteSpace(addresses)) return null;
 
-            var host = NormalizePrivateAddress(senderAddress);
+            if (!IsPrivateHost(senderAddress.ToString())) return null;
             var scopes = probeMatch.Elements().FirstOrDefault(element => element.Name.LocalName == "Scopes")?.Value ?? string.Empty;
             foreach (var address in addresses.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Take(8))
             {
@@ -97,8 +96,8 @@ public sealed class OnvifCameraDiscoveryService
 
                 // ONVIF discovery may return a hostname/IP different from the packet sender.
                 // Only accept private literal IPs, and normalize the endpoint to avoid credential/redirect ambiguity.
-                var endpointHost = NormalizePrivateAddress(IPAddress.Parse(uri.Host));
-                if (!IPAddress.TryParse(uri.Host, out _)) continue;
+                if (!IPAddress.TryParse(uri.Host, out var endpointAddress)) continue;
+                var endpointHost = NormalizePrivateAddress(endpointAddress);
                 var builder = new UriBuilder(uri) { Host = endpointHost, Fragment = string.Empty };
                 var safeAddress = builder.Uri.AbsoluteUri;
                 var displayName = BuildDisplayName(scopes, endpointHost);
@@ -161,7 +160,6 @@ public sealed class OnvifCameraDiscoveryService
         if (string.IsNullOrWhiteSpace(profileToken))
             throw new InvalidOperationException("The camera returned no usable ONVIF media profile.");
 
-        var profileXml = new System.Xml.Linq.XElement("ProfileToken", profileToken).ToString(SaveOptions.DisableFormatting);
         var streamSetup = "<trt:StreamSetup><tt:Stream>RTP-Unicast</tt:Stream><tt:Transport><tt:Protocol>RTSP</tt:Protocol></tt:Transport></trt:StreamSetup>";
         var escapedToken = System.Security.SecurityElement.Escape(profileToken) ?? string.Empty;
         var streamXml = await SendSoapAsync(client, mediaUri, "GetStreamUri",
