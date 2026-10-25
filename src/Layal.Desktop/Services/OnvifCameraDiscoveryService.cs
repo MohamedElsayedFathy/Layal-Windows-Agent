@@ -94,7 +94,11 @@ public sealed class OnvifCameraDiscoveryService
 
                 // ONVIF discovery may return a hostname/IP different from the packet sender.
                 // Only accept private literal IPs, and normalize the endpoint to avoid credential/redirect ambiguity.
-                if (!IPAddress.TryParse(uri.Host, out var endpointAddress)) continue;
+                if (!IPAddress.TryParse(uri.Host, out var endpointAddress) ||
+                    !IsSamePrivateCameraEndpointHost(endpointAddress.ToString(), senderAddress.ToString()))
+                    continue;
+
+                // Do not trust an ONVIF reply to redirect authentication to another private host.
                 var endpointHost = NormalizePrivateAddress(endpointAddress);
                 var builder = new UriBuilder(uri) { Host = endpointHost, Fragment = string.Empty };
                 var safeAddress = builder.Uri.AbsoluteUri;
@@ -121,7 +125,7 @@ public sealed class OnvifCameraDiscoveryService
             throw new ArgumentException("A camera username is required.", nameof(username));
         if (string.IsNullOrEmpty(password))
             throw new ArgumentException("A camera password is required.", nameof(password));
-        if (!IsSafeDeviceServiceUri(camera.DeviceServiceAddress, out var deviceUri))
+        if (!IsSafeDeviceServiceUri(camera.DeviceServiceAddress, camera.Host, out var deviceUri))
             throw new InvalidOperationException("The discovered device endpoint is not a private local-network address.");
 
         using var handler = new HttpClientHandler
@@ -146,7 +150,7 @@ public sealed class OnvifCameraDiscoveryService
             mediaAddress = FindMediaCapabilityAddress(capabilitiesXml);
         }
 
-        if (mediaAddress is null || !IsSafeDeviceServiceUri(mediaAddress, out var mediaUri))
+        if (mediaAddress is null || !IsSafeDeviceServiceUri(mediaAddress, camera.Host, out var mediaUri))
             throw new InvalidOperationException("The camera did not report a safe local ONVIF media service endpoint.");
 
         var profilesXml = await SendSoapAsync(client, mediaUri, "GetProfiles", "<trt:GetProfiles/>",
@@ -166,7 +170,7 @@ public sealed class OnvifCameraDiscoveryService
         var streamText = ParseSafeXml(streamXml).Descendants().FirstOrDefault(element => element.Name.LocalName == "Uri")?.Value;
         if (!Uri.TryCreate(streamText, UriKind.Absolute, out var streamUri) ||
             streamUri.Scheme is not ("rtsp" or "rtsps") ||
-            !IsPrivateCameraEndpointHost(streamUri.Host))
+            !IsSamePrivateCameraEndpointHost(streamUri.Host, camera.Host))
             throw new InvalidOperationException("The camera returned no usable RTSP stream URI on the local network.");
 
         // Return the stream address without embedded credentials. Credentials are applied only in-memory
@@ -313,12 +317,12 @@ public sealed class OnvifCameraDiscoveryService
         return XDocument.Load(reader, LoadOptions.None);
     }
 
-    private static bool IsSafeDeviceServiceUri(string value, out Uri uri)
+    private static bool IsSafeDeviceServiceUri(string value, string expectedCameraHost, out Uri uri)
     {
         if (Uri.TryCreate(value, UriKind.Absolute, out uri!) &&
             uri.Scheme is "http" or "https" &&
             string.IsNullOrEmpty(uri.UserInfo) &&
-            IsPrivateCameraEndpointHost(uri.Host))
+            IsSamePrivateCameraEndpointHost(uri.Host, expectedCameraHost))
         {
             return true;
         }
@@ -330,6 +334,20 @@ public sealed class OnvifCameraDiscoveryService
         IPAddress.TryParse(host, out var address) &&
         !IPAddress.IsLoopback(address) &&
         IsPrivateHost(host);
+
+    /// <summary>
+    /// ONVIF service and stream endpoints must remain on the same private, non-loopback IP
+    /// that advertised the camera. This prevents a device response from forwarding credentials
+    /// to an unrelated host merely because that host also uses a private address.
+    /// </summary>
+    public static bool IsSamePrivateCameraEndpointHost(string host, string expectedHost) =>
+        IPAddress.TryParse(host, out var address) &&
+        IPAddress.TryParse(expectedHost, out var expectedAddress) &&
+        !IPAddress.IsLoopback(address) &&
+        !IPAddress.IsLoopback(expectedAddress) &&
+        IsPrivateHost(address.ToString()) &&
+        IsPrivateHost(expectedAddress.ToString()) &&
+        address.Equals(expectedAddress);
 
     private static string NormalizePrivateAddress(IPAddress address)
     {
