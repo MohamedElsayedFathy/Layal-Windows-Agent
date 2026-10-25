@@ -92,6 +92,21 @@ jobs:
       - name: Release build
         run: dotnet build Layal.sln --configuration Release --no-restore --nologo
 
+      - name: Keep device location opt-in during headless native acceptance
+        shell: pwsh
+        run: |
+          $settingsPath = Join-Path $env:LOCALAPPDATA "Layal\settings.json"
+          $settingsDirectory = Split-Path -Parent $settingsPath
+          New-Item -ItemType Directory -Path $settingsDirectory -Force | Out-Null
+          $settings = @{}
+          if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+            $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json -AsHashtable
+            if ($null -eq $settings) { $settings = @{} }
+          }
+          $settings["UseAutomaticLocation"] = $false
+          $json = ConvertTo-Json -InputObject $settings -Depth 100
+          [IO.File]::WriteAllText($settingsPath, $json, [Text.UTF8Encoding]::new($false))
+
       - name: Run native Windows desktop click-through integration
         shell: pwsh
         run: |
