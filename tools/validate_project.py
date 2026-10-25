@@ -876,8 +876,6 @@ for required in (
     "SaveWeatherLocationButton_Click",
     "UseMyLocationButton_Click",
     "RefreshLocationWeatherAsync()",
-    "Geolocator.RequestAccessAsync",
-    "GetGeopositionAsync(",
     "AppRuntime.Settings.UseAutomaticLocation",
     "WeatherService.GetConditionText(",
     "AppRuntime.Settings.WeatherLocation = location;",
