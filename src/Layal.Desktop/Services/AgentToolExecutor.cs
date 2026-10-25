@@ -22,6 +22,9 @@ public sealed class AgentToolExecutor
     {
         ".txt", ".md", ".cs", ".json", ".xaml", ".xml", ".py", ".yml", ".yaml", ".toml", ".csv"
     };
+    private static readonly System.Text.RegularExpressions.Regex ReservedDeviceName =
+        new(@"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
     private const int MaxReadBytes = 256 * 1024;
     private const int MaxWriteChars = 100 * 1024;
     private const int MaxProcessOutputChars = 120_000;
@@ -295,6 +298,9 @@ public sealed class AgentToolExecutor
         catch (OperationCanceledException)
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+            // The bounded readers were cancelled together with the wait; observe them so their
+            // cancellation is not reported later as an unobserved task exception.
+            try { await Task.WhenAll(stdoutTask, stderrTask); } catch { }
             token.ThrowIfCancellationRequested();
             throw new TimeoutException($"dotnet {verb} timed out after 120 seconds; process termination was requested.");
         }
@@ -332,6 +338,9 @@ public sealed class AgentToolExecutor
             throw new InvalidOperationException("Use a non-empty relative path inside LayalWorkspace.");
         var parts = relativePath.Replace('/', Path.DirectorySeparatorChar).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Any(p => p is "." or "..")) throw new InvalidOperationException("Relative paths cannot contain '.' or '..' path segments.");
+        // Alternate data streams ("file.txt:hidden") and Windows device names (NUL, CON, COM1...) are never valid workspace targets.
+        if (parts.Any(p => p.Contains(':') || ReservedDeviceName.IsMatch(p)))
+            throw new InvalidOperationException("Path segments cannot contain ':' or use reserved Windows device names.");
         var fullPath = Path.GetFullPath(Path.Combine(_workspaceRoot, relativePath));
         var relative = Path.GetRelativePath(_workspaceRoot, fullPath);
         if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
