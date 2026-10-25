@@ -89,7 +89,7 @@ public sealed class OnvifCameraDiscoveryService
                 if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) ||
                     uri.Scheme is not ("http" or "https") ||
                     !string.IsNullOrEmpty(uri.UserInfo) ||
-                    !IsPrivateCameraHost(uri.Host))
+                    !IsPrivateCameraEndpointHost(uri.Host))
                     continue;
 
                 // ONVIF discovery may return a hostname/IP different from the packet sender.
