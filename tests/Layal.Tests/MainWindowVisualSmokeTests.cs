@@ -72,6 +72,7 @@ public sealed class MainWindowVisualSmokeTests
         window.Show();
         window.UpdateLayout();
         AssertInitialWindowFitsWorkArea(window);
+        AssertClockWeatherDashboard(window);
         var windowContent = window.Content as FrameworkElement
             ?? throw new InvalidOperationException("MainWindow content root was not found.");
 
@@ -540,6 +541,26 @@ public sealed class MainWindowVisualSmokeTests
         window.ChatMessages.Remove(englishOnly);
         applyLanguage.Invoke(window, null);
         AssertEmptyStateLocalizationAndVisibility(window, AppRuntime.Settings.Language);
+    }
+
+
+    private static void AssertClockWeatherDashboard(MainWindow window)
+    {
+        var clock = window.FindName("ClockTimeText") as TextBlock
+            ?? throw new InvalidOperationException("ClockTimeText was not found.");
+        var date = window.FindName("CurrentDateText") as TextBlock
+            ?? throw new InvalidOperationException("CurrentDateText was not found.");
+        var weather = window.FindName("WeatherSummaryText") as TextBlock
+            ?? throw new InvalidOperationException("WeatherSummaryText was not found.");
+        var weatherLocation = window.FindName("WeatherLocationInput") as TextBox
+            ?? throw new InvalidOperationException("WeatherLocationInput was not found.");
+        var refreshButton = window.FindName("RefreshWeatherButton") as Button
+            ?? throw new InvalidOperationException("RefreshWeatherButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(clock.Text), "The dashboard clock must display the system-local time.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(date.Text), "The dashboard must display the system-local date.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(weather.Text), "The dashboard must explain the weather state, even before a city is configured.");
+        Assert.IsTrue(refreshButton.IsEnabled, "Manual weather refresh must be available after the initial display.");
+        Assert.IsNotNull(weatherLocation, "The city setting must be available without requiring precise device location.");
     }
 
     private static void AssertEmptyStateLocalizationAndVisibility(MainWindow window, string language)
