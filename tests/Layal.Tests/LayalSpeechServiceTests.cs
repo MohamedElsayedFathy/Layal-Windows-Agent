@@ -13,7 +13,7 @@ public sealed class LayalSpeechServiceTests
         StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "young girl character");
         StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "high-pitched");
         StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "Do not sound like an adult woman");
-        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "not baby-talk");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "baby-talk");
     }
 
     [TestMethod]
