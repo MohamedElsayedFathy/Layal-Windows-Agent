@@ -671,10 +671,15 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("http://127.0.0.1:31415/v1", store.Load().ProviderBaseUrl);
         Assert.AreEqual("interaction-regression-test", store.Load().ModelId);
 
-        // Restore safe defaults through the same controls/handlers so later checks remain isolated.
+        // Restore the exact original provider state. The form intentionally rejects an empty
+        // URL/model pair, so returning a fresh install to its unconfigured state must bypass UI validation.
         baseUrl.Text = oldBaseUrl;
         model.Text = oldModelId;
-        saveProvider.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, saveProvider));
+        var restoredSettings = store.Load();
+        restoredSettings.ProviderBaseUrl = oldBaseUrl;
+        restoredSettings.ModelId = oldModelId;
+        store.Save(restoredSettings);
+        AppRuntime.Settings = restoredSettings;
         alwaysOnTop.IsChecked = true;
         animations.IsChecked = true;
         windowInspection.IsChecked = false;
