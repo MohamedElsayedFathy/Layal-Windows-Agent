@@ -58,6 +58,10 @@
                           Click="ContinuousObservationCheckBox_Click" VerticalAlignment="Center" Margin="8,0"
                           AutomationProperties.Name="تفعيل التحليل البصري التلقائي"
                           AutomationProperties.HelpText="يرسل لقطة ثابتة إلى مزود الذكاء الاصطناعي كل 10 ثوانٍ ما دامت الكاميرا والتحليل التلقائي نشطين."/>
+                <Button x:Name="ScanSurroundingsButton" Content="امسح المكان حول الكاميرا"
+                        Click="ScanSurroundingsButton_Click" MinWidth="180" Margin="4,0"
+                        AutomationProperties.Name="مسح المكان الظاهر حول الكاميرا"
+                        AutomationProperties.HelpText="يلتقط صورة ثابتة ويطلب وصف البيئة والأشياء المرئية؛ لا ينفذ مسحًا ثلاثي الأبعاد."/>
                 <Button x:Name="AnalyzeCurrentFrameButton" Content="حلّل اللقطة الحالية"
                         Click="AnalyzeCurrentFrameButton_Click" MinWidth="150" Margin="4,0"/>
                 <Button x:Name="CloseCameraButton" Content="إيقاف الكاميرا" Click="CloseCameraButton_Click" MinWidth="120" Margin="4,0"/>
