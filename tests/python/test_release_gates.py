@@ -68,6 +68,19 @@ class ReleaseClearanceTests(unittest.TestCase):
         errors = validate_licenses.release_clearance_errors(document, packages, components, True)
         self.assertTrue(any("Assets/mascot.png" in error for error in errors))
 
+    def test_evidenced_provenance_status_is_supported_but_does_not_clear_rights(self):
+        status = "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED"
+        self.assertIn(status, validate_licenses.ASSET_PROVENANCE_STATUSES)
+
+        document, packages, components = valid_review_fixture()
+        document["assetsRequiringProvenanceReview"][0]["status"] = status
+        errors = validate_licenses.release_clearance_errors(document, packages, components, True)
+
+        self.assertTrue(
+            any("source, license, and redistribution rights are not approved" in error for error in errors),
+            "Evidence of a source must not satisfy the separate legal rights/release gate.",
+        )
+
     def test_package_without_review_evidence_blocks_release(self):
         document, packages, components = valid_review_fixture()
         packages["example.package"]["reviewStatus"] = "Human legal review pending."

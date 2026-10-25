@@ -18,6 +18,14 @@ PROJECT_STATUS = ROOT / "docs/PROJECT_LICENSE_STATUS_AR.md"
 ERRORS: list[str] = []
 WARNINGS: list[str] = []
 
+# Provenance may be evidenced while ownership, licensing, and redistribution approval remain open.
+# Only REVIEWED clears the release gate in release_clearance_errors().
+ASSET_PROVENANCE_STATUSES = {
+    "PROVENANCE_REVIEW_REQUIRED",
+    "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+    "REVIEWED",
+}
+
 
 def read_json(path: Path) -> Any:
     try:
@@ -244,7 +252,7 @@ def validate_manifest(document: Any) -> dict[str, dict[str, Any]]:
         status = asset.get("status")
         if not path or not (ROOT / path).is_file():
             ERRORS.append(f"Asset in provenance register is missing: {path}")
-        if status not in {"PROVENANCE_REVIEW_REQUIRED", "REVIEWED"}:
+        if status not in ASSET_PROVENANCE_STATUSES:
             ERRORS.append(f"Invalid provenance status for asset {path}: {status}")
         if status == "REVIEWED" and not str(asset.get("evidence") or "").strip():
             ERRORS.append(f"Reviewed asset requires provenance/permission evidence: {path}")
