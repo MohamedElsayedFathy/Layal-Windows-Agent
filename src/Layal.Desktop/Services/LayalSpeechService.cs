@@ -277,7 +277,7 @@ public sealed class LayalSpeechService
 
         using var stream = new MemoryStream(pcm, writable: false);
         using var source = new RawSourceWaveStream(stream, new WaveFormat(SampleRate, 16, 1));
-        using var output = new WaveOutEvent();
+        using var output = new WaveOut();
         var stopped = new TaskCompletionSource<StoppedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler<StoppedEventArgs> handler = (_, args) => stopped.TrySetResult(args);
         output.PlaybackStopped += handler;
