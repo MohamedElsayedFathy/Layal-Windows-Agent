@@ -166,12 +166,12 @@ public sealed class OnvifCameraDiscoveryService
         var streamText = ParseSafeXml(streamXml).Descendants().FirstOrDefault(element => element.Name.LocalName == "Uri")?.Value;
         if (!Uri.TryCreate(streamText, UriKind.Absolute, out var streamUri) ||
             streamUri.Scheme is not ("rtsp" or "rtsps") ||
-            !IsPrivateCameraHost(streamUri.Host))
+            !IsPrivateCameraEndpointHost(streamUri.Host))
             throw new InvalidOperationException("The camera returned no usable RTSP stream URI on the local network.");
 
         // Return the stream address without embedded credentials. Credentials are applied only in-memory
         // by the camera preview window and are never written to settings, chat, or logs.
-        return new UriBuilder(streamUri) { UserName = string.Empty, Password = string.Empty, Fragment = string.Empty }.Uri;
+        return new UriBuilder(streamUri!) { UserName = string.Empty, Password = string.Empty, Fragment = string.Empty }.Uri;
     }
 
     public static string BuildAuthenticatedStreamAddress(Uri streamUri, string username, string password)
@@ -318,7 +318,7 @@ public sealed class OnvifCameraDiscoveryService
         if (Uri.TryCreate(value, UriKind.Absolute, out uri!) &&
             uri.Scheme is "http" or "https" &&
             string.IsNullOrEmpty(uri.UserInfo) &&
-            IsPrivateCameraHost(uri.Host))
+            IsPrivateCameraEndpointHost(uri.Host))
         {
             return true;
         }
