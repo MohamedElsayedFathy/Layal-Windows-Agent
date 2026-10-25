@@ -913,7 +913,7 @@ if not test_project.is_file():
     ERRORS.append("Automated C# test project is missing: tests/Layal.Tests/Layal.Tests.csproj")
 else:
     test_project_text = test_project.read_text(encoding="utf-8")
-    for expected in ("<TargetFramework>net10.0-windows</TargetFramework>", 'Include="Microsoft.NET.Test.Sdk"', 'Include="MSTest"', "Layal.Desktop.csproj"):
+    for expected in (" <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>", 'Include="Microsoft.NET.Test.Sdk"', 'Include="MSTest"', "Layal.Desktop.csproj"):
         if expected not in test_project_text:
             ERRORS.append(f"Test project is missing expected configuration: {expected}")
     test_count = len(list((ROOT / "tests/Layal.Tests").glob("*Tests.cs")))
