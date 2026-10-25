@@ -233,14 +233,14 @@ public sealed class VoiceConversationService : IDisposable
                         {
                             var itemId = GetString(root, "item_id");
                             if (playbackState.ReportedAssistantTranscriptItems.Add(itemId))
-                                TranscriptReceived?.Invoke("assistant", responseTranscript);
+                                RaiseTranscript("assistant", responseTranscript);
                         }
                         break;
 
                     case "conversation.item.input_audio_transcription.completed":
                         var userTranscript = GetString(root, "transcript").Trim();
                         if (userTranscript.Length > 0)
-                            TranscriptReceived?.Invoke("user", userTranscript);
+                            RaiseTranscript("user", userTranscript);
                         break;
 
                     case "response.cancelled":
@@ -498,6 +498,16 @@ public sealed class VoiceConversationService : IDisposable
         foreach (Action<VoiceConversationStatus, string?> handler in handlers.GetInvocationList())
         {
             try { handler(status, detail); } catch { /* UI listeners must not break audio cleanup. */ }
+        }
+    }
+
+    private void RaiseTranscript(string role, string transcript)
+    {
+        var handlers = TranscriptReceived;
+        if (handlers is null) return;
+        foreach (Action<string, string> handler in handlers.GetInvocationList())
+        {
+            try { handler(role, transcript); } catch { /* A UI listener must not break the live audio stream. */ }
         }
     }
 
