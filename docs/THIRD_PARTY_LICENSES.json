@@ -20,48 +20,183 @@
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-calm.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-curious.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-focused.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-happy.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-idle.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-playful.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-robot-happy.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-robot.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     },
     {
       "path": "src/Layal.Desktop/Assets/Characters/layal-surprised.png",
-      "status": "PROVENANCE_REVIEW_REQUIRED",
-      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the ChatGPT Library concept sheet “Layal: Celestial AI Assistant Concept Sheet.png” using the pipeline under tools/character_assets. The source sheet contains a C2PA manifest identifying ChatGPT / gpt-image / OpenAI Media Service API (claim urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf; source timestamp 2026-10-23T23:25:17.835414356Z). The manifest signature has not been independently validated in this review. OpenAI Terms allocate Output to the user as between user and OpenAI to the extent permitted by applicable law, but source provenance is not legal clearance; human rights review remains pending. See docs/ASSET_PROVENANCE_FINDINGS_AR.md.",
+      "sourceEvidence": {
+        "sourceSheetFilename": "Layal: Celestial AI Assistant Concept Sheet.png",
+        "sourceSheetSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+        "sourceSheetInRepository": false,
+        "c2paClaimId": "urn:c2pa:a9c48411-f39f-4482-b228-e34ebe5b31bf",
+        "softwareAgent": "ChatGPT",
+        "modelVersion": "gpt-image",
+        "claimGenerator": "OpenAI Media Service API",
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+        "createdAtUtc": "2026-10-23T23:25:17.835414356Z",
+        "signatureValidation": "NOT_INDEPENDENTLY_VALIDATED",
+        "rightsReviewStatus": "PENDING",
+        "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
+        "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+      }
     }
   ],
   "packages": [
@@ -95,5 +230,12 @@
       "copyright": "Copyright (c) 2019-2022 Jérémy Ansel",
       "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
     }
-  ]
+  ],
+  "provenanceReview": {
+    "asOfCommit": "d29ec99f9f4767d528dfcaec2680ee33983d55b6",
+    "reviewedAtUtc": "2026-10-25",
+    "note": "The nine character sprites have evidence for their generated source sheet, but rights review is pending; the three older root assets remain without an evidenced source. Do not treat provenance evidence as legal release clearance.",
+    "sourceImageSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
+    "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
+  }
 }
