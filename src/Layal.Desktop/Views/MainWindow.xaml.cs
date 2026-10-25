@@ -29,6 +29,7 @@ public partial class MainWindow : Window
 
     private readonly List<string> _rawTaskEvents = new();
     private bool _refreshingRecentTasks;
+    private bool _cameraAutomaticObservationRequest;
 
     public sealed class TaskHistoryListItem
     {
@@ -1814,6 +1815,8 @@ public partial class MainWindow : Window
     private void CameraVisionWindow_AutomaticObservationChanged(bool enabled)
     {
         _lastCameraObservation = string.Empty;
+        if (!enabled && _cameraAutomaticObservationRequest)
+            _chatCancellation?.Cancel();
         UpdateCameraVisionIndicator();
         SetChatActivityStatus(enabled
             ? (IsArabic ? "التحليل البصري التلقائي نشط: لقطة كل 10 ثوانٍ." : "Automatic visual observation is active: one still every 10 seconds.")
@@ -1916,6 +1919,7 @@ public partial class MainWindow : Window
             AddMessage("user", userPrompt + Environment.NewLine + attachmentLabel + fileName + "]");
         }
 
+        _cameraAutomaticObservationRequest = automaticObservation;
         _chatCancellation = new CancellationTokenSource();
         SendButton.IsEnabled = false;
         CancelResponseButton.IsEnabled = true;
@@ -1978,7 +1982,7 @@ public partial class MainWindow : Window
             SaveCurrentChatMessages();
 
             var completionStatus = IsArabic ? "اكتمل تحليل الصورة." : "Image analysis completed.";
-            if (AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
+            if (!automaticObservation && AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
             {
                 try
                 {
@@ -2027,6 +2031,7 @@ public partial class MainWindow : Window
         finally
         {
             SaveCurrentChatMessages();
+            _cameraAutomaticObservationRequest = false;
             _chatCancellation?.Dispose();
             _chatCancellation = null;
             SendButton.IsEnabled = true;
