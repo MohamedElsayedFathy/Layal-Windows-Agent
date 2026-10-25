@@ -2012,7 +2012,8 @@ public partial class MainWindow : Window
             SaveCurrentChatMessages();
 
             var completionStatus = IsArabic ? "اكتمل تحليل الصورة." : "Image analysis completed.";
-            if (!automaticObservation && AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
+            if (AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response) &&
+                (!automaticObservation || _cameraVisionWindow?.SpeakAutomaticObservations == true))
             {
                 try
                 {
