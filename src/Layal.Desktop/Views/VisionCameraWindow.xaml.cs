@@ -108,9 +108,9 @@ public partial class VisionCameraWindow : System.Windows.Window
                 _frame.CopyTo(_displayFrame);
             }
 
-            var encoded = Cv2.ImEncode(".jpg", _displayFrame);
-            if (encoded.Length == 0) return;
-            var bytes = encoded;
+            Cv2.ImEncode(".jpg", _displayFrame, out var bytes,
+                new ImageEncodingParam(ImwriteFlags.JpegQuality, 84));
+            if (bytes.Length == 0) return;
 
             _latestJpeg = bytes;
             using var stream = new MemoryStream(bytes, writable: false);
