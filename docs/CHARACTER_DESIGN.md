@@ -25,5 +25,4 @@ The floating mascot shows **Layal** (blue-silver hair, crescent clip, white tech
 - Expression portraits were cut from 160 px tiles and are softer than the main pose, especially at high DPI
   or large mascot sizes. Provide higher-resolution renders to improve them.
 - The single front/side/back full-body views from the sheet are not used.
-- Provenance of the concept sheet is undocumented; every file here is listed in
-  `docs/THIRD_PARTY_LICENSES.json` as `PROVENANCE_REVIEW_REQUIRED` and blocks a public release until reviewed.
+- The source sheet now has embedded C2PA provenance evidence identifying ChatGPT / `gpt-image` / OpenAI Media Service API, but its manifest signature has not been independently validated and human rights review remains pending. The nine derivatives are marked `PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED`; the source evidence does not authorize release by itself. See `docs/ASSET_PROVENANCE_FINDINGS_AR.md`.
