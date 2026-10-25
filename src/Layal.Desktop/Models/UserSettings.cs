@@ -9,7 +9,7 @@ public sealed class UserSettings
     public string SpeechToTextModelId { get; set; } = "gpt-transcribe";
     public bool VoiceRepliesEnabled { get; set; } = true;
     public string VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini";
-    public string VoiceReplyId { get; set; } = "shimmer";
+    public string VoiceReplyId { get; set; } = "marin";
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
     public double MascotScale { get; set; } = 1.0;
