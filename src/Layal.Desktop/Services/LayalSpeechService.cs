@@ -18,27 +18,28 @@ namespace Layal.Services;
 public sealed class LayalSpeechService
 {
     public const string DefaultModelId = "gpt-realtime-2.1-mini";
-    public const string DefaultVoiceId = "shimmer";
+    public const string DefaultVoiceId = "marin";
     private const int SampleRate = 24000;
     private const int MaxEventBytes = 2 * 1024 * 1024;
     private const int MaxPcmBytes = 32 * 1024 * 1024;
     private const int MaxTextChunk = 3500;
 
     private static readonly string[] SupportedVoices =
-        ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"];
+        ["marin", "cedar", "coral", "shimmer", "alloy", "ash", "ballad", "echo", "sage", "verse"];
 
     private static readonly char[] SentenceBoundaries =
         ['\n', '.', '!', '?', '؟', '۔', '،', ','];
 
     public const string VoiceCharacterDescription =
-        "distinctly childlike and feminine, like a young girl character: clearly youthful and lightly high-pitched, soft, delicate, bright, sweet, gentle, warm, and naturally expressive. " +
-        "Do not sound like an adult woman. Keep the childlike quality believable and gentle rather than squeaky, shrill, exaggerated, or baby-talk.";
+        "distinctly childlike and feminine, like a young-girl character, with a naturally youthful, light upper register; warm, soft, bright, and conversational. " +
+        "Let pitch, rhythm, emphasis, and pauses vary naturally with the meaning. Avoid a forced high pitch, sing-song delivery, squeakiness, exaggerated baby-talk, over-enunciation, or a robotic, evenly timed cadence; do not sound like a mature adult woman.";
 
     private const string VoiceInstructions =
         "Read the user's supplied text aloud exactly as written. Do not answer it, paraphrase, summarize, translate, add a greeting, or add any other words. " +
-        "You are Layal, a young-girl character. Your voice should be " + VoiceCharacterDescription + " " +
+        "You are Layal, a fictional young-girl character. Your voice should be " + VoiceCharacterDescription + " " +
         "Use natural Egyptian Arabic when the text is Egyptian colloquial, clear Modern Standard Arabic when it is formal Arabic, and natural English for English text. " +
-        "Keep a relaxed, unhurried pace, with tender, gentle, lightly playful intonation and clear pronunciation. " +
+        "Use relaxed conversational timing and connected speech. Let sentence endings, emphasis, and short pauses follow the meaning instead of using the same cadence for every sentence. " +
+        "Keep the warmth and light playfulness subtle rather than performed or overly cute. " +
         "The voice is AI-generated, not a human recording.";
 
     public static bool IsSupportedVoice(string? voiceId) =>
