@@ -82,7 +82,7 @@ public sealed class OnvifCameraDiscoveryService
             var addresses = probeMatch.Elements().FirstOrDefault(element => element.Name.LocalName == "XAddrs")?.Value;
             if (string.IsNullOrWhiteSpace(addresses)) return null;
 
-            if (!IsPrivateHost(senderAddress.ToString())) return null;
+            if (!IsPrivateCameraHost(senderAddress.ToString())) return null;
             var scopes = probeMatch.Elements().FirstOrDefault(element => element.Name.LocalName == "Scopes")?.Value ?? string.Empty;
             foreach (var address in addresses.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Take(8))
             {
@@ -325,6 +325,11 @@ public sealed class OnvifCameraDiscoveryService
         uri = null!;
         return false;
     }
+
+    private static bool IsPrivateCameraHost(string host) =>
+        IPAddress.TryParse(host, out var address) &&
+        !IPAddress.IsLoopback(address) &&
+        IsPrivateHost(host);
 
     private static string NormalizePrivateAddress(IPAddress address)
     {
