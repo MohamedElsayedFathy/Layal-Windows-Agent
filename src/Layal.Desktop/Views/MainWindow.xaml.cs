@@ -1210,6 +1210,7 @@ public partial class MainWindow : Window
 
         _weatherRequestInProgress = true;
         RefreshWeatherButton.IsEnabled = false;
+        SaveWeatherLocationButton.IsEnabled = false;
         var cancellation = new CancellationTokenSource();
         _weatherCancellation = cancellation;
         WeatherSummaryText.Text = IsArabic ? "جارٍ تحديث الطقس..." : "Refreshing weather...";
@@ -1245,6 +1246,8 @@ public partial class MainWindow : Window
         {
             if (cancellation.IsCancellationRequested)
                 return;
+            if (_currentWeatherReport is not null)
+                UpdateWeatherDisplay();
             if (_currentWeatherReport is null)
             {
                 WeatherIconText.Text = "⚠";
@@ -1264,6 +1267,7 @@ public partial class MainWindow : Window
                 _weatherCancellation = null;
             _weatherRequestInProgress = false;
             RefreshWeatherButton.IsEnabled = true;
+            SaveWeatherLocationButton.IsEnabled = true;
             cancellation.Dispose();
         }
     }
