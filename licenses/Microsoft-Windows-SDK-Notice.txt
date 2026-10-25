@@ -1,7 +1,0 @@
-Microsoft Windows SDK targeting pack — license reference
-
-Package: Microsoft.Windows.SDK.NET.Ref 10.0.28000.87
-Upstream package page: https://www.nuget.org/packages/Microsoft.Windows.SDK.NET.Ref/10.0.28000.87
-Microsoft license terms: https://aka.ms/WinSDKLicenseURL
-
-This file is a pointer to the license terms published by Microsoft, not a reproduction of those terms and not a grant of rights. The project's inventory uses the internal identifier LicenseRef-Microsoft-Windows-SDK because a reviewed SPDX expression has not been established. Confirm the current terms and redistribution rights before public distribution.
