@@ -7,6 +7,16 @@ namespace Layal.Tests;
 public sealed class LayalSpeechServiceTests
 {
     [TestMethod]
+    public void VoiceCharacterDescription_RequiresAClearlyChildlikeFeminineVoice()
+    {
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "distinctly childlike");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "young girl character");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "high-pitched");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "Do not sound like an adult woman");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "not baby-talk");
+    }
+
+    [TestMethod]
     public void BuildRealtimeUri_UsesSecureRealtimeEndpointAndConfiguredModel()
     {
         var uri = LayalSpeechService.BuildRealtimeUri(
