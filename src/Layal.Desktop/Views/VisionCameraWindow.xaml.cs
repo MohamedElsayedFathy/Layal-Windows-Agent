@@ -15,8 +15,7 @@ namespace Layal.Views;
 public partial class VisionCameraWindow : System.Windows.Window
 {
     private readonly bool _isArabic;
-    // OpenCV CAP_PROP_OPEN_TIMEOUT_MSEC and CAP_PROP_READ_TIMEOUT_MSEC identifiers.
-    private const int CaptureOpenTimeoutProperty = 53;
+    // OpenCV CAP_PROP_READ_TIMEOUT_MSEC identifier (the pinned wrapper lacks the enum name).
     private const int CaptureReadTimeoutProperty = 54;
     private readonly OnvifCameraDiscoveryService _onvifDiscovery = new();
     private readonly ObservableCollection<OnvifCameraDevice> _discoveredCameras = new();
@@ -328,11 +327,8 @@ public partial class VisionCameraWindow : System.Windows.Window
 
             var authenticatedAddress = OnvifCameraDiscoveryService.BuildAuthenticatedStreamAddress(streamUri, username, password);
             candidate = new VideoCapture();
-            var opened = await Task.Run(() => candidate.Open(authenticatedAddress, VideoCaptureAPIs.FFMPEG, new[]
-            {
-                CaptureOpenTimeoutProperty, 5000,
-                CaptureReadTimeoutProperty, 3000
-            }));
+            var openingCapture = candidate;
+            var opened = await OpenNetworkCaptureAsync(openingCapture, authenticatedAddress, () => candidate = null);
             if (_isClosing) return;
             if (!opened)
                 throw new InvalidOperationException(_isArabic
@@ -375,6 +371,29 @@ public partial class VisionCameraWindow : System.Windows.Window
             ScanNetworkCamerasButton.IsEnabled = true;
             ConnectNetworkCameraButton.IsEnabled = true;
         }
+    }
+
+    private static async Task<bool> OpenNetworkCaptureAsync(VideoCapture capture, string address, Action transferOwnership)
+    {
+        // Older pinned OpenCvSharp releases do not expose the overload that sets open/read timeouts.
+        // Keep native RTSP opening off the UI thread and dispose a timed-out capture only after Open returns.
+        var opening = Task.Run(() => capture.Open(address, VideoCaptureAPIs.FFMPEG));
+        var completed = await Task.WhenAny(opening, Task.Delay(TimeSpan.FromSeconds(15)));
+        if (!ReferenceEquals(completed, opening))
+        {
+            transferOwnership();
+            _ = opening.ContinueWith(task =>
+            {
+                _ = task.Exception; // observe any native/open exception before releasing the handle
+                capture.Dispose();
+            }, TaskScheduler.Default);
+            throw new TimeoutException("Opening the local camera stream exceeded 15 seconds.");
+        }
+
+        var opened = await opening;
+        if (opened)
+            capture.Set((VideoCaptureProperties)CaptureReadTimeoutProperty, 3000);
+        return opened;
     }
 
     private async void UseLocalCameraButton_Click(object sender, RoutedEventArgs e)
