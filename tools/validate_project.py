@@ -658,6 +658,54 @@ if "AI-generated" not in ui_code or "ليس صوت إنسان" not in ui_xaml:
 if not voice_docs_text:
     ERRORS.append("Layal voice reply usage/privacy documentation is missing")
 
+# Protect the full-duplex voice conversation path without coupling it to a replacement chat framework.
+voice_conversation_path = ROOT / "src/Layal.Desktop/Services/VoiceConversationService.cs"
+voice_conversation_test_path = ROOT / "tests/Layal.Tests/VoiceConversationServiceTests.cs"
+voice_conversation_text = voice_conversation_path.read_text(encoding="utf-8") if voice_conversation_path.is_file() else ""
+voice_conversation_test_text = voice_conversation_test_path.read_text(encoding="utf-8") if voice_conversation_test_path.is_file() else ""
+if not voice_conversation_text:
+    ERRORS.append("Full-duplex Realtime voice conversation service is missing")
+for required in (
+    'input_audio_buffer.append',
+    'input_audio_buffer.speech_started',
+    'conversation.item.truncate',
+    'audio_end_ms = audioEndMs',
+    'interrupt_response = true',
+    'create_response = true',
+    'new WaveIn',
+    'new BufferedWaveProvider',
+    'RaiseTranscript("user", userTranscript)',
+    'RaiseTranscript("assistant", responseTranscript)',
+):
+    if required not in voice_conversation_text:
+        ERRORS.append(f"Live voice conversation behavior is missing: {required}")
+if not voice_conversation_test_text:
+    ERRORS.append("Live voice conversation configuration tests are missing")
+for required in (
+    "BuildSessionUpdate_EnablesServerVadAndAutomaticInterruption",
+    "BuildSessionUpdate_RejectsBlankModelAndUnsupportedVoice",
+):
+    if required not in voice_conversation_test_text:
+        ERRORS.append(f"Live voice conversation regression coverage is missing: {required}")
+for required in (
+    'x:Name="VoiceConversationButton"',
+    'x:Name="VoiceConversationIndicator"',
+    'x:Name="VoiceConversationMicDot"',
+    'x:Name="VoiceConversationMicStatus"',
+):
+    if required not in ui_xaml:
+        ERRORS.append(f"Live voice conversation UI is missing: {required}")
+for required in (
+    "VoiceConversationButton_Click",
+    "VoiceConversationService_StatusChanged",
+    "VoiceConversationService_TranscriptReceived",
+    "VoiceConversationService.BuildSessionUpdate",
+    "_voiceConversationCancellation?.Cancel()",
+    "VoiceConversationStatusMessage",
+):
+    if required not in ui_code and required != "VoiceConversationService.BuildSessionUpdate":
+        ERRORS.append(f"Live voice conversation UI wiring is missing: {required}")
+
 trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
 trace_text = trace_path.read_text(encoding="utf-8-sig") if trace_path.is_file() else ""
 language_requirement = next((line for line in trace_text.splitlines() if line.startswith("LAYAL-006,")), "")
