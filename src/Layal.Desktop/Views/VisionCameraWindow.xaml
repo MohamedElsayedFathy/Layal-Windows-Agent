@@ -28,7 +28,12 @@
                         Click="UseLocalCameraButton_Click" MinWidth="180" Margin="0,0,0,4"/>
             </WrapPanel>
             <WrapPanel VerticalAlignment="Center">
-                <TextBlock Text="اسم المستخدم" VerticalAlignment="Center" Margin="0,0,6,4"/>
+                <TextBlock Text="عنوان RTSP (اختياري)" VerticalAlignment="Center" Margin="0,0,6,4"/>
+                <TextBox x:Name="ManualRtspAddressInput" Width="250" MinWidth="180" Margin="0,0,12,4"
+                         ToolTip="rtsp://192.168.1.20:554/path — من دون اسم مستخدم أو كلمة مرور"
+                         AutomationProperties.Name="عنوان RTSP المحلي لكاميرا مصرح بها"
+                         AutomationProperties.HelpText="استخدم عنوانًا على شبكة خاصة محلية فقط؛ أدخل بيانات الدخول في الحقول المنفصلة."/>
+                <TextBlock Text="اسم المستخدم" VerticalAlignment="Center" Margin="0,0,6,4"/> VerticalAlignment="Center" Margin="0,0,6,4"/>
                 <TextBox x:Name="CameraUsernameInput" Width="150" MinWidth="100" Margin="0,0,12,4"
                          AutomationProperties.Name="اسم مستخدم كاميرا الشبكة"/>
                 <TextBlock Text="كلمة المرور" VerticalAlignment="Center" Margin="0,0,6,4"/>
