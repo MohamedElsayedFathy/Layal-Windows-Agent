@@ -53,6 +53,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _speechRecordingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private CancellationTokenSource? _speechCancellation;
     private CancellationTokenSource? _voiceTestCancellation;
+    private CancellationTokenSource? _voiceConversationCancellation;
+    private VoiceConversationService? _voiceConversationService;
+    private VoiceConversationStatus _voiceConversationStatus = VoiceConversationStatus.Stopped;
     private DateTimeOffset _speechRecordingStartedAt;
     private bool _speechIsStopping;
     private CancellationTokenSource? _chatCancellation;
@@ -459,6 +462,7 @@ public partial class MainWindow : Window
             ? "بدء التسجيل يدوي. اضغط ثانية للإيقاف. الإرسال إلى موفر API يحتاج تأكيدًا منفصلًا، والنص الناتج لا يُرسل تلقائيًا."
             : "Manual recording only. Press again to stop. Sending audio to the API needs separate confirmation; the transcript is not sent automatically.");
         UpdateSpeechToTextButton();
+        UpdateVoiceConversationControls();
 
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
         TasksDescription.Text = ar
@@ -768,6 +772,13 @@ public partial class MainWindow : Window
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape && _voiceConversationCancellation is not null)
+        {
+            _voiceConversationCancellation.Cancel();
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.F1)
         {
             ShowKeyboardHelp();
@@ -1422,10 +1433,209 @@ public partial class MainWindow : Window
                 : (IsArabic ? "تسجيل يدوي فقط؛ لن يُرسل الصوت قبل تأكيدك." : "Manual recording only; audio is not uploaded until you confirm.");
     }
 
+    private async void VoiceConversationButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_voiceConversationCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic ? "جارٍ إيقاف المحادثة والميكروفون..." : "Stopping the voice conversation and microphone...");
+            VoiceConversationMicStatus.Text = IsArabic ? "جارٍ إيقاف الميكروفون..." : "Stopping microphone...";
+            VoiceConversationMicDot.Fill = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+            _voiceConversationCancellation.Cancel();
+            return;
+        }
+
+        if (_chatCancellation is not null || _voiceTestCancellation is not null ||
+            _speechToText.IsRecording || _speechCancellation is not null || _speechIsStopping)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف عملية الصوت أو الرد الحالي قبل بدء المحادثة الصوتية."
+                : "Stop the current audio operation or text reply before starting a voice conversation.");
+            return;
+        }
+
+        var baseUrl = BaseUrlInput.Text.Trim().TrimEnd('/');
+        var apiKey = string.IsNullOrWhiteSpace(ApiKeyInput.Password)
+            ? (AppRuntime.SecretStore?.Load() ?? string.Empty)
+            : ApiKeyInput.Password;
+        var modelId = VoiceReplyModelInput.Text.Trim();
+        var voiceId = VoiceReplyVoiceSelector.SelectedValue?.ToString() ?? LayalSpeechService.DefaultVoiceId;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أدخل مفتاح API صالحًا واحفظه من الإعدادات قبل بدء المحادثة الصوتية."
+                : "Enter and save a valid API key in Settings before starting a voice conversation.");
+            MainTabs.SelectedItem = SettingsTab;
+            return;
+        }
+
+        Uri realtimeUri;
+        try
+        {
+            realtimeUri = LayalSpeechService.BuildRealtimeUri(baseUrl, modelId);
+            if (!LayalSpeechService.IsSupportedVoice(voiceId))
+                throw new InvalidOperationException(IsArabic ? "اختر صوتًا مدعومًا." : "Choose a supported voice.");
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus((IsArabic ? "إعداد الصوت غير صالح: " : "Invalid voice configuration: ") + ex.Message);
+            MainTabs.SelectedItem = SettingsTab;
+            return;
+        }
+
+        var approved = MessageBox.Show(
+            this,
+            IsArabic
+                ? $"ستستخدم ليال الميكروفون باستمرار أثناء المحادثة، وسيُبث الصوت مباشرة إلى موفر Realtime التالي:\n{realtimeUri.GetLeftPart(UriPartial.Authority)}\nلن يُحفظ التسجيل الخام على القرص. قد تترتب تكلفة استخدام إضافية. يمكنك إيقاف الميكروفون في أي وقت بزر إيقاف المحادثة أو زر Esc. هل تريد البدء؟"
+                : $"Layal will keep the microphone active during the conversation and stream audio directly to this Realtime provider:\n{realtimeUri.GetLeftPart(UriPartial.Authority)}\nRaw recordings are not saved to disk. Additional usage charges may apply. Stop the conversation or press Esc to turn the microphone off at any time. Start now?",
+            IsArabic ? "تأكيد تشغيل الميكروفون المباشر" : "Confirm live microphone access",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (approved != MessageBoxResult.Yes) return;
+
+        var cancellation = new CancellationTokenSource();
+        var service = new VoiceConversationService();
+        _voiceConversationCancellation = cancellation;
+        _voiceConversationService = service;
+        _voiceConversationStatus = VoiceConversationStatus.Connecting;
+        service.StatusChanged += VoiceConversationService_StatusChanged;
+        service.TranscriptReceived += VoiceConversationService_TranscriptReceived;
+        UpdateVoiceConversationControls();
+        ChatInput.IsEnabled = false;
+        SendButton.IsEnabled = false;
+        SpeechToTextButton.IsEnabled = false;
+        CancelResponseButton.IsEnabled = false;
+        NewConversationButton.IsEnabled = false;
+        ClearSavedChatHistoryButton.IsEnabled = false;
+        ChatHistorySelector.IsEnabled = false;
+        SetChatActivityStatus(IsArabic ? "جارٍ الاتصال وتهيئة الميكروفون..." : "Connecting and preparing the microphone...");
+
+        try
+        {
+            var characterInstructions = LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language);
+            var instructions = characterInstructions + Environment.NewLine + Environment.NewLine +
+                "This is a natural, full-duplex spoken conversation with Layal, a fictional young-girl character. " +
+                LayalSpeechService.VoiceCharacterDescription + " " +
+                "Speak in natural Egyptian Arabic for Egyptian colloquial speech, clear Modern Standard Arabic for formal Arabic, " +
+                "and natural conversational English for English. Listen continuously, wait for the user to finish a turn, " +
+                "and respond naturally without announcing turn detection. If the user speaks while you are talking, stop your response and listen to them. " +
+                "The voice is AI-generated, not a human recording.";
+
+            await service.RunAsync(baseUrl, apiKey, modelId, voiceId, instructions, cancellation.Token);
+            SetChatActivityStatus(IsArabic ? "انتهت المحادثة الصوتية." : "Voice conversation ended.");
+        }
+        catch (OperationCanceledException)
+        {
+            SetChatActivityStatus(IsArabic ? "تم إيقاف المحادثة الصوتية والميكروفون." : "Voice conversation and microphone stopped.");
+        }
+        catch (Exception ex)
+        {
+            var message = UiLocalization.FormatTechnicalError(
+                "تعذر بدء/استمرار المحادثة الصوتية",
+                "Could not start or continue the voice conversation",
+                ex, IsArabic);
+            SetChatActivityStatus(message);
+            if (!AppRuntime.IsExiting && IsLoaded)
+                AddMessage("status", message);
+        }
+        finally
+        {
+            service.StatusChanged -= VoiceConversationService_StatusChanged;
+            service.TranscriptReceived -= VoiceConversationService_TranscriptReceived;
+            if (ReferenceEquals(_voiceConversationCancellation, cancellation))
+            {
+                _voiceConversationCancellation = null;
+                _voiceConversationService = null;
+                _voiceConversationStatus = VoiceConversationStatus.Stopped;
+                cancellation.Dispose();
+            }
+            service.Dispose();
+            UpdateVoiceConversationControls();
+            if (IsLoaded)
+            {
+                ChatInput.IsEnabled = true;
+                SendButton.IsEnabled = _chatCancellation is null;
+                NewConversationButton.IsEnabled = true;
+                ClearSavedChatHistoryButton.IsEnabled = true;
+                ChatHistorySelector.IsEnabled = true;
+                UpdateSpeechToTextButton();
+                RefreshProviderStatus();
+            }
+        }
+    }
+
+    private void VoiceConversationService_StatusChanged(VoiceConversationStatus status, string? detail)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (!IsLoaded) return;
+            _voiceConversationStatus = status;
+            UpdateVoiceConversationControls();
+            if (status != VoiceConversationStatus.Stopped)
+                SetChatActivityStatus(VoiceConversationStatusMessage(status));
+        }));
+    }
+
+    private void VoiceConversationService_TranscriptReceived(string role, string text)
+    {
+        if (string.IsNullOrWhiteSpace(role) || string.IsNullOrWhiteSpace(text)) return;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (!IsLoaded || AppRuntime.IsExiting) return;
+            AddMessage(role == "user" ? "user" : "assistant", text.Trim());
+            if (role == "assistant")
+                AppRuntime.MascotWindow?.SetMood(SelectChatMood(
+                    ChatMessages.LastOrDefault(m => m.Role == "user")?.Content ?? string.Empty, text));
+        }));
+    }
+
+    private string VoiceConversationStatusMessage(VoiceConversationStatus status) =>
+        status switch
+        {
+            VoiceConversationStatus.Connecting => IsArabic ? "جارٍ الاتصال بموفر Realtime قبل تشغيل الميكروفون..." : "Connecting to Realtime before activating the microphone...",
+            VoiceConversationStatus.Listening => IsArabic ? "الميكروفون نشط — تحدث إلى ليال في أي وقت." : "Microphone active — speak to Layal at any time.",
+            VoiceConversationStatus.UserSpeaking => IsArabic ? "ليال بتسمعك الآن..." : "Layal is listening to you...",
+            VoiceConversationStatus.AssistantSpeaking => IsArabic ? "ليال بترد — تقدر تقاطعها بالكلام." : "Layal is responding — speak to interrupt.",
+            _ => IsArabic ? "الميكروفون متوقف." : "Microphone is off."
+        };
+
+    private void UpdateVoiceConversationControls()
+    {
+        if (VoiceConversationButton is null) return;
+        var active = _voiceConversationCancellation is not null;
+        VoiceConversationButton.Content = active
+            ? (IsArabic ? "إيقاف المحادثة الصوتية" : "Stop voice conversation")
+            : (IsArabic ? "بدء المحادثة الصوتية" : "Start voice conversation");
+        VoiceConversationButton.ToolTip = active
+            ? (IsArabic ? "اضغط لإيقاف البث الصوتي وإغلاق الميكروفون فورًا، أو اضغط Esc." : "Stop audio streaming and close the microphone, or press Esc.")
+            : (IsArabic ? "تبدأ بث الميكروفون إلى موفر Realtime بعد موافقتك. يمكن إيقافه في أي وقت." : "Streams microphone audio to your Realtime provider after confirmation. You can stop at any time.");
+        AutomationProperties.SetName(VoiceConversationButton, active
+            ? (IsArabic ? "إيقاف المحادثة الصوتية" : "Stop voice conversation")
+            : (IsArabic ? "بدء المحادثة الصوتية" : "Start voice conversation"));
+        AutomationProperties.SetHelpText(VoiceConversationButton, IsArabic
+            ? "الزر يبدّل بين بدء المحادثة وإيقافها. أثناء الجلسة يظهر مؤشر الميكروفون النشط أعلى النافذة."
+            : "Toggles the live voice conversation. A microphone-active indicator remains visible in the window header.");
+        var micActive = _voiceConversationStatus is VoiceConversationStatus.Listening or
+            VoiceConversationStatus.UserSpeaking or VoiceConversationStatus.AssistantSpeaking;
+        VoiceConversationIndicator.Visibility = _voiceConversationStatus == VoiceConversationStatus.Stopped
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        VoiceConversationMicDot.Fill = ThemeBrush(
+            micActive ? "Layal.Danger" : "Layal.Warning",
+            micActive ? System.Windows.Media.Brushes.Firebrick : System.Windows.Media.Brushes.DarkGoldenrod);
+        VoiceConversationMicStatus.Text = VoiceConversationStatusMessage(_voiceConversationStatus);
+    }
+
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
     private async Task SendMessageAsync()
     {
+        if (_voiceConversationCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف المحادثة الصوتية قبل إرسال رسالة نصية."
+                : "Stop the live voice conversation before sending a text message.");
+            return;
+        }
+
         var text = ChatInput.Text.Trim();
         if (string.IsNullOrWhiteSpace(text) || _chatCancellation is not null) return;
         ChatInput.Clear();
@@ -2215,6 +2425,7 @@ public partial class MainWindow : Window
         _speechRecordingTimer.Stop();
         _speechCancellation?.Cancel();
         _voiceTestCancellation?.Cancel();
+        _voiceConversationCancellation?.Cancel();
         if (!_speechIsStopping) _speechToText.CancelRecording();
 
         if (!AppRuntime.IsExiting)
