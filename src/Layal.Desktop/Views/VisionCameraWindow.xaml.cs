@@ -15,6 +15,9 @@ namespace Layal.Views;
 public partial class VisionCameraWindow : System.Windows.Window
 {
     private readonly bool _isArabic;
+    // OpenCV CAP_PROP_OPEN_TIMEOUT_MSEC and CAP_PROP_READ_TIMEOUT_MSEC identifiers.
+    private const int CaptureOpenTimeoutProperty = 53;
+    private const int CaptureReadTimeoutProperty = 54;
     private readonly OnvifCameraDiscoveryService _onvifDiscovery = new();
     private readonly ObservableCollection<OnvifCameraDevice> _discoveredCameras = new();
     private VideoCapture? _capture;
@@ -327,8 +330,8 @@ public partial class VisionCameraWindow : System.Windows.Window
             candidate = new VideoCapture();
             var opened = await Task.Run(() => candidate.Open(authenticatedAddress, VideoCaptureAPIs.FFMPEG, new[]
             {
-                (int)VideoCaptureProperties.OpenTimeoutMsec, 5000,
-                (int)VideoCaptureProperties.ReadTimeoutMsec, 3000
+                CaptureOpenTimeoutProperty, 5000,
+                CaptureReadTimeoutProperty, 3000
             }));
             if (_isClosing) return;
             if (!opened)
@@ -439,6 +442,18 @@ public partial class VisionCameraWindow : System.Windows.Window
             }
         }
         return message;
+    }
+
+    public void StopAutomaticObservation()
+    {
+        _observationTimer.Stop();
+        if (ContinuousObservationCheckBox.IsChecked != true) return;
+
+        ContinuousObservationCheckBox.IsChecked = false;
+        CameraStatusText.Text = _isArabic
+            ? "تم إيقاف التحليل التلقائي."
+            : "Automatic observation has stopped.";
+        AutomaticObservationChanged?.Invoke(false);
     }
 
     private void ObservationTimer_Tick(object? sender, EventArgs e)
