@@ -1630,7 +1630,6 @@ public partial class MainWindow : Window
             VoiceConversationStatus.AssistantSpeaking => IsArabic ? "تقدر تقاطعها" : "Speak to interrupt",
             _ => IsArabic ? "الميكروفون متوقف" : "Mic off"
         };
-    }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
