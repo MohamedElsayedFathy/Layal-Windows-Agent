@@ -31,14 +31,22 @@ public sealed class LayalSpeechServiceTests
     [TestMethod]
     public void BuildRealtimeUri_RejectsRemoteHttpAndEmbeddedCredentials()
     {
-        Assert.ThrowsException<InvalidOperationException>(() =>
+        AssertInvalidOperation(() =>
             LayalSpeechService.BuildRealtimeUri("http://speech.example/v1"));
 
-        Assert.ThrowsException<InvalidOperationException>(() =>
+        AssertInvalidOperation(() =>
             LayalSpeechService.BuildRealtimeUri("https://user:password@api.example/v1"));
 
-        Assert.ThrowsException<InvalidOperationException>(() =>
+        AssertInvalidOperation(() =>
             LayalSpeechService.BuildRealtimeUri("https://api.example/v1?token=secret"));
+    }
+
+    private static void AssertInvalidOperation(Action action)
+    {
+        var thrown = false;
+        try { action(); }
+        catch (InvalidOperationException) { thrown = true; }
+        Assert.IsTrue(thrown, "Expected an InvalidOperationException.");
     }
 
     [TestMethod]
