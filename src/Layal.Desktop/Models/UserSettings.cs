@@ -5,6 +5,7 @@ public sealed class UserSettings
     public string Language { get; set; } = "ar";
     public string ThemeMode { get; set; } = "light";
     public string WeatherLocation { get; set; } = string.Empty;
+    public bool UseAutomaticLocation { get; set; } = true;
     public string ProviderBaseUrl { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
     public string SpeechToTextModelId { get; set; } = "gpt-transcribe";

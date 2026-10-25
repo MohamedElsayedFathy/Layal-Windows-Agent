@@ -14,6 +14,8 @@ public sealed record CurrentWeatherReport(
     int RelativeHumidityPercent,
     double WindSpeedKmh,
     int WeatherCode,
+    string TimeZoneId,
+    int UtcOffsetSeconds,
     DateTimeOffset FetchedAt);
 
 public sealed class WeatherLocationNotFoundException : Exception
@@ -25,8 +27,8 @@ public sealed class WeatherLocationNotFoundException : Exception
 }
 
 /// <summary>
-/// Retrieves current weather for an explicitly selected city using Open-Meteo geocoding
-/// and forecast endpoints. No device GPS/IP location is read by this service.
+/// Retrieves current weather for either a manually selected city or explicitly supplied
+/// device coordinates. Device position is acquired separately by DeviceLocationService.
 /// </summary>
 public sealed class WeatherService
 {
@@ -52,33 +54,44 @@ public sealed class WeatherService
             throw new ArgumentException("A city name is required.", nameof(location));
         if (query.Length > 120)
             throw new ArgumentException("The city name must be 120 characters or fewer.", nameof(location));
-
         var language = isArabic ? "ar" : "en";
         var geocodingUri = new Uri(
             "https://geocoding-api.open-meteo.com/v1/search?name=" +
             Uri.EscapeDataString(query) +
             "&count=1&language=" + language + "&format=json");
-
         using var geocoding = await GetJsonAsync(geocodingUri, cancellationToken);
         if (!geocoding.RootElement.TryGetProperty("results", out var results) ||
             results.ValueKind != JsonValueKind.Array || results.GetArrayLength() == 0)
-        {
             throw new WeatherLocationNotFoundException(query);
-        }
 
         var city = results[0];
         if (!city.TryGetProperty("latitude", out var latitudeElement) ||
             !latitudeElement.TryGetDouble(out var latitude) ||
             !city.TryGetProperty("longitude", out var longitudeElement) ||
             !longitudeElement.TryGetDouble(out var longitude))
-        {
             throw new InvalidOperationException("The weather location response did not contain coordinates.");
-        }
 
         var cityName = GetString(city, "name") ?? query;
         var country = GetString(city, "country");
         var locationDisplay = string.IsNullOrWhiteSpace(country) ? cityName : $"{cityName}, {country}";
+        ValidateCoordinates(latitude, longitude);
+        return await GetCurrentWeatherAtCoordinatesCoreAsync(latitude, longitude, locationDisplay, cancellationToken);
+    }
 
+    public Task<CurrentWeatherReport> GetCurrentWeatherAtCoordinatesAsync(
+        double latitude,
+        double longitude,
+        bool isArabic,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateCoordinates(latitude, longitude);
+        var locationDisplay = isArabic ? "موقعك الحالي" : "Current location";
+        return GetCurrentWeatherAtCoordinatesCoreAsync(latitude, longitude, locationDisplay, cancellationToken);
+    }
+
+    private async Task<CurrentWeatherReport> GetCurrentWeatherAtCoordinatesCoreAsync(
+        double latitude, double longitude, string locationDisplay, CancellationToken cancellationToken)
+    {
         const string currentVariables = "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m";
         var forecastUri = new Uri(
             "https://api.open-meteo.com/v1/forecast?latitude=" +
@@ -86,11 +99,10 @@ public sealed class WeatherService
             "&longitude=" + longitude.ToString(CultureInfo.InvariantCulture) +
             "&current=" + Uri.EscapeDataString(currentVariables) +
             "&timezone=auto&temperature_unit=celsius&wind_speed_unit=kmh");
-
         using var forecast = await GetJsonAsync(forecastUri, cancellationToken);
-        if (!forecast.RootElement.TryGetProperty("current", out var current))
+        var root = forecast.RootElement;
+        if (!root.TryGetProperty("current", out var current))
             throw new InvalidOperationException("The weather response did not contain current conditions.");
-
         return new CurrentWeatherReport(
             locationDisplay,
             GetDouble(current, "temperature_2m"),
@@ -98,7 +110,17 @@ public sealed class WeatherService
             GetInt(current, "relative_humidity_2m"),
             GetDouble(current, "wind_speed_10m"),
             GetInt(current, "weather_code"),
-            DateTimeOffset.Now);
+            GetString(root, "timezone") ?? "UTC",
+            GetOptionalInt(root, "utc_offset_seconds", 0),
+            DateTimeOffset.UtcNow);
+    }
+
+    private static void ValidateCoordinates(double latitude, double longitude)
+    {
+        if (!double.IsFinite(latitude) || latitude < -90 || latitude > 90)
+            throw new ArgumentOutOfRangeException(nameof(latitude), "Latitude must be between -90 and 90.");
+        if (!double.IsFinite(longitude) || longitude < -180 || longitude > 180)
+            throw new ArgumentOutOfRangeException(nameof(longitude), "Longitude must be between -180 and 180.");
     }
 
     public static string GetConditionText(int weatherCode, bool isArabic) =>
@@ -169,6 +191,9 @@ public sealed class WeatherService
             return result;
         throw new InvalidOperationException($"The weather response did not contain '{propertyName}'.");
     }
+
+    private static int GetOptionalInt(JsonElement element, string propertyName, int fallback) =>
+        element.TryGetProperty(propertyName, out var value) && value.TryGetInt32(out var result) ? result : fallback;
 
     private static int GetInt(JsonElement element, string propertyName)
     {

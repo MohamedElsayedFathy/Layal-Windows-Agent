@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
     private readonly WeatherService _weatherService = new();
+    private readonly DeviceLocationService _deviceLocationService = new();
     private CancellationTokenSource? _weatherCancellation;
     private bool _weatherRequestInProgress;
     private CurrentWeatherReport? _currentWeatherReport;
@@ -250,7 +251,9 @@ public partial class MainWindow : Window
         UpdateClockDisplay();
         _weatherRefreshTimer.Start();
         UpdateWeatherDisplay();
-        if (!string.IsNullOrWhiteSpace(AppRuntime.Settings.WeatherLocation))
+        if (AppRuntime.Settings.UseAutomaticLocation)
+            _ = RefreshLocationWeatherAsync();
+        else if (!string.IsNullOrWhiteSpace(AppRuntime.Settings.WeatherLocation))
             _ = RefreshWeatherAsync();
 
         // Keep the initial window inside a usable work area on small/high-DPI displays.
@@ -411,20 +414,25 @@ public partial class MainWindow : Window
         HomeDescription.Text = ar
             ? "هذه النسخة هي أساس Windows الأصلي. اربط نموذجًا متوافقًا من الإعدادات لتفعيل المحادثة الحقيقية."
             : "This is the native Windows foundation. Configure a compatible model provider to enable real AI chat.";
-        ClockSectionTitle.Text = ar ? "الوقت والتاريخ" : "Time & date";
+        ClockSectionTitle.Text = ar ? "الوقت والتاريخ حسب موقعك" : "Time & date at your location";
         WeatherSectionTitle.Text = ar ? "الطقس" : "Weather";
         RefreshWeatherButton.Content = ar ? "تحديث الطقس" : "Refresh weather";
         WeatherSettingsTitle.Text = ar ? "حالة الطقس في الرئيسية" : "Weather on Home";
-        WeatherLocationLabel.Text = ar ? "المدينة أو المدينة مع الدولة" : "City or city and country";
-        SaveWeatherLocationButton.Content = ar ? "حفظ المدينة وتحديث الطقس" : "Save city and refresh weather";
+        WeatherLocationLabel.Text = ar ? "مدينة بديلة عند عدم إتاحة الموقع" : "Fallback city if location is unavailable";
+        UseMyLocationButton.Content = ar ? "اكتشاف موقعي واستخدامه تلقائيًا" : "Detect my location and use it automatically";
+        SaveWeatherLocationButton.Content = ar ? "استخدام المدينة يدويًا" : "Use city manually";
         WeatherPrivacyNote.Text = ar
-            ? "يُرسل اسم المدينة فقط إلى Open-Meteo لجلب الطقس. لا يُستخدم GPS أو الموقع الدقيق للجهاز تلقائيًا."
-            : "Only the city name is sent to Open-Meteo for weather data. GPS or the device's precise location is not used automatically.";
-        WeatherLocationInput.ToolTip = ar ? "مثال: القاهرة، مصر أو Cairo, Egypt" : "Example: Cairo, Egypt";
-        AutomationProperties.SetName(WeatherLocationInput, ar ? "مدينة الطقس" : "Weather city");
+            ? "عند تفعيل الموقع، يطلب التطبيق الإذن من Windows ويرسل الإحداثيات إلى Open-Meteo لحساب الطقس والمنطقة الزمنية. لا يحفظ التطبيق الإحداثيات؛ ويمكن استخدام مدينة يدويًا بدلًا من ذلك."
+            : "When location is enabled, Windows permission is requested and coordinates are sent to Open-Meteo for weather and time-zone data. Coordinates are not saved; you can use a city manually instead.";
+        WeatherLocationInput.ToolTip = ar ? "مدينة بديلة، مثل القاهرة، مصر أو Cairo, Egypt" : "Fallback city, e.g. Cairo, Egypt";
+        AutomationProperties.SetName(UseMyLocationButton, ar ? "اكتشاف الموقع الحالي" : "Detect current location");
+        AutomationProperties.SetHelpText(UseMyLocationButton, ar
+            ? "يطلب السماح من Windows لقراءة موقع تقريبي واستخدامه للوقت والتاريخ والطقس."
+            : "Requests Windows permission to read an approximate location for time, date, and weather.");
+        AutomationProperties.SetName(WeatherLocationInput, ar ? "مدينة الطقس البديلة" : "Fallback weather city");
         AutomationProperties.SetHelpText(WeatherLocationInput, ar
-            ? "اختر المدينة يدويًا؛ لا يتم استخدام الموقع الدقيق تلقائيًا."
-            : "Choose a city manually; precise device location is not used automatically.");
+            ? "اختياري: اكتب مدينة لاستخدامها يدويًا بدلًا من تحديد موقع الجهاز."
+            : "Optional: enter a city to use manually instead of detecting device location.");
         AutomationProperties.SetName(ClockTimeText, ar ? "الوقت المحلي" : "Local time");
         AutomationProperties.SetName(CurrentDateText, ar ? "التاريخ المحلي" : "Local date");
         AutomationProperties.SetName(WeatherTemperatureText, ar ? "درجة الحرارة الحالية" : "Current temperature");
@@ -1137,12 +1145,25 @@ public partial class MainWindow : Window
 
     private void ClockTimer_Tick(object? sender, EventArgs e) => UpdateClockDisplay();
 
-    private async void WeatherRefreshTimer_Tick(object? sender, EventArgs e) =>
-        await RefreshWeatherAsync();
+    private async void WeatherRefreshTimer_Tick(object? sender, EventArgs e)
+    {
+        if (AppRuntime.Settings.UseAutomaticLocation) await RefreshLocationWeatherAsync();
+        else await RefreshWeatherAsync();
+    }
+
+    private static DateTimeOffset ConvertToWeatherTime(DateTimeOffset instant, CurrentWeatherReport report)
+    {
+        try { return TimeZoneInfo.ConvertTime(instant, TimeZoneInfo.FindSystemTimeZoneById(report.TimeZoneId)); }
+        catch (Exception exception) when (exception is TimeZoneNotFoundException || exception is InvalidTimeZoneException)
+        {
+            var offsetSeconds = Math.Clamp(report.UtcOffsetSeconds, -14 * 60 * 60, 14 * 60 * 60);
+            return instant.ToOffset(TimeSpan.FromSeconds(offsetSeconds));
+        }
+    }
 
     private void UpdateClockDisplay()
     {
-        var now = DateTime.Now;
+        var now = _currentWeatherReport is { } report ? ConvertToWeatherTime(DateTimeOffset.UtcNow, report) : DateTimeOffset.Now;
         var culture = CultureInfo.GetCultureInfo(IsArabic ? "ar-EG" : "en-US");
         ClockTimeText.Text = now.ToString("HH:mm:ss", culture);
         CurrentDateText.Text = now.ToString(IsArabic ? "dddd، dd MMMM yyyy" : "dddd, MMMM dd yyyy", culture);
@@ -1154,14 +1175,18 @@ public partial class MainWindow : Window
         var requestedLocation = AppRuntime.Settings.WeatherLocation?.Trim() ?? string.Empty;
         if (_currentWeatherReport is null)
         {
-            WeatherIconText.Text = string.IsNullOrWhiteSpace(requestedLocation) ? "🌍" : "🌡";
+            WeatherIconText.Text = AppRuntime.Settings.UseAutomaticLocation ? "📍" :
+                (string.IsNullOrWhiteSpace(requestedLocation) ? "🌍" : "🌡");
             WeatherTemperatureText.Text = "—°C";
-            WeatherLocationText.Text = string.IsNullOrWhiteSpace(requestedLocation)
-                ? (ar ? "لم تُحدّد مدينة" : "No city selected")
-                : requestedLocation;
-            WeatherSummaryText.Text = string.IsNullOrWhiteSpace(requestedLocation)
-                ? (ar ? "حدّد المدينة من الإعدادات لعرض الطقس." : "Set a city in Settings to show weather.")
-                : (ar ? "لم يتم تحميل الطقس بعد." : "Weather has not loaded yet.");
+            WeatherLocationText.Text = AppRuntime.Settings.UseAutomaticLocation
+                ? (ar ? "بانتظار تحديد الموقع" : "Waiting for location")
+                : (string.IsNullOrWhiteSpace(requestedLocation)
+                    ? (ar ? "لم تُحدّد مدينة بديلة" : "No fallback city selected") : requestedLocation);
+            WeatherSummaryText.Text = AppRuntime.Settings.UseAutomaticLocation
+                ? (ar ? "سيتم تحديد موقعك تلقائيًا عند السماح بذلك." : "Your location will be detected automatically when allowed.")
+                : (string.IsNullOrWhiteSpace(requestedLocation)
+                    ? (ar ? "اضغط «اكتشاف موقعي» أو أدخل مدينة يدويًا." : "Select Detect my location or enter a city manually.")
+                    : (ar ? "لم يتم تحميل الطقس بعد." : "Weather has not loaded yet."));
             WeatherDetailsText.Text = string.Empty;
             WeatherUpdatedText.Text = string.Empty;
             return;
@@ -1176,40 +1201,106 @@ public partial class MainWindow : Window
             ? $"المحسوسة {report.ApparentTemperatureC:0.#}°C · الرطوبة {report.RelativeHumidityPercent}% · الرياح {report.WindSpeedKmh:0.#} كم/س"
             : $"Feels like {report.ApparentTemperatureC:0.#}°C · Humidity {report.RelativeHumidityPercent}% · Wind {report.WindSpeedKmh:0.#} km/h";
         var culture = CultureInfo.GetCultureInfo(ar ? "ar-EG" : "en-US");
+        var updatedAt = ConvertToWeatherTime(report.FetchedAt, report);
         WeatherUpdatedText.Text = ar
-            ? $"آخر تحديث {report.FetchedAt.LocalDateTime.ToString("HH:mm", culture)} · البيانات: Open-Meteo"
-            : $"Updated {report.FetchedAt.LocalDateTime.ToString("HH:mm", culture)} · Weather data: Open-Meteo";
+            ? $"آخر تحديث {updatedAt.ToString("HH:mm", culture)} · البيانات: Open-Meteo"
+            : $"Updated {updatedAt.ToString("HH:mm", culture)} · Weather data: Open-Meteo";
     }
 
     private void RefreshWeatherButton_Click(object sender, RoutedEventArgs e)
     {
+        if (AppRuntime.Settings.UseAutomaticLocation) { _ = RefreshLocationWeatherAsync(); return; }
         if (string.IsNullOrWhiteSpace(AppRuntime.Settings.WeatherLocation))
         {
             MainTabs.SelectedItem = SettingsTab;
             WeatherLocationInput.Focus();
             WeatherSettingsStatus.Text = IsArabic
-                ? "اكتب اسم المدينة واحفظه أولًا لتفعيل الطقس."
-                : "Enter and save a city first to enable weather.";
+                ? "اضغط «اكتشاف موقعي» أو اكتب مدينة بديلة واحفظها."
+                : "Select Detect my location or enter and save a fallback city.";
             return;
         }
-
         _ = RefreshWeatherAsync();
+    }
+
+    private async Task RefreshLocationWeatherAsync()
+    {
+        if (_weatherRequestInProgress || !IsLoaded) return;
+        _weatherRequestInProgress = true;
+        RefreshWeatherButton.IsEnabled = false;
+        UseMyLocationButton.IsEnabled = false;
+        SaveWeatherLocationButton.IsEnabled = false;
+        var cancellation = new CancellationTokenSource();
+        _weatherCancellation = cancellation;
+        WeatherSummaryText.Text = IsArabic ? "جارٍ تحديد موقعك..." : "Detecting your location...";
+        WeatherUpdatedText.Text = string.Empty;
+        try
+        {
+            var coordinates = await _deviceLocationService.GetCurrentLocationAsync();
+            if (cancellation.IsCancellationRequested) return;
+            _currentWeatherReport = await _weatherService.GetCurrentWeatherAtCoordinatesAsync(
+                coordinates.Latitude, coordinates.Longitude, IsArabic, cancellation.Token);
+            if (cancellation.IsCancellationRequested) return;
+            AppRuntime.Settings.UseAutomaticLocation = true;
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            UpdateClockDisplay();
+            UpdateWeatherDisplay();
+            WeatherSettingsStatus.Text = IsArabic
+                ? "تم تحديد موقعك وتحديث الوقت والتاريخ والطقس."
+                : "Location detected; time, date, and weather are updated.";
+            WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
+        }
+        catch (DeviceLocationAccessException)
+        {
+            if (cancellation.IsCancellationRequested) return;
+            AppRuntime.Settings.UseAutomaticLocation = false;
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            _currentWeatherReport = null;
+            UpdateClockDisplay();
+            UpdateWeatherDisplay();
+            WeatherIconText.Text = "📍";
+            WeatherSummaryText.Text = IsArabic
+                ? "لم يُسمح بالوصول للموقع. فعّل خدمات الموقع في إعدادات Windows ثم اضغط «اكتشاف موقعي»، أو استخدم مدينة يدويًا."
+                : "Location access was not granted. Enable Windows Location and select Detect my location, or use a city manually.";
+            WeatherSettingsStatus.Text = WeatherSummaryText.Text;
+            WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            if (cancellation.IsCancellationRequested) return;
+            if (_currentWeatherReport is not null) UpdateWeatherDisplay();
+            else
+            {
+                WeatherIconText.Text = "⚠";
+                WeatherTemperatureText.Text = "—°C";
+                WeatherDetailsText.Text = string.Empty;
+                WeatherSummaryText.Text = IsArabic
+                    ? "تعذّر تحديد الموقع أو الاتصال بخدمة الطقس. تحقّق من خدمات الموقع والإنترنت، أو أدخل مدينة يدويًا."
+                    : "Could not detect location or reach the weather service. Check Windows Location and internet, or enter a city manually.";
+            }
+            WeatherUpdatedText.Text = IsArabic ? "تعذّر التحديث؛ قد تكون البيانات المعروضة قديمة." : "Refresh failed; displayed data may be stale.";
+            WeatherSettingsStatus.Text = WeatherSummaryText.Text;
+            WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+        }
+        finally
+        {
+            if (ReferenceEquals(_weatherCancellation, cancellation)) _weatherCancellation = null;
+            _weatherRequestInProgress = false;
+            RefreshWeatherButton.IsEnabled = true;
+            UseMyLocationButton.IsEnabled = true;
+            SaveWeatherLocationButton.IsEnabled = true;
+            cancellation.Dispose();
+        }
     }
 
     private async Task RefreshWeatherAsync()
     {
-        if (_weatherRequestInProgress || !IsLoaded)
-            return;
-
+        if (_weatherRequestInProgress || !IsLoaded) return;
         var location = AppRuntime.Settings.WeatherLocation?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(location))
-        {
-            UpdateWeatherDisplay();
-            return;
-        }
-
+        if (string.IsNullOrWhiteSpace(location)) { UpdateWeatherDisplay(); return; }
         _weatherRequestInProgress = true;
         RefreshWeatherButton.IsEnabled = false;
+        UseMyLocationButton.IsEnabled = false;
         SaveWeatherLocationButton.IsEnabled = false;
         var cancellation = new CancellationTokenSource();
         _weatherCancellation = cancellation;
@@ -1218,16 +1309,15 @@ public partial class MainWindow : Window
         try
         {
             _currentWeatherReport = await _weatherService.GetCurrentWeatherAsync(location, IsArabic, cancellation.Token);
-            if (cancellation.IsCancellationRequested)
-                return;
+            if (cancellation.IsCancellationRequested) return;
+            UpdateClockDisplay();
             UpdateWeatherDisplay();
-            WeatherSettingsStatus.Text = IsArabic ? "تم تحديث حالة الطقس." : "Weather updated.";
+            WeatherSettingsStatus.Text = IsArabic ? "تم تحديث حالة الطقس للمدينة اليدوية." : "Weather updated for the manual city.";
             WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (WeatherLocationNotFoundException)
         {
-            if (cancellation.IsCancellationRequested)
-                return;
+            if (cancellation.IsCancellationRequested) return;
             _currentWeatherReport = null;
             UpdateWeatherDisplay();
             WeatherIconText.Text = "❔";
@@ -1238,16 +1328,11 @@ public partial class MainWindow : Window
             WeatherSettingsStatus.Text = WeatherSummaryText.Text;
             WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
         }
-        catch (OperationCanceledException)
-        {
-            // Closing the window cancels the pending weather request.
-        }
+        catch (OperationCanceledException) { }
         catch (Exception)
         {
-            if (cancellation.IsCancellationRequested)
-                return;
-            if (_currentWeatherReport is not null)
-                UpdateWeatherDisplay();
+            if (cancellation.IsCancellationRequested) return;
+            if (_currentWeatherReport is not null) UpdateWeatherDisplay();
             if (_currentWeatherReport is null)
             {
                 WeatherIconText.Text = "⚠";
@@ -1263,13 +1348,27 @@ public partial class MainWindow : Window
         }
         finally
         {
-            if (ReferenceEquals(_weatherCancellation, cancellation))
-                _weatherCancellation = null;
+            if (ReferenceEquals(_weatherCancellation, cancellation)) _weatherCancellation = null;
             _weatherRequestInProgress = false;
             RefreshWeatherButton.IsEnabled = true;
+            UseMyLocationButton.IsEnabled = true;
             SaveWeatherLocationButton.IsEnabled = true;
             cancellation.Dispose();
         }
+    }
+
+    private async void UseMyLocationButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppRuntime.Settings.UseAutomaticLocation = true;
+        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        _currentWeatherReport = null;
+        UpdateClockDisplay();
+        UpdateWeatherDisplay();
+        WeatherSettingsStatus.Text = IsArabic
+            ? "سيتم استخدام موقع الجهاز بعد السماح من Windows..."
+            : "Windows permission is needed to use the device location...";
+        WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Muted", System.Windows.Media.Brushes.Gray);
+        await RefreshLocationWeatherAsync();
     }
 
     private async void SaveWeatherLocationButton_Click(object sender, RoutedEventArgs e)
@@ -1283,18 +1382,20 @@ public partial class MainWindow : Window
             WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
             return;
         }
-
         AppRuntime.Settings.WeatherLocation = location;
+        AppRuntime.Settings.UseAutomaticLocation = false;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         _currentWeatherReport = null;
+        UpdateClockDisplay();
         UpdateWeatherDisplay();
         if (string.IsNullOrWhiteSpace(location))
         {
-            WeatherSettingsStatus.Text = IsArabic ? "تم مسح المدينة وتعطيل تحديث الطقس." : "City cleared; weather refresh disabled.";
+            WeatherSettingsStatus.Text = IsArabic
+                ? "تم مسح المدينة اليدوية؛ اضغط «اكتشاف موقعي» لتفعيل الموقع التلقائي."
+                : "Fallback city cleared; select Detect my location to enable automatic location.";
             WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
             return;
         }
-
         WeatherSettingsStatus.Text = IsArabic ? "تم حفظ المدينة. جارٍ جلب الطقس..." : "City saved. Fetching weather...";
         WeatherSettingsStatus.Foreground = ThemeBrush("Layal.Muted", System.Windows.Media.Brushes.Gray);
         await RefreshWeatherAsync();
