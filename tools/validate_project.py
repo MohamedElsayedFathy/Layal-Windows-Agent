@@ -301,7 +301,7 @@ else:
     readme_path = ROOT / "README_AR.md"
     if readme_path.exists() and not re.search(rf"الإصدار المصدري:\s*{re.escape(project_version)}\b", readme_path.read_text(encoding="utf-8")):
         ERRORS.append(f"README_AR.md source version does not match project version {project_version}")
-    if "<TargetFramework>net10.0-windows</TargetFramework>" not in project_text:
+    if "<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>" not in project_text:
         ERRORS.append("Target framework is not the expected net10.0-windows; verify this change deliberately")
 
 # Explicitly declare per-monitor DPI behavior and the WPF runtime scaling switch.
@@ -886,8 +886,6 @@ if "WeatherLocation" not in (ROOT / "src/Layal.Desktop/Models/UserSettings.cs").
     ERRORS.append("Weather city preference is not persisted in UserSettings.cs")
 if "UseAutomaticLocation" not in (ROOT / "src/Layal.Desktop/Models/UserSettings.cs").read_text(encoding="utf-8"):
     ERRORS.append("Automatic location preference is not persisted in UserSettings.cs")
-if "Microsoft.Windows.SDK.NET.Ref" not in project_text:
-    ERRORS.append("Windows SDK targeting pack is required for native geolocation")
 location_service_path = ROOT / "src/Layal.Desktop/Services/DeviceLocationService.cs"
 location_service_text = location_service_path.read_text(encoding="utf-8") if location_service_path.is_file() else ""
 for required in ("Geolocator.RequestAccessAsync", "GetGeopositionAsync(", "DesiredAccuracyInMeters", "DeviceLocationAccessException"):
