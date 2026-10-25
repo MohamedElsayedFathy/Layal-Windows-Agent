@@ -82,7 +82,7 @@ public sealed class OnvifCameraDiscoveryService
             var addresses = probeMatch.Elements().FirstOrDefault(element => element.Name.LocalName == "XAddrs")?.Value;
             if (string.IsNullOrWhiteSpace(addresses)) return null;
 
-            if (!IsPrivateCameraHost(senderAddress.ToString())) return null;
+            if (!IsPrivateCameraEndpointHost(senderAddress.ToString())) return null;
             var scopes = probeMatch.Elements().FirstOrDefault(element => element.Name.LocalName == "Scopes")?.Value ?? string.Empty;
             foreach (var address in addresses.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Take(8))
             {
@@ -177,7 +177,7 @@ public sealed class OnvifCameraDiscoveryService
     public static string BuildAuthenticatedStreamAddress(Uri streamUri, string username, string password)
     {
         ArgumentNullException.ThrowIfNull(streamUri);
-        if (streamUri.Scheme is not ("rtsp" or "rtsps") || !IsPrivateHost(streamUri.Host))
+        if (streamUri.Scheme is not ("rtsp" or "rtsps") || !IsPrivateCameraEndpointHost(streamUri.Host))
             throw new ArgumentException("The stream must be RTSP on a private local-network host.", nameof(streamUri));
         if (string.IsNullOrWhiteSpace(username))
             throw new ArgumentException("A camera username is required.", nameof(username));
@@ -326,7 +326,7 @@ public sealed class OnvifCameraDiscoveryService
         return false;
     }
 
-    private static bool IsPrivateCameraHost(string host) =>
+    public static bool IsPrivateCameraEndpointHost(string host) =>
         IPAddress.TryParse(host, out var address) &&
         !IPAddress.IsLoopback(address) &&
         IsPrivateHost(host);
