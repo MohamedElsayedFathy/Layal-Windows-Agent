@@ -23,6 +23,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotLeft, 0.0001);
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
+        Assert.IsTrue(settings.UseAutomaticLocation);
     }
 
     [TestMethod]
@@ -58,7 +59,8 @@ public sealed class SettingsStoreTests
             MascotOpacity = 0.8,
             MascotLeft = 1284.5,
             MascotTop = 424.25,
-            AllowWindowTitleInspection = true
+            AllowWindowTitleInspection = true,
+            UseAutomaticLocation = false
         });
 
         var reloaded = new SettingsStore(temp.Path).Load();
@@ -74,6 +76,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(1284.5, reloaded.MascotLeft, 0.0001);
         Assert.AreEqual(424.25, reloaded.MascotTop, 0.0001);
         Assert.IsTrue(reloaded.AllowWindowTitleInspection);
+        Assert.IsFalse(reloaded.UseAutomaticLocation);
     }
 
     [TestMethod]
