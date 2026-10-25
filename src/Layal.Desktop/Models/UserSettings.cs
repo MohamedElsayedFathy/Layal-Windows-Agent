@@ -6,6 +6,7 @@ public sealed class UserSettings
     public string ThemeMode { get; set; } = "light";
     public string ProviderBaseUrl { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
+    public string SpeechToTextModelId { get; set; } = "gpt-transcribe";
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
     public double MascotScale { get; set; } = 1.0;

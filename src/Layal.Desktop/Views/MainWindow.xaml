@@ -143,10 +143,11 @@
                                    AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                     <Grid Grid.Row="3">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="ChatInput" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="42" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+2 ينقلك إلى هذا الحقل."/>
-                        <Button x:Name="SendButton" Grid.Column="1" Content="إرسال" Click="SendButton_Click" MinWidth="72"/>
-                        <Button x:Name="CancelResponseButton" Grid.Column="2" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
+                        <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي فقط؛ لا يُرسل الصوت إلا بعد تأكيدك." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. لن يُرسل الصوت إلى المزود إلا بعد تأكيد منفصل، وسيظهر النص للمراجعة قبل الإرسال."/>
+                        <Button x:Name="SendButton" Grid.Column="2" Content="إرسال" Click="SendButton_Click" MinWidth="72"/>
+                        <Button x:Name="CancelResponseButton" Grid.Column="3" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
                 </Grid>
             </TabItem>
@@ -408,6 +409,8 @@
                         <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1" AutomationProperties.Name="عنوان API الأساسي / API base URL" AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}" AutomationProperties.HelpText="عنوان الخدمة الأساسية بصيغة HTTP أو HTTPS / HTTP or HTTPS base URL for the provider."/>
                         <TextBlock x:Name="ModelLabel" Text="معرّف النموذج" Margin="4,5,4,0"/>
                         <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto" AutomationProperties.Name="معرّف النموذج / Model ID" AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"/>
+                        <TextBlock x:Name="SpeechModelLabel" Text="معرّف نموذج تحويل الكلام إلى نص (STT)" Margin="4,8,4,0"/>
+                        <TextBox x:Name="SpeechModelInput" FlowDirection="LeftToRight" Text="gpt-transcribe" AutomationProperties.Name="معرّف نموذج تحويل الكلام إلى نص / Speech-to-text model ID" AutomationProperties.LabeledBy="{Binding ElementName=SpeechModelLabel}" ToolTip="الافتراضي gpt-transcribe؛ تحقق من دعم موفر API للنموذج ونقطة النهاية."/>
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>
                         <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4"/>

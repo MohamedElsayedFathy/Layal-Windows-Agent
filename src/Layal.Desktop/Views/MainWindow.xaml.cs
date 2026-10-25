@@ -10,6 +10,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Threading;
 using Layal.Models;
 using Layal.Services;
 using Microsoft.Win32;
@@ -47,6 +48,11 @@ public partial class MainWindow : Window
     public ObservableCollection<MemoryNote> MemoryNotes { get; } = new();
 
     private readonly OpenAiCompatibleClient _aiClient = new();
+    private readonly SpeechToTextService _speechToText = new();
+    private readonly DispatcherTimer _speechRecordingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private CancellationTokenSource? _speechCancellation;
+    private DateTimeOffset _speechRecordingStartedAt;
+    private bool _speechIsStopping;
     private CancellationTokenSource? _chatCancellation;
     private CancellationTokenSource? _agentTaskCancellation;
     private string? _selectedMemoryId;
@@ -61,9 +67,11 @@ public partial class MainWindow : Window
         InitializeComponent();
         SystemEvents.UserPreferenceChanged += MainWindow_UserPreferenceChanged;
         Closed += MainWindow_Closed;
+        _speechRecordingTimer.Tick += SpeechRecordingTimer_Tick;
         DataContext = this;
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         ModelInput.Text = AppRuntime.Settings.ModelId;
+        SpeechModelInput.Text = AppRuntime.Settings.SpeechToTextModelId;
         AlwaysOnTopCheckbox.IsChecked = AppRuntime.Settings.MascotAlwaysOnTop;
         AnimationsCheckbox.IsChecked = AppRuntime.Settings.MascotAnimationsEnabled;
         MascotSizeSlider.Value = AppRuntime.Settings.MascotScale;
@@ -237,6 +245,11 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        _speechRecordingTimer.Stop();
+        _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
+        _speechCancellation?.Cancel();
+        _speechToText.Dispose();
+        _speechCancellation?.Dispose();
         SystemEvents.UserPreferenceChanged -= MainWindow_UserPreferenceChanged;
         Closed -= MainWindow_Closed;
     }
@@ -248,6 +261,7 @@ public partial class MainWindow : Window
         // Apply RTL to input fields and Arabic text runs locally instead of flipping all visuals.
         FlowDirection = FlowDirection.LeftToRight;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        SpeechModelInput.FlowDirection = FlowDirection.LeftToRight;
         TaskResult.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         BaseUrlInput.FlowDirection = ModelInput.FlowDirection = ApiKeyInput.FlowDirection = GitHubSkillUrlInput.FlowDirection = FlowDirection.LeftToRight;
         foreach (var message in ChatMessages)
@@ -358,8 +372,8 @@ public partial class MainWindow : Window
         GoChatButton.Content = ar ? "فتح المحادثة" : "Open chat";
         GoSettingsButton.Content = ar ? "إعداد اتصال AI" : "Configure AI";
         HomeCaveat.Text = ar
-            ? "الوظائف غير المكتملة لن تظهر كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة."
-            : "Unimplemented capabilities are not represented as working: voice, general desktop automation, browser automation, and real camera streaming remain future milestones.";
+            ? "يتوفر الآن تسجيل يدوي لتحويل الكلام إلى نص (عربية وعامية مصرية وإنجليزية) بعد موافقة المستخدم على إرسال التسجيل. توليد الصوت والمحادثة اللحظية وأتمتة المتصفح والبث الحقيقي للكاميرات ما زالت مراحل لاحقة."
+            : "Manual speech-to-text is now available for Arabic, Egyptian Arabic colloquial speech, and English; uploading requires explicit confirmation. Speech synthesis, realtime voice, browser automation, and real camera streaming remain future milestones.";
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
         ChatNotice.Text = ar ? "تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." : "Configure a valid API endpoint and key in Settings to send real messages.";
@@ -392,6 +406,19 @@ public partial class MainWindow : Window
         SendButton.Content = ar ? "إرسال" : "Send";
         CancelResponseButton.Content = ar ? "إيقاف" : "Stop";
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
+        SpeechModelLabel.Text = ar ? "معرّف نموذج تحويل الكلام إلى نص (STT)" : "Speech-to-text model ID (STT)";
+        SpeechModelInput.ToolTip = ar
+            ? "الافتراضي gpt-transcribe؛ تحقق من دعم موفر API لنقطة /audio/transcriptions والنموذج."
+            : "Defaults to gpt-transcribe. Confirm the provider supports /audio/transcriptions and this model.";
+        AutomationProperties.SetName(SpeechModelInput, ar ? "معرّف نموذج تحويل الكلام إلى نص" : "Speech-to-text model ID");
+        AutomationProperties.SetHelpText(SpeechModelInput, ar
+            ? "اسم نموذج الصوت لدى مزودك، وليس بالضرورة معرّف نموذج المحادثة."
+            : "The speech model supported by your provider; it may differ from your chat model.");
+        AutomationProperties.SetName(SpeechToTextButton, ar ? "تسجيل صوت وتحويله إلى نص" : "Record speech and transcribe it");
+        AutomationProperties.SetHelpText(SpeechToTextButton, ar
+            ? "بدء التسجيل يدوي. اضغط ثانية للإيقاف. الإرسال إلى موفر API يحتاج تأكيدًا منفصلًا، والنص الناتج لا يُرسل تلقائيًا."
+            : "Manual recording only. Press again to stop. Sending audio to the API needs separate confirmation; the transcript is not sent automatically.");
+        UpdateSpeechToTextButton();
 
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
         TasksDescription.Text = ar
@@ -496,8 +523,8 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetHelpText(MascotOpacitySlider, ar ? "عدّل القيمة باستخدام الأسهم بعد الوصول إلى شريط التمرير." : "Use the arrow keys to adjust this slider when focused.");
         ApplyMascotSettingsButton.Content = ar ? "تطبيق إعدادات الشخصية" : "Apply mascot settings";
         SettingsLimitations.Text = ar
-            ? "ما زالت وظائف الصوت الحقيقي، وأتمتة المتصفح، والتحكم العام بالماوس والكيبورد، وبث الكاميرات، وMCP غير منفذة. لا يتم عرضها كوظائف مكتملة."
-            : "Real voice, browser automation, general mouse/keyboard control, camera streaming, and MCP are not implemented yet and are not presented as completed features.";
+            ? "يتوفر تحويل الكلام إلى نص يدويًا (عربية وعامية مصرية وإنجليزية) بزر الميكروفون في المحادثة. توليد الصوت والمحادثة الصوتية اللحظية، وأتمتة المتصفح، والتحكم العام بالماوس والكيبورد، وبث الكاميرات، وMCP ما زالت غير منفذة."
+            : "Manual speech-to-text is available from the microphone button in Chat for Arabic, Egyptian Arabic colloquial speech, and English. Speech synthesis/realtime voice, browser automation, general mouse/keyboard control, camera streaming, and MCP remain unimplemented.";
         WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة وتنفيذ فعل واحد بموافقة" : "Allow window/UI inspection and one approved control action";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
@@ -988,9 +1015,13 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException(IsArabic ? "اكتب عنوان HTTP/HTTPS صحيحًا دون بيانات دخول داخل الرابط." : "Enter a valid HTTP/HTTPS base URL without embedded credentials.");
             var model = ModelInput.Text.Trim();
             if (string.IsNullOrWhiteSpace(model)) throw new InvalidOperationException(IsArabic ? "معرّف النموذج مطلوب." : "Model ID is required.");
+            var speechModel = SpeechModelInput.Text.Trim();
+            if (string.IsNullOrWhiteSpace(speechModel))
+                throw new InvalidOperationException(IsArabic ? "معرّف نموذج تحويل الكلام إلى نص مطلوب." : "Speech-to-text model ID is required.");
 
             AppRuntime.Settings.ProviderBaseUrl = baseUrl;
             AppRuntime.Settings.ModelId = model;
+            AppRuntime.Settings.SpeechToTextModelId = speechModel;
             _providerTestPassed = false;
             if (!string.IsNullOrWhiteSpace(ApiKeyInput.Password))
             {
@@ -1088,6 +1119,188 @@ public partial class MainWindow : Window
             AppRuntime.MascotWindow.ApplyScale(AppRuntime.Settings.MascotScale);
         }
         SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم تطبيق إعدادات الشخصية." : "Mascot settings applied.");
+    }
+
+    private async void SpeechToTextButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_speechCancellation is not null)
+        {
+            _speechCancellation.Cancel();
+            SetChatActivityStatus(IsArabic ? "جارٍ إلغاء تحويل الصوت..." : "Cancelling speech transcription...");
+            return;
+        }
+        if (_speechIsStopping) return;
+
+        if (_speechToText.IsRecording)
+        {
+            _speechRecordingTimer.Stop();
+            await StopSpeechRecordingAndTranscribeAsync();
+            return;
+        }
+
+        var baseUrl = AppRuntime.Settings.ProviderBaseUrl;
+        var apiKey = AppRuntime.SecretStore?.Load() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أدخل مفتاح API صالحًا في الإعدادات قبل استخدام تحويل الصوت."
+                : "Save a valid API key in Settings before using speech input.");
+            MainTabs.SelectedItem = SettingsTab;
+            return;
+        }
+        try { _ = SpeechToTextService.BuildTranscriptionUri(baseUrl); }
+        catch (InvalidOperationException ex)
+        {
+            SetChatActivityStatus(ex.Message);
+            MainTabs.SelectedItem = SettingsTab;
+            return;
+        }
+
+        var microphoneConsent = MessageBox.Show(
+            this,
+            IsArabic
+                ? "سيبدأ التسجيل فقط بعد موافقتك. التسجيل يدوي وبحد أقصى دقيقتين، ويظل الصوت في الذاكرة ولا يُحفظ كملف. بعد الإيقاف ستُسأل مرة أخرى قبل إرسال الصوت إلى موفر API. هل تريد تشغيل الميكروفون الآن؟"
+                : "Recording starts only after you agree. It is manual, limited to two minutes, and kept in memory rather than saved as a file. After you stop, you will be asked again before audio is sent to your API provider. Start the microphone now?",
+            IsArabic ? "السماح بالتسجيل اليدوي" : "Allow manual microphone recording",
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (microphoneConsent != MessageBoxResult.Yes) return;
+
+        try
+        {
+            _speechToText.StartRecording();
+            _speechRecordingStartedAt = DateTimeOffset.UtcNow;
+            _speechRecordingTimer.Start();
+            UpdateSpeechToTextButton();
+            SetChatActivityStatus(IsArabic
+                ? "الميكروفون يعمل الآن. اضغط «إيقاف وتحويل» عند الانتهاء؛ لا يتم الإرسال قبل تأكيدك."
+                : "Microphone recording is active. Press Stop & transcribe when done; nothing is uploaded until you confirm.");
+        }
+        catch (Exception ex)
+        {
+            _speechRecordingTimer.Stop();
+            SetChatActivityStatus((IsArabic ? "تعذر بدء التسجيل: " : "Could not start recording: ") + ex.Message);
+            UpdateSpeechToTextButton();
+        }
+    }
+
+    private void SpeechRecordingTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!_speechToText.IsRecording) return;
+        if (DateTimeOffset.UtcNow - _speechRecordingStartedAt < SpeechToTextService.MaximumRecordingDuration)
+            return;
+        _speechRecordingTimer.Stop();
+        _ = StopSpeechRecordingAndTranscribeAsync();
+    }
+
+    private async Task StopSpeechRecordingAndTranscribeAsync()
+    {
+        if (_speechIsStopping || !_speechToText.IsRecording) return;
+        _speechIsStopping = true;
+        _speechRecordingTimer.Stop();
+        UpdateSpeechToTextButton();
+        byte[]? audio = null;
+        try
+        {
+            var recording = await _speechToText.StopRecordingAsync();
+            audio = recording.WavBytes;
+            _speechIsStopping = false;
+            UpdateSpeechToTextButton();
+
+            // If the window was hidden while StopRecordingAsync yielded, discard the clip.
+            if (!IsVisible || AppRuntime.IsExiting)
+            {
+                SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل والتخلص من الصوت المؤقت." : "Recording cancelled; temporary audio discarded.");
+                return;
+            }
+
+            var endpoint = SpeechToTextService.BuildTranscriptionUri(AppRuntime.Settings.ProviderBaseUrl);
+            var host = endpoint.GetLeftPart(UriPartial.Authority);
+            var durationNote = recording.MaximumDurationReached
+                ? (IsArabic ? "\nوصل التسجيل إلى حد الدقيقتين؛ سيتم إرسال الجزء المسجل فقط." : "\nThe two-minute limit was reached; only the captured segment will be sent.")
+                : string.Empty;
+            var uploadConsent = MessageBox.Show(
+                this,
+                IsArabic
+                    ? $"سيتم إرسال التسجيل إلى موفر API التالي لتحويله إلى نص:\n{host}{durationNote}\nلن يُحفظ الصوت الخام على القرص. هل تؤكد الإرسال؟"
+                    : $"This recording will be uploaded to the following API provider for transcription:\n{host}{durationNote}\nThe raw recording is not saved to disk. Do you approve sending it?",
+                IsArabic ? "تأكيد إرسال الصوت" : "Confirm audio upload",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+            if (uploadConsent != MessageBoxResult.Yes)
+            {
+                SetChatActivityStatus(IsArabic ? "تم إلغاء الإرسال والتخلص من التسجيل المؤقت." : "Upload cancelled; temporary audio discarded.");
+                return;
+            }
+
+            var key = AppRuntime.SecretStore?.Load() ?? string.Empty;
+            var modelId = AppRuntime.Settings.SpeechToTextModelId;
+            var tokenSource = new CancellationTokenSource();
+            _speechCancellation = tokenSource;
+            UpdateSpeechToTextButton();
+            SetChatActivityStatus(IsArabic
+                ? "جارٍ تحويل الصوت إلى نص. اضغط زر الصوت لإلغاء العملية."
+                : "Transcribing audio. Press the voice button to cancel.");
+            try
+            {
+                var transcript = await _speechToText.TranscribeAsync(
+                    AppRuntime.Settings.ProviderBaseUrl, key, modelId, audio, tokenSource.Token);
+                ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
+                    ? transcript
+                    : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
+                ChatInput.CaretIndex = ChatInput.Text.Length;
+                ChatInput.Focus();
+                SetChatActivityStatus(IsArabic
+                    ? "تم تحويل الصوت. راجع النص وعدّله ثم اضغط إرسال؛ لم تُرسل الرسالة تلقائيًا."
+                    : "Transcription complete. Review or edit the text, then press Send; it was not sent automatically.");
+            }
+            catch (OperationCanceledException)
+            {
+                SetChatActivityStatus(IsArabic ? "تم إلغاء تحويل الصوت والتخلص من التسجيل المؤقت." : "Speech transcription cancelled; temporary audio discarded.");
+            }
+            catch (Exception ex)
+            {
+                SetChatActivityStatus((IsArabic ? "فشل تحويل الصوت: " : "Speech transcription failed: ") + ex.Message);
+            }
+            finally
+            {
+                if (ReferenceEquals(_speechCancellation, tokenSource))
+                {
+                    _speechCancellation = null;
+                    tokenSource.Dispose();
+                }
+                UpdateSpeechToTextButton();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل." : "Recording cancelled.");
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus((IsArabic ? "تعذر إيقاف التسجيل بأمان: " : "Could not finish microphone recording: ") + ex.Message);
+        }
+        finally
+        {
+            if (audio is not null) Array.Clear(audio, 0, audio.Length);
+            _speechIsStopping = false;
+            UpdateSpeechToTextButton();
+        }
+    }
+
+    private void UpdateSpeechToTextButton()
+    {
+        SpeechToTextButton.Content = _speechToText.IsRecording
+            ? (IsArabic ? "إيقاف وتحويل" : "Stop & transcribe")
+            : _speechIsStopping
+                ? (IsArabic ? "جارٍ إيقاف التسجيل…" : "Stopping recording…")
+                : _speechCancellation is not null
+                    ? (IsArabic ? "إلغاء التحويل" : "Cancel transcription")
+                    : (IsArabic ? "تسجيل صوت" : "Record voice");
+        SpeechToTextButton.IsEnabled = !_speechIsStopping;
+        SpeechToTextButton.ToolTip = _speechToText.IsRecording
+            ? (IsArabic ? "اضغط لإيقاف التسجيل. لن يُرسل الصوت إلا بعد تأكيد منفصل." : "Press to stop recording. Audio is uploaded only after separate confirmation.")
+            : _speechCancellation is not null
+                ? (IsArabic ? "إلغاء طلب تحويل الصوت الحالي." : "Cancel the current speech transcription request.")
+                : (IsArabic ? "تسجيل يدوي فقط؛ لن يُرسل الصوت قبل تأكيدك." : "Manual recording only; audio is not uploaded until you confirm.");
     }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
@@ -1854,6 +2067,10 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        _speechRecordingTimer.Stop();
+        _speechCancellation?.Cancel();
+        if (!_speechIsStopping) _speechToText.CancelRecording();
+
         if (!AppRuntime.IsExiting)
         {
             e.Cancel = true;
