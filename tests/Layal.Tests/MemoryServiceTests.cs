@@ -17,6 +17,19 @@ public sealed class MemoryServiceTests
     }
 
     [TestMethod]
+    public void OrdinaryNamesContainingKeyPrefixesAreNotTreatedAsSecrets()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Saving requires Windows DPAPI in this test suite.");
+        using var temp = new TestTempDirectory();
+        var service = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+
+        var note = service.Save("People", "Meeting with Nakia and Mr. Aizawa tomorrow");
+
+        Assert.AreEqual("People", note.Title);
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.Save("Cloud", "AKIA" + "ABCDEFGHIJKLMNOP"));
+    }
+
+    [TestMethod]
     public void EmptySearchReturnsNoResults()
     {
         using var temp = new TestTempDirectory();

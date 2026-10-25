@@ -32,7 +32,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(15));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException(await FormatError(response, cancellationToken));
@@ -53,7 +53,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
         request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -101,7 +101,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
         request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -200,7 +200,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -220,22 +220,40 @@ public sealed class OpenAiCompatibleClient
         var calls = new List<AgentToolCall>();
         if (message["tool_calls"] is JsonArray toolCalls)
         {
+            var validNodes = new JsonArray();
             foreach (var node in toolCalls)
             {
                 if (node is not JsonObject call) continue;
-                var id = call["id"]?.GetValue<string>() ?? string.Empty;
+                var id = ReadStringLoose(call["id"]);
                 var function = call["function"] as JsonObject;
-                var name = function?["name"]?.GetValue<string>() ?? string.Empty;
+                var name = ReadStringLoose(function?["name"]);
                 var argsNode = function?["arguments"];
                 var argsJson = argsNode is JsonValue value && value.TryGetValue<string>(out var raw)
-                    ? raw ?? "{}"
+                    ? (string.IsNullOrWhiteSpace(raw) ? "{}" : raw)
                     : argsNode?.ToJsonString() ?? "{}";
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name)) continue;
                 calls.Add(new AgentToolCall(id, name, argsJson));
+                validNodes.Add(node.DeepClone());
+            }
+
+            // Never echo a tool call we did not answer back to the provider: an assistant message whose
+            // tool_calls have no matching tool result is rejected with HTTP 400 by OpenAI-compatible servers.
+            if (validNodes.Count != toolCalls.Count || validNodes.Count == 0)
+            {
+                if (validNodes.Count == 0) message.Remove("tool_calls");
+                else message["tool_calls"] = validNodes;
             }
         }
 
         return new AgentTurnResult((JsonObject)message.DeepClone(), content, calls);
+    }
+
+    private static string ReadStringLoose(JsonNode? node)
+    {
+        if (node is not JsonValue value) return string.Empty;
+        if (value.TryGetValue<string>(out var text)) return text ?? string.Empty;
+        // Some compatible providers emit numeric ids; accept them instead of failing the whole task.
+        return value.ToJsonString().Trim('"');
     }
 
     private static string ExtractContent(JsonNode? content)
@@ -246,8 +264,8 @@ public sealed class OpenAiCompatibleClient
         {
             return string.Join(Environment.NewLine, array
                 .OfType<JsonObject>()
-                .Where(part => part["text"] is not null)
-                .Select(part => part["text"]!.GetValue<string>()));
+                .Select(part => part["text"] is JsonValue t && t.TryGetValue<string>(out var partText) ? partText : null)
+                .Where(partText => !string.IsNullOrEmpty(partText)));
         }
         return string.Empty;
     }
