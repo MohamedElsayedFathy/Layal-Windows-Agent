@@ -117,6 +117,7 @@ public sealed class VoiceConversationService : IDisposable
         EventHandler<WaveInEventArgs>? dataHandler = null;
         EventHandler<StoppedEventArgs>? stoppedHandler = null;
         Task? microphoneSender = null;
+        Task? playbackMonitor = null;
 
         RaiseStatus(VoiceConversationStatus.Connecting, null);
         try
@@ -194,6 +195,7 @@ public sealed class VoiceConversationService : IDisposable
 
             RaiseStatus(VoiceConversationStatus.Listening, null);
             var playbackState = new PlaybackState(playback, output);
+            playbackMonitor = MonitorPlaybackDrainAsync(playbackState, token);
 
             while (!token.IsCancellationRequested)
             {
@@ -209,11 +211,13 @@ public sealed class VoiceConversationService : IDisposable
                     case "input_audio_buffer.speech_started":
                         // Server VAD cancels generation; the WebSocket client must also stop
                         // local playback and truncate audio that has not reached the speaker.
+                        playbackState.UserSpeaking = true;
                         RaiseStatus(VoiceConversationStatus.UserSpeaking, null);
                         await InterruptPlaybackAsync(socket, playbackState, token);
                         break;
 
                     case "input_audio_buffer.speech_stopped":
+                        playbackState.UserSpeaking = false;
                         RaiseStatus(VoiceConversationStatus.Listening, null);
                         break;
 
@@ -232,7 +236,7 @@ public sealed class VoiceConversationService : IDisposable
                         if (responseTranscript.Length > 0)
                         {
                             var itemId = GetString(root, "item_id");
-                            if (playbackState.ReportedAssistantTranscriptItems.Add(itemId))
+                            if (itemId.Length == 0 || playbackState.ReportedAssistantTranscriptItems.Add(itemId))
                                 RaiseTranscript("assistant", responseTranscript);
                         }
                         break;
@@ -275,6 +279,10 @@ public sealed class VoiceConversationService : IDisposable
             if (microphoneSender is not null)
             {
                 try { await microphoneSender; } catch { /* The primary session or cancellation error wins. */ }
+            }
+            if (playbackMonitor is not null)
+            {
+                try { await playbackMonitor; } catch { /* The primary session or cancellation error wins. */ }
             }
             while (captureQueue.Reader.TryRead(out var pendingFrame))
                 Array.Clear(pendingFrame, 0, pendingFrame.Length);
@@ -326,6 +334,27 @@ public sealed class VoiceConversationService : IDisposable
         catch (Exception ex)
         {
             reportFailure(ex);
+        }
+    }
+
+    private async Task MonitorPlaybackDrainAsync(PlaybackState state, CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                if (!state.UserSpeaking && !state.ResponseInProgress &&
+                    state.OutputStarted && state.Buffer.BufferedBytes == 0)
+                {
+                    state.OutputStarted = false;
+                    RaiseStatus(VoiceConversationStatus.Listening, null);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Normal when the user stops the live conversation.
         }
     }
 
@@ -519,6 +548,7 @@ public sealed class VoiceConversationService : IDisposable
         public int ContentIndex { get; set; }
         public long ReceivedBytes { get; set; }
         public bool ResponseInProgress { get; set; }
+        public bool UserSpeaking { get; set; }
         public bool OutputStarted { get; set; }
         public System.Collections.Generic.HashSet<string> ReportedAssistantTranscriptItems { get; } =
             new(StringComparer.Ordinal);
