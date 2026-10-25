@@ -41,6 +41,71 @@ public sealed class OpenAiCompatibleClientTests
     }
 
     [TestMethod]
+    public async Task AnalyzeImageSendsMultimodalImageUrlAndParsesTextResponse()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(
+            "{\"choices\":[{\"message\":{\"content\":\"A cat sitting on a chair.\"}}]}"));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false) { Timeout = timeout });
+        var messages = new[]
+        {
+            new ChatMessage { Role = "system", Content = "Be accurate." },
+            new ChatMessage { Role = "user", Content = "What is in this image?" }
+        };
+
+        var reply = await client.AnalyzeImageAsync(
+            "https://provider.example/v1", "vision-model", "test-secret", messages,
+            new byte[] { 0xFF, 0xD8, 0xFF }, "image/jpeg");
+
+        Assert.AreEqual("A cat sitting on a chair.", reply);
+        Assert.AreEqual("https://provider.example/v1/chat/completions", handler.LastRequestUri?.AbsoluteUri);
+        Assert.AreEqual("Bearer", handler.LastAuthorizationScheme);
+        Assert.AreEqual("test-secret", handler.LastAuthorizationParameter);
+        var payload = System.Text.Json.Nodes.JsonNode.Parse(handler.LastRequestBody ?? "{}")!;
+        var sentMessages = payload["messages"]!.AsArray();
+        Assert.AreEqual("Be accurate.", sentMessages[0]!["content"]!.GetValue<string>());
+        var parts = sentMessages[1]!["content"]!.AsArray();
+        Assert.AreEqual("text", parts[0]!["type"]!.GetValue<string>());
+        Assert.AreEqual("What is in this image?", parts[0]!["text"]!.GetValue<string>());
+        Assert.AreEqual("image_url", parts[1]!["type"]!.GetValue<string>());
+        Assert.AreEqual("data:image/jpeg;base64,/9j/", parts[1]!["image_url"]!["url"]!.GetValue<string>());
+        Assert.IsFalse(payload["stream"]!.GetValue<bool>());
+    }
+
+    [TestMethod]
+    public async Task AnalyzeImageExplainsWhenProviderDoesNotSupportVisionInput()
+    {
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("{\"error\":{\"message\":\"This model does not support image_url input\"}}", Encoding.UTF8, "application/json")
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.AnalyzeImageAsync(
+                "https://provider.example/v1", "text-only-model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "Describe this." } },
+                new byte[] { 1, 2, 3 }, "image/png"));
+
+        StringAssert.Contains(error.Message, "could not accept this image");
+        StringAssert.Contains(error.Message, "supports image/vision input");
+    }
+
+    [TestMethod]
+    public async Task AnalyzeImageRejectsEmptyImageBeforeMakingRequest()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse("{}"));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
+            client.AnalyzeImageAsync(
+                "https://provider.example/v1", "vision-model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "Describe this." } },
+                Array.Empty<byte>(), "image/png"));
+
+        Assert.IsNull(handler.LastRequestUri);
+    }
+
+    [TestMethod]
     public async Task ChatStreamRequestsStreamingAndEmitsEachTextDelta()
     {
         const string stream = """
