@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Text;
 using System.Net;
 using System.Windows;
@@ -58,6 +59,11 @@ public partial class MainWindow : Window
     private DateTimeOffset _speechRecordingStartedAt;
     private bool _speechIsStopping;
     private CancellationTokenSource? _chatCancellation;
+    private CameraVisionWindow? _cameraVisionWindow;
+    private byte[]? _pendingVisionImageBytes;
+    private string? _pendingVisionContentType;
+    private string? _pendingVisionFileName;
+    private string _lastCameraObservation = string.Empty;
     private CancellationTokenSource? _agentTaskCancellation;
     private string? _selectedMemoryId;
     private bool _providerTestPassed;
@@ -263,6 +269,12 @@ public partial class MainWindow : Window
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
         _speechCancellation?.Cancel();
         _voiceTestCancellation?.Cancel();
+        _chatCancellation?.Cancel();
+        if (_cameraVisionWindow is not null)
+        {
+            _cameraVisionWindow.Close();
+            _cameraVisionWindow = null;
+        }
         _speechToText.Dispose();
         _speechCancellation?.Dispose();
         _voiceTestCancellation?.Dispose();
@@ -462,6 +474,23 @@ public partial class MainWindow : Window
             : "Manual recording only. Press again to stop. Sending audio to the API needs separate confirmation; the transcript is not sent automatically.");
         UpdateSpeechToTextButton();
         UpdateVoiceConversationControls();
+        ChooseImageButton.Content = ar ? "إرفاق صورة/لقطة شاشة" : "Attach image/screenshot";
+        ChooseImageButton.ToolTip = ar ? "اختر صورة لإرسالها إلى النموذج مع سؤالك." : "Choose an image to send to the model with your question.";
+        ClearVisionImageButton.Content = ar ? "إزالة الصورة" : "Remove image";
+        CameraVisionButton.Content = ar ? "فتح الكاميرا" : "Open camera";
+        CameraVisionButton.ToolTip = ar
+            ? "معاينة الكاميرا محليًا وتحليل لقطة عند الطلب أو كل 10 ثوانٍ بموافقتك."
+            : "Preview locally and analyze a still on request or every 10 seconds with your consent.";
+        AutomationProperties.SetName(ChooseImageButton, ar ? "إرفاق صورة أو لقطة شاشة" : "Attach image or screenshot");
+        AutomationProperties.SetHelpText(ChooseImageButton, ar
+            ? "اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."
+            : "Choose an image file; it is sent to the AI provider only when you press Send.");
+        AutomationProperties.SetName(CameraVisionButton, ar ? "فتح كاميرا الرؤية" : "Open vision camera");
+        AutomationProperties.SetHelpText(CameraVisionButton, ar
+            ? "يفتح معاينة الكاميرا بعد موافقتك. لا تُرسل اللقطات إلا عند التحليل اليدوي أو تفعيل التحليل التلقائي."
+            : "Opens the camera preview after consent. Frames are sent only for manual analysis or when automatic observation is enabled.");
+        UpdateVisionAttachmentControls();
+        UpdateCameraVisionIndicator();
 
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
         TasksDescription.Text = ar
@@ -1631,6 +1660,379 @@ public partial class MainWindow : Window
             _ => IsArabic ? "الميكروفون متوقف" : "Mic off"
         };
 
+    private void ChooseImageButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chatCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic ? "أوقف الطلب الحالي قبل تغيير الصورة." : "Cancel the active request before changing the image.");
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = IsArabic ? "اختيار صورة أو لقطة شاشة" : "Choose an image or screenshot",
+            Filter = IsArabic
+                ? "صور مدعومة (*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif|كل الملفات (*.*)|*.*"
+                : "Supported images (*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        try
+        {
+            var info = new FileInfo(dialog.FileName);
+            if (info.Length <= 0 || info.Length > 10 * 1024 * 1024)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "حجم الصورة يجب أن يكون أكبر من صفر وألا يتجاوز 10 ميجابايت."
+                    : "The image must be larger than zero and no bigger than 10 MB.");
+                return;
+            }
+
+            var contentType = Path.GetExtension(dialog.FileName).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                ".bmp" => "image/bmp",
+                ".gif" => "image/gif",
+                _ => string.Empty
+            };
+            if (string.IsNullOrEmpty(contentType))
+            {
+                SetChatActivityStatus(IsArabic ? "صيغة الصورة غير مدعومة." : "This image format is not supported.");
+                return;
+            }
+
+            _pendingVisionImageBytes = File.ReadAllBytes(dialog.FileName);
+            _pendingVisionContentType = contentType;
+            _pendingVisionFileName = Path.GetFileName(dialog.FileName);
+            UpdateVisionAttachmentControls();
+            SetChatActivityStatus(IsArabic
+                ? "تم إرفاق الصورة محليًا. اكتب سؤالك واضغط إرسال لتحليلها."
+                : "Image attached locally. Ask a question and press Send to analyze it.");
+            ChatInput.Focus();
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError("تعذر قراءة الصورة", "Could not read image", ex, IsArabic));
+        }
+    }
+
+    private void ClearVisionImageButton_Click(object sender, RoutedEventArgs e)
+    {
+        _pendingVisionImageBytes = null;
+        _pendingVisionContentType = null;
+        _pendingVisionFileName = null;
+        UpdateVisionAttachmentControls();
+        SetChatActivityStatus(IsArabic ? "تمت إزالة الصورة المرفقة." : "The attached image was removed.");
+    }
+
+    private void UpdateVisionAttachmentControls()
+    {
+        if (VisionAttachmentStatus is null) return;
+        var hasImage = _pendingVisionImageBytes is { Length: > 0 };
+        VisionAttachmentStatus.Text = hasImage
+            ? (IsArabic ? "جاهزة للإرسال: " : "Ready to send: ") + (_pendingVisionFileName ?? (IsArabic ? "صورة" : "image"))
+            : (IsArabic ? "لا توجد صورة مرفقة" : "No image attached");
+        ClearVisionImageButton.Visibility = hasImage ? Visibility.Visible : Visibility.Collapsed;
+        ChooseImageButton.IsEnabled = _chatCancellation is null;
+        ClearVisionImageButton.IsEnabled = _chatCancellation is null;
+    }
+
+    private void CameraVisionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_voiceConversationCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف المحادثة الصوتية قبل فتح الرؤية بالكاميرا."
+                : "Stop the live voice conversation before opening camera vision.");
+            return;
+        }
+
+        if (_cameraVisionWindow is { IsVisible: true })
+        {
+            _cameraVisionWindow.Activate();
+            return;
+        }
+
+        var consent = MessageBox.Show(this,
+            IsArabic
+                ? "ستظهر معاينة الكاميرا على جهازك. لا تُرسل صورة إلى مزود الذكاء الاصطناعي إلا عند ضغط تحليل، أو عند تفعيل التحليل التلقائي بموافقة منفصلة (لقطة كل 10 ثوانٍ). لن يُرسل فيديو خام. هل تريد فتح الكاميرا؟"
+                : "The camera preview will appear on this device. No image is sent to the AI provider unless you analyze a frame or separately enable automatic observation (one still every 10 seconds). Raw video is not sent. Open the camera?",
+            IsArabic ? "موافقة على تشغيل الكاميرا" : "Confirm camera access",
+            MessageBoxButton.YesNo, MessageBoxImage.Information);
+        if (consent != MessageBoxResult.Yes) return;
+
+        var camera = new VisionCameraWindow(IsArabic) { Owner = this };
+        camera.AnalyzeRequested += CameraVisionWindow_AnalyzeRequested;
+        camera.ObserveRequested += CameraVisionWindow_ObserveRequested;
+        camera.AutomaticObservationChanged += CameraVisionWindow_AutomaticObservationChanged;
+        camera.Closed += CameraVisionWindow_Closed;
+        _cameraVisionWindow = camera;
+        _lastCameraObservation = string.Empty;
+        UpdateCameraVisionIndicator();
+        camera.Show();
+    }
+
+    private async void CameraVisionWindow_AnalyzeRequested(byte[] imageBytes)
+    {
+        if (_chatCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic ? "انتظر انتهاء الطلب الحالي قبل تحليل لقطة أخرى." : "Wait for the active request to finish before analyzing another frame.");
+            return;
+        }
+        var prompt = ChatInput.Text.Trim();
+        await AnalyzeVisionImageAsync(
+            imageBytes,
+            "image/jpeg",
+            IsArabic ? "لقطة من الكاميرا" : "camera snapshot",
+            prompt,
+            automaticObservation: false,
+            clearChatInput: !string.IsNullOrWhiteSpace(prompt));
+    }
+
+    private async void CameraVisionWindow_ObserveRequested(byte[] imageBytes)
+    {
+        // Automatic observation never interrupts a typed request or live voice session.
+        if (_chatCancellation is not null || _voiceConversationCancellation is not null ||
+            _cameraVisionWindow is not { IsVisible: true })
+            return;
+
+        await AnalyzeVisionImageAsync(
+            imageBytes,
+            "image/jpeg",
+            IsArabic ? "ملاحظة بصرية تلقائية" : "automatic camera observation",
+            string.Empty,
+            automaticObservation: true);
+    }
+
+    private void CameraVisionWindow_AutomaticObservationChanged(bool enabled)
+    {
+        _lastCameraObservation = string.Empty;
+        UpdateCameraVisionIndicator();
+        SetChatActivityStatus(enabled
+            ? (IsArabic ? "التحليل البصري التلقائي نشط: لقطة كل 10 ثوانٍ." : "Automatic visual observation is active: one still every 10 seconds.")
+            : (IsArabic ? "التحليل البصري التلقائي متوقف." : "Automatic visual observation is off."));
+    }
+
+    private void CameraVisionWindow_Closed(object? sender, EventArgs e)
+    {
+        if (_cameraVisionWindow is not null)
+        {
+            _cameraVisionWindow.AnalyzeRequested -= CameraVisionWindow_AnalyzeRequested;
+            _cameraVisionWindow.ObserveRequested -= CameraVisionWindow_ObserveRequested;
+            _cameraVisionWindow.AutomaticObservationChanged -= CameraVisionWindow_AutomaticObservationChanged;
+            _cameraVisionWindow.Closed -= CameraVisionWindow_Closed;
+            _cameraVisionWindow = null;
+        }
+        _lastCameraObservation = string.Empty;
+        UpdateCameraVisionIndicator();
+        if (IsLoaded)
+            SetChatActivityStatus(IsArabic ? "تم إيقاف الكاميرا." : "Camera stopped.");
+    }
+
+    private void UpdateCameraVisionIndicator()
+    {
+        if (CameraVisionIndicator is null) return;
+        var active = _cameraVisionWindow is { IsVisible: true };
+        CameraVisionIndicator.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        var automatic = active && _cameraVisionWindow?.IsLoaded == true &&
+                        _cameraVisionWindow.FindName("ContinuousObservationCheckBox") is CheckBox checkBox &&
+                        checkBox.IsChecked == true;
+        CameraVisionDot.Fill = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+        CameraVisionStatusText.Text = automatic
+            ? (IsArabic ? "الكاميرا والتحليل التلقائي نشطان" : "Camera and auto-analysis active")
+            : (IsArabic ? "الكاميرا نشطة" : "Camera active");
+        AutomationProperties.SetName(CameraVisionIndicator, automatic
+            ? (IsArabic ? "الكاميرا والتحليل البصري التلقائي نشطان" : "Camera and automatic visual analysis are active")
+            : (IsArabic ? "الكاميرا نشطة" : "Camera active"));
+    }
+
+    private async Task AnalyzeVisionImageAsync(
+        byte[] imageBytes,
+        string contentType,
+        string fileName,
+        string prompt,
+        bool automaticObservation,
+        bool consumePendingAttachment = false,
+        bool clearChatInput = false)
+    {
+        if (_chatCancellation is not null)
+        {
+            if (!automaticObservation)
+                SetChatActivityStatus(IsArabic ? "أوقف الطلب الحالي قبل تحليل الصورة." : "Wait for the active request before analyzing an image.");
+            return;
+        }
+
+        if (_voiceConversationCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف المحادثة الصوتية المباشرة قبل تحليل صورة."
+                : "Stop the live voice conversation before analyzing an image.");
+            return;
+        }
+
+        var key = AppRuntime.SecretStore.Load();
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            if (!automaticObservation)
+                AddMessage("status", IsArabic
+                    ? "تعذر تحليل الصورة: لا يوجد اتصال AI مضبوط. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا."
+                    : "Could not analyze the image: no AI connection is configured. Open Settings and enter a valid API URL and key.");
+            SetChatActivityStatus(IsArabic
+                ? "تعذر تحليل الصورة لعدم ضبط اتصال AI."
+                : "Image analysis unavailable because the AI connection is not configured.");
+            return;
+        }
+
+        var userPrompt = string.IsNullOrWhiteSpace(prompt)
+            ? (IsArabic
+                ? "صف الصورة بوضوح، واذكر ما يمكن ملاحظته بصريًا فقط. إذا لم تستطع تحليلها، وضّح السبب بدل التخمين."
+                : "Describe this image clearly using visible evidence only. If you cannot analyze it, explain why rather than guessing.")
+            : prompt.Trim();
+
+        if (consumePendingAttachment)
+        {
+            _pendingVisionImageBytes = null;
+            _pendingVisionContentType = null;
+            _pendingVisionFileName = null;
+            ChatInput.Clear();
+            UpdateVisionAttachmentControls();
+        }
+        else if (clearChatInput)
+        {
+            ChatInput.Clear();
+        }
+
+        if (!automaticObservation)
+        {
+            var attachmentLabel = IsArabic ? "[صورة مرفقة: " : "[Attached image: ";
+            AddMessage("user", userPrompt + Environment.NewLine + attachmentLabel + fileName + "]");
+        }
+
+        _chatCancellation = new CancellationTokenSource();
+        SendButton.IsEnabled = false;
+        CancelResponseButton.IsEnabled = true;
+        ChooseImageButton.IsEnabled = false;
+        ClearVisionImageButton.IsEnabled = false;
+        CameraVisionButton.IsEnabled = false;
+        SetChatActivityStatus(automaticObservation
+            ? (IsArabic ? "ليال تحلل لقطة الكاميرا..." : "Layal is analyzing a camera frame...")
+            : (IsArabic ? "ليال تحلل الصورة..." : "Layal is analyzing the image..."));
+        AppRuntime.MascotWindow?.SetMood("thinking");
+
+        try
+        {
+            var history = ChatContextBuilder.Build(
+                LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language), ChatMessages).ToList();
+            var requestText = automaticObservation
+                ? (IsArabic
+                    ? "أنت تتابعين صورة ثابتة من كاميرا المستخدم بناءً على موافقته. صف فقط التغيرات الخارجية الواضحة في تعبير الوجه أو وضعية الرأس أو الإيماءة، ولا تدّعي معرفة المشاعر الداخلية أو النوايا. قارن بالملاحظة النصية السابقة التالية: " +
+                      (string.IsNullOrWhiteSpace(_lastCameraObservation) ? "لا توجد ملاحظة سابقة." : _lastCameraObservation) +
+                      " إذا لم يوجد تغير بصري واضح ومفيد، أعد الرمز [NO_CHANGE] فقط. إذا ظهر تغير واضح، اذكري ملاحظة قصيرة ولطيفة دون تشخيص أو استنتاج صفات حساسة أو تحديد الهوية."
+                    : "You are observing a still image from the user's camera with their consent. Describe only clearly visible external changes in facial expression, head pose, or gesture; do not claim to know internal emotions or intent. Compare it with this prior text observation: " +
+                      (string.IsNullOrWhiteSpace(_lastCameraObservation) ? "No prior observation." : _lastCameraObservation) +
+                      " If there is no clear, useful visible change, return exactly [NO_CHANGE]. If there is a clear change, make one brief, friendly observation without diagnosing, inferring sensitive traits, or identifying the person.")
+                : userPrompt;
+
+            if (automaticObservation)
+                history.Add(new ChatMessage { Role = "user", Content = requestText });
+            else
+            {
+                // The visible user message already includes the actual question and attachment name.
+                // Keep the model's multimodal request identical to the displayed turn.
+            }
+
+            var response = await _aiClient.AnalyzeImageAsync(
+                AppRuntime.Settings.ProviderBaseUrl,
+                AppRuntime.Settings.ModelId,
+                key,
+                history,
+                imageBytes,
+                contentType,
+                _chatCancellation.Token);
+
+            if (automaticObservation && response.Trim().Equals("[NO_CHANGE]", StringComparison.OrdinalIgnoreCase))
+            {
+                SetChatActivityStatus(IsArabic ? "لا يوجد تغير بصري واضح في هذه اللقطة." : "No clear visual change in this frame.");
+                return;
+            }
+
+            if (automaticObservation)
+            {
+                _lastCameraObservation = response.Trim();
+                AddMessage("assistant", (IsArabic ? "ملاحظة من الكاميرا: " : "Camera observation: ") + response.Trim());
+            }
+            else
+            {
+                AddMessage("assistant", response.Trim());
+            }
+
+            AppRuntime.MascotWindow?.SetMood(SelectChatMood(userPrompt, response));
+            SaveCurrentChatMessages();
+
+            var completionStatus = IsArabic ? "اكتمل تحليل الصورة." : "Image analysis completed.";
+            if (AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
+            {
+                try
+                {
+                    SetChatActivityStatus(IsArabic ? "ليال بتعلّق بصوتها..." : "Layal is speaking about the image...");
+                    await _layalSpeech.SpeakAsync(
+                        AppRuntime.Settings.ProviderBaseUrl,
+                        key,
+                        AppRuntime.Settings.VoiceReplyModelId,
+                        AppRuntime.Settings.VoiceReplyId,
+                        response.Trim(),
+                        _chatCancellation.Token);
+                    completionStatus = IsArabic ? "اكتمل التحليل الصوتي للصورة." : "Image analysis completed with voice.";
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception voiceError)
+                {
+                    completionStatus = (IsArabic
+                        ? "اكتمل التحليل النصي لكن تعذر تشغيل الصوت: "
+                        : "Image analysis completed, but voice playback failed: ") + voiceError.Message;
+                }
+            }
+            SetChatActivityStatus(completionStatus);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!automaticObservation)
+                AddMessage("status", IsArabic ? "تم إيقاف تحليل الصورة." : "Image analysis cancelled.");
+            SetChatActivityStatus(IsArabic ? "تم إيقاف تحليل الصورة." : "Image analysis cancelled.");
+        }
+        catch (Exception ex)
+        {
+            var prefix = IsArabic
+                ? "تعذر تحليل الصورة. قد لا يدعم النموذج أو الموفر الحالي إدخال الصور؛ اختر نموذجًا يدعم الرؤية. التفاصيل: "
+                : "Could not analyze the image. The current provider or model may not support image input; choose a vision-capable model. Details: ";
+            var message = prefix + ex.Message;
+            if (!automaticObservation)
+                AddMessage("status", message);
+            else
+                SetChatActivityStatus(message);
+            AppRuntime.MascotWindow?.SetMood("error");
+            SetChatActivityStatus(message);
+        }
+        finally
+        {
+            SaveCurrentChatMessages();
+            _chatCancellation?.Dispose();
+            _chatCancellation = null;
+            SendButton.IsEnabled = true;
+            CancelResponseButton.IsEnabled = false;
+            CameraVisionButton.IsEnabled = true;
+            UpdateVisionAttachmentControls();
+            RefreshProviderStatus();
+        }
+    }
+
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
     private async Task SendMessageAsync()
@@ -1644,7 +2046,19 @@ public partial class MainWindow : Window
         }
 
         var text = ChatInput.Text.Trim();
-        if (string.IsNullOrWhiteSpace(text) || _chatCancellation is not null) return;
+        if (_chatCancellation is not null) return;
+        if (_pendingVisionImageBytes is { Length: > 0 } attachedImage)
+        {
+            await AnalyzeVisionImageAsync(
+                attachedImage.ToArray(),
+                _pendingVisionContentType ?? "image/png",
+                _pendingVisionFileName ?? "image",
+                text,
+                automaticObservation: false,
+                consumePendingAttachment: true);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(text)) return;
         ChatInput.Clear();
         AddMessage("user", text);
         var key = AppRuntime.SecretStore.Load();
