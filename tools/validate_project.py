@@ -611,6 +611,9 @@ else:
         'ClientWebSocket',
         'Array.Clear(pcm, 0, pcm.Length)',
         'Read the user\'s supplied text aloud exactly as written',
+        'distinctly childlike and feminine',
+        'young girl character',
+        'Do not sound like an adult woman',
     ):
         if required not in voice_service_text:
             ERRORS.append(f"Layal voice service is missing required behavior: {required}")
