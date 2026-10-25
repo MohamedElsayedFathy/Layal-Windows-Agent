@@ -1,4 +1,4 @@
-# Layal 0.5.2 — implementation status register
+# Layal development preview — implementation status register
 
 This matrix separates source presence, automated Windows CI evidence, and live interactive acceptance. The authoring environment lacks the .NET SDK. Windows CI run [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) on code commit `034fa598d8ec219e6c59019984013ac649055e5b` built Release with 0 warnings/0 errors, passed 77/77 C# tests, passed native transparent-padding click-through 4/4 and drag/save/restore 6/6, and recorded 11 display/DPI checks. Its desktop runner exposed one display at 96 DPI (100%); physical multi-monitor movement and real Windows scale transitions remain unverified on the target PC. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds automated C# tests and Windows CI execution.
 
@@ -8,7 +8,8 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 | Tray actions, branded icon, live language switching, show/hide and exit | Implemented in source; tray-specific live hide/show, restart, and exit acceptance still pending | `Services/TrayService.cs`, `App.xaml.cs` | Manual target-desktop acceptance |
 | Arabic/English UI foundation | Implemented, partially localized | `Views/MainWindow.xaml.cs` | Manual RTL/LTR and translation checks needed |
 | DPAPI provider key | Implemented in source | `Services/DpapiSecretStore.cs` | Windows DPAPI test needed |
-| OpenAI-compatible model probe/chat | Implemented in source | `Services/OpenAiCompatibleClient.cs` | Requires real configured endpoint/key |
+| OpenAI-compatible model probe/chat | Implemented in source; no hardcoded FreeLLM default on new install | `Services/OpenAiCompatibleClient.cs`, `Models/UserSettings.cs` | Requires user-configured compatible endpoint/key |
+| External application REST/JSON APIs | Implemented in source: named connections, None/Bearer/custom-header auth, encrypted profile store, request test, `call_app_api` with explicit per-request consent and response-size limits; runtime acceptance pending | `Services/ApiConnectionService.cs`, `Models/ApiConnectionProfile.cs`, API integrations tab, `AgentToolExecutor.cs` | Windows CI and manual API test required; interactive OAuth and non-HTTP protocols are not supported by this generic connector |
 | Tool calling client | Implemented in source | `OpenAiCompatibleClient.cs` | Model/provider tool-call compatibility unverified |
 | Bounded multi-step agent loop with warning state for tool failure/declined actions | Implemented in source | `Services/AgentOrchestrator.cs`, `Views/MainWindow.xaml.cs` | Integration tests needed |
 | Current time/system/workspace tools | Implemented in source | `Services/AgentToolExecutor.cs` | Requires runtime tests |
@@ -21,9 +22,11 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 | Encrypted chat/task/memory persistence | Implemented with DPAPI-backed JSON | `ProtectedJsonStore.cs`, memory/task services | Windows account/profile test needed |
 | Memory notes CRUD/search/export | Implemented in source | `MemoryService.cs`, Memory tab | UI/runtime tests needed; JSON export is plaintext |
 | Actual voice STT/TTS | Not implemented | — | Future milestone |
-| General mouse/keyboard/UI Automation | Not implemented | — | Future milestone |
+| Read-only Windows UI Automation inspection | Implemented in source with consent, bounded traversal, single-flight background worker, and 8-second caller timeout; Windows CI build/tests pass, manual runtime acceptance pending | `Services/WindowsUiAutomationService.cs`, `Services/AgentToolExecutor.cs` | Manual Windows acceptance required |
+| Approved native UI actions and text entry | Implemented in source: Button/Hyperlink/MenuItem/SplitButton InvokePattern, ValuePattern.SetValue on one uniquely identified visible non-password Edit field, and TogglePattern state-setting on one unique visible two-state CheckBox; fresh local approval and runtime-id/state revalidation, bounded traversal, no field-value read-back; runtime acceptance pending | `Services/WindowsUiAutomationService.cs`, `Services/AgentToolExecutor.cs` | Test on a disposable Windows sample app; no general mouse/keyboard, coordinates, screenshots, form submission, or application-success claim |
+| General mouse/keyboard control and screen capture | Not implemented | — | Future milestone |
 | Screen capture/visual UI control | Not implemented | — | Future milestone |
-| Browser DOM automation/research | Not implemented; URL launching exists only | `AgentToolExecutor.cs` | Future milestone |
+| Browser automation (initial milestone) | Implemented in source: separate Edge profile, loopback DevTools, approved navigation/page disclosure, unique CSS selector click/fill, revalidation after consent, password/file fields blocked; Windows CI build/tests pass, manual runtime acceptance pending | `Services/BrowserAutomationService.cs`, `AgentToolExecutor.cs` | Windows manual acceptance required; advanced research/download/upload and normal browser profile reuse remain unimplemented |
 | RTSP/ONVIF video and computer vision | Not implemented | Camera tab reports limitation | Future milestone |
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |

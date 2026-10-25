@@ -81,7 +81,7 @@ public sealed class MainWindowVisualSmokeTests
         var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("ApplyLanguage was not found.");
 
-        var tabNames = new[] { "home", "chat", "tasks", "skills", "cameras", "memory", "settings" };
+        var tabNames = new[] { "home", "chat", "tasks", "skills", "cameras", "memory", "api", "settings" };
         Assert.AreEqual(tabNames.Length, tabs.Items.Count,
             "The visual audit must render every expected main section; the test must not silently skip a missing tab.");
 
@@ -93,6 +93,7 @@ public sealed class MainWindowVisualSmokeTests
             window.FindName("SkillsTab") as TabItem,
             window.FindName("CamerasTab") as TabItem,
             window.FindName("MemoryTab") as TabItem,
+            window.FindName("ApiIntegrationsTab") as TabItem,
             window.FindName("SettingsTab") as TabItem
         };
         Assert.AreEqual(tabNames.Length, expectedTabs.Length);
@@ -670,10 +671,15 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("http://127.0.0.1:31415/v1", store.Load().ProviderBaseUrl);
         Assert.AreEqual("interaction-regression-test", store.Load().ModelId);
 
-        // Restore safe defaults through the same controls/handlers so later checks remain isolated.
+        // Restore the exact original provider state. The form intentionally rejects an empty
+        // URL/model pair, so returning a fresh install to its unconfigured state must bypass UI validation.
         baseUrl.Text = oldBaseUrl;
         model.Text = oldModelId;
-        saveProvider.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, saveProvider));
+        var restoredSettings = store.Load();
+        restoredSettings.ProviderBaseUrl = oldBaseUrl;
+        restoredSettings.ModelId = oldModelId;
+        store.Save(restoredSettings);
+        AppRuntime.Settings = restoredSettings;
         alwaysOnTop.IsChecked = true;
         animations.IsChecked = true;
         windowInspection.IsChecked = false;

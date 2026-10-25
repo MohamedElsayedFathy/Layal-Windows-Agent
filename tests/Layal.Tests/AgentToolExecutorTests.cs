@@ -16,10 +16,94 @@ public sealed class AgentToolExecutorTests
         var names = definitions.Select(n => n?["function"]?["name"]?.GetValue<string>()).ToList();
 
         Assert.IsTrue(definitions.Count >= 10);
+        Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "click_ui_control"));
+        Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "fill_ui_text"));
+        Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "set_ui_checkbox"));
+
         Assert.AreEqual(names.Count, names.Distinct(StringComparer.Ordinal).Count());
         Assert.IsFalse(names.Any(string.IsNullOrWhiteSpace));
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as JsonObject);
+    }
+
+    [TestMethod]
+    public async Task NativeTextEntryRequiresWindowInspectionOptInBeforeLookingForAWindow()
+    {
+        var previousSettings = Layal.AppRuntime.Settings;
+        try
+        {
+            Layal.AppRuntime.Settings = new Layal.Models.UserSettings { AllowWindowTitleInspection = false };
+            using var temp = new TestTempDirectory();
+            var executor = CreateExecutor(temp.Path);
+            var approvalCalled = false;
+
+            var result = await executor.ExecuteAsync(
+                "fill_ui_text",
+                "{\"window_title\":\"Nonexistent test window\",\"automation_id\":\"inputText\",\"text\":\"hello\"}",
+                (_, _, _) => { approvalCalled = true; return Task.FromResult(false); },
+                _ => { },
+                CancellationToken.None);
+
+            StringAssert.Contains(result, "disabled in Layal settings");
+            Assert.IsFalse(approvalCalled, "No approval prompt or native window lookup should occur until the opt-in setting is enabled.");
+        }
+        finally
+        {
+            Layal.AppRuntime.Settings = previousSettings;
+        }
+    }
+
+    [TestMethod]
+    public async Task CheckboxActionRequiresExplicitWindowInspectionOptIn()
+    {
+        var previousSettings = Layal.AppRuntime.Settings;
+        try
+        {
+            Layal.AppRuntime.Settings = new Layal.Models.UserSettings { AllowWindowTitleInspection = false };
+            using var temp = new TestTempDirectory();
+            var executor = CreateExecutor(temp.Path);
+            var approvalCalled = false;
+
+            var result = await executor.ExecuteAsync(
+                "set_ui_checkbox",
+                "{\"window_title\":\"Nonexistent test window\",\"automation_id\":\"sampleCheckBox\",\"checked\":true}",
+                (_, _, _) => { approvalCalled = true; return Task.FromResult(false); },
+                _ => { },
+                CancellationToken.None);
+
+            StringAssert.Contains(result, "disabled in Layal settings");
+            Assert.IsFalse(approvalCalled, "No approval prompt or native window lookup should happen until the user opts in.");
+        }
+        finally
+        {
+            Layal.AppRuntime.Settings = previousSettings;
+        }
+    }
+
+    [TestMethod]
+    public async Task CheckboxActionRejectsAStringInsteadOfAJsonBoolean()
+    {
+        using var temp = new TestTempDirectory();
+        var executor = CreateExecutor(temp.Path);
+        var approvalCalled = false;
+
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "set_ui_checkbox",
+            "{\"window_title\":\"Some Window\",\"automation_id\":\"sampleCheckBox\",\"checked\":\"true\"}",
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        StringAssert.Contains(ex.Message, "checked");
+        Assert.IsFalse(approvalCalled);
+    }
+
+    [TestMethod]
+    public void ClickToolRequiresAnExactSupportedSelector()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.NormalizeInvokeControlType("Edit"));
+        Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateAutomationId(""));
+        Assert.AreEqual("okButton", WindowsUiAutomationService.ValidateAutomationId("okButton"));
     }
 
     [TestMethod]

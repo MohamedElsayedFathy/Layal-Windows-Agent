@@ -16,6 +16,8 @@ public static class AppRuntime
     public static ProtectedJsonStore<List<ChatMessage>> ChatHistoryStore { get; set; } = null!;
     public static ChatSessionService ChatSessionService { get; set; } = null!;
     public static AgentToolExecutor AgentToolExecutor { get; set; } = null!;
+    public static ApiConnectionService ApiConnectionService { get; set; } = null!;
+    public static BrowserAutomationService BrowserAutomationService { get; set; } = null!;
     public static AgentOrchestrator AgentOrchestrator { get; set; } = null!;
     public static string WorkspaceRoot { get; set; } = string.Empty;
     public static MainWindow? MainWindow { get; set; }
