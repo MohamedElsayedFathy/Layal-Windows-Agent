@@ -7,3 +7,14 @@ artifacts/
 __pycache__/
 *.pyc
 *.tmp
+
+# Local secrets and signing material. Keep only the explicit example template trackable.
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+
+# Test output and result reports
+TestResults/
+*.trx
