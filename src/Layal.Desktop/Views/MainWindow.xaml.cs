@@ -1885,6 +1885,7 @@ public partial class MainWindow : Window
         var key = AppRuntime.SecretStore.Load();
         if (string.IsNullOrWhiteSpace(key))
         {
+            if (automaticObservation) _cameraVisionWindow?.StopAutomaticObservation();
             if (!automaticObservation)
                 AddMessage("status", IsArabic
                     ? "تعذر تحليل الصورة: لا يوجد اتصال AI مضبوط. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا."
