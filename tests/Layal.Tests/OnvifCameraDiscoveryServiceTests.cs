@@ -76,8 +76,13 @@ public sealed class OnvifCameraDiscoveryServiceTests
 
         Assert.IsTrue(address.StartsWith("rtsp://", StringComparison.Ordinal));
         Assert.IsTrue(address.Contains("192.168.1.44:554/live/ch00_0", StringComparison.Ordinal));
-        Assert.IsTrue(address.Contains("camera%20user", StringComparison.OrdinalIgnoreCase));
-        Assert.IsTrue(address.Contains("p%40ss%3Aword", StringComparison.OrdinalIgnoreCase));
+        var parsed = new Uri(address);
+        var userInfo = Uri.UnescapeDataString(parsed.UserInfo);
+        var separator = userInfo.IndexOf(':');
+        Assert.IsTrue(separator > 0);
+        Assert.AreEqual("camera user", userInfo[..separator]);
+        Assert.AreEqual("p@ss:word", userInfo[(separator + 1)..]);
+        Assert.IsTrue(parsed.Host == "192.168.1.44");
     }
 
     [TestMethod]
