@@ -1475,7 +1475,7 @@ public partial class MainWindow : Window
 
         if (_chatCancellation is not null || _voiceTestCancellation is not null ||
             _speechToText.IsRecording || _speechCancellation is not null || _speechIsStopping ||
-            _cameraVisionWindow is { CameraIsRunning: true })
+            _cameraVisionWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
                 ? "أوقف عملية الصوت أو الرد الحالي أو الرؤية بالكاميرا قبل بدء المحادثة الصوتية."
