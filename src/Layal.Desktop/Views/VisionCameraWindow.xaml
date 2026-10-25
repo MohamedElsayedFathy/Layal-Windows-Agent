@@ -58,6 +58,10 @@
                           Click="ContinuousObservationCheckBox_Click" VerticalAlignment="Center" Margin="8,0"
                           AutomationProperties.Name="تفعيل التحليل البصري التلقائي"
                           AutomationProperties.HelpText="يرسل لقطة ثابتة إلى مزود الذكاء الاصطناعي كل 10 ثوانٍ ما دامت الكاميرا والتحليل التلقائي نشطين."/>
+                <CheckBox x:Name="SpeakCameraObservationsCheckBox" Content="قراءة الملاحظات الصوتية تلقائيًا"
+                          VerticalAlignment="Center" Margin="8,0"
+                          AutomationProperties.Name="قراءة الملاحظات البصرية تلقائيًا بصوت ليال"
+                          AutomationProperties.HelpText="اختياري؛ تتحدث ليال عند ملاحظة تغير بصري إذا كانت الردود الصوتية مفعلة في الإعدادات."/>
                 <Button x:Name="ScanSurroundingsButton" Content="امسح المكان حول الكاميرا"
                         Click="ScanSurroundingsButton_Click" MinWidth="180" Margin="4,0"
                         AutomationProperties.Name="مسح المكان الظاهر حول الكاميرا"
