@@ -72,23 +72,3 @@
         </DockPanel>
     </Grid>
 </Window>
- BorderThickness="1" BorderBrush="{DynamicResource Layal.Border}"
-                Background="{DynamicResource Layal.Panel}" Padding="8">
-            <Image x:Name="CameraPreview" Stretch="Uniform" AutomationProperties.Name="المعاينة المباشرة للكاميرا"/>
-        </Border>
-        <DockPanel Grid.Row="2" Margin="0,12,0,0" LastChildFill="True">
-            <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <CheckBox x:Name="ContinuousObservationCheckBox" Content="تحليل تلقائي كل 10 ثوانٍ"
-                          Click="ContinuousObservationCheckBox_Click" VerticalAlignment="Center" Margin="8,0"
-                          AutomationProperties.Name="تفعيل التحليل البصري التلقائي"
-                          AutomationProperties.HelpText="يرسل لقطة ثابتة إلى مزود الذكاء الاصطناعي كل 10 ثوانٍ ما دامت الكاميرا والتحليل التلقائي نشطين."/>
-                <Button x:Name="AnalyzeCurrentFrameButton" Content="حلّل اللقطة الحالية"
-                        Click="AnalyzeCurrentFrameButton_Click" MinWidth="150" Margin="4,0"/>
-                <Button x:Name="CloseCameraButton" Content="إيقاف الكاميرا" Click="CloseCameraButton_Click" MinWidth="120" Margin="4,0"/>
-            </WrapPanel>
-            <TextBlock x:Name="CameraStatusText" Text="جارٍ تهيئة الكاميرا..." TextWrapping="Wrap"
-                       VerticalAlignment="Center" Foreground="{DynamicResource Layal.Muted}"
-                       AutomationProperties.Name="حالة الكاميرا" AutomationProperties.LiveSetting="Polite"/>
-        </DockPanel>
-    </Grid>
-</Window>
