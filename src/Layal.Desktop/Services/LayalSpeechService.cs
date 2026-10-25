@@ -138,7 +138,7 @@ public sealed class LayalSpeechService
                 breakAt = maximumCharacters;
 
             var splitLength = breakAt;
-            if (breakAt < remaining.Length &&
+            if (breakAt < maximumCharacters && breakAt < remaining.Length &&
                 Array.IndexOf(SentenceBoundaries, remaining[breakAt]) >= 0)
                 splitLength = breakAt + 1;
             if (splitLength <= 0 || splitLength > remaining.Length)
@@ -247,7 +247,7 @@ public sealed class LayalSpeechService
                 else if (type == "response.done")
                 {
                     if (root.TryGetProperty("response", out var response) &&
-                        string.Equals(GetString(response, "status"), "failed", StringComparison.OrdinalIgnoreCase))
+                        !string.Equals(GetString(response, "status"), "completed", StringComparison.OrdinalIgnoreCase))
                     {
                         var details = response.TryGetProperty("status_details", out var statusDetails)
                             ? ReadErrorObject(statusDetails)
