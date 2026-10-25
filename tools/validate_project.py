@@ -789,6 +789,7 @@ for required in (
 for required in (
     "TryParseProbeResponseAcceptsPrivateLocalOnvifEndpoint",
     "TryParseProbeResponseRejectsPublicEndpointEvenWhenReplyComesFromLan",
+    "TryParseProbeResponseRejectsLoopbackDeviceEndpoints",
     "TryParseProbeResponseRejectsRemoteOrMalformedXml",
     "BuildAuthenticatedStreamAddressRejectsNonLocalStreamsAndMissingCredentials",
     "IsPrivateHostOnlyAllowsLoopbackAndLocalPrivateAddressRanges",
