@@ -76,6 +76,13 @@ public partial class MainWindow : Window
         SpeechModelInput.Text = AppRuntime.Settings.SpeechToTextModelId;
         VoiceReplyCheckbox.IsChecked = AppRuntime.Settings.VoiceRepliesEnabled;
         VoiceReplyModelInput.Text = AppRuntime.Settings.VoiceReplyModelId;
+        // Shimmer was the previous default. Switch that legacy default to Marin for more natural delivery.
+        if (string.IsNullOrWhiteSpace(AppRuntime.Settings.VoiceReplyId) ||
+            string.Equals(AppRuntime.Settings.VoiceReplyId, "shimmer", StringComparison.OrdinalIgnoreCase))
+        {
+            AppRuntime.Settings.VoiceReplyId = LayalSpeechService.DefaultVoiceId;
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        }
         VoiceReplyVoiceSelector.SelectedValue = AppRuntime.Settings.VoiceReplyId;
         AlwaysOnTopCheckbox.IsChecked = AppRuntime.Settings.MascotAlwaysOnTop;
         AnimationsCheckbox.IsChecked = AppRuntime.Settings.MascotAnimationsEnabled;
@@ -431,7 +438,7 @@ public partial class MainWindow : Window
             {
                 "shimmer" => ar ? "طفولي وناعم (Shimmer)" : "Childlike and soft (Shimmer)",
                 "coral" => ar ? "طفولي ودافئ (Coral)" : "Childlike and warm (Coral)",
-                "marin" => ar ? "طبيعية وواضحة (Marin)" : "Natural and clear (Marin)",
+                "marin" => ar ? "طبيعي وعفوي (Marin)" : "Natural and conversational (Marin)",
                 "cedar" => ar ? "هادئة وواضحة (Cedar)" : "Calm and clear (Cedar)",
                 _ => voiceItem.Tag?.ToString() ?? string.Empty
             };
