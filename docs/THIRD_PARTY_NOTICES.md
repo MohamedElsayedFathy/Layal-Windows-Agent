@@ -62,3 +62,22 @@ These notices capture license declarations published by the package sources. The
 - Project/source: https://github.com/naudio/NAudio
 - Package metadata: https://www.nuget.org/packages/NAudio.Midi/3.3.0
 - License text: licenses/MIT-NAudio.txt
+
+
+## OpenCvSharp4
+
+- Package: OpenCvSharp4 version 4.13.0.20260627 (direct dependency)
+- License declared by upstream NuGet metadata: Apache-2.0
+- Project/source: https://github.com/shimat/opencvsharp
+- Package metadata: https://www.nuget.org/packages/OpenCvSharp4/4.13.0.20260627
+- License text: licenses/Apache-2.0-OpenCvSharp.txt
+
+## OpenCvSharp4.runtime.win
+
+- Package: OpenCvSharp4.runtime.win version 4.13.0.20260627 (direct Windows x64 native runtime dependency)
+- License declared by upstream NuGet metadata: Apache-2.0
+- Project/source: https://github.com/shimat/opencvsharp
+- Package metadata: https://www.nuget.org/packages/OpenCvSharp4.runtime.win/4.13.0.20260627
+- License text: licenses/Apache-2.0-OpenCvSharp.txt
+
+These upstream license declarations are recorded for notice completeness; project-level redistribution and legal review remain pending.

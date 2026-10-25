@@ -105,7 +105,7 @@ for xaml_path in xaml_files:
         if not code_path.exists():
             ERRORS.append(f"Missing code-behind file for x:Class '{xclass}' in {xaml_path.relative_to(ROOT)}")
 
-    if xaml_path.name in {"MainWindow.xaml", "FloatingMascotWindow.xaml"}:
+    if xaml_path.name in {"MainWindow.xaml", "FloatingMascotWindow.xaml", "VisionCameraWindow.xaml"}:
         code_path = xaml_path.with_name(xaml_path.name + ".cs")
         if code_path.exists():
             code = code_path.read_text(encoding="utf-8")
@@ -705,6 +705,125 @@ for required in (
 ):
     if required not in ui_code and required != "VoiceConversationService.BuildSessionUpdate":
         ERRORS.append(f"Live voice conversation UI wiring is missing: {required}")
+
+# Vision: user-selected images and opt-in still-frame camera observation.
+vision_client_path = ROOT / "src/Layal.Desktop/Services/OpenAiCompatibleClient.cs"
+vision_test_path = ROOT / "tests/Layal.Tests/OpenAiCompatibleClientTests.cs"
+camera_xaml_path = ROOT / "src/Layal.Desktop/Views/VisionCameraWindow.xaml"
+camera_code_path = ROOT / "src/Layal.Desktop/Views/VisionCameraWindow.xaml.cs"
+vision_docs_path = ROOT / "docs/VISION_AR.md"
+vision_client_text = vision_client_path.read_text(encoding="utf-8") if vision_client_path.is_file() else ""
+vision_test_text = vision_test_path.read_text(encoding="utf-8") if vision_test_path.is_file() else ""
+camera_xaml_text = camera_xaml_path.read_text(encoding="utf-8") if camera_xaml_path.is_file() else ""
+camera_code_text = camera_code_path.read_text(encoding="utf-8") if camera_code_path.is_file() else ""
+if "AnalyzeImageAsync(" not in vision_client_text:
+    ERRORS.append("Multimodal image analysis API client is missing")
+for required in (
+    "AnalyzeImageSendsMultimodalImageUrlAndParsesTextResponse",
+    "AnalyzeImageExplainsWhenProviderDoesNotSupportVisionInput",
+    "AnalyzeImageRejectsEmptyImageBeforeMakingRequest",
+):
+    if required not in vision_test_text:
+        ERRORS.append(f"Vision client regression test is missing: {required}")
+for required in (
+    'x:Name="ChooseImageButton"',
+    'x:Name="ClearVisionImageButton"',
+    'x:Name="CameraVisionButton"',
+    'x:Name="CameraVisionIndicator"',
+):
+    if required not in ui_xaml:
+        ERRORS.append(f"Image/camera chat UI is missing: {required}")
+for required in (
+    "ChooseImageButton_Click",
+    "ClearVisionImageButton_Click",
+    "CameraVisionButton_Click",
+    "AnalyzeVisionImageAsync(",
+    "UpdateCameraVisionIndicator()",
+):
+    if required not in ui_code:
+        ERRORS.append(f"Image/camera chat flow is missing: {required}")
+if not camera_xaml_text or not camera_code_text:
+    ERRORS.append("Local webcam preview window or its code-behind is missing")
+for required in (
+    'x:Name="ContinuousObservationCheckBox"',
+    'x:Name="AnalyzeCurrentFrameButton"',
+    'x:Name="CloseCameraButton"',
+):
+    if required not in camera_xaml_text:
+        ERRORS.append(f"Camera vision UI is missing: {required}")
+for required in (
+    "CameraStatusChanged",
+    "ContinuousObservationCheckBox_Click",
+    "ObserveRequested?.Invoke",
+    "VideoCaptureAPIs.DSHOW",
+    "VideoCaptureAPIs.MSMF",
+):
+    if required not in camera_code_text:
+        ERRORS.append(f"Camera still-frame behavior is missing: {required}")
+if not vision_docs_path.is_file():
+    ERRORS.append("Image/camera vision privacy and acceptance guide is missing: docs/VISION_AR.md")
+for required in ("OpenCvSharp4", "OpenCvSharp4.runtime.win"):
+    if required not in project_text:
+        ERRORS.append(f"Camera vision runtime dependency is missing from Layal.Desktop.csproj: {required}")
+
+# Local-network ONVIF camera discovery and authenticated RTSP preview.
+onvif_service_path = ROOT / "src/Layal.Desktop/Services/OnvifCameraDiscoveryService.cs"
+onvif_test_path = ROOT / "tests/Layal.Tests/OnvifCameraDiscoveryServiceTests.cs"
+onvif_text = onvif_service_path.read_text(encoding="utf-8") if onvif_service_path.is_file() else ""
+onvif_test_text = onvif_test_path.read_text(encoding="utf-8") if onvif_test_path.is_file() else ""
+if not onvif_text:
+    ERRORS.append("Local ONVIF camera discovery service is missing")
+for required in (
+    "239.255.255.250",
+    "DiscoverAsync(",
+    "TryParseProbeResponse(",
+    "GetAuthenticatedStreamUriAsync(",
+    "BuildAuthenticatedStreamAddress(",
+    "IsPrivateHost(",
+    "IsPrivateCameraEndpointHost(",
+    "DtdProcessing = DtdProcessing.Prohibit",
+    "AllowAutoRedirect = false",
+    "RandomNumberGenerator.GetBytes",
+):
+    if required not in onvif_text:
+        ERRORS.append(f"ONVIF/RTSP security behavior is missing: {required}")
+for required in (
+    "TryParseProbeResponseAcceptsPrivateLocalOnvifEndpoint",
+    "TryParseProbeResponseRejectsPublicEndpointEvenWhenReplyComesFromLan",
+    "TryParseProbeResponseRejectsLoopbackDeviceEndpoints",
+    "TryParseProbeResponseRejectsRemoteOrMalformedXml",
+    "BuildAuthenticatedStreamAddressRejectsNonLocalStreamsAndMissingCredentials",
+    "CameraEndpointValidationRejectsLoopbackAndPublicAddresses",
+    "IsPrivateHostOnlyAllowsLoopbackAndLocalPrivateAddressRanges",
+):
+    if required not in onvif_test_text:
+        ERRORS.append(f"ONVIF/RTSP regression test is missing: {required}")
+for required in (
+    'x:Name="ScanNetworkCamerasButton"',
+    'x:Name="DiscoveredCamerasSelector"',
+    'x:Name="ManualRtspAddressInput"',
+    'x:Name="CameraUsernameInput"',
+    'x:Name="CameraPasswordInput"',
+    'x:Name="ConnectNetworkCameraButton"',
+    'x:Name="ScanSurroundingsButton"',
+    'x:Name="SpeakCameraObservationsCheckBox"',
+):
+    if required not in camera_xaml_text:
+        ERRORS.append(f"Camera/network discovery control is missing: {required}")
+for required in (
+    "ScanNetworkCamerasButton_Click",
+    "ConnectNetworkCameraButton_Click",
+    "UseLocalCameraButton_Click",
+    "ScanSurroundingsButton_Click",
+    "ScanSurroundingsRequested?.Invoke",
+    "CameraPasswordInput.Clear()",
+):
+    if required not in camera_code_text:
+        ERRORS.append(f"Camera/network discovery flow is missing: {required}")
+if "SpeakAutomaticObservations" not in camera_code_text or "SpeakAutomaticObservations == true" not in ui_code:
+    ERRORS.append("Spoken camera observations must remain an explicit opt-in")
+if "ScanSurroundingsRequested" not in ui_code or "CameraVisionWindow_ScanSurroundingsRequested" not in ui_code:
+    ERRORS.append("Main chat does not route one-shot surroundings scans to image analysis")
 
 trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
 trace_text = trace_path.read_text(encoding="utf-8-sig") if trace_path.is_file() else ""

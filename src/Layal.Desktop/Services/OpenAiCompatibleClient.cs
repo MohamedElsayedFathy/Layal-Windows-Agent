@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -79,6 +80,105 @@ public sealed class OpenAiCompatibleClient
         throw new InvalidOperationException("The provider returned an unsupported content format.");
     }
 
+
+    /// <summary>Sends one user-selected image to an OpenAI-compatible vision-capable chat-completions endpoint.</summary>
+    public async Task<string> AnalyzeImageAsync(
+        string baseUrl,
+        string model,
+        string apiKey,
+        IReadOnlyList<ChatMessage> messages,
+        byte[] imageBytes,
+        string imageContentType,
+        CancellationToken cancellationToken = default)
+    {
+        if (messages.Count == 0)
+            throw new ArgumentException("At least one message is required.", nameof(messages));
+        ArgumentNullException.ThrowIfNull(imageBytes);
+        if (imageBytes.Length == 0)
+            throw new ArgumentException("The selected image is empty.", nameof(imageBytes));
+        if (imageBytes.Length > 10 * 1024 * 1024)
+            throw new ArgumentException("Images must be 10 MB or smaller.", nameof(imageBytes));
+        if (imageContentType is not ("image/jpeg" or "image/png" or "image/webp" or "image/bmp" or "image/gif"))
+            throw new ArgumentException("The image type must be JPEG, PNG, WebP, BMP, or GIF.", nameof(imageContentType));
+        if (!string.Equals(messages[^1].Role, "user", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The final chat message must be from the user.", nameof(messages));
+
+        var dataUrl = $"data:{imageContentType};base64,{Convert.ToBase64String(imageBytes)}";
+        var payloadMessages = new JsonArray();
+        for (var index = 0; index < messages.Count; index++)
+        {
+            var message = messages[index];
+            if (index == messages.Count - 1)
+            {
+                var parts = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = message.Content
+                    },
+                    new JsonObject
+                    {
+                        ["type"] = "image_url",
+                        ["image_url"] = new JsonObject
+                        {
+                            ["url"] = dataUrl,
+                            ["detail"] = "high"
+                        }
+                    }
+                };
+                payloadMessages.Add(new JsonObject { ["role"] = message.Role, ["content"] = parts });
+            }
+            else
+            {
+                payloadMessages.Add(new JsonObject { ["role"] = message.Role, ["content"] = message.Content });
+            }
+        }
+
+        var payload = new JsonObject
+        {
+            ["model"] = model,
+            ["messages"] = payloadMessages,
+            ["stream"] = false
+        };
+
+        var client = _clientFactory(TimeSpan.FromSeconds(120));
+        using var clientLifetime = GetClientLifetime(client);
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
+        request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await FormatError(response, cancellationToken);
+            var looksLikeVisionError =
+                response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnsupportedMediaType or HttpStatusCode.UnprocessableEntity ||
+                detail.Contains("vision", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("image", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("multimodal", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("image_url", StringComparison.OrdinalIgnoreCase);
+            if (looksLikeVisionError)
+                throw new InvalidOperationException(
+                    "The configured provider or model could not accept this image. Choose a model that supports image/vision input and verify that the provider's chat-completions endpoint accepts image_url content. Provider detail: " + detail);
+            throw new InvalidOperationException("Image analysis failed: " + detail);
+        }
+
+        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
+        if (!document.RootElement.TryGetProperty("choices", out var choices) ||
+            choices.ValueKind != JsonValueKind.Array || choices.GetArrayLength() == 0)
+            throw new InvalidOperationException("The vision model returned no answer. The provider may not support image analysis.");
+
+        var messageNode = choices[0].GetProperty("message");
+        if (!messageNode.TryGetProperty("content", out var content))
+            throw new InvalidOperationException("The vision model did not return an answer. Check that the selected model supports image analysis.");
+
+        var answer = ReadContent(content);
+        if (string.IsNullOrWhiteSpace(answer))
+            throw new InvalidOperationException("The vision model returned an empty answer. It may not support image analysis or could not interpret this image.");
+        return answer;
+    }
 
     /// <summary>Streams response text from OpenAI-compatible providers, with JSON fallback.</summary>
     public async Task<string> ChatStreamAsync(

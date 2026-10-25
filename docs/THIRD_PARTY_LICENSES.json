@@ -269,6 +269,26 @@
       "licenseTextPath": "licenses/MIT-SystemNumericsTensors.txt",
       "copyright": "Copyright (c) .NET Foundation and Contributors",
       "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "OpenCvSharp4",
+      "versionPolicy": "direct dependency pinned to 4.13.0.20260627",
+      "sourceUrl": "https://www.nuget.org/packages/OpenCvSharp4/4.13.0.20260627",
+      "licenseExpression": "Apache-2.0",
+      "licenseUrl": "https://github.com/shimat/opencvsharp/blob/main/LICENSE",
+      "licenseTextPath": "licenses/Apache-2.0-OpenCvSharp.txt",
+      "copyright": "OpenCvSharp contributors; see upstream project license and notices.",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "OpenCvSharp4.runtime.win",
+      "versionPolicy": "direct Windows x64 native runtime dependency pinned to 4.13.0.20260627",
+      "sourceUrl": "https://www.nuget.org/packages/OpenCvSharp4.runtime.win/4.13.0.20260627",
+      "licenseExpression": "Apache-2.0",
+      "licenseUrl": "https://github.com/shimat/opencvsharp/blob/main/LICENSE",
+      "licenseTextPath": "licenses/Apache-2.0-OpenCvSharp.txt",
+      "copyright": "OpenCvSharp contributors; see upstream project license and notices.",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
     }
   ],
   "provenanceReview": {
