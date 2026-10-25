@@ -8,11 +8,11 @@ namespace Layal.Tests;
 public sealed class MascotHitTestGeometryTests
 {
     [TestMethod]
-    public void CoreAndSensorsAreHitTargetsButTransparentPaddingIsNot()
+    public void LayalAndRobotAreHitTargetsButTransparentPaddingIsNot()
     {
-        Assert.IsTrue(MascotHitTestGeometry.IsPointOnMascot(new Point(124, 80), 248, taskPropsVisible: false));
-        Assert.IsTrue(MascotHitTestGeometry.IsPointOnMascot(new Point(20, 60), 248, taskPropsVisible: false));
-        Assert.IsTrue(MascotHitTestGeometry.IsPointOnMascot(new Point(225, 60), 248, taskPropsVisible: false));
+        Assert.IsTrue(MascotHitTestGeometry.IsPointOnMascot(new Point(124, 80), 248, taskPropsVisible: false)); // Layal
+        Assert.IsTrue(MascotHitTestGeometry.IsPointOnMascot(new Point(45, 50), 248, taskPropsVisible: false));  // Robot assistant
+        Assert.IsFalse(MascotHitTestGeometry.IsPointOnMascot(new Point(235, 60), 248, taskPropsVisible: false)); // Empty margin right of Layal
 
         Assert.IsFalse(MascotHitTestGeometry.IsPointOnMascot(new Point(8, 8), 248, taskPropsVisible: true));
         Assert.IsFalse(MascotHitTestGeometry.IsPointOnMascot(new Point(120, 160), 248, taskPropsVisible: true));

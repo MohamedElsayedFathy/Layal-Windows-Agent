@@ -17,6 +17,51 @@
     {
       "path": "src/Layal.Desktop/Assets/layal-tray.ico",
       "status": "PROVENANCE_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-calm.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-curious.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-focused.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-happy.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-idle.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-playful.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-robot-happy.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-robot.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Characters/layal-surprised.png",
+      "status": "PROVENANCE_REVIEW_REQUIRED",
+      "sourceDescription": "Cut/derived from the user-supplied 'Layal Celestial AI Assistant' concept sheet (background removed, edges faded, robot face erased/redrawn in code). Origin and redistribution rights of the original sheet are not documented in the repository."
     }
   ],
   "packages": [

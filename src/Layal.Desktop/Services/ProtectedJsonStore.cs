@@ -10,12 +10,31 @@ public sealed class ProtectedJsonStore<T> where T : class
 
     public ProtectedJsonStore(string path) => _secretStore = new DpapiSecretStore(path, "Layal encrypted JSON state");
 
+    private bool _preservedUnreadable;
+
     public T Load(T fallback)
     {
         var json = _secretStore.Load();
-        if (string.IsNullOrWhiteSpace(json)) return fallback;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            // A missing file is normal. An existing file that could not be decrypted must be preserved,
+            // otherwise the next Save of the fallback value would overwrite it permanently.
+            if (_secretStore.Exists) PreserveOnce();
+            return fallback;
+        }
         try { return JsonSerializer.Deserialize<T>(json, Options) ?? fallback; }
-        catch { return fallback; }
+        catch
+        {
+            PreserveOnce();
+            return fallback;
+        }
+    }
+
+    private void PreserveOnce()
+    {
+        if (_preservedUnreadable) return;
+        _preservedUnreadable = true;
+        _ = _secretStore.PreserveUnreadableCopy();
     }
 
     public void Save(T value)
