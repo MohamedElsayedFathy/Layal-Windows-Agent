@@ -223,6 +223,15 @@ public sealed class VoiceConversationService : IDisposable
                         break;
 
                     case "response.created":
+                        // A new server turn starts a fresh output item. Do not let an early VAD
+                        // interrupt truncate a completed item from the previous turn.
+                        if (playbackState.Buffer.BufferedBytes == 0)
+                        {
+                            playbackState.ItemId = null;
+                            playbackState.ContentIndex = 0;
+                            playbackState.ReceivedBytes = 0;
+                            playbackState.OutputStarted = false;
+                        }
                         playbackState.ResponseInProgress = true;
                         RaiseStatus(VoiceConversationStatus.AssistantSpeaking, null);
                         break;
