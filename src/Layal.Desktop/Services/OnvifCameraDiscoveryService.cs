@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -25,11 +26,8 @@ public sealed class OnvifCameraDiscoveryService
     private static readonly IPAddress DiscoveryAddress = IPAddress.Parse("239.255.255.250");
     private const int DiscoveryPort = 3702;
     private static readonly TimeSpan DefaultDiscoveryWindow = TimeSpan.FromSeconds(4);
-    private static readonly XNamespace SoapEnvelope = "http://www.w3.org/2003/05/soap-envelope";
-    private static readonly XNamespace WsAddressing = "http://schemas.xmlsoap.org/ws/2004/08/addressing";
     private static readonly XNamespace WsSecurity = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd";
     private static readonly XNamespace WsUtility = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd";
-    private static readonly XNamespace DeviceNs = "http://www.onvif.org/ver10/device/wsdl";
 
     public async Task<IReadOnlyList<OnvifCameraDevice>> DiscoverAsync(
         TimeSpan? discoveryWindow = null,
@@ -268,6 +266,11 @@ public sealed class OnvifCameraDiscoveryService
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
         request.Content = new StringContent(soap, Encoding.UTF8, "application/soap+xml");
+        var actionNamespace = action is "GetProfiles" or "GetStreamUri"
+            ? "http://www.onvif.org/ver10/media/wsdl/"
+            : "http://www.onvif.org/ver10/device/wsdl/";
+        request.Content.Headers.ContentType!.Parameters.Add(
+            new NameValueHeaderValue("action", "\"" + actionNamespace + action + "\""));
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
         var text = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
