@@ -10,7 +10,7 @@ using OpenCvSharp;
 namespace Layal.Views;
 
 /// <summary>Captures a local webcam preview and emits still JPEG frames only on request.</summary>
-public partial class VisionCameraWindow : Window
+public partial class VisionCameraWindow : System.Windows.Window
 {
     private readonly bool _isArabic;
     private VideoCapture? _capture;
