@@ -411,6 +411,21 @@
                         <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto" AutomationProperties.Name="معرّف النموذج / Model ID" AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"/>
                         <TextBlock x:Name="SpeechModelLabel" Text="معرّف نموذج تحويل الكلام إلى نص (STT)" Margin="4,8,4,0"/>
                         <TextBox x:Name="SpeechModelInput" FlowDirection="LeftToRight" Text="gpt-transcribe" AutomationProperties.Name="معرّف نموذج تحويل الكلام إلى نص / Speech-to-text model ID" AutomationProperties.LabeledBy="{Binding ElementName=SpeechModelLabel}" ToolTip="الافتراضي gpt-transcribe؛ تحقق من دعم موفر API للنموذج ونقطة النهاية."/>
+                        <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
+                        <TextBlock x:Name="VoiceReplySectionTitle" Text="صوت ليال" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد النصي، يُرسل النص إلى Realtime لتوليد صوت اصطناعي."/>
+                        <TextBlock x:Name="VoiceReplyVoiceLabel" Text="طبيعة صوت ليال" Margin="4,6,4,0"/>
+                        <ComboBox x:Name="VoiceReplyVoiceSelector" SelectedValuePath="Tag" SelectedValue="shimmer" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="طبيعة صوت ليال">
+                            <ComboBoxItem Tag="shimmer" Content="ناعمة وهادئة (Shimmer)"/>
+                            <ComboBoxItem Tag="coral" Content="دافئة ورقيقة (Coral)"/>
+                            <ComboBoxItem Tag="marin" Content="طبيعية وواضحة (Marin)"/>
+                            <ComboBoxItem Tag="cedar" Content="هادئة وواضحة (Cedar)"/>
+                        </ComboBox>
+                        <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت (Realtime)" Margin="4,8,4,0"/>
+                        <TextBox x:Name="VoiceReplyModelInput" FlowDirection="LeftToRight" Text="gpt-realtime-2.1-mini" AutomationProperties.Name="معرّف نموذج الرد الصوتي" AutomationProperties.LabeledBy="{Binding ElementName=VoiceReplyModelLabel}"/>
+                        <TextBlock x:Name="VoiceReplyDisclosureText" Text="الصوت مولّد بالذكاء الاصطناعي وليس صوت إنسان. يتطلب Realtime API وقد يستهلك تكلفة إضافية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
+                        <Button x:Name="TestVoiceReplyButton" Content="تجربة صوت ليال" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يرسل جملة تجريبية إلى موفر Realtime لتسمع نبرة الصوت."/>
+
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>
                         <TextBlock x:Name="KeyStorageNote" Text="يُحفظ المفتاح باستخدام Windows DPAPI للمستخدم الحالي، ولا يظهر في الإعدادات النصية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4"/>

@@ -592,6 +592,68 @@ for required in (
     if required not in localization_test_text:
         ERRORS.append(f"Bilingual localization test coverage is missing: {required}")
 
+# Voice-reply regression gate: protect the AI voice disclosure, secure Realtime endpoint, and auto-speech wiring.
+voice_service_path = ROOT / "src/Layal.Desktop/Services/LayalSpeechService.cs"
+voice_test_path = ROOT / "tests/Layal.Tests/LayalSpeechServiceTests.cs"
+voice_docs_path = ROOT / "docs/VOICE_REPLY_AR.md"
+voice_settings_path = ROOT / "src/Layal.Desktop/Models/UserSettings.cs"
+voice_service_text = voice_service_path.read_text(encoding="utf-8") if voice_service_path.is_file() else ""
+voice_test_text = voice_test_path.read_text(encoding="utf-8") if voice_test_path.is_file() else ""
+voice_docs_text = voice_docs_path.read_text(encoding="utf-8") if voice_docs_path.is_file() else ""
+voice_settings_text = voice_settings_path.read_text(encoding="utf-8") if voice_settings_path.is_file() else ""
+if not voice_service_text:
+    ERRORS.append("Layal Realtime voice service is missing")
+else:
+    for required in (
+        'public const string DefaultModelId = "gpt-realtime-2.1-mini";',
+        '"response.output_audio.delta"',
+        '"audio/pcm"',
+        'ClientWebSocket',
+        'Array.Clear(pcm, 0, pcm.Length)',
+        'Read the user\'s supplied text aloud exactly as written',
+    ):
+        if required not in voice_service_text:
+            ERRORS.append(f"Layal voice service is missing required behavior: {required}")
+if not voice_test_text:
+    ERRORS.append("Layal voice reply unit tests are missing")
+for required in (
+    "BuildRealtimeUri_RejectsRemoteHttpAndEmbeddedCredentials",
+    "PrepareTextForSpeech_RemovesMarkupAndLinksButKeepsVisibleText",
+    "SplitTextForSpeech_ProducesBoundedNonEmptyChunks",
+    "IsSupportedVoice_OnlyAcceptsKnownVoicePresets",
+):
+    if required not in voice_test_text:
+        ERRORS.append(f"Layal voice reply test coverage is missing: {required}")
+for required in (
+    'x:Name="VoiceReplyCheckbox"',
+    'x:Name="VoiceReplyModelInput"',
+    'x:Name="VoiceReplyVoiceSelector"',
+    'x:Name="VoiceReplyDisclosureText"',
+    'Click="TestVoiceReplyButton_Click"',
+):
+    if required not in ui_xaml:
+        ERRORS.append(f"Layal voice reply control is missing from MainWindow.xaml: {required}")
+for required in (
+    "await _layalSpeech.SpeakAsync",
+    "VoiceReplySettingChanged",
+    "VoiceReplyVoiceSelector_SelectionChanged",
+    "TestVoiceReplyButton_Click",
+    "VoiceRepliesEnabled",
+):
+    if required not in ui_code:
+        ERRORS.append(f"Layal voice reply runtime wiring is missing: {required}")
+for required in (
+    "VoiceRepliesEnabled { get; set; } = true",
+    'VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini"',
+    'VoiceReplyId { get; set; } = "shimmer"',
+):
+    if required not in voice_settings_text:
+        ERRORS.append(f"Layal voice reply defaults are missing: {required}")
+if "AI-generated" not in ui_code or "ليس صوت إنسان" not in ui_xaml:
+    ERRORS.append("AI-generated voice disclosure is missing")
+if not voice_docs_text:
+    ERRORS.append("Layal voice reply usage/privacy documentation is missing")
+
 trace_path = ROOT / "docs/REQUIREMENT_TRACEABILITY.csv"
 trace_text = trace_path.read_text(encoding="utf-8-sig") if trace_path.is_file() else ""
 language_requirement = next((line for line in trace_text.splitlines() if line.startswith("LAYAL-006,")), "")

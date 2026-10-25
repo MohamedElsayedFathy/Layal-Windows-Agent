@@ -49,8 +49,10 @@ public partial class MainWindow : Window
 
     private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly SpeechToTextService _speechToText = new();
+    private readonly LayalSpeechService _layalSpeech = new();
     private readonly DispatcherTimer _speechRecordingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private CancellationTokenSource? _speechCancellation;
+    private CancellationTokenSource? _voiceTestCancellation;
     private DateTimeOffset _speechRecordingStartedAt;
     private bool _speechIsStopping;
     private CancellationTokenSource? _chatCancellation;
@@ -72,6 +74,9 @@ public partial class MainWindow : Window
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         ModelInput.Text = AppRuntime.Settings.ModelId;
         SpeechModelInput.Text = AppRuntime.Settings.SpeechToTextModelId;
+        VoiceReplyCheckbox.IsChecked = AppRuntime.Settings.VoiceRepliesEnabled;
+        VoiceReplyModelInput.Text = AppRuntime.Settings.VoiceReplyModelId;
+        VoiceReplyVoiceSelector.SelectedValue = AppRuntime.Settings.VoiceReplyId;
         AlwaysOnTopCheckbox.IsChecked = AppRuntime.Settings.MascotAlwaysOnTop;
         AnimationsCheckbox.IsChecked = AppRuntime.Settings.MascotAnimationsEnabled;
         MascotSizeSlider.Value = AppRuntime.Settings.MascotScale;
@@ -248,8 +253,10 @@ public partial class MainWindow : Window
         _speechRecordingTimer.Stop();
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
         _speechCancellation?.Cancel();
+        _voiceTestCancellation?.Cancel();
         _speechToText.Dispose();
         _speechCancellation?.Dispose();
+        _voiceTestCancellation?.Dispose();
         SystemEvents.UserPreferenceChanged -= MainWindow_UserPreferenceChanged;
         Closed -= MainWindow_Closed;
     }
@@ -261,7 +268,7 @@ public partial class MainWindow : Window
         // Apply RTL to input fields and Arabic text runs locally instead of flipping all visuals.
         FlowDirection = FlowDirection.LeftToRight;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        SpeechModelInput.FlowDirection = FlowDirection.LeftToRight;
+        SpeechModelInput.FlowDirection = VoiceReplyModelInput.FlowDirection = FlowDirection.LeftToRight;
         TaskResult.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         BaseUrlInput.FlowDirection = ModelInput.FlowDirection = ApiKeyInput.FlowDirection = GitHubSkillUrlInput.FlowDirection = FlowDirection.LeftToRight;
         foreach (var message in ChatMessages)
@@ -407,6 +414,32 @@ public partial class MainWindow : Window
         CancelResponseButton.Content = ar ? "إيقاف" : "Stop";
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
         SpeechModelLabel.Text = ar ? "معرّف نموذج تحويل الكلام إلى نص (STT)" : "Speech-to-text model ID (STT)";
+        VoiceReplySectionTitle.Text = ar ? "صوت ليال" : "Layal voice";
+        VoiceReplyCheckbox.Content = ar ? "ليال تقرأ ردودها بصوت" : "Have Layal read replies aloud";
+        VoiceReplyVoiceLabel.Text = ar ? "طبيعة صوت ليال" : "Layal voice style";
+        VoiceReplyModelLabel.Text = ar ? "معرّف نموذج الصوت (Realtime)" : "Voice model ID (Realtime)";
+        VoiceReplyDisclosureText.Text = ar
+            ? "الصوت مولّد بالذكاء الاصطناعي وليس صوت إنسان. يتطلب دعم Realtime API وقد يستهلك تكلفة إضافية."
+            : "This voice is AI-generated, not a human voice. The provider must support Realtime API; additional usage charges may apply.";
+        TestVoiceReplyButton.Content = ar ? "تجربة صوت ليال" : "Test Layal voice";
+        TestVoiceReplyButton.ToolTip = ar
+            ? "يرسل جملة قصيرة إلى موفر Realtime لتجربة نبرة الصوت."
+            : "Sends a short sample to your Realtime provider to preview the selected voice.";
+        foreach (ComboBoxItem voiceItem in VoiceReplyVoiceSelector.Items)
+        {
+            voiceItem.Content = (voiceItem.Tag?.ToString() ?? string.Empty).ToLowerInvariant() switch
+            {
+                "shimmer" => ar ? "ناعمة وهادئة (Shimmer)" : "Soft and gentle (Shimmer)",
+                "coral" => ar ? "دافئة ورقيقة (Coral)" : "Warm and delicate (Coral)",
+                "marin" => ar ? "طبيعية وواضحة (Marin)" : "Natural and clear (Marin)",
+                "cedar" => ar ? "هادئة وواضحة (Cedar)" : "Calm and clear (Cedar)",
+                _ => voiceItem.Tag?.ToString() ?? string.Empty
+            };
+        }
+        AutomationProperties.SetName(VoiceReplyCheckbox, ar ? "الردود الصوتية لليال" : "Layal voice replies");
+        AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
+            ? "توليد صوت اصطناعي بعد اكتمال الرد النصي. يتطلب موفر Realtime وقد يستهلك تكلفة إضافية."
+            : "Generate AI speech after text replies complete. Requires a Realtime provider and may incur additional usage charges.");
         SpeechModelInput.ToolTip = ar
             ? "الافتراضي gpt-transcribe؛ تحقق من دعم موفر API لنقطة /audio/transcriptions والنموذج."
             : "Defaults to gpt-transcribe. Confirm the provider supports /audio/transcriptions and this model.";
@@ -1018,10 +1051,19 @@ public partial class MainWindow : Window
             var speechModel = SpeechModelInput.Text.Trim();
             if (string.IsNullOrWhiteSpace(speechModel))
                 throw new InvalidOperationException(IsArabic ? "معرّف نموذج تحويل الكلام إلى نص مطلوب." : "Speech-to-text model ID is required.");
+            var voiceModel = VoiceReplyModelInput.Text.Trim();
+            if (string.IsNullOrWhiteSpace(voiceModel))
+                throw new InvalidOperationException(IsArabic ? "معرّف نموذج الصوت مطلوب." : "Voice model ID is required.");
+            var voiceId = VoiceReplyVoiceSelector.SelectedValue?.ToString() ?? LayalSpeechService.DefaultVoiceId;
+            if (!LayalSpeechService.IsSupportedVoice(voiceId))
+                throw new InvalidOperationException(IsArabic ? "اختر نبرة صوت مدعومة لليال." : "Choose a supported Layal voice preset.");
 
             AppRuntime.Settings.ProviderBaseUrl = baseUrl;
             AppRuntime.Settings.ModelId = model;
             AppRuntime.Settings.SpeechToTextModelId = speechModel;
+            AppRuntime.Settings.VoiceRepliesEnabled = VoiceReplyCheckbox.IsChecked == true;
+            AppRuntime.Settings.VoiceReplyModelId = voiceModel;
+            AppRuntime.Settings.VoiceReplyId = voiceId.ToLowerInvariant();
             _providerTestPassed = false;
             if (!string.IsNullOrWhiteSpace(ApiKeyInput.Password))
             {
@@ -1037,6 +1079,76 @@ public partial class MainWindow : Window
         {
             SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("تعذر حفظ الإعدادات", "Could not save settings", ex, IsArabic));
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+        }
+    }
+
+    private void VoiceReplySettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        AppRuntime.Settings.VoiceRepliesEnabled = VoiceReplyCheckbox.IsChecked == true;
+        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        SetAccessibleStatusText(ProviderActionStatus, IsArabic
+            ? (AppRuntime.Settings.VoiceRepliesEnabled ? "تم تفعيل قراءة ليال لردودها صوتيًا." : "تم إيقاف الردود الصوتية لليال.")
+            : (AppRuntime.Settings.VoiceRepliesEnabled ? "Layal voice replies are enabled." : "Layal voice replies are disabled."));
+    }
+
+    private void VoiceReplyVoiceSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        var voiceId = VoiceReplyVoiceSelector.SelectedValue?.ToString();
+        if (!LayalSpeechService.IsSupportedVoice(voiceId)) return;
+        AppRuntime.Settings.VoiceReplyId = voiceId!.ToLowerInvariant();
+        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+    }
+
+    private async void TestVoiceReplyButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_voiceTestCancellation is not null) return;
+        if (_chatCancellation is not null)
+        {
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "أوقف الرد الحالي قبل تجربة الصوت."
+                : "Stop the active reply before previewing the voice.");
+            return;
+        }
+
+        var baseUrl = BaseUrlInput.Text.Trim();
+        var apiKey = string.IsNullOrWhiteSpace(ApiKeyInput.Password)
+            ? (AppRuntime.SecretStore?.Load() ?? string.Empty)
+            : ApiKeyInput.Password;
+        var model = VoiceReplyModelInput.Text.Trim();
+        var voiceId = VoiceReplyVoiceSelector.SelectedValue?.ToString() ?? LayalSpeechService.DefaultVoiceId;
+        var cancellation = new CancellationTokenSource();
+        _voiceTestCancellation = cancellation;
+        TestVoiceReplyButton.IsEnabled = false;
+        try
+        {
+            await _layalSpeech.SpeakAsync(
+                baseUrl, apiKey, model, voiceId,
+                "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak gently and clearly.",
+                cancellation.Token);
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "انتهت تجربة صوت ليال."
+                : "Layal voice preview completed.");
+        }
+        catch (OperationCanceledException)
+        {
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "تم إيقاف تجربة الصوت."
+                : "Voice preview cancelled.");
+        }
+        catch (Exception ex)
+        {
+            SetAccessibleStatusText(ProviderActionStatus,
+                UiLocalization.FormatTechnicalError("تعذر تشغيل صوت ليال", "Could not play Layal voice", ex, IsArabic));
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+        }
+        finally
+        {
+            if (ReferenceEquals(_voiceTestCancellation, cancellation))
+                _voiceTestCancellation = null;
+            cancellation.Dispose();
+            if (IsLoaded) TestVoiceReplyButton.IsEnabled = true;
         }
     }
 
@@ -1371,8 +1483,34 @@ public partial class MainWindow : Window
                     : FlowDirection.LeftToRight;
                 SaveCurrentChatMessages();
             }
+            var completionStatus = IsArabic ? "اكتمل الرد" : "Response completed";
+            if (AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
+            {
+                SetChatActivityStatus(IsArabic ? "ليال بتتكلم بصوتها..." : "Layal is speaking...");
+                try
+                {
+                    await _layalSpeech.SpeakAsync(
+                        AppRuntime.Settings.ProviderBaseUrl,
+                        key,
+                        AppRuntime.Settings.VoiceReplyModelId,
+                        AppRuntime.Settings.VoiceReplyId,
+                        response,
+                        _chatCancellation.Token);
+                    completionStatus = IsArabic ? "اكتمل الرد الصوتي" : "Response completed with voice";
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception voiceError)
+                {
+                    completionStatus = (IsArabic
+                        ? "اكتمل الرد النصي، لكن تعذر تشغيل الصوت: "
+                        : "Text reply completed, but voice playback failed: ") + voiceError.Message;
+                }
+            }
             AppRuntime.MascotWindow?.SetMood(SelectChatMood(text, response));
-            SetChatActivityStatus(IsArabic ? "اكتمل الرد" : "Response completed");
+            SetChatActivityStatus(completionStatus);
         }
         catch (OperationCanceledException)
         {
@@ -2069,6 +2207,7 @@ public partial class MainWindow : Window
     {
         _speechRecordingTimer.Stop();
         _speechCancellation?.Cancel();
+        _voiceTestCancellation?.Cancel();
         if (!_speechIsStopping) _speechToText.CancelRecording();
 
         if (!AppRuntime.IsExiting)
