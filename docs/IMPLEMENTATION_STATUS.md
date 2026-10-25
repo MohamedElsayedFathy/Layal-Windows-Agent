@@ -27,7 +27,7 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 | General mouse/keyboard control and screen capture | Not implemented | — | Future milestone |
 | Screen capture/visual UI control | Not implemented | — | Future milestone |
 | Browser automation (initial milestone) | Implemented in source: separate Edge profile, loopback DevTools, approved navigation/page disclosure, unique CSS selector click/fill, revalidation after consent, password/file fields blocked; Windows CI build/tests pass, manual runtime acceptance pending | `Services/BrowserAutomationService.cs`, `AgentToolExecutor.cs` | Windows manual acceptance required; advanced research/download/upload and normal browser profile reuse remain unimplemented |
-| RTSP/ONVIF video and computer vision | Not implemented | Camera tab reports limitation | Future milestone |
+| User-selected images and webcam still-frame vision | Implemented in source; hardware/provider acceptance pending | Image attachment, local preview, manual snapshots, opt-in 10-second still analysis, and explicit provider failure | Test with a real Windows camera and a vision-capable provider |\n| RTSP/ONVIF raw video and object tracking | Not implemented | No RTSP/ONVIF stream or tracking pipeline | Future milestone |
 | MCP protocol integration | Not implemented | — | Future milestone |
 | SQLite, vector memory/RAG, model training | Not implemented | — | Future milestone |
 | Installer/updater/signing | Not implemented | Publish script only | Future milestone |
