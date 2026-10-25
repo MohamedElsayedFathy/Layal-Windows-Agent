@@ -1,6 +1,6 @@
 # Layal development preview — implementation status register
 
-This matrix separates source presence, automated Windows CI evidence, and live interactive acceptance. The authoring environment lacks the .NET SDK. Windows CI run [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) on code commit `034fa598d8ec219e6c59019984013ac649055e5b` built Release with 0 warnings/0 errors, passed 77/77 C# tests, passed native transparent-padding click-through 4/4 and drag/save/restore 6/6, and recorded 11 display/DPI checks. Its desktop runner exposed one display at 96 DPI (100%); physical multi-monitor movement and real Windows scale transitions remain unverified on the target PC. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. Version 0.5.2 adds automated C# tests and Windows CI execution.
+This matrix separates source presence, automated Windows CI evidence, and live interactive acceptance. The authoring environment lacks the .NET SDK. Windows CI run [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) on code commit `034fa598d8ec219e6c59019984013ac649055e5b` built Release with 0 warnings/0 errors, passed 77/77 C# tests, passed native transparent-padding click-through 4/4 and drag/save/restore 6/6, and recorded 11 display/DPI checks. Its desktop runner exposed one display at 96 DPI (100%); physical multi-monitor movement and real Windows scale transitions remain unverified on the target PC. Version 0.5.0 updated presentation resources and mascot XAML. Version 0.5.1 added traceability and repeatable build checks. The security-hardening changes in PR #3 add encoded/double-encoded traversal regression cases and YAML folded/literal-description parsing tests; rerun CI on the combined head for the updated test count. Version 0.5.2 adds automated C# tests and Windows CI execution.
 
 | Requirement | Status in source | Relevant files | Verification |
 |---|---|---|---|
@@ -18,7 +18,7 @@ This matrix separates source presence, automated Windows CI evidence, and live i
 | Window title list/activation | Implemented, opt-in plus confirmation | `AgentToolExecutor.cs`, `UserSettings.cs` | Requires Windows test |
 | ZIP skill validation | Implemented in source | `Services/SkillPackageService.cs` | Needs valid/invalid package tests |
 | Public GitHub skill directory import | Implemented in source with size limits | `SkillPackageService.cs`, Skills tab | Live GitHub integration unverified |
-| Selected skills as untrusted references | Implemented in source, max 3 | `AgentOrchestrator.cs`, Skills tab | Tool/provider integration test needed |
+| Selected skills as untrusted references | Implemented in source, max 3; script content is not executed and no sandbox is provided | `AgentOrchestrator.cs`, Skills tab | Tool/provider integration and external skill import acceptance needed |
 | Encrypted chat/task/memory persistence | Implemented with DPAPI-backed JSON | `ProtectedJsonStore.cs`, memory/task services | Windows account/profile test needed |
 | Memory notes CRUD/search/export | Implemented in source | `MemoryService.cs`, Memory tab | UI/runtime tests needed; JSON export is plaintext |
 | Actual voice STT/TTS | Not implemented | — | Future milestone |

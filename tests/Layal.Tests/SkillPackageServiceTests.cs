@@ -23,6 +23,25 @@ public sealed class SkillPackageServiceTests
         Assert.IsTrue(readBack.Contains("This is a sample skill body.", StringComparison.Ordinal));
         Assert.AreEqual(1, service.GetInstalled().Count);
         Assert.IsTrue(imported.ValidationStatus.Contains("scripts not executed", StringComparison.OrdinalIgnoreCase));
+
+        // Common Agent Skills repositories use YAML folded block scalars for descriptions.
+        var blockZip = CreateSkillZip(
+            temp.Path,
+            "folded-skill",
+            ">-\n  Use when the user asks about WPF.\n  Preserve data binding and accessibility.",
+            "# WPF\nBody");
+        var importedBlock = service.ImportZip(blockZip, overwrite: false);
+        Assert.AreEqual(
+            "Use when the user asks about WPF. Preserve data binding and accessibility.",
+            importedBlock.Description);
+
+        var literalZip = CreateSkillZip(
+            temp.Path,
+            "literal-skill",
+            "|-\n  First description line.\n  Second description line.",
+            "# Literal\nBody");
+        var importedLiteral = service.ImportZip(literalZip, overwrite: false);
+        Assert.AreEqual("First description line." + Environment.NewLine + "Second description line.", importedLiteral.Description);
     }
 
     [TestMethod]
