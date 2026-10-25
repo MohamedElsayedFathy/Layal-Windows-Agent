@@ -60,7 +60,7 @@ public partial class MainWindow : Window
     private DateTimeOffset _speechRecordingStartedAt;
     private bool _speechIsStopping;
     private CancellationTokenSource? _chatCancellation;
-    private CameraVisionWindow? _cameraVisionWindow;
+    private VisionCameraWindow? _cameraVisionWindow;
     private byte[]? _pendingVisionImageBytes;
     private string? _pendingVisionContentType;
     private string? _pendingVisionFileName;
