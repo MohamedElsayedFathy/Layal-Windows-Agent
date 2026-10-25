@@ -81,7 +81,7 @@ public sealed class MainWindowVisualSmokeTests
         var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("ApplyLanguage was not found.");
 
-        var tabNames = new[] { "home", "chat", "tasks", "skills", "cameras", "memory", "settings" };
+        var tabNames = new[] { "home", "chat", "tasks", "skills", "cameras", "memory", "api", "settings" };
         Assert.AreEqual(tabNames.Length, tabs.Items.Count,
             "The visual audit must render every expected main section; the test must not silently skip a missing tab.");
 
@@ -93,6 +93,7 @@ public sealed class MainWindowVisualSmokeTests
             window.FindName("SkillsTab") as TabItem,
             window.FindName("CamerasTab") as TabItem,
             window.FindName("MemoryTab") as TabItem,
+            window.FindName("ApiIntegrationsTab") as TabItem,
             window.FindName("SettingsTab") as TabItem
         };
         Assert.AreEqual(tabNames.Length, expectedTabs.Length);
