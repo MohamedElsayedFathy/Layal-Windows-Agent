@@ -75,6 +75,71 @@
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
                                    IsHitTestVisible="False" Focusable="False" />
                         </Grid>
+
+                        <Border x:Name="ClockWeatherCard" Background="{DynamicResource Layal.CardGradient}"
+                                CornerRadius="16" Padding="16" Margin="0,0,0,12"
+                                BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"
+                                Effect="{DynamicResource Layal.CardShadow}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.1*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="4,0,14,0">
+                                    <TextBlock x:Name="ClockSectionTitle" Text="الوقت والتاريخ"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Layal.Muted}"/>
+                                    <TextBlock x:Name="ClockTimeText" Text="--:--:--"
+                                               FontSize="30" FontWeight="SemiBold" Margin="0,5,0,0"
+                                               AutomationProperties.Name="الوقت المحلي"/>
+                                    <TextBlock x:Name="CurrentDateText" Text="جارٍ تحميل التاريخ"
+                                               FontSize="13" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource Layal.Muted}" Margin="0,2,0,0"
+                                               AutomationProperties.Name="التاريخ المحلي"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" Width="1" Height="78"
+                                        Background="{DynamicResource Layal.Border}" Margin="8,0"/>
+                                <Grid Grid.Column="2" Margin="10,0,10,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="WeatherIconText" Grid.Column="0" Text="🌍"
+                                               FontSize="36" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               AutomationProperties.Name="رمز حالة الطقس"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock x:Name="WeatherSectionTitle" Text="الطقس"
+                                                   FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Layal.Muted}"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock x:Name="WeatherTemperatureText" Text="—°C"
+                                                       FontSize="25" FontWeight="SemiBold" Margin="0,3,10,0"
+                                                       AutomationProperties.Name="درجة الحرارة الحالية"/>
+                                            <TextBlock x:Name="WeatherSummaryText" Text="حدّد المدينة من الإعدادات"
+                                                       FontSize="13" VerticalAlignment="Center"
+                                                       TextWrapping="Wrap" MaxWidth="300"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="WeatherLocationText" Text="لم تُحدّد مدينة"
+                                                   FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                                   TextWrapping="Wrap" Margin="0,2,0,0"
+                                                   AutomationProperties.Name="مدينة الطقس"/>
+                                        <TextBlock x:Name="WeatherDetailsText" Text=""
+                                                   FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        <TextBlock x:Name="WeatherUpdatedText" Text=""
+                                                   FontSize="11" Foreground="{DynamicResource Layal.Muted}"
+                                                   Margin="0,3,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Button x:Name="RefreshWeatherButton" Grid.Column="3"
+                                        Content="تحديث الطقس" Click="RefreshWeatherButton_Click"
+                                        VerticalAlignment="Center" Margin="4,0,0,0" MinWidth="92"
+                                        AutomationProperties.Name="تحديث حالة الطقس"
+                                        AutomationProperties.HelpText="يجلب الطقس للمدينة المحددة في الإعدادات."/>
+                            </Grid>
+                        </Border>
                         <UniformGrid Columns="2" Rows="2" Margin="0,0,0,12">
                             <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                                 <StackPanel><TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardAiValue" Text="غير متصل" Foreground="{DynamicResource Layal.Warning}" Margin="0,8,0,0"/><TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
@@ -441,6 +506,28 @@
                         <TextBlock x:Name="SettingsHeading" Text="الإعدادات والاتصال" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"/>
                         <TextBlock x:Name="LanguageSettingLabel" Text="لغة الواجهة" FontWeight="SemiBold" Margin="4,8,4,0"/>
                         <WrapPanel><Button x:Name="ArabicLanguageButton" Content="العربية" Click="ArabicLanguageButton_Click"/><Button x:Name="EnglishLanguageButton" Content="English" Click="EnglishLanguageButton_Click"/></WrapPanel>
+
+                        <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
+                        <TextBlock x:Name="WeatherSettingsTitle" Text="حالة الطقس في الرئيسية"
+                                   FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <TextBlock x:Name="WeatherLocationLabel" Text="المدينة أو المدينة مع الدولة"
+                                   Margin="4,5,4,0"/>
+                        <TextBox x:Name="WeatherLocationInput" FlowDirection="LeftToRight"
+                                 ToolTip="مثال: Cairo, Egypt أو القاهرة، مصر"
+                                 AutomationProperties.Name="مدينة الطقس"
+                                 AutomationProperties.LabeledBy="{Binding ElementName=WeatherLocationLabel}"
+                                 AutomationProperties.HelpText="اكتب اسم المدينة، ولا يتم استخدام GPS أو موقع الجهاز تلقائيًا."/>
+                        <WrapPanel Margin="0,5,0,0">
+                            <Button x:Name="SaveWeatherLocationButton" Content="حفظ المدينة وتحديث الطقس"
+                                    Click="SaveWeatherLocationButton_Click"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="WeatherPrivacyNote"
+                                   Text="يُرسل اسم المدينة فقط إلى Open-Meteo لجلب الطقس. لا يُستخدم الموقع الدقيق للجهاز."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                   Margin="4,4,4,8" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock x:Name="WeatherSettingsStatus" Text="" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Layal.Success}" Margin="4,0,4,8"
+                                   AutomationProperties.LiveSetting="Polite"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="ProviderSectionTitle" Text="مزود ذكاء اصطناعي متوافق مع OpenAI API" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
