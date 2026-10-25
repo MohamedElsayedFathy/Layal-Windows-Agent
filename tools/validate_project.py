@@ -612,8 +612,9 @@ else:
         'Array.Clear(pcm, 0, pcm.Length)',
         'Read the user\'s supplied text aloud exactly as written',
         'distinctly childlike and feminine',
-        'young girl character',
-        'Do not sound like an adult woman',
+        'young-girl character',
+        'robotic, evenly timed cadence',
+        'vary naturally',
     ):
         if required not in voice_service_text:
             ERRORS.append(f"Layal voice service is missing required behavior: {required}")
@@ -648,7 +649,7 @@ for required in (
 for required in (
     "VoiceRepliesEnabled { get; set; } = true",
     'VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini"',
-    'VoiceReplyId { get; set; } = "shimmer"',
+    'VoiceReplyId { get; set; } = "marin"',
 ):
     if required not in voice_settings_text:
         ERRORS.append(f"Layal voice reply defaults are missing: {required}")

@@ -415,10 +415,10 @@
                         <TextBlock x:Name="VoiceReplySectionTitle" Text="صوت ليال" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد النصي، يُرسل النص إلى Realtime لتوليد صوت اصطناعي طفولي وناعم."/>
                         <TextBlock x:Name="VoiceReplyVoiceLabel" Text="صوت ليال الطفولي" Margin="4,6,4,0"/>
-                        <ComboBox x:Name="VoiceReplyVoiceSelector" SelectedValuePath="Tag" SelectedValue="shimmer" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="صوت ليال الطفولي">
+                        <ComboBox x:Name="VoiceReplyVoiceSelector" SelectedValuePath="Tag" SelectedValue="marin" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="صوت ليال الطفولي">
                             <ComboBoxItem Tag="shimmer" Content="طفولي وناعم (Shimmer)"/>
                             <ComboBoxItem Tag="coral" Content="طفولي ودافئ (Coral)"/>
-                            <ComboBoxItem Tag="marin" Content="طبيعية وواضحة (Marin)"/>
+                            <ComboBoxItem Tag="marin" Content="طبيعي وعفوي (Marin)"/>
                             <ComboBoxItem Tag="cedar" Content="هادئة وواضحة (Cedar)"/>
                         </ComboBox>
                         <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت (Realtime)" Margin="4,8,4,0"/>

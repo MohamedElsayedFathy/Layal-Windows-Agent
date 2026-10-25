@@ -7,13 +7,15 @@ namespace Layal.Tests;
 public sealed class LayalSpeechServiceTests
 {
     [TestMethod]
-    public void VoiceCharacterDescription_RequiresAClearlyChildlikeFeminineVoice()
+    public void VoiceCharacterDescription_BalancesChildlikeToneWithNaturalConversationalDelivery()
     {
-        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "distinctly childlike");
-        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "young girl character");
-        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "high-pitched");
-        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "Do not sound like an adult woman");
-        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "baby-talk");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "distinctly childlike and feminine");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "young-girl character");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "vary naturally");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "sing-song delivery");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "robotic, evenly timed cadence");
+        StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "mature adult woman");
+        Assert.AreEqual("marin", LayalSpeechService.DefaultVoiceId);
     }
 
     [TestMethod]
