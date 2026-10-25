@@ -33,6 +33,7 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     public event Action<bool>? CameraStatusChanged;
     public event Action<byte[]>? AnalyzeRequested;
+    public event Action<byte[]>? ScanSurroundingsRequested;
     public event Action<byte[]>? ObserveRequested;
     public event Action<bool>? AutomaticObservationChanged;
 
@@ -56,6 +57,11 @@ public partial class VisionCameraWindow : System.Windows.Window
             : "The preview stays local. Frames are sent to your AI provider only when you analyze one or enable automatic observation. Automatic mode sends one still image every 10 seconds, not a video stream. Turn it off or close the camera at any time. Facial expressions are visible cues, not proof of someone's feelings.";
         ContinuousObservationCheckBox.Content = _isArabic ? "تحليل تلقائي كل 10 ثوانٍ" : "Analyze automatically every 10 seconds";
         AnalyzeCurrentFrameButton.Content = _isArabic ? "حلّل اللقطة الحالية" : "Analyze current frame";
+        ScanSurroundingsButton.Content = _isArabic ? "امسح المكان حول الكاميرا" : "Scan visible surroundings";
+        AutomationProperties.SetName(ScanSurroundingsButton, _isArabic ? "مسح المكان الظاهر حول الكاميرا" : "Scan visible surroundings around the camera");
+        AutomationProperties.SetHelpText(ScanSurroundingsButton, _isArabic
+            ? "يلتقط صورة ثابتة ويطلب وصف البيئة والأشياء المرئية؛ لا ينفذ مسحًا ثلاثي الأبعاد."
+            : "Captures one still image and asks for a description of visible surroundings and objects; it does not perform 3D scanning.");
         CloseCameraButton.Content = _isArabic ? "إيقاف الكاميرا" : "Stop camera";
         ScanNetworkCamerasButton.Content = _isArabic ? "فحص كاميرات الشبكة المحلية" : "Scan local network cameras";
         UseLocalCameraButton.Content = _isArabic ? "استخدام كاميرا الكمبيوتر" : "Use computer camera";
@@ -466,6 +472,17 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
 
         AnalyzeRequested?.Invoke(_latestJpeg.ToArray());
+    }
+
+    private void ScanSurroundingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_captureReady || _latestJpeg is null)
+        {
+            CameraStatusText.Text = _isArabic ? "لا توجد لقطة متاحة لمسح المكان." : "No frame is available to scan the surroundings.";
+            return;
+        }
+
+        ScanSurroundingsRequested?.Invoke(_latestJpeg.ToArray());
     }
 
     private void CloseCameraButton_Click(object sender, RoutedEventArgs e) => Close();
