@@ -804,6 +804,7 @@ for required in (
     'x:Name="CameraPasswordInput"',
     'x:Name="ConnectNetworkCameraButton"',
     'x:Name="ScanSurroundingsButton"',
+    'x:Name="SpeakCameraObservationsCheckBox"',
 ):
     if required not in camera_xaml_text:
         ERRORS.append(f"Camera/network discovery control is missing: {required}")
@@ -817,6 +818,8 @@ for required in (
 ):
     if required not in camera_code_text:
         ERRORS.append(f"Camera/network discovery flow is missing: {required}")
+if "SpeakAutomaticObservations" not in camera_code_text or "SpeakAutomaticObservations == true" not in ui_code:
+    ERRORS.append("Spoken camera observations must remain an explicit opt-in")
 if "ScanSurroundingsRequested" not in ui_code or "CameraVisionWindow_ScanSurroundingsRequested" not in ui_code:
     ERRORS.append("Main chat does not route one-shot surroundings scans to image analysis")
 
