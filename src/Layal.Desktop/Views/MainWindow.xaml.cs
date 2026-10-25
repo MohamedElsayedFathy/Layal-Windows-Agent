@@ -415,12 +415,12 @@ public partial class MainWindow : Window
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
         SpeechModelLabel.Text = ar ? "معرّف نموذج تحويل الكلام إلى نص (STT)" : "Speech-to-text model ID (STT)";
         VoiceReplySectionTitle.Text = ar ? "صوت ليال" : "Layal voice";
-        VoiceReplyCheckbox.Content = ar ? "ليال تقرأ ردودها بصوت" : "Have Layal read replies aloud";
-        VoiceReplyVoiceLabel.Text = ar ? "طبيعة صوت ليال" : "Layal voice style";
+        VoiceReplyCheckbox.Content = ar ? "ليال تقرأ ردودها بصوت طفولي" : "Have Layal read replies aloud in a childlike voice";
+        VoiceReplyVoiceLabel.Text = ar ? "صوت ليال الطفولي" : "Layal childlike voice";
         VoiceReplyModelLabel.Text = ar ? "معرّف نموذج الصوت (Realtime)" : "Voice model ID (Realtime)";
         VoiceReplyDisclosureText.Text = ar
-            ? "الصوت مولّد بالذكاء الاصطناعي وليس صوت إنسان. يتطلب دعم Realtime API وقد يستهلك تكلفة إضافية."
-            : "This voice is AI-generated, not a human voice. The provider must support Realtime API; additional usage charges may apply.";
+            ? "صوت ليال طفولي وأنثوي وناعم، مولّد بالذكاء الاصطناعي وليس صوت إنسان. يتطلب دعم Realtime API وقد يستهلك تكلفة إضافية."
+            : "Layal uses a soft, childlike feminine AI-generated voice, not a human voice. Realtime API support is required and extra usage charges may apply.";
         TestVoiceReplyButton.Content = ar ? "تجربة صوت ليال" : "Test Layal voice";
         TestVoiceReplyButton.ToolTip = ar
             ? "يرسل جملة قصيرة إلى موفر Realtime لتجربة نبرة الصوت."
@@ -429,8 +429,8 @@ public partial class MainWindow : Window
         {
             voiceItem.Content = (voiceItem.Tag?.ToString() ?? string.Empty).ToLowerInvariant() switch
             {
-                "shimmer" => ar ? "ناعمة وهادئة (Shimmer)" : "Soft and gentle (Shimmer)",
-                "coral" => ar ? "دافئة ورقيقة (Coral)" : "Warm and delicate (Coral)",
+                "shimmer" => ar ? "طفولي وناعم (Shimmer)" : "Childlike and soft (Shimmer)",
+                "coral" => ar ? "طفولي ودافئ (Coral)" : "Childlike and warm (Coral)",
                 "marin" => ar ? "طبيعية وواضحة (Marin)" : "Natural and clear (Marin)",
                 "cedar" => ar ? "هادئة وواضحة (Cedar)" : "Calm and clear (Cedar)",
                 _ => voiceItem.Tag?.ToString() ?? string.Empty
@@ -438,8 +438,8 @@ public partial class MainWindow : Window
         }
         AutomationProperties.SetName(VoiceReplyCheckbox, ar ? "الردود الصوتية لليال" : "Layal voice replies");
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
-            ? "توليد صوت اصطناعي بعد اكتمال الرد النصي. يتطلب موفر Realtime وقد يستهلك تكلفة إضافية."
-            : "Generate AI speech after text replies complete. Requires a Realtime provider and may incur additional usage charges.");
+            ? "توليد صوت ليال الطفولي بعد اكتمال الرد النصي. يتطلب موفر Realtime وقد يستهلك تكلفة إضافية."
+            : "Generate Layal’s childlike AI voice after text replies complete. Requires a Realtime provider and may incur additional usage charges.");
         SpeechModelInput.ToolTip = ar
             ? "الافتراضي gpt-transcribe؛ تحقق من دعم موفر API لنقطة /audio/transcriptions والنموذج."
             : "Defaults to gpt-transcribe. Confirm the provider supports /audio/transcriptions and this model.";

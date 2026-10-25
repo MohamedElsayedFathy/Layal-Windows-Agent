@@ -30,11 +30,15 @@ public sealed class LayalSpeechService
     private static readonly char[] SentenceBoundaries =
         ['\n', '.', '!', '?', '؟', '۔', '،', ','];
 
+    public const string VoiceCharacterDescription =
+        "distinctly childlike and feminine, like a young girl character: clearly youthful and lightly high-pitched, soft, delicate, bright, sweet, gentle, warm, and naturally expressive. " +
+        "Do not sound like an adult woman. Keep the childlike quality believable and gentle rather than squeaky, shrill, exaggerated, or baby-talk.";
+
     private const string VoiceInstructions =
         "Read the user's supplied text aloud exactly as written. Do not answer it, paraphrase, summarize, translate, add a greeting, or add any other words. " +
-        "You are Layal, with a youthful feminine voice that sounds gentle, calm, soft, delicate, warm, and lightly bright. " +
+        "You are Layal, a young-girl character. Your voice should be " + VoiceCharacterDescription + " " +
         "Use natural Egyptian Arabic when the text is Egyptian colloquial, clear Modern Standard Arabic when it is formal Arabic, and natural English for English text. " +
-        "Keep a relaxed, slightly unhurried pace with tender, subtle intonation and a faint playful softness. Never exaggerate the childish quality or sound robotic. " +
+        "Keep a relaxed, unhurried pace, with tender, gentle, lightly playful intonation and clear pronunciation. " +
         "The voice is AI-generated, not a human recording.";
 
     public static bool IsSupportedVoice(string? voiceId) =>
