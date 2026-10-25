@@ -102,7 +102,7 @@ public sealed class VoiceConversationService : IDisposable
 
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = lifetime.Token;
-        using var captureQueue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(CaptureQueueCapacity)
+        var captureQueue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(CaptureQueueCapacity)
         {
             SingleReader = true,
             SingleWriter = true,
@@ -450,9 +450,7 @@ public sealed class VoiceConversationService : IDisposable
                 message.Write(buffer, 0, result.Count);
                 if (result.EndOfMessage) break;
             }
-            var bytes = message.ToArray();
-            try { return JsonDocument.Parse(bytes); }
-            finally { Array.Clear(bytes, 0, bytes.Length); }
+            return JsonDocument.Parse(message.ToArray());
         }
         catch (JsonException ex)
         {
