@@ -1618,7 +1618,18 @@ public partial class MainWindow : Window
         VoiceConversationMicDot.Fill = ThemeBrush(
             micActive ? "Layal.Danger" : "Layal.Warning",
             micActive ? System.Windows.Media.Brushes.Firebrick : System.Windows.Media.Brushes.DarkGoldenrod);
-        VoiceConversationMicStatus.Text = VoiceConversationStatusMessage(_voiceConversationStatus);
+        VoiceConversationMicStatus.Text = VoiceConversationIndicatorMessage(_voiceConversationStatus);
+    }
+
+    private string VoiceConversationIndicatorMessage(VoiceConversationStatus status) =>
+        status switch
+        {
+            VoiceConversationStatus.Connecting => IsArabic ? "جارٍ الاتصال" : "Connecting",
+            VoiceConversationStatus.Listening => IsArabic ? "الميكروفون نشط" : "Mic active",
+            VoiceConversationStatus.UserSpeaking => IsArabic ? "بتسمعك ليال" : "Listening",
+            VoiceConversationStatus.AssistantSpeaking => IsArabic ? "تقدر تقاطعها" : "Speak to interrupt",
+            _ => IsArabic ? "الميكروفون متوقف" : "Mic off"
+        };
     }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
