@@ -27,6 +27,12 @@ public sealed class SettingsStore
             settings.SpeechToTextModelId = string.IsNullOrWhiteSpace(settings.SpeechToTextModelId)
                 ? "gpt-transcribe"
                 : settings.SpeechToTextModelId.Trim();
+            settings.VoiceReplyModelId = string.IsNullOrWhiteSpace(settings.VoiceReplyModelId)
+                ? LayalSpeechService.DefaultModelId
+                : settings.VoiceReplyModelId.Trim();
+            settings.VoiceReplyId = LayalSpeechService.IsSupportedVoice(settings.VoiceReplyId)
+                ? settings.VoiceReplyId.Trim().ToLowerInvariant()
+                : LayalSpeechService.DefaultVoiceId;
             settings.MascotScale = Math.Clamp(settings.MascotScale, 0.65, 1.8);
             settings.MascotOpacity = Math.Clamp(settings.MascotOpacity, 0.35, 1.0);
             return settings;
