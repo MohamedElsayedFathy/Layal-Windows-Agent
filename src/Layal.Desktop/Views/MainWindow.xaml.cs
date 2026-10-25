@@ -1766,6 +1766,7 @@ public partial class MainWindow : Window
         if (consent != MessageBoxResult.Yes) return;
 
         var camera = new VisionCameraWindow(IsArabic) { Owner = this };
+        camera.CameraStatusChanged += CameraVisionWindow_CameraStatusChanged;
         camera.AnalyzeRequested += CameraVisionWindow_AnalyzeRequested;
         camera.ObserveRequested += CameraVisionWindow_ObserveRequested;
         camera.AutomaticObservationChanged += CameraVisionWindow_AutomaticObservationChanged;
@@ -1808,6 +1809,8 @@ public partial class MainWindow : Window
             automaticObservation: true);
     }
 
+    private void CameraVisionWindow_CameraStatusChanged(bool isRunning) => UpdateCameraVisionIndicator();
+
     private void CameraVisionWindow_AutomaticObservationChanged(bool enabled)
     {
         _lastCameraObservation = string.Empty;
@@ -1821,6 +1824,7 @@ public partial class MainWindow : Window
     {
         if (_cameraVisionWindow is not null)
         {
+            _cameraVisionWindow.CameraStatusChanged -= CameraVisionWindow_CameraStatusChanged;
             _cameraVisionWindow.AnalyzeRequested -= CameraVisionWindow_AnalyzeRequested;
             _cameraVisionWindow.ObserveRequested -= CameraVisionWindow_ObserveRequested;
             _cameraVisionWindow.AutomaticObservationChanged -= CameraVisionWindow_AutomaticObservationChanged;
@@ -1836,7 +1840,7 @@ public partial class MainWindow : Window
     private void UpdateCameraVisionIndicator()
     {
         if (CameraVisionIndicator is null) return;
-        var active = _cameraVisionWindow is { IsVisible: true };
+        var active = _cameraVisionWindow is { CameraIsRunning: true };
         CameraVisionIndicator.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
         var automatic = active && _cameraVisionWindow?.IsLoaded == true &&
                         _cameraVisionWindow.FindName("ContinuousObservationCheckBox") is CheckBox checkBox &&
