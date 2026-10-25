@@ -16,26 +16,46 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Install .NET 10 SDK
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.x
 
       - name: Install Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
 
+      - name: Validate UI automation sample PowerShell syntax
+        shell: powershell
+        run: |
+          $samplePath = (Resolve-Path "tools/Start-LayalUiAutomationSample.ps1").Path
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($samplePath, [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object {
+              Write-Host "Parse error at line $($_.Extent.StartLineNumber), column $($_.Extent.StartColumnNumber): $($_.Message)"
+            }
+            exit 1
+          }
+          Write-Host "PowerShell sample syntax: PASS"
+
       - name: Static source checks
+        shell: pwsh
         run: |
           python tools/validate_project.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_distribution.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_licenses.py --manifest-only --report artifacts/security/license-manifest-validation.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests/python -p "test_*.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Parse interactive click-through acceptance harness
         shell: pwsh
@@ -103,7 +123,7 @@ jobs:
 
       - name: Upload native desktop acceptance evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Layal-${{ github.sha }}-interactive-acceptance
           path: artifacts/interactive-acceptance/**/*
@@ -112,7 +132,7 @@ jobs:
  
       - name: Upload display and DPI topology evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Layal-${{ github.sha }}-display-dpi
           path: artifacts/display-dpi/**/*
@@ -121,7 +141,7 @@ jobs:
 
       - name: Upload WPF visual smoke screenshots
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Layal-${{ github.sha }}-visual-smoke
           path: artifacts/visual-smoke/**/*
@@ -166,7 +186,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Layal-${{ github.sha }}-test-results
           path: artifacts/test-results/**/*.trx
@@ -175,7 +195,7 @@ jobs:
 
       - name: Upload validated source package
         if: success()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Layal-${{ github.sha }}-source
           path: artifacts/Layal-Windows-Agent-*-source.zip
@@ -184,7 +204,7 @@ jobs:
 
       - name: Upload self-contained Windows publish output
         if: success()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Layal-${{ github.sha }}-self-contained-publish
           path: artifacts/publish/win-x64/
@@ -193,7 +213,7 @@ jobs:
 
       - name: Upload installer, portable ZIP, SBOM and SHA-256 manifest
         if: success()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Layal-${{ github.sha }}-distribution
           path: artifacts/distribution/**/*

@@ -23,13 +23,14 @@ public static class MascotHitTestGeometry
         var x = point.X / scale;
         var y = point.Y / scale;
 
-        var onCore = x >= 48 && x <= 201 && y >= 12 && y <= 139;
-        var onLeftSensor = x >= 5 && x <= 35 && y >= 42 && y <= 94;
-        var onRightSensor = x >= 213 && x <= 243 && y >= 42 && y <= 94;
+        // Layal (portrait) occupies the centre; her robot assistant floats beside her on the left.
+        // Everything outside these shapes and the task props stays click-through.
+        var onLayal = x >= 84 && x <= 210 && y >= 10 && y <= 139;
+        var onRobot = x >= 22 && x <= 76 && y >= 18 && y <= 80;
         var onPaper = taskPropsVisible && x >= 3 && x <= 43 && y >= 90 && y <= 142;
         var onPencil = taskPropsVisible && x >= 28 && x <= 48 && y >= 84 && y <= 134;
         var onComputer = taskPropsVisible && x >= 190 && x <= 246 && y >= 91 && y <= 143;
 
-        return onCore || onLeftSensor || onRightSensor || onPaper || onPencil || onComputer;
+        return onLayal || onRobot || onPaper || onPencil || onComputer;
     }
 }

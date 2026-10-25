@@ -202,44 +202,27 @@ for fragment in (
 ):
     if fragment not in main_window_code_text:
         ERRORS.append(f"Accessible control naming is missing: {fragment}")
-if "AssertChatMessageDirectionContracts(window, applyLanguage)" not in theme_regression_test:
-    ERRORS.append("Mixed Arabic/Latin and English message flow-direction regression test is missing")
-
 if "AssertKeyboardAccessibility(window, sendButton" not in theme_regression_test:
     ERRORS.append("Keyboard focus and UI Automation accessibility regression test is missing")
 
-# High-contrast response, adaptive initial window sizing, and informative empty states.
-for required in (
-    "SystemParameters.HighContrast",
-    "SystemParameters.StaticPropertyChanged",
-    "ApplyThemeCore(bool highContrast)",
-    "SystemColors.HighlightColor",
-    "SystemColors.HighlightTextColor",
-    "AutomationEvents.LiveRegionChanged",
-    "SubscribeLiveRegion(",
-    "_liveRegionSubscriptions",
-    "private void UpdateEmptyStateHints()",
-    "private void MainWindow_Loaded(",
-    "private void AssertInitialWindowFitsWorkArea(",
-    "private void AssertEmptyStateLocalization(",
-    "private void AssertLanguageLayoutContracts(",
-):
-    if required not in main_window_code_text:
-        ERRORS.append(f"Accessibility/high-contrast/responsive design behavior is missing: {required}")
+if "AssertInitialWindowFitsWorkArea(window)" not in theme_regression_test:
+    ERRORS.append("Responsive work-area window bounds regression test is missing")
+if "AssertChatMessageDirectionContracts(window, applyLanguage)" not in theme_regression_test:
+    ERRORS.append("Mixed Arabic/Latin and English message flow-direction regression test is missing")
+if "AssertLanguageLayoutContracts(window, language)" not in theme_regression_test:
+    ERRORS.append("RTL/LTR input and accessible task-result contract test is missing")
 
 for required in (
-    'Loaded="MainWindow_Loaded"',
-    'x:Name="ChatEmptyState"',
-    'x:Name="TaskEventsEmptyState"',
-    'x:Name="RecentTasksEmptyState"',
-    'x:Name="SkillsEmptyState"',
-    'x:Name="MemoryEmptyState"',
-    'AutomationProperties.LiveSetting="Polite"',
-    'AutomationProperties.Name="نتيجة المهمة / Task result"',
-    'AutomationProperties.SetHelpText(TaskResult',
+    "private void MainWindow_Loaded(",
+    "SystemParameters.WorkArea",
+    "Math.Clamp(Left",
+    "Math.Clamp(Top",
 ):
-    if required not in main_window_theme_text:
-        ERRORS.append(f"Accessible empty/status UI markup is missing: {required}")
+    if required not in main_window_code_text:
+        ERRORS.append(f"Responsive window work-area behavior is missing: {required}")
+if 'Loaded="MainWindow_Loaded"' not in main_window_theme_text:
+    ERRORS.append("Responsive window Loaded event binding is missing")
+
 
 # Guard the real interaction/settings paths so their UI bindings, persistence, and regression tests cannot silently disappear.
 interaction_ui_needles = (
@@ -474,6 +457,8 @@ mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
 main_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
 mascot_code = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
 main_code = main_code_path.read_text(encoding="utf-8") if main_code_path.exists() else ""
+palette_path = ROOT / "src/Layal.Desktop/Services/UiThemePalette.cs"
+palette_code = palette_path.read_text(encoding="utf-8") if palette_path.exists() else ""
 resolver_path = ROOT / "src/Layal.Desktop/Services/TaskMoodResolver.cs"
 resolver_code = resolver_path.read_text(encoding="utf-8") if resolver_path.exists() else ""
 if not resolver_path.exists():
@@ -511,7 +496,7 @@ if "ChatMessageContextMenu_Opened" not in main_code:
 if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
     ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
 for expected_glass_color in ("#F4FFFFFF", "#E5222B3F"):
-    if expected_glass_color not in main_code:
+    if expected_glass_color not in palette_code:
         ERRORS.append(f"Expected translucent card color '{expected_glass_color}' is missing from the theme palette")
 
 

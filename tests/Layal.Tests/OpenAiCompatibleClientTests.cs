@@ -120,6 +120,59 @@ data: [DONE]
         Assert.IsNull(handler.LastRequestUri);
     }
 
+    [TestMethod]
+    public async Task ApiKeyWithSurroundingWhitespaceIsTrimmedBeforeSending()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse("{\"data\":[]}"));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false) { Timeout = timeout });
+
+        await client.ProbeAsync("https://provider.example/v1", "  test-secret \t");
+
+        Assert.AreEqual("test-secret", handler.LastAuthorizationParameter);
+    }
+
+    [TestMethod]
+    public async Task AgentTurnToleratesNumericToolIdsAndNonStringContentParts()
+    {
+        const string body = """
+            {"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"hi"},{"type":"other","text":5}],
+              "tool_calls":[{"id":42,"type":"function","function":{"name":"get_current_time","arguments":""}}]}}]}
+            """;
+        using var handler = new RecordingHandler(_ => JsonResponse(body));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false) { Timeout = timeout });
+
+        var turn = await client.AgentTurnAsync("https://provider.example/v1", "m", "k",
+            new JsonArray { new JsonObject { ["role"] = "user", ["content"] = "x" } },
+            new JsonArray { new JsonObject { ["type"] = "function" } });
+
+        Assert.AreEqual("hi", turn.Content);
+        Assert.AreEqual(1, turn.ToolCalls.Count);
+        Assert.AreEqual("42", turn.ToolCalls[0].Id);
+        Assert.AreEqual("{}", turn.ToolCalls[0].ArgumentsJson);
+    }
+
+    [TestMethod]
+    public async Task AgentTurnDropsUnanswerableToolCallsFromTheEchoedAssistantMessage()
+    {
+        const string body = """
+            {"choices":[{"message":{"role":"assistant","content":null,
+              "tool_calls":[
+                {"id":"call_1","type":"function","function":{"name":"get_current_time","arguments":"{}"}},
+                {"type":"function","function":{"name":"missing_id","arguments":"{}"}}]}}]}
+            """;
+        using var handler = new RecordingHandler(_ => JsonResponse(body));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false) { Timeout = timeout });
+
+        var turn = await client.AgentTurnAsync("https://provider.example/v1", "m", "k",
+            new JsonArray { new JsonObject { ["role"] = "user", ["content"] = "x" } },
+            new JsonArray { new JsonObject { ["type"] = "function" } });
+
+        Assert.AreEqual(1, turn.ToolCalls.Count);
+        var echoed = turn.AssistantMessage["tool_calls"] as JsonArray;
+        Assert.IsNotNull(echoed);
+        Assert.AreEqual(1, echoed.Count);
+    }
+
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")

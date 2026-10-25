@@ -22,16 +22,23 @@ public sealed class AgentToolExecutor
     {
         ".txt", ".md", ".cs", ".json", ".xaml", ".xml", ".py", ".yml", ".yaml", ".toml", ".csv"
     };
+    private static readonly System.Text.RegularExpressions.Regex ReservedDeviceName =
+        new(@"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
     private const int MaxReadBytes = 256 * 1024;
     private const int MaxWriteChars = 100 * 1024;
     private const int MaxProcessOutputChars = 120_000;
     private readonly string _workspaceRoot;
     private readonly MemoryService _memory;
+    private readonly ApiConnectionService? _apiConnections;
+    private readonly BrowserAutomationService? _browser;
 
-    public AgentToolExecutor(string workspaceRoot, MemoryService memory)
+    public AgentToolExecutor(string workspaceRoot, MemoryService memory, ApiConnectionService? apiConnections = null, BrowserAutomationService? browser = null)
     {
         _workspaceRoot = Path.GetFullPath(workspaceRoot);
         _memory = memory;
+        _apiConnections = apiConnections;
+        _browser = browser;
         Directory.CreateDirectory(_workspaceRoot);
     }
 
@@ -48,8 +55,17 @@ public sealed class AgentToolExecutor
         Definition("replace_text_in_file", "Replace an exact unique string in a UTF-8 text file inside the workspace. Creates a backup and requires user approval.", """{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}"""),
         Definition("open_notepad", "Open Windows Notepad. Requires user approval.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("open_url", "Open an HTTP or HTTPS URL in the user's default browser. Requires approval.", """{"type":"object","properties":{"url":{"type":"string"}},"required":["url"],"additionalProperties":false}"""),
-        Definition("get_open_window_titles", "List visible top-level window titles. Disabled unless the user opts in, and requires consent before titles are sent to the AI provider.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
+        Definition("browser_navigate", "Navigate the dedicated Layal-controlled Microsoft Edge profile to an HTTP/HTTPS URL. This browser uses a separate profile and does not inherit the user's normal browser cookies or sign-in session. Ask for local approval before every navigation.", """{"type":"object","properties":{"url":{"type":"string","description":"Absolute HTTP/HTTPS URL without embedded credentials"}},"required":["url"],"additionalProperties":false}"""),
+        Definition("browser_read_page", "Read the current page from Layal's dedicated Edge session: title, URL, visible text up to 20,000 characters and bounded lists of links/buttons/fields. The page contents are sent to the AI provider as tool output, so request local approval before reading/sharing them. Navigate first.", """{"type":"object","properties":{},"additionalProperties":false}"""),
+        Definition("browser_click", "Click one visible link/button in Layal's dedicated browser using a CSS selector. Inspect the target locally, show its details, require fresh approval, and revalidate the exact page and element before dispatching a DOM click. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one intended visible link or button"}},"required":["selector"],"additionalProperties":false}"""),
+        Definition("browser_fill", "Fill a visible editable text/email/search/telephone/URL/number input, textarea, or contenteditable element in Layal's dedicated browser using a CSS selector. Password, file, hidden, and button fields are deliberately unsupported. Show the text preview, require fresh approval, and revalidate the page and element. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector for a single visible supported text field"},"text":{"type":"string","description":"Text to enter; max 10,000 characters"}},"required":["selector","text"],"additionalProperties":false}"""),
+        Definition("get_open_window_titles", "Call this tool when the user asks to list visible windows. Disabled unless the user opts in; Layal itself will display a local consent prompt before titles are shared with the AI provider. Do not ask for separate permission in chat instead of calling this tool.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("activate_window", "Bring a visible window with an exact title to the foreground. Requires user approval.", """{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}"""),
+        Definition("inspect_window_controls", "Call this tool directly when the user asks to inspect UI elements in a known visible external window. Supply its exact title. Read-only; Layal itself displays a local consent prompt before sharing labels and identifiers with the AI provider, so do not ask a separate natural-language permission question first. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
+        Definition("click_ui_control", "Invoke exactly one uniquely identified supported control in one visible external window after explicit per-action approval. Requires the exact AutomationId and supported control type; no free-form mouse/keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of the visible external window"},"control_type":{"type":"string","enum":["Button","Hyperlink","MenuItem","SplitButton"]},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"}},"required":["window_title","control_type","automation_id"],"additionalProperties":false}"""),
+        Definition("fill_ui_text", "Set the value of one exact visible Windows UI Automation Edit field in an external application after explicit local approval. Requires the exact window title and AutomationId from inspect_window_controls. Never use for password, protected, read-only, disabled, offscreen, or ambiguous controls; it does not press Enter or submit forms.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact unique visible title of the external application window"},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"},"text":{"type":"string","description":"Value to enter; maximum 10,000 characters"}},"required":["window_title","automation_id","text"],"additionalProperties":false}"""),
+        Definition("set_ui_checkbox", "Set one uniquely identified visible Windows CheckBox to checked or unchecked after fresh local approval. Requires the exact AutomationId from inspect_window_controls. Indeterminate/three-state checkboxes, ambiguous controls, and unsupported controls are rejected. Does not use coordinates or keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact unique visible title of the external application window"},"automation_id":{"type":"string","description":"Exact non-empty AutomationId of one CheckBox reported by inspect_window_controls"},"checked":{"type":"boolean","description":"true to check the box, false to uncheck it"}},"required":["window_title","automation_id","checked"],"additionalProperties":false}"""),
+        Definition("call_app_api", _apiConnections?.BuildToolDescription() ?? "No external app API connection service is available. Do not invent a connection.", """{"type":"object","properties":{"connection_name":{"type":"string","description":"Exact configured connection name from the available connections"},"method":{"type":"string","enum":["GET","POST","PUT","PATCH","DELETE"]},"path":{"type":"string","description":"Relative path beneath the configured base URL; do not include scheme, query, or fragment"},"query_json":{"type":"string","description":"Optional JSON object of query parameters; use empty string for none"},"body_json":{"type":"string","description":"Optional valid JSON request body; use empty string when not needed, and never send a body with GET"}},"required":["connection_name","method","path","query_json","body_json"],"additionalProperties":false}"""),
         Definition("run_dotnet_build", "Run dotnet build for a .sln or .csproj inside the approved workspace. Build targets may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("run_dotnet_test", "Run dotnet test for a .sln or .csproj inside the approved workspace. Tests may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("search_memory", "Search user-managed Layal memory. Always ask permission before sharing matched notes with the configured AI provider.", """{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}"""),
@@ -79,8 +95,17 @@ public sealed class AgentToolExecutor
             "replace_text_in_file" => await ReplaceTextAsync(GetString(args, "path"), GetString(args, "old_text"), GetString(args, "new_text"), confirm, report, cancellationToken),
             "open_notepad" => await OpenNotepadAsync(confirm, cancellationToken),
             "open_url" => await OpenUrlAsync(GetString(args, "url"), confirm, cancellationToken),
+            "browser_navigate" => await BrowserNavigateAsync(GetString(args, "url"), confirm, report, cancellationToken),
+            "browser_read_page" => await BrowserReadPageAsync(confirm, report, cancellationToken),
+            "browser_click" => await BrowserClickAsync(GetString(args, "selector"), confirm, report, cancellationToken),
+            "browser_fill" => await BrowserFillAsync(GetString(args, "selector"), GetString(args, "text"), confirm, report, cancellationToken),
             "get_open_window_titles" => await GetWindowTitlesAsync(confirm, cancellationToken),
             "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
+            "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
+            "click_ui_control" => await InvokeWindowControlAsync(GetString(args, "window_title"), GetString(args, "control_type"), GetString(args, "automation_id"), confirm, report, cancellationToken),
+            "fill_ui_text" => await FillUiTextAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetString(args, "text"), confirm, report, cancellationToken),
+            "set_ui_checkbox" => await SetUiCheckboxAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetBoolean(args, "checked"), confirm, report, cancellationToken),
+            "call_app_api" => await CallAppApiAsync(GetString(args, "connection_name"), GetString(args, "method"), GetString(args, "path"), GetString(args, "query_json"), GetString(args, "body_json"), confirm, report, cancellationToken),
             "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "search_memory" => await SearchMemoryAsync(GetString(args, "query"), confirm, cancellationToken),
@@ -108,6 +133,13 @@ public sealed class AgentToolExecutor
         if (args[name] is not JsonValue value || !value.TryGetValue<string>(out var result))
             throw new InvalidOperationException($"Required string argument '{name}' is missing or invalid.");
         if (result.Length > 150_000) throw new InvalidOperationException($"Argument '{name}' is too large.");
+        return result;
+    }
+
+    private static bool GetBoolean(JsonObject args, string name)
+    {
+        if (args[name] is not JsonValue value || !value.TryGetValue<bool>(out var result))
+            throw new InvalidOperationException($"Required boolean argument '{name}' is missing or invalid.");
         return result;
     }
 
@@ -238,7 +270,7 @@ public sealed class AgentToolExecutor
     private async Task<string> GetWindowTitlesAsync(Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
     {
         if (!AppRuntime.Settings.AllowWindowTitleInspection)
-            return "Window-title inspection is disabled in Layal settings. Ask the user to enable it first.";
+            return "Window and UI inspection is disabled in Layal settings. Ask the user to enable it first.";
         var titles = WindowInventory.GetVisibleWindowTitles();
         if (titles.Count == 0) return "No titled visible windows were found.";
         var content = string.Join(Environment.NewLine, titles.Take(60).Select(x => $"{x.Title} (PID {x.ProcessId})"));
@@ -250,13 +282,267 @@ public sealed class AgentToolExecutor
     private async Task<string> ActivateWindowAsync(string title, Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
     {
         if (!AppRuntime.Settings.AllowWindowTitleInspection)
-            return "Window interaction is disabled. Enable window-title inspection in Settings first.";
+            return "Window interaction is disabled. Enable window and UI inspection in Settings first.";
         if (title.Length > 200) throw new InvalidOperationException("Window title is too long.");
         if (!await confirm("Activate window", $"Try to bring a window with this exact title to the foreground?\n{title}", token)) return "User declined window activation.";
         token.ThrowIfCancellationRequested();
         return WindowInventory.ActivateWindowByExactTitle(title)
             ? "Windows accepted the request to activate the matching window. Verify the foreground state manually if important."
             : "No visible window with that exact title was found or Windows declined the activation request.";
+    }
+
+    private async Task<string> InspectWindowControlsAsync(
+        string title,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (!AppRuntime.Settings.AllowWindowTitleInspection)
+            return "Window and UI inspection is disabled in Layal settings. Ask the user to enable it first.";
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+            throw new InvalidOperationException("Provide an exact visible window title up to 200 characters.");
+
+        var target = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (target is null)
+            throw new InvalidOperationException("No unique visible external window with that exact title was found. Use get_open_window_titles to review available windows.");
+        var approvalText = $"Read the accessible control labels and automation identifiers in '{target.Title}' (PID {target.ProcessId})? This is read-only. Editable field values and screenshots are not read, and no click or keystroke will be sent. The selected metadata will be shared with the configured AI provider and may still reveal private information.";
+        if (!await confirm("Inspect application controls", approvalText, token))
+            return "User declined UI inspection. No controls were read or shared.";
+
+        token.ThrowIfCancellationRequested();
+        var controls = await WindowsUiAutomationService.ReadControlsAsync(target, maxControls: 60, cancellationToken: token);
+        report($"Read-only UI inspection completed for an external window (PID {target.ProcessId}); {controls.Count} eligible controls returned.");
+        return WindowsUiAutomationService.FormatReport(target.Title, target.ProcessId, controls);
+    }
+
+    private async Task<string> InvokeWindowControlAsync(
+        string title,
+        string controlType,
+        string automationId,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (!AppRuntime.Settings.AllowWindowTitleInspection)
+            return "Window and UI inspection is disabled in Layal settings. Ask the user to enable it first.";
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+            throw new InvalidOperationException("Provide an exact visible window title up to 200 characters.");
+
+        _ = WindowsUiAutomationService.NormalizeInvokeControlType(controlType);
+        automationId = WindowsUiAutomationService.ValidateAutomationId(automationId);
+
+        var target = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (target is null)
+            throw new InvalidOperationException("No unique visible external window with that exact title was found. Use get_open_window_titles first.");
+
+        var preview = await WindowsUiAutomationService.PreviewInvokeControlAsync(target, controlType, automationId, token);
+        var accessibleName = string.IsNullOrWhiteSpace(preview.Name) ? "(no accessible label)" : $"'{preview.Name}'";
+        var approvalText =
+            $"Perform exactly one UI Automation Invoke action in external window '{target.Title}' (PID {target.ProcessId})?\n" +
+            $"Control: {preview.ControlType}; accessible label: {accessibleName}; AutomationId: '{preview.AutomationId}'.\n\n" +
+            "This may activate a button, link, menu item, submit a form, navigate away, or change data in the target app. Confirm that the window and control are correct. " +
+            "Layal will send no coordinates, typed text, or additional UI actions. A separate action requires another approval.";
+        if (!await confirm("Invoke one application control", approvalText, token))
+            return "User declined the UI action. No control was invoked.";
+
+        token.ThrowIfCancellationRequested();
+
+        // The user may have changed focus or closed a window while reviewing the approval.
+        // Re-resolve the exact title and require the same native handle and process ID.
+        var confirmedTarget = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (confirmedTarget is null ||
+            confirmedTarget.Handle != target.Handle ||
+            confirmedTarget.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The selected window changed while awaiting approval. No UI action was performed; inspect the target again.");
+
+        token.ThrowIfCancellationRequested();
+        var outcome = await WindowsUiAutomationService.InvokeControlAsync(confirmedTarget, controlType, automationId, token);
+        report($"One approved UI Automation action was issued to external PID {confirmedTarget.ProcessId}; application-level success still requires observing the app.");
+        return WindowsUiAutomationService.FormatInvokeReport(outcome);
+    }
+
+    private async Task<string> FillUiTextAsync(
+        string title,
+        string automationId,
+        string text,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (!AppRuntime.Settings.AllowWindowTitleInspection)
+            return "Window and UI inspection is disabled in Layal settings. Enable it in Settings before interacting with external applications.";
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+            throw new InvalidOperationException("Provide an exact visible external window title up to 200 characters.");
+
+        automationId = WindowsUiAutomationService.ValidateAutomationId(automationId);
+        _ = WindowsUiAutomationService.ValidateUiText(text);
+
+        var target = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (target is null)
+            throw new InvalidOperationException("No unique visible external window with that exact title was found. Use get_open_window_titles and inspect_window_controls first.");
+
+        var preview = await WindowsUiAutomationService.PreviewSetTextAsync(target, automationId, token);
+        var shownText = text.Length <= 700 ? text : text[..700] + "… (truncated in preview)";
+        var nl = Environment.NewLine;
+        var approvalText =
+            $"Set the value of exactly one editable field in external window '{target.Title}' (PID {target.ProcessId})?{nl}" +
+            $"Control type: Edit; AutomationId: '{preview.AutomationId}'; characters: {text.Length}.{nl}{nl}" +
+            $"Text to enter (preview; may be sensitive):{nl}{shownText}{nl}{nl}" +
+            "Layal will not read back the existing field value, will not use password fields, and will not press Enter or submit the form. The field must remain the same unique, enabled, visible, writable control while you review this approval.";
+
+        if (!await confirm("Enter text in application field", approvalText, token))
+            return "User declined the Windows text-entry action. No field value was changed.";
+
+        token.ThrowIfCancellationRequested();
+
+        // The user may have closed the app or changed the selected window while reading the prompt.
+        var confirmedTarget = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (confirmedTarget is null ||
+            confirmedTarget.Handle != target.Handle ||
+            confirmedTarget.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The selected window changed while awaiting approval. No text was entered; inspect the target again.");
+
+        token.ThrowIfCancellationRequested();
+        var outcome = await WindowsUiAutomationService.SetTextAsync(confirmedTarget, preview, text, token);
+        report($"One approved UI Automation ValuePattern.SetValue call was issued to external PID {outcome.ProcessId}; the application-level result is not confirmed.");
+        return WindowsUiAutomationService.FormatTextEntryReport(outcome);
+    }
+
+    private async Task<string> SetUiCheckboxAsync(
+        string title,
+        string automationId,
+        bool shouldBeChecked,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (!AppRuntime.Settings.AllowWindowTitleInspection)
+            return "Window and UI inspection is disabled in Layal settings. Enable it in Settings before interacting with external applications.";
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+            throw new InvalidOperationException("Provide an exact visible external window title up to 200 characters.");
+
+        automationId = WindowsUiAutomationService.ValidateAutomationId(automationId);
+        var target = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (target is null)
+            throw new InvalidOperationException("No unique visible external window with that exact title was found. Use get_open_window_titles and inspect_window_controls first.");
+
+        var preview = await WindowsUiAutomationService.PreviewSetCheckBoxAsync(target, automationId, token);
+        var requested = shouldBeChecked ? "checked (On)" : "unchecked (Off)";
+        var current = preview.IsChecked ? "checked (On)" : "unchecked (Off)";
+        var approvalText =
+            $"Set one checkbox in external window '{target.Title}' (PID {target.ProcessId}) to {requested}?\n" +
+            $"AutomationId: '{preview.AutomationId}'. Current observed state: {current}.\n\n" +
+            "Layal will target only this exact CheckBox. It will reject ambiguous, hidden, disabled, changed, or indeterminate controls. It will not send coordinates or keyboard input. If the checkbox already has the requested state, no toggle is needed.";
+
+        if (!await confirm("Set application checkbox", approvalText, token))
+            return "User declined the Windows checkbox action. No state change was requested.";
+
+        token.ThrowIfCancellationRequested();
+        var confirmedTarget = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (confirmedTarget is null || confirmedTarget.Handle != target.Handle || confirmedTarget.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The selected window changed while awaiting approval. No checkbox action was performed; inspect the target again.");
+
+        token.ThrowIfCancellationRequested();
+        var outcome = await WindowsUiAutomationService.SetCheckBoxAsync(confirmedTarget, preview, shouldBeChecked, token);
+        report($"One approved TogglePattern state-setting action was issued to external PID {outcome.ProcessId}; verify the application's resulting state.");
+        return WindowsUiAutomationService.FormatCheckBoxReport(outcome);
+    }
+
+    private async Task<string> BrowserNavigateAsync(
+        string url,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        var target = BrowserAutomationService.ValidateHttpUrl(url);
+        var warning = "Open this URL in a separate Layal-controlled Microsoft Edge profile? The website will receive the request and its network-visible metadata. This profile does not reuse your normal browser sign-in session.\n\nURL: " + target.AbsoluteUri;
+        if (!await confirm("Navigate Layal browser", warning, token))
+            return "User declined browser navigation. No navigation was performed.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.NavigateAsync(target.AbsoluteUri, token);
+        report("Layal browser navigation was requested for " + target.AbsoluteUri + "; the site's intended outcome has not been verified.");
+        return result;
+    }
+
+    private async Task<string> BrowserReadPageAsync(
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        if (!await confirm("Read browser page", "Read the current page from Layal's dedicated Edge session and share its title, URL, visible text (up to 20,000 characters), and bounded link/button/field metadata with the configured AI provider? Page content may contain personal or confidential information. Navigate in Layal's browser first.", token))
+            return "User declined to share the browser page. No page content was read for the AI provider.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.ReadCurrentPageAsync(token);
+        report("The current Layal browser page metadata/text was read and returned to the AI provider.");
+        return result;
+    }
+
+    private async Task<string> BrowserClickAsync(
+        string selector,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        var preview = await _browser.PreviewElementAsync(selector, "click", token);
+        var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nElement: {preview.Tag}\nLabel/name: {Truncate(preview.Label, 160)}\nText: {Truncate(preview.Text, 160)}\nLink URL: {Truncate(preview.Href, 500)}";
+        if (!await confirm("Click browser element", "Dispatch one click to this visible link/button in Layal's dedicated browser? This may navigate, submit a form, or modify remote data. Verify the element and destination before approving.\n\n" + details, token))
+            return "User declined browser click. No click was dispatched.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.ClickElementAsync(preview, token);
+        report("One browser DOM click event was dispatched after explicit approval. The site-level outcome must be verified.");
+        return result;
+    }
+
+    private async Task<string> BrowserFillAsync(
+        string selector,
+        string text,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+        if (text.Length > 10_000) throw new InvalidOperationException("Text entry is limited to 10,000 characters.");
+        var preview = await _browser.PreviewElementAsync(selector, "fill", token);
+        var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nField: {preview.Tag} {preview.Type}\nLabel/name: {Truncate(preview.Label, 160)} / {Truncate(preview.Name, 160)}\nText to enter ({text.Length} characters): {Truncate(text, 700)}";
+        if (!await confirm("Fill browser field", "Enter this text into one visible field on the current page? The text will be sent to that website. Password and file fields are blocked. Review the text and target before approving.\n\n" + details, token))
+            return "User declined browser text entry. No text was entered.";
+        token.ThrowIfCancellationRequested();
+        var result = await _browser.FillElementAsync(preview, text, token);
+        report($"Text-entry events were dispatched to one approved browser field ({text.Length} characters). The site's form state and submission outcome are not confirmed.");
+        return result;
+    }
+
+    private async Task<string> CallAppApiAsync(
+        string connectionName,
+        string method,
+        string path,
+        string queryJson,
+        string bodyJson,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_apiConnections is null)
+            throw new InvalidOperationException("External app API connections are not initialized. Configure API integrations in Layal first.");
+        var preview = _apiConnections.PreviewRequest(connectionName, method, path, queryJson, bodyJson);
+        var warning =
+            "Send this request to the configured external application API? This can read data or create, update, or delete records depending on the method and endpoint. " +
+            "The API response will be sent back to the configured AI provider as tool output. Review the method, endpoint, and body carefully. No API credential will be shown to the model.\n\n" +
+            preview;
+        if (!await confirm("Call external application API", warning, token))
+            return "User declined the external API request. No request was sent.";
+
+        token.ThrowIfCancellationRequested();
+        var result = await _apiConnections.SendAsync(connectionName, method, path, queryJson, bodyJson, token);
+        report($"External API request to '{connectionName}' returned HTTP {result.StatusCode}; response body may have been forwarded to the configured AI provider.");
+        return result.ToDisplayText();
     }
 
     private async Task<string> RunDotnetAsync(string verb, string relativeProjectFile, string configuration, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
@@ -295,6 +581,9 @@ public sealed class AgentToolExecutor
         catch (OperationCanceledException)
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+            // The bounded readers were cancelled together with the wait; observe them so their
+            // cancellation is not reported later as an unobserved task exception.
+            try { await Task.WhenAll(stdoutTask, stderrTask); } catch { }
             token.ThrowIfCancellationRequested();
             throw new TimeoutException($"dotnet {verb} timed out after 120 seconds; process termination was requested.");
         }
@@ -332,6 +621,9 @@ public sealed class AgentToolExecutor
             throw new InvalidOperationException("Use a non-empty relative path inside LayalWorkspace.");
         var parts = relativePath.Replace('/', Path.DirectorySeparatorChar).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Any(p => p is "." or "..")) throw new InvalidOperationException("Relative paths cannot contain '.' or '..' path segments.");
+        // Alternate data streams ("file.txt:hidden") and Windows device names (NUL, CON, COM1...) are never valid workspace targets.
+        if (parts.Any(p => p.Contains(':') || ReservedDeviceName.IsMatch(p)))
+            throw new InvalidOperationException("Path segments cannot contain ':' or use reserved Windows device names.");
         var fullPath = Path.GetFullPath(Path.Combine(_workspaceRoot, relativePath));
         var relative = Path.GetRelativePath(_workspaceRoot, fullPath);
         if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
