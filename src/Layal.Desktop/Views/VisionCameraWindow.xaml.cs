@@ -13,7 +13,7 @@ namespace Layal.Views;
 public partial class VisionCameraWindow : Window
 {
     private readonly bool _isArabic;
-    private readonly VideoCapture _capture = new();
+    private VideoCapture? _capture;
     private readonly Mat _frame = new();
     private readonly Mat _displayFrame = new();
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(120) };
@@ -21,6 +21,8 @@ public partial class VisionCameraWindow : Window
     private byte[]? _latestJpeg;
     private bool _captureReady;
     private bool _isClosing;
+
+    public bool CameraIsRunning => _captureReady && IsVisible;
 
     public event Action<byte[]>? AnalyzeRequested;
     public event Action<byte[]>? ObserveRequested;
@@ -59,6 +61,7 @@ public partial class VisionCameraWindow : Window
     {
         try
         {
+            _capture = new VideoCapture();
             _captureReady = _capture.Open(0, VideoCaptureAPIs.DSHOW);
             if (!_captureReady)
                 _captureReady = _capture.Open(0, VideoCaptureAPIs.MSMF);
@@ -87,7 +90,7 @@ public partial class VisionCameraWindow : Window
         if (!_captureReady || _isClosing) return;
         try
         {
-            if (!_capture.Read(_frame) || _frame.Empty()) return;
+            if (_capture is null || !_capture.Read(_frame) || _frame.Empty()) return;
 
             var scale = Math.Min(1d, Math.Min(1280d / _frame.Width, 900d / _frame.Height));
             if (scale < 1d)
@@ -192,8 +195,8 @@ public partial class VisionCameraWindow : Window
         _observationTimer.Tick -= ObservationTimer_Tick;
         if (ContinuousObservationCheckBox.IsChecked == true)
             AutomaticObservationChanged?.Invoke(false);
-        try { _capture.Release(); } catch { }
-        _capture.Dispose();
+        try { _capture?.Release(); } catch { }
+        _capture?.Dispose();
         _frame.Dispose();
         _displayFrame.Dispose();
         CameraPreview.Source = null;
