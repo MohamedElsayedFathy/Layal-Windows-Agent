@@ -229,6 +229,46 @@
       "licenseTextPath": "licenses/MIT-JeremyAnsel.HLSL.Targets.txt",
       "copyright": "Copyright (c) 2019-2022 Jérémy Ansel",
       "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "NAudio.WinMM",
+      "licenseExpression": "MIT",
+      "versionPolicy": "direct dependency pinned to 3.3.0",
+      "sourceUrl": "https://www.nuget.org/packages/NAudio.WinMM/3.3.0",
+      "licenseUrl": "https://github.com/naudio/NAudio/blob/main/LICENSE",
+      "licenseTextPath": "licenses/MIT-NAudio.txt",
+      "copyright": "Copyright (c) Mark Heath and NAudio contributors",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "NAudio.Core",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency from NAudio.WinMM 3.3.0",
+      "sourceUrl": "https://www.nuget.org/packages/NAudio.Core/3.3.0",
+      "licenseUrl": "https://github.com/naudio/NAudio/blob/main/LICENSE",
+      "licenseTextPath": "licenses/MIT-NAudio.txt",
+      "copyright": "Copyright (c) Mark Heath and NAudio contributors",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "NAudio.Midi",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency from NAudio.WinMM 3.3.0",
+      "sourceUrl": "https://www.nuget.org/packages/NAudio.Midi/3.3.0",
+      "licenseUrl": "https://github.com/naudio/NAudio/blob/main/LICENSE",
+      "licenseTextPath": "licenses/MIT-NAudio.txt",
+      "copyright": "Copyright (c) Mark Heath and NAudio contributors",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "System.Numerics.Tensors",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency required by the NAudio speech-capture dependency graph; version 9.0.0 observed in the CI-generated SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/System.Numerics.Tensors/9.0.0",
+      "licenseUrl": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
+      "licenseTextPath": "licenses/MIT-SystemNumericsTensors.txt",
+      "copyright": "Copyright (c) .NET Foundation and Contributors",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
     }
   ],
   "provenanceReview": {

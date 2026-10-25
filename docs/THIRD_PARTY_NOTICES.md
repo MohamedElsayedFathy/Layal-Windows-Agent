@@ -29,4 +29,36 @@ Resolved versions for the build are recorded in the generated CycloneDX SBOM.
 - Package metadata: https://www.nuget.org/packages/JeremyAnsel.HLSL.Targets
 - License text: licenses/MIT-JeremyAnsel.HLSL.Targets.txt
 
+## System.Numerics.Tensors
+
+- Package: System.Numerics.Tensors version 9.0.0 (transitive dependency; confirmed in the CI-generated SBOM)
+- License declared by upstream: MIT
+- Project/source: https://github.com/dotnet/runtime
+- Package metadata: https://www.nuget.org/packages/System.Numerics.Tensors/9.0.0
+- License text: licenses/MIT-SystemNumericsTensors.txt
+
 These notices capture license declarations published by the package sources. They are an inventory aid, not a legal opinion or certification of compatibility for every intended use or distribution model. Human review is still required for project licensing, included assets, and final distribution.
+
+## NAudio.WinMM
+
+- Package: NAudio.WinMM version 3.3.0 (direct dependency)
+- License declared by upstream: MIT
+- Project/source: https://github.com/naudio/NAudio
+- Package metadata: https://www.nuget.org/packages/NAudio.WinMM/3.3.0
+- License text: licenses/MIT-NAudio.txt
+
+## NAudio.Core
+
+- Package: NAudio.Core version 3.3.0 (transitive dependency)
+- License declared by upstream: MIT
+- Project/source: https://github.com/naudio/NAudio
+- Package metadata: https://www.nuget.org/packages/NAudio.Core/3.3.0
+- License text: licenses/MIT-NAudio.txt
+
+## NAudio.Midi
+
+- Package: NAudio.Midi version 3.3.0 (transitive dependency)
+- License declared by upstream: MIT
+- Project/source: https://github.com/naudio/NAudio
+- Package metadata: https://www.nuget.org/packages/NAudio.Midi/3.3.0
+- License text: licenses/MIT-NAudio.txt
