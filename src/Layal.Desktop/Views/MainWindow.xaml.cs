@@ -1807,8 +1807,8 @@ public partial class MainWindow : Window
 
         var extraQuestion = ChatInput.Text.Trim();
         var prompt = IsArabic
-            ? "صف المكان الظاهر في الصورة المحيطة بالكاميرا: الغرفة أو المساحة، الأشياء والأثاث، الأبواب والنوافذ والعلامات المرئية، والعلاقات المكانية الواضحة. فرّق بين ما تراه فعلًا وما لا يمكن الجزم به من لقطة واحدة، ولا تحدد هوية أي شخص أو تستنتج معلومات حساسة. إذا كانت الصورة مظلمة أو محجوبة أو غير قابلة للتحليل فاذكر ذلك بوضوح."
-            : "Describe the scene visible around the camera: the room or area, objects and furniture, visible doors/windows/signs, and clear spatial relationships. Distinguish visible evidence from what cannot be established from one still image; do not identify people or infer sensitive traits. If the image is dark, obstructed, or cannot be analyzed, say so explicitly.";
+            ? "صف المكان الظاهر في الصورة المحيطة بالكاميرا: الغرفة أو المساحة، الأشياء والأثاث، الأبواب والنوافذ والعلامات، وأي كاميرات أو أجهزة استشعار ظاهرة، والعلاقات المكانية الواضحة. فرّق بين ما تراه فعلًا وما لا يمكن الجزم به من لقطة واحدة، ولا تحدد هوية أي شخص أو تستنتج معلومات حساسة. إذا كانت الصورة مظلمة أو محجوبة أو غير قابلة للتحليل فاذكر ذلك بوضوح."
+            : "Describe the scene visible around the camera: the room or area, objects and furniture, visible doors/windows/signs, any visibly present cameras or sensors, and clear spatial relationships. Distinguish visible evidence from what cannot be established from one still image; do not identify people or infer sensitive traits. If the image is dark, obstructed, or cannot be analyzed, say so explicitly.";
         if (!string.IsNullOrWhiteSpace(extraQuestion))
             prompt += (IsArabic ? "\nطلب إضافي: " : "\nAdditional question: ") + extraQuestion;
 
