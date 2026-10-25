@@ -289,16 +289,6 @@
       "licenseTextPath": "licenses/Apache-2.0-OpenCvSharp.txt",
       "copyright": "OpenCvSharp contributors; see upstream project license and notices.",
       "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
-    },
-    {
-      "id": "Microsoft.Windows.SDK.NET.Ref",
-      "licenseExpression": "LicenseRef-Microsoft-Windows-SDK",
-      "versionPolicy": "direct SDK targeting-pack dependency pinned to 10.0.28000.87 for Windows API projections; not an app runtime feature package",
-      "sourceUrl": "https://www.nuget.org/packages/Microsoft.Windows.SDK.NET.Ref/10.0.28000.87",
-      "licenseUrl": "https://aka.ms/WinSDKLicenseURL",
-      "licenseTextPath": "licenses/Microsoft-Windows-SDK-Notice.txt",
-      "copyright": "Microsoft Corporation; review applicable Microsoft Windows SDK license terms.",
-      "reviewStatus": "Upstream Microsoft license link recorded; package-specific license metadata and project redistribution compatibility review remain pending."
     }
   ],
   "provenanceReview": {
