@@ -18,7 +18,7 @@ public sealed class WeatherServiceTests
     {
         using var handler = new QueueResponseHandler(
             """{"results":[{"name":"Cairo","country":"Egypt","latitude":30.0444,"longitude":31.2357,"timezone":"Africa/Cairo"}]}""",
-            """{"current":{"time":"2026-10-25T20:00","temperature_2m":27.4,"apparent_temperature":28.1,"relative_humidity_2m":46,"weather_code":1,"wind_speed_10m":13.6}}""");
+            """{"timezone":"Africa/Cairo","utc_offset_seconds":10800,"current":{"time":"2026-10-25T20:00","temperature_2m":27.4,"apparent_temperature":28.1,"relative_humidity_2m":46,"weather_code":1,"wind_speed_10m":13.6}}""");
         using var client = new HttpClient(handler);
         var service = new WeatherService(client);
 
@@ -30,6 +30,8 @@ public sealed class WeatherServiceTests
         Assert.AreEqual(46, report.RelativeHumidityPercent);
         Assert.AreEqual(13.6, report.WindSpeedKmh, 0.001);
         Assert.AreEqual(1, report.WeatherCode);
+        Assert.AreEqual("Africa/Cairo", report.TimeZoneId);
+        Assert.AreEqual(10800, report.UtcOffsetSeconds);
         Assert.AreEqual(2, handler.RequestedUris.Count);
         StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "geocoding-api.open-meteo.com");
         StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "name=Cairo%2C%20Egypt");
@@ -37,6 +39,42 @@ public sealed class WeatherServiceTests
         StringAssert.Contains(handler.RequestedUris[1].AbsoluteUri, "latitude=30.0444");
         StringAssert.Contains(handler.RequestedUris[1].AbsoluteUri, "longitude=31.2357");
         StringAssert.Contains(handler.RequestedUris[1].AbsoluteUri, "weather_code");
+    }
+
+    [TestMethod]
+    public async Task GetCurrentWeatherAtCoordinatesAsyncUsesDetectedCoordinatesAndTimezone()
+    {
+        using var handler = new QueueResponseHandler(
+            """{"timezone":"Europe/Paris","utc_offset_seconds":7200,"current":{"temperature_2m":16.2,"apparent_temperature":15.7,"relative_humidity_2m":63,"weather_code":2,"wind_speed_10m":8.4}}""");
+        using var client = new HttpClient(handler);
+        var service = new WeatherService(client);
+
+        var report = await service.GetCurrentWeatherAtCoordinatesAsync(48.8566, 2.3522, isArabic: true);
+
+        Assert.AreEqual("موقعك الحالي", report.LocationDisplay);
+        Assert.AreEqual(16.2, report.TemperatureC, 0.001);
+        Assert.AreEqual("Europe/Paris", report.TimeZoneId);
+        Assert.AreEqual(7200, report.UtcOffsetSeconds);
+        Assert.AreEqual(1, handler.RequestedUris.Count);
+        StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "api.open-meteo.com/v1/forecast");
+        StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "latitude=48.8566");
+        StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "longitude=2.3522");
+        StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "timezone=auto");
+    }
+
+    [TestMethod]
+    public async Task GetCurrentWeatherAtCoordinatesAsyncRejectsInvalidCoordinatesWithoutNetworkRequest()
+    {
+        using var handler = new QueueResponseHandler();
+        using var client = new HttpClient(handler);
+        var service = new WeatherService(client);
+
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => service.GetCurrentWeatherAtCoordinatesAsync(91, 0, isArabic: false));
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => service.GetCurrentWeatherAtCoordinatesAsync(0, double.NaN, isArabic: false));
+
+        Assert.AreEqual(0, handler.RequestedUris.Count);
     }
 
     [TestMethod]

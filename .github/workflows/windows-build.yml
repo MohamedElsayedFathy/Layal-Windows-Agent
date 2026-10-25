@@ -92,22 +92,37 @@ jobs:
       - name: Release build
         run: dotnet build Layal.sln --configuration Release --no-restore --nologo
 
+      - name: Keep device location opt-in during headless native acceptance
+        shell: pwsh
+        run: |
+          $settingsPath = Join-Path $env:LOCALAPPDATA "Layal\settings.json"
+          $settingsDirectory = Split-Path -Parent $settingsPath
+          New-Item -ItemType Directory -Path $settingsDirectory -Force | Out-Null
+          $settings = @{}
+          if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+            $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json -AsHashtable
+            if ($null -eq $settings) { $settings = @{} }
+          }
+          $settings["UseAutomaticLocation"] = $false
+          $json = ConvertTo-Json -InputObject $settings -Depth 100
+          [IO.File]::WriteAllText($settingsPath, $json, [Text.UTF8Encoding]::new($false))
+
       - name: Run native Windows desktop click-through integration
         shell: pwsh
         run: |
-          & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance/click-through" -ClickThroughOnly
+          & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance/click-through" -ClickThroughOnly
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run native Windows desktop mouse-drag integration
         shell: pwsh
         run: |
-          & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance/drag" -DragOnly
+          & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance/drag" -DragOnly
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
  
       - name: Run Windows display and DPI topology smoke test
         shell: pwsh
         run: |
-          & .\\tools\\Test-LayalDisplayDpi.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows\\Layal.exe" -ObserveSeconds 3 -LogDirectory "artifacts/display-dpi"
+          & .\\tools\\Test-LayalDisplayDpi.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -ObserveSeconds 3 -LogDirectory "artifacts/display-dpi"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $summaryPath = "artifacts/display-dpi/display-dpi-summary.json"
           if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { throw "Display/DPI diagnostic did not write its JSON summary." }

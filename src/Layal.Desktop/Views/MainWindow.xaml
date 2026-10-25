@@ -117,7 +117,7 @@
                                             <TextBlock x:Name="WeatherTemperatureText" Text="—°C"
                                                        FontSize="25" FontWeight="SemiBold" Margin="0,3,10,0"
                                                        AutomationProperties.Name="درجة الحرارة الحالية"/>
-                                            <TextBlock x:Name="WeatherSummaryText" Text="حدّد المدينة من الإعدادات"
+                                            <TextBlock x:Name="WeatherSummaryText" Text="سيتم تحديد موقعك تلقائيًا"
                                                        FontSize="13" VerticalAlignment="Center"
                                                        TextWrapping="Wrap" MaxWidth="300"/>
                                         </StackPanel>
@@ -510,19 +510,23 @@
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="WeatherSettingsTitle" Text="حالة الطقس في الرئيسية"
                                    FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
-                        <TextBlock x:Name="WeatherLocationLabel" Text="المدينة أو المدينة مع الدولة"
+                        <Button x:Name="UseMyLocationButton" Content="اكتشاف موقعي واستخدامه تلقائيًا"
+                                Click="UseMyLocationButton_Click" Margin="4,5,4,0"
+                                AutomationProperties.Name="اكتشاف الموقع الحالي"
+                                AutomationProperties.HelpText="يطلب السماح من Windows لقراءة موقع تقريبي، ثم يستخدمه للوقت والتاريخ والطقس."/>
+                        <TextBlock x:Name="WeatherLocationLabel" Text="مدينة بديلة عند عدم إتاحة الموقع"
                                    Margin="4,5,4,0"/>
                         <TextBox x:Name="WeatherLocationInput" FlowDirection="LeftToRight"
                                  ToolTip="مثال: Cairo, Egypt أو القاهرة، مصر"
                                  AutomationProperties.Name="مدينة الطقس"
                                  AutomationProperties.LabeledBy="{Binding ElementName=WeatherLocationLabel}"
-                                 AutomationProperties.HelpText="اكتب اسم المدينة، ولا يتم استخدام GPS أو موقع الجهاز تلقائيًا."/>
+                                 AutomationProperties.HelpText="اختياري: اكتب مدينة لاستخدامها يدويًا بدلًا من تحديد موقع الجهاز."/>
                         <WrapPanel Margin="0,5,0,0">
-                            <Button x:Name="SaveWeatherLocationButton" Content="حفظ المدينة وتحديث الطقس"
+                            <Button x:Name="SaveWeatherLocationButton" Content="استخدام المدينة يدويًا"
                                     Click="SaveWeatherLocationButton_Click"/>
                         </WrapPanel>
                         <TextBlock x:Name="WeatherPrivacyNote"
-                                   Text="يُرسل اسم المدينة فقط إلى Open-Meteo لجلب الطقس. لا يُستخدم الموقع الدقيق للجهاز."
+                                   Text="عند تفعيل الموقع، يطلب التطبيق الإذن من Windows ويرسل الإحداثيات إلى Open-Meteo لحساب الطقس والمنطقة الزمنية. لا يحفظ التطبيق الإحداثيات؛ ويمكن استخدام مدينة يدويًا بدلًا من ذلك."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
                                    Margin="4,4,4,8" AutomationProperties.LiveSetting="Polite"/>
                         <TextBlock x:Name="WeatherSettingsStatus" Text="" TextWrapping="Wrap"

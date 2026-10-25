@@ -301,7 +301,7 @@ else:
     readme_path = ROOT / "README_AR.md"
     if readme_path.exists() and not re.search(rf"الإصدار المصدري:\s*{re.escape(project_version)}\b", readme_path.read_text(encoding="utf-8")):
         ERRORS.append(f"README_AR.md source version does not match project version {project_version}")
-    if "<TargetFramework>net10.0-windows</TargetFramework>" not in project_text:
+    if "<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>" not in project_text:
         ERRORS.append("Target framework is not the expected net10.0-windows; verify this change deliberately")
 
 # Explicitly declare per-monitor DPI behavior and the WPF runtime scaling switch.
@@ -836,10 +836,12 @@ weather_service_text = weather_service_path.read_text(encoding="utf-8") if weath
 weather_test_text = weather_test_path.read_text(encoding="utf-8") if weather_test_path.is_file() else ""
 for required in (
     "GetCurrentWeatherAsync(",
+    "GetCurrentWeatherAtCoordinatesAsync(",
     "geocoding-api.open-meteo.com",
     "api.open-meteo.com/v1/forecast",
     "GetConditionText(",
     "GetConditionIcon(",
+    "TimeZoneId",
 ):
     if required not in weather_service_text:
         ERRORS.append(f"Clock/weather service behavior is missing: {required}")
@@ -847,6 +849,8 @@ for required in (
     "GetCurrentWeatherAsyncUsesGeocodingAndReturnsCurrentConditions",
     "GetCurrentWeatherAsyncRejectsUnknownCity",
     "GetCurrentWeatherAsyncRejectsEmptyCityWithoutNetworkRequest",
+    "GetCurrentWeatherAtCoordinatesAsyncUsesDetectedCoordinatesAndTimezone",
+    "GetCurrentWeatherAtCoordinatesAsyncRejectsInvalidCoordinatesWithoutNetworkRequest",
     "WeatherCodeDescriptionsAreLocalized",
 ):
     if required not in weather_test_text:
@@ -857,6 +861,7 @@ for required in (
     'x:Name="WeatherTemperatureText"',
     'x:Name="WeatherSummaryText"',
     'x:Name="WeatherLocationInput"',
+    'x:Name="UseMyLocationButton"',
     'x:Name="SaveWeatherLocationButton"',
     'x:Name="RefreshWeatherButton"',
     'x:Name="WeatherPrivacyNote"',
@@ -869,6 +874,9 @@ for required in (
     "WeatherRefreshTimer_Tick",
     "RefreshWeatherAsync()",
     "SaveWeatherLocationButton_Click",
+    "UseMyLocationButton_Click",
+    "RefreshLocationWeatherAsync()",
+    "AppRuntime.Settings.UseAutomaticLocation",
     "WeatherService.GetConditionText(",
     "AppRuntime.Settings.WeatherLocation = location;",
 ):
@@ -876,6 +884,13 @@ for required in (
         ERRORS.append(f"Clock/weather UI wiring is missing: {required}")
 if "WeatherLocation" not in (ROOT / "src/Layal.Desktop/Models/UserSettings.cs").read_text(encoding="utf-8"):
     ERRORS.append("Weather city preference is not persisted in UserSettings.cs")
+if "UseAutomaticLocation" not in (ROOT / "src/Layal.Desktop/Models/UserSettings.cs").read_text(encoding="utf-8"):
+    ERRORS.append("Automatic location preference is not persisted in UserSettings.cs")
+location_service_path = ROOT / "src/Layal.Desktop/Services/DeviceLocationService.cs"
+location_service_text = location_service_path.read_text(encoding="utf-8") if location_service_path.is_file() else ""
+for required in ("Geolocator.RequestAccessAsync", "GetGeopositionAsync(", "DesiredAccuracyInMeters", "DeviceLocationAccessException"):
+    if required not in location_service_text:
+        ERRORS.append(f"Windows device-location behavior is missing: {required}")
 if "docs/CLOCK_WEATHER_AR.md" not in (ROOT / "README_AR.md").read_text(encoding="utf-8"):
     ERRORS.append("Clock/weather documentation is not linked from README_AR.md")
 
@@ -898,7 +913,7 @@ if not test_project.is_file():
     ERRORS.append("Automated C# test project is missing: tests/Layal.Tests/Layal.Tests.csproj")
 else:
     test_project_text = test_project.read_text(encoding="utf-8")
-    for expected in ("<TargetFramework>net10.0-windows</TargetFramework>", 'Include="Microsoft.NET.Test.Sdk"', 'Include="MSTest"', "Layal.Desktop.csproj"):
+    for expected in (" <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>", 'Include="Microsoft.NET.Test.Sdk"', 'Include="MSTest"', "Layal.Desktop.csproj"):
         if expected not in test_project_text:
             ERRORS.append(f"Test project is missing expected configuration: {expected}")
     test_count = len(list((ROOT / "tests/Layal.Tests").glob("*Tests.cs")))

@@ -52,6 +52,8 @@ public sealed class MainWindowVisualSmokeTests
         app.InitializeComponent();
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         InitializeRuntime(temp.Path);
+        // Rendering tests must not request real device-location permission or network weather.
+        AppRuntime.Settings.UseAutomaticLocation = false;
 
         var outputRoot = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE");
         if (string.IsNullOrWhiteSpace(outputRoot))
@@ -556,10 +558,13 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("WeatherLocationInput was not found.");
         var refreshButton = window.FindName("RefreshWeatherButton") as Button
             ?? throw new InvalidOperationException("RefreshWeatherButton was not found.");
+        var useMyLocationButton = window.FindName("UseMyLocationButton") as Button
+            ?? throw new InvalidOperationException("UseMyLocationButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(clock.Text), "The dashboard clock must display the system-local time.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(date.Text), "The dashboard must display the system-local date.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(weather.Text), "The dashboard must explain the weather state, even before a city is configured.");
-        Assert.IsTrue(refreshButton.IsEnabled, "Manual weather refresh must be available after the initial display.");
+        Assert.IsTrue(refreshButton.IsEnabled, "Weather refresh must be available after the initial display.");
+        Assert.IsTrue(useMyLocationButton.IsEnabled, "Automatic device-location detection must be available.");
         Assert.IsNotNull(weatherLocation, "The city setting must be available without requiring precise device location.");
     }
 
