@@ -5,7 +5,7 @@
         Title="Layal | ليال" Icon="pack://application:,,,/Layal;component/Assets/layal-tray.ico" Width="1320" Height="860" MinWidth="900" MinHeight="560"
         Background="{DynamicResource Layal.Background}" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
-        Closing="Window_Closing" PreviewKeyDown="MainWindow_PreviewKeyDown">
+        Closing="Window_Closing" Loaded="MainWindow_Loaded" PreviewKeyDown="MainWindow_PreviewKeyDown">
     <Grid Margin="20">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
         <Border Grid.Row="0" Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="18" Padding="18" Margin="0,0,0,14" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">

@@ -205,6 +205,25 @@ for fragment in (
 if "AssertKeyboardAccessibility(window, sendButton" not in theme_regression_test:
     ERRORS.append("Keyboard focus and UI Automation accessibility regression test is missing")
 
+if "AssertInitialWindowFitsWorkArea(window)" not in theme_regression_test:
+    ERRORS.append("Responsive work-area window bounds regression test is missing")
+if "AssertChatMessageDirectionContracts(window, applyLanguage)" not in theme_regression_test:
+    ERRORS.append("Mixed Arabic/Latin and English message flow-direction regression test is missing")
+if "AssertLanguageLayoutContracts(window, language)" not in theme_regression_test:
+    ERRORS.append("RTL/LTR input and accessible task-result contract test is missing")
+
+for required in (
+    "private void MainWindow_Loaded(",
+    "SystemParameters.WorkArea",
+    "Math.Clamp(Left",
+    "Math.Clamp(Top",
+):
+    if required not in main_window_code_text:
+        ERRORS.append(f"Responsive window work-area behavior is missing: {required}")
+if 'Loaded="MainWindow_Loaded"' not in main_window_theme_text:
+    ERRORS.append("Responsive window Loaded event binding is missing")
+
+
 # Guard the real interaction/settings paths so their UI bindings, persistence, and regression tests cannot silently disappear.
 interaction_ui_needles = (
     'x:Name="LanguageButton" Content="English" Click="LanguageButton_Click"',

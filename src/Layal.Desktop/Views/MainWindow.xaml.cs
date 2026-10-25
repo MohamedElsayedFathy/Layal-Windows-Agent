@@ -203,6 +203,24 @@ public partial class MainWindow : Window
         }
     }
 
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Keep the initial window inside a usable work area on small/high-DPI displays.
+        // WorkArea and WPF Width/Height are measured in device-independent units.
+        var workArea = SystemParameters.WorkArea;
+        if (workArea.Width <= 0 || workArea.Height <= 0)
+            return;
+
+        var availableWidth = Math.Max(1d, workArea.Width - 32d);
+        var availableHeight = Math.Max(1d, workArea.Height - 32d);
+        MinWidth = Math.Min(MinWidth, availableWidth);
+        MinHeight = Math.Min(MinHeight, availableHeight);
+        Width = Math.Min(Width, availableWidth);
+        Height = Math.Min(Height, availableHeight);
+        Left = Math.Clamp(Left, workArea.Left, workArea.Right - Width);
+        Top = Math.Clamp(Top, workArea.Top, workArea.Bottom - Height);
+    }
+
     private void MainWindow_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
     {
         // Windows raises this notification outside the WPF dispatcher. Reapply after system
@@ -388,6 +406,9 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
         System.Windows.Automation.AutomationProperties.SetHelpText(TaskInput, ar ? "صف ما تريد من ليال تنفيذه." : "Describe what you want Layal to do.");
         System.Windows.Automation.AutomationProperties.SetName(TaskResult, ar ? "نتيجة المهمة" : "Task result");
+        System.Windows.Automation.AutomationProperties.SetHelpText(TaskResult, ar
+            ? "يعرض النتيجة النهائية وحالة المهمة، بما في ذلك التحذيرات أو الإخفاق."
+            : "Shows the final task result and its status, including warnings or failures.");
         TaskSkillHint.Text = ar ? "يمكن تحديد حتى 3 مهارات من تبويب المهارات؛ نصوص المهارات تُعامل كمراجع غير موثوقة." : "Select up to 3 skills in Skills; skill text is treated as untrusted reference material.";
         CopyTaskResultButton.Content = ar ? "نسخ النتيجة" : "Copy result";
         CopyTaskLogButton.Content = ar ? "نسخ سجل التنفيذ" : "Copy task log";

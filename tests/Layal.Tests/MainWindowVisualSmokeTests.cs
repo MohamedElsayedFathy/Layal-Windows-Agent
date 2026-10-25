@@ -71,6 +71,7 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.MainWindow = window;
         window.Show();
         window.UpdateLayout();
+        AssertInitialWindowFitsWorkArea(window);
         var windowContent = window.Content as FrameworkElement
             ?? throw new InvalidOperationException("MainWindow content root was not found.");
 
@@ -134,6 +135,7 @@ public sealed class MainWindowVisualSmokeTests
 
         AssertKeyboardAccessibility(window, sendButton, window.FindName("ChatInput") as TextBox
             ?? throw new InvalidOperationException("ChatInput was not found."));
+        AssertChatMessageDirectionContracts(window, applyLanguage);
 
         var lines = new List<string>
         {
@@ -153,6 +155,7 @@ public sealed class MainWindowVisualSmokeTests
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
             window.UpdateLayout();
+            AssertLanguageLayoutContracts(window, language);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             AssertEmptyStateLocalizationAndVisibility(window, language);
             Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
@@ -446,6 +449,97 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(originalEffect, shell.Effect, "The mascot shell effect must restore after the forced test state.");
         Assert.AreEqual(originalHaloVisibility, halo.Visibility, "The mascot glow visibility must restore after the forced test state.");
         Assert.AreEqual(originalEffectsVisibility, effects.Visibility, "The cinematic layer visibility must restore after the forced test state.");
+    }
+
+
+    private static void AssertInitialWindowFitsWorkArea(MainWindow window)
+    {
+        var workArea = SystemParameters.WorkArea;
+        Assert.IsTrue(workArea.Width > 0 && workArea.Height > 0,
+            "Windows must report a usable work area for responsive sizing.");
+        Assert.IsTrue(window.Width <= workArea.Width,
+            $"Initial window width {window.Width:0.##} DIPs exceeds work area width {workArea.Width:0.##} DIPs.");
+        Assert.IsTrue(window.Height <= workArea.Height,
+            $"Initial window height {window.Height:0.##} DIPs exceeds work area height {workArea.Height:0.##} DIPs.");
+        Assert.IsTrue(window.Left >= workArea.Left && window.Top >= workArea.Top &&
+                      window.Left + window.Width <= workArea.Right &&
+                      window.Top + window.Height <= workArea.Bottom,
+            "Initial main window must be positioned fully inside the Windows work area.");
+        Assert.IsTrue(window.MinWidth <= window.Width && window.MinHeight <= window.Height,
+            "Responsive initial sizing must keep minimum dimensions at or below the applied window dimensions.");
+    }
+
+
+    private static void AssertLanguageLayoutContracts(MainWindow window, string language)
+    {
+        var ar = language == "ar";
+        var expectedWritingDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        var proseFields = new[]
+        {
+            "ChatInput", "TaskInput", "MemoryTitleInput", "MemoryContentInput", "MemorySearchInput"
+        };
+
+        foreach (var fieldName in proseFields)
+        {
+            var field = window.FindName(fieldName) as Control
+                ?? throw new InvalidOperationException($"Expected prose input '{fieldName}' was not found.");
+            Assert.AreEqual(expectedWritingDirection, field.FlowDirection,
+                $"Prose field '{fieldName}' has the wrong flow direction for {language}.");
+        }
+
+        foreach (var fieldName in new[] { "BaseUrlInput", "ModelInput", "ApiKeyInput", "GitHubSkillUrlInput" })
+        {
+            var field = window.FindName(fieldName) as Control
+                ?? throw new InvalidOperationException($"Expected technical input '{fieldName}' was not found.");
+            Assert.AreEqual(FlowDirection.LeftToRight, field.FlowDirection,
+                $"Technical field '{fieldName}' must remain LTR for {language}.");
+        }
+
+        Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
+            "The whole window must not be mirrored to achieve Arabic RTL text.");
+
+        var taskResult = window.FindName("TaskResult") as TextBox
+            ?? throw new InvalidOperationException("TaskResult was not found.");
+        Assert.AreEqual(ar ? "نتيجة المهمة" : "Task result",
+            System.Windows.Automation.AutomationProperties.GetName(taskResult),
+            "Task result must have a localized accessible name.");
+        Assert.AreEqual(ar
+                ? "يعرض النتيجة النهائية وحالة المهمة، بما في ذلك التحذيرات أو الإخفاق."
+                : "Shows the final task result and its status, including warnings or failures.",
+            System.Windows.Automation.AutomationProperties.GetHelpText(taskResult),
+            "Task result must expose localized context to assistive technology.");
+        Assert.AreEqual(System.Windows.Automation.AutomationLiveSetting.Polite,
+            System.Windows.Automation.AutomationProperties.GetLiveSetting(taskResult),
+            "Task result must announce polite live updates to assistive technology.");
+    }
+
+
+    private static void AssertChatMessageDirectionContracts(MainWindow window, MethodInfo applyLanguage)
+    {
+        var arabicMixed = new ChatMessage
+        {
+            Role = "user",
+            Content = "راجع الرابط https://example.com/v1/models/gpt-4o مع المعرّف model-2026"
+        };
+        var englishOnly = new ChatMessage
+        {
+            Role = "assistant",
+            Content = "Check https://example.com/v1/models/gpt-4o and model-2026"
+        };
+
+        window.ChatMessages.Add(arabicMixed);
+        window.ChatMessages.Add(englishOnly);
+        applyLanguage.Invoke(window, null);
+
+        Assert.AreEqual(FlowDirection.RightToLeft, arabicMixed.Direction,
+            "A message containing Arabic with Latin technical tokens must use RTL paragraph flow.");
+        Assert.AreEqual(FlowDirection.LeftToRight, englishOnly.Direction,
+            "An English-only message must retain LTR paragraph flow.");
+
+        window.ChatMessages.Remove(arabicMixed);
+        window.ChatMessages.Remove(englishOnly);
+        applyLanguage.Invoke(window, null);
+        AssertEmptyStateLocalizationAndVisibility(window, AppRuntime.Settings.Language);
     }
 
     private static void AssertEmptyStateLocalizationAndVisibility(MainWindow window, string language)
