@@ -780,6 +780,7 @@ for required in (
     "GetAuthenticatedStreamUriAsync(",
     "BuildAuthenticatedStreamAddress(",
     "IsPrivateHost(",
+    "IsPrivateCameraEndpointHost(",
     "DtdProcessing = DtdProcessing.Prohibit",
     "AllowAutoRedirect = false",
     "RandomNumberGenerator.GetBytes",
@@ -792,6 +793,7 @@ for required in (
     "TryParseProbeResponseRejectsLoopbackDeviceEndpoints",
     "TryParseProbeResponseRejectsRemoteOrMalformedXml",
     "BuildAuthenticatedStreamAddressRejectsNonLocalStreamsAndMissingCredentials",
+    "CameraEndpointValidationRejectsLoopbackAndPublicAddresses",
     "IsPrivateHostOnlyAllowsLoopbackAndLocalPrivateAddressRanges",
 ):
     if required not in onvif_test_text:
