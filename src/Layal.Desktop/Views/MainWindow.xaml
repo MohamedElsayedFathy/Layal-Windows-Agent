@@ -27,6 +27,16 @@
                     <Border CornerRadius="11" Background="{DynamicResource Layal.Panel}" Padding="12,8" Margin="4" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
                         <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}" FontSize="12" FontWeight="SemiBold" AutomationProperties.Name="حالة اتصال المزود" AutomationProperties.LiveSetting="Polite"/>
                     </Border>
+                    <Border x:Name="VoiceConversationIndicator" Visibility="Collapsed" CornerRadius="11"
+                            Background="{DynamicResource Layal.Panel}" Padding="10,8" Margin="4"
+                            BorderBrush="{DynamicResource Layal.DangerBorder}" BorderThickness="1"
+                            AutomationProperties.Name="حالة الميكروفون للمحادثة الصوتية" AutomationProperties.LiveSetting="Polite">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse x:Name="VoiceConversationMicDot" Width="9" Height="9" Fill="{DynamicResource Layal.Danger}" Margin="0,0,7,0"/>
+                            <TextBlock x:Name="VoiceConversationMicStatus" Text="الميكروفون نشط" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Layal.Text}" AutomationProperties.LiveSetting="Polite"/>
+                        </StackPanel>
+                    </Border>
                     <Button x:Name="KeyboardHelpButton" Content="_اختصارات" Click="KeyboardHelpButton_Click" MinWidth="78" ToolTip="F1 — اختصارات لوحة المفاتيح" AutomationProperties.Name="اختصارات لوحة المفاتيح" />
                     <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="82"/>
                     <Button x:Name="ThemeButton" Content="الوضع الداكن" Click="ThemeButton_Click" MinWidth="96"/>
@@ -143,11 +153,14 @@
                                    AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                     <Grid Grid.Row="3">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="ChatInput" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="42" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+2 ينقلك إلى هذا الحقل."/>
                         <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي فقط؛ لا يُرسل الصوت إلا بعد تأكيدك." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. لن يُرسل الصوت إلى المزود إلا بعد تأكيد منفصل، وسيظهر النص للمراجعة قبل الإرسال."/>
-                        <Button x:Name="SendButton" Grid.Column="2" Content="إرسال" Click="SendButton_Click" MinWidth="72"/>
-                        <Button x:Name="CancelResponseButton" Grid.Column="3" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
+                        <Button x:Name="VoiceConversationButton" Grid.Column="2" Content="بدء المحادثة الصوتية" Click="VoiceConversationButton_Click" MinWidth="148"
+                                ToolTip="محادثة صوتية مباشرة: يستخدم الميكروفون ويبث الصوت إلى موفر Realtime حتى تضغط إيقاف."
+                                AutomationProperties.Name="بدء المحادثة الصوتية" AutomationProperties.HelpText="يُبث صوت الميكروفون مباشرة إلى موفر Realtime أثناء الجلسة. اضغط مرة أخرى لإيقاف الميكروفون والمحادثة."/>
+                        <Button x:Name="SendButton" Grid.Column="3" Content="إرسال" Click="SendButton_Click" MinWidth="72"/>
+                        <Button x:Name="CancelResponseButton" Grid.Column="4" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
                 </Grid>
             </TabItem>
