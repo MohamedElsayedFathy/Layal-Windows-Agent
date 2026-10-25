@@ -89,7 +89,7 @@ public sealed class OnvifCameraDiscoveryService
                 if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) ||
                     uri.Scheme is not ("http" or "https") ||
                     !string.IsNullOrEmpty(uri.UserInfo) ||
-                    !IsPrivateHost(uri.Host))
+                    !IsPrivateCameraHost(uri.Host))
                     continue;
 
                 // ONVIF discovery may return a hostname/IP different from the packet sender.
@@ -166,7 +166,7 @@ public sealed class OnvifCameraDiscoveryService
         var streamText = ParseSafeXml(streamXml).Descendants().FirstOrDefault(element => element.Name.LocalName == "Uri")?.Value;
         if (!Uri.TryCreate(streamText, UriKind.Absolute, out var streamUri) ||
             streamUri.Scheme is not ("rtsp" or "rtsps") ||
-            !IsPrivateHost(streamUri.Host))
+            !IsPrivateCameraHost(streamUri.Host))
             throw new InvalidOperationException("The camera returned no usable RTSP stream URI on the local network.");
 
         // Return the stream address without embedded credentials. Credentials are applied only in-memory
@@ -318,7 +318,7 @@ public sealed class OnvifCameraDiscoveryService
         if (Uri.TryCreate(value, UriKind.Absolute, out uri!) &&
             uri.Scheme is "http" or "https" &&
             string.IsNullOrEmpty(uri.UserInfo) &&
-            IsPrivateHost(uri.Host))
+            IsPrivateCameraHost(uri.Host))
         {
             return true;
         }
