@@ -54,7 +54,6 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _speechCancellation;
     private CancellationTokenSource? _voiceTestCancellation;
     private CancellationTokenSource? _voiceConversationCancellation;
-    private VoiceConversationService? _voiceConversationService;
     private VoiceConversationStatus _voiceConversationStatus = VoiceConversationStatus.Stopped;
     private DateTimeOffset _speechRecordingStartedAt;
     private bool _speechIsStopping;
@@ -1494,7 +1493,6 @@ public partial class MainWindow : Window
         var cancellation = new CancellationTokenSource();
         var service = new VoiceConversationService();
         _voiceConversationCancellation = cancellation;
-        _voiceConversationService = service;
         _voiceConversationStatus = VoiceConversationStatus.Connecting;
         service.StatusChanged += VoiceConversationService_StatusChanged;
         service.TranscriptReceived += VoiceConversationService_TranscriptReceived;
@@ -1543,7 +1541,6 @@ public partial class MainWindow : Window
             if (ReferenceEquals(_voiceConversationCancellation, cancellation))
             {
                 _voiceConversationCancellation = null;
-                _voiceConversationService = null;
                 _voiceConversationStatus = VoiceConversationStatus.Stopped;
                 cancellation.Dispose();
             }
