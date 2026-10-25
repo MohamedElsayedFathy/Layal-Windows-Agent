@@ -29,6 +29,7 @@ public partial class VisionCameraWindow : System.Windows.Window
     private bool _isClosing;
 
     public bool CameraIsRunning => _captureReady && IsVisible;
+    public bool IsNetworkCamera => _isNetworkCamera;
 
     public event Action<bool>? CameraStatusChanged;
     public event Action<byte[]>? AnalyzeRequested;
@@ -58,10 +59,17 @@ public partial class VisionCameraWindow : System.Windows.Window
         CloseCameraButton.Content = _isArabic ? "إيقاف الكاميرا" : "Stop camera";
         ScanNetworkCamerasButton.Content = _isArabic ? "فحص كاميرات الشبكة المحلية" : "Scan local network cameras";
         UseLocalCameraButton.Content = _isArabic ? "استخدام كاميرا الكمبيوتر" : "Use computer camera";
-        ConnectNetworkCameraButton.Content = _isArabic ? "الاتصال ببث الكاميرا المختارة" : "Connect to selected camera stream";
+        ConnectNetworkCameraButton.Content = _isArabic ? "الاتصال بالكاميرا" : "Connect to camera";
+        ManualRtspAddressInput.ToolTip = _isArabic
+            ? "مثال: rtsp://192.168.1.20:554/path — من دون اسم مستخدم أو كلمة مرور"
+            : "Example: rtsp://192.168.1.20:554/path — no username or password in the URL";
+        AutomationProperties.SetName(ManualRtspAddressInput, _isArabic ? "عنوان RTSP المحلي لكاميرا مصرح بها" : "Local RTSP address for an authorized camera");
+        AutomationProperties.SetHelpText(ManualRtspAddressInput, _isArabic
+            ? "استخدم عنوانًا على شبكة خاصة محلية فقط؛ أدخل بيانات الدخول في الحقول المنفصلة."
+            : "Use an address on a private local network only; enter credentials in separate fields.");
         NetworkCameraHelpText.Text = _isArabic
-            ? "الفحص يبحث عن أجهزة تعلن دعم ONVIF على الشبكة المحلية فقط. لا تُفتح أي كاميرا حتى تختار جهازًا وتؤكد الاتصال ببيانات دخوله الصحيحة. لا يُحفظ اسم المستخدم أو كلمة المرور. قد لا يكون اتصال HTTP مشفرًا."
-            : "Discovery searches only the local network for devices advertising ONVIF. A camera stream opens only after you select a device and confirm valid credentials. Credentials are not saved. HTTP connections may not be encrypted.";
+            ? "الفحص يبحث عن أجهزة تعلن دعم ONVIF على الشبكة المحلية فقط. يمكنك بدلًا من ذلك إدخال عنوان RTSP محلي من مسؤول الكاميرا. لا تُفتح أي كاميرا حتى تؤكد الاتصال ببيانات دخول صحيحة. لا يُحفظ اسم المستخدم أو كلمة المرور. قد لا يكون RTSP/HTTP مشفرًا."
+            : "Discovery searches the local network only for devices advertising ONVIF. Alternatively, enter a private-network RTSP address supplied by the camera administrator. A stream opens only after you confirm valid credentials. Credentials are not saved. RTSP/HTTP may be unencrypted.";
         AutomationProperties.SetName(ScanNetworkCamerasButton, _isArabic ? "فحص كاميرات ONVIF على الشبكة المحلية" : "Scan local network for ONVIF cameras");
         AutomationProperties.SetHelpText(ScanNetworkCamerasButton, _isArabic
             ? "يرسل طلب اكتشاف ONVIF على الشبكة المحلية فقط؛ لا يحاول تخمين كلمات المرور أو فتح بث الكاميرا."
@@ -212,17 +220,33 @@ public partial class VisionCameraWindow : System.Windows.Window
         finally
         {
             ScanNetworkCamerasButton.IsEnabled = true;
-            ConnectNetworkCameraButton.IsEnabled = _discoveredCameras.Count > 0;
+            ConnectNetworkCameraButton.IsEnabled = true;
         }
     }
 
     private async void ConnectNetworkCameraButton_Click(object sender, RoutedEventArgs e)
     {
         if (_switchingSource) return;
-        if (DiscoveredCamerasSelector.SelectedItem is not OnvifCameraDevice camera)
+
+        var camera = DiscoveredCamerasSelector.SelectedItem as OnvifCameraDevice;
+        Uri? manualStreamUri = null;
+        var cameraName = camera?.DisplayName ?? string.Empty;
+        if (camera is null)
         {
-            CameraStatusText.Text = _isArabic ? "افحص الشبكة ثم اختر كاميرا ONVIF أولًا." : "Scan the network and select an ONVIF camera first.";
-            return;
+            var manualAddress = ManualRtspAddressInput.Text.Trim();
+            if (!Uri.TryCreate(manualAddress, UriKind.Absolute, out var parsedStream) ||
+                parsedStream.Scheme is not ("rtsp" or "rtsps") ||
+                !string.IsNullOrEmpty(parsedStream.UserInfo) ||
+                !OnvifCameraDiscoveryService.IsPrivateHost(parsedStream.Host) ||
+                !string.IsNullOrEmpty(parsedStream.Fragment))
+            {
+                CameraStatusText.Text = _isArabic
+                    ? "اختر كاميرا ONVIF مكتشفة أو أدخل عنوان RTSP/RTSPS بعنوان IP خاص محلي ومن دون بيانات دخول داخل الرابط."
+                    : "Select a discovered ONVIF camera or enter an RTSP/RTSPS URL with a private local IP and no embedded credentials.";
+                return;
+            }
+            manualStreamUri = parsedStream;
+            cameraName = parsedStream.Host;
         }
 
         var username = CameraUsernameInput.Text.Trim();
@@ -233,16 +257,25 @@ public partial class VisionCameraWindow : System.Windows.Window
             return;
         }
 
-        var isHttp = Uri.TryCreate(camera.DeviceServiceAddress, UriKind.Absolute, out var deviceUri) &&
+        var isHttp = camera is not null &&
+                     Uri.TryCreate(camera.DeviceServiceAddress, UriKind.Absolute, out var deviceUri) &&
                      deviceUri.Scheme == Uri.UriSchemeHttp;
+        var usesRtspWithoutTls = manualStreamUri?.Scheme == "rtsp";
+        var transportWarning = isHttp || usesRtspWithoutTls
+            ? (_isArabic
+                ? "تحذير: جزء من الاتصال يستخدم HTTP/RTSP غير المشفر وقد تكون بيانات الدخول أو الفيديو معرضة على الشبكة. "
+                : "Warning: HTTP/RTSP transport is unencrypted and credentials or video may be exposed on the network. ")
+            : string.Empty;
         var consent = MessageBox.Show(this,
             _isArabic
-                ? $"سيتم الاتصال بالجهاز {camera.DisplayName} باستخدام بيانات الدخول التي أدخلتها وطلب عنوان بث ONVIF. ستظل المعاينة على هذا الكمبيوتر؛ لا تُرسل اللقطات إلى نموذج AI إلا عند تحليلها. لا تُحفظ بيانات الدخول. " +
-                  (isHttp ? "تحذير: عنوان الجهاز يستخدم HTTP، وقد لا تكون حماية النقل مشفرة بالكامل. " : string.Empty) +
-                  "هل لديك صلاحية مشاهدة هذا البث وتريد المتابعة؟"
-                : $"The app will authenticate to {camera.DisplayName} and request its ONVIF stream address. Preview stays on this computer; frames are sent to AI only when analyzed. Credentials are not saved. " +
-                  (isHttp ? "Warning: the device endpoint uses HTTP, so transport may not be fully encrypted. " : string.Empty) +
-                  "Are you authorized to view this stream and do you want to continue?",
+                ? $"سيتم الاتصال بالكاميرا المحلية {cameraName} باستخدام بيانات الدخول التي أدخلتها" +
+                  (camera is not null ? " وطلب عنوان بث ONVIF." : " وفتح عنوان RTSP الذي أدخلته.") +
+                  " ستظل المعاينة على هذا الكمبيوتر؛ لا تُرسل اللقطات إلى نموذج AI إلا عند تحليلها. لا تُحفظ بيانات الدخول. " +
+                  transportWarning + "هل لديك صلاحية مشاهدة هذا البث وتريد المتابعة؟"
+                : $"The app will connect to local camera {cameraName} using the credentials you entered" +
+                  (camera is not null ? " and request its ONVIF stream URI." : " and open the RTSP address you supplied.") +
+                  " Preview stays on this computer; frames are sent to AI only when analyzed. Credentials are not saved. " +
+                  transportWarning + "Are you authorized to view this stream and do you want to continue?",
             _isArabic ? "تأكيد اتصال بكاميرا الشبكة" : "Confirm network camera connection",
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (consent != MessageBoxResult.Yes)
@@ -254,18 +287,23 @@ public partial class VisionCameraWindow : System.Windows.Window
         _switchingSource = true;
         ConnectNetworkCameraButton.IsEnabled = false;
         ScanNetworkCamerasButton.IsEnabled = false;
-        CameraStatusText.Text = _isArabic ? "جارٍ التحقق من صلاحية ONVIF وفتح البث..." : "Authenticating to ONVIF and opening the stream...";
+        CameraStatusText.Text = _isArabic ? "جارٍ التحقق من صلاحية الكاميرا وفتح البث..." : "Authenticating to the camera and opening the stream...";
         VideoCapture? candidate = null;
         try
         {
-            var streamUri = await _onvifDiscovery.GetAuthenticatedStreamUriAsync(camera, username, password);
+            Uri streamUri;
+            if (camera is not null)
+                streamUri = await _onvifDiscovery.GetAuthenticatedStreamUriAsync(camera, username, password);
+            else
+                streamUri = manualStreamUri!;
+
             var authenticatedAddress = OnvifCameraDiscoveryService.BuildAuthenticatedStreamAddress(streamUri, username, password);
             candidate = new VideoCapture();
             var opened = await Task.Run(() => candidate.Open(authenticatedAddress, VideoCaptureAPIs.FFMPEG));
             if (!opened)
                 throw new InvalidOperationException(_isArabic
-                    ? "تم التحقق من ONVIF، لكن تعذر فتح بث RTSP. تحقق من مسار البث وإعدادات الترميز وصلاحيات المشاهدة."
-                    : "ONVIF was reached, but the RTSP stream could not be opened. Check the stream path, codec, and viewing permissions.");
+                    ? "تعذر فتح بث RTSP. تحقق من مسار البث وإعدادات الترميز وصلاحيات المشاهدة."
+                    : "The RTSP stream could not be opened. Check the stream path, codec, and viewing permissions.");
 
             StopAutomaticObservation();
             _previewTimer.Stop();
@@ -301,7 +339,7 @@ public partial class VisionCameraWindow : System.Windows.Window
             CameraPasswordInput.Clear();
             _switchingSource = false;
             ScanNetworkCamerasButton.IsEnabled = true;
-            ConnectNetworkCameraButton.IsEnabled = _discoveredCameras.Count > 0;
+            ConnectNetworkCameraButton.IsEnabled = true;
         }
     }
 
@@ -363,7 +401,7 @@ public partial class VisionCameraWindow : System.Windows.Window
             var start = message.IndexOf(scheme, StringComparison.OrdinalIgnoreCase);
             if (start >= 0)
             {
-                var end = message.IndexOfAny(new[] { ' ', '\\r', '\\n', ')', ']' }, start);
+                var end = message.IndexOfAny(new[] { ' ', '\r', '\n', ')', ']' }, start);
                 if (end < 0) end = message.Length;
                 message = message.Remove(start, end - start).Insert(start, "[stream address redacted]");
             }
