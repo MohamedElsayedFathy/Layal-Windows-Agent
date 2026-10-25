@@ -43,6 +43,18 @@ public sealed class OnvifCameraDiscoveryServiceTests
     }
 
     [TestMethod]
+    public void TryParseProbeResponseRejectsLoopbackDeviceEndpoints()
+    {
+        const string xml = """
+            <Envelope><ProbeMatch>
+              <XAddrs>http://127.0.0.1/onvif/device_service</XAddrs>
+            </ProbeMatch></Envelope>
+            """;
+
+        Assert.IsNull(OnvifCameraDiscoveryService.TryParseProbeResponse(xml, IPAddress.Parse("192.168.1.44")));
+    }
+
+    [TestMethod]
     public void TryParseProbeResponseRejectsRemoteOrMalformedXml()
     {
         const string valid = """
