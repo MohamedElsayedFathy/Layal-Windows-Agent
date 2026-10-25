@@ -271,7 +271,7 @@ public partial class VisionCameraWindow : System.Windows.Window
             if (!Uri.TryCreate(manualAddress, UriKind.Absolute, out var parsedStream) ||
                 parsedStream.Scheme is not ("rtsp" or "rtsps") ||
                 !string.IsNullOrEmpty(parsedStream.UserInfo) ||
-                !OnvifCameraDiscoveryService.IsPrivateHost(parsedStream.Host) ||
+                !OnvifCameraDiscoveryService.IsPrivateCameraEndpointHost(parsedStream.Host) ||
                 !string.IsNullOrEmpty(parsedStream.Fragment))
             {
                 CameraStatusText.Text = _isArabic
