@@ -1474,11 +1474,12 @@ public partial class MainWindow : Window
         }
 
         if (_chatCancellation is not null || _voiceTestCancellation is not null ||
-            _speechToText.IsRecording || _speechCancellation is not null || _speechIsStopping)
+            _speechToText.IsRecording || _speechCancellation is not null || _speechIsStopping ||
+            _cameraVisionWindow is { CameraIsRunning: true })
         {
             SetChatActivityStatus(IsArabic
-                ? "أوقف عملية الصوت أو الرد الحالي قبل بدء المحادثة الصوتية."
-                : "Stop the current audio operation or text reply before starting a voice conversation.");
+                ? "أوقف عملية الصوت أو الرد الحالي أو الرؤية بالكاميرا قبل بدء المحادثة الصوتية."
+                : "Stop the current audio operation, text/image request, or camera vision before starting a live voice conversation.");
             return;
         }
 
