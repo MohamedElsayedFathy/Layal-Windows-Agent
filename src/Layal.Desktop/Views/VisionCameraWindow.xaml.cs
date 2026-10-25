@@ -266,7 +266,7 @@ public partial class VisionCameraWindow : System.Windows.Window
         var isHttp = camera is not null &&
                      Uri.TryCreate(camera.DeviceServiceAddress, UriKind.Absolute, out var deviceUri) &&
                      deviceUri.Scheme == Uri.UriSchemeHttp;
-        var usesRtspWithoutTls = manualStreamUri?.Scheme == "rtsp";
+        var usesRtspWithoutTls = manualStreamUri?.Scheme == "rtsp" || camera is not null;
         var transportWarning = isHttp || usesRtspWithoutTls
             ? (_isArabic
                 ? "تحذير: جزء من الاتصال يستخدم HTTP/RTSP غير المشفر وقد تكون بيانات الدخول أو الفيديو معرضة على الشبكة. "
