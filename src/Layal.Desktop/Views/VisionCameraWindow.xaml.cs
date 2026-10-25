@@ -20,12 +20,12 @@ public partial class VisionCameraWindow : System.Windows.Window
     private VideoCapture? _capture;
     private bool _isNetworkCamera;
     private bool _switchingSource;
-    private readonly Mat _frame = new();
-    private readonly Mat _displayFrame = new();
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(120) };
     private readonly DispatcherTimer _observationTimer = new() { Interval = TimeSpan.FromSeconds(10) };
     private byte[]? _latestJpeg;
     private bool _captureReady;
+    private bool _frameReadInProgress;
+    private Task<byte[]?>? _frameReadTask;
     private bool _isClosing;
 
     public bool CameraIsRunning => _captureReady && IsVisible;
@@ -130,28 +130,41 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
     }
 
-    private void PreviewTimer_Tick(object? sender, EventArgs e)
+    private async void PreviewTimer_Tick(object? sender, EventArgs e)
     {
-        if (!_captureReady || _isClosing) return;
-        try
-        {
-            if (_capture is null || !_capture.Read(_frame) || _frame.Empty()) return;
+        if (!_captureReady || _isClosing || _frameReadInProgress) return;
+        var source = _capture;
+        if (source is null) return;
 
-            var scale = Math.Min(1d, Math.Min(1280d / _frame.Width, 900d / _frame.Height));
+        _frameReadInProgress = true;
+        var readTask = Task.Run<byte[]?>(() =>
+        {
+            using var frame = new Mat();
+            using var displayFrame = new Mat();
+            if (!source.Read(frame) || frame.Empty()) return null;
+
+            var scale = Math.Min(1d, Math.Min(1280d / frame.Width, 900d / frame.Height));
             if (scale < 1d)
             {
-                Cv2.Resize(_frame, _displayFrame,
-                    new OpenCvSharp.Size(Math.Max(1, (int)(_frame.Width * scale)), Math.Max(1, (int)(_frame.Height * scale))),
+                Cv2.Resize(frame, displayFrame,
+                    new OpenCvSharp.Size(Math.Max(1, (int)(frame.Width * scale)), Math.Max(1, (int)(frame.Height * scale))),
                     0, 0, InterpolationFlags.Area);
             }
             else
             {
-                _frame.CopyTo(_displayFrame);
+                frame.CopyTo(displayFrame);
             }
 
-            Cv2.ImEncode(".jpg", _displayFrame, out var bytes,
+            Cv2.ImEncode(".jpg", displayFrame, out var bytes,
                 new ImageEncodingParam(ImwriteFlags.JpegQuality, 84));
-            if (bytes.Length == 0) return;
+            return bytes.Length == 0 ? null : bytes;
+        });
+        _frameReadTask = readTask;
+
+        try
+        {
+            var bytes = await readTask;
+            if (bytes is null || _isClosing || !_captureReady || !ReferenceEquals(source, _capture)) return;
 
             _latestJpeg = bytes;
             using var stream = new MemoryStream(bytes, writable: false);
@@ -163,23 +176,28 @@ public partial class VisionCameraWindow : System.Windows.Window
             bitmap.Freeze();
             CameraPreview.Source = bitmap;
             AnalyzeCurrentFrameButton.IsEnabled = true;
+            ScanSurroundingsButton.IsEnabled = true;
         }
         catch (Exception ex)
         {
-            CameraStatusText.Text = (_isArabic ? "تعذر قراءة إطار الكاميرا: " : "Could not read a camera frame: ") + ex.Message;
+            if (!_isClosing && ReferenceEquals(source, _capture))
+                CameraStatusText.Text = (_isArabic ? "تعذر قراءة إطار الكاميرا: " : "Could not read a camera frame: ") + SafeCameraError(ex);
+        }
+        finally
+        {
+            _frameReadInProgress = false;
+            if (ReferenceEquals(_frameReadTask, readTask))
+                _frameReadTask = null;
         }
     }
 
-    public void StopAutomaticObservation()
+    private async Task PausePreviewAndWaitForFrameAsync()
     {
-        _observationTimer.Stop();
-        if (ContinuousObservationCheckBox.IsChecked != true) return;
-
-        ContinuousObservationCheckBox.IsChecked = false;
-        CameraStatusText.Text = _isArabic
-            ? "تم إيقاف التحليل التلقائي."
-            : "Automatic observation has stopped.";
-        AutomaticObservationChanged?.Invoke(false);
+        _previewTimer.Stop();
+        var currentRead = _frameReadTask;
+        if (currentRead is null) return;
+        try { await currentRead; }
+        catch { /* the preview handler reports recoverable frame errors */ }
     }
 
     private async void ScanNetworkCamerasButton_Click(object sender, RoutedEventArgs e)
@@ -305,14 +323,19 @@ public partial class VisionCameraWindow : System.Windows.Window
 
             var authenticatedAddress = OnvifCameraDiscoveryService.BuildAuthenticatedStreamAddress(streamUri, username, password);
             candidate = new VideoCapture();
-            var opened = await Task.Run(() => candidate.Open(authenticatedAddress, VideoCaptureAPIs.FFMPEG));
+            var opened = await Task.Run(() => candidate.Open(authenticatedAddress, VideoCaptureAPIs.FFMPEG, new[]
+            {
+                (int)VideoCaptureProperties.OpenTimeoutMsec, 5000,
+                (int)VideoCaptureProperties.ReadTimeoutMsec, 3000
+            }));
+            if (_isClosing) return;
             if (!opened)
                 throw new InvalidOperationException(_isArabic
                     ? "تعذر فتح بث RTSP. تحقق من مسار البث وإعدادات الترميز وصلاحيات المشاهدة."
                     : "The RTSP stream could not be opened. Check the stream path, codec, and viewing permissions.");
 
             StopAutomaticObservation();
-            _previewTimer.Stop();
+            await PausePreviewAndWaitForFrameAsync();
             var previous = _capture;
             _capture = candidate;
             candidate = null;
@@ -364,13 +387,14 @@ public partial class VisionCameraWindow : System.Windows.Window
                 if (candidate.Open(0, VideoCaptureAPIs.DSHOW)) return true;
                 return candidate.Open(0, VideoCaptureAPIs.MSMF);
             });
+            if (_isClosing) return;
             if (!opened)
                 throw new InvalidOperationException(_isArabic
                     ? "تعذر فتح كاميرا الكمبيوتر. تحقق من إذن Windows ومن عدم استخدامها في تطبيق آخر."
                     : "Could not open the computer camera. Check Windows privacy permission and whether another app is using it.");
 
             StopAutomaticObservation();
-            _previewTimer.Stop();
+            await PausePreviewAndWaitForFrameAsync();
             var previous = _capture;
             _capture = candidate;
             candidate = null;
@@ -487,7 +511,7 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void CloseCameraButton_Click(object sender, RoutedEventArgs e) => Close();
 
-    private void VisionCameraWindow_Closed(object? sender, EventArgs e)
+    private async void VisionCameraWindow_Closed(object? sender, EventArgs e)
     {
         _isClosing = true;
         CameraStatusChanged?.Invoke(false);
@@ -497,10 +521,13 @@ public partial class VisionCameraWindow : System.Windows.Window
         _observationTimer.Tick -= ObservationTimer_Tick;
         if (ContinuousObservationCheckBox.IsChecked == true)
             AutomaticObservationChanged?.Invoke(false);
+        var currentRead = _frameReadTask;
+        if (currentRead is not null)
+        {
+            try { await currentRead; } catch { }
+        }
         try { _capture?.Release(); } catch { }
         _capture?.Dispose();
-        _frame.Dispose();
-        _displayFrame.Dispose();
         CameraPasswordInput.Clear();
         CameraPreview.Source = null;
         _latestJpeg = null;
