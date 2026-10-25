@@ -13,6 +13,9 @@
         MouseEnter="Window_MouseEnter" MouseLeave="Window_MouseLeave" MouseMove="Window_MouseMove">
     <Viewbox x:Name="MascotViewBox" Stretch="Uniform" StretchDirection="Both">
         <Grid x:Name="Root" Width="248" Height="175" Background="Transparent" ToolTip="Layal | Double-click to open">
+            <!-- Previous procedural 3D robot rig. Kept (collapsed) so existing mood code keeps working and the
+                 original look can be restored; the official Layal character below is what users see. -->
+            <Grid x:Name="LegacyRig" Visibility="Collapsed">
             <!-- Soft pastel aura and orbital details keep the mascot readable over light or dark apps. -->
             <Ellipse x:Name="GlowHalo" Width="145" Height="107" Fill="#4077DFFF"
                      HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,21,0,0" Opacity="0.48">
@@ -138,6 +141,62 @@
                 <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#32B985"
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
+
+            </Grid>
+
+            <!-- Official Layal character: real artwork swapped by the agent's actual mood, with her robot assistant beside her.
+                 Purely visual; pointer input is handled by the window's hit-test geometry. -->
+            <Canvas x:Name="CharacterLayer" Width="248" Height="175" IsHitTestVisible="False" ClipToBounds="False"
+                    AutomationProperties.Name="Layal and her robot assistant">
+                <Image x:Name="LayalImage" Canvas.Left="80" Canvas.Top="8" Width="130" Height="132.7"
+                       Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                       RenderTransformOrigin="0.5,1">
+                    <Image.Effect>
+                        <DropShadowEffect Color="#4B6FA8" BlurRadius="7" ShadowDepth="0" Opacity="0.45" />
+                    </Image.Effect>
+                    <Image.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="LayalBreathScale" ScaleX="1" ScaleY="1" />
+                            <TranslateTransform x:Name="LayalShift" />
+                        </TransformGroup>
+                    </Image.RenderTransform>
+                </Image>
+
+                <Grid x:Name="RobotRoot" Canvas.Left="22" Canvas.Top="18" Width="54" Height="61.3"
+                      RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <TransformGroup>
+                            <RotateTransform x:Name="RobotTilt" />
+                            <TranslateTransform x:Name="RobotShift" />
+                        </TransformGroup>
+                    </Grid.RenderTransform>
+                    <Image x:Name="RobotImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <!-- The face is drawn over the robot's blank glass screen so it can express the real agent state. -->
+                    <Viewbox Margin="9.4,19.8,13,17.1" Stretch="Uniform">
+                        <Canvas Width="100" Height="76">
+                            <Canvas.Effect>
+                                <DropShadowEffect x:Name="RobotFaceGlow" Color="#4BE7F3" BlurRadius="9" ShadowDepth="0" Opacity="0.85" />
+                            </Canvas.Effect>
+                            <Path x:Name="RobotEyeL" Stroke="#4BE7F3" Fill="#4BE7F3" StrokeThickness="5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform><ScaleTransform x:Name="RobotEyeLScale" /></Path.RenderTransform>
+                            </Path>
+                            <Path x:Name="RobotEyeR" Stroke="#4BE7F3" Fill="#4BE7F3" StrokeThickness="5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform><ScaleTransform x:Name="RobotEyeRScale" /></Path.RenderTransform>
+                            </Path>
+                            <Path x:Name="RobotMouth" Stroke="#4BE7F3" Fill="Transparent" StrokeThickness="4.2"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                        </Canvas>
+                    </Viewbox>
+                    <!-- Non-colour status cue (? ! x z) so state never depends on colour alone. -->
+                    <TextBlock x:Name="RobotGlyph" HorizontalAlignment="Right" VerticalAlignment="Top"
+                               Margin="0,-3,-5,0" FontFamily="Segoe UI Symbol, Segoe UI" FontWeight="Bold" FontSize="14"
+                               Foreground="#4BE7F3" Text="" />
+                </Grid>
+            </Canvas>
 
             <!-- Task companions appear only while Layal is actively thinking or working. -->
             <Canvas x:Name="TaskPropsLayer" Width="248" Height="175"

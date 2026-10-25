@@ -52,6 +52,7 @@
 - [x] Observe a passing Windows CI run: Release build passed and all 61 tests passed; current-SHA CI and manual acceptance remain required.
 
 ## 0.5.3 — Reactive mascot personality (this branch)
+- [x] Official Layal character with robot assistant (artwork, mood-driven expressions, welcome banner). Source implemented; Windows build/CI and desktop acceptance pending; asset provenance unconfirmed.
 - [x] Show lightweight animated task props (work sheet, pencil, holographic computer) for working moods in the floating mascot.
 - [x] Add eight additional face-driven moods and matching non-repeating emoji reaction groups.
 - [x] Map planning, research, reading, writing, coding, tool use, and validation events to distinct facial acting.

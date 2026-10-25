@@ -8,6 +8,7 @@
 - src/Layal.Desktop/Assets/layal-mascot-modern-preview.png
 - src/Layal.Desktop/Assets/layal-mascot-reference.png
 - src/Layal.Desktop/Assets/layal-tray.ico
+- src/Layal.Desktop/Assets/Characters/*.png (أصول ليال والروبوت المقصوصة من لوحة التصميم المرجعية؛ مصدر اللوحة الأصلية وحقوق إعادة توزيعها غير موثقين)
 
 يجب تأكيد ما إذا كانت هذه الملفات أصلية/مولّدة للمشروع أو مقتبسة من مصدر خارجي، وتسجيل المصدر وشروط الاستخدام والإذن بإعادة التوزيع. لا يعتبر وجودها في المستودع دليلًا كافيًا على امتلاك حقوقها.
 

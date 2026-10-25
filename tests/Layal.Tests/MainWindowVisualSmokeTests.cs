@@ -651,7 +651,7 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsTrue(applied.MascotAlwaysOnTop, "Always-on-top state must persist alongside slider settings.");
         Assert.IsTrue(mascot.Topmost, "Apply must keep the live window's topmost state in sync.");
         Assert.AreEqual(0.8, mascot.Opacity, 0.001, "Apply must update live window opacity.");
-        Assert.AreEqual(248 * 1.25, mascot.Width, 0.001, "Apply must resize the live mascot width.");
+        Assert.AreEqual(248 * 1.25, mascot.Width, 0.5, "Apply must resize the live mascot width within WPF device-pixel rounding tolerance.");
         Assert.AreEqual(175 * 1.25, mascot.Height, 0.5, "Apply must resize the live mascot height within WPF layout rounding tolerance.");
 
         // The provider form must reject an unsupported scheme without partially saving it.

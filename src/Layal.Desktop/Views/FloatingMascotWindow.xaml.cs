@@ -2,16 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
-using Microsoft.Win32;
 using Layal.Services;
 
 namespace Layal.Views;
@@ -211,6 +212,7 @@ public partial class FloatingMascotWindow : Window
         Closed += MascotWindow_Closed;
         InitializeAvatarRig();
         InitializeCinematicEffects();
+        InitializeCharacterArt();
         ApplySystemAccessibilityAppearance();
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
         Opacity = AppRuntime.Settings.MascotOpacity;
@@ -286,8 +288,6 @@ public partial class FloatingMascotWindow : Window
 
     private void ApplySystemAccessibilityAppearance(bool highContrast)
     {
-        // Preserve the mascot's identity but replace low-contrast glow/shadows with a
-        // system-colored outline when Windows High Contrast is enabled.
         GlowHalo.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
         Shell.BorderBrush = highContrast ? SystemColors.WindowTextBrush : _normalShellBorderBrush;
         Shell.BorderThickness = highContrast ? new Thickness(3) : _normalShellBorderThickness;
@@ -298,6 +298,7 @@ public partial class FloatingMascotWindow : Window
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
+
 
     /// <summary>
     /// WPF's AllowsTransparency creates a layered window. On layered windows,
@@ -786,14 +787,14 @@ public partial class FloatingMascotWindow : Window
 
         _particleSeed++;
         CinematicEffectsLayer.Visibility =
-            AppRuntime.Settings.MascotAnimationsEnabled && !SystemParameters.HighContrast && count > 0
+            AppRuntime.Settings.MascotAnimationsEnabled && count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
 
     private void AnimateCinematicEffects()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || SystemParameters.HighContrast || _cinematicParticles.Count == 0)
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || _cinematicParticles.Count == 0)
         {
             CinematicEffectsLayer.Visibility = Visibility.Collapsed;
             return;
@@ -1300,6 +1301,161 @@ public partial class FloatingMascotWindow : Window
         return new GeometryModel3D(mesh, material) { BackMaterial = material };
     }
 
+    // ---- Official Layal character (real artwork + vector robot face) -------------------------------------
+    // The previous procedural 3D rig stays in the project (collapsed) so the original look can be restored by
+    // flipping this switch; while the sprite character is active its per-tick 3D work is skipped entirely.
+    private static bool UseSpriteCharacter = true;
+    private const string CharacterAssetRoot = "pack://application:,,,/Layal;component/Assets/Characters/";
+    private static readonly Dictionary<LayalSprite, BitmapImage> LayalBitmaps = new();
+    private static readonly Dictionary<string, Geometry> FaceGeometryCache = new();
+    private static readonly Dictionary<RobotTone, SolidColorBrush> ToneBrushes = new()
+    {
+        [RobotTone.Cyan] = FrozenBrush(0x4B, 0xE7, 0xF3),
+        [RobotTone.Amber] = FrozenBrush(0xFF, 0xC6, 0x5C),
+        [RobotTone.Coral] = FrozenBrush(0xFF, 0x7B, 0x8C),
+        [RobotTone.Muted] = FrozenBrush(0x8F, 0xB4, 0xD9)
+    };
+    private LayalSprite? _currentSprite;
+    private RobotFaceSpec? _currentRobotFace;
+    private CharacterExpression? _currentExpression;
+    private double _robotApproach;
+
+    private static SolidColorBrush FrozenBrush(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static BitmapImage LoadCharacterBitmap(string fileName)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.UriSource = new Uri(CharacterAssetRoot + fileName, UriKind.Absolute);
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private static BitmapImage GetLayalBitmap(LayalSprite sprite)
+    {
+        if (!LayalBitmaps.TryGetValue(sprite, out var bitmap))
+        {
+            bitmap = LoadCharacterBitmap("layal-" + sprite.ToString().ToLowerInvariant() + ".png");
+            LayalBitmaps[sprite] = bitmap;
+        }
+        return bitmap;
+    }
+
+    private static Geometry FaceGeometry(string data)
+    {
+        if (!FaceGeometryCache.TryGetValue(data, out var geometry))
+        {
+            geometry = Geometry.Parse(data);
+            geometry.Freeze();
+            FaceGeometryCache[data] = geometry;
+        }
+        return geometry;
+    }
+
+    private void InitializeCharacterArt()
+    {
+        if (!UseSpriteCharacter) { FallBackToLegacyRig(); return; }
+        try
+        {
+            RobotImage.Source = LoadCharacterBitmap("layal-robot.png");
+            ApplyCharacterExpression(_mood);
+        }
+        catch (Exception ex) when (ex is IOException or NotSupportedException or InvalidOperationException)
+        {
+            // Missing/corrupt artwork must never take the app down: fall back to the original rig.
+            FallBackToLegacyRig();
+        }
+    }
+
+    /// <summary>Shows the previous procedural rig and re-enables its per-tick work (used if the artwork cannot load).</summary>
+    private void FallBackToLegacyRig()
+    {
+        UseSpriteCharacter = false;
+        CharacterLayer.Visibility = Visibility.Collapsed;
+        LegacyRig.Visibility = Visibility.Visible;
+        ApplyThreeDimensionalFaceExpression(_mood);
+    }
+
+    private void ApplyCharacterExpression(string mood)
+    {
+        var expression = CharacterExpressionMap.Resolve(mood);
+        if (_currentSprite != expression.Layal)
+        {
+            try
+            {
+                LayalImage.Source = GetLayalBitmap(expression.Layal);
+                _currentSprite = expression.Layal;
+            }
+            catch (Exception ex) when (ex is IOException or NotSupportedException or InvalidOperationException)
+            {
+                // A portrait that cannot be decoded must not break mood changes: use the original rig instead.
+                FallBackToLegacyRig();
+                return;
+            }
+        }
+
+        ApplyRobotFace(expression.Robot);
+        _currentExpression = expression;
+        UpdateCharacterAccessibility();
+    }
+
+    private void UpdateCharacterAccessibility()
+    {
+        if (_currentExpression is null) return;
+        var ar = AppRuntime.Settings.Language == "ar";
+        AutomationProperties.SetName(CharacterLayer, ar ? "ليال ومساعدها الروبوت" : "Layal and her robot assistant");
+        AutomationProperties.SetHelpText(CharacterLayer, CharacterExpressionMap.Describe(_currentExpression, ar));
+    }
+
+    private void ApplyRobotFace(RobotFaceSpec face)
+    {
+        // SetMood runs on every blink restore; only touch visuals when the face really changes.
+        if (ReferenceEquals(_currentRobotFace, face)) return;
+        _currentRobotFace = face;
+
+        var tone = ToneBrushes[face.Tone];
+        RobotEyeL.Data = FaceGeometry(face.LeftEye);
+        RobotEyeR.Data = FaceGeometry(face.RightEye);
+        RobotEyeL.Stroke = RobotEyeR.Stroke = RobotMouth.Stroke = tone;
+        RobotEyeL.Fill = RobotEyeR.Fill = face.EyesFilled ? tone : Brushes.Transparent;
+        RobotMouth.Data = FaceGeometry(face.Mouth);
+        RobotMouth.Fill = face.MouthFilled ? tone : Brushes.Transparent;
+        RobotFaceGlow.Color = tone.Color;
+        RobotGlyph.Text = face.Glyph;
+        RobotGlyph.Foreground = tone;
+        RobotEyeLScale.ScaleY = RobotEyeRScale.ScaleY = 1;
+    }
+
+    private void AnimateCharacter(double phase)
+    {
+        // Slow breathing and a drifting robot; a task makes the robot move closer to Layal and back afterwards.
+        LayalBreathScale.ScaleY = 1 + Math.Sin(phase * 0.8) * 0.008;
+        LayalBreathScale.ScaleX = 1 + Math.Sin(phase * 0.8 + 0.6) * 0.003;
+        LayalShift.X = _mood == "curious" ? Math.Sin(phase * 0.5) * 1.2 : 0;
+
+        var approachTarget = _taskActive ? 14.0 : 0.0;
+        _robotApproach += (approachTarget - _robotApproach) * 0.12;
+        RobotShift.X = _robotApproach + Math.Sin(phase * 0.6) * 1.1;
+        RobotShift.Y = Math.Sin(phase * 1.3 + 1.2) * 2.4;
+        RobotTilt.Angle = Math.Sin(phase * 0.9) * 3.0 + (_mood is "thinking" or "planning" or "confused" ? 5.0 : 0.0);
+    }
+
+    private void ResetCharacterMotion()
+    {
+        LayalBreathScale.ScaleX = LayalBreathScale.ScaleY = 1;
+        LayalShift.X = 0;
+        RobotShift.X = RobotShift.Y = 0;
+        RobotTilt.Angle = 0;
+        _robotApproach = 0;
+    }
+
     public string CurrentMood => _mood;
     public bool IsTaskActive => _taskActive;
 
@@ -1326,16 +1482,13 @@ public partial class FloatingMascotWindow : Window
     {
         var ar = AppRuntime.Settings.Language == "ar";
         Title = ar ? "ليال" : "Layal";
-        AutomationProperties.SetName(this, ar ? "شخصية ليال العائمة" : "Layal floating assistant");
-        AutomationProperties.SetHelpText(this, ar
-            ? "انقر مرتين لفتح الواجهة الرئيسية. انقر بزر الماوس الأيمن لإظهار الخيارات."
-            : "Double-click to open the main interface. Right-click to show options.");
         var localizedToolTip = ar ? "ليال | انقر مرتين لفتح الواجهة" : "Layal | Double-click to open the full interface";
         ToolTip = localizedToolTip;
         Root.ToolTip = localizedToolTip;
         _openMenuItem.Header = ar ? "فتح ليال" : "Open Layal";
         _hideMenuItem.Header = ar ? "إخفاء الشخصية" : "Hide mascot";
         _exitMenuItem.Header = ar ? "خروج" : "Exit";
+        UpdateCharacterAccessibility();
     }
 
     public void SetMood(string mood, bool showReaction = true)
@@ -1726,7 +1879,8 @@ public partial class FloatingMascotWindow : Window
         Canvas.SetTop(LeftEyeShine, 23 + (LeftEye.Height - 10) / 2 - 1.5);
         Canvas.SetTop(RightEyeShine, 23 + (RightEye.Height - 10) / 2 - 1.5);
         StatusDot.Fill = status;
-        ApplyThreeDimensionalFaceExpression(_mood);
+        if (UseSpriteCharacter) ApplyCharacterExpression(_mood);
+        else ApplyThreeDimensionalFaceExpression(_mood);
         ConfigureCinematicEffects(_mood);
         UpdateTaskProps();
         if (showReaction && (previousMood != _mood || _mood != "idle"))
@@ -1882,13 +2036,14 @@ public partial class FloatingMascotWindow : Window
 
     private void AnimateMoodTick()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || !IsVisible)
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || !IsVisible || !SystemParameters.ClientAreaAnimation)
         {
             Root.RenderTransform = Transform.Identity;
             AntennaDot.RenderTransform = Transform.Identity;
             // Keep the canonical head lift/scale and each mood's static pose; disabled
             // animation should freeze the rig, not snap it back to a different-sized model.
-            ApplyRigPose(0);
+            if (UseSpriteCharacter) ResetCharacterMotion();
+            else ApplyRigPose(0);
             GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
             PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
             Canvas.SetTop(PaperProp, 94);
@@ -1927,7 +2082,8 @@ public partial class FloatingMascotWindow : Window
         GlowHalo.Opacity = (_mood is "offline" or "privacy" ? 0.20 : 0.48) + ((Math.Sin(_floatPhase) + 1) * 0.06);
 
         // Independently pose head, torso and shoulders; each is a separate 3D rig node.
-        ApplyRigPose(_floatPhase);
+        if (UseSpriteCharacter) AnimateCharacter(_floatPhase);
+        else ApplyRigPose(_floatPhase);
 
         if (TaskPropsLayer.Visibility == Visibility.Visible)
         {
@@ -1981,8 +2137,15 @@ public partial class FloatingMascotWindow : Window
 
     private void Blink()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || _blinked || !IsVisible || _mood is "listening" or "transcribing" or "privacy" or "offline") return;
+        if (!AppRuntime.Settings.MascotAnimationsEnabled || _blinked || !IsVisible || !SystemParameters.ClientAreaAnimation ||
+            _mood is "listening" or "transcribing" or "privacy" or "offline") return;
         _blinked = true;
+        if (UseSpriteCharacter)
+        {
+            RobotEyeLScale.ScaleY = RobotEyeRScale.ScaleY = 0.1;
+            _restoreEyesTimer.Start();
+            return;
+        }
         LeftEye.Height = RightEye.Height = 3;
         LeftPupil.Visibility = RightPupil.Visibility = Visibility.Collapsed;
         LeftEyeShine.Visibility = RightEyeShine.Visibility = Visibility.Collapsed;
@@ -1995,6 +2158,11 @@ public partial class FloatingMascotWindow : Window
     {
         _restoreEyesTimer.Stop();
         _blinked = false;
+        if (UseSpriteCharacter)
+        {
+            RobotEyeLScale.ScaleY = RobotEyeRScale.ScaleY = 1;
+            return;
+        }
         SetMood(_mood, showReaction: false);
     }
 
@@ -2248,8 +2416,6 @@ public partial class FloatingMascotWindow : Window
             _floatTimer.Stop();
             _moodResetTimer.Stop();
             _idleTimer.Stop();
-            SystemEvents.UserPreferenceChanged -= Mascot_UserPreferenceChanged;
-            Closed -= MascotWindow_Closed;
             CinematicEffectsLayer.Children.Clear();
             _cinematicParticles.Clear();
         }

@@ -39,8 +39,22 @@
             <TabItem x:Name="HomeTab" Header="الرئيسية">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="18">
-                        <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <TextBlock x:Name="HomeDescription" Text="هذه النسخة هي الأساس الأصلي لتطبيق Windows. ابدأ بربط نموذج حقيقي من الإعدادات." Foreground="{DynamicResource Layal.Muted}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                        <Grid Margin="0,0,0,20" MinHeight="176">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="190" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBlock x:Name="HomeDescription" Text="هذه النسخة هي الأساس الأصلي لتطبيق Windows. ابدأ بربط نموذج حقيقي من الإعدادات." Foreground="{DynamicResource Layal.Muted}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,0"/>
+                            </StackPanel>
+                            <Image x:Name="HomeLayalImage"
+                                   Grid.Column="1" Width="176" Height="172"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
+                                   Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                                   IsHitTestVisible="False" Focusable="False" />
+                        </Grid>
                         <UniformGrid Columns="2" Rows="2" Margin="0,0,0,12">
                             <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                                 <StackPanel><TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardAiValue" Text="غير متصل" Foreground="{DynamicResource Layal.Warning}" Margin="0,8,0,0"/><TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>

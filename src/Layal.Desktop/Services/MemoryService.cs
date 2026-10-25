@@ -70,14 +70,22 @@ public sealed class MemoryService
         return JsonSerializer.Serialize(notes, new JsonSerializerOptions { WriteIndented = true });
     }
 
+    // Provider-specific key shapes are matched case-sensitively and with their real structure so ordinary
+    // words/names containing "akia" or "aiza" (for example "Nakia" or "Aizawa") are not rejected.
+    private static readonly System.Text.RegularExpressions.Regex AwsAccessKey =
+        new(@"\bAKIA[0-9A-Z]{16}\b", System.Text.RegularExpressions.RegexOptions.Compiled);
+    private static readonly System.Text.RegularExpressions.Regex GoogleApiKey =
+        new(@"\bAIza[0-9A-Za-z_\-]{30,}", System.Text.RegularExpressions.RegexOptions.Compiled);
+
     private static bool LooksLikeSecret(string value)
     {
         string[] patterns =
         {
             "-----BEGIN PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----",
-            "sk-proj-", "sk-ant-", "ghp_", "github_pat_", "AIza", "AKIA"
+            "sk-proj-", "sk-ant-", "ghp_", "github_pat_"
         };
         return patterns.Any(p => value.Contains(p, StringComparison.OrdinalIgnoreCase)) ||
+               AwsAccessKey.IsMatch(value) || GoogleApiKey.IsMatch(value) ||
                (value.Contains("password", StringComparison.OrdinalIgnoreCase) && value.Contains('=')) ||
                (value.Contains("api_key", StringComparison.OrdinalIgnoreCase) && value.Contains('='));
     }

@@ -80,6 +80,25 @@ public sealed class DpapiSecretStore
         if (File.Exists(_path)) File.Delete(_path);
     }
 
+    public bool Exists => File.Exists(_path);
+
+    /// <summary>
+    /// Copies an existing but unreadable/corrupt store next to the original so the next successful
+    /// Save cannot silently destroy data that might still be recoverable (for example after a
+    /// transient file lock or a Windows profile change). Returns the copy path, or null on failure.
+    /// </summary>
+    public string? PreserveUnreadableCopy()
+    {
+        try
+        {
+            if (!File.Exists(_path)) return null;
+            var copy = _path + ".unreadable-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            File.Copy(_path, copy, overwrite: false);
+            return copy;
+        }
+        catch { return null; }
+    }
+
     private static DataBlob Allocate(byte[] bytes)
     {
         var ptr = Marshal.AllocHGlobal(bytes.Length);
