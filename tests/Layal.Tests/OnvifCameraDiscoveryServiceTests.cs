@@ -97,8 +97,19 @@ public sealed class OnvifCameraDiscoveryServiceTests
         Assert.ThrowsExactly<ArgumentException>(() =>
             OnvifCameraDiscoveryService.BuildAuthenticatedStreamAddress(
                 new Uri("rtsp://192.168.1.44/live"), "", "password"));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            OnvifCameraDiscoveryService.BuildAuthenticatedStreamAddress(
+                new Uri("rtsp://127.0.0.1/live"), "user", "password"));
     }
 
+    [TestMethod]
+    public void CameraEndpointValidationRejectsLoopbackAndPublicAddresses()
+    {
+        Assert.IsFalse(OnvifCameraDiscoveryService.IsPrivateCameraEndpointHost("127.0.0.1"));
+        Assert.IsFalse(OnvifCameraDiscoveryService.IsPrivateCameraEndpointHost("::1"));
+        Assert.IsFalse(OnvifCameraDiscoveryService.IsPrivateCameraEndpointHost("8.8.8.8"));
+        Assert.IsTrue(OnvifCameraDiscoveryService.IsPrivateCameraEndpointHost("192.168.1.44"));
+    }
     [TestMethod]
     public void IsPrivateHostOnlyAllowsLoopbackAndLocalPrivateAddressRanges()
     {
