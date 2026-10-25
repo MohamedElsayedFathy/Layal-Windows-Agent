@@ -136,7 +136,8 @@ public sealed class VoiceConversationService : IDisposable
 
             playback = new BufferedWaveProvider(new WaveFormat(SampleRate, BitsPerSample, Channels))
             {
-                BufferDuration = TimeSpan.FromSeconds(10),
+                // Keep up to ten seconds of PCM queued; BufferDuration is read-only in NAudio.
+                BufferLength = SampleRate * Channels * (BitsPerSample / 8) * 10,
                 DiscardOnBufferOverflow = false
             };
             output = new WaveOut();
