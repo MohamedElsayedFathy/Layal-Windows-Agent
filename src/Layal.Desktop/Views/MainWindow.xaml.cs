@@ -1770,6 +1770,7 @@ public partial class MainWindow : Window
         var camera = new VisionCameraWindow(IsArabic) { Owner = this };
         camera.CameraStatusChanged += CameraVisionWindow_CameraStatusChanged;
         camera.AnalyzeRequested += CameraVisionWindow_AnalyzeRequested;
+        camera.ScanSurroundingsRequested += CameraVisionWindow_ScanSurroundingsRequested;
         camera.ObserveRequested += CameraVisionWindow_ObserveRequested;
         camera.AutomaticObservationChanged += CameraVisionWindow_AutomaticObservationChanged;
         camera.Closed += CameraVisionWindow_Closed;
@@ -1794,6 +1795,30 @@ public partial class MainWindow : Window
             prompt,
             automaticObservation: false,
             clearChatInput: !string.IsNullOrWhiteSpace(prompt));
+    }
+
+    private async void CameraVisionWindow_ScanSurroundingsRequested(byte[] imageBytes)
+    {
+        if (_chatCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic ? "انتظر انتهاء الطلب الحالي قبل مسح المكان." : "Wait for the current request to finish before scanning surroundings.");
+            return;
+        }
+
+        var extraQuestion = ChatInput.Text.Trim();
+        var prompt = IsArabic
+            ? "صف المكان الظاهر في الصورة المحيطة بالكاميرا: الغرفة أو المساحة، الأشياء والأثاث، الأبواب والنوافذ والعلامات المرئية، والعلاقات المكانية الواضحة. فرّق بين ما تراه فعلًا وما لا يمكن الجزم به من لقطة واحدة، ولا تحدد هوية أي شخص أو تستنتج معلومات حساسة. إذا كانت الصورة مظلمة أو محجوبة أو غير قابلة للتحليل فاذكر ذلك بوضوح."
+            : "Describe the scene visible around the camera: the room or area, objects and furniture, visible doors/windows/signs, and clear spatial relationships. Distinguish visible evidence from what cannot be established from one still image; do not identify people or infer sensitive traits. If the image is dark, obstructed, or cannot be analyzed, say so explicitly.";
+        if (!string.IsNullOrWhiteSpace(extraQuestion))
+            prompt += (IsArabic ? "\nطلب إضافي: " : "\nAdditional question: ") + extraQuestion;
+
+        await AnalyzeVisionImageAsync(
+            imageBytes,
+            "image/jpeg",
+            IsArabic ? "مسح المكان حول الكاميرا" : "surroundings scan",
+            prompt,
+            automaticObservation: false,
+            clearChatInput: !string.IsNullOrWhiteSpace(extraQuestion));
     }
 
     private async void CameraVisionWindow_ObserveRequested(byte[] imageBytes)
@@ -1830,6 +1855,7 @@ public partial class MainWindow : Window
         {
             _cameraVisionWindow.CameraStatusChanged -= CameraVisionWindow_CameraStatusChanged;
             _cameraVisionWindow.AnalyzeRequested -= CameraVisionWindow_AnalyzeRequested;
+            _cameraVisionWindow.ScanSurroundingsRequested -= CameraVisionWindow_ScanSurroundingsRequested;
             _cameraVisionWindow.ObserveRequested -= CameraVisionWindow_ObserveRequested;
             _cameraVisionWindow.AutomaticObservationChanged -= CameraVisionWindow_AutomaticObservationChanged;
             _cameraVisionWindow.Closed -= CameraVisionWindow_Closed;
@@ -1852,7 +1878,9 @@ public partial class MainWindow : Window
         CameraVisionDot.Fill = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         CameraVisionStatusText.Text = automatic
             ? (IsArabic ? "الكاميرا والتحليل التلقائي نشطان" : "Camera and auto-analysis active")
-            : (IsArabic ? "الكاميرا نشطة" : "Camera active");
+            : _cameraVisionWindow?.IsNetworkCamera == true
+                ? (IsArabic ? "كاميرا الشبكة نشطة" : "Network camera active")
+                : (IsArabic ? "كاميرا الكمبيوتر نشطة" : "Computer camera active");
         AutomationProperties.SetName(CameraVisionIndicator, automatic
             ? (IsArabic ? "الكاميرا والتحليل البصري التلقائي نشطان" : "Camera and automatic visual analysis are active")
             : (IsArabic ? "الكاميرا نشطة" : "Camera active"));
