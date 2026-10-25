@@ -99,8 +99,9 @@
 - [ ] MCP client configuration, tool discovery, and permissions.
 
 ## 0.10 — Camera and vision
-- [x] Initial image understanding for user-selected files and local webcam still frames, with explicit consent, opt-in 10-second observations, and provider failure messaging; real-device/provider acceptance remains pending.
-- [ ] RTSP/ONVIF device profiles, raw stream decoding, object tracking, event retention, and measured resource limits.
+- [x] Initial image understanding for user-selected files and local webcam still frames, including a one-shot visible-surroundings description and explicit provider failure messaging; model/device acceptance remains pending.
+- [x] Local ONVIF discovery and authenticated RTSP/RTSPS preview using user-supplied credentials, restricted to private IP endpoints; hardware acceptance remains pending.
+- [ ] Raw-video inference, room mapping/3D scanning, object tracking, recording, event retention, and measured resource limits.
 - [ ] Authorized hardware test suite.
 
 ## 0.11 — Memory/training
