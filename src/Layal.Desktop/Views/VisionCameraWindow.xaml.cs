@@ -24,6 +24,7 @@ public partial class VisionCameraWindow : Window
 
     public bool CameraIsRunning => _captureReady && IsVisible;
 
+    public event Action<bool>? CameraStatusChanged;
     public event Action<byte[]>? AnalyzeRequested;
     public event Action<byte[]>? ObserveRequested;
     public event Action<bool>? AutomaticObservationChanged;
@@ -71,17 +72,20 @@ public partial class VisionCameraWindow : Window
                     ? "تعذر فتح الكاميرا. تحقق من توصيلها وإذن Windows وعدم استخدامها من تطبيق آخر."
                     : "Could not open the camera. Check its connection, Windows privacy permission, and whether another app is using it.";
                 AnalyzeCurrentFrameButton.IsEnabled = false;
+                CameraStatusChanged?.Invoke(false);
                 return;
             }
 
             _previewTimer.Start();
             CameraStatusText.Text = _isArabic ? "الكاميرا نشطة محليًا — لم تُرسل أي صورة بعد." : "Camera is previewing locally — no image has been sent yet.";
+            CameraStatusChanged?.Invoke(true);
         }
         catch (Exception ex)
         {
             _captureReady = false;
             CameraStatusText.Text = (_isArabic ? "تعذر تشغيل الكاميرا: " : "Could not start camera: ") + ex.Message;
             AnalyzeCurrentFrameButton.IsEnabled = false;
+            CameraStatusChanged?.Invoke(false);
         }
     }
 
@@ -189,6 +193,7 @@ public partial class VisionCameraWindow : Window
     private void VisionCameraWindow_Closed(object? sender, EventArgs e)
     {
         _isClosing = true;
+        CameraStatusChanged?.Invoke(false);
         _previewTimer.Stop();
         _observationTimer.Stop();
         _previewTimer.Tick -= PreviewTimer_Tick;
