@@ -252,12 +252,14 @@ public partial class VisionCameraWindow : System.Windows.Window
     {
         if (_switchingSource) return;
 
-        var camera = DiscoveredCamerasSelector.SelectedItem as OnvifCameraDevice;
+        var manualAddress = ManualRtspAddressInput.Text.Trim();
+        var camera = string.IsNullOrWhiteSpace(manualAddress)
+            ? DiscoveredCamerasSelector.SelectedItem as OnvifCameraDevice
+            : null;
         Uri? manualStreamUri = null;
         var cameraName = camera?.DisplayName ?? string.Empty;
         if (camera is null)
         {
-            var manualAddress = ManualRtspAddressInput.Text.Trim();
             if (!Uri.TryCreate(manualAddress, UriKind.Absolute, out var parsedStream) ||
                 parsedStream.Scheme is not ("rtsp" or "rtsps") ||
                 !string.IsNullOrEmpty(parsedStream.UserInfo) ||
