@@ -2023,6 +2023,7 @@ public partial class MainWindow : Window
                 ? "تعذر تحليل الصورة. قد لا يدعم النموذج أو الموفر الحالي إدخال الصور؛ اختر نموذجًا يدعم الرؤية. التفاصيل: "
                 : "Could not analyze the image. The current provider or model may not support image input; choose a vision-capable model. Details: ";
             var message = prefix + ex.Message;
+            if (automaticObservation) _cameraVisionWindow?.StopAutomaticObservation();
             if (!automaticObservation)
                 AddMessage("status", message);
             else
