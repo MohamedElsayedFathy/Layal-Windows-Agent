@@ -26,14 +26,26 @@ public sealed class TrayService : IDisposable
         _menu.Items.AddRange(new Forms.ToolStripItem[] { _openItem, _mascotItem, new Forms.ToolStripSeparator(), _exitItem });
 
         Drawing.Icon trayIcon;
-        var iconResource = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/layal-tray.ico", UriKind.Absolute));
-        if (iconResource is not null)
+        try
         {
-            using (iconResource.Stream) _ownedIcon = new Drawing.Icon(iconResource.Stream);
-            trayIcon = _ownedIcon!;
+            // Explicit assembly identity avoids resolving the pack URI against a test host
+            // or another entry assembly when the WPF app is rendered by automation.
+            var iconUri = new Uri("pack://application:,,,/Layal;component/Assets/layal-tray.ico", UriKind.Absolute);
+            var iconResource = Application.GetResourceStream(iconUri);
+            if (iconResource is not null)
+            {
+                using (iconResource.Stream) _ownedIcon = new Drawing.Icon(iconResource.Stream);
+                trayIcon = _ownedIcon!;
+            }
+            else
+            {
+                trayIcon = Drawing.SystemIcons.Application;
+            }
         }
-        else
+        catch (System.IO.IOException)
         {
+            // Tray creation must not prevent the desktop agent from starting if a package
+            // was built without its optional branded icon resource.
             trayIcon = Drawing.SystemIcons.Application;
         }
 

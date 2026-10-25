@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
-        Title="Layal" Width="178" Height="145"
+        Title="Layal" Width="248" Height="175"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True"
         Background="Transparent" ShowInTaskbar="False" ShowActivated="False"
         Topmost="True" WindowStartupLocation="Manual"
@@ -12,7 +12,10 @@
         MouseRightButtonUp="Window_MouseRightButtonUp"
         MouseEnter="Window_MouseEnter" MouseLeave="Window_MouseLeave" MouseMove="Window_MouseMove">
     <Viewbox x:Name="MascotViewBox" Stretch="Uniform" StretchDirection="Both">
-        <Grid x:Name="Root" Width="178" Height="145" Background="Transparent" ToolTip="Layal | Double-click to open">
+        <Grid x:Name="Root" Width="248" Height="175" Background="Transparent" ToolTip="Layal | Double-click to open">
+            <!-- Previous procedural 3D robot rig. Kept (collapsed) so existing mood code keeps working and the
+                 original look can be restored; the official Layal character below is what users see. -->
+            <Grid x:Name="LegacyRig" Visibility="Collapsed">
             <!-- Soft pastel aura and orbital details keep the mascot readable over light or dark apps. -->
             <Ellipse x:Name="GlowHalo" Width="145" Height="107" Fill="#4077DFFF"
                      HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,21,0,0" Opacity="0.48">
@@ -32,6 +35,17 @@
             <Path Data="M 0,5 L 5,0 L 10,5 L 5,10 Z" Fill="#B8A9F2" Opacity="0.9"
                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,26,0" />
 
+            <!-- Native WPF 3D head/body/limb rig. A wide viewport gives articulated arms and feet room outside the head silhouette. The zero-opacity face canvas remains only for pointer coordinate compatibility. -->
+            <Viewport3D x:Name="AvatarViewport" Width="248" Height="170"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0"
+                        IsHitTestVisible="False" ClipToBounds="True">
+                <Viewport3D.Camera>
+                    <!-- FOV widened with the viewport: preserve the same model pixel scale while giving arms/feet horizontal clearance. -->
+                    <PerspectiveCamera Position="0,0,2.6" LookDirection="0,0,-2.6"
+                                       UpDirection="0,1,0" FieldOfView="60.5"/>
+                </Viewport3D.Camera>
+            </Viewport3D>
+
             <!-- Modern antenna: lilac stem, pearl mount, warm status light. -->
             <Ellipse Width="18" Height="7" Fill="#D8E4F8" Stroke="#BACCE9" StrokeThickness="1"
                      HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0" />
@@ -44,10 +58,10 @@
                 <Ellipse.Effect><DropShadowEffect Color="#D9A23B" BlurRadius="8" ShadowDepth="0" Opacity="0.48" /></Ellipse.Effect>
             </Ellipse>
 
-            <!-- Pearl body with a cool gradient trim. The face display remains dark for expressive contrast. -->
-            <Border x:Name="Shell" Width="132" Height="96" CornerRadius="35" BorderThickness="3.2"
+            <!-- Transparent visual trim over the lit 3D shell and recessed 3D face display. -->
+            <Border x:Name="Shell" Width="132" Height="96" CornerRadius="35" BorderThickness="0"
                     VerticalAlignment="Top" Margin="0,25,0,0"
-                    Background="{StaticResource Layal.MascotShellGradient}" HorizontalAlignment="Center">
+                    Background="Transparent" HorizontalAlignment="Center">
                 <Border.BorderBrush>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#7CDDE1" Offset="0" />
@@ -59,12 +73,12 @@
                     <DropShadowEffect Color="#8798D8" BlurRadius="16" ShadowDepth="3" Opacity="0.27" />
                 </Border.Effect>
                 <Grid>
-                    <Border Margin="5" CornerRadius="29" BorderThickness="1.4" BorderBrush="#AFC7EB"
-                            Background="{StaticResource Layal.MascotFaceGradient}">
+                    <Border Margin="9" CornerRadius="25" BorderThickness="1.4" BorderBrush="#AFC7EB"
+                            Background="Transparent">
                         <Grid>
                             <Border Height="18" Margin="7,4,7,0" VerticalAlignment="Top" CornerRadius="18"
                                     Background="#16FFFFFF" IsHitTestVisible="False" />
-                            <Canvas x:Name="FaceCanvas" ClipToBounds="True">
+                            <Canvas x:Name="FaceCanvas" ClipToBounds="True" Opacity="0">
                                 <!-- Brows -->
                                 <Path x:Name="LeftBrow" Data="M 26,18 Q 34,14 42,18" Stroke="#B7CCF7"
                                       StrokeThickness="2.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
@@ -121,24 +135,160 @@
                 </Grid>
             </Border>
 
-            <!-- Small boots with a pearl finish. -->
-            <Border Width="31" Height="10" CornerRadius="5" Background="#8F85DF"
-                    BorderBrush="#C9C4F4" BorderThickness="1"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,18,3" />
-            <Border Width="28" Height="10" CornerRadius="5" Background="#50BFC9"
-                    BorderBrush="#B2EAEC" BorderThickness="1"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="22,0,0,3" />
-
             <!-- Explicit status ring, connected to the agent's real state. -->
             <Border Width="19" Height="19" CornerRadius="9.5" Background="#FFFFFF" BorderBrush="#C9D6E9"
-                    BorderThickness="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,29,19,0">
+                    BorderThickness="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,19,0">
                 <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#32B985"
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
 
+            </Grid>
+
+            <!-- Official Layal character: real artwork swapped by the agent's actual mood, with her robot assistant beside her.
+                 Purely visual; pointer input is handled by the window's hit-test geometry. -->
+            <Canvas x:Name="CharacterLayer" Width="248" Height="175" IsHitTestVisible="False" ClipToBounds="False"
+                    AutomationProperties.Name="Layal and her robot assistant">
+                <Image x:Name="LayalImage" Canvas.Left="80" Canvas.Top="8" Width="130" Height="132.7"
+                       Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                       RenderTransformOrigin="0.5,1">
+                    <Image.Effect>
+                        <DropShadowEffect Color="#4B6FA8" BlurRadius="7" ShadowDepth="0" Opacity="0.45" />
+                    </Image.Effect>
+                    <Image.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="LayalBreathScale" ScaleX="1" ScaleY="1" />
+                            <TranslateTransform x:Name="LayalShift" />
+                        </TransformGroup>
+                    </Image.RenderTransform>
+                </Image>
+
+                <Grid x:Name="RobotRoot" Canvas.Left="22" Canvas.Top="18" Width="54" Height="61.3"
+                      RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <TransformGroup>
+                            <RotateTransform x:Name="RobotTilt" />
+                            <TranslateTransform x:Name="RobotShift" />
+                        </TransformGroup>
+                    </Grid.RenderTransform>
+                    <Image x:Name="RobotImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <!-- The face is drawn over the robot's blank glass screen so it can express the real agent state. -->
+                    <Viewbox Margin="9.4,19.8,13,17.1" Stretch="Uniform">
+                        <Canvas Width="100" Height="76">
+                            <Canvas.Effect>
+                                <DropShadowEffect x:Name="RobotFaceGlow" Color="#4BE7F3" BlurRadius="9" ShadowDepth="0" Opacity="0.85" />
+                            </Canvas.Effect>
+                            <Path x:Name="RobotEyeL" Stroke="#4BE7F3" Fill="#4BE7F3" StrokeThickness="5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform><ScaleTransform x:Name="RobotEyeLScale" /></Path.RenderTransform>
+                            </Path>
+                            <Path x:Name="RobotEyeR" Stroke="#4BE7F3" Fill="#4BE7F3" StrokeThickness="5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform><ScaleTransform x:Name="RobotEyeRScale" /></Path.RenderTransform>
+                            </Path>
+                            <Path x:Name="RobotMouth" Stroke="#4BE7F3" Fill="Transparent" StrokeThickness="4.2"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                        </Canvas>
+                    </Viewbox>
+                    <!-- Non-colour status cue (? ! x z) so state never depends on colour alone. -->
+                    <TextBlock x:Name="RobotGlyph" HorizontalAlignment="Right" VerticalAlignment="Top"
+                               Margin="0,-3,-5,0" FontFamily="Segoe UI Symbol, Segoe UI" FontWeight="Bold" FontSize="14"
+                               Foreground="#4BE7F3" Text="" />
+                </Grid>
+            </Canvas>
+
+            <!-- Task companions appear only while Layal is actively thinking or working. -->
+            <Canvas x:Name="TaskPropsLayer" Width="248" Height="175"
+                    IsHitTestVisible="False" ClipToBounds="False" Visibility="Collapsed">
+                <!-- A floating task sheet with animated writing lines. -->
+                <Canvas x:Name="PaperProp" Width="33" Height="45" Canvas.Left="7" Canvas.Top="94"
+                        Opacity="0" RenderTransformOrigin="0.5,0.5">
+                    <Border Width="31" Height="42" CornerRadius="4"
+                            Background="#F7FFFFFF" BorderBrush="#9ADDE8" BorderThickness="1"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#5078B9D9" BlurRadius="8" ShadowDepth="2" Opacity="0.45"/>
+                        </Border.Effect>
+                        <Grid Margin="5,7,4,4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="3"/>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" Background="#8D7FE8" CornerRadius="1" Margin="0,0,6,0"/>
+                            <Border Grid.Row="1" Background="#79BFD4" CornerRadius="1" Margin="0,2,1,0"/>
+                            <Border Grid.Row="2" Background="#BDDCEB" CornerRadius="1" Margin="0,2,5,0"/>
+                            <Border Grid.Row="3" Background="#BDDCEB" CornerRadius="1" Margin="0,2,3,0"/>
+                            <Border Grid.Row="4" Background="#F6C56D" CornerRadius="1" Width="9" Height="3"
+                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
+                        </Grid>
+                    </Border>
+                </Canvas>
+
+                <!-- A tiny pearl-and-lilac pencil, angled as though making notes. -->
+                <Canvas x:Name="PencilProp" Width="9" Height="40" Canvas.Left="35" Canvas.Top="89"
+                        Opacity="0" RenderTransformOrigin="0.5,0.5">
+                    <Border Width="6" Height="29" Canvas.Left="1.5" Canvas.Top="1"
+                            CornerRadius="2" Background="#DCD7FF" BorderBrush="#9587E8" BorderThickness="0.8"/>
+                    <Border Width="2" Height="25" Canvas.Left="3.5" Canvas.Top="3"
+                            CornerRadius="1" Background="#FFFFFF" Opacity="0.8"/>
+                    <Path Data="M 1.5,29 L 7.5,29 L 4.5,38 Z" Fill="#F2C36D" Stroke="#B88F4B" StrokeThickness="0.5"/>
+                    <Ellipse Width="4" Height="2" Fill="#FF94C8" Canvas.Left="2.5" Canvas.Top="0"/>
+                </Canvas>
+
+                <!-- A hovering translucent holo-computer with a tiny live-looking display. -->
+                <Canvas x:Name="HoloComputerProp" Width="48" Height="43" Canvas.Left="198" Canvas.Top="126"
+                        Opacity="0" RenderTransformOrigin="0.5,0.5">
+                    <Border Width="46" Height="30" CornerRadius="6"
+                            BorderBrush="#9CE9F0" BorderThickness="1.2"
+                            Background="#D7233A60" Canvas.Left="1" Canvas.Top="0">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#46D9F3" BlurRadius="12" ShadowDepth="0" Opacity="0.75"/>
+                        </Border.Effect>
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="3" Height="3" Fill="#FF91C8" Margin="0,0,3,0"/>
+                                <Ellipse Width="3" Height="3" Fill="#FFD477" Margin="0,0,3,0"/>
+                                <TextBlock Text="AI" FontSize="6.5" FontWeight="Bold" Foreground="#E9FCFF"/>
+                            </StackPanel>
+                            <Grid Grid.Row="1" Margin="0,3,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,3,0">
+                                    <Border Width="7" Height="2" Background="#83E7EB" Margin="0,0,0,2"/>
+                                    <Border Width="5" Height="2" Background="#B8A8FA" Margin="0,0,0,2"/>
+                                    <Border Width="8" Height="2" Background="#83E7EB"/>
+                                </StackPanel>
+                                <Polyline Grid.Column="1" Points="0,12 5,7 9,9 14,1"
+                                          Stroke="#95F2DB" StrokeThickness="1.2"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <Path Data="M 4,32 L 44,32 L 37,38 L 11,38 Z"
+                          Fill="#A5EAF2" Stroke="#70CCD9" StrokeThickness="0.8"/>
+                    <Border Width="12" Height="2" CornerRadius="1" Background="#F4FDFF"
+                            Canvas.Left="18" Canvas.Top="34" Opacity="0.9"/>
+                    <Ellipse Width="4" Height="4" Fill="#9AEAF2" Canvas.Left="40" Canvas.Top="39" Opacity="0.9"/>
+                </Canvas>
+            </Canvas>
+
+            <!-- Procedural cinematic particles: hearts, flowers, glints and task-stage glyphs. -->
+            <Canvas x:Name="CinematicEffectsLayer" Width="248" Height="175"
+                    IsHitTestVisible="False" ClipToBounds="False" Visibility="Collapsed" />
+
             <!-- Short-lived, animated reaction bubble; it never intercepts pointer input. -->
             <Canvas x:Name="ReactionLayer" IsHitTestVisible="False" ClipToBounds="False">
-                <Border x:Name="ReactionBubble" Width="48" Height="45" Canvas.Left="115" Canvas.Top="54"
+                <Border x:Name="ReactionBubble" Width="48" Height="45" Canvas.Left="185" Canvas.Top="29"
                         Visibility="Collapsed" Opacity="0" CornerRadius="16" Background="#F5FFFFFF"
                         BorderBrush="#B8CBE8" BorderThickness="1" Padding="2"
                         RenderTransformOrigin="0.5,0.5">

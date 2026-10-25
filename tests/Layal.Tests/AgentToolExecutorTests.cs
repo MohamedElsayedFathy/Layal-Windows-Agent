@@ -193,5 +193,21 @@ public sealed class AgentToolExecutorTests
         Assert.IsFalse(approvalCalled);
     }
 
+    [TestMethod]
+    [DataRow("notes.txt:hidden")]
+    [DataRow("nul.txt")]
+    [DataRow("sub/COM1")]
+    public async Task AlternateStreamsAndReservedDeviceNamesAreRejected(string path)
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var executor = CreateExecutor(workspace);
+        var args = new JsonObject { ["path"] = path, ["content"] = "x" }.ToJsonString();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "create_text_file", args, (_, _, _) => Task.FromResult(true), _ => { }, CancellationToken.None));
+    }
+
     private static AgentToolExecutor CreateExecutor(string root) => new(root, new MemoryService(System.IO.Path.Combine(root, "memory.dpapi")));
 }

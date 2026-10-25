@@ -30,7 +30,8 @@ public sealed class AgentOrchestrator
         IReadOnlyList<SkillRecord> selectedSkills,
         Func<string, string, CancellationToken, Task<bool>> confirm,
         Action<string> onEvent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string interfaceLanguage = "ar")
     {
         var task = new AgentTaskRecord { Goal = goal.Trim(), Status = "Running" };
         void Log(string message)
@@ -45,7 +46,7 @@ public sealed class AgentOrchestrator
 
         _history.Upsert(task);
         Log("Task accepted; building a bounded execution plan through the configured model.");
-        var systemPrompt = LayalIdentity.SystemPrompt;
+        var systemPrompt = LayalIdentity.ForInterfaceLanguage(interfaceLanguage);
         var messages = new JsonArray
         {
             new JsonObject { ["role"] = "system", ["content"] = systemPrompt },

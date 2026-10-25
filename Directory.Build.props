@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <!-- Audit the full PackageReference graph, including transitive dependencies. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <!-- Fail closed if NuGet cannot obtain advisory data. -->
+    <WarningsAsErrors>$(WarningsAsErrors);NU1900;NU1905</WarningsAsErrors>
+  </PropertyGroup>
+</Project>
