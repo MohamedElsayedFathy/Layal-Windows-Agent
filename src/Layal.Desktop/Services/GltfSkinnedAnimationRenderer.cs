@@ -50,8 +50,14 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         AutomationProperties.SetHelpText(_viewport,
             $"Loaded GLB; vertices={Diagnostics.VertexCount}; triangles={Diagnostics.TriangleCount}; joints={Diagnostics.JointCount}; animation={AnimationName}; frames=0; playing={autoPlay}");
         if (_automationStatusElement is not null)
+        {
             AutomationProperties.SetName(_automationStatusElement, "GLB 3D preview — Rigged Figure");
-        UpdateAutomationStatus();
+            // Do not call UpdateAutomationStatus here: the DispatcherTimer is initialized
+            // later in this constructor and IsPlaying reads that timer. RenderAt will publish
+            // the live frame count once the renderer is fully initialized.
+            AutomationProperties.SetHelpText(_automationStatusElement,
+                $"Loaded GLB; vertices={Diagnostics.VertexCount}; triangles={Diagnostics.TriangleCount}; joints={Diagnostics.JointCount}; animation={AnimationName}; frames=0; playing={autoPlay}");
+        }
 
         _mesh = new MeshGeometry3D
         {
