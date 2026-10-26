@@ -64,8 +64,16 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
             TriangleIndices = new Int32Collection(asset.Indices)
         };
         var material = new MaterialGroup();
-        material.Children.Add(new DiffuseMaterial(new SolidColorBrush(asset.BaseColor)));
-        material.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromRgb(220, 230, 255)), 24));
+        // The selected rigged sample is almost white. On Layal's transparent always-on-top
+        // window a white mesh disappears against many desktop surfaces, so tint near-white
+        // sample materials with a restrained periwinkle while retaining authored material colors.
+        var baseColor = asset.BaseColor;
+        var luminance = (0.2126 * baseColor.R + 0.7152 * baseColor.G + 0.0722 * baseColor.B) / 255.0;
+        var previewColor = luminance >= 0.88
+            ? Color.FromRgb(112, 137, 207)
+            : Color.FromRgb(baseColor.R, baseColor.G, baseColor.B);
+        material.Children.Add(new DiffuseMaterial(new SolidColorBrush(previewColor)));
+        material.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromRgb(224, 231, 255)), 28));
         var visual = new ModelVisual3D
         {
             Content = new GeometryModel3D(_mesh, material)
