@@ -1580,7 +1580,10 @@ public partial class FloatingMascotWindow : Window
                 {
                     LegacyRig.Visibility = Visibility.Visible;
                     CharacterLayer.Visibility = Visibility.Collapsed;
-                    var diagnostic = "GLB preview failed: " + ex.GetType().Name + ": " + ex.Message;
+                    var stack = ex.StackTrace ?? "<no stack trace>";
+                    if (stack.Length > 1800)
+                        stack = stack.Substring(0, 1800);
+                    var diagnostic = "GLB preview failed: " + ex.GetType().Name + ": " + ex.Message + "; stack=" + stack;
                     Title = "GLB 3D preview — Rigged Figure";
                     AutomationProperties.SetName(this, Title);
                     AutomationProperties.SetHelpText(this, diagnostic);
