@@ -75,6 +75,14 @@ try {
     }
 
     $initial = Read-PreviewHelpText -Element $preview
+    if ($initial -match "GLB preview failed:") {
+        $tests.Add([pscustomobject]@{
+            Test = "GLB preview loads successfully"
+            Result = "FAIL"
+            Details = $initial
+        })
+        throw "The GLB renderer reported a load failure: $initial"
+    }
     foreach ($required in @("vertices=370", "triangles=256", "joints=19", "animation=")) {
         $ok = $initial.Contains($required)
         $tests.Add([pscustomobject]@{
