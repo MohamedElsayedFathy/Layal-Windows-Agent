@@ -134,6 +134,44 @@ data: [DONE]
     }
 
     [TestMethod]
+    public async Task ChatStreamIgnoresHermesProgressEventsAndSseKeepaliveComments()
+    {
+        const string stream = """
+: keepalive
+
+event: hermes.tool.progress
+data: {"type":"tool.started","tool":"terminal","preview":"restricted POC"}
+
+data: {"choices":[{"delta":{"role":"assistant"}}]}
+
+data: {"choices":[{"delta":{"content":"Hermes "}}]}
+
+event: hermes.tool.progress
+data: {"type":"tool.completed","tool":"terminal","duration":0.1}
+
+data: {"choices":[{"delta":{"content":"reply"}}]}
+
+data: [DONE]
+
+""";
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(stream, Encoding.UTF8, "text/event-stream")
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+        var deltas = new List<string>();
+
+        var reply = await client.ChatStreamAsync("http://127.0.0.1:8642/v1", "hermes-agent", "local-test-key",
+            new[] { new ChatMessage { Role = "user", Content = "Hello" } }, deltas.Add);
+
+        Assert.AreEqual("Hermes reply", reply);
+        CollectionAssert.AreEqual(new[] { "Hermes ", "reply" }, deltas);
+        Assert.AreEqual("http://127.0.0.1:8642/v1/chat/completions", handler.LastRequestUri?.AbsoluteUri);
+        Assert.AreEqual("Bearer", handler.LastAuthorizationScheme);
+        Assert.AreEqual("local-test-key", handler.LastAuthorizationParameter);
+    }
+
+    [TestMethod]
     public async Task ChatStreamFallsBackWhenProviderReturnsRegularJson()
     {
         using var handler = new RecordingHandler(_ => JsonResponse("{\"choices\":[{\"message\":{\"content\":\"Fallback reply\"}}]}"));
