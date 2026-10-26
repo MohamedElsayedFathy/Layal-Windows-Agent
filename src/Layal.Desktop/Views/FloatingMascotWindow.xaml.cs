@@ -1523,6 +1523,9 @@ public partial class FloatingMascotWindow : Window
 
         if (enabled)
         {
+            GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
+            GlbPreviewAutomationStatus.Content = "Loading bundled GLB preview...";
+            AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, "Loading bundled GLB preview...");
             try
             {
                 _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport, automationStatusElement: GlbPreviewAutomationStatus);
@@ -1554,9 +1557,14 @@ public partial class FloatingMascotWindow : Window
                     LegacyRig.Visibility = Visibility.Visible;
                     CharacterLayer.Visibility = Visibility.Collapsed;
                     var diagnostic = "GLB preview failed: " + ex.GetType().Name + ": " + ex.Message;
-                    GlbPreviewAutomationStatus.Text = diagnostic;
+                    GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
+                    GlbPreviewAutomationStatus.Content = diagnostic;
                     AutomationProperties.SetName(GlbPreviewAutomationStatus, "GLB 3D preview — Rigged Figure");
                     AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, diagnostic);
+                }
+                else
+                {
+                    GlbPreviewAutomationStatus.Visibility = Visibility.Collapsed;
                 }
 
                 UpdateLanguage();
@@ -1579,6 +1587,7 @@ public partial class FloatingMascotWindow : Window
             _gltfPreviewRenderer?.Dispose();
             _gltfPreviewRenderer = null;
             _glbPreviewEnabled = false;
+            GlbPreviewAutomationStatus.Visibility = Visibility.Collapsed;
             InitializeAvatarRig();
             LegacyRig.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
             CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
