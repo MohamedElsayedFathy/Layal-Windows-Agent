@@ -1212,7 +1212,8 @@ public partial class MainWindow : Window
               "Ctrl+4 — المهارات\n" +
               "Ctrl+5 — الكاميرات\n" +
               "Ctrl+6 — الذاكرة\n" +
-              "Ctrl+7 — الإعدادات\n" +
+              "Ctrl+7 — تكاملات API\\n" +
+              "Ctrl+8 — الإعدادات\\n" +
               "F1 — عرض هذه المساعدة\n\n" +
               "استخدم Tab للتنقل للأمام وShift+Tab للرجوع. استخدم الأسهم داخل قوائم التبويبات والقوائم، وSpace لتبديل مربعات الاختيار، والأسهم لتعديل أشرطة التمرير. في حقل المحادثة، Enter يرسل الرسالة."
             : "Keyboard shortcuts\n\n" +
@@ -1222,7 +1223,8 @@ public partial class MainWindow : Window
               "Ctrl+4 — Skills\n" +
               "Ctrl+5 — Cameras\n" +
               "Ctrl+6 — Memory\n" +
-              "Ctrl+7 — Settings\n" +
+              "Ctrl+7 — API integrations\\n" +
+              "Ctrl+8 — Settings\\n" +
               "F1 — Show this help\n\n" +
               "Use Tab to move forward and Shift+Tab to move backward. Use the arrow keys inside tab and list controls, Space to toggle checkboxes, and the arrow keys to adjust sliders. In the chat field, Enter sends the message.";
 
