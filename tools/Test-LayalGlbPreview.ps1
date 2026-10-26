@@ -28,6 +28,8 @@ Remove-Item -LiteralPath $summaryPath -Force -ErrorAction SilentlyContinue
 $previousTestFlag = $env:LAYAL_GLB_PREVIEW_TEST
 $process = $null
 $tests = [System.Collections.Generic.List[object]]::new()
+$uiaWindowSnapshot = @()
+$processSnapshot = @()
 
 function Find-GlbPreviewElement {
     param([int]$ProcessId)
@@ -57,6 +59,33 @@ function Find-GlbPreviewElement {
     return $null
 }
 
+function Get-UiAutomationWindowSnapshot {
+    param([int]$ProcessId)
+    $snapshot = [System.Collections.Generic.List[object]]::new()
+    $root = [System.Windows.Automation.AutomationElement]::RootElement
+    $windowCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Window)
+    $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Children, $windowCondition)
+    foreach ($window in $windows) {
+        try {
+            $current = $window.Current
+            $snapshot.Add([pscustomobject]@{
+                Name = [string]$current.Name
+                ProcessId = [int]$current.ProcessId
+                IsTargetProcess = ($current.ProcessId -eq $ProcessId)
+                NativeWindowHandle = [int]$current.NativeWindowHandle
+                IsOffscreen = [bool]$current.IsOffscreen
+                Bounds = [string]$current.BoundingRectangle
+                HelpText = [string](Read-PreviewHelpText -Element $window)
+            })
+        } catch {
+            $snapshot.Add([pscustomobject]@{ Name = "<stale UIA window>"; ProcessId = -1; Error = $_.Exception.Message })
+        }
+    }
+    return @($snapshot)
+}
+
 function Read-PreviewHelpText {
     param($Element)
     try {
@@ -83,7 +112,12 @@ try {
         $preview = Find-GlbPreviewElement -ProcessId $process.Id
     }
     if ($null -eq $preview) {
-        throw "The active GLB viewport was not exposed through Windows UI Automation."
+        $uiaWindowSnapshot = @(Get-UiAutomationWindowSnapshot -ProcessId $process.Id)
+        $processSnapshot = @(Get-Process -Name "Layal" -ErrorAction SilentlyContinue |
+            Select-Object Id, ProcessName, MainWindowTitle, MainWindowHandle, HasExited)
+        $windowJson = ConvertTo-Json -InputObject $uiaWindowSnapshot -Depth 5 -Compress
+        $processJson = ConvertTo-Json -InputObject $processSnapshot -Depth 5 -Compress
+        throw "The GLB preview was not exposed through UI Automation within $StartupTimeoutSeconds seconds. UIA windows: $windowJson; processes: $processJson"
     }
 
     $initial = Read-PreviewHelpText -Element $preview
@@ -144,6 +178,8 @@ catch {
         Result = "failed"
         Error = $_.Exception.Message
         Tests = @($tests)
+        UiAutomationWindows = @($uiaWindowSnapshot)
+        ProcessSnapshot = @($processSnapshot)
         ManualScreenReaderAcceptance = "pending"
         ManualHighContrastAcceptance = "pending"
         ManualVisualAcceptance = "pending"
