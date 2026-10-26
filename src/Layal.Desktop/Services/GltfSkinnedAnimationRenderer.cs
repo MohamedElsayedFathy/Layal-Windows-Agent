@@ -465,7 +465,7 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
                     var wrapped = elapsedSeconds % animation.Duration;
                     if (wrapped < 0)
                         wrapped += animation.Duration;
-                    time += wrapped;
+                    time += (float)wrapped;
                 }
 
                 foreach (var channel in animation.Channels)
