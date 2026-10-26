@@ -12,6 +12,12 @@ public sealed class UiLocalizationTests
     {
         Assert.AreEqual("مكتملة مع تحذيرات", UiLocalization.FormatTaskStatus("CompletedWithWarnings", isArabic: true));
         Assert.AreEqual("Completed with warnings", UiLocalization.FormatTaskStatus("CompletedWithWarnings", isArabic: false));
+        Assert.AreEqual("Pending", UiLocalization.FormatTaskStatus("قيد الانتظار", isArabic: false));
+        Assert.AreEqual("Running", UiLocalization.FormatTaskStatus("قيد التنفيذ", isArabic: false));
+        Assert.AreEqual("Completed", UiLocalization.FormatTaskStatus("مكتملة", isArabic: false));
+        Assert.AreEqual("Completed with warnings", UiLocalization.FormatTaskStatus("مكتملة مع تحذيرات", isArabic: false));
+        Assert.AreEqual("Failed", UiLocalization.FormatTaskStatus("فشلت", isArabic: false));
+        Assert.AreEqual("Cancelled", UiLocalization.FormatTaskStatus("أُلغيت", isArabic: false));
 
         var record = new AgentTaskRecord { Status = "Completed", Result = "The model returned an empty final answer." };
         Assert.IsTrue(UiLocalization.FormatTaskResult(record, isArabic: true).StartsWith("مكتملة", StringComparison.Ordinal));
