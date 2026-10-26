@@ -923,11 +923,15 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         }
 
         private static Matrix4x4 ReadGltfMatrix(float[] values, int offset) =>
+            // glTF serializes matrices column-major for column-vector math. System.Numerics
+            // transforms row vectors, so map the 16 serialized values into row-major fields
+            // (the mathematical transpose). This also puts translation in M41/M42/M43, where
+            // Vector3.Transform and the WPF skinning pipeline expect it.
             new(
-                values[offset], values[offset + 4], values[offset + 8], values[offset + 12],
-                values[offset + 1], values[offset + 5], values[offset + 9], values[offset + 13],
-                values[offset + 2], values[offset + 6], values[offset + 10], values[offset + 14],
-                values[offset + 3], values[offset + 7], values[offset + 11], values[offset + 15]);
+                values[offset], values[offset + 1], values[offset + 2], values[offset + 3],
+                values[offset + 4], values[offset + 5], values[offset + 6], values[offset + 7],
+                values[offset + 8], values[offset + 9], values[offset + 10], values[offset + 11],
+                values[offset + 12], values[offset + 13], values[offset + 14], values[offset + 15]);
 
         private static int[] ConvertToInt(uint[] values)
         {
