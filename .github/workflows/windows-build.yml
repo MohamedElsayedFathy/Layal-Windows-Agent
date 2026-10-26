@@ -141,7 +141,7 @@ jobs:
           $summaryPath = "artifacts/keyboard-acceptance/keyboard-summary.json"
           if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { throw "Keyboard acceptance did not write its JSON summary." }
           $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
-          if ($summary.Result -ne "passed" -or $summary.Failed -ne 0 -or $summary.ShortcutCases -lt 15) { throw "Keyboard navigation acceptance did not pass all expected shortcut cases." }
+          if ($summary.Result -ne "passed" -or $summary.Failed -ne 0 -or $summary.ShortcutCases -lt 18) { throw "Keyboard navigation acceptance did not pass all expected shortcut cases." }
           if ($summary.ManualScreenReaderAcceptance -ne "pending" -or $summary.ManualHighContrastAcceptance -ne "pending") { throw "Automated keyboard testing must not claim manual accessibility acceptance." }
 
       - name: Run automated tests
