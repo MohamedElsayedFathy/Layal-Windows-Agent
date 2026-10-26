@@ -1524,7 +1524,7 @@ public partial class FloatingMascotWindow : Window
         {
             try
             {
-                _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport);
+                _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport, automationStatusElement: GlbPreviewAutomationStatus);
                 _glbPreviewEnabled = true;
                 LegacyRig.Visibility = Visibility.Visible;
                 CharacterLayer.Visibility = Visibility.Collapsed;
