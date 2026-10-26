@@ -678,7 +678,7 @@ public partial class MainWindow : Window
         ApplyMascotSettingsButton.Content = ar ? "تطبيق إعدادات الشخصية" : "Apply mascot settings";
         SettingsLimitations.Text = ar
             ? "الوضع الافتراضي يوفر الشات وتحويل الكلام والنطق محليًا بعد موافقتك وتنزيل الموارد. المهام المتقدمة وتحليل الصور وبعض التكاملات ما زالت تحتاج مزودًا سحابيًا اختياريًا. يعمل التسجيل المحلي على جهازك ولا يُرفع إلى مزود صوت."
-            : "The default mode provides local chat, speech recognition, and speech synthesis after you consent to downloading resources. Advanced agent tasks, image analysis, and some integrations still need an optional cloud provider. Local microphone audio is not uploaded to a speech service.");
+            : "The default mode provides local chat, speech recognition, and speech synthesis after you consent to downloading resources. Advanced agent tasks, image analysis, and some integrations still need an optional cloud provider. Local microphone audio is not uploaded to a speech service.";
         WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة وتنفيذ فعل واحد بموافقة" : "Allow window/UI inspection and one approved control action";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
