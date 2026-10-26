@@ -96,11 +96,11 @@ public sealed class UiLocalizationTests
     [TestMethod]
     public void TaskResultDisplayCanSwitchLanguagesWithoutChangingUnknownText()
     {
-        const string english = "Completed\nThe model returned an empty final answer.";
+        var english = "Completed" + Environment.NewLine + "The model returned an empty final answer.";
         var arabic = UiLocalization.TranslateTaskResultDisplay(english, isArabic: true);
         var roundTrip = UiLocalization.TranslateTaskResultDisplay(arabic, isArabic: false);
 
-        Assert.AreEqual("مكتملة\nأعاد النموذج إجابة نهائية فارغة.", arabic);
+        Assert.AreEqual("مكتملة" + Environment.NewLine + "أعاد النموذج إجابة نهائية فارغة.", arabic);
         Assert.AreEqual(english, roundTrip);
     }
 
