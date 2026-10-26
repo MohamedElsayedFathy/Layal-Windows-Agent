@@ -148,6 +148,67 @@ public sealed class ApiConnectionServiceTests
         Assert.AreEqual(0, service.GetAll().Count);
     }
 
+    [TestMethod]
+    public void ApiCatalogSupportsManyEntriesAndPersistsOptionalMetadata()
+    {
+        using var temp = new TestTempDirectory();
+        var storePath = Path.Combine(temp.Path, "api-connections.dpapi");
+        var service = new ApiConnectionService(storePath);
+
+        for (var i = 0; i < 100; i++)
+        {
+            service.Save(new ApiConnectionProfile
+            {
+                Name = $"Application {i:000}",
+                BaseUrl = $"https://api{i}.example.test/v1",
+                AuthenticationType = "None",
+                ImagePath = i == 7 ? Path.Combine(temp.Path, "api-images", "sample.png") : string.Empty,
+                Instructions = i == 7 ? "Sample API details" : string.Empty
+            });
+        }
+
+        var reloaded = new ApiConnectionService(storePath);
+        Assert.AreEqual(100, reloaded.GetAll().Count);
+        Assert.AreEqual("Sample API details", reloaded.Find("Application 007")?.Instructions);
+        Assert.AreEqual(Path.Combine(temp.Path, "api-images", "sample.png"), reloaded.Find("Application 007")?.ImagePath);
+    }
+
+    [TestMethod]
+    public void LayalProviderDesignationIsUniqueAndRequiresBearerKeyAndModel()
+    {
+        using var temp = new TestTempDirectory();
+        var service = new ApiConnectionService(Path.Combine(temp.Path, "api-connections.dpapi"));
+        service.Save(new ApiConnectionProfile
+        {
+            Name = "Provider A",
+            BaseUrl = "https://a.example.test/v1",
+            AuthenticationType = "Bearer",
+            AuthSecret = "secret-a",
+            ModelId = "model-a",
+            IsLayalProvider = true
+        });
+        service.Save(new ApiConnectionProfile
+        {
+            Name = "Provider B",
+            BaseUrl = "https://b.example.test/v1",
+            AuthenticationType = "Bearer",
+            AuthSecret = "secret-b",
+            ModelId = "model-b",
+            IsLayalProvider = true
+        });
+
+        Assert.IsFalse(service.Find("Provider A")!.IsLayalProvider);
+        Assert.IsTrue(service.Find("Provider B")!.IsLayalProvider);
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.Save(new ApiConnectionProfile
+        {
+            Name = "Missing model",
+            BaseUrl = "https://c.example.test/v1",
+            AuthenticationType = "Bearer",
+            AuthSecret = "secret-c",
+            IsLayalProvider = true
+        }));
+    }
+
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")
