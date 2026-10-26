@@ -27,6 +27,75 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public void ToolDefinitionsIncludeSearchForLargeApiCatalogs()
+    {
+        using var temp = new TestTempDirectory();
+        var executor = CreateExecutor(temp.Path);
+        var definitions = executor.GetToolDefinitions();
+        Assert.IsNotNull(definitions.FirstOrDefault(n =>
+            n?["function"]?["name"]?.GetValue<string>() == "list_app_api_connections"));
+    }
+
+    [TestMethod]
+    public async Task ApiCatalogSearchRequiresApprovalAndNeverReturnsCredentials()
+    {
+        using var temp = new TestTempDirectory();
+        var apiService = new ApiConnectionService(System.IO.Path.Combine(temp.Path, "api-connections.dpapi"));
+        apiService.Save(new Layal.Models.ApiConnectionProfile
+        {
+            Name = "Private test integration",
+            BaseUrl = "https://private.example.test/v1",
+            AuthenticationType = "Bearer",
+            AuthSecret = "sensitive-token-not-for-model"
+        });
+        var executor = CreateExecutor(temp.Path, apiService);
+        var approvalCount = 0;
+        string approvalDetails = string.Empty;
+
+        var result = await executor.ExecuteAsync(
+            "list_app_api_connections",
+            "{\"query\":\"Private test integration\"}",
+            (title, details, _) =>
+            {
+                approvalCount++;
+                approvalDetails = title + "\n" + details;
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, approvalCount);
+        StringAssert.Contains(approvalDetails, "API keys and authentication secrets are not included");
+        StringAssert.Contains(result, "Private test integration");
+        StringAssert.Contains(result, "https://private.example.test/v1/");
+        Assert.IsFalse(result.Contains("sensitive-token-not-for-model", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task DeclinedApiCatalogSearchDoesNotReturnConnectionDetails()
+    {
+        using var temp = new TestTempDirectory();
+        var apiService = new ApiConnectionService(System.IO.Path.Combine(temp.Path, "api-connections.dpapi"));
+        apiService.Save(new Layal.Models.ApiConnectionProfile
+        {
+            Name = "Private test integration",
+            BaseUrl = "https://private.example.test/v1",
+            AuthenticationType = "None"
+        });
+        var executor = CreateExecutor(temp.Path, apiService);
+
+        var result = await executor.ExecuteAsync(
+            "list_app_api_connections",
+            "{\"query\":\"Private test integration\"}",
+            (_, _, _) => Task.FromResult(false),
+            _ => { },
+            CancellationToken.None);
+
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(result.Contains("private.example.test", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task NativeTextEntryRequiresWindowInspectionOptInBeforeLookingForAWindow()
     {
         var previousSettings = Layal.AppRuntime.Settings;
@@ -209,5 +278,6 @@ public sealed class AgentToolExecutorTests
             "create_text_file", args, (_, _, _) => Task.FromResult(true), _ => { }, CancellationToken.None));
     }
 
-    private static AgentToolExecutor CreateExecutor(string root) => new(root, new MemoryService(System.IO.Path.Combine(root, "memory.dpapi")));
+    private static AgentToolExecutor CreateExecutor(string root, ApiConnectionService? apiConnections = null) =>
+        new(root, new MemoryService(System.IO.Path.Combine(root, "memory.dpapi")), apiConnections);
 }

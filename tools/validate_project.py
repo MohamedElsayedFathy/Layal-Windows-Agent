@@ -438,7 +438,9 @@ required_controls = {
         "BaseUrlInput", "ModelInput", "ApiKeyInput", "MainTabs", "ChatInput", "TaskInput",
         "SkillsList", "MemoryList", "TaskEventsList", "RecentTasksList", "ConnectionStatusText",
         "AlwaysOnTopCheckbox", "AnimationsCheckbox", "WindowInspectionCheckbox", "MascotSizeSlider",
-        "MascotOpacitySlider", "TestProviderButton", "ProviderActionStatus", "TaskResult", "ChatMessagesList"
+        "MascotOpacitySlider", "TestProviderButton", "ProviderActionStatus", "TaskResult", "ChatMessagesList",
+        "ApiConnectionSearchInput", "ApiConnectionModelIdInput", "ApiConnectionImagePathInput",
+        "ChooseApiImageButton", "ClearApiImageButton", "UseAsLayalApiButton"
     ],
     "src/Layal.Desktop/Views/FloatingMascotWindow.xaml": [
         "Root", "AntennaDot", "GlowHalo", "LeftPupil", "RightPupil", "LeftEye", "RightEye",
@@ -451,6 +453,73 @@ for xaml_file, controls in required_controls.items():
     for control in controls:
         if control not in xnames:
             ERRORS.append(f"Required control '{control}' missing from {xaml_file}")
+
+# API integrations: scalable catalog, safe search, optional image/details, and Layal provider profile.
+api_profile_path = ROOT / "src/Layal.Desktop/Models/ApiConnectionProfile.cs"
+api_service_path = ROOT / "src/Layal.Desktop/Services/ApiConnectionService.cs"
+api_executor_path = ROOT / "src/Layal.Desktop/Services/AgentToolExecutor.cs"
+api_tests_path = ROOT / "tests/Layal.Tests/ApiConnectionServiceTests.cs"
+agent_api_tests_path = ROOT / "tests/Layal.Tests/AgentToolExecutorTests.cs"
+api_profile_text = api_profile_path.read_text(encoding="utf-8") if api_profile_path.is_file() else ""
+api_service_text = api_service_path.read_text(encoding="utf-8") if api_service_path.is_file() else ""
+api_executor_text = api_executor_path.read_text(encoding="utf-8") if api_executor_path.is_file() else ""
+api_tests_text = api_tests_path.read_text(encoding="utf-8") if api_tests_path.is_file() else ""
+agent_api_tests_text = agent_api_tests_path.read_text(encoding="utf-8") if agent_api_tests_path.is_file() else ""
+for required in (
+    "public string ImagePath { get; set; }",
+    "public string ModelId { get; set; }",
+    "public bool IsLayalProvider { get; set; }",
+):
+    if required not in api_profile_text:
+        ERRORS.append(f"API catalog profile metadata is missing: {required}")
+for required in (
+    "public string SearchDescriptions(",
+    "normalized.IsLayalProvider",
+    "ValidateImagePath(",
+    "profile.ImagePath",
+    "profile.ModelId",
+    "item.IsLayalProvider",
+):
+    if required not in api_service_text:
+        ERRORS.append(f"API catalog service behavior is missing: {required}")
+api_ui_code = (ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs").read_text(encoding="utf-8")
+for required in (
+    "ApiConnectionSearchInput_TextChanged",
+    "ApiConnectionMatchesSearch",
+    "CopyApiImageIntoStore",
+    "UseAsLayalApiButton_Click",
+    "ApplyLayalProviderProfile",
+    "The form is clear and ready for another API.",
+    "AppRuntime.ApiConnectionService.Save(layalProviderProfile)",
+):
+    if required not in api_ui_code:
+        ERRORS.append(f"API catalog UI flow is missing: {required}")
+for required in (
+    'Definition("list_app_api_connections"',
+    '"list_app_api_connections" => await ListAppApiConnectionsAsync',
+    'SearchDescriptions(query, maxResults: 50)',
+    "User declined to share API catalog metadata.",
+):
+    if required not in api_executor_text:
+        ERRORS.append(f"Approval-gated API catalog discovery is missing: {required}")
+for required in (
+    "ApiCatalogSupportsManyEntriesAndPersistsOptionalMetadata",
+    "LayalProviderDesignationIsUniqueAndRequiresBearerKeyAndModel",
+    "SearchDescriptions(\"Application 099\")",
+):
+    if required not in api_tests_text:
+        ERRORS.append(f"API catalog regression test is missing: {required}")
+for required in (
+    "ToolDefinitionsIncludeSearchForLargeApiCatalogs",
+    "ApiCatalogSearchRequiresApprovalAndNeverReturnsCredentials",
+    "DeclinedApiCatalogSearchDoesNotReturnConnectionDetails",
+):
+    if required not in agent_api_tests_text:
+        ERRORS.append(f"API catalog agent approval regression test is missing: {required}")
+if "<Version>0.5.4</Version>" not in project_text:
+    ERRORS.append("Project version was not bumped for API catalog changes")
+if not (ROOT / "docs/API_CATALOG_AR.md").is_file():
+    ERRORS.append("Arabic API catalog usage/privacy guide is missing")
 
 # Guard the new personality milestone against accidental removal of its XAML/code-behind wiring.
 mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
