@@ -344,9 +344,9 @@ public partial class MainWindow : Window
         ChatMessagesList?.Items.Refresh();
 
         Title = ar ? "ليال | Layal" : "Layal | ليال";
-        TitleText.Text = ar ? "ليال | Layal" : "Layal | Bilingual Desktop AI";
+        TitleText.Text = ar ? "ليال | \u2066Layal\u2069" : "Layal | Bilingual Desktop AI";
         SubtitleText.Text = ar ? "وكيل ذكاء اصطناعي مستقل لسطح المكتب" : "A bilingual Windows AI desktop companion";
-        LanguageButton.Content = ar ? "English" : "العربية";
+        LanguageButton.Content = ar ? "\u2066English\u2069" : "العربية";
         ThemeButton.Content = IsDarkTheme
             ? (ar ? "☀ المظهر الفاتح" : "☀ Light theme")
             : (ar ? "☾ المظهر الداكن" : "☾ Dark theme");
