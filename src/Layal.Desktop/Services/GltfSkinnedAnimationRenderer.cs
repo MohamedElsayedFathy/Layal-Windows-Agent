@@ -171,9 +171,6 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
 
     private sealed class GltfAsset
     {
-        private readonly byte[] _binary;
-        private readonly BufferView[] _views;
-        private readonly Accessor[] _accessors;
         private readonly Node[] _nodes;
         private readonly int _meshNodeIndex;
         private readonly int[] _jointNodes;
@@ -207,9 +204,6 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
             Animation[] animations,
             Color baseColor)
         {
-            _binary = binary;
-            _views = views;
-            _accessors = accessors;
             _nodes = nodes;
             _meshNodeIndex = meshNodeIndex;
             _jointNodes = jointNodes;
