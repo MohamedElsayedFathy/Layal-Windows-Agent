@@ -367,7 +367,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
         AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
         AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
-        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 7 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+7 to switch tabs.");
+        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 8 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+8 to switch tabs.");
         AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
         AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
         AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
@@ -1149,7 +1149,8 @@ public partial class MainWindow : Window
             Key.D4 or Key.NumPad4 => SkillsTab,
             Key.D5 or Key.NumPad5 => CamerasTab,
             Key.D6 or Key.NumPad6 => MemoryTab,
-            Key.D7 or Key.NumPad7 => SettingsTab,
+            Key.D7 or Key.NumPad7 => ApiIntegrationsTab,
+            Key.D8 or Key.NumPad8 => SettingsTab,
             _ => null
         };
 
