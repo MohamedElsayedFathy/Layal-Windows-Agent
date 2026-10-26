@@ -1510,6 +1510,16 @@ public partial class FloatingMascotWindow : Window
                  "Opens a licensed test model to verify GLB rendering and skin animation; does not replace the official character.");
         _exitMenuItem.Header = ar ? "خروج" : "Exit";
         UpdateCharacterAccessibility();
+
+        // UpdateLanguage normally restores the production window title. In the isolated
+        // GLB integration test, keep a discoverable top-level automation name instead.
+        if (IsAutomatedGlbPreviewTest())
+        {
+            Title = "GLB 3D preview — Rigged Figure";
+            AutomationProperties.SetName(this, Title);
+            if (string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(this)))
+                AutomationProperties.SetHelpText(this, "GLB preview test mode is active.");
+        }
     }
 
     private void GlbPreviewMenuItem_Click(object sender, RoutedEventArgs e) =>
