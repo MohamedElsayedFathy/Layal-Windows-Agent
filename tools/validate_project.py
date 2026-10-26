@@ -482,6 +482,7 @@ for required in (
 ):
     if required not in api_service_text:
         ERRORS.append(f"API catalog service behavior is missing: {required}")
+api_ui_code = (ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs").read_text(encoding="utf-8")
 for required in (
     "ApiConnectionSearchInput_TextChanged",
     "ApiConnectionMatchesSearch",
@@ -491,7 +492,7 @@ for required in (
     "The form is clear and ready for another API.",
     "AppRuntime.ApiConnectionService.Save(layalProviderProfile)",
 ):
-    if required not in ui_code:
+    if required not in api_ui_code:
         ERRORS.append(f"API catalog UI flow is missing: {required}")
 for required in (
     'Definition("list_app_api_connections"',
