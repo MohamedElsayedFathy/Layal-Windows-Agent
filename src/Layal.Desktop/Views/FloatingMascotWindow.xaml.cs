@@ -244,9 +244,10 @@ public partial class FloatingMascotWindow : Window
 
         // The test asset is an engineering preview, not the production Layal character.
         // It is opt-in and remains off unless the user saved the preference or CI explicitly requests a smoke test.
-        if (AppRuntime.Settings.MascotUseGlbPreview ||
-            string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal))
-            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: false);
+        var automatedGlbPreviewTest =
+            string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal);
+        if (AppRuntime.Settings.MascotUseGlbPreview || automatedGlbPreviewTest)
+            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: !automatedGlbPreviewTest);
 
         _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(3650) };
         _blinkTimer.Tick += (_, _) => Blink();
@@ -1544,6 +1545,18 @@ public partial class FloatingMascotWindow : Window
                     AppRuntime.Settings.MascotUseGlbPreview = false;
                     try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
                     catch { /* A failed preference write must not affect the mascot window. */ }
+                }
+
+                // In automated smoke-test mode, keep the status peer visible and report the
+                // loader exception so CI can distinguish a parse/load failure from a UIA lookup failure.
+                if (string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal))
+                {
+                    LegacyRig.Visibility = Visibility.Visible;
+                    CharacterLayer.Visibility = Visibility.Collapsed;
+                    var diagnostic = "GLB preview failed: " + ex.GetType().Name + ": " + ex.Message;
+                    GlbPreviewAutomationStatus.Text = diagnostic;
+                    AutomationProperties.SetName(GlbPreviewAutomationStatus, "GLB 3D preview — Rigged Figure");
+                    AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, diagnostic);
                 }
 
                 UpdateLanguage();
