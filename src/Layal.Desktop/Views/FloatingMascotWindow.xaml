@@ -142,7 +142,7 @@
                             HorizontalAlignment="Center" VerticalAlignment="Top"
                             IsHitTestVisible="False" ClipToBounds="True">
                     <Viewport3D.Camera>
-                        <PerspectiveCamera Position="0,0,2.6" LookDirection="0,0,-2.6"
+                        <PerspectiveCamera Position="0,0,3.3" LookDirection="0,0,-3.3"
                                            UpDirection="0,1,0" FieldOfView="60.5"/>
                     </Viewport3D.Camera>
                 </Viewport3D>
