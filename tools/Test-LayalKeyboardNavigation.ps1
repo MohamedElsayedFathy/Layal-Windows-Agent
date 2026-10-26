@@ -146,7 +146,7 @@ try {
     $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
     # The application exposes the accessible textbox name in localized form as "رسالة المحادثة".
     # Verify the focused element is an Edit control instead of depending on one exact translated label.
-    $focusOk = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and ($focusControlType -eq "[ControlType.Edit]")
+    $focusOk = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and ($focusControlType -eq "ControlType.Edit")
     $results.Add([pscustomobject]@{
         Test = "Ctrl+2 focus target"
         ExpectedTab = 2
