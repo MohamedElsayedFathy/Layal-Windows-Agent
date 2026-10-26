@@ -39,3 +39,29 @@
 ## حدود التنفيذ
 
 هذا الفرع هو مرحلة تجربة تقنية وتوثيق قرار. لا يغيّر الشخصية الافتراضية، ولا يحذف الـ rig الحالي، ولا يضمّن أصلًا مجهول الترخيص. لا تُفعّل الشخصية الجديدة افتراضيًا حتى تجتاز معايير القبول وتوجد آلية رجوع آمنة إلى الشخصية الحالية.
+
+
+## نتيجة البحث الأولي (2026-10-26)
+
+### أصل اختبار مرشّح
+
+- **الاسم:** Khronos glTF Sample Asset — Rigged Simple.
+- **المصدر:** https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/RiggedSimple
+- **ملف الترخيص الرسمي:** https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/RiggedSimple/LICENSE.md
+- **الترخيص المعلن للأصل:** Creative Commons Attribution 4.0 International (CC-BY-4.0). يتطلب الإسناد؛ ويستثني الشعارات والعلامات التجارية.
+- **الغرض المحدود:** اختبار تقني للـ skinning والـ animation، وليس أصل الشخصية النهائي ولا بديلًا عن تصميم ليال.
+- **إسناد مبدئي يجب أن يرافق الأصل عند إدخاله:** «Rigged Simple — KhronosGroup/glTF-Sample-Assets; licensed CC BY 4.0; source: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/RiggedSimple».
+
+### خيارات المكتبات التي تمت مراجعتها
+
+- **SharpGLTF.Runtime 1.0.6:** مشروع MIT متوافق مع .NET 10، ويقدم قراءة glTF ومساعدات runtime؛ لكنه ليس عنصر عرض WPF جاهزًا بمفرده.
+- **Helix Toolkit:** المشروع مرخص MIT ويوفر WPF وWPF/SharpDX، كما توجد حزمة منفصلة لاستيراد النماذج عبر Assimp. لكن وجود مستورد لا يثبت دعم تشغيل تحريك الهيكل أو توافقه مع نافذة WPF الشفافة في هذا التطبيق.
+
+المراجع الرسمية:
+- https://github.com/vpenades/SharpGLTF
+- https://www.nuget.org/packages/SharpGLTF.Runtime/1.0.6
+- https://github.com/helix-toolkit/helix-toolkit
+
+### قرار التنفيذ
+
+**لم تُعتمد مكتبة العرض بعد، ولم يُنسخ نموذج إلى المستودع.** لا يصح إعلان بوابة الترخيص/العرض مكتملة قبل بناء اختبار صغير على Windows يثبت تحميل GLB، وعرض المواد، وتشغيل حركة مضمّنة، وإغلاق العارض دون ترك موارد GPU. الخطوة التنفيذية التالية هي مقارنة HelixToolkit.Wpf.SharpDX مع مسار WPF Media3D على نموذج Rigged Simple، ثم اختيار المسار الذي يثبت التحريك فعليًا مع أقل أثر على نافذة الشخصية الحالية. لا تضف اعتماد Assimp أو أي حزمة تجريبية إلى التطبيق الرئيسي قبل نجاح ذلك النموذج الأولي.
