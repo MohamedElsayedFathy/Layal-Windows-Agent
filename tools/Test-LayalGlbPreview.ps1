@@ -19,6 +19,8 @@ if (Get-Process -Name "Layal" -ErrorAction SilentlyContinue) {
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
 
 $resolvedLogDirectory = [IO.Path]::GetFullPath($LogDirectory)
 New-Item -ItemType Directory -Path $resolvedLogDirectory -Force | Out-Null
@@ -30,6 +32,45 @@ $process = $null
 $tests = [System.Collections.Generic.List[object]]::new()
 $uiaWindowSnapshot = @()
 $processSnapshot = @()
+$screenshotPath = Join-Path $resolvedLogDirectory "glb-preview-window.png"
+
+function Save-PreviewWindowScreenshot {
+    param(
+        [Parameter(Mandatory = $true)]$WindowElement,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $rectangle = $WindowElement.Current.BoundingRectangle
+    if ($rectangle.Width -lt 2 -or $rectangle.Height -lt 2) {
+        throw "The GLB preview window reports an empty UI Automation rectangle: $rectangle"
+    }
+
+    # UIA bounding rectangles use physical screen pixels. Clip to the Windows virtual desktop
+    # to avoid invalid Bitmap sizes on hosted agents with unusual display topology.
+    $virtual = [System.Windows.Forms.SystemInformation]::VirtualScreen
+    $left = [Math]::Max([int][Math]::Floor($rectangle.Left), $virtual.Left)
+    $top = [Math]::Max([int][Math]::Floor($rectangle.Top), $virtual.Top)
+    $right = [Math]::Min([int][Math]::Ceiling($rectangle.Right), $virtual.Right)
+    $bottom = [Math]::Min([int][Math]::Ceiling($rectangle.Bottom), $virtual.Bottom)
+    $width = $right - $left
+    $height = $bottom - $top
+    if ($width -lt 2 -or $height -lt 2) {
+        throw "The GLB preview window is outside the virtual desktop bounds."
+    }
+
+    $bitmap = New-Object System.Drawing.Bitmap($width, $height)
+    $graphics = $null
+    try {
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($left, $top, 0, 0, $bitmap.Size, [System.Drawing.CopyPixelOperation]::SourceCopy)
+        $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+    }
+    finally {
+        if ($null -ne $graphics) { $graphics.Dispose() }
+        $bitmap.Dispose()
+    }
+    return $Path
+}
 
 function Find-GlbPreviewElement {
     param([int]$ProcessId)
@@ -151,6 +192,7 @@ try {
     if (-not $afterMatch.Success) { throw "The GLB preview stopped reporting render frames." }
     $afterFrames = [int]$afterMatch.Groups[1].Value
     $advancing = $afterFrames -gt $beforeFrames
+    $screenshotPath = Save-PreviewWindowScreenshot -WindowElement $preview -Path $screenshotPath
     $tests.Add([pscustomobject]@{
         Test = "GLB animation render loop advances"
         Result = if ($advancing) { "PASS" } else { "FAIL" }
@@ -165,6 +207,7 @@ try {
         PreviewName = $preview.Current.Name
         FramesBefore = $beforeFrames
         FramesAfter = $afterFrames
+        Screenshot = $screenshotPath
         Tests = @($tests)
         ManualScreenReaderAcceptance = "pending"
         ManualHighContrastAcceptance = "pending"
@@ -178,6 +221,7 @@ catch {
         Result = "failed"
         Error = $_.Exception.Message
         Tests = @($tests)
+        Screenshot = if (Test-Path -LiteralPath $screenshotPath -PathType Leaf) { $screenshotPath } else { $null }
         UiAutomationWindows = @($uiaWindowSnapshot)
         ProcessSnapshot = @($processSnapshot)
         ManualScreenReaderAcceptance = "pending"
