@@ -143,6 +143,7 @@ public partial class FloatingMascotWindow : Window
     private readonly MenuItem _exitMenuItem = new();
     private GltfSkinnedAnimationRenderer? _gltfPreviewRenderer;
     private bool _glbPreviewEnabled;
+    private bool IsArabic => AppRuntime.Settings.Language == "ar";
 
     private static readonly Brush EyeWhite = new SolidColorBrush(Color.FromRgb(247, 249, 255));
     private static readonly Brush BrowNeutral = new SolidColorBrush(Color.FromRgb(171, 189, 249));
