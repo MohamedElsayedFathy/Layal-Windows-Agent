@@ -143,15 +143,18 @@ try {
     Start-Sleep -Milliseconds 350
     $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
     $focusName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
-    $focusOk = $focusName -match "Message|الرسالة"
+    $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
+    # The application exposes the accessible textbox name in localized form as "رسالة المحادثة".
+    # Verify the focused element is an Edit control instead of depending on one exact translated label.
+    $focusOk = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and ($focusControlType -eq "[ControlType.Edit]")
     $results.Add([pscustomobject]@{
         Test = "Ctrl+2 focus target"
         ExpectedTab = 2
         SelectedTab = (Get-SelectedTabIndex -Items $tabItems)
         Result = if ($focusOk) { "PASS" } else { "FAIL" }
-        Details = "Focused element name: $focusName"
+        Details = "Focused element name: $focusName; control type: $focusControlType"
     })
-    if (-not $focusOk) { throw "Ctrl+2 did not focus the accessible message field; focused element was '$focusName'." }
+    if (-not $focusOk) { throw "Ctrl+2 did not focus the accessible message field; focused element was '$focusName' with control type '$focusControlType'." }
 
     # F1 opens a modal help message. Confirm it exists, then close it without triggering another action.
     [System.Windows.Forms.SendKeys]::SendWait("{F1}")
