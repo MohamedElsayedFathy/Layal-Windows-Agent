@@ -77,8 +77,8 @@ try {
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::TabItem)
     $tabItems = $tabControl.FindAll([System.Windows.Automation.TreeScope]::Children, $tabItemCondition)
-    if ($tabItems.Count -ne 7) {
-        throw "Expected seven navigation tabs, found $($tabItems.Count)."
+    if ($tabItems.Count -ne 8) {
+        throw "Expected eight navigation tabs, found $($tabItems.Count)."
     }
 
     function Get-SelectedTabIndex {
@@ -107,7 +107,7 @@ try {
     $window.SetFocus()
     Start-Sleep -Milliseconds 250
 
-    for ($number = 1; $number -le 7; $number++) {
+    for ($number = 1; $number -le 8; $number++) {
         [System.Windows.Forms.SendKeys]::SendWait("^$number")
         Start-Sleep -Milliseconds 300
         $selected = Get-SelectedTabIndex -Items $tabItems
