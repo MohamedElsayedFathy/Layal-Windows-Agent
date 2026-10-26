@@ -16,6 +16,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("ar", settings.Language);
         Assert.AreEqual(string.Empty, settings.ProviderBaseUrl);
         Assert.AreEqual(string.Empty, settings.ModelId);
+        Assert.IsTrue(settings.UseLocalAi);
+        Assert.AreEqual(LocalAiService.DefaultModelId, settings.LocalAiModelId);
         Assert.IsTrue(settings.MascotAlwaysOnTop);
         Assert.IsTrue(settings.MascotAnimationsEnabled);
         Assert.AreEqual(1.0, settings.MascotScale, 0.0001);
@@ -53,6 +55,8 @@ public sealed class SettingsStoreTests
             ThemeMode = "dark",
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "test-model",
+            UseLocalAi = false,
+            LocalAiModelId = "qwen3.5:2b",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
             MascotScale = 1.25,
@@ -69,6 +73,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", reloaded.ThemeMode);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
+        Assert.IsFalse(reloaded.UseLocalAi);
+        Assert.AreEqual("qwen3.5:2b", reloaded.LocalAiModelId);
         Assert.IsFalse(reloaded.MascotAlwaysOnTop);
         Assert.IsFalse(reloaded.MascotAnimationsEnabled);
         Assert.AreEqual(1.25, reloaded.MascotScale, 0.0001);

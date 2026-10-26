@@ -533,27 +533,47 @@
                                    Foreground="{DynamicResource Layal.Success}" Margin="4,0,4,8"
                                    AutomationProperties.LiveSetting="Polite"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
-                        <TextBlock x:Name="ProviderSectionTitle" Text="مزود ذكاء اصطناعي متوافق مع OpenAI API" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <TextBlock x:Name="LocalAiSectionTitle" Text="الشات والصوت المحليان (الافتراضي)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <CheckBox x:Name="UseLocalAiCheckbox" Content="استخدام الذكاء الاصطناعي المحلي دون مفتاح API"
+                                  IsChecked="True" Checked="LocalAiModeSettingChanged" Unchecked="LocalAiModeSettingChanged"
+                                  AutomationProperties.Name="وضع الذكاء الاصطناعي المحلي"
+                                  AutomationProperties.HelpText="الشات وتحويل الكلام والنطق يعملون على هذا الجهاز. ألغِ التحديد لاستخدام مزود سحابي تم إعداده في الأسفل."/>
+                        <TextBlock x:Name="LocalAiDescription"
+                                   Text="أول مرة فقط: بعد موافقتك، سيُنزل Layal محرك Ollama ونموذج الشات وموارد الصوت المحلي. يحتاج الإعداد إنترنت ومساحة فارغة؛ بعد التنزيل تتم معالجة الرسائل والصوت على جهازك."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,5"/>
+                        <Button x:Name="SetupLocalAiButton" Content="تجهيز الشات والصوت المحليين" Click="SetupLocalAiButton_Click"
+                                HorizontalAlignment="Left" AutomationProperties.Name="تجهيز الشات والصوت المحليين"/>
+                        <Button x:Name="CancelLocalAiSetupButton" Content="إلغاء التنزيل" Click="CancelLocalAiSetupButton_Click"
+                                HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,6,0,0"
+                                AutomationProperties.Name="إلغاء تنزيل موارد الذكاء الاصطناعي المحلي"
+                                AutomationProperties.HelpText="يمكن أيضًا الضغط على Esc لإلغاء تنزيل الموارد المحلية."/>
+                        <ProgressBar x:Name="LocalAiProgressBar" Minimum="0" Maximum="100" Height="8" Margin="4,6,4,0"
+                                     Visibility="Collapsed" AutomationProperties.Name="تقدم إعداد الذكاء الاصطناعي المحلي"/>
+                        <TextBlock x:Name="LocalAiStatusText" Text="لم يُنزّل أي نموذج بعد؛ لن يبدأ التنزيل قبل موافقتك."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,8"
+                                   AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة الشات والصوت المحليين"/>
+                        <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
+                        <TextBlock x:Name="ProviderSectionTitle" Text="مزود سحابي اختياري (OpenAI-compatible)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
                         <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1" AutomationProperties.Name="عنوان API الأساسي / API base URL" AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}" AutomationProperties.HelpText="عنوان الخدمة الأساسية بصيغة HTTP أو HTTPS / HTTP or HTTPS base URL for the provider."/>
                         <TextBlock x:Name="ModelLabel" Text="معرّف النموذج" Margin="4,5,4,0"/>
                         <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto" AutomationProperties.Name="معرّف النموذج / Model ID" AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"/>
-                        <TextBlock x:Name="SpeechModelLabel" Text="معرّف نموذج تحويل الكلام إلى نص (STT)" Margin="4,8,4,0"/>
+                        <TextBlock x:Name="SpeechModelLabel" Text="نموذج تحويل الكلام السحابي (اختياري)" Margin="4,8,4,0"/>
                         <TextBox x:Name="SpeechModelInput" FlowDirection="LeftToRight" Text="gpt-transcribe" AutomationProperties.Name="معرّف نموذج تحويل الكلام إلى نص / Speech-to-text model ID" AutomationProperties.LabeledBy="{Binding ElementName=SpeechModelLabel}" ToolTip="الافتراضي gpt-transcribe؛ تحقق من دعم موفر API للنموذج ونقطة النهاية."/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="VoiceReplySectionTitle" Text="صوت ليال" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد النصي، يُرسل النص إلى Realtime لتوليد صوت اصطناعي طفولي وناعم."/>
-                        <TextBlock x:Name="VoiceReplyVoiceLabel" Text="صوت ليال الطفولي" Margin="4,6,4,0"/>
+                        <TextBlock x:Name="VoiceReplyVoiceLabel" Text="نبرة الصوت السحابي (اختياري)" Margin="4,6,4,0"/>
                         <ComboBox x:Name="VoiceReplyVoiceSelector" SelectedValuePath="Tag" SelectedValue="marin" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="صوت ليال الطفولي">
                             <ComboBoxItem Tag="shimmer" Content="طفولي وناعم (Shimmer)"/>
                             <ComboBoxItem Tag="coral" Content="طفولي ودافئ (Coral)"/>
                             <ComboBoxItem Tag="marin" Content="طبيعي وعفوي (Marin)"/>
                             <ComboBoxItem Tag="cedar" Content="هادئة وواضحة (Cedar)"/>
                         </ComboBox>
-                        <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت (Realtime)" Margin="4,8,4,0"/>
+                        <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" Margin="4,8,4,0"/>
                         <TextBox x:Name="VoiceReplyModelInput" FlowDirection="LeftToRight" Text="gpt-realtime-2.1-mini" AutomationProperties.Name="معرّف نموذج الرد الصوتي" AutomationProperties.LabeledBy="{Binding ElementName=VoiceReplyModelLabel}"/>
-                        <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال طفولي وأنثوي وناعم، مولّد بالذكاء الاصطناعي وليس صوت إنسان. يتطلب Realtime API وقد يستهلك تكلفة إضافية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
-                        <Button x:Name="TestVoiceReplyButton" Content="تجربة صوت ليال" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يرسل جملة تجريبية إلى موفر Realtime لتسمع نبرة الصوت."/>
+                        <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك؛ عند اختيار المزود السحابي قد تُطبق رسوم." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
+                        <Button x:Name="TestVoiceReplyButton" Content="تجربة صوت ليال" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يختبر الصوت محليًا في الوضع المحلي، أو يستخدم موفر Realtime عند اختيار الوضع السحابي."/>
 
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>

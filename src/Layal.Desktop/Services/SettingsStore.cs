@@ -24,6 +24,9 @@ public sealed class SettingsStore
             if (settings.ThemeMode is not ("light" or "dark")) settings.ThemeMode = "light";
             settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();
             settings.ModelId = (settings.ModelId ?? string.Empty).Trim();
+            settings.LocalAiModelId = string.IsNullOrWhiteSpace(settings.LocalAiModelId)
+                ? LocalAiService.DefaultModelId
+                : LocalAiService.ValidateModelId(settings.LocalAiModelId);
             settings.SpeechToTextModelId = string.IsNullOrWhiteSpace(settings.SpeechToTextModelId)
                 ? "gpt-transcribe"
                 : settings.SpeechToTextModelId.Trim();
