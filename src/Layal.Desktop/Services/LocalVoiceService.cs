@@ -437,8 +437,8 @@ public sealed class LocalVoiceService
     private static async Task PlayWavAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var reader = new AudioFileReader(path);
-        using var output = new WaveOutEvent();
+        using var reader = new WaveFileReader(path);
+        using var output = new WaveOut();
         var stopped = new TaskCompletionSource<StoppedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler<StoppedEventArgs> handler = (_, args) => stopped.TrySetResult(args);
         output.PlaybackStopped += handler;

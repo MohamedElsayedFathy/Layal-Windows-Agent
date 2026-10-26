@@ -2002,15 +2002,15 @@ public partial class MainWindow : Window
             if (AppRuntime.Settings.UseLocalAi)
             {
                 if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true)) return;
-                var tokenSource = new CancellationTokenSource();
-                _speechCancellation = tokenSource;
+                var localTranscriptCancellation = new CancellationTokenSource();
+                _speechCancellation = localTranscriptCancellation;
                 UpdateSpeechToTextButton();
                 SetChatActivityStatus(IsArabic
                     ? "جارٍ تحويل التسجيل محليًا. لن يتم رفع الصوت إلى خادم."
                     : "Transcribing locally. Audio will not be uploaded to a server.");
                 try
                 {
-                    var transcript = await _localVoiceService.TranscribeAsync(audio!, tokenSource.Token);
+                    var transcript = await _localVoiceService.TranscribeAsync(audio!, localTranscriptCancellation.Token);
                     ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
                         ? transcript
                         : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
@@ -2030,10 +2030,10 @@ public partial class MainWindow : Window
                 }
                 finally
                 {
-                    if (ReferenceEquals(_speechCancellation, tokenSource))
+                    if (ReferenceEquals(_speechCancellation, localTranscriptCancellation))
                     {
                         _speechCancellation = null;
-                        tokenSource.Dispose();
+                        localTranscriptCancellation.Dispose();
                     }
                     UpdateSpeechToTextButton();
                 }
@@ -3051,7 +3051,7 @@ public partial class MainWindow : Window
                 : await _aiClient.ChatStreamAsync(
                     AppRuntime.Settings.ProviderBaseUrl,
                     AppRuntime.Settings.ModelId,
-                    key,
+                    key ?? string.Empty,
                     history,
                     HandleDelta,
                     _chatCancellation.Token);
@@ -3090,7 +3090,7 @@ public partial class MainWindow : Window
                         {
                             await _layalSpeech.SpeakAsync(
                                 AppRuntime.Settings.ProviderBaseUrl,
-                                key,
+                                key ?? string.Empty,
                                 AppRuntime.Settings.VoiceReplyModelId,
                                 AppRuntime.Settings.VoiceReplyId,
                                 response,

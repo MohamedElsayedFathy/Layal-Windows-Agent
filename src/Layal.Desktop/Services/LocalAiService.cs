@@ -184,7 +184,7 @@ public sealed class LocalAiService
         return result;
     }
 
-    private static async Task PullModelAsync(string modelId, IProgress<LocalAiProgress>? progress, CancellationToken cancellationToken)
+    private async Task PullModelAsync(string modelId, IProgress<LocalAiProgress>? progress, CancellationToken cancellationToken)
     {
         progress?.Report(new LocalAiProgress($"تنزيل نموذج الشات {modelId} إلى جهازك…"));
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(ApiBaseUri, "api/pull"))
