@@ -71,7 +71,9 @@ function Read-PreviewHelpText {
 
 try {
     $env:LAYAL_GLB_PREVIEW_TEST = "1"
-    $process = Start-Process -FilePath $resolvedExe -PassThru
+    # Use an explicit command-line flag as well as the inherited environment variable so test mode
+    # cannot be lost if the process is started under a differently-scoped environment.
+    $process = Start-Process -FilePath $resolvedExe -ArgumentList "--glb-preview-test" -PassThru
     $deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
     $preview = $null
     while ((Get-Date) -lt $deadline -and $null -eq $preview) {
