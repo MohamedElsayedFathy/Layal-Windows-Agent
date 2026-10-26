@@ -1516,6 +1516,9 @@ public partial class FloatingMascotWindow : Window
     private void GlbPreviewMenuItem_Click(object sender, RoutedEventArgs e) =>
         SetGlbPreviewEnabled(!_glbPreviewEnabled, persist: true);
 
+    private FrameworkElement GlbPreviewAutomationTestTarget(bool automatedTest) =>
+        automatedTest ? this : GlbPreviewAutomationStatus;
+
     private void SetGlbPreviewEnabled(bool enabled, bool persist, bool showFailureDialog = true)
     {
         if (_glbPreviewEnabled == enabled)
@@ -1523,12 +1526,21 @@ public partial class FloatingMascotWindow : Window
 
         if (enabled)
         {
+            var automatedGlbPreviewTest =
+                string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal);
             GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
             GlbPreviewAutomationStatus.Content = "Loading bundled GLB preview...";
             AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, "Loading bundled GLB preview...");
+            FrameworkElement automationStatusTarget = GlbPreviewAutomationTestTarget(automatedGlbPreviewTest);
             try
             {
-                _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport, automationStatusElement: GlbPreviewAutomationStatus);
+                if (automatedGlbPreviewTest)
+                {
+                    Title = "GLB 3D preview — Rigged Figure";
+                    AutomationProperties.SetName(this, Title);
+                    AutomationProperties.SetHelpText(this, "Loading bundled GLB preview...");
+                }
+                _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport, automationStatusElement: automationStatusTarget);
                 _glbPreviewEnabled = true;
                 LegacyRig.Visibility = Visibility.Visible;
                 CharacterLayer.Visibility = Visibility.Collapsed;
@@ -1557,6 +1569,9 @@ public partial class FloatingMascotWindow : Window
                     LegacyRig.Visibility = Visibility.Visible;
                     CharacterLayer.Visibility = Visibility.Collapsed;
                     var diagnostic = "GLB preview failed: " + ex.GetType().Name + ": " + ex.Message;
+                    Title = "GLB 3D preview — Rigged Figure";
+                    AutomationProperties.SetName(this, Title);
+                    AutomationProperties.SetHelpText(this, diagnostic);
                     GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
                     GlbPreviewAutomationStatus.Content = diagnostic;
                     AutomationProperties.SetName(GlbPreviewAutomationStatus, "GLB 3D preview — Rigged Figure");
