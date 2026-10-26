@@ -6,6 +6,7 @@ using System.IO;
 using System.Numerics;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
@@ -41,6 +42,9 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         _viewport = viewport ?? throw new ArgumentNullException(nameof(viewport));
         _asset = asset ?? throw new ArgumentNullException(nameof(asset));
         Diagnostics = asset.GetInspection();
+        AutomationProperties.SetName(_viewport, "GLB 3D preview — Rigged Figure");
+        AutomationProperties.SetHelpText(_viewport,
+            $"Loaded GLB; vertices={Diagnostics.VertexCount}; triangles={Diagnostics.TriangleCount}; joints={Diagnostics.JointCount}; animation={AnimationName}; frames=0; playing={autoPlay}");
 
         _mesh = new MeshGeometry3D
         {
@@ -135,6 +139,11 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         _mesh.Positions = positions;
         _mesh.Normals = normals;
         _renderedFrames++;
+        if (_renderedFrames == 1 || _renderedFrames % 15 == 0)
+        {
+            AutomationProperties.SetHelpText(_viewport,
+                $"Loaded GLB; vertices={Diagnostics.VertexCount}; triangles={Diagnostics.TriangleCount}; joints={Diagnostics.JointCount}; animation={AnimationName}; frames={_renderedFrames}; playing={IsPlaying}");
+        }
     }
 
     private void AnimationTimer_Tick(object? sender, EventArgs e)
