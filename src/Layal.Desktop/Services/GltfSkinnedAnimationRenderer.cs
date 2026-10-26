@@ -157,8 +157,8 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         if (_automationStatusElement is not null)
         {
             AutomationProperties.SetHelpText(_automationStatusElement, helpText);
-            if (_automationStatusElement is TextBlock statusText)
-                statusText.Text = helpText;
+            if (_automationStatusElement is Button statusButton)
+                statusButton.Content = helpText;
         }
     }
 
