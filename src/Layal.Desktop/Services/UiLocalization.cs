@@ -69,6 +69,9 @@ public static class UiLocalization
         if (result == "The model returned an empty final answer.")
             return isArabic ? "أعاد النموذج إجابة نهائية فارغة." : result;
 
+        if (result == "أعاد النموذج إجابة نهائية فارغة.")
+            return isArabic ? result : "The model returned an empty final answer.";
+
         var safety = Regex.Match(result, @"^Safety limit reached: no more than (?<count>\d+) tool calls are allowed per task\.$");
         if (safety.Success)
             return isArabic
