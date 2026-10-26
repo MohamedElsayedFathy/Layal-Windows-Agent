@@ -23,12 +23,12 @@ public static class UiLocalization
 
     public static string FormatTaskStatus(string status, bool isArabic) => status switch
     {
-        "Pending" => isArabic ? "قيد الانتظار" : "Pending",
-        "Running" => isArabic ? "قيد التنفيذ" : "Running",
-        "Completed" => isArabic ? "مكتملة" : "Completed",
-        "CompletedWithWarnings" => isArabic ? "مكتملة مع تحذيرات" : "Completed with warnings",
-        "Failed" => isArabic ? "فشلت" : "Failed",
-        "Cancelled" => isArabic ? "أُلغيت" : "Cancelled",
+        "Pending" or "قيد الانتظار" => isArabic ? "قيد الانتظار" : "Pending",
+        "Running" or "قيد التنفيذ" => isArabic ? "قيد التنفيذ" : "Running",
+        "Completed" or "مكتملة" => isArabic ? "مكتملة" : "Completed",
+        "CompletedWithWarnings" or "مكتملة مع تحذيرات" => isArabic ? "مكتملة مع تحذيرات" : "Completed with warnings",
+        "Failed" or "فشلت" => isArabic ? "فشلت" : "Failed",
+        "Cancelled" or "أُلغيت" => isArabic ? "أُلغيت" : "Cancelled",
         _ => status
     };
 
@@ -68,6 +68,9 @@ public static class UiLocalization
     {
         if (result == "The model returned an empty final answer.")
             return isArabic ? "أعاد النموذج إجابة نهائية فارغة." : result;
+
+        if (result == "أعاد النموذج إجابة نهائية فارغة.")
+            return isArabic ? result : "The model returned an empty final answer.";
 
         var safety = Regex.Match(result, @"^Safety limit reached: no more than (?<count>\d+) tool calls are allowed per task\.$");
         if (safety.Success)

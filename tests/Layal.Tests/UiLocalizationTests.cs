@@ -12,6 +12,12 @@ public sealed class UiLocalizationTests
     {
         Assert.AreEqual("مكتملة مع تحذيرات", UiLocalization.FormatTaskStatus("CompletedWithWarnings", isArabic: true));
         Assert.AreEqual("Completed with warnings", UiLocalization.FormatTaskStatus("CompletedWithWarnings", isArabic: false));
+        Assert.AreEqual("Pending", UiLocalization.FormatTaskStatus("قيد الانتظار", isArabic: false));
+        Assert.AreEqual("Running", UiLocalization.FormatTaskStatus("قيد التنفيذ", isArabic: false));
+        Assert.AreEqual("Completed", UiLocalization.FormatTaskStatus("مكتملة", isArabic: false));
+        Assert.AreEqual("Completed with warnings", UiLocalization.FormatTaskStatus("مكتملة مع تحذيرات", isArabic: false));
+        Assert.AreEqual("Failed", UiLocalization.FormatTaskStatus("فشلت", isArabic: false));
+        Assert.AreEqual("Cancelled", UiLocalization.FormatTaskStatus("أُلغيت", isArabic: false));
 
         var record = new AgentTaskRecord { Status = "Completed", Result = "The model returned an empty final answer." };
         Assert.IsTrue(UiLocalization.FormatTaskResult(record, isArabic: true).StartsWith("مكتملة", StringComparison.Ordinal));
@@ -46,6 +52,14 @@ public sealed class UiLocalizationTests
     }
 
     [TestMethod]
+    public void ApprovalTitlesAreLocalizedWithoutChangingCommandIdentifiers()
+    {
+        Assert.AreEqual("فتح المفكرة", UiLocalization.LocalizeApprovalTitle("Launch Notepad", isArabic: true));
+        Assert.AreEqual("Launch Notepad", UiLocalization.LocalizeApprovalTitle("Launch Notepad", isArabic: false));
+        Assert.AreEqual("Run dotnet test on project", UiLocalization.LocalizeApprovalTitle("Run dotnet test on project", isArabic: false));
+    }
+
+    [TestMethod]
     public void DynamicStatusPrefixesSwitchLanguagesWithoutDamagingTheirPayload()
     {
         const string english = "Test succeeded: model-42";
@@ -53,6 +67,40 @@ public sealed class UiLocalizationTests
         var roundTrip = UiLocalization.TranslateKnownFeedback(arabic, isArabic: false);
 
         Assert.AreEqual("نجح الاختبار: model-42", arabic);
+        Assert.AreEqual(english, roundTrip);
+    }
+
+    [TestMethod]
+    public void TechnicalErrorPrefixesSwitchLanguagesButPreserveDiagnosticPayload()
+    {
+        const string english = "Connection test failed: HTTP 503 from https://provider.example/api";
+        var arabic = UiLocalization.TranslateKnownFeedback(english, isArabic: true);
+        var roundTrip = UiLocalization.TranslateKnownFeedback(arabic, isArabic: false);
+
+        Assert.AreEqual("فشل اختبار الاتصال: HTTP 503 from https://provider.example/api", arabic);
+        Assert.AreEqual(english, roundTrip);
+    }
+
+    [TestMethod]
+    public void DateFormattingCanBeParsedByTheSelectedCulture()
+    {
+        var date = new DateTime(2026, 10, 26, 13, 27, 0);
+
+        var arabic = UiLocalization.FormatDateTime(date, isArabic: true);
+        var english = UiLocalization.FormatDateTime(date, isArabic: false);
+
+        Assert.IsTrue(UiLocalization.IsFormattedDateTime(arabic, cultureIsArabic: true));
+        Assert.IsTrue(UiLocalization.IsFormattedDateTime(english, cultureIsArabic: false));
+    }
+
+    [TestMethod]
+    public void TaskResultDisplayCanSwitchLanguagesWithoutChangingUnknownText()
+    {
+        var english = "Completed" + Environment.NewLine + "The model returned an empty final answer.";
+        var arabic = UiLocalization.TranslateTaskResultDisplay(english, isArabic: true);
+        var roundTrip = UiLocalization.TranslateTaskResultDisplay(arabic, isArabic: false);
+
+        Assert.AreEqual("مكتملة" + Environment.NewLine + "أعاد النموذج إجابة نهائية فارغة.", arabic);
         Assert.AreEqual(english, roundTrip);
     }
 
