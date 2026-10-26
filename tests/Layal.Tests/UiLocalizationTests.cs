@@ -46,6 +46,14 @@ public sealed class UiLocalizationTests
     }
 
     [TestMethod]
+    public void ApprovalTitlesAreLocalizedWithoutChangingCommandIdentifiers()
+    {
+        Assert.AreEqual("فتح المفكرة", UiLocalization.LocalizeApprovalTitle("Launch Notepad", isArabic: true));
+        Assert.AreEqual("Launch Notepad", UiLocalization.LocalizeApprovalTitle("Launch Notepad", isArabic: false));
+        Assert.AreEqual("Run dotnet test", UiLocalization.LocalizeApprovalTitle("Run dotnet test on project", isArabic: false));
+    }
+
+    [TestMethod]
     public void DynamicStatusPrefixesSwitchLanguagesWithoutDamagingTheirPayload()
     {
         const string english = "Test succeeded: model-42";
@@ -53,6 +61,40 @@ public sealed class UiLocalizationTests
         var roundTrip = UiLocalization.TranslateKnownFeedback(arabic, isArabic: false);
 
         Assert.AreEqual("نجح الاختبار: model-42", arabic);
+        Assert.AreEqual(english, roundTrip);
+    }
+
+    [TestMethod]
+    public void TechnicalErrorPrefixesSwitchLanguagesButPreserveDiagnosticPayload()
+    {
+        const string english = "Connection test failed: HTTP 503 from https://provider.example/api";
+        var arabic = UiLocalization.TranslateKnownFeedback(english, isArabic: true);
+        var roundTrip = UiLocalization.TranslateKnownFeedback(arabic, isArabic: false);
+
+        Assert.AreEqual("فشل اختبار الاتصال: HTTP 503 from https://provider.example/api", arabic);
+        Assert.AreEqual(english, roundTrip);
+    }
+
+    [TestMethod]
+    public void DateFormattingCanBeParsedByTheSelectedCulture()
+    {
+        var date = new DateTime(2026, 10, 26, 13, 27, 0);
+
+        var arabic = UiLocalization.FormatDateTime(date, isArabic: true);
+        var english = UiLocalization.FormatDateTime(date, isArabic: false);
+
+        Assert.IsTrue(UiLocalization.IsFormattedDateTime(arabic, cultureIsArabic: true));
+        Assert.IsTrue(UiLocalization.IsFormattedDateTime(english, cultureIsArabic: false));
+    }
+
+    [TestMethod]
+    public void TaskResultDisplayCanSwitchLanguagesWithoutChangingUnknownText()
+    {
+        const string english = "Completed\nThe model returned an empty final answer.";
+        var arabic = UiLocalization.TranslateTaskResultDisplay(english, isArabic: true);
+        var roundTrip = UiLocalization.TranslateTaskResultDisplay(arabic, isArabic: false);
+
+        Assert.AreEqual("مكتملة\nأعاد النموذج إجابة نهائية فارغة.", arabic);
         Assert.AreEqual(english, roundTrip);
     }
 
