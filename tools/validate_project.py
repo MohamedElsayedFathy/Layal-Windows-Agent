@@ -658,6 +658,72 @@ if "AI-generated" not in ui_code or "ليس صوت إنسان" not in ui_xaml:
 if not voice_docs_text:
     ERRORS.append("Layal voice reply usage/privacy documentation is missing")
 
+# Guard the local-first default: user consent precedes runtime downloads, and chat/voice can work without an API key.
+local_ai_path = ROOT / "src/Layal.Desktop/Services/LocalAiService.cs"
+local_voice_path = ROOT / "src/Layal.Desktop/Services/LocalVoiceService.cs"
+local_test_path = ROOT / "tests/Layal.Tests/LocalAiServiceTests.cs"
+local_settings_text = (ROOT / "src/Layal.Desktop/Models/UserSettings.cs").read_text(encoding="utf-8")
+local_ai_text = local_ai_path.read_text(encoding="utf-8") if local_ai_path.is_file() else ""
+local_voice_text = local_voice_path.read_text(encoding="utf-8") if local_voice_path.is_file() else ""
+local_tests_text = local_test_path.read_text(encoding="utf-8") if local_test_path.is_file() else ""
+if not local_ai_text:
+    ERRORS.append("Local chat service is missing")
+for required in (
+    'public const string DefaultModelId = "qwen3.5:2b";',
+    'new("http://127.0.0.1:11434/")',
+    'UseProxy = false',
+    '"api/pull"',
+    '"api/chat"',
+    'public async Task EnsureReadyAsync',
+    'VerifyOllamaSignatureAsync',
+):
+    if required not in local_ai_text:
+        ERRORS.append(f"Local chat bootstrap/runtime is missing: {required}")
+if not local_voice_text:
+    ERRORS.append("Local speech recognition and synthesis service is missing")
+for required in (
+    'whisper-cli.exe',
+    'public async Task<string> TranscribeAsync',
+    'public async Task SpeakAsync',
+    'TryDeleteFile(inputPath)',
+    'TryDeleteFile(outputPath)',
+    'ValidateVoiceConfig',
+):
+    if required not in local_voice_text:
+        ERRORS.append(f"Local voice behavior is missing: {required}")
+for required in (
+    'UseLocalAi { get; set; } = true',
+    'LocalAiModelId { get; set; } = Layal.Services.LocalAiService.DefaultModelId',
+):
+    if required not in local_settings_text:
+        ERRORS.append(f"Local-first default is missing from UserSettings.cs: {required}")
+for required in (
+    'x:Name="UseLocalAiCheckbox"',
+    'x:Name="SetupLocalAiButton"',
+    'Click="SetupLocalAiButton_Click"',
+):
+    if required not in ui_xaml:
+        ERRORS.append(f"Local AI setup UI is missing: {required}")
+for required in (
+    'EnsureLocalAiSetupAsync',
+    '_localAiService.ChatStreamAsync',
+    '_localVoiceService.TranscribeAsync',
+    '_localVoiceService.SpeakAsync',
+    'LocalVoiceConversationButton_ClickAsync',
+    'LocalAiModeSettingChanged',
+):
+    if required not in ui_code:
+        ERRORS.append(f"Local-first chat/voice UI wiring is missing: {required}")
+if not local_tests_text:
+    ERRORS.append("Local AI service unit tests are missing")
+for required in (
+    "LocalChatDefaultsToAnOllamaLoopbackEndpointAndSmallModel",
+    "ValidateModelIdAcceptsNamespacedModelTagsButRejectsUnsafeValues",
+    "LocalVoiceSpeechPreparationRemovesMarkupAndUrlsWithoutChangingVisibleWords",
+):
+    if required not in local_tests_text:
+        ERRORS.append(f"Local AI regression test is missing: {required}")
+
 # Protect the full-duplex voice conversation path without coupling it to a replacement chat framework.
 voice_conversation_path = ROOT / "src/Layal.Desktop/Services/VoiceConversationService.cs"
 voice_conversation_test_path = ROOT / "tests/Layal.Tests/VoiceConversationServiceTests.cs"

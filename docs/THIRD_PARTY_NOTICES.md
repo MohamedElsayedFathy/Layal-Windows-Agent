@@ -81,3 +81,17 @@ These notices capture license declarations published by the package sources. The
 - License text: licenses/Apache-2.0-OpenCvSharp.txt
 
 These upstream license declarations are recorded for notice completeness; project-level redistribution and legal review remain pending.
+
+
+## Runtime-downloaded local AI components (not bundled with Layal)
+
+These components are downloaded to the current user's LocalAppData directory only after the user accepts the local AI setup prompt. Their binaries and model weights are not bundled in the Layal installer or source package.
+
+- **Ollama for Windows** — official installer: https://ollama.com/download. The installer is launched only after Windows Authenticode reports a valid signature whose subject contains “Ollama”. The installer is downloaded over HTTPS; Layal does not embed a provider/API key.
+- **Qwen3.5 2B** — pulled by Ollama from the official Ollama model library: https://ollama.com/library/qwen3.5:2b. The upstream model page currently identifies the Qwen3.5 model license as Apache-2.0. The model is downloaded at first setup, not distributed in the application package.
+- **whisper.cpp Windows x64 CLI v1.9.1** — https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.1. The pinned binary archive is checked against its expected byte length and SHA-256 before extraction.
+- **Whisper base model weights** — https://huggingface.co/ggerganov/whisper.cpp. The pinned model file is checked against its expected byte length and SHA-1 before use.
+- **Piper speech engine** — https://github.com/rhasspy/piper/releases/tag/2023.11.14-2. The pinned Windows x64 release archive is checked against its expected byte length and extracted with path-traversal/symlink checks. The upstream release API does not publish a SHA-256 digest for this archive, so the current implementation does not claim cryptographic archive-hash verification.
+- **Piper Arabic voice ar_JO-kareem-medium and English voice en_US-lessac-medium** — https://huggingface.co/rhasspy/piper-voices. The ONNX voice files are verified against upstream SHA-256 digests; each model's JSON configuration is size-checked and validated before use. The voice collection declares MIT licensing, and the Arabic voice is Jordanian Arabic rather than Egyptian Arabic.
+
+Upstream notices and model terms apply to the downloaded components separately from Layal. This inventory is informational and does not constitute a legal opinion or rights clearance for every use case.

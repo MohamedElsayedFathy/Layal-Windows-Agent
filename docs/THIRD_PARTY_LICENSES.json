@@ -297,5 +297,55 @@
     "note": "The nine character sprites have evidence for their generated source sheet, but rights review is pending; the three older root assets remain without an evidenced source. Do not treat provenance evidence as legal release clearance.",
     "sourceImageSha256": "88a3b6477fefa9c00b3d4da5033ccdd255224955c6dffdc3d0ad4717a2a6c793",
     "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
-  }
+  },
+  "runtimeDownloadedComponents": [
+    {
+      "id": "Ollama Windows runtime",
+      "sourceUrl": "https://ollama.com/download",
+      "licenseExpression": "MIT (upstream project)",
+      "distributionPolicy": "downloaded by the user's consent at first local-AI setup; not bundled by Layal",
+      "integrityCheck": "Windows Authenticode signature must be valid and signer subject must contain Ollama",
+      "reviewStatus": "source/license noted; legal and integration review still required"
+    },
+    {
+      "id": "Qwen3.5 2B model",
+      "sourceUrl": "https://ollama.com/library/qwen3.5:2b",
+      "licenseExpression": "Apache-2.0",
+      "distributionPolicy": "pulled by Ollama after user consent; not bundled by Layal",
+      "integrityCheck": "Ollama-managed model blob download",
+      "reviewStatus": "upstream metadata noted; legal review still required"
+    },
+    {
+      "id": "whisper.cpp Windows x64 CLI v1.9.1",
+      "sourceUrl": "https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.1",
+      "licenseExpression": "MIT",
+      "distributionPolicy": "downloaded after user consent; not bundled by Layal",
+      "integrityCheck": "exact size and SHA-256",
+      "reviewStatus": "upstream source/license noted; legal review still required"
+    },
+    {
+      "id": "Whisper base model",
+      "sourceUrl": "https://huggingface.co/ggerganov/whisper.cpp",
+      "licenseExpression": "See upstream model repository and license",
+      "distributionPolicy": "downloaded after user consent; not bundled by Layal",
+      "integrityCheck": "exact size and SHA-1",
+      "reviewStatus": "upstream source noted; license/rights review still required"
+    },
+    {
+      "id": "Piper Windows x64 runtime archive",
+      "sourceUrl": "https://github.com/rhasspy/piper/releases/tag/2023.11.14-2",
+      "licenseExpression": "MIT (upstream Piper project; bundled dependencies may have separate notices)",
+      "distributionPolicy": "downloaded after user consent; not bundled by Layal",
+      "integrityCheck": "exact byte length and safe ZIP extraction; upstream release API does not currently expose SHA-256",
+      "reviewStatus": "upstream source/license noted; dependency and legal review still required"
+    },
+    {
+      "id": "Piper voice models: Arabic Kareem medium and English Lessac medium",
+      "sourceUrl": "https://huggingface.co/rhasspy/piper-voices",
+      "licenseExpression": "MIT (upstream voice collection metadata)",
+      "distributionPolicy": "downloaded after user consent; not bundled by Layal",
+      "integrityCheck": "exact size and SHA-256 for ONNX weights; size/config validation for JSON metadata",
+      "reviewStatus": "upstream model metadata noted; legal review still required"
+    }
+  ]
 }

@@ -62,6 +62,14 @@ public partial class MainWindow : Window
     private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly SpeechToTextService _speechToText = new();
     private readonly LayalSpeechService _layalSpeech = new();
+    private readonly LocalAiService _localAiService = new();
+    private readonly LocalVoiceService _localVoiceService = new();
+    private bool _localAiReady;
+    private bool _localVoiceReady;
+    private bool _localVoiceSetupAttempted;
+    private bool _localVoiceRecordingActive;
+    private readonly SemaphoreSlim _localAiSetupGate = new(1, 1);
+    private CancellationTokenSource? _localAiSetupCancellation;
     private readonly DispatcherTimer _speechRecordingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private CancellationTokenSource? _speechCancellation;
     private CancellationTokenSource? _voiceTestCancellation;
@@ -92,6 +100,7 @@ public partial class MainWindow : Window
         _clockTimer.Tick += ClockTimer_Tick;
         _weatherRefreshTimer.Tick += WeatherRefreshTimer_Tick;
         DataContext = this;
+        UseLocalAiCheckbox.IsChecked = AppRuntime.Settings.UseLocalAi;
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         WeatherLocationInput.Text = AppRuntime.Settings.WeatherLocation ?? string.Empty;
         ModelInput.Text = AppRuntime.Settings.ModelId;
@@ -251,6 +260,7 @@ public partial class MainWindow : Window
         UpdateClockDisplay();
         _weatherRefreshTimer.Start();
         UpdateWeatherDisplay();
+        _ = RefreshLocalAiStatusAsync();
         if (AppRuntime.Settings.UseAutomaticLocation)
             _ = RefreshLocationWeatherAsync();
         else if (!string.IsNullOrWhiteSpace(AppRuntime.Settings.WeatherLocation))
@@ -455,11 +465,13 @@ public partial class MainWindow : Window
         GoChatButton.Content = ar ? "فتح المحادثة" : "Open chat";
         GoSettingsButton.Content = ar ? "إعداد اتصال AI" : "Configure AI";
         HomeCaveat.Text = ar
-            ? "يتوفر الآن تسجيل يدوي لتحويل الكلام إلى نص (عربية وعامية مصرية وإنجليزية) بعد موافقة المستخدم على إرسال التسجيل. توليد الصوت والمحادثة اللحظية وأتمتة المتصفح والبث الحقيقي للكاميرات ما زالت مراحل لاحقة."
-            : "Manual speech-to-text is now available for Arabic, Egyptian Arabic colloquial speech, and English; uploading requires explicit confirmation. Speech synthesis, realtime voice, browser automation, and real camera streaming remain future milestones.";
+            ? "يمكنك استخدام الشات والصوت محليًا بعد موافقتك على تنزيل النماذج أول مرة. لا يلزم مفتاح API للمحادثة الأساسية، ويمكنك اختيار مزود سحابي اختياريًا للميزات التي تحتاجه."
+            : "Use local chat and speech after consenting to the first-time model download. Basic chat does not require an API key; an optional cloud provider remains available for features that need it.";
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
-        ChatNotice.Text = ar ? "تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." : "Configure a valid API endpoint and key in Settings to send real messages.";
+        ChatNotice.Text = AppRuntime.Settings.UseLocalAi
+            ? (ar ? "الوضع المحلي هو الافتراضي: المحادثات تُعالج على جهازك بعد تجهيز النماذج." : "Local mode is the default: messages are processed on this device after model setup.")
+            : (ar ? "الوضع السحابي اختياري؛ تأكد من حفظ عنوان API ومفتاح صالح في الإعدادات." : "Cloud mode is optional; save a valid API endpoint and key in Settings.");
         AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال المزود" : "Provider connection status");
         AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة إعداد الاتصال" : "Provider configuration status");
         AutomationProperties.SetName(HomeResult, ar ? "نتيجة الإجراء" : "Action result");
@@ -489,18 +501,18 @@ public partial class MainWindow : Window
         SendButton.Content = ar ? "إرسال" : "Send";
         CancelResponseButton.Content = ar ? "إيقاف" : "Stop";
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
-        SpeechModelLabel.Text = ar ? "معرّف نموذج تحويل الكلام إلى نص (STT)" : "Speech-to-text model ID (STT)";
+        SpeechModelLabel.Text = ar ? "نموذج تحويل الكلام السحابي (اختياري)" : "Cloud speech-to-text model (optional)";
         VoiceReplySectionTitle.Text = ar ? "صوت ليال" : "Layal voice";
         VoiceReplyCheckbox.Content = ar ? "ليال تقرأ ردودها بصوت طفولي" : "Have Layal read replies aloud in a childlike voice";
-        VoiceReplyVoiceLabel.Text = ar ? "صوت ليال الطفولي" : "Layal childlike voice";
-        VoiceReplyModelLabel.Text = ar ? "معرّف نموذج الصوت (Realtime)" : "Voice model ID (Realtime)";
+        VoiceReplyVoiceLabel.Text = ar ? "نبرة الصوت السحابي (اختياري)" : "Cloud voice preset (optional)";
+        VoiceReplyModelLabel.Text = ar ? "معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" : "Cloud voice model ID (Realtime; optional)";
         VoiceReplyDisclosureText.Text = ar
-            ? "صوت ليال طفولي وأنثوي وناعم، مولّد بالذكاء الاصطناعي وليس صوت إنسان. يتطلب دعم Realtime API وقد يستهلك تكلفة إضافية."
-            : "Layal uses a soft, childlike feminine AI-generated voice, not a human voice. Realtime API support is required and extra usage charges may apply.";
+            ? "صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك دون إرسال الرد إلى خادم صوت؛ قد تُطبق رسوم عند اختيار المزود السحابي."
+            : "Layal's AI-generated voice is synthetic, not a human recording. Local mode synthesizes speech on this device; cloud voice may incur provider charges.";
         TestVoiceReplyButton.Content = ar ? "تجربة صوت ليال" : "Test Layal voice";
-        TestVoiceReplyButton.ToolTip = ar
-            ? "يرسل جملة قصيرة إلى موفر Realtime لتجربة نبرة الصوت."
-            : "Sends a short sample to your Realtime provider to preview the selected voice.";
+        TestVoiceReplyButton.ToolTip = AppRuntime.Settings.UseLocalAi
+            ? (ar ? "يجرب النطق المحلي بعد الموافقة على تنزيل الموارد." : "Previews local speech after you approve the resource download.")
+            : (ar ? "يرسل جملة قصيرة إلى موفر Realtime." : "Sends a short sample to your Realtime provider.");
         foreach (ComboBoxItem voiceItem in VoiceReplyVoiceSelector.Items)
         {
             voiceItem.Content = (voiceItem.Tag?.ToString() ?? string.Empty).ToLowerInvariant() switch
@@ -514,19 +526,21 @@ public partial class MainWindow : Window
         }
         AutomationProperties.SetName(VoiceReplyCheckbox, ar ? "الردود الصوتية لليال" : "Layal voice replies");
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
-            ? "توليد صوت ليال الطفولي بعد اكتمال الرد النصي. يتطلب موفر Realtime وقد يستهلك تكلفة إضافية."
-            : "Generate Layal’s childlike AI voice after text replies complete. Requires a Realtime provider and may incur additional usage charges.");
+            ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
+            : "Read replies aloud. Local mode synthesizes speech on this device after local voice resources are prepared.");
         SpeechModelInput.ToolTip = ar
-            ? "الافتراضي gpt-transcribe؛ تحقق من دعم موفر API لنقطة /audio/transcriptions والنموذج."
-            : "Defaults to gpt-transcribe. Confirm the provider supports /audio/transcriptions and this model.";
+            ? "يستخدم في الوضع السحابي فقط؛ تحقق من دعم موفر API لنقطة /audio/transcriptions والنموذج."
+            : "Used only in cloud mode; confirm the provider supports /audio/transcriptions and this model.";
         AutomationProperties.SetName(SpeechModelInput, ar ? "معرّف نموذج تحويل الكلام إلى نص" : "Speech-to-text model ID");
         AutomationProperties.SetHelpText(SpeechModelInput, ar
             ? "اسم نموذج الصوت لدى مزودك، وليس بالضرورة معرّف نموذج المحادثة."
             : "The speech model supported by your provider; it may differ from your chat model.");
         AutomationProperties.SetName(SpeechToTextButton, ar ? "تسجيل صوت وتحويله إلى نص" : "Record speech and transcribe it");
-        AutomationProperties.SetHelpText(SpeechToTextButton, ar
-            ? "بدء التسجيل يدوي. اضغط ثانية للإيقاف. الإرسال إلى موفر API يحتاج تأكيدًا منفصلًا، والنص الناتج لا يُرسل تلقائيًا."
-            : "Manual recording only. Press again to stop. Sending audio to the API needs separate confirmation; the transcript is not sent automatically.");
+        AutomationProperties.SetHelpText(SpeechToTextButton, AppRuntime.Settings.UseLocalAi
+            ? (ar ? "التسجيل والتحويل محليان بعد تنزيل الموارد. راجع النص الناتج قبل إرساله إلى ليال."
+                : "Recording and transcription run locally after setup. Review the transcript before sending it to Layal.")
+            : (ar ? "التسجيل يدوي؛ لا يُرسل الصوت إلى موفر API إلا بعد تأكيد منفصل."
+                : "Manual recording; audio is uploaded to the API provider only after a separate confirmation."));
         UpdateSpeechToTextButton();
         UpdateVoiceConversationControls();
         ChooseImageButton.Content = ar ? "إرفاق صورة/لقطة شاشة" : "Attach image/screenshot";
@@ -625,6 +639,19 @@ public partial class MainWindow : Window
 
         SettingsHeading.Text = ar ? "الإعدادات والاتصال" : "Settings and connections";
         LanguageSettingLabel.Text = ar ? "لغة الواجهة" : "Interface language";
+        LocalAiSectionTitle.Text = ar ? "الشات والصوت المحليان (الافتراضي)" : "Local chat and voice (default)";
+        UseLocalAiCheckbox.Content = ar ? "استخدام الذكاء الاصطناعي المحلي دون مفتاح API" : "Use local AI without an API key";
+        LocalAiDescription.Text = ar
+            ? "بعد موافقتك مرة واحدة، سيُنزل Layal محرك Ollama ونموذج الشات وموارد الصوت المحلي. يحتاج الإعداد الأول إلى اتصال إنترنت ومساحة تخزين؛ بعده تتم معالجة النص والصوت على جهازك."
+            : "After your consent, Layal downloads Ollama, the chat model, and local speech resources. Initial setup needs internet and disk space; chat and audio are then processed on this computer.";
+        SetupLocalAiButton.Content = ar ? "تجهيز الشات والصوت المحليين" : "Set up local chat and voice";
+        CancelLocalAiSetupButton.Content = ar ? "إلغاء التنزيل" : "Cancel downloads";
+        AutomationProperties.SetName(CancelLocalAiSetupButton, ar ? "إلغاء تنزيل موارد الذكاء الاصطناعي المحلي" : "Cancel local AI downloads");
+        AutomationProperties.SetName(UseLocalAiCheckbox, ar ? "وضع الذكاء الاصطناعي المحلي" : "Local AI mode");
+        AutomationProperties.SetHelpText(UseLocalAiCheckbox, ar
+            ? "الشات وتحويل الكلام والنطق على هذا الجهاز. ألغِ التحديد لاستخدام مزود سحابي تم إعداده في الأسفل."
+            : "Chat, speech recognition, and speech synthesis run on this device. Uncheck to use the optional cloud provider configured below.");
+        ProviderSectionTitle.Text = ar ? "مزود سحابي اختياري (OpenAI-compatible)" : "Optional cloud provider (OpenAI-compatible)";
         ArabicLanguageButton.Content = "العربية";
         EnglishLanguageButton.Content = "English";
         ProviderSectionTitle.Text = ar ? "محرك الذكاء الاصطناعي (بروتوكول OpenAI-compatible)" : "AI model endpoint (OpenAI-compatible protocol)";
@@ -650,8 +677,8 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetHelpText(MascotOpacitySlider, ar ? "عدّل القيمة باستخدام الأسهم بعد الوصول إلى شريط التمرير." : "Use the arrow keys to adjust this slider when focused.");
         ApplyMascotSettingsButton.Content = ar ? "تطبيق إعدادات الشخصية" : "Apply mascot settings";
         SettingsLimitations.Text = ar
-            ? "يتوفر تحويل الكلام إلى نص يدويًا (عربية وعامية مصرية وإنجليزية) بزر الميكروفون في المحادثة. توليد الصوت والمحادثة الصوتية اللحظية، وأتمتة المتصفح، والتحكم العام بالماوس والكيبورد، وبث الكاميرات، وMCP ما زالت غير منفذة."
-            : "Manual speech-to-text is available from the microphone button in Chat for Arabic, Egyptian Arabic colloquial speech, and English. Speech synthesis/realtime voice, browser automation, general mouse/keyboard control, camera streaming, and MCP remain unimplemented.";
+            ? "الوضع الافتراضي يوفر الشات وتحويل الكلام والنطق محليًا بعد موافقتك وتنزيل الموارد. المهام المتقدمة وتحليل الصور وبعض التكاملات ما زالت تحتاج مزودًا سحابيًا اختياريًا. يعمل التسجيل المحلي على جهازك ولا يُرفع إلى مزود صوت."
+            : "The default mode provides local chat, speech recognition, and speech synthesis after you consent to downloading resources. Advanced agent tasks, image analysis, and some integrations still need an optional cloud provider. Local microphone audio is not uploaded to a speech service.");
         WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة وتنفيذ فعل واحد بموافقة" : "Allow window/UI inspection and one approved control action";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
@@ -749,8 +776,219 @@ public partial class MainWindow : Window
         }
     }
 
+    private void UpdateLocalAiStatusText()
+    {
+        if (LocalAiStatusText is null) return;
+        LocalAiStatusText.Text = _localAiReady && _localVoiceReady
+            ? (IsArabic ? "الشات والصوت المحليان جاهزان. لا حاجة لمفتاح API." : "Local chat and voice are ready. No API key is required.")
+            : _localAiReady
+                ? (IsArabic ? "الشات المحلي جاهز؛ موارد الصوت تحتاج تجهيزًا. يمكنك استخدام الشات الآن." : "Local chat is ready; speech resources still need setup. You can chat now.")
+                : (IsArabic ? "لم يُجهّز الشات المحلي بعد؛ لن يبدأ التنزيل قبل موافقتك." : "Local chat is not set up. Downloads will not begin until you consent.");
+    }
+
+    private async Task RefreshLocalAiStatusAsync()
+    {
+        try
+        {
+            _localAiReady = await _localAiService.IsReadyAsync(AppRuntime.Settings.LocalAiModelId);
+            _localVoiceReady = _localVoiceService.IsReady;
+            UpdateLocalAiStatusText();
+            RefreshProviderStatus();
+        }
+        catch (Exception ex)
+        {
+            LocalAiStatusText.Text = (IsArabic ? "تعذر فحص المحرك المحلي: " : "Could not inspect local engine: ") + ex.Message;
+        }
+    }
+
+    private void LocalAiModeSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        if (_chatCancellation is not null || _voiceConversationCancellation is not null)
+        {
+            UseLocalAiCheckbox.IsChecked = AppRuntime.Settings.UseLocalAi;
+            SetChatActivityStatus(IsArabic
+                ? "أوقف الطلب أو التسجيل الجاري قبل تغيير وضع الذكاء الاصطناعي."
+                : "Stop the active request or recording before changing AI mode.");
+            return;
+        }
+
+        AppRuntime.Settings.UseLocalAi = UseLocalAiCheckbox.IsChecked == true;
+        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        ApplyLanguage();
+        RefreshProviderStatus();
+        SetAccessibleStatusText(ProviderActionStatus, AppRuntime.Settings.UseLocalAi
+            ? (IsArabic ? "تم تفعيل الوضع المحلي؛ لا يُطلب مفتاح API للشات والصوت الأساسيين." : "Local mode enabled; basic chat and voice do not require an API key.")
+            : (IsArabic ? "تم اختيار الوضع السحابي الاختياري؛ أدخل إعدادات المزود إذا أردت استخدامه." : "Optional cloud mode selected; configure its provider to use it."));
+    }
+
+    private async void SetupLocalAiButton_Click(object sender, RoutedEventArgs e)
+    {
+        UseLocalAiCheckbox.IsChecked = true;
+        AppRuntime.Settings.UseLocalAi = true;
+        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true);
+        ApplyLanguage();
+        RefreshProviderStatus();
+    }
+
+    private void CancelLocalAiSetupButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_localAiSetupCancellation is null) return;
+        _localAiSetupCancellation.Cancel();
+        CancelLocalAiSetupButton.IsEnabled = false;
+        LocalAiStatusText.Text = IsArabic ? "جارٍ إلغاء الإعداد وتنظيف التنزيل المؤقت…" : "Cancelling setup and cleaning up temporary downloads…";
+    }
+
+    private async Task<bool> EnsureLocalAiSetupAsync(
+        bool includeVoice,
+        bool retryVoice = false,
+        CancellationToken cancellationToken = default)
+    {
+        await _localAiSetupGate.WaitAsync(cancellationToken);
+        CancellationTokenSource? setupCancellation = null;
+        var priorButtonEnabled = SetupLocalAiButton.IsEnabled;
+        var priorModeEnabled = UseLocalAiCheckbox.IsEnabled;
+        try
+        {
+            setupCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _localAiSetupCancellation = setupCancellation;
+            var setupToken = setupCancellation.Token;
+            SetupLocalAiButton.IsEnabled = false;
+            UseLocalAiCheckbox.IsEnabled = false;
+            CancelLocalAiSetupButton.Visibility = Visibility.Visible;
+            CancelLocalAiSetupButton.IsEnabled = true;
+            LocalAiProgressBar.Visibility = Visibility.Visible;
+            LocalAiProgressBar.IsIndeterminate = true;
+            LocalAiProgressBar.Value = 0;
+            _localAiReady = await _localAiService.IsReadyAsync(AppRuntime.Settings.LocalAiModelId, setupToken);
+            _localVoiceReady = _localVoiceService.IsReady;
+            var needsVoice = includeVoice && !_localVoiceReady && (!_localVoiceSetupAttempted || retryVoice);
+            if (_localAiReady && !needsVoice)
+            {
+                UpdateLocalAiStatusText();
+                RefreshProviderStatus();
+                return true;
+            }
+
+            var consent = MessageBox.Show(
+                this,
+                IsArabic
+                    ? "سيجهّز Layal الشات والصوت على هذا الكمبيوتر. قد يصل التنزيل الأول إجمالًا إلى نحو 4 جيجابايت ويحتاج 8 جيجابايت مساحة فارغة على الأقل؛ يلزم الإنترنت أثناء التنزيل فقط. سنثبت Ollama الرسمي بعد التحقق من توقيعه وننزل نموذج الشات وموارد Whisper وPiper. ستبقى رسائلك والتسجيلات الصوتية على جهازك ولن تُرسل إلى مزود ذكاء اصطناعي خارجي في الوضع المحلي. هل توافق على التنزيل والتجهيز؟"
+                    : "Layal will set up chat and speech on this computer. The first download may total about 4 GB and needs at least 8 GB free disk space; internet is needed during setup. The official Ollama installer is signature-checked before launch, then the chat and Whisper/Piper speech resources are downloaded. In local mode your messages and microphone audio are processed on this device, not uploaded to a remote AI provider. Approve download and setup?",
+                IsArabic ? "موافقة على تجهيز الذكاء الاصطناعي المحلي" : "Approve local AI setup",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information,
+                MessageBoxResult.No);
+            if (consent != MessageBoxResult.Yes)
+            {
+                LocalAiStatusText.Text = IsArabic
+                    ? "تم إلغاء الإعداد؛ لم يبدأ تنزيل أي مورد جديد."
+                    : "Setup cancelled; no new resources were downloaded.";
+                return false;
+            }
+
+            var progress = new Progress<LocalAiProgress>(state =>
+            {
+                LocalAiStatusText.Text = state.Message;
+                if (state.Percent.HasValue)
+                {
+                    LocalAiProgressBar.IsIndeterminate = false;
+                    LocalAiProgressBar.Value = Math.Clamp(state.Percent.Value, 0, 100);
+                }
+                else
+                {
+                    LocalAiProgressBar.IsIndeterminate = true;
+                }
+            });
+
+            if (!_localAiReady)
+            {
+                await _localAiService.EnsureReadyAsync(AppRuntime.Settings.LocalAiModelId, progress, setupToken);
+                _localAiReady = true;
+            }
+
+            if (needsVoice)
+            {
+                _localVoiceSetupAttempted = true;
+                try
+                {
+                    await _localVoiceService.EnsureReadyAsync(progress, setupToken);
+                    _localVoiceReady = _localVoiceService.IsReady;
+                }
+                catch (OperationCanceledException) when (setupCancellation?.IsCancellationRequested == true)
+                {
+                    throw;
+                }
+                catch (Exception voiceError)
+                {
+                    _localVoiceReady = false;
+                    LocalAiStatusText.Text = (IsArabic
+                        ? "الشات المحلي جاهز، لكن تجهيز الصوت لم يكتمل. أعد محاولة تجهيز الصوت من الإعدادات. التفاصيل: "
+                        : "Local chat is ready, but speech setup did not complete. Retry setup from Settings. Details: ") + voiceError.Message;
+                }
+            }
+
+            UpdateLocalAiStatusText();
+            RefreshProviderStatus();
+            return _localAiReady;
+        }
+        catch (OperationCanceledException) when (setupCancellation?.IsCancellationRequested == true)
+        {
+            LocalAiStatusText.Text = IsArabic ? "تم إيقاف إعداد الذكاء الاصطناعي المحلي." : "Local AI setup cancelled.";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LocalAiStatusText.Text = (IsArabic ? "تعذر تجهيز الشات المحلي: " : "Could not set up local chat: ") + ex.Message;
+            SetAccessibleStatusText(ProviderActionStatus, LocalAiStatusText.Text);
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+            return false;
+        }
+        finally
+        {
+            LocalAiProgressBar.Visibility = Visibility.Collapsed;
+            LocalAiProgressBar.IsIndeterminate = false;
+            CancelLocalAiSetupButton.Visibility = Visibility.Collapsed;
+            CancelLocalAiSetupButton.IsEnabled = true;
+            SetupLocalAiButton.IsEnabled = priorButtonEnabled;
+            UseLocalAiCheckbox.IsEnabled = priorModeEnabled;
+            if (ReferenceEquals(_localAiSetupCancellation, setupCancellation))
+                _localAiSetupCancellation = null;
+            setupCancellation?.Dispose();
+            _localAiSetupGate.Release();
+            if (IsLoaded)
+            {
+                UpdateLocalAiStatusText();
+                RefreshProviderStatus();
+            }
+        }
+    }
+
     private void RefreshProviderStatus()
     {
+        if (AppRuntime.Settings.UseLocalAi)
+        {
+            UpdateLocalAiStatusText();
+            ConnectionStatusText.Text = _localAiReady
+                ? (IsArabic ? "AI: محلي وجاهز" : "AI: Local and ready")
+                : (IsArabic ? "AI: يحتاج تجهيز محلي" : "AI: Local setup needed");
+            ConnectionStatusText.Foreground = ThemeBrush(
+                _localAiReady ? "Layal.Success" : "Layal.Warning",
+                _localAiReady ? System.Windows.Media.Brushes.ForestGreen : System.Windows.Media.Brushes.DarkGoldenrod);
+            CardAiValue.Text = _localAiReady
+                ? (IsArabic ? "الشات المحلي جاهز" : "Local chat ready")
+                : (IsArabic ? "بانتظار تجهيز محلي" : "Local setup pending");
+            CardAiValue.Foreground = ConnectionStatusText.Foreground;
+            CardAiHint.Text = _localVoiceReady
+                ? (IsArabic ? "الشات والصوت على جهازك؛ لا يلزم مفتاح API." : "Chat and voice run on this device; no API key required.")
+                : (IsArabic ? "وافق على تجهيز المحرك والنماذج من الإعدادات." : "Approve engine and model setup in Settings.");
+            ChatProviderStatus.Text = _localAiReady
+                ? (IsArabic ? "الشات يعمل محليًا على جهازك" : "Chat runs locally on this device")
+                : (IsArabic ? "اضغط تجهيز الشات والصوت ووافق على التنزيل" : "Set up local chat and voice and approve the download");
+            return;
+        }
+
         var previousConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
         var hasKey = !string.IsNullOrWhiteSpace(AppRuntime.SecretStore?.Load());
         var hasConfig = Uri.TryCreate(AppRuntime.Settings.ProviderBaseUrl, UriKind.Absolute, out var uri) &&
@@ -857,9 +1095,19 @@ public partial class MainWindow : Window
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape && _localAiSetupCancellation is not null)
+        {
+            _localAiSetupCancellation.Cancel();
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape && _voiceConversationCancellation is not null)
         {
-            _voiceConversationCancellation.Cancel();
+            if (AppRuntime.Settings.UseLocalAi && _localVoiceRecordingActive)
+                CancelLocalVoiceRecording();
+            else
+                _voiceConversationCancellation.Cancel();
             e.Handled = true;
             return;
         }
@@ -1474,6 +1722,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (AppRuntime.Settings.UseLocalAi)
+        {
+            await TestLocalVoiceAsync();
+            return;
+        }
+
         var baseUrl = BaseUrlInput.Text.Trim();
         var apiKey = string.IsNullOrWhiteSpace(ApiKeyInput.Password)
             ? (AppRuntime.SecretStore?.Load() ?? string.Empty)
@@ -1503,6 +1757,42 @@ public partial class MainWindow : Window
         {
             SetAccessibleStatusText(ProviderActionStatus,
                 UiLocalization.FormatTechnicalError("تعذر تشغيل صوت ليال", "Could not play Layal voice", ex, IsArabic));
+            ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+        }
+        finally
+        {
+            if (ReferenceEquals(_voiceTestCancellation, cancellation))
+                _voiceTestCancellation = null;
+            cancellation.Dispose();
+            if (IsLoaded) TestVoiceReplyButton.IsEnabled = true;
+        }
+    }
+
+    private async Task TestLocalVoiceAsync()
+    {
+        var cancellation = new CancellationTokenSource();
+        _voiceTestCancellation = cancellation;
+        TestVoiceReplyButton.IsEnabled = false;
+        try
+        {
+            if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true, cancellationToken: cancellation.Token) ||
+                !_localVoiceReady)
+                return;
+            await _localVoiceService.SpeakAsync(
+                "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak locally and clearly.",
+                cancellation.Token);
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "انتهت تجربة الصوت المحلي؛ لم يُرسل النص إلى خادم."
+                : "Local voice preview completed; text was not sent to a server.");
+        }
+        catch (OperationCanceledException)
+        {
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم إيقاف تجربة الصوت المحلي." : "Local voice preview cancelled.");
+        }
+        catch (Exception ex)
+        {
+            SetAccessibleStatusText(ProviderActionStatus,
+                UiLocalization.FormatTechnicalError("تعذر تشغيل الصوت المحلي", "Could not play local voice", ex, IsArabic));
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally
@@ -1612,29 +1902,48 @@ public partial class MainWindow : Window
             return;
         }
 
-        var baseUrl = AppRuntime.Settings.ProviderBaseUrl;
-        var apiKey = AppRuntime.SecretStore?.Load() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(apiKey))
+        var useLocal = AppRuntime.Settings.UseLocalAi;
+        if (useLocal)
         {
-            SetChatActivityStatus(IsArabic
-                ? "أدخل مفتاح API صالحًا في الإعدادات قبل استخدام تحويل الصوت."
-                : "Save a valid API key in Settings before using speech input.");
-            MainTabs.SelectedItem = SettingsTab;
-            return;
+            if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true)) return;
+            if (!_localVoiceReady)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "الشات المحلي جاهز، لكن موارد تحويل الصوت غير متاحة. أعد تجهيز الصوت من الإعدادات."
+                    : "Local chat is ready, but local speech resources are unavailable. Retry speech setup in Settings.");
+                return;
+            }
         }
-        try { _ = SpeechToTextService.BuildTranscriptionUri(baseUrl); }
-        catch (InvalidOperationException ex)
+        else
         {
-            SetChatActivityStatus(ex.Message);
-            MainTabs.SelectedItem = SettingsTab;
-            return;
+            var baseUrl = AppRuntime.Settings.ProviderBaseUrl;
+            var apiKey = AppRuntime.SecretStore?.Load() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "أدخل مفتاح API صالحًا في الإعدادات قبل استخدام تحويل الصوت السحابي."
+                    : "Save a valid API key in Settings before using cloud speech input.");
+                MainTabs.SelectedItem = SettingsTab;
+                return;
+            }
+            try { _ = SpeechToTextService.BuildTranscriptionUri(baseUrl); }
+            catch (InvalidOperationException ex)
+            {
+                SetChatActivityStatus(ex.Message);
+                MainTabs.SelectedItem = SettingsTab;
+                return;
+            }
         }
 
         var microphoneConsent = MessageBox.Show(
             this,
-            IsArabic
-                ? "سيبدأ التسجيل فقط بعد موافقتك. التسجيل يدوي وبحد أقصى دقيقتين، ويظل الصوت في الذاكرة ولا يُحفظ كملف. بعد الإيقاف ستُسأل مرة أخرى قبل إرسال الصوت إلى موفر API. هل تريد تشغيل الميكروفون الآن؟"
-                : "Recording starts only after you agree. It is manual, limited to two minutes, and kept in memory rather than saved as a file. After you stop, you will be asked again before audio is sent to your API provider. Start the microphone now?",
+            useLocal
+                ? (IsArabic
+                    ? "سيبدأ التسجيل بعد موافقتك. التسجيل يدوي وبحد أقصى دقيقتين. في الوضع المحلي، سيُستخدم ملف مؤقت على هذا الجهاز أثناء التحويل ثم يحاول التطبيق حذفه؛ لن يُرسل الصوت إلى الإنترنت. النص الناتج لن يُرسل إلى ليال إلا بعد أن تضغط إرسال. هل تريد تشغيل الميكروفون؟"
+                    : "Recording starts after your consent and is limited to two minutes. Local mode writes a temporary audio file on this device for transcription and then attempts to delete it; audio is not uploaded. The transcript is not sent to Layal until you press Send. Start the microphone?")
+                : (IsArabic
+                    ? "سيبدأ التسجيل فقط بعد موافقتك. التسجيل يدوي وبحد أقصى دقيقتين. بعد الإيقاف ستُسأل مرة أخرى قبل إرسال الصوت إلى موفر API. هل تريد تشغيل الميكروفون الآن؟"
+                    : "Recording starts only after you agree and is limited to two minutes. After stopping, you will be asked again before audio is sent to your API provider. Start the microphone?"),
             IsArabic ? "السماح بالتسجيل اليدوي" : "Allow manual microphone recording",
             MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (microphoneConsent != MessageBoxResult.Yes) return;
@@ -1645,9 +1954,9 @@ public partial class MainWindow : Window
             _speechRecordingStartedAt = DateTimeOffset.UtcNow;
             _speechRecordingTimer.Start();
             UpdateSpeechToTextButton();
-            SetChatActivityStatus(IsArabic
-                ? "الميكروفون يعمل الآن. اضغط «إيقاف وتحويل» عند الانتهاء؛ لا يتم الإرسال قبل تأكيدك."
-                : "Microphone recording is active. Press Stop & transcribe when done; nothing is uploaded until you confirm.");
+            SetChatActivityStatus(useLocal
+                ? (IsArabic ? "الميكروفون يعمل؛ التحويل محلي. اضغط «إيقاف وتحويل» عند الانتهاء." : "Microphone active; transcription is local. Press Stop & transcribe when done.")
+                : (IsArabic ? "الميكروفون يعمل الآن. اضغط «إيقاف وتحويل»؛ لن يُرسل الصوت قبل تأكيدك." : "Microphone recording is active. Press Stop & transcribe; audio is not uploaded until you confirm."));
         }
         catch (Exception ex)
         {
@@ -1663,7 +1972,10 @@ public partial class MainWindow : Window
         if (DateTimeOffset.UtcNow - _speechRecordingStartedAt < SpeechToTextService.MaximumRecordingDuration)
             return;
         _speechRecordingTimer.Stop();
-        _ = StopSpeechRecordingAndTranscribeAsync();
+        if (_localVoiceRecordingActive)
+            _ = StopLocalVoiceConversationAndSendAsync();
+        else
+            _ = StopSpeechRecordingAndTranscribeAsync();
     }
 
     private async Task StopSpeechRecordingAndTranscribeAsync()
@@ -1684,6 +1996,47 @@ public partial class MainWindow : Window
             if (!IsVisible || AppRuntime.IsExiting)
             {
                 SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل والتخلص من الصوت المؤقت." : "Recording cancelled; temporary audio discarded.");
+                return;
+            }
+
+            if (AppRuntime.Settings.UseLocalAi)
+            {
+                if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true)) return;
+                var tokenSource = new CancellationTokenSource();
+                _speechCancellation = tokenSource;
+                UpdateSpeechToTextButton();
+                SetChatActivityStatus(IsArabic
+                    ? "جارٍ تحويل التسجيل محليًا. لن يتم رفع الصوت إلى خادم."
+                    : "Transcribing locally. Audio will not be uploaded to a server.");
+                try
+                {
+                    var transcript = await _localVoiceService.TranscribeAsync(audio!, tokenSource.Token);
+                    ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
+                        ? transcript
+                        : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
+                    ChatInput.CaretIndex = ChatInput.Text.Length;
+                    ChatInput.Focus();
+                    SetChatActivityStatus(IsArabic
+                        ? "تم تحويل الصوت محليًا. راجع النص ثم اضغط إرسال؛ لم تُرسل الرسالة تلقائيًا."
+                        : "Local transcription completed. Review the text and press Send; it was not sent automatically.");
+                }
+                catch (OperationCanceledException)
+                {
+                    SetChatActivityStatus(IsArabic ? "تم إلغاء تحويل الصوت المحلي." : "Local transcription cancelled.");
+                }
+                catch (Exception ex)
+                {
+                    SetChatActivityStatus((IsArabic ? "فشل تحويل الصوت المحلي: " : "Local transcription failed: ") + ex.Message);
+                }
+                finally
+                {
+                    if (ReferenceEquals(_speechCancellation, tokenSource))
+                    {
+                        _speechCancellation = null;
+                        tokenSource.Dispose();
+                    }
+                    UpdateSpeechToTextButton();
+                }
                 return;
             }
 
@@ -1771,14 +2124,207 @@ public partial class MainWindow : Window
                     : (IsArabic ? "تسجيل صوت" : "Record voice");
         SpeechToTextButton.IsEnabled = !_speechIsStopping;
         SpeechToTextButton.ToolTip = _speechToText.IsRecording
-            ? (IsArabic ? "اضغط لإيقاف التسجيل. لن يُرسل الصوت إلا بعد تأكيد منفصل." : "Press to stop recording. Audio is uploaded only after separate confirmation.")
+            ? AppRuntime.Settings.UseLocalAi
+                ? (IsArabic ? "اضغط لإيقاف التسجيل وتحويله محليًا. لن يُرفع الصوت." : "Stop recording and transcribe locally. Audio will not be uploaded.")
+                : (IsArabic ? "اضغط لإيقاف التسجيل. لن يُرسل الصوت إلا بعد تأكيد منفصل." : "Press to stop recording. Audio is uploaded only after separate confirmation.")
             : _speechCancellation is not null
                 ? (IsArabic ? "إلغاء طلب تحويل الصوت الحالي." : "Cancel the current speech transcription request.")
-                : (IsArabic ? "تسجيل يدوي فقط؛ لن يُرسل الصوت قبل تأكيدك." : "Manual recording only; audio is not uploaded until you confirm.");
+                : AppRuntime.Settings.UseLocalAi
+                    ? (IsArabic ? "تسجيل وتحويل محليان على هذا الجهاز." : "Record and transcribe locally on this device.")
+                    : (IsArabic ? "تسجيل يدوي فقط؛ لن يُرسل الصوت قبل تأكيدك." : "Manual recording only; audio is not uploaded until you confirm.");
+    }
+
+    private async Task LocalVoiceConversationButton_ClickAsync()
+    {
+        if (_localVoiceRecordingActive)
+        {
+            await StopLocalVoiceConversationAndSendAsync();
+            return;
+        }
+        if (_voiceConversationCancellation is not null)
+        {
+            _voiceConversationCancellation.Cancel();
+            SetChatActivityStatus(IsArabic ? "جارٍ إيقاف معالجة الصوت المحلي..." : "Cancelling local voice processing...");
+            return;
+        }
+        if (_chatCancellation is not null || _voiceTestCancellation is not null ||
+            _speechToText.IsRecording || _speechCancellation is not null || _speechIsStopping ||
+            _cameraVisionWindow is { IsVisible: true })
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف العملية الحالية قبل بدء الكلام المحلي."
+                : "Stop the current operation before starting local voice input.");
+            return;
+        }
+
+        if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true)) return;
+        if (!_localVoiceReady)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "تعذر تجهيز موارد الصوت المحلي. أعد المحاولة من الإعدادات."
+                : "Local speech resources are not ready. Retry setup in Settings.");
+            return;
+        }
+
+        var consent = MessageBox.Show(
+            this,
+            IsArabic
+                ? "سيظل الميكروفون نشطًا حتى تضغط الزر مرة ثانية أو Esc. سيُعالج التسجيل على هذا الجهاز باستخدام نماذج محلية؛ قد يُكتب ملف مؤقت ثم يحذفه التطبيق. لن يُرسل الصوت إلى خادم سحابي. بعد التحويل سيُرسل النص إلى نموذج الشات المحلي لتوليد الرد. هل تريد البدء؟"
+                : "The microphone stays active until you press the button again or Esc. The recording is processed on this computer with local models; a temporary audio file may be created and then deleted. Audio is not sent to a cloud server. After transcription, the text is sent to the local chat model for a reply. Start?",
+            IsArabic ? "بدء الكلام المحلي" : "Start local voice input",
+            MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
+        if (consent != MessageBoxResult.Yes) return;
+
+        var session = new CancellationTokenSource();
+        try
+        {
+            _speechToText.StartRecording();
+            _voiceConversationCancellation = session;
+            _localVoiceRecordingActive = true;
+            _voiceConversationStatus = VoiceConversationStatus.UserSpeaking;
+            _speechRecordingStartedAt = DateTimeOffset.UtcNow;
+            _speechRecordingTimer.Start();
+            ChatInput.IsEnabled = false;
+            SendButton.IsEnabled = false;
+            SpeechToTextButton.IsEnabled = false;
+            CancelResponseButton.IsEnabled = false;
+            NewConversationButton.IsEnabled = false;
+            ClearSavedChatHistoryButton.IsEnabled = false;
+            ChatHistorySelector.IsEnabled = false;
+            UpdateVoiceConversationControls();
+            UpdateSpeechToTextButton();
+            SetChatActivityStatus(IsArabic
+                ? "بتسمعك ليال محليًا… اضغط «إنهاء الكلام وإرسال» لإيقاف التسجيل وإرسال النص إلى الشات المحلي."
+                : "Layal is listening locally… Press Finish speaking & send to stop recording and send the transcript to local chat.");
+        }
+        catch (Exception ex)
+        {
+            _localVoiceRecordingActive = false;
+            _voiceConversationStatus = VoiceConversationStatus.Stopped;
+            if (ReferenceEquals(_voiceConversationCancellation, session)) _voiceConversationCancellation = null;
+            session.Dispose();
+            SetChatActivityStatus((IsArabic ? "تعذر بدء التسجيل المحلي: " : "Could not start local recording: ") + ex.Message);
+            UpdateVoiceConversationControls();
+            UpdateSpeechToTextButton();
+        }
+    }
+
+    private async Task StopLocalVoiceConversationAndSendAsync()
+    {
+        if (!_localVoiceRecordingActive || _speechIsStopping) return;
+        _localVoiceRecordingActive = false;
+        _speechIsStopping = true;
+        _speechRecordingTimer.Stop();
+        _voiceConversationStatus = VoiceConversationStatus.Connecting;
+        UpdateVoiceConversationControls();
+        UpdateSpeechToTextButton();
+        byte[]? audio = null;
+        var session = _voiceConversationCancellation;
+        try
+        {
+            var recording = await _speechToText.StopRecordingAsync();
+            audio = recording.WavBytes;
+            if (!IsVisible || AppRuntime.IsExiting)
+            {
+                SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل المحلي والتخلص من الصوت المؤقت." : "Local recording cancelled; temporary audio discarded.");
+                return;
+            }
+
+            var transcript = await _localVoiceService.TranscribeAsync(audio, session?.Token ?? CancellationToken.None);
+            if (string.IsNullOrWhiteSpace(transcript))
+            {
+                SetChatActivityStatus(IsArabic ? "لم يُتعرّف على كلام واضح؛ حاول مرة أخرى." : "No clear speech was recognized; try again.");
+                return;
+            }
+
+            ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
+                ? transcript
+                : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
+            ChatInput.CaretIndex = ChatInput.Text.Length;
+
+            // Release the voice-session guard before SendMessageAsync takes ownership of the turn.
+            if (ReferenceEquals(_voiceConversationCancellation, session))
+            {
+                _voiceConversationCancellation = null;
+                session?.Dispose();
+            }
+            _voiceConversationStatus = VoiceConversationStatus.Stopped;
+            if (IsLoaded)
+            {
+                ChatInput.IsEnabled = true;
+                SendButton.IsEnabled = _chatCancellation is null;
+                NewConversationButton.IsEnabled = true;
+                ClearSavedChatHistoryButton.IsEnabled = true;
+                ChatHistorySelector.IsEnabled = true;
+            }
+            UpdateVoiceConversationControls();
+            SetChatActivityStatus(IsArabic
+                ? "تم تحويل كلامك محليًا؛ جارٍ إرسال النص إلى نموذج الشات المحلي."
+                : "Local transcription complete; sending the text to local chat.");
+            await SendMessageAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل أو التحويل المحلي." : "Local recording or transcription cancelled.");
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus((IsArabic ? "تعذر إكمال المحادثة الصوتية المحلية: " : "Could not complete local voice conversation: ") + ex.Message);
+        }
+        finally
+        {
+            if (audio is not null) Array.Clear(audio, 0, audio.Length);
+            if (ReferenceEquals(_voiceConversationCancellation, session))
+            {
+                _voiceConversationCancellation = null;
+                session?.Dispose();
+            }
+            _localVoiceRecordingActive = false;
+            _speechIsStopping = false;
+            _voiceConversationStatus = VoiceConversationStatus.Stopped;
+            UpdateVoiceConversationControls();
+            UpdateSpeechToTextButton();
+            if (IsLoaded)
+            {
+                ChatInput.IsEnabled = true;
+                SendButton.IsEnabled = _chatCancellation is null;
+                NewConversationButton.IsEnabled = true;
+                ClearSavedChatHistoryButton.IsEnabled = true;
+                ChatHistorySelector.IsEnabled = true;
+                RefreshProviderStatus();
+            }
+        }
+    }
+
+    private void CancelLocalVoiceRecording()
+    {
+        if (!_localVoiceRecordingActive) return;
+        _localVoiceRecordingActive = false;
+        _speechRecordingTimer.Stop();
+        try { _speechToText.CancelRecording(); } catch { /* The capture service may already have stopped. */ }
+        var session = _voiceConversationCancellation;
+        _voiceConversationCancellation = null;
+        session?.Cancel();
+        session?.Dispose();
+        _voiceConversationStatus = VoiceConversationStatus.Stopped;
+        ChatInput.IsEnabled = true;
+        SendButton.IsEnabled = _chatCancellation is null;
+        NewConversationButton.IsEnabled = true;
+        ClearSavedChatHistoryButton.IsEnabled = true;
+        ChatHistorySelector.IsEnabled = true;
+        SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل المحلي؛ لم يتم إرسال الصوت." : "Local recording cancelled; audio was not sent.");
+        UpdateVoiceConversationControls();
+        UpdateSpeechToTextButton();
     }
 
     private async void VoiceConversationButton_Click(object sender, RoutedEventArgs e)
     {
+        if (AppRuntime.Settings.UseLocalAi)
+        {
+            await LocalVoiceConversationButton_ClickAsync();
+            return;
+        }
+
         if (_voiceConversationCancellation is not null)
         {
             SetChatActivityStatus(IsArabic ? "جارٍ إيقاف المحادثة والميكروفون..." : "Stopping the voice conversation and microphone...");
@@ -1944,18 +2490,33 @@ public partial class MainWindow : Window
     {
         if (VoiceConversationButton is null) return;
         var active = _voiceConversationCancellation is not null;
-        VoiceConversationButton.Content = active
-            ? (IsArabic ? "إيقاف المحادثة الصوتية" : "Stop voice conversation")
-            : (IsArabic ? "بدء المحادثة الصوتية" : "Start voice conversation");
-        VoiceConversationButton.ToolTip = active
-            ? (IsArabic ? "اضغط لإيقاف البث الصوتي وإغلاق الميكروفون فورًا، أو اضغط Esc." : "Stop audio streaming and close the microphone, or press Esc.")
-            : (IsArabic ? "تبدأ بث الميكروفون إلى موفر Realtime بعد موافقتك. يمكن إيقافه في أي وقت." : "Streams microphone audio to your Realtime provider after confirmation. You can stop at any time.");
-        AutomationProperties.SetName(VoiceConversationButton, active
-            ? (IsArabic ? "إيقاف المحادثة الصوتية" : "Stop voice conversation")
-            : (IsArabic ? "بدء المحادثة الصوتية" : "Start voice conversation"));
+        if (AppRuntime.Settings.UseLocalAi)
+        {
+            VoiceConversationButton.Content = _localVoiceRecordingActive
+                ? (IsArabic ? "إنهاء الكلام وإرسال" : "Finish speaking & send")
+                : active
+                    ? (IsArabic ? "جارٍ تحويل الصوت المحلي…" : "Transcribing local voice…")
+                    : (IsArabic ? "التحدث إلى ليال محليًا" : "Talk to Layal locally");
+            VoiceConversationButton.ToolTip = _localVoiceRecordingActive
+                ? (IsArabic ? "اضغط لإيقاف الميكروفون وتحويل التسجيل محليًا وإرسال النص للشات." : "Stop the microphone, transcribe locally, and send the text to chat.")
+                : active
+                    ? (IsArabic ? "اضغط لإلغاء تحويل الصوت المحلي، أو اضغط Esc." : "Cancel local transcription, or press Esc.")
+                    : (IsArabic ? "محادثة صوتية بالتناوب: اضغط للتسجيل ثم اضغط مرة ثانية للإرسال. الصوت لا يغادر الجهاز." : "Turn-based local voice: press to record, then press again to send. Audio stays on this device.");
+        }
+        else
+        {
+            VoiceConversationButton.Content = active
+                ? (IsArabic ? "إيقاف المحادثة الصوتية" : "Stop voice conversation")
+                : (IsArabic ? "بدء المحادثة الصوتية" : "Start voice conversation");
+            VoiceConversationButton.ToolTip = active
+                ? (IsArabic ? "اضغط لإيقاف البث الصوتي وإغلاق الميكروفون فورًا، أو اضغط Esc." : "Stop audio streaming and close the microphone, or press Esc.")
+                : (IsArabic ? "تبدأ بث الميكروفون إلى موفر Realtime بعد موافقتك. يمكن إيقافه في أي وقت." : "Streams microphone audio to your Realtime provider after confirmation. You can stop at any time.");
+        }
+
+        AutomationProperties.SetName(VoiceConversationButton, VoiceConversationButton.Content?.ToString() ?? string.Empty);
         AutomationProperties.SetHelpText(VoiceConversationButton, IsArabic
-            ? "الزر يبدّل بين بدء المحادثة وإيقافها. أثناء الجلسة يظهر مؤشر الميكروفون النشط أعلى النافذة."
-            : "Toggles the live voice conversation. A microphone-active indicator remains visible in the window header.");
+            ? "وضع الصوت الحالي يظهر في مؤشر الميكروفون أعلى النافذة. في الوضع المحلي اضغط للتسجيل ومرة ثانية لإرسال الكلام."
+            : "The microphone indicator appears in the window header. Local mode uses press-to-record and press-again-to-send.");
         var micActive = _voiceConversationStatus is VoiceConversationStatus.Listening or
             VoiceConversationStatus.UserSpeaking or VoiceConversationStatus.AssistantSpeaking;
         VoiceConversationIndicator.Visibility = _voiceConversationStatus == VoiceConversationStatus.Stopped
@@ -2396,15 +2957,24 @@ public partial class MainWindow : Window
         if (_voiceConversationCancellation is not null)
         {
             SetChatActivityStatus(IsArabic
-                ? "أوقف المحادثة الصوتية قبل إرسال رسالة نصية."
-                : "Stop the live voice conversation before sending a text message.");
+                ? "أوقف التسجيل الصوتي قبل إرسال رسالة نصية."
+                : "Stop the voice recording before sending a text message.");
             return;
         }
 
         var text = ChatInput.Text.Trim();
         if (_chatCancellation is not null) return;
+        var useLocal = AppRuntime.Settings.UseLocalAi;
         if (_pendingVisionImageBytes is { Length: > 0 } attachedImage)
         {
+            if (useLocal)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تحليل الصور يحتاج مزودًا سحابيًا اختياريًا ونموذجًا يدعم الرؤية. الشات النصي والصوتي المحليان يعملان دون API."
+                    : "Image analysis needs an optional cloud provider and a vision-capable model. Local text chat and voice work without an API.");
+                return;
+            }
+
             await AnalyzeVisionImageAsync(
                 attachedImage.ToArray(),
                 _pendingVisionContentType ?? "image/png",
@@ -2418,12 +2988,14 @@ public partial class MainWindow : Window
         ChatInput.Clear();
         AddMessage("user", text);
         var key = AppRuntime.SecretStore.Load();
-        if (string.IsNullOrWhiteSpace(key))
+        if (!useLocal && string.IsNullOrWhiteSpace(key))
         {
-            AddMessage("status", IsArabic ? "لم يتم ضبط اتصال حقيقي بعد. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا." : "No real AI connection is configured. Open Settings and provide a valid API URL and key.");
+            AddMessage("status", IsArabic
+                ? "لم يتم ضبط مزود سحابي. اختر الوضع المحلي أو أدخل عنوان API ومفتاحًا في الإعدادات."
+                : "No cloud provider is configured. Use local mode or enter an API URL and key in Settings.");
             SetChatActivityStatus(IsArabic
-                ? "لا يوجد اتصال حقيقي مضبوط. افتح الإعدادات وأدخل عنوان API ومفتاحًا صالحًا."
-                : "No real AI connection is configured. Open Settings and provide a valid API URL and key.");
+                ? "لا يوجد مزود سحابي مضبوط. استخدم الوضع المحلي أو أدخل إعدادات المزود."
+                : "No cloud provider is configured. Use local mode or configure a provider.");
             MainTabs.SelectedItem = ChatTab;
             return;
         }
@@ -2431,40 +3003,58 @@ public partial class MainWindow : Window
         _chatCancellation = new CancellationTokenSource();
         SendButton.IsEnabled = false;
         CancelResponseButton.IsEnabled = true;
-        SetChatActivityStatus(IsArabic ? "بانتظار أول جزء من الرد..." : "Waiting for the first response chunk...");
+        SetChatActivityStatus(IsArabic ? "جارٍ تجهيز الرد..." : "Preparing the response...");
         AppRuntime.MascotWindow?.SetMood("thinking");
         try
         {
+            if (useLocal && !await EnsureLocalAiSetupAsync(
+                    includeVoice: AppRuntime.Settings.VoiceRepliesEnabled,
+                    cancellationToken: _chatCancellation.Token))
+            {
+                AddMessage("status", IsArabic
+                    ? "لم يبدأ الشات لأن إعداد النموذج المحلي لم يكتمل أو لم توافق على التنزيل."
+                    : "Chat did not start because local model setup was cancelled or incomplete.");
+                return;
+            }
+
             // Keep the most recent chat context bounded; archive history remains saved locally.
             var history = ChatContextBuilder.Build(LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language), ChatMessages);
             ChatMessage? liveAssistantMessage = null;
             var streamedChunks = 0;
-            var response = await _aiClient.ChatStreamAsync(
-                AppRuntime.Settings.ProviderBaseUrl,
-                AppRuntime.Settings.ModelId,
-                key,
-                history,
-                delta =>
+            void HandleDelta(string delta)
+            {
+                if (liveAssistantMessage is null)
                 {
-                    if (liveAssistantMessage is null)
-                    {
-                        AppRuntime.MascotWindow?.SetMood("responding");
-                        SetChatActivityStatus(IsArabic ? "ليال بتكتب..." : "Layal is responding...");
-                        liveAssistantMessage = AddMessage("assistant", delta);
-                    }
-                    else
-                    {
-                        liveAssistantMessage.Content += delta;
-                        if (liveAssistantMessage.Direction != FlowDirection.RightToLeft && ContainsArabic(delta))
-                            liveAssistantMessage.Direction = FlowDirection.RightToLeft;
+                    AppRuntime.MascotWindow?.SetMood("responding");
+                    SetChatActivityStatus(IsArabic ? "ليال بتكتب..." : "Layal is responding...");
+                    liveAssistantMessage = AddMessage("assistant", delta);
+                }
+                else
+                {
+                    liveAssistantMessage.Content += delta;
+                    if (liveAssistantMessage.Direction != FlowDirection.RightToLeft && ContainsArabic(delta))
+                        liveAssistantMessage.Direction = FlowDirection.RightToLeft;
 
-                        // Avoid re-scanning the entire growing answer and forcing layout on every token.
-                        streamedChunks++;
-                        if (streamedChunks % 8 == 0)
-                            ChatMessagesList.ScrollIntoView(liveAssistantMessage);
-                    }
-                },
-                _chatCancellation.Token);
+                    // Avoid re-scanning the entire growing answer and forcing layout on every token.
+                    streamedChunks++;
+                    if (streamedChunks % 8 == 0)
+                        ChatMessagesList.ScrollIntoView(liveAssistantMessage);
+                }
+            }
+
+            var response = useLocal
+                ? await _localAiService.ChatStreamAsync(
+                    AppRuntime.Settings.LocalAiModelId,
+                    history,
+                    HandleDelta,
+                    _chatCancellation.Token)
+                : await _aiClient.ChatStreamAsync(
+                    AppRuntime.Settings.ProviderBaseUrl,
+                    AppRuntime.Settings.ModelId,
+                    key,
+                    history,
+                    HandleDelta,
+                    _chatCancellation.Token);
 
             if (liveAssistantMessage is null)
                 AddMessage("assistant", response);
@@ -2477,30 +3067,47 @@ public partial class MainWindow : Window
                     : FlowDirection.LeftToRight;
                 SaveCurrentChatMessages();
             }
+
             var completionStatus = IsArabic ? "اكتمل الرد" : "Response completed";
             if (AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
             {
-                SetChatActivityStatus(IsArabic ? "ليال بتتكلم بصوتها..." : "Layal is speaking...");
-                try
+                if (useLocal && !_localVoiceReady)
                 {
-                    await _layalSpeech.SpeakAsync(
-                        AppRuntime.Settings.ProviderBaseUrl,
-                        key,
-                        AppRuntime.Settings.VoiceReplyModelId,
-                        AppRuntime.Settings.VoiceReplyId,
-                        response,
-                        _chatCancellation.Token);
-                    completionStatus = IsArabic ? "اكتمل الرد الصوتي" : "Response completed with voice";
+                    completionStatus = IsArabic
+                        ? "اكتمل الرد النصي محليًا؛ موارد الصوت لم تكتمل. افتح الإعدادات واضغط تجهيز الشات والصوت."
+                        : "Local text reply completed; speech resources are not ready. Open Settings and retry local setup.";
                 }
-                catch (OperationCanceledException)
+                else
                 {
-                    throw;
-                }
-                catch (Exception voiceError)
-                {
-                    completionStatus = (IsArabic
-                        ? "اكتمل الرد النصي، لكن تعذر تشغيل الصوت: "
-                        : "Text reply completed, but voice playback failed: ") + voiceError.Message;
+                    SetChatActivityStatus(IsArabic ? "ليال بتتكلم بصوتها..." : "Layal is speaking...");
+                    try
+                    {
+                        if (useLocal)
+                        {
+                            await _localVoiceService.SpeakAsync(response, _chatCancellation.Token);
+                        }
+                        else
+                        {
+                            await _layalSpeech.SpeakAsync(
+                                AppRuntime.Settings.ProviderBaseUrl,
+                                key,
+                                AppRuntime.Settings.VoiceReplyModelId,
+                                AppRuntime.Settings.VoiceReplyId,
+                                response,
+                                _chatCancellation.Token);
+                        }
+                        completionStatus = IsArabic ? "اكتمل الرد الصوتي" : "Response completed with voice";
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception voiceError)
+                    {
+                        completionStatus = (IsArabic
+                            ? "اكتمل الرد النصي، لكن تعذر تشغيل الصوت: "
+                            : "Text reply completed, but voice playback failed: ") + voiceError.Message;
+                    }
                 }
             }
             AppRuntime.MascotWindow?.SetMood(SelectChatMood(text, response));
@@ -3202,6 +3809,8 @@ public partial class MainWindow : Window
         _speechRecordingTimer.Stop();
         _speechCancellation?.Cancel();
         _voiceTestCancellation?.Cancel();
+        _localAiSetupCancellation?.Cancel();
+        if (_localVoiceRecordingActive) CancelLocalVoiceRecording();
         _voiceConversationCancellation?.Cancel();
         if (!_speechIsStopping) _speechToText.CancelRecording();
 
