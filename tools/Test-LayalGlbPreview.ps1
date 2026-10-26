@@ -31,18 +31,28 @@ $tests = [System.Collections.Generic.List[object]]::new()
 
 function Find-GlbPreviewElement {
     param([int]$ProcessId)
-    $condition = New-Object System.Windows.Automation.PropertyCondition(
+    $root = [System.Windows.Automation.AutomationElement]::RootElement
+    $processCondition = New-Object System.Windows.Automation.PropertyCondition(
         [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $ProcessId)
-    $elements = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-        [System.Windows.Automation.TreeScope]::Descendants, $condition)
+    $namedCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::NameProperty, "GLB 3D preview — Rigged Figure")
+    $elements = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $processCondition)
     foreach ($element in $elements) {
         try {
-            if ($element.Current.Name -like "GLB 3D preview*") {
-                return $element
-            }
+            if ($element.Current.Name -like "GLB 3D preview*") { return $element }
+            $named = $element.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $namedCondition)
+            if ($null -ne $named -and $named.Current.ProcessId -eq $ProcessId) { return $named }
         } catch {
-            # UIA elements may become stale while windows initialize; retry during the polling loop.
+            # UIA elements may become stale while WPF initializes; retry during the polling loop.
         }
+    }
+    # Fallback search by stable peer name, but still verify the owning process to avoid matching
+    # an unrelated Layal instance or another application's look-alike element.
+    $allNamed = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $namedCondition)
+    foreach ($element in $allNamed) {
+        try {
+            if ($element.Current.ProcessId -eq $ProcessId) { return $element }
+        } catch { }
     }
     return $null
 }
