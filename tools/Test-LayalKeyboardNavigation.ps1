@@ -122,7 +122,7 @@ try {
         if (-not $ok) { throw "Ctrl+$number selected tab $selected; expected tab $number." }
     }
 
-    for ($number = 1; $number -le 7; $number++) {
+    for ($number = 1; $number -le 8; $number++) {
         $vk = [byte](0x60 + $number)
         Send-NumpadShortcut -VirtualKey $vk
         Start-Sleep -Milliseconds 300
