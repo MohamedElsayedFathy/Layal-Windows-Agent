@@ -56,7 +56,7 @@ public sealed class UiLocalizationTests
     {
         Assert.AreEqual("فتح المفكرة", UiLocalization.LocalizeApprovalTitle("Launch Notepad", isArabic: true));
         Assert.AreEqual("Launch Notepad", UiLocalization.LocalizeApprovalTitle("Launch Notepad", isArabic: false));
-        Assert.AreEqual("Run dotnet test", UiLocalization.LocalizeApprovalTitle("Run dotnet test on project", isArabic: false));
+        Assert.AreEqual("Run dotnet test on project", UiLocalization.LocalizeApprovalTitle("Run dotnet test on project", isArabic: false));
     }
 
     [TestMethod]
