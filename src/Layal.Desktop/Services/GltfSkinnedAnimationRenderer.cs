@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Numerics;
+using NumericsQuaternion = System.Numerics.Quaternion;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Automation;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
@@ -445,7 +447,7 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         private Matrix4x4[] GetSkinMatrices(double elapsedSeconds)
         {
             var translations = new Vector3[_nodes.Length];
-            var rotations = new Quaternion[_nodes.Length];
+            var rotations = new NumericsQuaternion[_nodes.Length];
             var scales = new Vector3[_nodes.Length];
             for (var i = 0; i < _nodes.Length; i++)
             {
@@ -475,7 +477,7 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
                             translations[channel.NodeIndex] = new Vector3(sampled[0], sampled[1], sampled[2]);
                             break;
                         case "rotation":
-                            rotations[channel.NodeIndex] = Quaternion.Normalize(new Quaternion(sampled[0], sampled[1], sampled[2], sampled[3]));
+                            rotations[channel.NodeIndex] = NumericsQuaternion.Normalize(new NumericsQuaternion(sampled[0], sampled[1], sampled[2], sampled[3]));
                             break;
                         case "scale":
                             scales[channel.NodeIndex] = new Vector3(sampled[0], sampled[1], sampled[2]);
@@ -501,7 +503,7 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         private void ComputeWorld(
             int index,
             Vector3[] translations,
-            Quaternion[] rotations,
+            NumericsQuaternion[] rotations,
             Vector3[] scales,
             Matrix4x4[] world,
             byte[] state)
@@ -525,8 +527,8 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
             else
             {
                 var rotation = rotations[index].LengthSquared() < 1e-12f
-                    ? Quaternion.Identity
-                    : Quaternion.Normalize(rotations[index]);
+                    ? NumericsQuaternion.Identity
+                    : NumericsQuaternion.Normalize(rotations[index]);
                 var local = Matrix4x4.CreateScale(scales[index]) *
                             Matrix4x4.CreateFromQuaternion(rotation) *
                             Matrix4x4.CreateTranslation(translations[index]);
@@ -541,7 +543,7 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         private Matrix4x4 GetWorldParent(
             int parentIndex,
             Vector3[] translations,
-            Quaternion[] rotations,
+            NumericsQuaternion[] rotations,
             Vector3[] scales,
             Matrix4x4[] world,
             byte[] state)
@@ -575,11 +577,11 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
             {
                 if (leftValue.Length != 4 || rightValue.Length != 4)
                     throw new InvalidDataException("A rotation animation output must be a quaternion.");
-                var a = Quaternion.Normalize(new Quaternion(leftValue[0], leftValue[1], leftValue[2], leftValue[3]));
-                var b = Quaternion.Normalize(new Quaternion(rightValue[0], rightValue[1], rightValue[2], rightValue[3]));
-                if (Quaternion.Dot(a, b) < 0)
-                    b = new Quaternion(-b.X, -b.Y, -b.Z, -b.W);
-                var q = Quaternion.Normalize(Quaternion.Slerp(a, b, fraction));
+                var a = NumericsQuaternion.Normalize(new NumericsQuaternion(leftValue[0], leftValue[1], leftValue[2], leftValue[3]));
+                var b = NumericsQuaternion.Normalize(new NumericsQuaternion(rightValue[0], rightValue[1], rightValue[2], rightValue[3]));
+                if (NumericsQuaternion.Dot(a, b) < 0)
+                    b = new NumericsQuaternion(-b.X, -b.Y, -b.Z, -b.W);
+                var q = NumericsQuaternion.Normalize(NumericsQuaternion.Slerp(a, b, fraction));
                 return new[] { q.X, q.Y, q.Z, q.W };
             }
 
@@ -677,7 +679,7 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
                 var element = array[i];
                 var translation = ReadJsonVector3(element, "translation", Vector3.Zero);
                 var scale = ReadJsonVector3(element, "scale", Vector3.One);
-                var rotation = ReadJsonQuaternion(element, "rotation", Quaternion.Identity);
+                var rotation = ReadJsonQuaternion(element, "rotation", NumericsQuaternion.Identity);
                 Matrix4x4? matrix = null;
                 if (element.TryGetProperty("matrix", out var matrixElement))
                 {
@@ -885,14 +887,14 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
             return new Vector3(values[0], values[1], values[2]);
         }
 
-        private static Quaternion ReadJsonQuaternion(JsonElement element, string property, Quaternion fallback)
+        private static NumericsQuaternion ReadJsonQuaternion(JsonElement element, string property, NumericsQuaternion fallback)
         {
             if (!element.TryGetProperty(property, out var quaternion))
                 return fallback;
             var values = ReadJsonFloatArray(quaternion);
             if (values.Length != 4)
                 throw new InvalidDataException($"Node property '{property}' must contain four values.");
-            return Quaternion.Normalize(new Quaternion(values[0], values[1], values[2], values[3]));
+            return NumericsQuaternion.Normalize(new NumericsQuaternion(values[0], values[1], values[2], values[3]));
         }
 
         private static float[] ReadJsonFloatArray(JsonElement array)
@@ -1011,13 +1013,13 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
             public int SkinIndex { get; }
             public int[] Children { get; }
             public Vector3 Translation { get; }
-            public Quaternion Rotation { get; }
+            public NumericsQuaternion Rotation { get; }
             public Vector3 Scale { get; }
             public Matrix4x4? Matrix { get; }
             public int ParentIndex { get; set; } = -1;
 
             public Node(string name, int meshIndex, int skinIndex, int[] children,
-                Vector3 translation, Quaternion rotation, Vector3 scale, Matrix4x4? matrix)
+                Vector3 translation, NumericsQuaternion rotation, Vector3 scale, Matrix4x4? matrix)
             {
                 Name = name;
                 MeshIndex = meshIndex;
