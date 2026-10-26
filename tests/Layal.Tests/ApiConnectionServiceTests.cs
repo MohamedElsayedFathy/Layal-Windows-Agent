@@ -171,6 +171,12 @@ public sealed class ApiConnectionServiceTests
         Assert.AreEqual(100, reloaded.GetAll().Count);
         Assert.AreEqual("Sample API details", reloaded.Find("Application 007")?.Instructions);
         Assert.AreEqual(Path.Combine(temp.Path, "api-images", "sample.png"), reloaded.Find("Application 007")?.ImagePath);
+        var filtered = reloaded.SearchDescriptions("Application 099");
+        StringAssert.Contains(filtered, "Application 099");
+        Assert.IsFalse(filtered.Contains("Application 098", StringComparison.Ordinal));
+        Assert.IsFalse(filtered.Contains("secret", StringComparison.OrdinalIgnoreCase));
+        var page = reloaded.SearchDescriptions(string.Empty, maxResults: 7);
+        StringAssert.Contains(page, "up to 7");
     }
 
     [TestMethod]
