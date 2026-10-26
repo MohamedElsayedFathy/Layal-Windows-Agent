@@ -345,6 +345,8 @@ public partial class MainWindow : Window
 
         Title = ar ? "ليال | Layal" : "Layal | ليال";
         TitleText.Text = ar ? "ليال | \u2066Layal\u2069" : "Layal | Bilingual Desktop AI";
+        TitleText.FlowDirection = FlowDirection.LeftToRight;
+        TitleText.TextAlignment = ar ? TextAlignment.Right : TextAlignment.Left;
         SubtitleText.Text = ar ? "وكيل ذكاء اصطناعي مستقل لسطح المكتب" : "A bilingual Windows AI desktop companion";
         LanguageButton.Content = ar ? "\u2066English\u2069" : "العربية";
         ThemeButton.Content = IsDarkTheme
