@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,6 +91,8 @@ public partial class MainWindow : Window
     private string? _testedModelId;
     private string _currentConversationId = string.Empty;
     private bool _refreshingChatSessions;
+    private ICollectionView? _apiConnectionsView;
+    private string? _editingApiConnectionName;
 
     public MainWindow()
     {
@@ -100,6 +103,9 @@ public partial class MainWindow : Window
         _clockTimer.Tick += ClockTimer_Tick;
         _weatherRefreshTimer.Tick += WeatherRefreshTimer_Tick;
         DataContext = this;
+        _apiConnectionsView = CollectionViewSource.GetDefaultView(ApiConnections);
+        _apiConnectionsView.Filter = ApiConnectionMatchesSearch;
+        ApiConnectionList.ItemsSource = _apiConnectionsView;
         UseLocalAiCheckbox.IsChecked = AppRuntime.Settings.UseLocalAi;
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         WeatherLocationInput.Text = AppRuntime.Settings.WeatherLocation ?? string.Empty;
@@ -617,27 +623,38 @@ public partial class MainWindow : Window
         ApiIntegrationsTab.Header = ar ? "تكاملات API" : "API integrations";
         ApiIntegrationsHeading.Text = ar ? "ربط التطبيقات عبر API" : "Connect applications through APIs";
         ApiIntegrationsDescription.Text = ar
-            ? "أضف تطبيقات توفر REST/JSON API. بيانات المصادقة تُحفظ مشفرة محليًا. كل طلب تنفذه ليال يحتاج موافقتك، بما فيه طلبات القراءة."
-            : "Add applications that expose a REST/JSON API. Credentials are encrypted locally. Every request initiated by Layal requires your approval, including reads.";
+            ? "أضف عددًا كبيرًا من اتصالات REST/JSON وابحث بينها. يمكن تعيين اتصال متوافق مع OpenAI كـ API ليال السحابي الاختياري. هذا اتصال بمزود تستخدمه ليال وليس خادم API عامًا تستضيفه."
+            : "Add and search a large catalog of REST/JSON connections. An OpenAI-compatible connection can be selected as Layal's optional cloud AI provider; this configures a provider Layal uses, not a public API server hosted by Layal.";
         ApiConnectionsListLabel.Text = ar ? "التطبيقات المتصلة" : "Connected applications";
+        ApiConnectionSearchInput.ToolTip = ar ? "ابحث بالاسم أو عنوان API أو التفاصيل" : "Search by name, API URL, or details";
+        System.Windows.Automation.AutomationProperties.SetName(ApiConnectionSearchInput, ar ? "البحث في اتصالات API" : "Search API connections");
+        System.Windows.Automation.AutomationProperties.SetHelpText(ApiConnectionSearchInput, ar
+            ? "يبحث في الاسم والعنوان والتفاصيل فقط، ولا يبحث في مفاتيح المصادقة."
+            : "Searches names, URLs and details only; authentication secrets are never searched.");
         NewApiConnectionButton.Content = ar ? "إضافة اتصال جديد" : "Add connection";
         ApiConnectionsPrivacyNote.Text = ar
             ? "لا تضع المفاتيح في المحادثة أو ملاحظات التوثيق. أدخلها هنا؛ تُحفظ بتشفير Windows DPAPI لهذا المستخدم."
             : "Do not paste API keys in chat or API notes. Enter them here; they are stored with Windows DPAPI for this Windows user.";
-        ApiConnectionNameLabel.Text = ar ? "اسم التطبيق / الاتصال" : "Application / connection name";
-        ApiConnectionBaseUrlLabel.Text = ar ? "عنوان API الأساسي (Base URL)" : "API base URL";
+        ApiConnectionNameLabel.Text = ar ? "اسم التطبيق / الاتصال (إجباري)" : "Application / connection name (required)";
+        ApiConnectionBaseUrlLabel.Text = ar ? "عنوان API الأساسي (إجباري)" : "API base URL (required)";
+        ApiConnectionModelIdLabel.Text = ar ? "معرّف النموذج (اختياري، مطلوب عند استخدامه كـ API ليال)" : "Model ID (optional; required when used as Layal API)";
+        ApiConnectionImageLabel.Text = ar ? "صورة التطبيق (اختياري)" : "Application image (optional)";
+        ChooseApiImageButton.Content = ar ? "اختيار صورة..." : "Choose image...";
+        ClearApiImageButton.Content = ar ? "مسح الصورة" : "Clear image";
         ApiAuthTypeLabel.Text = ar ? "طريقة المصادقة" : "Authentication type";
         ApiAuthHeaderNameLabel.Text = ar ? "اسم ترويسة المصادقة (Custom header)" : "Authentication header name (Custom header)";
         ApiAuthSecretLabel.Text = ar ? "Token / API key / قيمة الترويسة" : "Token / API key / header value";
         ApiAdditionalHeadersLabel.Text = ar ? "ترويسات HTTP إضافية غير سرية (JSON)" : "Additional non-secret HTTP headers (JSON)";
         ApiTestPathLabel.Text = ar ? "مسار اختبار الاتصال (GET)، مثل health أو users/me" : "Connection test path (GET), e.g. health or users/me";
-        ApiInstructionsLabel.Text = ar ? "ملاحظات التوثيق ونقاط النهاية (اختياري، بدون أسرار)" : "API docs and endpoint notes (optional; do not include secrets)";
+        ApiInstructionsLabel.Text = ar ? "التفاصيل وملاحظات API (اختياري، بدون أسرار)" : "Details and API notes (optional; do not include secrets)";
         SaveApiConnectionButton.Content = ar ? "حفظ الاتصال" : "Save connection";
+        UseAsLayalApiButton.Content = ar ? "استخدام هذا كـ API ليال" : "Use as Layal API";
         TestApiConnectionButton.Content = ar ? "اختبار API" : "Test API";
         DeleteApiConnectionButton.Content = ar ? "حذف الاتصال المحدد" : "Delete selected connection";
         ((ComboBoxItem)ApiAuthTypeComboBox.Items[0]).Content = ar ? "بدون مصادقة / None" : "No authentication";
         ((ComboBoxItem)ApiAuthTypeComboBox.Items[1]).Content = "Bearer token";
         ((ComboBoxItem)ApiAuthTypeComboBox.Items[2]).Content = ar ? "ترويسة مخصصة (API key)" : "Custom header (API key)";
+        UpdateLayalApiButtonLabel();
 
         SettingsHeading.Text = ar ? "الإعدادات والاتصال" : "Settings and connections";
         LanguageSettingLabel.Text = ar ? "لغة الواجهة" : "Interface language";
@@ -1243,12 +1260,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool ApiConnectionMatchesSearch(object item)
+    {
+        if (item is not ApiConnectionProfile profile) return false;
+        var query = ApiConnectionSearchInput?.Text?.Trim() ?? string.Empty;
+        if (query.Length == 0) return true;
+        return profile.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               profile.BaseUrl.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               profile.Instructions.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               profile.ModelId.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ApiConnectionSearchInput_TextChanged(object sender, TextChangedEventArgs e) =>
+        _apiConnectionsView?.Refresh();
+
     private void RefreshApiConnections(string? selectedName = null)
     {
         if (ApiConnectionList is null || AppRuntime.ApiConnectionService is null) return;
         ApiConnections.Clear();
         foreach (var profile in AppRuntime.ApiConnectionService.GetAll())
             ApiConnections.Add(profile);
+        _apiConnectionsView?.Refresh();
 
         var selected = ApiConnections.FirstOrDefault(x =>
             !string.IsNullOrWhiteSpace(selectedName) &&
@@ -1260,14 +1292,18 @@ public partial class MainWindow : Window
 
     private void ClearApiConnectionForm()
     {
+        _editingApiConnectionName = null;
         ApiConnectionNameInput.Text = string.Empty;
         ApiConnectionBaseUrlInput.Text = string.Empty;
+        ApiConnectionModelIdInput.Text = string.Empty;
+        ApiConnectionImagePathInput.Text = string.Empty;
         ApiAuthHeaderNameInput.Text = "X-API-Key";
         ApiAuthSecretInput.Clear();
         ApiAdditionalHeadersInput.Clear();
         ApiTestPathInput.Text = string.Empty;
         ApiInstructionsInput.Clear();
         ApiAuthTypeComboBox.SelectedIndex = 1;
+        UpdateLayalApiButtonLabel();
     }
 
     private string SelectedApiAuthenticationType =>
@@ -1276,7 +1312,9 @@ public partial class MainWindow : Window
     private ApiConnectionProfile BuildApiConnectionProfile()
     {
         var name = ApiConnectionNameInput.Text.Trim();
-        var existing = AppRuntime.ApiConnectionService.Find(name);
+        var existing = !string.IsNullOrWhiteSpace(_editingApiConnectionName)
+            ? AppRuntime.ApiConnectionService.Find(_editingApiConnectionName)
+            : null;
         var secret = ApiAuthSecretInput.Password;
         if (string.IsNullOrWhiteSpace(secret) && existing is not null)
             secret = existing.AuthSecret;
@@ -1285,6 +1323,9 @@ public partial class MainWindow : Window
         {
             Name = name,
             BaseUrl = ApiConnectionBaseUrlInput.Text.Trim(),
+            ImagePath = ApiConnectionImagePathInput.Text.Trim(),
+            ModelId = ApiConnectionModelIdInput.Text.Trim(),
+            IsLayalProvider = existing?.IsLayalProvider ?? false,
             AuthenticationType = SelectedApiAuthenticationType,
             AuthHeaderName = ApiAuthHeaderNameInput.Text.Trim(),
             AuthSecret = secret,
@@ -1297,10 +1338,17 @@ public partial class MainWindow : Window
     private void ApiConnectionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ApiConnectionList.SelectedItem is not ApiConnectionProfile profile)
+        {
+            _editingApiConnectionName = null;
+            UpdateLayalApiButtonLabel();
             return;
+        }
 
+        _editingApiConnectionName = profile.Name;
         ApiConnectionNameInput.Text = profile.Name;
         ApiConnectionBaseUrlInput.Text = profile.BaseUrl;
+        ApiConnectionModelIdInput.Text = profile.ModelId;
+        ApiConnectionImagePathInput.Text = profile.ImagePath;
         ApiAuthHeaderNameInput.Text = profile.AuthHeaderName;
         ApiAuthSecretInput.Password = profile.AuthSecret;
         ApiAdditionalHeadersInput.Text = profile.AdditionalHeadersJson;
@@ -1309,15 +1357,62 @@ public partial class MainWindow : Window
         ApiAuthTypeComboBox.SelectedItem = ApiAuthTypeComboBox.Items
             .OfType<ComboBoxItem>()
             .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), profile.AuthenticationType, StringComparison.Ordinal));
+        UpdateLayalApiButtonLabel();
+    }
+
+    private void UpdateLayalApiButtonLabel()
+    {
+        if (UseAsLayalApiButton is null) return;
+        var active = (ApiConnectionList?.SelectedItem as ApiConnectionProfile)?.IsLayalProvider == true;
+        UseAsLayalApiButton.Content = active
+            ? (IsArabic ? "API ليال الحالي" : "Current Layal API")
+            : (IsArabic ? "استخدام هذا كـ API ليال" : "Use as Layal API");
     }
 
     private void NewApiConnectionButton_Click(object sender, RoutedEventArgs e)
     {
         ApiConnectionList.SelectedItem = null;
+        _editingApiConnectionName = null;
         ClearApiConnectionForm();
-        ApiConnectionsStatus.Text = IsArabic ? "أدخل بيانات الاتصال واحفظها قبل استخدامها في المهام." : "Enter connection details and save before using it in tasks.";
+        ApiConnectionsStatus.Text = IsArabic
+            ? "أدخل الاسم وعنوان API الأساسي، وهما إجباريان. بعد الإضافة ستُحفظ الوصلة في القائمة وتُفرغ الخانات."
+            : "Enter the required name and API base URL. After adding, the connection is listed and the form is cleared.";
         ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
         ApiConnectionNameInput.Focus();
+    }
+
+    private static void ValidateLayalProviderProfile(ApiConnectionProfile profile, bool isArabic)
+    {
+        if (!string.Equals(profile.AuthenticationType, "Bearer", StringComparison.Ordinal))
+            throw new InvalidOperationException(isArabic
+                ? "API ليال السحابي يحتاج مصادقة Bearer ومفتاح API."
+                : "Layal's cloud API provider requires Bearer authentication and an API key.");
+        if (string.IsNullOrWhiteSpace(profile.AuthSecret))
+            throw new InvalidOperationException(isArabic
+                ? "أدخل مفتاح API في خانة المصادقة قبل تعيينه كـ API ليال."
+                : "Enter an API key before selecting this as Layal's API.");
+        if (string.IsNullOrWhiteSpace(profile.ModelId))
+            throw new InvalidOperationException(isArabic
+                ? "أدخل معرّف النموذج قبل تعيين الاتصال كـ API ليال."
+                : "Enter a model ID before selecting this as Layal's API.");
+    }
+
+    private void ApplyLayalProviderProfile(ApiConnectionProfile profile)
+    {
+        ValidateLayalProviderProfile(profile, IsArabic);
+        AppRuntime.Settings.ProviderBaseUrl = profile.BaseUrl.TrimEnd('/');
+        AppRuntime.Settings.ModelId = profile.ModelId.Trim();
+        AppRuntime.SecretStore.Save(profile.AuthSecret);
+        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
+        ModelInput.Text = AppRuntime.Settings.ModelId;
+        ApiKeyInput.Clear();
+        _providerTestPassed = false;
+        RefreshProviderStatus();
+        SetAccessibleStatusText(ProviderActionStatus, IsArabic
+            ? "تم تحديث إعداد API السحابي لليال. يظل الوضع المحلي هو الافتراضي؛ أوقفه من الإعدادات لاستخدام هذا المزود."
+            : "Layal's cloud API settings were updated. Local AI remains the default; turn it off in Settings to use this provider.");
+        ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
     }
 
     private void SaveApiConnectionButton_Click(object sender, RoutedEventArgs e)
@@ -1325,11 +1420,35 @@ public partial class MainWindow : Window
         try
         {
             var profile = BuildApiConnectionProfile();
+            var oldName = _editingApiConnectionName;
+            var isNew = string.IsNullOrWhiteSpace(oldName);
+            if (isNew && AppRuntime.ApiConnectionService.Find(profile.Name) is not null)
+                throw new InvalidOperationException(IsArabic
+                    ? "الاسم مستخدم بالفعل. اختر اتصالًا محفوظًا لتعديله أو استخدم اسمًا جديدًا."
+                    : "That name already exists. Select the saved connection to edit it, or use a new name.");
+            if (profile.IsLayalProvider) ValidateLayalProviderProfile(profile, IsArabic);
             AppRuntime.ApiConnectionService.Save(profile);
-            RefreshApiConnections(profile.Name);
-            ApiConnectionsStatus.Text = IsArabic
-                ? $"تم حفظ اتصال API «{profile.Name}» في مخزن محمي. اختبره قبل استخدامه."
-                : $"API connection '{profile.Name}' was saved in encrypted storage. Test it before using it.";
+            if (!isNew && !string.Equals(oldName, profile.Name, StringComparison.OrdinalIgnoreCase))
+                AppRuntime.ApiConnectionService.Delete(oldName!);
+            if (profile.IsLayalProvider) ApplyLayalProviderProfile(profile);
+
+            ApiConnectionSearchInput.Clear();
+            if (isNew)
+            {
+                RefreshApiConnections();
+                ApiConnectionList.SelectedItem = null;
+                ClearApiConnectionForm();
+                ApiConnectionsStatus.Text = IsArabic
+                    ? $"تمت إضافة «{profile.Name}» إلى القائمة. أصبحت الخانات فارغة لإضافة API جديد."
+                    : $"'{profile.Name}' was added to the list. The form is clear and ready for another API.";
+            }
+            else
+            {
+                RefreshApiConnections(profile.Name);
+                ApiConnectionsStatus.Text = IsArabic
+                    ? $"تم حفظ تعديلات «{profile.Name}»."
+                    : $"Changes to '{profile.Name}' were saved.";
+            }
             ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
         }
         catch (Exception ex)
@@ -1338,6 +1457,80 @@ public partial class MainWindow : Window
             ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
         }
     }
+
+    private void UseAsLayalApiButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var profile = BuildApiConnectionProfile();
+            var oldName = _editingApiConnectionName;
+            var isNew = string.IsNullOrWhiteSpace(oldName);
+            if (isNew && AppRuntime.ApiConnectionService.Find(profile.Name) is not null)
+                throw new InvalidOperationException(IsArabic
+                    ? "الاسم مستخدم بالفعل. حدد الاتصال الموجود لتعديله."
+                    : "That name already exists. Select the existing connection to edit it.");
+            profile.IsLayalProvider = true;
+            ValidateLayalProviderProfile(profile, IsArabic);
+            AppRuntime.ApiConnectionService.Save(profile);
+            if (!isNew && !string.Equals(oldName, profile.Name, StringComparison.OrdinalIgnoreCase))
+                AppRuntime.ApiConnectionService.Delete(oldName!);
+            ApplyLayalProviderProfile(profile);
+            ApiConnectionSearchInput.Clear();
+            RefreshApiConnections(profile.Name);
+            ApiConnectionsStatus.Text = IsArabic
+                ? $"تم تعيين «{profile.Name}» كـ API السحابي لليال. يظل الشات المحلي هو الافتراضي."
+                : $"'{profile.Name}' is now Layal's cloud API provider. Local chat remains the default.";
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        }
+        catch (Exception ex)
+        {
+            ApiConnectionsStatus.Text = (IsArabic ? "تعذر تعيين API ليال: " : "Could not set Layal API: ") + ex.Message;
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+        }
+    }
+
+    private void ChooseApiImageButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = IsArabic ? "اختيار صورة للتطبيق" : "Choose an application image",
+            Filter = IsArabic
+                ? "صور مدعومة|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff|كل الملفات|*.*"
+                : "Supported images|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff|All files|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            ApiConnectionImagePathInput.Text = CopyApiImageIntoStore(dialog.FileName);
+            ApiConnectionsStatus.Text = IsArabic ? "تم حفظ نسخة محلية من الصورة." : "A local copy of the image was saved.";
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+        }
+        catch (Exception ex)
+        {
+            ApiConnectionsStatus.Text = (IsArabic ? "تعذر استخدام الصورة: " : "Could not use this image: ") + ex.Message;
+            ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+        }
+    }
+
+    private static string CopyApiImageIntoStore(string sourcePath)
+    {
+        var extension = Path.GetExtension(sourcePath).ToLowerInvariant();
+        if (extension is not (".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".tif" or ".tiff"))
+            throw new InvalidOperationException("Select a PNG, JPEG, BMP, GIF, or TIFF image.");
+        var source = new FileInfo(sourcePath);
+        if (!source.Exists || source.Length is 0 or > 5 * 1024 * 1024)
+            throw new InvalidOperationException("API images must be non-empty and no larger than 5 MB.");
+        var directory = Path.Combine(AppRuntime.DataRoot, "api-images");
+        Directory.CreateDirectory(directory);
+        var destination = Path.Combine(directory, Guid.NewGuid().ToString("N") + extension);
+        File.Copy(source.FullName, destination, overwrite: false);
+        return destination;
+    }
+
+    private void ClearApiImageButton_Click(object sender, RoutedEventArgs e) =>
+        ApiConnectionImagePathInput.Clear();
 
     private async void TestApiConnectionButton_Click(object sender, RoutedEventArgs e)
     {
@@ -1373,7 +1566,8 @@ public partial class MainWindow : Window
     private void DeleteApiConnectionButton_Click(object sender, RoutedEventArgs e)
     {
         var name = ApiConnectionNameInput.Text.Trim();
-        if (string.IsNullOrWhiteSpace(name) || AppRuntime.ApiConnectionService.Find(name) is null)
+        var selectedProfile = AppRuntime.ApiConnectionService.Find(name);
+        if (string.IsNullOrWhiteSpace(name) || selectedProfile is null)
         {
             ApiConnectionsStatus.Text = IsArabic ? "حدد اتصالًا محفوظًا لحذفه." : "Select a saved connection to delete.";
             ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
@@ -1387,6 +1581,19 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
 
         AppRuntime.ApiConnectionService.Delete(name);
+        if (selectedProfile.IsLayalProvider)
+        {
+            AppRuntime.Settings.ProviderBaseUrl = string.Empty;
+            AppRuntime.Settings.ModelId = string.Empty;
+            AppRuntime.SecretStore.Delete();
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            BaseUrlInput.Text = string.Empty;
+            ModelInput.Text = string.Empty;
+            ApiKeyInput.Clear();
+            _providerTestPassed = false;
+            RefreshProviderStatus();
+        }
+        ApiConnectionSearchInput.Clear();
         RefreshApiConnections();
         ApiConnectionsStatus.Text = IsArabic ? "تم حذف الاتصال." : "Connection deleted.";
         ApiConnectionsStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
@@ -1683,6 +1890,15 @@ public partial class MainWindow : Window
                 ApiKeyInput.Clear();
             }
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            var layalProviderProfile = AppRuntime.ApiConnectionService.GetAll().FirstOrDefault(x => x.IsLayalProvider);
+            if (layalProviderProfile is not null)
+            {
+                layalProviderProfile.BaseUrl = AppRuntime.Settings.ProviderBaseUrl;
+                layalProviderProfile.ModelId = AppRuntime.Settings.ModelId;
+                layalProviderProfile.AuthSecret = AppRuntime.SecretStore.Load();
+                AppRuntime.ApiConnectionService.Save(layalProviderProfile);
+                RefreshApiConnections(layalProviderProfile.Name);
+            }
             SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.");
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
             RefreshProviderStatus();
