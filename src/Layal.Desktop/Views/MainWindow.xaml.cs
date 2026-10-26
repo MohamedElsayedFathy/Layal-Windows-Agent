@@ -1422,10 +1422,11 @@ public partial class MainWindow : Window
             var profile = BuildApiConnectionProfile();
             var oldName = _editingApiConnectionName;
             var isNew = string.IsNullOrWhiteSpace(oldName);
-            if (isNew && AppRuntime.ApiConnectionService.Find(profile.Name) is not null)
+            if (AppRuntime.ApiConnectionService.Find(profile.Name) is not null &&
+                (isNew || !string.Equals(oldName, profile.Name, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException(IsArabic
-                    ? "الاسم مستخدم بالفعل. اختر اتصالًا محفوظًا لتعديله أو استخدم اسمًا جديدًا."
-                    : "That name already exists. Select the saved connection to edit it, or use a new name.");
+                    ? "الاسم مستخدم بالفعل لاتصال آخر. استخدم اسمًا مختلفًا."
+                    : "That name is already used by another connection. Choose a different name.");
             if (profile.IsLayalProvider) ValidateLayalProviderProfile(profile, IsArabic);
             AppRuntime.ApiConnectionService.Save(profile);
             if (!isNew && !string.Equals(oldName, profile.Name, StringComparison.OrdinalIgnoreCase))
@@ -1465,10 +1466,11 @@ public partial class MainWindow : Window
             var profile = BuildApiConnectionProfile();
             var oldName = _editingApiConnectionName;
             var isNew = string.IsNullOrWhiteSpace(oldName);
-            if (isNew && AppRuntime.ApiConnectionService.Find(profile.Name) is not null)
+            if (AppRuntime.ApiConnectionService.Find(profile.Name) is not null &&
+                (isNew || !string.Equals(oldName, profile.Name, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException(IsArabic
-                    ? "الاسم مستخدم بالفعل. حدد الاتصال الموجود لتعديله."
-                    : "That name already exists. Select the existing connection to edit it.");
+                    ? "الاسم مستخدم بالفعل لاتصال آخر. استخدم اسمًا مختلفًا."
+                    : "That name is already used by another connection. Choose a different name.");
             profile.IsLayalProvider = true;
             ValidateLayalProviderProfile(profile, IsArabic);
             AppRuntime.ApiConnectionService.Save(profile);
