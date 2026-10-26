@@ -55,7 +55,7 @@
             </Grid>
         </Border>
 
-        <TabControl x:Name="MainTabs" Grid.Row="1" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+7 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+7 to navigate the tabs.">
+        <TabControl x:Name="MainTabs" Grid.Row="1" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
             <TabItem x:Name="HomeTab" Header="الرئيسية">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="18">
