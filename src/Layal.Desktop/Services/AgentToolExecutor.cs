@@ -65,6 +65,7 @@ public sealed class AgentToolExecutor
         Definition("click_ui_control", "Invoke exactly one uniquely identified supported control in one visible external window after explicit per-action approval. Requires the exact AutomationId and supported control type; no free-form mouse/keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of the visible external window"},"control_type":{"type":"string","enum":["Button","Hyperlink","MenuItem","SplitButton"]},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"}},"required":["window_title","control_type","automation_id"],"additionalProperties":false}"""),
         Definition("fill_ui_text", "Set the value of one exact visible Windows UI Automation Edit field in an external application after explicit local approval. Requires the exact window title and AutomationId from inspect_window_controls. Never use for password, protected, read-only, disabled, offscreen, or ambiguous controls; it does not press Enter or submit forms.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact unique visible title of the external application window"},"automation_id":{"type":"string","description":"Exact non-empty AutomationId reported by inspect_window_controls"},"text":{"type":"string","description":"Value to enter; maximum 10,000 characters"}},"required":["window_title","automation_id","text"],"additionalProperties":false}"""),
         Definition("set_ui_checkbox", "Set one uniquely identified visible Windows CheckBox to checked or unchecked after fresh local approval. Requires the exact AutomationId from inspect_window_controls. Indeterminate/three-state checkboxes, ambiguous controls, and unsupported controls are rejected. Does not use coordinates or keyboard input.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact unique visible title of the external application window"},"automation_id":{"type":"string","description":"Exact non-empty AutomationId of one CheckBox reported by inspect_window_controls"},"checked":{"type":"boolean","description":"true to check the box, false to uncheck it"}},"required":["window_title","automation_id","checked"],"additionalProperties":false}"""),
+        Definition("list_app_api_connections", "Search all saved application API profiles by name, base URL, model ID, or non-secret details. This returns no credentials and requires approval before catalog metadata is shared with the AI provider.", """{"type":"object","properties":{"query":{"type":"string","description":"Search term; an empty string lists the first matching page of names. Search narrower terms to find connections among a large catalog."}},"required":["query"],"additionalProperties":false}"""),
         Definition("call_app_api", _apiConnections?.BuildToolDescription() ?? "No external app API connection service is available. Do not invent a connection.", """{"type":"object","properties":{"connection_name":{"type":"string","description":"Exact configured connection name from the available connections"},"method":{"type":"string","enum":["GET","POST","PUT","PATCH","DELETE"]},"path":{"type":"string","description":"Relative path beneath the configured base URL; do not include scheme, query, or fragment"},"query_json":{"type":"string","description":"Optional JSON object of query parameters; use empty string for none"},"body_json":{"type":"string","description":"Optional valid JSON request body; use empty string when not needed, and never send a body with GET"}},"required":["connection_name","method","path","query_json","body_json"],"additionalProperties":false}"""),
         Definition("run_dotnet_build", "Run dotnet build for a .sln or .csproj inside the approved workspace. Build targets may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
         Definition("run_dotnet_test", "Run dotnet test for a .sln or .csproj inside the approved workspace. Tests may execute project code, so explicit approval is required.", """{"type":"object","properties":{"project_file":{"type":"string","description":"Relative path to a .sln or .csproj inside the workspace"},"configuration":{"type":"string","enum":["Debug","Release"]}},"required":["project_file","configuration"],"additionalProperties":false}"""),
@@ -105,6 +106,7 @@ public sealed class AgentToolExecutor
             "click_ui_control" => await InvokeWindowControlAsync(GetString(args, "window_title"), GetString(args, "control_type"), GetString(args, "automation_id"), confirm, report, cancellationToken),
             "fill_ui_text" => await FillUiTextAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetString(args, "text"), confirm, report, cancellationToken),
             "set_ui_checkbox" => await SetUiCheckboxAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetBoolean(args, "checked"), confirm, report, cancellationToken),
+            "list_app_api_connections" => await ListAppApiConnectionsAsync(GetString(args, "query"), confirm, cancellationToken),
             "call_app_api" => await CallAppApiAsync(GetString(args, "connection_name"), GetString(args, "method"), GetString(args, "path"), GetString(args, "query_json"), GetString(args, "body_json"), confirm, report, cancellationToken),
             "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
             "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
@@ -516,6 +518,22 @@ public sealed class AgentToolExecutor
         token.ThrowIfCancellationRequested();
         var result = await _browser.FillElementAsync(preview, text, token);
         report($"Text-entry events were dispatched to one approved browser field ({text.Length} characters). The site's form state and submission outcome are not confirmed.");
+        return result;
+    }
+
+    private async Task<string> ListAppApiConnectionsAsync(
+        string query,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        CancellationToken token)
+    {
+        if (_apiConnections is null)
+            throw new InvalidOperationException("External app API connections are not initialized. Configure API integrations in Layal first.");
+        var result = _apiConnections.SearchDescriptions(query, maxResults: 50);
+        if (!await confirm("Share API catalog matches",
+                "Layal will share the matching connection names, base URLs, and optional non-secret notes with the configured AI provider. API keys and authentication secrets are not included. Continue?\n\n" + Truncate(result, 2400),
+                token))
+            return "User declined to share API catalog metadata.";
+        token.ThrowIfCancellationRequested();
         return result;
     }
 
