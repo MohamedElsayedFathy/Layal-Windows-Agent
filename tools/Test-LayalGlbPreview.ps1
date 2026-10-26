@@ -33,6 +33,7 @@ $tests = [System.Collections.Generic.List[object]]::new()
 $uiaWindowSnapshot = @()
 $processSnapshot = @()
 $screenshotPath = Join-Path $resolvedLogDirectory "glb-preview-window.png"
+$screenshotEvidence = $null
 
 function Save-PreviewWindowScreenshot {
     param(
@@ -192,7 +193,7 @@ try {
     if (-not $afterMatch.Success) { throw "The GLB preview stopped reporting render frames." }
     $afterFrames = [int]$afterMatch.Groups[1].Value
     $advancing = $afterFrames -gt $beforeFrames
-    $screenshotPath = Save-PreviewWindowScreenshot -WindowElement $preview -Path $screenshotPath
+    $screenshotEvidence = Save-PreviewWindowScreenshot -WindowElement $preview -Path $screenshotPath
     $tests.Add([pscustomobject]@{
         Test = "GLB animation render loop advances"
         Result = if ($advancing) { "PASS" } else { "FAIL" }
@@ -207,7 +208,7 @@ try {
         PreviewName = $preview.Current.Name
         FramesBefore = $beforeFrames
         FramesAfter = $afterFrames
-        Screenshot = $screenshotPath
+        Screenshot = $screenshotEvidence
         Tests = @($tests)
         ManualScreenReaderAcceptance = "pending"
         ManualHighContrastAcceptance = "pending"
@@ -221,7 +222,7 @@ catch {
         Result = "failed"
         Error = $_.Exception.Message
         Tests = @($tests)
-        Screenshot = if (Test-Path -LiteralPath $screenshotPath -PathType Leaf) { $screenshotPath } else { $null }
+        Screenshot = $screenshotEvidence
         UiAutomationWindows = @($uiaWindowSnapshot)
         ProcessSnapshot = @($processSnapshot)
         ManualScreenReaderAcceptance = "pending"
