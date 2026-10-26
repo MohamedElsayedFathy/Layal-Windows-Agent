@@ -68,10 +68,12 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         // window a white mesh disappears against many desktop surfaces, so tint near-white
         // sample materials with a restrained periwinkle while retaining authored material colors.
         var baseColor = asset.BaseColor;
-        var luminance = (0.2126 * baseColor.R + 0.7152 * baseColor.G + 0.0722 * baseColor.B) / 255.0;
-        var previewColor = luminance >= 0.88
-            ? Color.FromRgb(112, 137, 207)
-            : Color.FromRgb(baseColor.R, baseColor.G, baseColor.B);
+        var tint = Color.FromRgb(112, 137, 207);
+        const double tintAmount = 0.65;
+        var previewColor = Color.FromRgb(
+            (byte)Math.Round(baseColor.R * (1 - tintAmount) + tint.R * tintAmount),
+            (byte)Math.Round(baseColor.G * (1 - tintAmount) + tint.G * tintAmount),
+            (byte)Math.Round(baseColor.B * (1 - tintAmount) + tint.B * tintAmount));
         material.Children.Add(new DiffuseMaterial(new SolidColorBrush(previewColor)));
         material.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromRgb(224, 231, 255)), 28));
         var visual = new ModelVisual3D
