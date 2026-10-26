@@ -1548,8 +1548,7 @@ public partial class FloatingMascotWindow : Window
                 LegacyRig.Visibility = Visibility.Visible;
                 CharacterLayer.Visibility = Visibility.Collapsed;
             }
-            catch (Exception ex) when (ex is IOException or InvalidDataException or NotSupportedException or
-                                       InvalidOperationException or ArgumentException)
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
             {
                 _gltfPreviewRenderer?.Dispose();
                 _gltfPreviewRenderer = null;
