@@ -25,6 +25,7 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
 {
     private const string EmbeddedModelName = "Layal.Assets.3D.RiggedFigure.glb";
     private readonly Viewport3D _viewport;
+    private readonly FrameworkElement? _automationStatusElement;
     private readonly GltfAsset _asset;
     private readonly MeshGeometry3D _mesh;
     private readonly DispatcherTimer _timer;
@@ -39,14 +40,18 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
     public string AnimationName => _asset.AnimationName;
     public double AnimationDurationSeconds => _asset.AnimationDurationSeconds;
 
-    private GltfSkinnedAnimationRenderer(Viewport3D viewport, GltfAsset asset, bool autoPlay)
+    private GltfSkinnedAnimationRenderer(Viewport3D viewport, GltfAsset asset, bool autoPlay, FrameworkElement? automationStatusElement)
     {
         _viewport = viewport ?? throw new ArgumentNullException(nameof(viewport));
         _asset = asset ?? throw new ArgumentNullException(nameof(asset));
+        _automationStatusElement = automationStatusElement;
         Diagnostics = asset.GetInspection();
         AutomationProperties.SetName(_viewport, "GLB 3D preview — Rigged Figure");
         AutomationProperties.SetHelpText(_viewport,
             $"Loaded GLB; vertices={Diagnostics.VertexCount}; triangles={Diagnostics.TriangleCount}; joints={Diagnostics.JointCount}; animation={AnimationName}; frames=0; playing={autoPlay}");
+        if (_automationStatusElement is not null)
+            AutomationProperties.SetName(_automationStatusElement, "GLB 3D preview — Rigged Figure");
+        UpdateAutomationStatus();
 
         _mesh = new MeshGeometry3D
         {
@@ -82,10 +87,10 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
             Start();
     }
 
-    public static GltfSkinnedAnimationRenderer LoadBundled(Viewport3D viewport, bool autoPlay = true)
+    public static GltfSkinnedAnimationRenderer LoadBundled(Viewport3D viewport, bool autoPlay = true, FrameworkElement? automationStatusElement = null)
     {
         using var stream = OpenBundledModel();
-        return new GltfSkinnedAnimationRenderer(viewport, GltfAsset.Load(stream), autoPlay);
+        return new GltfSkinnedAnimationRenderer(viewport, GltfAsset.Load(stream), autoPlay, automationStatusElement);
     }
 
     public static Stream OpenBundledModel()
@@ -142,9 +147,18 @@ public sealed class GltfSkinnedAnimationRenderer : IDisposable
         _mesh.Normals = normals;
         _renderedFrames++;
         if (_renderedFrames == 1 || _renderedFrames % 15 == 0)
+            UpdateAutomationStatus();
+    }
+
+    private void UpdateAutomationStatus()
+    {
+        var helpText = $"Loaded GLB; vertices={Diagnostics.VertexCount}; triangles={Diagnostics.TriangleCount}; joints={Diagnostics.JointCount}; animation={AnimationName}; frames={_renderedFrames}; playing={IsPlaying}";
+        AutomationProperties.SetHelpText(_viewport, helpText);
+        if (_automationStatusElement is not null)
         {
-            AutomationProperties.SetHelpText(_viewport,
-                $"Loaded GLB; vertices={Diagnostics.VertexCount}; triangles={Diagnostics.TriangleCount}; joints={Diagnostics.JointCount}; animation={AnimationName}; frames={_renderedFrames}; playing={IsPlaying}");
+            AutomationProperties.SetHelpText(_automationStatusElement, helpText);
+            if (_automationStatusElement is TextBlock statusText)
+                statusText.Text = helpText;
         }
     }
 
