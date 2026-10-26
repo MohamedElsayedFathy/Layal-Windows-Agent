@@ -244,8 +244,7 @@ public partial class FloatingMascotWindow : Window
 
         // The test asset is an engineering preview, not the production Layal character.
         // It is opt-in and remains off unless the user saved the preference or CI explicitly requests a smoke test.
-        var automatedGlbPreviewTest =
-            string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal);
+        var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
         if (AppRuntime.Settings.MascotUseGlbPreview || automatedGlbPreviewTest)
             SetGlbPreviewEnabled(true, persist: false, showFailureDialog: !automatedGlbPreviewTest);
 
@@ -1516,6 +1515,11 @@ public partial class FloatingMascotWindow : Window
     private void GlbPreviewMenuItem_Click(object sender, RoutedEventArgs e) =>
         SetGlbPreviewEnabled(!_glbPreviewEnabled, persist: true);
 
+    private static bool IsAutomatedGlbPreviewTest() =>
+        string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal) ||
+        Environment.GetCommandLineArgs().Any(arg =>
+            string.Equals(arg, "--glb-preview-test", StringComparison.OrdinalIgnoreCase));
+
     private FrameworkElement GlbPreviewAutomationTestTarget(bool automatedTest) =>
         automatedTest ? this : GlbPreviewAutomationStatus;
 
@@ -1526,8 +1530,7 @@ public partial class FloatingMascotWindow : Window
 
         if (enabled)
         {
-            var automatedGlbPreviewTest =
-                string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal);
+            var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
             GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
             GlbPreviewAutomationStatus.Content = "Loading bundled GLB preview...";
             AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, "Loading bundled GLB preview...");
@@ -1564,7 +1567,7 @@ public partial class FloatingMascotWindow : Window
 
                 // In automated smoke-test mode, keep the status peer visible and report the
                 // loader exception so CI can distinguish a parse/load failure from a UIA lookup failure.
-                if (string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal))
+                if (IsAutomatedGlbPreviewTest())
                 {
                     LegacyRig.Visibility = Visibility.Visible;
                     CharacterLayer.Visibility = Visibility.Collapsed;
