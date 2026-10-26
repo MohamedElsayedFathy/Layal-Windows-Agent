@@ -160,15 +160,22 @@ try {
     [System.Windows.Forms.SendKeys]::SendWait("{F1}")
     Start-Sleep -Milliseconds 500
     $root = [System.Windows.Automation.AutomationElement]::RootElement
-    $windows = $root.FindAll(
-        [System.Windows.Automation.TreeScope]::Children,
-        (New-Object System.Windows.Automation.PropertyCondition(
-            [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $process.Id)))
+    # Native MessageBox dialogs may be exposed as top-level windows with a different
+    # AutomationElement process association. Search desktop descendants for a Window
+    # with the localized dialog title; do not count the always-present help button.
+    $windowCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Window)
+    $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $windowCondition)
     $helpFound = $false
     foreach ($candidate in $windows) {
-        if ($candidate.Current.Name -match "Keyboard shortcuts|اختصارات لوحة المفاتيح") {
-            $helpFound = $true
-            break
+        try {
+            if ($candidate.Current.Name -match "Keyboard shortcuts|اختصارات لوحة المفاتيح") {
+                $helpFound = $true
+                break
+            }
+        } catch {
+            # Ignore stale UIA elements; the acceptance result remains fail-closed if no dialog is found.
         }
     }
     $results.Add([pscustomobject]@{
