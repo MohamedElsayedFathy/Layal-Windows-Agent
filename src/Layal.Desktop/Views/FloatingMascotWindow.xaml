@@ -45,6 +45,14 @@
                                        UpDirection="0,1,0" FieldOfView="60.5"/>
                 </Viewport3D.Camera>
             </Viewport3D>
+            <!-- TextBlock supplies a stable UI Automation peer for diagnostics; it is non-focusable and visually negligible. -->
+            <TextBlock x:Name="GlbPreviewAutomationStatus"
+                       Width="2" Height="2" Opacity="0.01"
+                       HorizontalAlignment="Left" VerticalAlignment="Top"
+                       IsHitTestVisible="False" Focusable="False"
+                       Text="GLB preview is inactive."
+                       AutomationProperties.Name="GLB 3D preview — Rigged Figure"
+                       AutomationProperties.HelpText="The animated GLB preview is inactive." />
 
             <!-- Modern antenna: lilac stem, pearl mount, warm status light. -->
             <Ellipse Width="18" Height="7" Fill="#D8E4F8" Stroke="#BACCE9" StrokeThickness="1"
