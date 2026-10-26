@@ -139,7 +139,11 @@ public partial class FloatingMascotWindow : Window
     private readonly ContextMenu _contextMenu = new();
     private readonly MenuItem _openMenuItem = new();
     private readonly MenuItem _hideMenuItem = new();
+    private readonly MenuItem _glbPreviewMenuItem = new();
     private readonly MenuItem _exitMenuItem = new();
+    private GltfSkinnedAnimationRenderer? _gltfPreviewRenderer;
+    private bool _glbPreviewEnabled;
+    private bool IsArabic => AppRuntime.Settings.Language == "ar";
 
     private static readonly Brush EyeWhite = new SolidColorBrush(Color.FromRgb(247, 249, 255));
     private static readonly Brush BrowNeutral = new SolidColorBrush(Color.FromRgb(171, 189, 249));
@@ -229,12 +233,20 @@ public partial class FloatingMascotWindow : Window
 
         _openMenuItem.Click += OpenMenuItem_Click;
         _hideMenuItem.Click += HideMenuItem_Click;
+        _glbPreviewMenuItem.Click += GlbPreviewMenuItem_Click;
         _exitMenuItem.Click += ExitMenuItem_Click;
         _contextMenu.Items.Add(_openMenuItem);
         _contextMenu.Items.Add(_hideMenuItem);
+        _contextMenu.Items.Add(_glbPreviewMenuItem);
         _contextMenu.Items.Add(new Separator());
         _contextMenu.Items.Add(_exitMenuItem);
         ContextMenu = _contextMenu;
+
+        // The test asset is an engineering preview, not the production Layal character.
+        // It is opt-in and remains off unless the user saved the preference or CI explicitly requests a smoke test.
+        var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
+        if (AppRuntime.Settings.MascotUseGlbPreview || automatedGlbPreviewTest)
+            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: !automatedGlbPreviewTest);
 
         _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(3650) };
         _blinkTimer.Tick += (_, _) => Blink();
@@ -349,6 +361,8 @@ public partial class FloatingMascotWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _hitTestTimer.Stop();
+        _gltfPreviewRenderer?.Dispose();
+        _gltfPreviewRenderer = null;
         base.OnClosed(e);
     }
 
@@ -1487,8 +1501,147 @@ public partial class FloatingMascotWindow : Window
         Root.ToolTip = localizedToolTip;
         _openMenuItem.Header = ar ? "فتح ليال" : "Open Layal";
         _hideMenuItem.Header = ar ? "إخفاء الشخصية" : "Hide mascot";
+        _glbPreviewMenuItem.Header = _glbPreviewEnabled
+            ? (ar ? "إيقاف معاينة نموذج 3D" : "Hide animated GLB preview")
+            : (ar ? "معاينة نموذج 3D متحرك" : "Preview animated GLB model");
+        AutomationProperties.SetName(_glbPreviewMenuItem, ar ? "معاينة نموذج 3D متحرك" : "Animated GLB model preview");
+        AutomationProperties.SetHelpText(_glbPreviewMenuItem,
+            ar ? "يفتح نموذج اختبار مرخصًا للتحقق من العرض والتحريك؛ لا يغيّر الشخصية الرسمية." :
+                 "Opens a licensed test model to verify GLB rendering and skin animation; does not replace the official character.");
         _exitMenuItem.Header = ar ? "خروج" : "Exit";
         UpdateCharacterAccessibility();
+
+        // UpdateLanguage normally restores the production window title. In the isolated
+        // GLB integration test, keep a discoverable top-level automation name instead.
+        if (IsAutomatedGlbPreviewTest())
+        {
+            Title = "GLB 3D preview — Rigged Figure";
+            AutomationProperties.SetName(this, Title);
+            if (string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(this)))
+                AutomationProperties.SetHelpText(this, "GLB preview test mode is active.");
+        }
+    }
+
+    private void GlbPreviewMenuItem_Click(object sender, RoutedEventArgs e) =>
+        SetGlbPreviewEnabled(!_glbPreviewEnabled, persist: true);
+
+    private static bool IsAutomatedGlbPreviewTest() =>
+        string.Equals(Environment.GetEnvironmentVariable("LAYAL_GLB_PREVIEW_TEST"), "1", StringComparison.Ordinal) ||
+        Environment.GetCommandLineArgs().Any(arg =>
+            string.Equals(arg, "--glb-preview-test", StringComparison.OrdinalIgnoreCase));
+
+    private FrameworkElement GlbPreviewAutomationTestTarget(bool automatedTest) =>
+        automatedTest ? this : GlbPreviewAutomationStatus;
+
+    private void SetGlbPreviewEnabled(bool enabled, bool persist, bool showFailureDialog = true)
+    {
+        if (_glbPreviewEnabled == enabled)
+            return;
+
+        if (enabled)
+        {
+            var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
+            GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
+            GlbPreviewAutomationStatus.Content = "Loading bundled GLB preview...";
+            AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, "Loading bundled GLB preview...");
+            FrameworkElement automationStatusTarget = GlbPreviewAutomationTestTarget(automatedGlbPreviewTest);
+            try
+            {
+                if (automatedGlbPreviewTest)
+                {
+                    Title = "GLB 3D preview — Rigged Figure";
+                    AutomationProperties.SetName(this, Title);
+                    AutomationProperties.SetHelpText(this, "Loading bundled GLB preview...");
+                }
+                _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport, automationStatusElement: automationStatusTarget);
+                _glbPreviewEnabled = true;
+                LegacyRig.Visibility = Visibility.Collapsed;
+                GlbPreviewLayer.Visibility = Visibility.Visible;
+                CharacterLayer.Visibility = Visibility.Collapsed;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
+            {
+                _gltfPreviewRenderer?.Dispose();
+                _gltfPreviewRenderer = null;
+                _glbPreviewEnabled = false;
+                InitializeAvatarRig();
+                LegacyRig.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
+                GlbPreviewLayer.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
+                CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
+
+                if (persist)
+                {
+                    AppRuntime.Settings.MascotUseGlbPreview = false;
+                    try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
+                    catch { /* A failed preference write must not affect the mascot window. */ }
+                }
+
+                // In automated smoke-test mode, keep the status peer visible and report the
+                // loader exception so CI can distinguish a parse/load failure from a UIA lookup failure.
+                if (IsAutomatedGlbPreviewTest())
+                {
+                    LegacyRig.Visibility = Visibility.Visible;
+                    CharacterLayer.Visibility = Visibility.Collapsed;
+                    var stack = ex.StackTrace ?? "<no stack trace>";
+                    if (stack.Length > 1800)
+                        stack = stack.Substring(0, 1800);
+                    var diagnostic = "GLB preview failed: " + ex.GetType().Name + ": " + ex.Message + "; stack=" + stack;
+                    Title = "GLB 3D preview — Rigged Figure";
+                    AutomationProperties.SetName(this, Title);
+                    AutomationProperties.SetHelpText(this, diagnostic);
+                    GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
+                    GlbPreviewAutomationStatus.Content = diagnostic;
+                    AutomationProperties.SetName(GlbPreviewAutomationStatus, "GLB 3D preview — Rigged Figure");
+                    AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, diagnostic);
+                }
+                else
+                {
+                    GlbPreviewAutomationStatus.Visibility = Visibility.Collapsed;
+                }
+
+                UpdateLanguage();
+                if (showFailureDialog)
+                {
+                    MessageBox.Show(
+                        this,
+                        IsArabic
+                            ? "تعذر تحميل نموذج GLB التجريبي. عادت الشخصية إلى وضعها السابق. التفاصيل: " + ex.Message
+                            : "The GLB preview could not be loaded. The previous mascot view was restored. Details: " + ex.Message,
+                        IsArabic ? "معاينة 3D" : "3D preview",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                return;
+            }
+        }
+        else
+        {
+            _gltfPreviewRenderer?.Dispose();
+            _gltfPreviewRenderer = null;
+            _glbPreviewEnabled = false;
+            GlbPreviewAutomationStatus.Visibility = Visibility.Collapsed;
+            InitializeAvatarRig();
+            LegacyRig.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
+            GlbPreviewLayer.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
+            CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (persist)
+        {
+            AppRuntime.Settings.MascotUseGlbPreview = _glbPreviewEnabled;
+            try
+            {
+                AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            }
+            catch
+            {
+                Root.ToolTip = IsArabic
+                    ? "تم تبديل معاينة 3D، لكن تعذر حفظ التفضيل."
+                    : "3D preview toggled, but the preference could not be saved.";
+            }
+        }
+
+        UpdateLanguage();
     }
 
     public void SetMood(string mood, bool showReaction = true)

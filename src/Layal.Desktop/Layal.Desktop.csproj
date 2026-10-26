@@ -25,6 +25,8 @@
   <ItemGroup>
     <Resource Include="Assets\layal-tray.ico" />
     <Resource Include="Assets\Characters\*.png" />
+    <EmbeddedResource Include="Assets\3D\RiggedFigure.glb" LogicalName="Layal.Assets.3D.RiggedFigure.glb" />
+    <None Update="Assets\3D\RiggedFigure-LICENSE.md" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Assets\layal-mascot-reference.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

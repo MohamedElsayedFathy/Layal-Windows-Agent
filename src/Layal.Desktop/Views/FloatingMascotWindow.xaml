@@ -36,16 +36,7 @@
                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,26,0" />
 
             <!-- Native WPF 3D head/body/limb rig. A wide viewport gives articulated arms and feet room outside the head silhouette. The zero-opacity face canvas remains only for pointer coordinate compatibility. -->
-            <Viewport3D x:Name="AvatarViewport" Width="248" Height="170"
-                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0"
-                        IsHitTestVisible="False" ClipToBounds="True">
-                <Viewport3D.Camera>
-                    <!-- FOV widened with the viewport: preserve the same model pixel scale while giving arms/feet horizontal clearance. -->
-                    <PerspectiveCamera Position="0,0,2.6" LookDirection="0,0,-2.6"
-                                       UpDirection="0,1,0" FieldOfView="60.5"/>
-                </Viewport3D.Camera>
-            </Viewport3D>
-
+            <!-- AvatarViewport is in the independent GLB/legacy 3D layer below, not inside the decorative legacy shell. -->
             <!-- Modern antenna: lilac stem, pearl mount, warm status light. -->
             <Ellipse Width="18" Height="7" Fill="#D8E4F8" Stroke="#BACCE9" StrokeThickness="1"
                      HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0" />
@@ -143,6 +134,28 @@
             </Border>
 
             </Grid>
+            <!-- Keep the 3D viewport separate from the legacy shell decorations so the GLB preview is rendered alone. -->
+            <Grid x:Name="GlbPreviewLayer" Width="248" Height="175" Visibility="Collapsed"
+                  HorizontalAlignment="Center" VerticalAlignment="Top" ClipToBounds="True"
+                  IsHitTestVisible="False">
+                <Viewport3D x:Name="AvatarViewport" Width="248" Height="175"
+                            HorizontalAlignment="Center" VerticalAlignment="Top"
+                            IsHitTestVisible="False" ClipToBounds="True">
+                    <Viewport3D.Camera>
+                        <PerspectiveCamera Position="0,0,3.3" LookDirection="0,0,-3.3"
+                                           UpDirection="0,1,0" FieldOfView="60.5"/>
+                    </Viewport3D.Camera>
+                </Viewport3D>
+            </Grid>
+            <!-- Stable UI Automation peer for the opt-in GLB engineering preview. Kept outside the legacy rig so loader failures remain diagnosable. -->
+            <Button x:Name="GlbPreviewAutomationStatus"
+                    Width="2" Height="2" Padding="0" BorderThickness="0"
+                    Opacity="0.01" Background="Transparent" Foreground="Transparent"
+                    HorizontalAlignment="Left" VerticalAlignment="Top"
+                    IsHitTestVisible="False" Focusable="False" IsTabStop="False"
+                    Visibility="Collapsed" Content=""
+                    AutomationProperties.Name="GLB 3D preview — Rigged Figure"
+                    AutomationProperties.HelpText="The animated GLB preview is inactive." />
 
             <!-- Official Layal character: real artwork swapped by the agent's actual mood, with her robot assistant beside her.
                  Purely visual; pointer input is handled by the window's hit-test geometry. -->

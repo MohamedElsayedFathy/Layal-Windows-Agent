@@ -197,6 +197,42 @@
         "termsUrl": "https://openai.com/en-GB/policies/row-terms-of-use/",
         "findingsDocument": "docs/ASSET_PROVENANCE_FINDINGS_AR.md"
       }
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/3D/RiggedSimple.glb",
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/RiggedSimple",
+      "licenseExpression": "CC-BY-4.0",
+      "redistributionPermission": "Upstream model license grants use, modification, and redistribution subject to CC BY 4.0 attribution; this is provenance evidence only, not project-wide release approval.",
+      "sourceDescription": "GLB sample asset Rigged Simple from KhronosGroup/glTF-Sample-Assets; upstream per-model LICENSE.md marks all model files CC-BY-4.0. Attribution and human legal review are still required.",
+      "evidence": "src/Layal.Desktop/Assets/3D/LICENSE.md; upstream LICENSE: https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/RiggedSimple/LICENSE.md; upstream asset SHA (Git blob): d56b94eef74fb085d7e7856a29cbafd0428fbfdc"
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/3D/LICENSE.md",
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/RiggedSimple/LICENSE.md",
+      "licenseExpression": "CC-BY-4.0",
+      "redistributionPermission": "This file preserves the upstream per-model license text and attribution statement. Legal clearance for the product's overall distribution remains a separate gate.",
+      "sourceDescription": "Upstream license statement for the Rigged Simple model, copied into the repository so the license travels with the asset.",
+      "evidence": "GitHub upstream model LICENSE.md; file is retained alongside src/Layal.Desktop/Assets/3D/RiggedSimple.glb."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/3D/RiggedFigure.glb",
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/RiggedFigure",
+      "licenseExpression": "CC-BY-4.0",
+      "redistributionPermission": "Upstream model license grants use, modification, and redistribution subject to CC BY 4.0 attribution; this is provenance evidence only, not project-wide release approval.",
+      "sourceDescription": "GLB sample asset Rigged Figure from KhronosGroup/glTF-Sample-Assets; upstream per-model LICENSE.md marks all model files CC-BY-4.0. Chosen as a technical preview because it contains a skinned mesh and animation data; it is not a finished Layal character design.",
+      "evidence": "src/Layal.Desktop/Assets/3D/RiggedFigure-LICENSE.md; upstream LICENSE: https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/RiggedFigure/LICENSE.md; upstream asset SHA (Git blob): c505a33dfa5ba84bd5f3dd0a85f74ee4c9978322"
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/3D/RiggedFigure-LICENSE.md",
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/RiggedFigure/LICENSE.md",
+      "licenseExpression": "CC-BY-4.0",
+      "redistributionPermission": "This file preserves the upstream per-model license text and attribution statement. Legal clearance for the product's overall distribution remains a separate gate.",
+      "sourceDescription": "Upstream license statement for the Rigged Figure model, copied into the repository so the license travels with the asset.",
+      "evidence": "GitHub upstream model LICENSE.md; file is retained alongside src/Layal.Desktop/Assets/3D/RiggedFigure.glb."
     }
   ],
   "packages": [

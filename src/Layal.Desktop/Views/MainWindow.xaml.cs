@@ -367,7 +367,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
         AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
         AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
-        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 7 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+7 to switch tabs.");
+        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 8 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+8 to switch tabs.");
         AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
         AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
         AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
@@ -1149,7 +1149,8 @@ public partial class MainWindow : Window
             Key.D4 or Key.NumPad4 => SkillsTab,
             Key.D5 or Key.NumPad5 => CamerasTab,
             Key.D6 or Key.NumPad6 => MemoryTab,
-            Key.D7 or Key.NumPad7 => SettingsTab,
+            Key.D7 or Key.NumPad7 => ApiIntegrationsTab,
+            Key.D8 or Key.NumPad8 => SettingsTab,
             _ => null
         };
 
@@ -1211,7 +1212,8 @@ public partial class MainWindow : Window
               "Ctrl+4 — المهارات\n" +
               "Ctrl+5 — الكاميرات\n" +
               "Ctrl+6 — الذاكرة\n" +
-              "Ctrl+7 — الإعدادات\n" +
+              "Ctrl+7 — تكاملات API\n" +
+              "Ctrl+8 — الإعدادات\n" +
               "F1 — عرض هذه المساعدة\n\n" +
               "استخدم Tab للتنقل للأمام وShift+Tab للرجوع. استخدم الأسهم داخل قوائم التبويبات والقوائم، وSpace لتبديل مربعات الاختيار، والأسهم لتعديل أشرطة التمرير. في حقل المحادثة، Enter يرسل الرسالة."
             : "Keyboard shortcuts\n\n" +
@@ -1221,7 +1223,8 @@ public partial class MainWindow : Window
               "Ctrl+4 — Skills\n" +
               "Ctrl+5 — Cameras\n" +
               "Ctrl+6 — Memory\n" +
-              "Ctrl+7 — Settings\n" +
+              "Ctrl+7 — API integrations\n" +
+              "Ctrl+8 — Settings\n" +
               "F1 — Show this help\n\n" +
               "Use Tab to move forward and Shift+Tab to move backward. Use the arrow keys inside tab and list controls, Space to toggle checkboxes, and the arrow keys to adjust sliders. In the chat field, Enter sends the message.";
 
