@@ -16,6 +16,7 @@ public sealed class UserSettings
     public string VoiceReplyId { get; set; } = "marin";
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
+    public bool MascotUseGlbPreview { get; set; } = false;
     public double MascotScale { get; set; } = 1.0;
     public double MascotOpacity { get; set; } = 1.0;
     public double MascotLeft { get; set; } = -1;
