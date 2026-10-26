@@ -1555,7 +1555,8 @@ public partial class FloatingMascotWindow : Window
                 }
                 _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport, automationStatusElement: automationStatusTarget);
                 _glbPreviewEnabled = true;
-                LegacyRig.Visibility = Visibility.Visible;
+                LegacyRig.Visibility = Visibility.Collapsed;
+                GlbPreviewLayer.Visibility = Visibility.Visible;
                 CharacterLayer.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
@@ -1565,6 +1566,7 @@ public partial class FloatingMascotWindow : Window
                 _glbPreviewEnabled = false;
                 InitializeAvatarRig();
                 LegacyRig.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
+                GlbPreviewLayer.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
                 CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
 
                 if (persist)
@@ -1620,6 +1622,7 @@ public partial class FloatingMascotWindow : Window
             GlbPreviewAutomationStatus.Visibility = Visibility.Collapsed;
             InitializeAvatarRig();
             LegacyRig.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
+            GlbPreviewLayer.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
             CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
         }
 
