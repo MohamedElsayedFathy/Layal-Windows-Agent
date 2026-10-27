@@ -5,6 +5,8 @@ namespace Layal.Services;
 
 public sealed class MemoryService
 {
+    public const int MaxSavedNotes = 100;
+
     private readonly ProtectedJsonStore<List<MemoryNote>> _store;
     private readonly object _sync = new();
 
@@ -12,7 +14,7 @@ public sealed class MemoryService
 
     public IReadOnlyList<MemoryNote> GetAll()
     {
-        lock (_sync) return _store.Load(new List<MemoryNote>()).OrderByDescending(n => n.UpdatedAt).ToList();
+        lock (_sync) return LoadBoundedNotes().OrderByDescending(n => n.UpdatedAt).ToList();
     }
 
     public MemoryNote Save(string title, string content, string? id = null)
@@ -26,7 +28,7 @@ public sealed class MemoryService
 
         lock (_sync)
         {
-            var notes = _store.Load(new List<MemoryNote>());
+            var notes = LoadBoundedNotes();
             var existing = id is null ? null : notes.FirstOrDefault(n => n.Id == id);
             if (existing is null)
             {
@@ -39,7 +41,9 @@ public sealed class MemoryService
                 existing.Content = content;
                 existing.UpdatedAt = DateTimeOffset.Now;
             }
-            _store.Save(notes);
+
+            // Keep the note being saved even when several notes share the same timestamp.
+            _store.Save(KeepNewest(notes, existing.Id));
             return existing;
         }
     }
@@ -48,7 +52,7 @@ public sealed class MemoryService
     {
         lock (_sync)
         {
-            var notes = _store.Load(new List<MemoryNote>());
+            var notes = LoadBoundedNotes();
             var removed = notes.RemoveAll(n => n.Id == id) > 0;
             if (removed) _store.Save(notes);
             return removed;
@@ -68,6 +72,38 @@ public sealed class MemoryService
     {
         var notes = GetAll();
         return JsonSerializer.Serialize(notes, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private List<MemoryNote> LoadBoundedNotes()
+    {
+        var notes = _store.Load(new List<MemoryNote>());
+        if (notes.Count <= MaxSavedNotes) return notes;
+
+        var bounded = KeepNewest(notes);
+        // Apply retention to legacy/existing files on the first normal access.
+        _store.Save(bounded);
+        return bounded;
+    }
+
+    private static List<MemoryNote> KeepNewest(List<MemoryNote> notes, string? preserveId = null)
+    {
+        if (notes.Count <= MaxSavedNotes) return notes;
+
+        var ordered = notes
+            .OrderByDescending(n => n.UpdatedAt)
+            .ThenByDescending(n => n.CreatedAt)
+            .ToList();
+        var kept = new List<MemoryNote>(MaxSavedNotes);
+        var preserved = preserveId is null ? null : ordered.FirstOrDefault(n => n.Id == preserveId);
+        if (preserved is not null) kept.Add(preserved);
+
+        foreach (var note in ordered)
+        {
+            if (kept.Count >= MaxSavedNotes) break;
+            if (preserved is not null && note.Id == preserved.Id) continue;
+            kept.Add(note);
+        }
+        return kept;
     }
 
     // Provider-specific key shapes are matched case-sensitively and with their real structure so ordinary
