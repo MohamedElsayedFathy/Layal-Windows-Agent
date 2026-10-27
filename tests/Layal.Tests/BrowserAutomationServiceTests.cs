@@ -82,6 +82,44 @@ public sealed class BrowserAutomationServiceTests
     }
 
     [TestMethod]
+    public void BrowserClickValidationBlocksSubmitResetAndFormAssociatedTargets()
+    {
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("button", "submit", "", false));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("button", "reset", "", false));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("input", "submit", "", false));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("input", "reset", "", false));
+
+        // Untyped buttons inside forms submit by default. Other form-contained controls may also
+        // execute page handlers that submit a form or mutate remote data.
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("button", "", "", true));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("button", "button", "", true));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("a", "", "", true));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("div", "", "button", true));
+    }
+
+    [TestMethod]
+    public void BrowserClickValidationAllowsStandaloneNonSubmittingTargets()
+    {
+        BrowserAutomationService.ValidateBrowserClickTarget("a", "", "", false);
+        BrowserAutomationService.ValidateBrowserClickTarget("button", "button", "", false);
+        BrowserAutomationService.ValidateBrowserClickTarget("button", "", "", false);
+        BrowserAutomationService.ValidateBrowserClickTarget("input", "button", "", false);
+        BrowserAutomationService.ValidateBrowserClickTarget("summary", "", "", false);
+        BrowserAutomationService.ValidateBrowserClickTarget("div", "", "button", false);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserClickTarget("input", "text", "", false));
+    }
+
+    [TestMethod]
     public void BrowserToolsAreRegisteredWithTypedSchemas()
     {
         using var temp = new TestTempDirectory();
