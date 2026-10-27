@@ -293,6 +293,24 @@ data: [DONE]
     }
 
     [TestMethod]
+    public async Task ChatRejectsOversizedUnknownLengthJsonResponseDuringRead()
+    {
+        var json = "{\"choices\":[{\"message\":{\"content\":\"" + new string('x', 4 * 1024 * 1024) + "\"}}]}";
+        var bytes = Encoding.UTF8.GetBytes(json);
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new NonSeekableReadStream(bytes))
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.ChatAsync("https://provider.example/v1", "model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "hello" } }));
+
+        StringAssert.Contains(error.Message, "safety limit");
+    }
+
+    [TestMethod]
     public async Task AgentTurnRejectsOversizedJsonResponse()
     {
         var content = new StringContent(
