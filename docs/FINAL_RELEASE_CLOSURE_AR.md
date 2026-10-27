@@ -11,6 +11,7 @@
 - إضافة بوابة fail-closed تمنع بناء إصدار موقّع قبل تسجيل موافقة صريحة على رخصة المشروع، ومراجعة كل اعتماد، وإثبات مصدر وترخيص وإذن إعادة توزيع كل أصل، واكتمال بيانات SBOM. يتطلب سجل الأصل `sourceUrl` أو `sourceDescription`، و`licenseExpression` أو `license`، و`redistributionPermission`، و`reviewedBy`، و`reviewedOn`، و`evidence`؛ ويُرفض أي أصل مضاف إلى مجلد Assets ولم يُسجل في الجرد.
 - إثراء حقول التراخيص الناقصة في CycloneDX من الجرد المعتمد مع حفظ روابط المصدر والترخيص وحقل يصرح بأن الإثراء لا يعد موافقة قانونية. تبقى الموافقات البشرية شرطًا مستقلًا.
 - إضافة اختبارات Python للبوابة القانونية وأداة PowerShell لتطبيق إعدادات حماية `main` بعد تشغيلها بصلاحيات GitHub الإدارية.
+- إضافة بوابة قبول يدوي fail-closed للإصدار الموقّع، مرتبطة بـ commit المختبَر وتسمح فقط بتغيير سجل الأدلة بعد الاختبار؛ تبقى بوابات الأدلة `PENDING` إلى أن ينفذها مراجع على Windows فعليًا.
 
 ## تحذيرات CI المتبقية
 - تم تحديث إجراءات checkout/setup-dotnet/setup-python/upload-artifact إلى الإصدارات الرئيسية الحالية، واستبدال معرّفات Inno Setup القديمة `x64` بـ`x64compatible` وفق [التوثيق الرسمي لـInno Setup](https://jrsoftware.org/ishelp/topic_archidentifiers.htm).
