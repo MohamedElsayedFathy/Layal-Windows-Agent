@@ -144,6 +144,7 @@ public partial class MainWindow : Window
         RefreshSkills();
         RefreshApiConnections();
         RefreshMemoryNotes();
+        StateChanged += MainWindow_StateChanged;
         ApplyTheme();
         ApplyLanguage();
         RefreshProviderStatus();
@@ -154,6 +155,21 @@ public partial class MainWindow : Window
         if (!IsVisible) Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
+    }
+
+    private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void MaximizeWindowButton_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void CloseWindowButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void MainWindow_StateChanged(object? sender, EventArgs e)
+    {
+        // With a custom caption (WindowChrome) a maximized window overhangs the screen by the resize border.
+        var maximized = WindowState == WindowState.Maximized;
+        WindowRoot.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(0);
+        MaximizeWindowButton.Content = maximized ? "\uE923" : "\uE922";
     }
 
     private bool IsArabic => AppRuntime.Settings.Language == "ar";
@@ -207,6 +223,10 @@ public partial class MainWindow : Window
         SetSolidBrush("Layal.NavSelected", "Layal.Color.NavSelected");
         SetSolidBrush("Layal.NavSelectedBorder", "Layal.Color.NavSelectedBorder");
         SetSolidBrush("Layal.NavHover", "Layal.Color.NavHover");
+        SetSolidBrush("Layal.GlassFill", "Layal.Color.Glass");
+        SetSolidBrush("Layal.GlassStrongFill", "Layal.Color.GlassStrong");
+        SetSolidBrush("Layal.GlassBorderBrush", "Layal.Color.GlassBorder");
+        SetSolidBrush("Layal.OnAccent", "Layal.Color.OnAccent");
 
         LinearGradientBrush MakeGradient(params (string Key, double Offset)[] stops)
         {
@@ -233,6 +253,13 @@ public partial class MainWindow : Window
         Application.Current.Resources["Layal.PrimaryButtonGradient"] = MakeGradient(
             ("Layal.Color.ButtonStart", 0),
             ("Layal.Color.ButtonEnd", 1));
+        Application.Current.Resources["Layal.Backdrop"] = MakeGradient(
+            ("Layal.Color.BackdropStart", 0),
+            ("Layal.Color.BackdropMiddle", 0.55),
+            ("Layal.Color.BackdropEnd", 1));
+        Application.Current.Resources["Layal.AccentGradient"] = MakeGradient(
+            ("Layal.Color.AccentStart", 0),
+            ("Layal.Color.AccentEnd", 1));
         Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
         {
             Color = colors["Layal.Color.Shadow"],
@@ -250,6 +277,8 @@ public partial class MainWindow : Window
             Application.Current.Resources["Layal.HeaderGradient"] = systemSurface;
             Application.Current.Resources["Layal.CardGradient"] = systemSurface;
             Application.Current.Resources["Layal.PrimaryButtonGradient"] = systemSurface;
+            Application.Current.Resources["Layal.Backdrop"] = systemSurface;
+            Application.Current.Resources["Layal.AccentGradient"] = new SolidColorBrush(SystemColors.HighlightColor);
             Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
             {
                 Color = SystemColors.WindowTextColor,
