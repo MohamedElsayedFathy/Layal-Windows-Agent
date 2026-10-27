@@ -516,8 +516,9 @@ for required in (
 ):
     if required not in agent_api_tests_text:
         ERRORS.append(f"API catalog agent approval regression test is missing: {required}")
-if "<Version>0.5.4</Version>" not in project_text:
-    ERRORS.append("Project version was not bumped for API catalog changes")
+catalog_version_match = re.search(r"<Version>(\d+)\.(\d+)\.(\d+)</Version>", project_text)
+if not catalog_version_match or tuple(map(int, catalog_version_match.groups())) < (0, 5, 4):
+    ERRORS.append("Project version must be at least 0.5.4 to include the API catalog changes")
 if not (ROOT / "docs/API_CATALOG_AR.md").is_file():
     ERRORS.append("Arabic API catalog usage/privacy guide is missing")
 

@@ -97,6 +97,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // The chat is Layal's primary surface; Home remains available from the navigation rail.
+        // Clock/date/weather live in the chat header so core context is visible immediately.
+        MainTabs.SelectedItem = ChatTab;
         SystemEvents.UserPreferenceChanged += MainWindow_UserPreferenceChanged;
         Closed += MainWindow_Closed;
         _speechRecordingTimer.Tick += SpeechRecordingTimer_Tick;

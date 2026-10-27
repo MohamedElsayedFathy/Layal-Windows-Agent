@@ -12,7 +12,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>Layal</AssemblyName>
     <RootNamespace>Layal</RootNamespace>
-    <Version>0.5.4</Version>
+    <Version>0.5.5</Version>
     <Authors>Layal Project</Authors>
     <Description>Layal bilingual Windows AI desktop companion - native desktop agent with bounded tool execution</Description>
   </PropertyGroup>

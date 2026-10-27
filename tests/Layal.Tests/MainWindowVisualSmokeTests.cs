@@ -80,6 +80,8 @@ public sealed class MainWindowVisualSmokeTests
 
         var tabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
+        Assert.AreSame(window.FindName("ChatTab"), tabs.SelectedItem,
+            "The primary window must open directly into the glass chat view, not the legacy home dashboard.");
         var applyTheme = typeof(MainWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("ApplyTheme was not found.");
         var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
