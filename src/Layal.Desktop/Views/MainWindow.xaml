@@ -63,70 +63,7 @@
                                    IsHitTestVisible="False" Focusable="False" />
                         </Grid>
 
-                        <Border x:Name="ClockWeatherCard" Background="{DynamicResource Layal.CardGradient}"
-                                CornerRadius="16" Padding="16" Margin="0,0,0,12"
-                                BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"
-                                Effect="{DynamicResource Layal.CardShadow}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.1*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="4,0,14,0">
-                                    <TextBlock x:Name="ClockSectionTitle" Text="الوقت والتاريخ"
-                                               FontSize="13" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource Layal.Muted}"/>
-                                    <TextBlock x:Name="ClockTimeText" Text="--:--:--"
-                                               FontSize="30" FontWeight="SemiBold" Margin="0,5,0,0"
-                                               AutomationProperties.Name="الوقت المحلي"/>
-                                    <TextBlock x:Name="CurrentDateText" Text="جارٍ تحميل التاريخ"
-                                               FontSize="13" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource Layal.Muted}" Margin="0,2,0,0"
-                                               AutomationProperties.Name="التاريخ المحلي"/>
-                                </StackPanel>
-                                <Border Grid.Column="1" Width="1" Height="78"
-                                        Background="{DynamicResource Layal.Border}" Margin="8,0"/>
-                                <Grid Grid.Column="2" Margin="10,0,10,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="WeatherIconText" Grid.Column="0" Text="🌍"
-                                               FontSize="36" VerticalAlignment="Center" Margin="0,0,12,0"
-                                               AutomationProperties.Name="رمز حالة الطقس"/>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock x:Name="WeatherSectionTitle" Text="الطقس"
-                                                   FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource Layal.Muted}"/>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock x:Name="WeatherTemperatureText" Text="—°C"
-                                                       FontSize="25" FontWeight="SemiBold" Margin="0,3,10,0"
-                                                       AutomationProperties.Name="درجة الحرارة الحالية"/>
-                                            <TextBlock x:Name="WeatherSummaryText" Text="سيتم تحديد موقعك تلقائيًا"
-                                                       FontSize="13" VerticalAlignment="Center"
-                                                       TextWrapping="Wrap" MaxWidth="300"/>
-                                        </StackPanel>
-                                        <TextBlock x:Name="WeatherLocationText" Text="لم تُحدّد مدينة"
-                                                   FontSize="12" Foreground="{DynamicResource Layal.Muted}"
-                                                   TextWrapping="Wrap" Margin="0,2,0,0"
-                                                   AutomationProperties.Name="مدينة الطقس"/>
-                                        <TextBlock x:Name="WeatherDetailsText" Text=""
-                                                   FontSize="12" Foreground="{DynamicResource Layal.Muted}"
-                                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
-                                        <TextBlock x:Name="WeatherUpdatedText" Text=""
-                                                   FontSize="11" Foreground="{DynamicResource Layal.Muted}"
-                                                   Margin="0,3,0,0"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Button x:Name="RefreshWeatherButton" Grid.Column="3"
-                                        Content="تحديث الطقس" Click="RefreshWeatherButton_Click"
-                                        VerticalAlignment="Center" Margin="4,0,0,0" MinWidth="92"
-                                        AutomationProperties.Name="تحديث حالة الطقس"
-                                        AutomationProperties.HelpText="يجلب الطقس للمدينة المحددة في الإعدادات."/>
-                            </Grid>
-                        </Border>
+
                         <UniformGrid Columns="2" Rows="2" Margin="0,0,0,12">
                             <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
                                 <StackPanel><TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardAiValue" Text="غير متصل" Foreground="{DynamicResource Layal.Warning}" Margin="0,8,0,0"/><TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
@@ -156,7 +93,7 @@
 
             <TabItem x:Name="ChatTab" Header="المحادثة" Tag="&#xE8BD;">
                 <Grid Margin="14">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Border Grid.Row="0" Margin="3,0,3,12" Padding="22,14" CornerRadius="24" Background="{DynamicResource Layal.GlassStrongFill}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1">
                         <Grid>
@@ -184,7 +121,72 @@
                                    IsHitTestVisible="False" Focusable="False" />
                         </Grid>
                     </Border>
-                    <ListBox x:Name="ChatMessagesList" Grid.Row="1" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="8" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
+
+                    <Border x:Name="ClockWeatherCard" Grid.Row="1" Background="{DynamicResource Layal.GlassFill}"
+                                                    CornerRadius="20" Padding="14" Margin="3,0,3,8"
+                                                    BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                                    Effect="{DynamicResource Layal.CardShadow}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.1*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="2*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="4,0,14,0">
+                                                        <TextBlock x:Name="ClockSectionTitle" Text="الوقت والتاريخ"
+                                                                   FontSize="13" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource Layal.Muted}"/>
+                                                        <TextBlock x:Name="ClockTimeText" Text="--:--:--"
+                                                                   FontSize="30" FontWeight="SemiBold" Margin="0,5,0,0"
+                                                                   AutomationProperties.Name="الوقت المحلي"/>
+                                                        <TextBlock x:Name="CurrentDateText" Text="جارٍ تحميل التاريخ"
+                                                                   FontSize="13" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource Layal.Muted}" Margin="0,2,0,0"
+                                                                   AutomationProperties.Name="التاريخ المحلي"/>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" Width="1" Height="78"
+                                                            Background="{DynamicResource Layal.Border}" Margin="8,0"/>
+                                                    <Grid Grid.Column="2" Margin="10,0,10,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock x:Name="WeatherIconText" Grid.Column="0" Text="🌍"
+                                                                   FontSize="36" VerticalAlignment="Center" Margin="0,0,12,0"
+                                                                   AutomationProperties.Name="رمز حالة الطقس"/>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock x:Name="WeatherSectionTitle" Text="الطقس"
+                                                                       FontSize="13" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource Layal.Muted}"/>
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <TextBlock x:Name="WeatherTemperatureText" Text="—°C"
+                                                                           FontSize="25" FontWeight="SemiBold" Margin="0,3,10,0"
+                                                                           AutomationProperties.Name="درجة الحرارة الحالية"/>
+                                                                <TextBlock x:Name="WeatherSummaryText" Text="سيتم تحديد موقعك تلقائيًا"
+                                                                           FontSize="13" VerticalAlignment="Center"
+                                                                           TextWrapping="Wrap" MaxWidth="300"/>
+                                                            </StackPanel>
+                                                            <TextBlock x:Name="WeatherLocationText" Text="لم تُحدّد مدينة"
+                                                                       FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                                                       TextWrapping="Wrap" Margin="0,2,0,0"
+                                                                       AutomationProperties.Name="مدينة الطقس"/>
+                                                            <TextBlock x:Name="WeatherDetailsText" Text=""
+                                                                       FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                                                       TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                            <TextBlock x:Name="WeatherUpdatedText" Text=""
+                                                                       FontSize="11" Foreground="{DynamicResource Layal.Muted}"
+                                                                       Margin="0,3,0,0"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <Button x:Name="RefreshWeatherButton" Grid.Column="3"
+                                                            Content="تحديث الطقس" Click="RefreshWeatherButton_Click"
+                                                            VerticalAlignment="Center" Margin="4,0,0,0" MinWidth="92"
+                                                            AutomationProperties.Name="تحديث حالة الطقس"
+                                                            AutomationProperties.HelpText="يجلب الطقس للمدينة المحددة في الإعدادات."/>
+                                                </Grid>
+                                            </Border>
+                    <ListBox x:Name="ChatMessagesList" Grid.Row="2" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="8" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Border x:Name="Bubble" Background="{DynamicResource Layal.GlassStrongFill}" CornerRadius="20" Padding="15,10" Margin="6,4"
@@ -213,7 +215,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock x:Name="ChatEmptyStateText" Grid.Row="1"
+                    <TextBlock x:Name="ChatEmptyStateText" Grid.Row="2"
                                Text="No messages yet. Type a message below to start the conversation."
                                AutomationProperties.Name="Chat empty state"
                                AutomationProperties.HelpText="The message list becomes populated after you send or receive a message.">
@@ -227,7 +229,7 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <StackPanel Grid.Row="2" Margin="4,8">
+                    <StackPanel Grid.Row="3" Margin="4,8">
                         <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,6">
                             <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
                                     ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
@@ -249,7 +251,7 @@
                         <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"
                                    AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
-                    <Grid Grid.Row="3">
+                    <Grid Grid.Row="4">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="46" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+2 ينقلك إلى هذا الحقل."/>
                         <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي فقط؛ لا يُرسل الصوت إلا بعد تأكيدك." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. لن يُرسل الصوت إلى المزود إلا بعد تأكيد منفصل، وسيظهر النص للمراجعة قبل الإرسال."/>
