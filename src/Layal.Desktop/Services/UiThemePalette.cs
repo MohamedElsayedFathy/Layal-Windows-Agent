@@ -47,7 +47,17 @@ public static class UiThemePalette
             ["Layal.Color.ListSelected"] = dark ? "#2C4155" : "#E3F3F6",
             ["Layal.Color.InputFocus"] = dark ? "#222E43" : "#FBFDFF",
             ["Layal.Color.HoverSurface"] = dark ? "#2C3B50" : "#E8F5F7",
-            ["Layal.Color.Shadow"] = dark ? "#080B13" : "#A8B9D6"
+            ["Layal.Color.Shadow"] = dark ? "#080B13" : "#A8B9D6",
+            // Glass design: dusk backdrop, translucent panels and one accent used for selection and primary actions.
+            ["Layal.Color.BackdropStart"] = dark ? "#1F3463" : "#C9DBF7",
+            ["Layal.Color.BackdropMiddle"] = dark ? "#3A2F6E" : "#D8D0F4",
+            ["Layal.Color.BackdropEnd"] = dark ? "#5B3A6C" : "#F2D8E4",
+            ["Layal.Color.Glass"] = dark ? "#9E1B2240" : "#A6FFFFFF",
+            ["Layal.Color.GlassStrong"] = dark ? "#C7172040" : "#D9FFFFFF",
+            ["Layal.Color.GlassBorder"] = dark ? "#40FFFFFF" : "#B8FFFFFF",
+            ["Layal.Color.AccentStart"] = "#4A66DE",
+            ["Layal.Color.AccentEnd"] = "#7A50D4",
+            ["Layal.Color.OnAccent"] = "#FFFFFF"
         };
 
         if (!highContrast)
@@ -96,7 +106,16 @@ public static class UiThemePalette
             ["Layal.Color.ListSelected"] = window,
             ["Layal.Color.InputFocus"] = window,
             ["Layal.Color.HoverSurface"] = window,
-            ["Layal.Color.Shadow"] = window
+            ["Layal.Color.Shadow"] = window,
+            ["Layal.Color.BackdropStart"] = window,
+            ["Layal.Color.BackdropMiddle"] = window,
+            ["Layal.Color.BackdropEnd"] = window,
+            ["Layal.Color.Glass"] = window,
+            ["Layal.Color.GlassStrong"] = window,
+            ["Layal.Color.GlassBorder"] = text,
+            ["Layal.Color.AccentStart"] = highlight,
+            ["Layal.Color.AccentEnd"] = highlight,
+            ["Layal.Color.OnAccent"] = SystemColors.HighlightTextColor.ToString()
         };
     }
 }

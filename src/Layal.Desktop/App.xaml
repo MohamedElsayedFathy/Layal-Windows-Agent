@@ -41,6 +41,15 @@
         <Color x:Key="Layal.Color.InputFocus">#FBFDFF</Color>
         <Color x:Key="Layal.Color.HoverSurface">#E8F5F7</Color>
         <Color x:Key="Layal.Color.Shadow">#A8B9D6</Color>
+        <Color x:Key="Layal.Color.BackdropStart">#C9DBF7</Color>
+        <Color x:Key="Layal.Color.BackdropMiddle">#D8D0F4</Color>
+        <Color x:Key="Layal.Color.BackdropEnd">#F2D8E4</Color>
+        <Color x:Key="Layal.Color.Glass">#A6FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassStrong">#D9FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassBorder">#B8FFFFFF</Color>
+        <Color x:Key="Layal.Color.AccentStart">#4A66DE</Color>
+        <Color x:Key="Layal.Color.AccentEnd">#7A50D4</Color>
+        <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
 
         <SolidColorBrush x:Key="Layal.Background" Color="{DynamicResource Layal.Color.Background}" />
         <SolidColorBrush x:Key="Layal.Panel" Color="{DynamicResource Layal.Color.Surface}" />
@@ -68,6 +77,10 @@
         <SolidColorBrush x:Key="Layal.NavSelected" Color="{DynamicResource Layal.Color.NavSelected}" />
         <SolidColorBrush x:Key="Layal.NavSelectedBorder" Color="{DynamicResource Layal.Color.NavSelectedBorder}" />
         <SolidColorBrush x:Key="Layal.NavHover" Color="{DynamicResource Layal.Color.NavHover}" />
+        <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
+        <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />
+        <SolidColorBrush x:Key="Layal.GlassBorderBrush" Color="{DynamicResource Layal.Color.GlassBorder}" />
+        <SolidColorBrush x:Key="Layal.OnAccent" Color="{DynamicResource Layal.Color.OnAccent}" />
 
         <LinearGradientBrush x:Key="Layal.HeaderGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="{DynamicResource Layal.Color.HeaderStart}" Offset="0" />
@@ -81,6 +94,15 @@
         <LinearGradientBrush x:Key="Layal.PrimaryButtonGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="{DynamicResource Layal.Color.ButtonStart}" Offset="0" />
             <GradientStop Color="{DynamicResource Layal.Color.ButtonEnd}" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="Layal.Backdrop" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{DynamicResource Layal.Color.BackdropStart}" Offset="0" />
+            <GradientStop Color="{DynamicResource Layal.Color.BackdropMiddle}" Offset="0.55" />
+            <GradientStop Color="{DynamicResource Layal.Color.BackdropEnd}" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="Layal.AccentGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{DynamicResource Layal.Color.AccentStart}" Offset="0" />
+            <GradientStop Color="{DynamicResource Layal.Color.AccentEnd}" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="Layal.MascotShellGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#FFFFFF" Offset="0" />
@@ -143,7 +165,7 @@
             <Setter Property="Padding" Value="14,9" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
-            <Setter Property="Background" Value="{DynamicResource Layal.PanelHover}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
@@ -159,7 +181,7 @@
                         <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="11" Padding="{TemplateBinding Padding}"
+                                CornerRadius="14" Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -552,6 +574,8 @@
             </Setter>
         </Style>
 
+        <!-- Glass shell: a translucent sidebar (brand/footer overlays live in MainWindow, rows 88/156 are reserved for them)
+             and a translucent content panel over the dusk backdrop. -->
         <Style TargetType="TabControl">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -563,21 +587,27 @@
                     <ControlTemplate TargetType="TabControl">
                         <Grid KeyboardNavigation.TabNavigation="Local" SnapsToDevicePixels="True">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="188" />
+                                <ColumnDefinition Width="244" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="{DynamicResource Layal.Panel}"
-                                    BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"
-                                    CornerRadius="18" Padding="9" Margin="0,0,14,0"
-                                    Effect="{DynamicResource Layal.CardShadow}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <TabPanel x:Name="HeaderPanel" IsItemsHost="True" KeyboardNavigation.TabIndex="1" KeyboardNavigation.DirectionalNavigation="Cycle"
-                                              VerticalAlignment="Top" />
-                                </ScrollViewer>
+                            <Border Grid.Column="0" Background="{DynamicResource Layal.GlassFill}"
+                                    BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                    CornerRadius="26" Margin="0,0,16,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="88" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="156" />
+                                    </Grid.RowDefinitions>
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,0,4">
+                                        <TabPanel x:Name="HeaderPanel" IsItemsHost="True" KeyboardNavigation.TabIndex="1" KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                  VerticalAlignment="Top" HorizontalAlignment="Center" />
+                                    </ScrollViewer>
+                                </Grid>
                             </Border>
-                            <Border Grid.Column="1" Background="{DynamicResource Layal.Panel}"
-                                    BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"
-                                    CornerRadius="18" Padding="8" Effect="{DynamicResource Layal.CardShadow}">
+                            <Border Grid.Column="1" Background="{DynamicResource Layal.GlassStrongFill}"
+                                    BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                    CornerRadius="26" Padding="8">
                                 <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
                                                   Margin="0" SnapsToDevicePixels="True" />
                             </Border>
@@ -588,10 +618,10 @@
         </Style>
 
         <Style x:Key="Layal.NavTabItemStyle" TargetType="TabItem">
-            <Setter Property="Width" Value="166" />
-            <Setter Property="MinHeight" Value="46" />
+            <Setter Property="Width" Value="214" />
+            <Setter Property="MinHeight" Value="48" />
             <Setter Property="Margin" Value="0,3" />
-            <Setter Property="Padding" Value="11,10" />
+            <Setter Property="Padding" Value="14,10" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Muted}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -604,31 +634,158 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
                         <Border x:Name="NavChrome" Background="Transparent" BorderBrush="Transparent"
-                                BorderThickness="1" CornerRadius="11" Padding="{TemplateBinding Padding}">
+                                BorderThickness="1" CornerRadius="16" Padding="{TemplateBinding Padding}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
+                                    <ColumnDefinition Width="32" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border x:Name="ActiveMarker" Grid.Column="0" Background="Transparent" CornerRadius="2" Margin="0,3" />
+                                <TextBlock x:Name="NavGlyph" Grid.Column="0"
+                                           Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18"
+                                           VerticalAlignment="Center" HorizontalAlignment="Left"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}"
+                                           IsHitTestVisible="False" />
                                 <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"
-                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  RecognizesAccessKey="True" Margin="9,0,2,0" />
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}">
+                                    <ContentPresenter.ContentTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" />
+                                        </DataTemplate>
+                                    </ContentPresenter.ContentTemplate>
+                                </ContentPresenter>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="NavChrome" Property="Background" Value="{DynamicResource Layal.NavSelected}" />
-                                <Setter TargetName="NavChrome" Property="BorderBrush" Value="{DynamicResource Layal.NavSelectedBorder}" />
-                                <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
-                                <Setter TargetName="ActiveMarker" Property="Background" Value="{DynamicResource Layal.Cyan}" />
-                            </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="NavChrome" Property="Background" Value="{DynamicResource Layal.NavHover}" />
                                 <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
                             </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="NavChrome" Property="Background" Value="{DynamicResource Layal.AccentGradient}" />
+                                <Setter TargetName="NavChrome" Property="BorderBrush" Value="{DynamicResource Layal.NavSelectedBorder}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Layal.OnAccent}" />
+                            </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="NavChrome" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primary round action (send). White-on-accent text is explicit because string content would otherwise pick up the implicit TextBlock colour. -->
+        <Style x:Key="Layal.AccentButton" TargetType="Button">
+            <Setter Property="Padding" Value="22,9" />
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.OnAccent}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.AccentGradient}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="AccentChrome" Background="{TemplateBinding Background}" CornerRadius="22"
+                                Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="AccentChrome" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="AccentChrome" Property="Opacity" Value="0.78" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="AccentChrome" Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rounded message field used by the chat composer. -->
+        <Style x:Key="Layal.PillTextBox" TargetType="TextBox">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Setter Property="Padding" Value="18,10" />
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource Layal.Focus}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="PillChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="22" SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" VerticalAlignment="Center" Focusable="False" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="PillChrome" Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                                <Setter TargetName="PillChrome" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="PillChrome" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Minimise / maximise / close in the custom title bar. -->
+        <Style x:Key="Layal.CaptionButton" TargetType="Button">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CaptionChrome" Background="{TemplateBinding Background}" CornerRadius="10" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CaptionChrome" Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="CaptionChrome" Property="Opacity" Value="0.8" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
