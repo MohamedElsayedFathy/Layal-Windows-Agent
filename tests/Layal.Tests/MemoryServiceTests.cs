@@ -1,3 +1,4 @@
+using Layal.Models;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -59,6 +60,36 @@ public sealed class MemoryServiceTests
         Assert.IsTrue(reloaded.Delete(note.Id));
         Assert.AreEqual(0, new MemoryService(path).GetAll().Count);
         Assert.IsFalse(reloaded.Delete(note.Id));
+    }
+
+
+    [TestMethod]
+    public void ExistingMemoryFileIsPrunedToNewestRetentionLimit()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory.dpapi");
+        var store = new ProtectedJsonStore<List<MemoryNote>>(path);
+        var now = DateTimeOffset.UtcNow;
+        var notes = Enumerable.Range(0, MemoryService.MaxSavedNotes + 5)
+            .Select(i => new MemoryNote
+            {
+                Id = $"note-{i}",
+                Title = $"Note {i}",
+                Content = "bounded note",
+                CreatedAt = now.AddMinutes(i),
+                UpdatedAt = now.AddMinutes(i)
+            })
+            .ToList();
+        store.Save(notes);
+
+        var service = new MemoryService(path);
+        var retained = service.GetAll();
+
+        Assert.AreEqual(MemoryService.MaxSavedNotes, retained.Count);
+        Assert.IsTrue(retained.Any(note => note.Id == $"note-{MemoryService.MaxSavedNotes + 4}"));
+        Assert.IsFalse(retained.Any(note => note.Id == "note-0"));
+        Assert.AreEqual(MemoryService.MaxSavedNotes, new ProtectedJsonStore<List<MemoryNote>>(path).Load(new List<MemoryNote>()).Count);
     }
 
     [TestMethod]
