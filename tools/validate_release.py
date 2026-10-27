@@ -49,6 +49,10 @@ required = [
     "tools/Sign-LayalFile.ps1",
     "tools/Verify-LayalDistributionIntegrity.ps1",
     "docs/CODE_SIGNING_AR.md",
+    "docs/RELEASE_GATE_EVIDENCE.json",
+    "docs/RELEASE_READINESS_GATE_AR.md",
+    "tools/validate_release_readiness.py",
+    "tests/python/test_manual_release_gate.py",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():

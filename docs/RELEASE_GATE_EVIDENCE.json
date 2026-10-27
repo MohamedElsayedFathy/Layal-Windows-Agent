@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "testedCommitSha": "",
+  "gates": {
+    "windowsDesktopAndSessions": {
+      "status": "PENDING",
+      "reviewedBy": "",
+      "reviewedOn": "",
+      "evidence": ""
+    },
+    "screenReaderAndHighContrast": {
+      "status": "PENDING",
+      "reviewedBy": "",
+      "reviewedOn": "",
+      "evidence": ""
+    },
+    "rtlLtrDisplayScaling": {
+      "status": "PENDING",
+      "reviewedBy": "",
+      "reviewedOn": "",
+      "evidence": ""
+    },
+    "multiMonitorDpi": {
+      "status": "PENDING",
+      "reviewedBy": "",
+      "reviewedOn": "",
+      "evidence": ""
+    }
+  }
+}

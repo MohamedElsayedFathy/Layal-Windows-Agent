@@ -74,6 +74,15 @@ if ($RequireCodeSigning) {
         (Join-Path $PSScriptRoot 'validate_licenses.py'),
         '--manifest-only', '--require-release-clearance'
     ) -Description 'Enforce release legal/license and asset-provenance preflight'
+
+    $releaseCommitSha = (& git -C $Root rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or $releaseCommitSha -notmatch '^[0-9a-fA-F]{40}$') {
+        throw 'Could not resolve the full Git commit SHA for the signed release candidate.'
+    }
+    Invoke-Checked -Executable 'python' -Arguments @(
+        (Join-Path $PSScriptRoot 'validate_release_readiness.py'),
+        '--require-manual-acceptance', '--commit-sha', $releaseCommitSha
+    ) -Description 'Enforce evidence-backed manual Windows release acceptance'
 }
 
 # Clear generated distribution outputs so stale SBOMs or notices cannot survive a rebuild.
