@@ -38,7 +38,7 @@ public sealed class ChatSessionService
                     Title = BuildTitle(legacyMessages, _defaultTitle),
                     CreatedAt = legacyMessages.Min(m => m.CreatedAt),
                     UpdatedAt = legacyMessages.Max(m => m.CreatedAt),
-                    Messages = legacyMessages.ToList()
+                    Messages = BoundMessages(legacyMessages)
                 };
                 _sessions.Add(migrated);
                 _store.Save(_sessions);
