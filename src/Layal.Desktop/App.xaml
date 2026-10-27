@@ -645,7 +645,7 @@
                                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18"
                                            VerticalAlignment="Center" HorizontalAlignment="Left"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}"
-                                           AutomationProperties.AccessibilityView="Raw" IsHitTestVisible="False" />
+                                           IsHitTestVisible="False" />
                                 <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"
                                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}">
                                     <ContentPresenter.ContentTemplate>
