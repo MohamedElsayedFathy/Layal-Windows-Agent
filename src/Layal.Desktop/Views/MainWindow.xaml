@@ -181,7 +181,7 @@
                             <Image Grid.Column="1" Width="112" Height="112" Margin="14,0,0,0" VerticalAlignment="Center"
                                    Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
-                                   AutomationProperties.AccessibilityView="Raw" IsHitTestVisible="False" Focusable="False" />
+                                   IsHitTestVisible="False" Focusable="False" />
                         </Grid>
                     </Border>
                     <ListBox x:Name="ChatMessagesList" Grid.Row="1" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="8" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
