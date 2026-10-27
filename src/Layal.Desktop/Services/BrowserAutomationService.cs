@@ -479,7 +479,7 @@ public sealed class BrowserAutomationService
         return "(() => {const q=" + q + ",action=" + requested + ";" +
             "const matches=document.querySelectorAll(q);if(matches.length===0)return JSON.stringify({found:false,error:'No element matched the selector.'});" +
             "if(matches.length!==1)return JSON.stringify({found:false,error:'The selector matched multiple elements. Use a more specific selector; ambiguous actions are blocked.'});" +
-            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
+            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form);" +
@@ -503,7 +503,7 @@ public sealed class BrowserAutomationService
             ",action=" + actionJson + ",value=" + valueJson + ";" +
             "if(location.href!==expectedUrl)return JSON.stringify({ok:false,error:'The page URL changed while awaiting approval.'});" +
             "const matches=document.querySelectorAll(q);if(matches.length!==1)return JSON.stringify({ok:false,error:'The selector no longer matches exactly one element.'});" +
-            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase();" +
+            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase();" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form);" +
             "if(action==='click'&&((['button','input'].includes(tag)&&['submit','reset'].includes(type))||formAssociated))return JSON.stringify({ok:false,error:'Form-associated controls and submit/reset actions are blocked by browser_click.'});" +
