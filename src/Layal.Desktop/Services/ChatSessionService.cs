@@ -246,7 +246,10 @@ public sealed class ChatSessionService
     {
         var firstUserMessage = messages.FirstOrDefault(m => m.Role == "user" && !string.IsNullOrWhiteSpace(m.Content));
         if (firstUserMessage is null) return fallback;
-        var title = string.Join(" ", firstUserMessage.Content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        // Bound work during migration of an older, potentially oversized history file.
+        var content = firstUserMessage.Content ?? string.Empty;
+        if (content.Length > 512) content = content[..512];
+        var title = string.Join(" ", content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return title.Length <= 48 ? title : title[..48] + "…";
     }
 }
