@@ -276,10 +276,123 @@ data: [DONE]
         Assert.AreEqual(1, echoed.Count);
     }
 
+    [TestMethod]
+    public async Task ChatRejectsOversizedJsonResponseBeforeReadingItsBody()
+    {
+        var content = new StringContent(
+            "{\"choices\":[{\"message\":{\"content\":\"" + new string('x', 4 * 1024 * 1024) + "\"}}]}",
+            Encoding.UTF8, "application/json");
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.ChatAsync("https://provider.example/v1", "model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "hello" } }));
+
+        StringAssert.Contains(error.Message, "safety limit");
+    }
+
+    [TestMethod]
+    public async Task ChatRejectsOversizedUnknownLengthJsonResponseDuringRead()
+    {
+        var json = "{\"choices\":[{\"message\":{\"content\":\"" + new string('x', 4 * 1024 * 1024) + "\"}}]}";
+        var bytes = Encoding.UTF8.GetBytes(json);
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new NonSeekableReadStream(bytes))
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.ChatAsync("https://provider.example/v1", "model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "hello" } }));
+
+        StringAssert.Contains(error.Message, "safety limit");
+    }
+
+    [TestMethod]
+    public async Task AgentTurnRejectsOversizedJsonResponse()
+    {
+        var content = new StringContent(
+            "{\"choices\":[{\"message\":{\"content\":\"" + new string('x', 4 * 1024 * 1024) + "\"}}]}",
+            Encoding.UTF8, "application/json");
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.AgentTurnAsync("https://provider.example/v1", "model", "key",
+                new JsonArray { new JsonObject { ["role"] = "user", ["content"] = "hello" } },
+                new JsonArray { new JsonObject { ["type"] = "function" } }));
+
+        StringAssert.Contains(error.Message, "safety limit");
+    }
+
+    [TestMethod]
+    public async Task ChatStreamRejectsUnknownLengthStreamThatExceedsResponseLimit()
+    {
+        var line = ": " + new string('k', 60 * 1024) + "\n";
+        var payload = Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat(line, (8 * 1024 * 1024 / Encoding.UTF8.GetByteCount(line)) + 2)));
+        using var handler = new RecordingHandler(_ => EventStreamResponse(new NonSeekableReadStream(payload)));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+            client.ChatStreamAsync("https://provider.example/v1", "model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "hello" } }, _ => { }));
+
+        StringAssert.Contains(error.Message, "stream exceeded");
+    }
+
+    [TestMethod]
+    public async Task ProviderErrorBodyIsTruncatedToDiagnosticLimit()
+    {
+        var content = new StringContent(new string('e', 64 * 1024), Encoding.UTF8, "text/plain");
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.BadGateway) { Content = content });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.ChatAsync("https://provider.example/v1", "model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "hello" } }));
+
+        StringAssert.Contains(error.Message, "error body truncated at 32 KB");
+        Assert.IsTrue(error.Message.Length < 1_000);
+    }
+
+    private sealed class NonSeekableReadStream(byte[] bytes) : Stream
+    {
+        private readonly MemoryStream _inner = new(bytes, writable: false);
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override int Read(Span<byte> buffer) => _inner.Read(buffer);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            _inner.ReadAsync(buffer, cancellationToken);
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            _inner.ReadAsync(buffer, offset, count, cancellationToken);
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _inner.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")
     };
+
+    private static HttpResponseMessage EventStreamResponse(Stream stream)
+    {
+        var content = new StreamContent(stream);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/event-stream");
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
 
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
     {

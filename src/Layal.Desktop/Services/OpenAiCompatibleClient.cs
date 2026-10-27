@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -10,6 +11,12 @@ namespace Layal.Services;
 /// <summary>Client for OpenAI-compatible chat completions, including optional tool/function calling.</summary>
 public sealed class OpenAiCompatibleClient
 {
+    private const int MaxJsonResponseBytes = 4 * 1024 * 1024;
+    private const int MaxErrorResponseBytes = 32 * 1024;
+    private const int MaxStreamResponseBytes = 8 * 1024 * 1024;
+    private const int MaxSseLineCharacters = 64 * 1024;
+    private const int MaxStreamedTextCharacters = 2 * 1024 * 1024;
+
     private static readonly HttpClient SharedProbeClient = new() { Timeout = TimeSpan.FromSeconds(15) };
     private static readonly HttpClient SharedChatClient = new() { Timeout = TimeSpan.FromSeconds(120) };
     private readonly Func<TimeSpan, HttpClient> _clientFactory;
@@ -56,12 +63,11 @@ public sealed class OpenAiCompatibleClient
         using var request = new HttpRequestMessage(HttpMethod.Post, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
         request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException(await FormatError(response, cancellationToken));
 
-        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
+        using var document = await ReadJsonDocumentAsync(response.Content, MaxJsonResponseBytes, cancellationToken);
         if (!document.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
             throw new InvalidOperationException("The provider returned no choices.");
         var message = choices[0].GetProperty("message");
@@ -148,7 +154,7 @@ public sealed class OpenAiCompatibleClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
 
-        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             var detail = await FormatError(response, cancellationToken);
@@ -164,8 +170,7 @@ public sealed class OpenAiCompatibleClient
             throw new InvalidOperationException("Image analysis failed: " + detail);
         }
 
-        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
+        using var document = await ReadJsonDocumentAsync(response.Content, MaxJsonResponseBytes, cancellationToken);
         if (!document.RootElement.TryGetProperty("choices", out var choices) ||
             choices.ValueKind != JsonValueKind.Array || choices.GetArrayLength() == 0)
             throw new InvalidOperationException("The vision model returned no answer. The provider may not support image analysis.");
@@ -211,8 +216,7 @@ public sealed class OpenAiCompatibleClient
 
         if (!string.Equals(response.Content.Headers.ContentType?.MediaType, "text/event-stream", StringComparison.OrdinalIgnoreCase))
         {
-            await using var jsonBody = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var document = await JsonDocument.ParseAsync(jsonBody, cancellationToken: cancellationToken);
+            using var document = await ReadJsonDocumentAsync(response.Content, MaxJsonResponseBytes, cancellationToken);
             if (!document.RootElement.TryGetProperty("choices", out var jsonChoices) || jsonChoices.GetArrayLength() == 0)
                 throw new InvalidOperationException("The provider returned no choices.");
             var jsonMessage = jsonChoices[0].GetProperty("message");
@@ -223,12 +227,18 @@ public sealed class OpenAiCompatibleClient
             return fullText;
         }
 
+        if (response.Content.Headers.ContentLength is > MaxStreamResponseBytes)
+            throw new InvalidOperationException("The provider stream exceeds the 8 MB safety limit.");
+
         var result = new StringBuilder();
         await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new StreamReader(body);
+        using var limitedBody = new ResponseLimitStream(body, MaxStreamResponseBytes);
+        using var reader = new StreamReader(limitedBody, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
         while (await reader.ReadLineAsync(cancellationToken) is { } line)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (line.Length > MaxSseLineCharacters)
+                throw new InvalidOperationException("The provider sent an SSE line larger than the 64 KB safety limit.");
             if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
             var data = line[5..].Trim();
             if (data.Length == 0) continue;
@@ -252,6 +262,8 @@ public sealed class OpenAiCompatibleClient
                         ? legacyText.GetString() ?? string.Empty
                         : string.Empty;
                 if (text.Length == 0) continue;
+                if (text.Length > MaxStreamedTextCharacters - result.Length)
+                    throw new InvalidOperationException("The provider response text exceeds the 2 MB safety limit.");
                 result.Append(text);
                 onDelta(text);
             }
@@ -302,11 +314,15 @@ public sealed class OpenAiCompatibleClient
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
-        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException(await FormatError(response, cancellationToken));
 
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var (responseBytes, _) = await ReadLimitedResponseBytesAsync(
+            response.Content, MaxJsonResponseBytes, cancellationToken, rejectOversized: true);
+        string responseJson;
+        try { responseJson = Encoding.UTF8.GetString(responseBytes); }
+        finally { Array.Clear(responseBytes, 0, responseBytes.Length); }
         JsonObject root;
         try { root = JsonNode.Parse(responseJson) as JsonObject ?? throw new JsonException("Root is not an object."); }
         catch (JsonException) { throw new InvalidOperationException("The provider returned invalid JSON."); }
@@ -348,6 +364,163 @@ public sealed class OpenAiCompatibleClient
         return new AgentTurnResult((JsonObject)message.DeepClone(), content, calls);
     }
 
+    private static async Task<JsonDocument> ReadJsonDocumentAsync(
+        HttpContent content,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var (bytes, _) = await ReadLimitedResponseBytesAsync(content, maxBytes, cancellationToken, rejectOversized: true);
+        try
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            Array.Clear(bytes, 0, bytes.Length);
+        }
+    }
+
+    /// <summary>
+    /// Reads at most maxBytes from an HTTP response body. Oversized successful payloads fail closed;
+    /// error payloads may return a bounded prefix for diagnostics. Unknown-length bodies that reach
+    /// the cap are treated as truncated rather than waiting indefinitely for another byte.
+    /// </summary>
+    private static async Task<(byte[] Bytes, bool Truncated)> ReadLimitedResponseBytesAsync(
+        HttpContent content,
+        int maxBytes,
+        CancellationToken cancellationToken,
+        bool rejectOversized)
+    {
+        var declaredLength = content.Headers.ContentLength;
+        if (rejectOversized && declaredLength.HasValue && declaredLength.Value > maxBytes)
+            throw new InvalidOperationException($"The provider response exceeds the {maxBytes / 1024} KB safety limit.");
+
+        var initialCapacity = declaredLength.HasValue && declaredLength.Value >= 0 && declaredLength.Value <= maxBytes
+            ? (int)declaredLength.Value
+            : Math.Min(maxBytes, 16 * 1024);
+        await using var input = await content.ReadAsStreamAsync(cancellationToken);
+        using var output = new MemoryStream(initialCapacity);
+        var buffer = new byte[16 * 1024];
+        var truncated = declaredLength.HasValue && declaredLength.Value > maxBytes;
+        try
+        {
+            while (output.Length < maxBytes)
+            {
+                var remaining = maxBytes - (int)output.Length;
+                var read = await input.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, remaining)), cancellationToken);
+                if (read == 0) break;
+                output.Write(buffer, 0, read);
+            }
+
+            if (output.Length == maxBytes &&
+                (!declaredLength.HasValue || declaredLength.Value != maxBytes))
+                truncated = true;
+
+            if (rejectOversized && truncated)
+                throw new InvalidOperationException($"The provider response exceeds the {maxBytes / 1024} KB safety limit.");
+
+            return (output.ToArray(), truncated);
+        }
+        finally
+        {
+            Array.Clear(buffer, 0, buffer.Length);
+            if (output.TryGetBuffer(out var segment) && segment.Array is not null)
+                Array.Clear(segment.Array, segment.Offset, segment.Count);
+        }
+    }
+
+    private sealed class ResponseLimitStream : Stream
+    {
+        private readonly Stream _inner;
+        private readonly long _maxBytes;
+        private long _bytesRead;
+        private bool _endChecked;
+
+        public ResponseLimitStream(Stream inner, long maxBytes)
+        {
+            _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            if (maxBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
+            _maxBytes = maxBytes;
+        }
+
+        public override bool CanRead => _inner.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            if (buffer.Length == 0) return 0;
+            if (_bytesRead < _maxBytes)
+            {
+                var count = (int)Math.Min(buffer.Length, _maxBytes - _bytesRead);
+                var read = _inner.Read(buffer[..count]);
+                _bytesRead += read;
+                return read;
+            }
+
+            if (_endChecked) return 0;
+            _endChecked = true;
+            if (_inner.ReadByte() >= 0)
+                throw new InvalidDataException("The provider stream exceeded the 8 MB safety limit.");
+            return 0;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ReadAsyncCore(buffer, cancellationToken);
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        private async ValueTask<int> ReadAsyncCore(Memory<byte> buffer, CancellationToken cancellationToken)
+        {
+            if (buffer.Length == 0) return 0;
+            if (_bytesRead < _maxBytes)
+            {
+                var count = (int)Math.Min(buffer.Length, _maxBytes - _bytesRead);
+                var read = await _inner.ReadAsync(buffer[..count], cancellationToken);
+                _bytesRead += read;
+                return read;
+            }
+
+            if (_endChecked) return 0;
+            _endChecked = true;
+            var probe = new byte[1];
+            try
+            {
+                if (await _inner.ReadAsync(probe.AsMemory(), cancellationToken) > 0)
+                    throw new InvalidDataException("The provider stream exceeded the 8 MB safety limit.");
+                return 0;
+            }
+            finally
+            {
+                Array.Clear(probe, 0, probe.Length);
+            }
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _inner.Dispose();
+            base.Dispose(disposing);
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            await _inner.DisposeAsync();
+            GC.SuppressFinalize(this);
+        }
+    }
+
     private static string ReadStringLoose(JsonNode? node)
     {
         if (node is not JsonValue value) return string.Empty;
@@ -383,9 +556,27 @@ public sealed class OpenAiCompatibleClient
     private static async Task<string> FormatError(HttpResponseMessage response, CancellationToken token)
     {
         string body;
-        try { body = await response.Content.ReadAsStringAsync(token); }
-        catch { body = string.Empty; }
+        var truncated = false;
+        byte[]? bytes = null;
+        try
+        {
+            var read = await ReadLimitedResponseBytesAsync(
+                response.Content, MaxErrorResponseBytes, token, rejectOversized: false);
+            bytes = read.Bytes;
+            truncated = read.Truncated;
+            body = Encoding.UTF8.GetString(bytes);
+        }
+        catch
+        {
+            body = string.Empty;
+        }
+        finally
+        {
+            if (bytes is not null) Array.Clear(bytes, 0, bytes.Length);
+        }
+
         if (body.Length > 800) body = body[..800] + "…";
+        if (truncated) body += " [error body truncated at 32 KB]";
         return string.IsNullOrWhiteSpace(body)
             ? $"Provider request failed with HTTP {(int)response.StatusCode} ({response.ReasonPhrase})."
             : $"Provider request failed with HTTP {(int)response.StatusCode}: {body}";
