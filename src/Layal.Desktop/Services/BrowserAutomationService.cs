@@ -51,6 +51,29 @@ public sealed class BrowserAutomationService
         return selector;
     }
 
+    /// <summary>
+    /// Rejects clicks that can directly submit/reset an HTML form or target an element inside or
+    /// associated with a form. Allowed page click handlers can still have side effects.
+    /// </summary>
+    public static void ValidateBrowserClickTarget(string tag, string type, string role, bool formAssociated)
+    {
+        var normalizedTag = (tag ?? string.Empty).Trim().ToLowerInvariant();
+        var normalizedType = (type ?? string.Empty).Trim().ToLowerInvariant();
+        var normalizedRole = (role ?? string.Empty).Trim().ToLowerInvariant();
+
+        if ((normalizedTag is "button" or "input") && (normalizedType is "submit" or "reset"))
+            throw new InvalidOperationException("Submit and reset controls are not supported by browser_click.");
+
+        if (formAssociated)
+            throw new InvalidOperationException("Controls inside or associated with an HTML form cannot be clicked by Layal. Fill fields if needed, then submit or reset the form manually in the browser.");
+
+        var clickable = normalizedTag is "a" or "button" or "summary" ||
+            normalizedRole == "button" ||
+            (normalizedTag == "input" && normalizedType == "button");
+        if (!clickable)
+            throw new InvalidOperationException("Only a visible HTTP/HTTPS link, standalone button, role=button, input type=button, or summary can be clicked.");
+    }
+
     public async Task<string> NavigateAsync(string url, CancellationToken token = default)
     {
         var targetUrl = ValidateHttpUrl(url);
@@ -130,6 +153,13 @@ public sealed class BrowserAutomationService
             if (!root.TryGetProperty("found", out var found) || !found.GetBoolean())
                 throw new InvalidOperationException(root.TryGetProperty("error", out var error) ? error.GetString() : "No element matched this selector.");
 
+            var elementTag = root.GetProperty("tag").GetString() ?? string.Empty;
+            var elementType = root.TryGetProperty("type", out var type) ? type.GetString() ?? string.Empty : string.Empty;
+            var elementRole = root.TryGetProperty("role", out var role) ? role.GetString() ?? string.Empty : string.Empty;
+            var formAssociated = root.TryGetProperty("formAssociated", out var formOwner) && formOwner.GetBoolean();
+            if (action == "click")
+                ValidateBrowserClickTarget(elementTag, elementType, elementRole, formAssociated);
+
             var snapshot = await ReadPageSnapshotAsync(page, token);
             return new BrowserElementPreview(
                 action,
@@ -137,8 +167,8 @@ public sealed class BrowserAutomationService
                 snapshot.Url,
                 selector,
                 root.GetProperty("fingerprint").GetString() ?? string.Empty,
-                root.GetProperty("tag").GetString() ?? string.Empty,
-                root.TryGetProperty("type", out var type) ? type.GetString() ?? string.Empty : string.Empty,
+                elementTag,
+                elementType,
                 root.TryGetProperty("id", out var id) ? id.GetString() ?? string.Empty : string.Empty,
                 root.TryGetProperty("name", out var name) ? name.GetString() ?? string.Empty : string.Empty,
                 root.TryGetProperty("label", out var label) ? label.GetString() ?? string.Empty : string.Empty,
@@ -452,14 +482,14 @@ public sealed class BrowserAutomationService
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
-            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'';" +
-            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type, label, text, href:e.href||''});" +
+            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form);" +
+            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated});" +
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
             "if(disabled)return JSON.stringify({found:false,error:'The selected element is disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});" +
             "if(tag==='a'&&(!e.href||!/^https?:/i.test(e.href)))return JSON.stringify({found:false,error:'Only anchors with HTTP/HTTPS destinations are allowed for browser clicks.'});}" +
             "if(action==='fill'){const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;if(!allowed||readOnly)return JSON.stringify({found:false,error:'Selector must match an editable visible text/email/search/tel/url/number input, textarea, or contenteditable field. Password/file/hidden fields are not supported.'});}" +
-            "return JSON.stringify({found:true,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',disabled,readOnly,fingerprint:fp});})()";
+            "return JSON.stringify({found:true,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',role,formAssociated,disabled,readOnly,fingerprint:fp});})()";
     }
 
     private static string BuildActionExpression(BrowserElementPreview preview, string action, string value)
@@ -475,8 +505,9 @@ public sealed class BrowserAutomationService
             "const matches=document.querySelectorAll(q);if(matches.length!==1)return JSON.stringify({ok:false,error:'The selector no longer matches exactly one element.'});" +
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase();" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
-            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'';" +
-            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||''});" +
+            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form);" +
+            "if(action==='click'&&((['button','input'].includes(tag)&&['submit','reset'].includes(type))||formAssociated))return JSON.stringify({ok:false,error:'Form-associated controls and submit/reset actions are blocked by browser_click.'});" +
+            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated});" +
             "if(fp!==expectedFp)return JSON.stringify({ok:false,error:'The selected element changed while awaiting approval. Inspect the page again.'});" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
             "if(!visible||e.disabled===true)return JSON.stringify({ok:false,error:'The selected element is hidden or disabled.'});" +
