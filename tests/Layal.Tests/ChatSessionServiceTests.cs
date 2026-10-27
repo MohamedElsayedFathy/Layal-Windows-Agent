@@ -80,6 +80,26 @@ public sealed class ChatSessionServiceTests
         Assert.IsTrue(saved.Sum(message => message.Content.Length) <= ChatSessionService.MaxConversationCharacters);
     }
 
+
+    [TestMethod]
+    public void SavingMessagesBoundsAggregateCharactersPerConversation()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted session persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var legacy = new ProtectedJsonStore<List<ChatMessage>>(System.IO.Path.Combine(temp.Path, "legacy.dpapi"));
+        var service = new ChatSessionService(System.IO.Path.Combine(temp.Path, "sessions.dpapi"), legacy);
+
+        var messages = Enumerable.Range(0, 10)
+            .Select(i => new ChatMessage { Role = i % 2 == 0 ? "user" : "assistant", Content = $"message-{i}:" + new string('x', 12000) })
+            .ToList();
+        service.SaveCurrentMessages(messages);
+
+        var saved = service.GetCurrent().Messages;
+        Assert.IsTrue(saved.Count < messages.Count);
+        Assert.IsTrue(saved.Sum(message => message.Content.Length) <= ChatSessionService.MaxConversationCharacters);
+        Assert.AreEqual($"message-{messages.Count - 1}:" + new string('x', 12000), saved[^1].Content);
+    }
+
     [TestMethod]
     public void CreatingConversationsPrunesOldestAndPreservesCurrentConversation()
     {
