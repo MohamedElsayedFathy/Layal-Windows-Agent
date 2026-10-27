@@ -312,7 +312,8 @@ data: [DONE]
     [TestMethod]
     public async Task ChatStreamRejectsUnknownLengthStreamThatExceedsResponseLimit()
     {
-        var payload = Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat(": keepalive\\n", (8 * 1024 * 1024 / 12) + 256)));
+        var line = ": " + new string('k', 60 * 1024) + "\n";
+        var payload = Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat(line, (8 * 1024 * 1024 / Encoding.UTF8.GetByteCount(line)) + 2)));
         using var handler = new RecordingHandler(_ => EventStreamResponse(new NonSeekableReadStream(payload)));
         var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
 
