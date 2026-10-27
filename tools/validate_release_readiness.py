@@ -62,7 +62,7 @@ def validate_manual_acceptance(
         if not reviewer:
             errors.append(f"{label}: reviewedBy is required.")
         reviewed_on = str(gate.get("reviewedOn") or "").strip()
-        if not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", reviewed_on):
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", reviewed_on):
             errors.append(f"{label}: reviewedOn must be an ISO date (YYYY-MM-DD).")
         else:
             try:
