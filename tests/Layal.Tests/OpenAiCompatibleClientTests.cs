@@ -312,12 +312,8 @@ data: [DONE]
     [TestMethod]
     public async Task ChatStreamRejectsUnknownLengthStreamThatExceedsResponseLimit()
     {
-        var payload = Encoding.UTF8.GetBytes("data: " + new string('x', 8 * 1024 * 1024 + 128) + "\\n\\n");
-        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StreamContent(new NonSeekableReadStream(payload))
-        });
-        handler.ResponseContentType = "text/event-stream";
+        var payload = Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat(": keepalive\\n", (8 * 1024 * 1024 / 12) + 256)));
+        using var handler = new RecordingHandler(_ => EventStreamResponse(new NonSeekableReadStream(payload)));
         var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
 
         var error = await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
@@ -360,12 +356,24 @@ data: [DONE]
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _inner.Dispose();
+            base.Dispose(disposing);
+        }
     }
 
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")
     };
+
+    private static HttpResponseMessage EventStreamResponse(Stream stream)
+    {
+        var content = new StreamContent(stream);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/event-stream");
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
 
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
     {
