@@ -82,7 +82,7 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("MainTabs was not found.");
         Assert.AreSame(window.FindName("ChatTab"), tabs.SelectedItem,
             "The primary window must open directly into the glass chat view, not the legacy home dashboard.");
-        foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell" })
+        foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell", "SidebarOverlay", "SidebarBrandRow", "SidebarFooterPanel" })
             Assert.IsNotNull(window.FindName(visualSurface),
                 $"The updated layered-glass chat surface '{visualSurface}' must be present in the shipped UI.");
         var applyTheme = typeof(MainWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -505,6 +505,22 @@ public sealed class MainWindowVisualSmokeTests
 
         Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
             "The whole window must not be mirrored to achieve Arabic RTL text.");
+
+        var mainTabs = window.FindName("MainTabs") as TabControl
+            ?? throw new InvalidOperationException("MainTabs was not found.");
+        Assert.AreEqual(expectedWritingDirection, mainTabs.FlowDirection,
+            $"The navigation shell must reflect the selected writing direction for {language}.");
+        var sidebar = window.FindName("SidebarOverlay") as Grid
+            ?? throw new InvalidOperationException("SidebarOverlay was not found.");
+        Assert.AreEqual(ar ? HorizontalAlignment.Right : HorizontalAlignment.Left, sidebar.HorizontalAlignment,
+            $"The brand/settings overlay must stay aligned with the navigation rail for {language}.");
+        foreach (var panelName in new[] { "SidebarBrandRow", "SidebarFooterPanel" })
+        {
+            var panel = window.FindName(panelName) as FrameworkElement
+                ?? throw new InvalidOperationException($"Expected RTL-aware sidebar panel '{panelName}' was not found.");
+            Assert.AreEqual(expectedWritingDirection, panel.FlowDirection,
+                $"Sidebar panel '{panelName}' has the wrong flow direction for {language}.");
+        }
 
         var taskResult = window.FindName("TaskResult") as TextBox
             ?? throw new InvalidOperationException("TaskResult was not found.");
