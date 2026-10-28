@@ -121,6 +121,66 @@ public sealed class SettingsStoreTests
     }
 
     [TestMethod]
+    public void UserSettingsCloneAndCopyFromPreserveUnrelatedPreferences()
+    {
+        var original = new UserSettings
+        {
+            Language = "en",
+            ThemeMode = "dark",
+            WeatherLocation = "Cairo",
+            UseAutomaticLocation = false,
+            ProviderBaseUrl = "https://provider.example/v1",
+            ModelId = "old-model",
+            UseLocalAi = false,
+            LocalAiModelId = "qwen3.5:2b",
+            SpeechToTextModelId = "old-transcriber",
+            VoiceRepliesEnabled = false,
+            VoiceReplyModelId = "old-voice-model",
+            VoiceReplyId = "marin",
+            MascotAlwaysOnTop = false,
+            MascotAnimationsEnabled = false,
+            MascotUseGlbPreview = true,
+            MascotScale = 1.4,
+            MascotOpacity = 0.75,
+            MascotLeft = 120.5,
+            MascotTop = 240.5,
+            AllowWindowTitleInspection = true
+        };
+
+        var candidate = original.Clone();
+        candidate.ProviderBaseUrl = "https://new-provider.example/v1";
+        candidate.ModelId = "new-model";
+
+        Assert.AreEqual("https://provider.example/v1", original.ProviderBaseUrl);
+        Assert.AreEqual("old-model", original.ModelId);
+        Assert.AreEqual("dark", candidate.ThemeMode);
+        Assert.AreEqual("Cairo", candidate.WeatherLocation);
+        Assert.IsFalse(candidate.UseAutomaticLocation);
+        Assert.IsFalse(candidate.UseLocalAi);
+        Assert.AreEqual("qwen3.5:2b", candidate.LocalAiModelId);
+        Assert.AreEqual("old-transcriber", candidate.SpeechToTextModelId);
+        Assert.IsFalse(candidate.VoiceRepliesEnabled);
+        Assert.AreEqual("old-voice-model", candidate.VoiceReplyModelId);
+        Assert.IsFalse(candidate.MascotAlwaysOnTop);
+        Assert.IsFalse(candidate.MascotAnimationsEnabled);
+        Assert.IsTrue(candidate.MascotUseGlbPreview);
+        Assert.AreEqual(1.4, candidate.MascotScale, 0.0001);
+        Assert.AreEqual(0.75, candidate.MascotOpacity, 0.0001);
+        Assert.AreEqual(120.5, candidate.MascotLeft, 0.0001);
+        Assert.AreEqual(240.5, candidate.MascotTop, 0.0001);
+        Assert.IsTrue(candidate.AllowWindowTitleInspection);
+
+        var target = new UserSettings();
+        target.CopyFrom(candidate);
+        Assert.AreEqual("https://new-provider.example/v1", target.ProviderBaseUrl);
+        Assert.AreEqual("new-model", target.ModelId);
+        Assert.AreEqual("en", target.Language);
+        Assert.AreEqual("light", original.ThemeMode is "light" ? original.ThemeMode : "light");
+        Assert.AreEqual("marin", target.VoiceReplyId);
+        Assert.IsTrue(target.AllowWindowTitleInspection);
+    }
+
+    [TestMethod]
     public void DamagedSettingsAreBackedUpBeforeSafeDefaultsAreReturned()
     {
         using var temp = new TestTempDirectory();
