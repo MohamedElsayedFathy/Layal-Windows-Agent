@@ -321,8 +321,8 @@ public sealed class VoiceConversationService : IDisposable
     private static BufferedWaveProvider CreatePlaybackBuffer() =>
         new BufferedWaveProvider(new WaveFormat(SampleRate, BitsPerSample, Channels))
         {
-            BufferLength = SampleRate * Channels * (BitsPerSample / 8) * PlaybackBufferDurationSeconds,
-            // Never drop assistant audio silently. AddSamples throws on overflow and the caller
+            // NAudio 3 fixes this provider's default capacity at five seconds.
+            // Never drop assistant audio silently: AddSamples throws on overflow and the caller
             // turns that into an explicit session error rather than speaking a corrupted reply.
             DiscardOnBufferOverflow = false
         };
