@@ -29,7 +29,11 @@ public sealed class VoiceConversationService : IDisposable
     private const int BitsPerSample = 16;
     private const int BytesPerMillisecond = SampleRate * Channels * (BitsPerSample / 8) / 1000;
     private const int MaxEventBytes = 2 * 1024 * 1024;
-    private const int CaptureQueueCapacity = 24;
+    private const int CaptureFrameDurationMilliseconds = 50;
+    // Buffer about 3.2 seconds of microphone audio to absorb brief send/network stalls.
+    // When full, fail explicitly rather than silently discarding captured speech.
+    public const int CaptureQueueCapacityFrames = 64;
+    private const int PlaybackBufferDurationSeconds = 5;
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private int _running;
     private int _disposed;
@@ -102,12 +106,7 @@ public sealed class VoiceConversationService : IDisposable
 
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = lifetime.Token;
-        var captureQueue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(CaptureQueueCapacity)
-        {
-            SingleReader = true,
-            SingleWriter = true,
-            FullMode = BoundedChannelFullMode.Wait
-        });
+        var captureQueue = CreateCaptureQueue();
 
         Exception? inputPipelineError = null;
         ClientWebSocket? socket = null;
@@ -134,12 +133,7 @@ public sealed class VoiceConversationService : IDisposable
             using (var updated = await ReadUntilEventAsync(socket, "session.updated", token))
                 _ = updated.RootElement.ValueKind;
 
-            playback = new BufferedWaveProvider(new WaveFormat(SampleRate, BitsPerSample, Channels))
-            {
-                // NAudio 3 uses a bounded five-second buffer by default; drop overflow rather
-                // than crashing the live conversation if the output device briefly falls behind.
-                DiscardOnBufferOverflow = true
-            };
+            playback = CreatePlaybackBuffer();
             output = new WaveOut();
             output.Init(playback);
 
@@ -147,7 +141,7 @@ public sealed class VoiceConversationService : IDisposable
             {
                 DeviceNumber = 0,
                 WaveFormat = new WaveFormat(SampleRate, BitsPerSample, Channels),
-                BufferMilliseconds = 50,
+                BufferMilliseconds = CaptureFrameDurationMilliseconds,
                 NumberOfBuffers = 3
             };
 
@@ -163,8 +157,11 @@ public sealed class VoiceConversationService : IDisposable
                 if (!captureQueue.Writer.TryWrite(frame))
                 {
                     Array.Clear(frame, 0, frame.Length);
+                    var bufferedSeconds = CaptureQueueCapacityFrames * CaptureFrameDurationMilliseconds / 1000d;
                     Interlocked.CompareExchange(ref inputPipelineError,
-                        new InvalidOperationException("Realtime audio sending fell behind microphone capture. Stop and restart the voice conversation."), null);
+                        new InvalidOperationException(
+                            $"Realtime microphone transmission lagged beyond the bounded {CaptureQueueCapacityFrames}-frame queue (about {bufferedSeconds:0.#} seconds). " +
+                            "The session was stopped to avoid silently losing input audio. Check the connection and retry."), null);
                     lifetime.Cancel();
                 }
             };
@@ -313,6 +310,23 @@ public sealed class VoiceConversationService : IDisposable
         }
     }
 
+    private static Channel<byte[]> CreateCaptureQueue() =>
+        Channel.CreateBounded<byte[]>(new BoundedChannelOptions(CaptureQueueCapacityFrames)
+        {
+            SingleReader = true,
+            SingleWriter = true,
+            FullMode = BoundedChannelFullMode.Wait
+        });
+
+    private static BufferedWaveProvider CreatePlaybackBuffer() =>
+        new BufferedWaveProvider(new WaveFormat(SampleRate, BitsPerSample, Channels))
+        {
+            // NAudio 3 fixes this provider's default capacity at five seconds.
+            // Never drop assistant audio silently: AddSamples throws on overflow and the caller
+            // turns that into an explicit session error rather than speaking a corrupted reply.
+            DiscardOnBufferOverflow = false
+        };
+
     private async Task SendMicrophoneFramesAsync(
         ClientWebSocket socket,
         ChannelReader<byte[]> frames,
@@ -390,7 +404,17 @@ public sealed class VoiceConversationService : IDisposable
                 state.ReceivedBytes = 0;
             }
 
-            state.Buffer.AddSamples(frame, 0, frame.Length);
+            try
+            {
+                state.Buffer.AddSamples(frame, 0, frame.Length);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new InvalidOperationException(
+                    $"Realtime playback exceeded its {PlaybackBufferDurationSeconds}-second safety buffer. " +
+                    "The session was stopped instead of silently discarding assistant audio. Check the output device and system load, then retry.",
+                    ex);
+            }
             state.ReceivedBytes += frame.Length;
             if (!state.OutputStarted)
             {

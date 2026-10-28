@@ -1,7 +1,10 @@
 using System;
+using System.Reflection;
+using System.Threading.Channels;
 using System.Text.Json;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NAudio.Wave;
 
 namespace Layal.Tests;
 
@@ -45,6 +48,62 @@ public sealed class VoiceConversationServiceTests
             VoiceConversationService.BuildSessionUpdate("gpt-realtime-2.1-mini", "untrusted-voice", "Speak naturally."));
         AssertInvalidOperation(() =>
             VoiceConversationService.BuildSessionUpdate("gpt-realtime-2.1-mini", "marin", " "));
+    }
+
+    [TestMethod]
+    public void CaptureQueueBuffersShortStallsAndNeverSilentlyDropsFrames()
+    {
+        var queue = InvokePrivateFactory<Channel<byte[]>>("CreateCaptureQueue");
+
+        for (var i = 0; i < VoiceConversationService.CaptureQueueCapacityFrames; i++)
+            Assert.IsTrue(queue.Writer.TryWrite(new byte[] { (byte)i }), $"Frame {i} should fit in the bounded queue.");
+
+        Assert.IsFalse(queue.Writer.TryWrite(new byte[] { 255 }),
+            "A full queue must report backpressure instead of silently dropping an older frame.");
+
+        var drained = 0;
+        while (queue.Reader.TryRead(out var frame))
+        {
+            Array.Clear(frame, 0, frame.Length);
+            drained++;
+        }
+
+        Assert.AreEqual(VoiceConversationService.CaptureQueueCapacityFrames, drained,
+            "All accepted microphone frames must remain available for sending.");
+        Assert.IsTrue(drained >= 60,
+            "The queue should absorb about three seconds of 50 ms microphone frames before failing closed.");
+        queue.Writer.TryComplete();
+    }
+
+    [TestMethod]
+    public void PlaybackBufferRejectsOverflowInsteadOfDiscardingAssistantAudio()
+    {
+        var playback = InvokePrivateFactory<BufferedWaveProvider>("CreatePlaybackBuffer");
+
+        Assert.IsFalse(playback.DiscardOnBufferOverflow,
+            "The assistant audio provider must not discard samples silently.");
+        Assert.AreEqual(TimeSpan.FromSeconds(5), playback.BufferDuration);
+
+        var tooMuchAudio = new byte[playback.BufferLength + 2];
+        var overflowThrown = false;
+        try { playback.AddSamples(tooMuchAudio, 0, tooMuchAudio.Length); }
+        catch (InvalidOperationException) { overflowThrown = true; }
+        Assert.IsTrue(overflowThrown, "The provider must raise an overflow instead of discarding assistant audio.");
+        Assert.AreEqual(playback.BufferLength, playback.BufferedBytes,
+            "Overflow is surfaced explicitly; the caller then aborts and clears the damaged response.");
+        playback.ClearBuffer();
+    }
+
+    private static T InvokePrivateFactory<T>(string methodName)
+    {
+        var method = typeof(VoiceConversationService).GetMethod(
+            methodName,
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(method, $"Expected production factory {methodName} to exist.");
+        var result = method!.Invoke(null, null);
+        Assert.IsNotNull(result);
+        Assert.IsInstanceOfType(result, typeof(T));
+        return (T)result!;
     }
 
     private static void AssertInvalidOperation(Action action)
