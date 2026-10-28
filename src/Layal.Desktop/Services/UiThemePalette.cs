@@ -23,7 +23,7 @@ public static class UiThemePalette
             ["Layal.Color.Cyan"] = dark ? "#76DFE8" : "#087B8F",
             ["Layal.Color.Purple"] = dark ? "#B6A5FF" : "#7563D6",
             ["Layal.Color.Text"] = dark ? "#EDF2FF" : "#1C2940",
-            ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#5D6D84",
+            ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#4D5C75",
             ["Layal.Color.ScrollThumb"] = dark ? "#50617A" : "#9BAEC7",
             ["Layal.Color.Success"] = dark ? "#73DEAA" : "#177A57",
             ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
