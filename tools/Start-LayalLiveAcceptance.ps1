@@ -57,8 +57,11 @@ if ($gitHead -ine $TestedCommitSha) {
 }
 
 $artifactUri = $null
-if (-not [Uri]::TryCreate($ArtifactReference, [UriKind]::Absolute, [ref]$artifactUri) -or $artifactUri.Scheme -ne 'https') {
+if (-not [Uri]::TryCreate($ArtifactReference, [UriKind]::Absolute, [ref]$artifactUri)) {
     throw 'ArtifactReference must be an absolute HTTPS URL.'
+}
+if ($artifactUri.Scheme -ne 'https') {
+    throw 'ArtifactReference must use HTTPS.'
 }
 
 $pwshCommand = Get-Command 'pwsh' -ErrorAction SilentlyContinue
@@ -79,6 +82,7 @@ if (Test-Path -LiteralPath $sessionDirectory) {
     throw "Refusing to overwrite existing acceptance evidence: $sessionDirectory"
 }
 New-Item -ItemType Directory -Path $sessionDirectory -Force | Out-Null
+$startedAtLocal = [DateTimeOffset]::Now.ToString('o')
 
 $resolvedScriptDirectory = Join-Path $repoRoot 'tools'
 $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem
@@ -272,7 +276,7 @@ $manualGates = [ordered]@{
 $failedRuns = @($testRuns | Where-Object { $_.Status -ne 'PASS' })
 $session = [pscustomobject]@{
     SchemaVersion = 1
-    StartedAtLocal = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss.fffzzz')
+    StartedAtLocal = $startedAtLocal
     CompletedAtLocal = [DateTimeOffset]::Now.ToString('o')
     Decision = 'NO-GO'
     AutomatedDiagnosticsStatus = if ($failedRuns.Count -eq 0) { 'PASS' } else { 'FAIL' }
