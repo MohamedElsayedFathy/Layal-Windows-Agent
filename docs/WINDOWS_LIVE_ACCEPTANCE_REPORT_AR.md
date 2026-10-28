@@ -61,6 +61,28 @@
 
 ## 4. أوامر التشخيص المتاحة
 
+### تشغيل حزمة تشخيص موحّدة على جهاز Windows فعلي
+
+يوفّر `tools/Start-LayalLiveAcceptance.ps1` مشغّلًا واحدًا للاختبارات التفاعلية الموجودة: تمرير النقرات الأصلي، والسحب، والتنقل بلوحة المفاتيح، ومعاينة GLB المتحركة، ورصد الشاشة وDPI. ويجمع سجلاتها في مجلد جلسة واحد مع إصدار Windows، وعدد الشاشات وحدودها، وإصدار الملف التنفيذي وبصمة SHA-256، والـ commit الذي بُني منه التطبيق.
+
+**لا تشغّل هذا الأمر في GitHub Actions أو جلسة غير تفاعلية.** أجره على جهاز Windows المستهدف، من checkout كامل على نفس الـ commit الذي بُني منه ملف `Layal.exe`. سيحرّك الاختبار بعض النوافذ والمؤشر، لذا اترك سطح المكتب للاختبار وأغلق التطبيقات المهمة أولًا.
+
+```powershell
+git checkout <EXACT-TESTED-COMMIT-SHA>
+dotnet build Layal.sln --configuration Release
+$testedCommitSha = (git rev-parse HEAD).Trim()
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-LayalLiveAcceptance.ps1 `
+  -LayalExePath ".\src\Layal.Desktop\bin\Release\net10.0-windows10.0.19041.0\Layal.exe" `
+  -DeviceId "lab-device-01" `
+  -TestedCommitSha $testedCommitSha `
+  -ArtifactReference "https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/<RUN-ID>"
+```
+
+استبدل `<EXACT-TESTED-COMMIT-SHA>` و`<RUN-ID>` بالقيم الفعلية للحزمة المختبرة. يجب أن يكون `ArtifactReference` رابط HTTPS لتشغيل البناء أو الـ artifact نفسه، وأن يطابق `TestedCommitSha` قيمة HEAD. استخدم معرّف جهاز غير شخصي. ولإلزام اختبار انتقال فعلي بين شاشتين مضبوطتين على مقاسي DPI مختلفين، أضف `-RequireMixedDpiTransition`؛ عندئذ يفشل الاختبار إذا لم يرصد الانتقال المطلوب.
+
+ينشئ المشغّل `live-acceptance-session.json` و`manual-checklist.csv` وسجلات فرعية لكل اختبار داخل `artifacts/windows-live-acceptance/`. سيظل قرار الجلسة `NO-GO` وبوابات القبول اليدوي `PENDING` حتى بعد نجاح الاختبارات الآلية؛ لا يختبر المشغّل وحده Narrator/NVDA أو High Contrast أو القبول البصري البشري، ولا يعدّ نجاح CI قبولًا حيًا. أكمل المراجعة اليدوية وأدلّتها قبل تحديث `docs/RELEASE_GATE_EVIDENCE.json`.
+
+
 نفّذها من جذر المستودع على جهاز Windows تفاعلي، بعد بناء نسخة Release من الـ commit المراد قبوله. أوقف كل عملية Layal مسبقًا، واستعمل المسارات الفعلية في بيئتك.
 
 ### رصد الشاشة وDPI
