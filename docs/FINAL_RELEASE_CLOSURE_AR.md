@@ -36,6 +36,24 @@
 
 ابنِ/نزّل النسخة المرشحة وسجّل commit وSHA-256 في [سجل القبول الحي](WINDOWS_LIVE_ACCEPTANCE_REPORT_AR.md). لا تستخدم نسخة مثبتة قديمة.
 
+### جمع أدلة التشخيص في جلسة واحدة
+
+بعد بناء النسخة المرشحة على commit محدد، شغّل المشغّل التالي من جهاز Windows تفاعلي؛ سيحفظ سجلات اختبار النقر والسحب والتنقل ومعاينة GLB ورصد الشاشة/DPI في مجلد جلسة موحّد. استخدم رابط تشغيل CI/الحزمة المطابقة، ومعرّف جهاز غير شخصي. لا تشغّله من GitHub Actions ولا أثناء استخدام سطح المكتب لأعمال أخرى.
+
+~~~powershell
+$testedCommitSha = (git rev-parse HEAD).Trim()
+$acceptanceArgs = @{
+  LayalExePath = ".\src\Layal.Desktop\bin\Release\net10.0-windows10.0.19041.0\Layal.exe"
+  DeviceId = "lab-device-01"
+  TestedCommitSha = $testedCommitSha
+  ArtifactReference = "https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/<RUN-ID>"
+}
+& ".\tools\Start-LayalLiveAcceptance.ps1" @acceptanceArgs
+~~~
+
+استبدل RUN-ID بالرابط الفعلي، ونفّذ من checkout يطابق الملف التنفيذي. عند توفر شاشتين بمقياسي DPI مختلفين، أضف -RequireMixedDpiTransition كي يفشل الفحص إن لم يرصد الانتقال. ينتج المشغّل ملف live-acceptance-session.json وmanual-checklist.csv؛ هذه سجلات تشخيص وليست موافقات بشرية، وتظل بوابات القبول اليدوي PENDING إلى أن تُستكمل الخطوات التالية بأدلة فعلية.
+
+
 ### 1. قارئ الشاشة والتنقل
 - افتح Narrator من Windows باستخدام `Win+Ctrl+Enter`، أو شغّل NVDA إن كان مثبتًا.
 - استخدم Tab وShift+Tab وCtrl+1 إلى Ctrl+7 وF1؛ تحقق من قراءة أسماء التبويبات والحقول والأزرار والحالات وعدم فقدان التركيز.
