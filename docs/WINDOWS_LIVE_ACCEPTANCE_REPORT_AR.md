@@ -63,26 +63,29 @@
 
 ### تشغيل حزمة تشخيص موحّدة على جهاز Windows فعلي
 
-يوفّر الملف tools/Start-LayalLiveAcceptance.ps1 مشغّلًا واحدًا للاختبارات التفاعلية الموجودة: تمرير النقرات الأصلي، والسحب، والتنقل بلوحة المفاتيح، ومعاينة GLB المتحركة، ورصد الشاشة وDPI. يجمع سجلاتها في مجلد جلسة واحد مع إصدار Windows، وعدد الشاشات وحدودها، وإصدار الملف التنفيذي وبصمة SHA-256، والـ commit الذي بُني منه التطبيق.
+يوفّر الملف tools/Start-LayalLiveAcceptance.ps1 مشغّلًا واحدًا للاختبارات التفاعلية الموجودة: تمرير النقرات الأصلي، والسحب، والتنقل بلوحة المفاتيح، ومعاينة GLB المتحركة، ورصد الشاشة وDPI. ويجمع سجلاتها في مجلد جلسة واحد، مع commit المختبَر وبصمة ملف Layal.exe المستخرج وإصدار Windows وحدود الشاشات.
 
-**لا تشغّل هذا الأمر في GitHub Actions أو جلسة غير تفاعلية.** أجره على جهاز Windows المستهدف، من checkout كامل على نفس الـ commit الذي بُني منه ملف Layal.exe. سيحرّك الاختبار بعض النوافذ والمؤشر، لذا اترك سطح المكتب للاختبار وأغلق التطبيقات المهمة أولًا.
+**يجب اختبار الحزمة المنشورة نفسها، لا إعادة بناء محلية.** نزّل artifact التوزيع من تشغيل GitHub Actions المطابق، وضع ملف portable ZIP وملف SHA256SUMS.txt المرافق له في المجلد نفسه. يستخدم المشغّل ملف البصمات للتحقق من ZIP، ويفحص مساراته قبل الاستخراج. شغّله على جهاز Windows تفاعلي ومن checkout مطابق للـ commit المرتبط بتشغيل البناء.
+
+**يعمل المشغّل فقط في حساب Windows اختباري مخصص ونظيف.** يجب ألا توجد بيانات Layal سابقة تحت %LOCALAPPDATA%\Layal، ولا مفاتيح API أو بيانات شخصية. سيُحرّك الاختبار بعض النوافذ والمؤشر، لذا لا تستخدم سطح المكتب أثناء الاختبارات. لن يعمل في GitHub Actions أو جلسة غير تفاعلية.
 
 ~~~powershell
 git checkout <EXACT-TESTED-COMMIT-SHA>
-dotnet build Layal.sln --configuration Release
 $testedCommitSha = (git rev-parse HEAD).Trim()
 $acceptanceArgs = @{
-  LayalExePath = ".\src\Layal.Desktop\bin\Release\net10.0-windows10.0.19041.0\Layal.exe"
+  PortableArchivePath = ".\artifacts\downloaded-distribution\Layal-0.5.4-portable-win-x64.zip"
+  ChecksumManifestPath = ".\artifacts\downloaded-distribution\SHA256SUMS.txt"
   DeviceId = "lab-device-01"
   TestedCommitSha = $testedCommitSha
   ArtifactReference = "https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/<RUN-ID>"
+  ConfirmDisposableProfile = $true
 }
 & ".\tools\Start-LayalLiveAcceptance.ps1" @acceptanceArgs
 ~~~
 
-استبدل <EXACT-TESTED-COMMIT-SHA> و<RUN-ID> بالقيم الفعلية للحزمة المختبرة. يجب أن يكون ArtifactReference رابط HTTPS لتشغيل البناء أو الـ artifact نفسه، وأن يطابق TestedCommitSha قيمة HEAD. استخدم معرّف جهاز غير شخصي. ولإلزام اختبار انتقال فعلي بين شاشتين مضبوطتين على مقاسي DPI مختلفين، أضف المفتاح -RequireMixedDpiTransition؛ عندئذ يفشل الاختبار إذا لم يرصد الانتقال المطلوب.
+استبدل SHA واسم ZIP ورابط التشغيل بأسماء وقيم فعلية؛ مثال اسم ZIP يوضح النمط فقط، وليس إصدارًا مضمونًا. تحقق أن تشغيل GitHub Actions المشار إليه بنى الـ commit نفسه. لا تعدّل ملف SHA256SUMS.txt. إذا توفرت شاشتان بمقياسي DPI مختلفين، أضف ConfirmMixedDpiTransition = $true إلى جدول المعاملات كي يفشل التشخيص إن لم يرصد الانتقال الفعلي.
 
-ينشئ المشغّل live-acceptance-session.json وmanual-checklist.csv وسجلات فرعية لكل اختبار داخل artifacts/windows-live-acceptance/. سيظل قرار الجلسة NO-GO وبوابات القبول اليدوي PENDING حتى بعد نجاح الاختبارات الآلية؛ لا يختبر المشغّل وحده Narrator/NVDA أو High Contrast أو القبول البصري البشري، ولا يعدّ نجاح CI قبولًا حيًا. أكمل المراجعة اليدوية وأدلّتها قبل تحديث docs/RELEASE_GATE_EVIDENCE.json.
+ينشئ المشغّل live-acceptance-session.json وmanual-checklist.csv وسجلات فرعية داخل artifacts/windows-live-acceptance/. سيظل قرار الجلسة NO-GO وبوابات القبول اليدوي PENDING حتى بعد نجاح التشخيصات؛ لا يختبر المشغّل وحده Narrator/NVDA أو High Contrast أو القبول البصري البشري، ولا يعدّ نجاح CI قبولًا حيًا. أكمل المراجعة اليدوية وأدلّتها قبل تحديث docs/RELEASE_GATE_EVIDENCE.json.
 
 ### رصد الشاشة وDPI
 
