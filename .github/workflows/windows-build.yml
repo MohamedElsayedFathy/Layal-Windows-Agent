@@ -30,6 +30,31 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Temporary pinned Piper reference digest discovery
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/piper-resource-integrity'
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "piper-reference-hashes"
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $archive = Join-Path $root "piper_windows_amd64.zip"
+          Invoke-WebRequest -Uri "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip" -OutFile $archive
+          Write-Host ("PIPER_ARCHIVE_SHA256=" + (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant())
+          $extract = Join-Path $root "extracted"
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract
+          Get-ChildItem -LiteralPath $extract -Recurse -File | Where-Object { $_.Extension -in @('.exe', '.dll', '.ort') } | Sort-Object FullName | ForEach-Object {
+            $relative = [IO.Path]::GetRelativePath($extract, $_.FullName)
+            $digest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            Write-Host ("PIPER_FILE_SHA256=" + $relative + "|" + $digest + "|" + $_.Length)
+          }
+          $configs = @(
+            @{ Name = "arabic-config"; Url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx.json" },
+            @{ Name = "english-config"; Url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json" }
+          )
+          foreach ($config in $configs) {
+            $target = Join-Path $root ($config.Name + ".json")
+            Invoke-WebRequest -Uri $config.Url -OutFile $target
+            Write-Host ("PIPER_CONFIG_SHA256=" + $config.Name + "|" + (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() + "|" + (Get-Item -LiteralPath $target).Length)
+          }
       - name: Validate UI automation sample PowerShell syntax
         shell: powershell
         run: |
