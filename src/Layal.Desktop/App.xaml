@@ -41,12 +41,16 @@
         <Color x:Key="Layal.Color.InputFocus">#FBFDFF</Color>
         <Color x:Key="Layal.Color.HoverSurface">#E8F5F7</Color>
         <Color x:Key="Layal.Color.Shadow">#A8B9D6</Color>
-        <Color x:Key="Layal.Color.BackdropStart">#C9DBF7</Color>
-        <Color x:Key="Layal.Color.BackdropMiddle">#D8D0F4</Color>
-        <Color x:Key="Layal.Color.BackdropEnd">#F2D8E4</Color>
-        <Color x:Key="Layal.Color.Glass">#A6FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassStrong">#D9FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassBorder">#B8FFFFFF</Color>
+        <!-- The aurora is intentionally more saturated so the frosted surfaces read as glass, not flat white cards. -->
+        <Color x:Key="Layal.Color.BackdropStart">#899DF4</Color>
+        <Color x:Key="Layal.Color.BackdropMiddle">#B09AEF</Color>
+        <Color x:Key="Layal.Color.BackdropEnd">#F1B4D2</Color>
+        <Color x:Key="Layal.Color.Glass">#99FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassStrong">#E0FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassBorder">#D0FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlowBlue">#98637AFB</Color>
+        <Color x:Key="Layal.Color.GlowViolet">#8E9A60F0</Color>
+        <Color x:Key="Layal.Color.GlowPink">#88EF78B9</Color>
         <Color x:Key="Layal.Color.AccentStart">#4A66DE</Color>
         <Color x:Key="Layal.Color.AccentEnd">#7A50D4</Color>
         <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
@@ -80,6 +84,9 @@
         <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
         <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />
         <SolidColorBrush x:Key="Layal.GlassBorderBrush" Color="{DynamicResource Layal.Color.GlassBorder}" />
+        <SolidColorBrush x:Key="Layal.GlowBlueBrush" Color="{DynamicResource Layal.Color.GlowBlue}" />
+        <SolidColorBrush x:Key="Layal.GlowVioletBrush" Color="{DynamicResource Layal.Color.GlowViolet}" />
+        <SolidColorBrush x:Key="Layal.GlowPinkBrush" Color="{DynamicResource Layal.Color.GlowPink}" />
         <SolidColorBrush x:Key="Layal.OnAccent" Color="{DynamicResource Layal.Color.OnAccent}" />
 
         <LinearGradientBrush x:Key="Layal.HeaderGradient" StartPoint="0,0" EndPoint="1,1">
@@ -115,7 +122,8 @@
             <GradientStop Color="#252446" Offset="1" />
         </LinearGradientBrush>
 
-        <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="18" ShadowDepth="3" Opacity="0.18" />
+        <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="24" ShadowDepth="5" Opacity="0.22" />
+        <DropShadowEffect x:Key="Layal.GlassShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="38" ShadowDepth="10" Opacity="0.24" />
 
         <!-- Shared high-visibility keyboard focus ring for controls without a custom focus state. -->
         <Style x:Key="Layal.KeyboardFocusVisual" TargetType="{x:Type Control}">
@@ -592,7 +600,7 @@
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" Background="{DynamicResource Layal.GlassFill}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                                    CornerRadius="26" Margin="0,0,16,0">
+                                    CornerRadius="26" Margin="0,0,16,0" Effect="{DynamicResource Layal.GlassShadow}">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="88" />
@@ -607,7 +615,7 @@
                             </Border>
                             <Border Grid.Column="1" Background="{DynamicResource Layal.GlassStrongFill}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                                    CornerRadius="26" Padding="8">
+                                    CornerRadius="26" Padding="8" Effect="{DynamicResource Layal.GlassShadow}">
                                 <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
                                                   Margin="0" SnapsToDevicePixels="True" />
                             </Border>
