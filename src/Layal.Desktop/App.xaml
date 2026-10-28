@@ -612,7 +612,7 @@
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" Background="{DynamicResource Layal.GlassFill}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                                    CornerRadius="26" Margin="0,0,16,0" Effect="{DynamicResource Layal.GlassShadow}">
+                                    CornerRadius="26" Margin="0,0,16,0">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="88" />
@@ -627,7 +627,7 @@
                             </Border>
                             <Border Grid.Column="1" Background="{DynamicResource Layal.GlassStrongFill}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                                    CornerRadius="26" Padding="8" Effect="{DynamicResource Layal.GlassShadow}">
+                                    CornerRadius="26" Padding="8">
                                 <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
                                                   Margin="0" SnapsToDevicePixels="True" />
                             </Border>
