@@ -137,8 +137,10 @@ public sealed class LocalVoiceService
             SafeExtractZip(piperArchive, piperDestination);
         }
 
-        _piperExecutable = FindExecutable(piperDestination, "piper.exe");
-        if (_piperExecutable is null ||
+        // The archive's signed-off layout is fixed. Use the exact manifest path instead of
+        // recursively searching a potentially modified directory for an executable.
+        _piperExecutable = Path.Combine(piperDestination, "piper", "piper.exe");
+        if (!File.Exists(_piperExecutable) ||
             !await MatchesExpectedPiperInstallAsync(piperDestination, cancellationToken))
             throw new InvalidOperationException("تعذر التحقق من ملفات محرك النطق Piper؛ لم يتم تشغيلها.");
 
@@ -174,14 +176,19 @@ public sealed class LocalVoiceService
         try
         {
             _whisperExecutable = FindExecutable(Path.Combine(ToolsRoot, "whisper"), "whisper-cli.exe");
-            _piperExecutable = FindExecutable(Path.Combine(ToolsRoot, "piper"), "piper.exe");
-            if (_whisperExecutable is null || _piperExecutable is null)
+            if (_whisperExecutable is null)
+                return false;
+
+            var piperRoot = Path.Combine(ToolsRoot, "piper");
+            if (!await MatchesExpectedPiperInstallAsync(piperRoot, cancellationToken))
+                return false;
+            _piperExecutable = Path.Combine(piperRoot, "piper", "piper.exe");
+            if (!File.Exists(_piperExecutable))
                 return false;
 
             // The archive is only needed to repair a bad install. Older valid installs may
             // have already deleted it, so validate installed files independently on startup.
             if (!await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, null, WhisperModelSha1, cancellationToken) ||
-                !await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicModelPath, PiperVoiceSize, ArabicVoiceSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicConfigPath, ArabicVoiceConfigSize, ArabicVoiceConfigSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(EnglishModelPath, PiperVoiceSize, EnglishVoiceSha256, null, cancellationToken) ||
