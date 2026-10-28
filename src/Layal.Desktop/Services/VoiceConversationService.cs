@@ -321,7 +321,7 @@ public sealed class VoiceConversationService : IDisposable
     private static BufferedWaveProvider CreatePlaybackBuffer() =>
         new BufferedWaveProvider(new WaveFormat(SampleRate, BitsPerSample, Channels))
         {
-            BufferDuration = TimeSpan.FromSeconds(PlaybackBufferDurationSeconds),
+            BufferLength = SampleRate * Channels * (BitsPerSample / 8) * PlaybackBufferDurationSeconds,
             // Never drop assistant audio silently. AddSamples throws on overflow and the caller
             // turns that into an explicit session error rather than speaking a corrupted reply.
             DiscardOnBufferOverflow = false
