@@ -2,7 +2,11 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
-    [string]$LayalExePath,
+    [string]$PortableArchivePath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
+    [string]$ChecksumManifestPath,
 
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$')]
@@ -20,7 +24,9 @@ param(
     [ValidateRange(30, 3600)]
     [int]$DisplayObserveSeconds = 90,
 
-    [switch]$RequireMixedDpiTransition
+    [switch]$RequireMixedDpiTransition,
+
+    [switch]$ConfirmDisposableProfile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,9 +47,13 @@ if (Get-Process -Name 'Layal' -ErrorAction SilentlyContinue) {
     throw 'Close all existing Layal processes before running the isolated acceptance suite.'
 }
 
-$resolvedExe = (Resolve-Path -LiteralPath $LayalExePath).Path
-if ([IO.Path]::GetFileName($resolvedExe) -ine 'Layal.exe') {
-    throw 'LayalExePath must point to the actual Layal.exe built from the tested commit.'
+$resolvedArchive = (Resolve-Path -LiteralPath $PortableArchivePath).Path
+if ([IO.Path]::GetExtension($resolvedArchive) -ine '.zip') {
+    throw 'PortableArchivePath must point to the published portable ZIP.'
+}
+$resolvedManifest = (Resolve-Path -LiteralPath $ChecksumManifestPath).Path
+if ([IO.Path]::GetDirectoryName($resolvedArchive) -ine [IO.Path]::GetDirectoryName($resolvedManifest)) {
+    throw 'Keep the portable ZIP and SHA256SUMS.txt from the same downloaded distribution artifact directory.'
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -53,7 +63,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace([string]$gitHead)) {
 }
 $gitHead = ([string]$gitHead).Trim()
 if ($gitHead -ine $TestedCommitSha) {
-    throw "The checkout HEAD ($gitHead) does not match TestedCommitSha ($TestedCommitSha). Check out and build the exact tested commit first."
+    throw "The checkout HEAD ($gitHead) does not match TestedCommitSha ($TestedCommitSha). Check out the exact source commit associated with the downloaded artifact."
 }
 
 $artifactUri = $null
@@ -62,6 +72,20 @@ if (-not [Uri]::TryCreate($ArtifactReference, [UriKind]::Absolute, [ref]$artifac
 }
 if ($artifactUri.Scheme -ne 'https') {
     throw 'ArtifactReference must use HTTPS.'
+}
+
+if (-not $ConfirmDisposableProfile) {
+    throw 'Use a disposable Windows test account with no personal Layal data or secrets, then pass -ConfirmDisposableProfile to acknowledge that requirement.'
+}
+if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    throw 'LOCALAPPDATA is unavailable; cannot verify a clean per-user Layal data area.'
+}
+$localLayalData = Join-Path $env:LOCALAPPDATA 'Layal'
+if (Test-Path -LiteralPath $localLayalData) {
+    throw "Refusing to run against an account that already has Layal local data at $localLayalData. Use a fresh disposable Windows account."
+}
+if (Get-Process -Name 'Layal' -ErrorAction SilentlyContinue) {
+    throw 'Close all existing Layal processes before running the isolated acceptance suite.'
 }
 
 $pwshCommand = Get-Command 'pwsh' -ErrorAction SilentlyContinue
@@ -84,10 +108,55 @@ if (Test-Path -LiteralPath $sessionDirectory) {
 New-Item -ItemType Directory -Path $sessionDirectory -Force | Out-Null
 $startedAtLocal = [DateTimeOffset]::Now.ToString('o')
 
-$resolvedScriptDirectory = Join-Path $repoRoot 'tools'
+$archiveHash = (Get-FileHash -LiteralPath $resolvedArchive -Algorithm SHA256).Hash.ToUpperInvariant()
+$archiveFileName = [IO.Path]::GetFileName($resolvedArchive)
+$manifestHashes = @()
+foreach ($line in (Get-Content -LiteralPath $resolvedManifest)) {
+    if ($line -match '^\s*([0-9a-fA-F]{64})\s+(.+?)\s*$') {
+        $relativeName = $matches[2].Trim().Replace('\', '/').TrimStart('*')
+        if ([IO.Path]::GetFileName($relativeName) -ieq $archiveFileName) {
+            $manifestHashes += $matches[1].ToUpperInvariant()
+        }
+    }
+}
+if ($manifestHashes.Count -ne 1) {
+    throw "Expected exactly one SHA-256 entry for $archiveFileName in the adjacent checksum manifest; found $($manifestHashes.Count)."
+}
+if ($archiveHash -ine $manifestHashes[0]) {
+    throw "Portable ZIP SHA-256 mismatch. Actual=$archiveHash, manifest=$($manifestHashes[0])."
+}
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zipArchive = [IO.Compression.ZipFile]::OpenRead($resolvedArchive)
+try {
+    $rootExecutableCount = 0
+    foreach ($entry in $zipArchive.Entries) {
+        $entryName = $entry.FullName.Replace('\', '/')
+        if ($entryName.StartsWith('/') -or $entryName -match '^[A-Za-z]:' -or @($entryName.Split('/')) -contains '..') {
+            throw "Unsafe path in portable ZIP: $entryName"
+        }
+        if ($entryName -ceq 'Layal.exe') {
+            $rootExecutableCount++
+        }
+    }
+    if ($rootExecutableCount -ne 1) {
+        throw "Portable ZIP must contain exactly one Layal.exe at its root; found $rootExecutableCount."
+    }
+}
+finally {
+    $zipArchive.Dispose()
+}
+
+$extractionDirectory = Join-Path $sessionDirectory 'portable-extracted'
+New-Item -ItemType Directory -Path $extractionDirectory -Force | Out-Null
+Expand-Archive -LiteralPath $resolvedArchive -DestinationPath $extractionDirectory -Force
+$resolvedExe = Join-Path $extractionDirectory 'Layal.exe'
+if (-not (Test-Path -LiteralPath $resolvedExe -PathType Leaf)) {
+    throw 'Extracted portable artifact does not contain Layal.exe at its root.'
+}
+$executableHash = (Get-FileHash -LiteralPath $resolvedExe -Algorithm SHA256).Hash.ToUpperInvariant()
 $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem
 $fileVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($resolvedExe)
-$executableHash = (Get-FileHash -LiteralPath $resolvedExe -Algorithm SHA256).Hash
 Add-Type -AssemblyName System.Windows.Forms
 $screens = @(
     [System.Windows.Forms.Screen]::AllScreens | ForEach-Object {
@@ -284,6 +353,13 @@ $session = [pscustomobject]@{
     DeviceId = $DeviceId
     TestedCommitSha = $gitHead
     ArtifactReference = $ArtifactReference
+    PortableArtifact = [pscustomobject]@{
+        ArchiveFileName = $archiveFileName
+        ArchiveSHA256 = $archiveHash
+        ChecksumManifestFileName = [IO.Path]::GetFileName($resolvedManifest)
+        ArchiveHashMatchedManifest = $true
+        ExtractedExecutableSHA256 = $executableHash
+    }
     Environment = [pscustomobject]@{
         WindowsCaption = [string]$operatingSystem.Caption
         WindowsVersion = [string]$operatingSystem.Version
