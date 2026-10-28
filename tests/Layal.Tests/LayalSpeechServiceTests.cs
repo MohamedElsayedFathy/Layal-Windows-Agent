@@ -18,13 +18,6 @@ public sealed class LayalSpeechServiceTests
     }
 
     [TestMethod]
-    public void DefaultVoiceIsSupportedAndUnknownVoicePresetsAreRejected()
-    {
-        Assert.IsTrue(LayalSpeechService.IsSupportedVoice(LayalSpeechService.DefaultVoiceId));
-        Assert.IsFalse(LayalSpeechService.IsSupportedVoice("not-a-supported-voice"));
-    }
-
-    [TestMethod]
     public void BuildRealtimeUri_UsesSecureRealtimeEndpointAndConfiguredModel()
     {
         var uri = LayalSpeechService.BuildRealtimeUri(
@@ -99,6 +92,7 @@ public sealed class LayalSpeechServiceTests
     [TestMethod]
     public void IsSupportedVoice_OnlyAcceptsKnownVoicePresets()
     {
+        Assert.IsTrue(LayalSpeechService.IsSupportedVoice(LayalSpeechService.DefaultVoiceId));
         Assert.IsTrue(LayalSpeechService.IsSupportedVoice("shimmer"));
         Assert.IsTrue(LayalSpeechService.IsSupportedVoice("MARIN"));
         Assert.IsFalse(LayalSpeechService.IsSupportedVoice("untrusted-voice"));
