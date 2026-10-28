@@ -278,6 +278,77 @@ public sealed class AgentToolExecutorTests
             "create_text_file", args, (_, _, _) => Task.FromResult(true), _ => { }, CancellationToken.None));
     }
 
+    [TestMethod]
+    public async Task ReadFileRejectsTargetReplacedBySymbolicLinkDuringApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        var outside = System.IO.Path.Combine(temp.Path, "outside.txt");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(System.IO.Path.Combine(workspace, "notes.txt"), "approved preview");
+        File.WriteAllText(outside, "outside secret");
+        var executor = CreateExecutor(workspace);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "read_text_file", "{\"path\":\"notes.txt\"}",
+            (_, _, _) =>
+            {
+                File.Delete(System.IO.Path.Combine(workspace, "notes.txt"));
+                File.CreateSymbolicLink(System.IO.Path.Combine(workspace, "notes.txt"), outside);
+                return Task.FromResult(true);
+            }, _ => { }, CancellationToken.None));
+
+        Assert.AreEqual("outside secret", File.ReadAllText(outside));
+    }
+
+    [TestMethod]
+    public async Task FileCreationRejectsParentReplacedBySymbolicLinkDuringApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        var originalParent = System.IO.Path.Combine(workspace, "sub");
+        var outside = System.IO.Path.Combine(temp.Path, "outside");
+        Directory.CreateDirectory(originalParent);
+        Directory.CreateDirectory(outside);
+        var executor = CreateExecutor(workspace);
+        var destinationOutside = System.IO.Path.Combine(outside, "new-note.txt");
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "create_text_file", "{\"path\":\"sub/new-note.txt\",\"content\":\"must stay inside workspace\"}",
+            (_, _, _) =>
+            {
+                Directory.Move(originalParent, System.IO.Path.Combine(workspace, "sub-original"));
+                Directory.CreateSymbolicLink(originalParent, outside);
+                return Task.FromResult(true);
+            }, _ => { }, CancellationToken.None));
+
+        Assert.IsFalse(File.Exists(destinationOutside), "No file may be created outside the approved workspace.");
+    }
+
+    [TestMethod]
+    public async Task ReplaceTextRejectsTargetReplacedBySymbolicLinkDuringApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        var outside = System.IO.Path.Combine(temp.Path, "outside.txt");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(System.IO.Path.Combine(workspace, "notes.txt"), "replace this phrase");
+        File.WriteAllText(outside, "outside secret");
+        var executor = CreateExecutor(workspace);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "replace_text_in_file",
+            "{\"path\":\"notes.txt\",\"old_text\":\"replace this phrase\",\"new_text\":\"changed\"}",
+            (_, _, _) =>
+            {
+                File.Delete(System.IO.Path.Combine(workspace, "notes.txt"));
+                File.CreateSymbolicLink(System.IO.Path.Combine(workspace, "notes.txt"), outside);
+                return Task.FromResult(true);
+            }, _ => { }, CancellationToken.None));
+
+        Assert.AreEqual("outside secret", File.ReadAllText(outside), "The outside target must remain unchanged.");
+    }
+
     private static AgentToolExecutor CreateExecutor(string root, ApiConnectionService? apiConnections = null) =>
         new(root, new MemoryService(System.IO.Path.Combine(root, "memory.dpapi")), apiConnections);
 }
