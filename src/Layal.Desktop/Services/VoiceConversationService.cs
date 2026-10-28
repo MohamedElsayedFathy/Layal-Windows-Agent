@@ -319,7 +319,7 @@ public sealed class VoiceConversationService : IDisposable
         });
 
     private static BufferedWaveProvider CreatePlaybackBuffer() =>
-        new(new WaveFormat(SampleRate, BitsPerSample, Channels))
+        new BufferedWaveProvider(new WaveFormat(SampleRate, BitsPerSample, Channels))
         {
             BufferDuration = TimeSpan.FromSeconds(PlaybackBufferDurationSeconds),
             // Never drop assistant audio silently. AddSamples throws on overflow and the caller
