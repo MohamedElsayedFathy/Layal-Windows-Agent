@@ -134,6 +134,28 @@ data: [DONE]
     }
 
     [TestMethod]
+    public async Task ChatStreamRejectsPartialResponseWhenDoneMarkerIsMissing()
+    {
+        const string stream = """
+data: {"choices":[{"delta":{"content":"Partial reply"}}]}
+
+""";
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(stream, Encoding.UTF8, "text/event-stream")
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+        var deltas = new List<string>();
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.ChatStreamAsync("https://provider.example/v1", "test-model", "key",
+                new[] { new ChatMessage { Role = "user", Content = "Hello" } }, deltas.Add));
+
+        StringAssert.Contains(error.Message, "[DONE]");
+        CollectionAssert.AreEqual(new[] { "Partial reply" }, deltas);
+    }
+
+    [TestMethod]
     public async Task ChatStreamIgnoresHermesProgressEventsAndSseKeepaliveComments()
     {
         const string stream = """
