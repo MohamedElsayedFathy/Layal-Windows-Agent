@@ -50,6 +50,7 @@ public sealed class LocalVoiceService
     private static string ToolsRoot => Path.Combine(Root, "tools");
     private static string ModelsRoot => Path.Combine(Root, "speech-models");
     private static string TempRoot => Path.Combine(Root, "temp");
+    private static readonly TimeSpan StaleTemporaryArtifactAge = TimeSpan.FromHours(1);
     private static string WhisperModelPath => Path.Combine(ModelsRoot, "ggml-base.bin");
     private static string ArabicModelPath => Path.Combine(ModelsRoot, "ar_JO-kareem-medium.onnx");
     private static string ArabicConfigPath => Path.Combine(ModelsRoot, "ar_JO-kareem-medium.onnx.json");
@@ -89,6 +90,7 @@ public sealed class LocalVoiceService
         Directory.CreateDirectory(ToolsRoot);
         Directory.CreateDirectory(ModelsRoot);
         Directory.CreateDirectory(TempRoot);
+        CleanupStaleTemporaryArtifacts(TempRoot, DateTime.UtcNow);
 
         _whisperExecutable = FindExecutable(Path.Combine(ToolsRoot, "whisper"), "whisper-cli.exe");
         if (_whisperExecutable is null)
@@ -152,6 +154,7 @@ public sealed class LocalVoiceService
             throw new InvalidOperationException("التسجيل الصوتي فارغ أو يتجاوز الحد المحلي المسموح.");
 
         Directory.CreateDirectory(TempRoot);
+        CleanupStaleTemporaryArtifacts(TempRoot, DateTime.UtcNow);
         var id = Guid.NewGuid().ToString("N");
         var inputPath = Path.Combine(TempRoot, id + ".wav");
         var outputPrefix = Path.Combine(TempRoot, id + "-transcription");
@@ -224,6 +227,7 @@ public sealed class LocalVoiceService
         var configPath = arabic ? ArabicConfigPath : EnglishConfigPath;
 
         Directory.CreateDirectory(TempRoot);
+        CleanupStaleTemporaryArtifacts(TempRoot, DateTime.UtcNow);
         var outputPath = Path.Combine(TempRoot, Guid.NewGuid().ToString("N") + ".wav");
         try
         {
@@ -464,6 +468,104 @@ public sealed class LocalVoiceService
     {
         try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
         catch { /* Best-effort cleanup for cancelled child processes. */ }
+    }
+
+    private static void CleanupStaleTemporaryArtifacts(string directory, DateTime nowUtc)
+    {
+        if (!Directory.Exists(directory)) return;
+
+        var cutoffUtc = nowUtc - StaleTemporaryArtifactAge;
+        string[] paths;
+        try
+        {
+            paths = Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly).ToArray();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException(
+                "تعذر فحص بقايا الصوت المحلي المؤقتة؛ أوقفنا معالجة الصوت لحماية الخصوصية.", ex);
+        }
+
+        foreach (var path in paths)
+        {
+            if (!IsGeneratedTemporaryArtifactName(Path.GetFileName(path)))
+                continue;
+
+            FileAttributes attributes;
+            DateTime lastWriteUtc;
+            try
+            {
+                attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new InvalidOperationException(
+                        "رُصد مسار معاد التوجيه ضمن ملفات الصوت المؤقتة؛ أوقفنا المعالجة لحماية الخصوصية.");
+                }
+
+                lastWriteUtc = File.GetLastWriteTimeUtc(path);
+            }
+            catch (FileNotFoundException)
+            {
+                continue;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                continue;
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException(
+                    "تعذر التحقق من ملف صوت محلي مؤقت قديم؛ أوقفنا المعالجة لحماية الخصوصية.", ex);
+            }
+
+            if (lastWriteUtc > cutoffUtc)
+                continue;
+
+            try
+            {
+                File.Delete(path);
+            }
+            catch (FileNotFoundException)
+            {
+                continue;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                continue;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException(
+                    "تعذر حذف بقايا ملف صوت محلي مؤقت؛ أوقفنا المعالجة بدل ترك ملف حساس دون معالجة.", ex);
+            }
+
+            if (File.Exists(path))
+            {
+                throw new InvalidOperationException(
+                    "تعذر تأكيد حذف ملف صوت محلي مؤقت قديم؛ أوقفنا المعالجة لحماية الخصوصية.");
+            }
+        }
+    }
+
+    private static bool IsGeneratedTemporaryArtifactName(string fileName)
+    {
+        if (fileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+        {
+            return Guid.TryParseExact(Path.GetFileNameWithoutExtension(fileName), "N", out _);
+        }
+
+        foreach (var extension in new[] { ".json", ".txt" })
+        {
+            var suffix = "-transcription" + extension;
+            if (fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                return Guid.TryParseExact(fileName[..^suffix.Length], "N", out _);
+        }
+
+        return false;
     }
 
     private static void TryDeleteFile(string path)
