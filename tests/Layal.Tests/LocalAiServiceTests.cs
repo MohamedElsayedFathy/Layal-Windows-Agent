@@ -1,5 +1,4 @@
 using System.IO;
-using System.Net;
 using System.Reflection;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -14,7 +13,6 @@ public sealed class LocalAiServiceTests
     {
         Assert.AreEqual("qwen3.5:2b", LocalAiService.DefaultModelId);
         Assert.AreEqual("http://127.0.0.1:11434/", LocalAiService.ApiBaseUri.AbsoluteUri);
-        Assert.IsTrue(IPAddress.IsLoopback(IPAddress.Parse(LocalAiService.ApiBaseUri.Host)));
         Assert.AreEqual("qwen3.5:2b", LocalAiService.ValidateModelId("qwen3.5:2b"));
     }
 

@@ -10,7 +10,7 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class AgentOrchestratorTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("", "Failed")]
     [DataRow("   ", "Failed")]
     [DataRow("The task is complete.", "Completed")]
