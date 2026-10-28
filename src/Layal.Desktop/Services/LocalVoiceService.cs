@@ -172,9 +172,9 @@ public sealed class LocalVoiceService
             if (_whisperExecutable is null || _piperExecutable is null)
                 return false;
 
-            var piperArchive = Path.Combine(Root, "piper-windows-amd64-2023.11.14-2.zip");
-            if (!await MatchesExpectedFileAsync(piperArchive, PiperArchiveSize, PiperArchiveSha256, null, cancellationToken) ||
-                !await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, null, WhisperModelSha1, cancellationToken) ||
+            // The archive is only needed to repair a bad install. Older valid installs may
+            // have already deleted it, so validate installed files independently on startup.
+            if (!await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, null, WhisperModelSha1, cancellationToken) ||
                 !await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicModelPath, PiperVoiceSize, ArabicVoiceSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicConfigPath, ArabicVoiceConfigSize, ArabicVoiceConfigSha256, null, cancellationToken) ||
