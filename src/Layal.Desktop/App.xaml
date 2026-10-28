@@ -134,8 +134,7 @@
             <GradientStop Color="#252446" Offset="1" />
         </LinearGradientBrush>
 
-        <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="24" ShadowDepth="5" Opacity="0.22" />
-        <DropShadowEffect x:Key="Layal.GlassShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="24" ShadowDepth="5" Opacity="0.18" />
+        <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="18" ShadowDepth="3" Opacity="0.18" />
 
         <!-- Shared high-visibility keyboard focus ring for controls without a custom focus state. -->
         <Style x:Key="Layal.KeyboardFocusVisual" TargetType="{x:Type Control}">
