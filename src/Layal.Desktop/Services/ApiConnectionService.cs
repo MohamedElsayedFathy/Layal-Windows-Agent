@@ -62,16 +62,21 @@ public sealed class ApiConnectionService
         var normalized = ValidateAndNormalize(profile);
         lock (_gate)
         {
+            // Persist a candidate snapshot first. Do not expose an in-memory change if the
+            // protected store rejects the write.
+            var nextConnections = _connections.Select(Clone).ToList();
             if (normalized.IsLayalProvider)
             {
-                foreach (var item in _connections)
+                foreach (var item in nextConnections)
                     item.IsLayalProvider = false;
             }
 
-            var index = _connections.FindIndex(x => string.Equals(x.Name, normalized.Name, StringComparison.OrdinalIgnoreCase));
-            if (index >= 0) _connections[index] = normalized;
-            else _connections.Add(normalized);
-            _store.Save(_connections);
+            var index = nextConnections.FindIndex(x => string.Equals(x.Name, normalized.Name, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0) nextConnections[index] = normalized;
+            else nextConnections.Add(normalized);
+
+            _store.Save(nextConnections);
+            _connections = nextConnections;
         }
     }
 
@@ -80,9 +85,13 @@ public sealed class ApiConnectionService
         if (string.IsNullOrWhiteSpace(name)) return false;
         lock (_gate)
         {
-            var removed = _connections.RemoveAll(x => string.Equals(x.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)) > 0;
-            if (removed) _store.Save(_connections);
-            return removed;
+            var nextConnections = _connections.Select(Clone).ToList();
+            var removed = nextConnections.RemoveAll(x => string.Equals(x.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)) > 0;
+            if (!removed) return false;
+
+            _store.Save(nextConnections);
+            _connections = nextConnections;
+            return true;
         }
     }
 
