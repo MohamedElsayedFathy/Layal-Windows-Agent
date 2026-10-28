@@ -918,6 +918,7 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.SettingsStore = new SettingsStore(root);
         AppRuntime.Settings = new UserSettings();
         AppRuntime.SecretStore = new DpapiSecretStore(Path.Combine(root, "secrets", "visual-smoke.dpapi"));
+        AppRuntime.ApiConnectionService = new ApiConnectionService(Path.Combine(root, "api-connections.dpapi"));
         AppRuntime.SkillPackageService = new SkillPackageService(Path.Combine(root, "skills"));
         AppRuntime.MemoryService = new MemoryService(Path.Combine(root, "memory.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(root, "tasks.dpapi"));

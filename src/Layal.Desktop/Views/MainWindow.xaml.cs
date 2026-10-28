@@ -1903,8 +1903,21 @@ public partial class MainWindow : Window
 
     private void SaveProviderButton_Click(object sender, RoutedEventArgs e)
     {
+        string? originalSecret = null;
+        string? unreadableSecretBackup = null;
+        ApiConnectionProfile? originalProfile = null;
+        var originalSecretExists = false;
+        var secretWriteSucceeded = false;
+        var profileWriteSucceeded = false;
+        var submittedApiKey = string.Empty;
+        string? profileNameToRefresh = null;
+
         try
         {
+            originalSecretExists = AppRuntime.SecretStore.Exists;
+            originalSecret = AppRuntime.SecretStore.Load();
+            originalProfile = AppRuntime.ApiConnectionService.GetAll().FirstOrDefault(x => x.IsLayalProvider);
+
             var baseUrl = BaseUrlInput.Text.Trim().TrimEnd('/');
             if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) || (uri.Scheme != "http" && uri.Scheme != "https") || !string.IsNullOrEmpty(uri.UserInfo))
                 throw new InvalidOperationException(IsArabic ? "اكتب عنوان HTTP/HTTPS صحيحًا دون بيانات دخول داخل الرابط." : "Enter a valid HTTP/HTTPS base URL without embedded credentials.");
@@ -1920,38 +1933,126 @@ public partial class MainWindow : Window
             if (!LayalSpeechService.IsSupportedVoice(voiceId))
                 throw new InvalidOperationException(IsArabic ? "اختر نبرة صوت مدعومة لليال." : "Choose a supported Layal voice preset.");
 
-            AppRuntime.Settings.ProviderBaseUrl = baseUrl;
-            AppRuntime.Settings.ModelId = model;
-            AppRuntime.Settings.SpeechToTextModelId = speechModel;
-            AppRuntime.Settings.VoiceRepliesEnabled = VoiceReplyCheckbox.IsChecked == true;
-            AppRuntime.Settings.VoiceReplyModelId = voiceModel;
-            AppRuntime.Settings.VoiceReplyId = voiceId.ToLowerInvariant();
-            _providerTestPassed = false;
-            if (!string.IsNullOrWhiteSpace(ApiKeyInput.Password))
+            submittedApiKey = ApiKeyInput.Password.Trim();
+            var profileSecret = !string.IsNullOrWhiteSpace(submittedApiKey) ? submittedApiKey : originalSecret;
+            if (originalProfile is not null && string.IsNullOrWhiteSpace(profileSecret))
             {
-                AppRuntime.SecretStore.Save(ApiKeyInput.Password);
-                ApiKeyInput.Clear();
+                throw new InvalidOperationException(IsArabic
+                    ? "تعذر قراءة مفتاح مزود API المحفوظ أو لم يعد موجودًا. لم يتم حفظ أي إعدادات؛ أدخل المفتاح مجددًا ثم أعد الحفظ."
+                    : "The saved API provider key is missing or unreadable. No settings were saved; enter the key again and retry.");
             }
-            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
-            var layalProviderProfile = AppRuntime.ApiConnectionService.GetAll().FirstOrDefault(x => x.IsLayalProvider);
-            if (layalProviderProfile is not null)
+
+            // If the user is replacing an unreadable stored key, preserve its encrypted bytes
+            // first so a later failure can restore the exact previous credential file.
+            if (!string.IsNullOrWhiteSpace(submittedApiKey) &&
+                originalSecretExists &&
+                string.IsNullOrWhiteSpace(originalSecret))
             {
-                layalProviderProfile.BaseUrl = AppRuntime.Settings.ProviderBaseUrl;
-                layalProviderProfile.ModelId = AppRuntime.Settings.ModelId;
-                layalProviderProfile.AuthSecret = AppRuntime.SecretStore.Load();
+                unreadableSecretBackup = AppRuntime.SecretStore.PreserveUnreadableCopy();
+                if (string.IsNullOrWhiteSpace(unreadableSecretBackup))
+                {
+                    throw new InvalidOperationException(IsArabic
+                        ? "تعذر حفظ نسخة احتياطية من مفتاح API القديم غير المقروء؛ لم نغيّر المفتاح أو الإعدادات."
+                        : "The unreadable API key could not be backed up; the key and settings were left unchanged.");
+                }
+            }
+
+            var settingsToSave = AppRuntime.Settings.Clone();
+            settingsToSave.ProviderBaseUrl = baseUrl;
+            settingsToSave.ModelId = model;
+            settingsToSave.SpeechToTextModelId = speechModel;
+            settingsToSave.VoiceRepliesEnabled = VoiceReplyCheckbox.IsChecked == true;
+            settingsToSave.VoiceReplyModelId = voiceModel;
+            settingsToSave.VoiceReplyId = voiceId.ToLowerInvariant();
+
+            // Save credentials and the linked API profile before committing settings.json.
+            // This prevents a rejected profile save from leaving the visible settings half-updated.
+            if (!string.IsNullOrWhiteSpace(submittedApiKey))
+            {
+                AppRuntime.SecretStore.Save(submittedApiKey);
+                secretWriteSucceeded = true;
+            }
+
+            if (originalProfile is not null)
+            {
+                var layalProviderProfile = CloneApiConnectionProfile(originalProfile);
+                layalProviderProfile.BaseUrl = baseUrl;
+                layalProviderProfile.ModelId = model;
+                layalProviderProfile.AuthSecret = profileSecret!;
                 AppRuntime.ApiConnectionService.Save(layalProviderProfile);
-                RefreshApiConnections(layalProviderProfile.Name);
+                profileWriteSucceeded = true;
+                profileNameToRefresh = layalProviderProfile.Name;
             }
-            SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.");
-            ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
-            RefreshProviderStatus();
+
+            AppRuntime.SettingsStore.Save(settingsToSave);
+            AppRuntime.Settings.CopyFrom(settingsToSave);
         }
         catch (Exception ex)
         {
-            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("تعذر حفظ الإعدادات", "Could not save settings", ex, IsArabic));
+            var rollbackFailures = new List<Exception>();
+
+            if (profileWriteSucceeded && originalProfile is not null)
+            {
+                try { AppRuntime.ApiConnectionService.Save(originalProfile); }
+                catch (Exception rollbackError) { rollbackFailures.Add(rollbackError); }
+            }
+
+            if (secretWriteSucceeded)
+            {
+                try
+                {
+                    if (originalSecretExists)
+                    {
+                        if (!string.IsNullOrWhiteSpace(originalSecret))
+                            AppRuntime.SecretStore.Save(originalSecret);
+                        else if (!string.IsNullOrWhiteSpace(unreadableSecretBackup))
+                            AppRuntime.SecretStore.RestoreUnreadableCopy(unreadableSecretBackup);
+                        else
+                            throw new InvalidOperationException("The previous API key could not be restored because no readable secret or backup was available.");
+                    }
+                    else
+                    {
+                        AppRuntime.SecretStore.Delete();
+                    }
+                }
+                catch (Exception rollbackError) { rollbackFailures.Add(rollbackError); }
+            }
+
+            Exception reportedError = ex;
+            if (rollbackFailures.Count > 0)
+            {
+                rollbackFailures.Insert(0, ex);
+                reportedError = new AggregateException("Saving provider settings failed and rollback was incomplete.", rollbackFailures);
+            }
+
+            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("تعذر حفظ الإعدادات", "Could not save settings", reportedError, IsArabic));
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+            return;
         }
+
+        if (!string.IsNullOrWhiteSpace(submittedApiKey)) ApiKeyInput.Clear();
+        _providerTestPassed = false;
+        if (!string.IsNullOrWhiteSpace(profileNameToRefresh))
+            RefreshApiConnections(profileNameToRefresh);
+        SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.");
+        ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
+        RefreshProviderStatus();
     }
+
+    private static ApiConnectionProfile CloneApiConnectionProfile(ApiConnectionProfile profile) => new()
+    {
+        Name = profile.Name,
+        BaseUrl = profile.BaseUrl,
+        ImagePath = profile.ImagePath,
+        ModelId = profile.ModelId,
+        IsLayalProvider = profile.IsLayalProvider,
+        AuthenticationType = profile.AuthenticationType,
+        AuthHeaderName = profile.AuthHeaderName,
+        AuthSecret = profile.AuthSecret,
+        AdditionalHeadersJson = profile.AdditionalHeadersJson,
+        Instructions = profile.Instructions,
+        TestPath = profile.TestPath
+    };
 
     private void VoiceReplySettingChanged(object sender, RoutedEventArgs e)
     {

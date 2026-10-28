@@ -23,24 +23,32 @@ public sealed class DpapiSecretStore
         if (string.IsNullOrWhiteSpace(secret)) throw new ArgumentException("Secret cannot be empty.", nameof(secret));
         var plain = Encoding.UTF8.GetBytes(secret);
         var input = Allocate(plain);
+        var tempPath = _path + ".tmp";
+        byte[]? encrypted = null;
         try
         {
             if (!CryptProtectData(ref input, _description, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, CryptProtectUiForbidden, out var output))
                 throw new CryptographicException(Marshal.GetLastWin32Error());
             try
             {
-                var encrypted = new byte[output.cbData];
+                encrypted = new byte[output.cbData];
                 Marshal.Copy(output.pbData, encrypted, 0, output.cbData);
-                var temp = _path + ".tmp";
-                File.WriteAllText(temp, Convert.ToBase64String(encrypted));
-                if (File.Exists(_path)) File.Replace(temp, _path, null);
-                else File.Move(temp, _path);
-                CryptographicOperations.ZeroMemory(encrypted);
+                File.WriteAllText(tempPath, Convert.ToBase64String(encrypted));
+                if (File.Exists(_path)) File.Replace(tempPath, _path, null);
+                else File.Move(tempPath, _path);
             }
             finally { ClearAndLocalFree(output); }
         }
         finally
         {
+            if (encrypted is not null) CryptographicOperations.ZeroMemory(encrypted);
+            // A failed write/replace must not leave a stale temporary credential file.
+            try
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
             CryptographicOperations.ZeroMemory(plain);
             Free(input);
         }
@@ -97,6 +105,35 @@ public sealed class DpapiSecretStore
             return copy;
         }
         catch { return null; }
+    }
+
+    /// <summary>Restores a previously preserved unreadable store if a replacement save must be rolled back.</summary>
+    public void RestoreUnreadableCopy(string copyPath)
+    {
+        if (string.IsNullOrWhiteSpace(copyPath))
+            throw new ArgumentException("A preserved-copy path is required.", nameof(copyPath));
+
+        var fullCopyPath = Path.GetFullPath(copyPath);
+        var expectedPrefix = Path.GetFullPath(_path) + ".unreadable-";
+        if (!fullCopyPath.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullCopyPath))
+            throw new ArgumentException("The restore source must be an existing unreadable backup for this secret store.", nameof(copyPath));
+
+        var tempPath = _path + ".restore.tmp";
+        try
+        {
+            File.Copy(fullCopyPath, tempPath, overwrite: true);
+            if (File.Exists(_path)) File.Replace(tempPath, _path, null);
+            else File.Move(tempPath, _path);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     private static DataBlob Allocate(byte[] bytes)

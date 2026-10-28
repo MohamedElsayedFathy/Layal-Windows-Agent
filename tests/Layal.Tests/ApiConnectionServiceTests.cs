@@ -215,6 +215,30 @@ public sealed class ApiConnectionServiceTests
         }));
     }
 
+    [TestMethod]
+    public void FailedProtectedStoreWriteDoesNotPublishApiConnectionInMemory()
+    {
+        using var temp = new TestTempDirectory();
+        var storePath = Path.Combine(temp.Path, "connections.dpapi");
+        var service = new ApiConnectionService(storePath);
+
+        // A directory at the target file path makes the eventual atomic file move fail
+        // after encryption, exercising the persistence failure without mocking DPAPI.
+        Directory.CreateDirectory(storePath);
+
+        Assert.ThrowsExactly<IOException>(() => service.Save(new ApiConnectionProfile
+        {
+            Name = "Must not be published",
+            BaseUrl = "https://api.example.test",
+            AuthenticationType = "None"
+        }));
+
+        Assert.AreEqual(0, service.GetAll().Count,
+            "A failed durable write must not leave an unsaved profile in the in-memory catalog.");
+        Assert.IsFalse(File.Exists(storePath + ".tmp"),
+            "A failed protected-store write must clean up its temporary file.");
+    }
+
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")
