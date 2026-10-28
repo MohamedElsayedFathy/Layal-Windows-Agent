@@ -44,6 +44,11 @@ public sealed class UiThemePaletteTests
         Assert.AreNotEqual(ToColor(light, "Layal.Color.Background"), ToColor(dark, "Layal.Color.Background"));
         Assert.AreEqual("#087B8F", light["Layal.Color.Cyan"]);
         Assert.AreEqual("#76DFE8", dark["Layal.Color.Cyan"]);
+        Assert.AreEqual("#4D5C75", light["Layal.Color.Muted"]);
+        Assert.AreEqual("#899DF4", light["Layal.Color.BackdropStart"]);
+        Assert.AreEqual("#98637AFB", light["Layal.Color.GlowBlue"]);
+        Assert.AreEqual("#00FFFFFF", UiThemePalette.Create(dark: false, highContrast: true)["Layal.Color.GlowBlue"]);
+        Assert.AreEqual("#00FFFFFF", UiThemePalette.Create(dark: true, highContrast: true)["Layal.Color.GlowPink"]);
     }
 
     private static Color ToColor(IReadOnlyDictionary<string, string> palette, string key) =>

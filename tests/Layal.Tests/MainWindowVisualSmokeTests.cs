@@ -82,6 +82,9 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("MainTabs was not found.");
         Assert.AreSame(window.FindName("ChatTab"), tabs.SelectedItem,
             "The primary window must open directly into the glass chat view, not the legacy home dashboard.");
+        foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell" })
+            Assert.IsNotNull(window.FindName(visualSurface),
+                $"The updated layered-glass chat surface '{visualSurface}' must be present in the shipped UI.");
         var applyTheme = typeof(MainWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("ApplyTheme was not found.");
         var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)

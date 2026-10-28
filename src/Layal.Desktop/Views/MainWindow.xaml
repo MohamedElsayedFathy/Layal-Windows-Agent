@@ -12,6 +12,23 @@
     </shell:WindowChrome.WindowChrome>
     <Grid x:Name="WindowRoot">
         <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+        <!-- Layered aurora glow behind the frosted panels: decorative only, never intercepts input. -->
+        <Grid x:Name="AmbientGlassLayer" Grid.Row="0" Grid.RowSpan="2"
+              IsHitTestVisible="False" Focusable="False" ClipToBounds="True">
+            <Ellipse Width="520" Height="520" HorizontalAlignment="Left" VerticalAlignment="Top"
+                     Margin="-190,-205,0,0" Fill="{DynamicResource Layal.GlowBlueBrush}" Opacity="0.88">
+                
+            </Ellipse>
+            <Ellipse Width="440" Height="440" HorizontalAlignment="Right" VerticalAlignment="Top"
+                     Margin="0,-145,210,0" Fill="{DynamicResource Layal.GlowVioletBrush}" Opacity="0.78">
+                
+            </Ellipse>
+            <Ellipse Width="560" Height="560" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                     Margin="0,0,-195,-225" Fill="{DynamicResource Layal.GlowPinkBrush}" Opacity="0.82">
+                
+            </Ellipse>
+        </Grid>
         <!-- Custom caption: the empty area remains draggable; status indicators and caption buttons stay interactive. -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"
                     KeyboardNavigation.TabNavigation="Local">
@@ -94,15 +111,23 @@
             <TabItem x:Name="ChatTab" Header="المحادثة" Tag="&#xE8BD;">
                 <Grid Margin="14">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Border Grid.Row="0" Margin="3,0,3,12" Padding="22,14" CornerRadius="24" Background="{DynamicResource Layal.GlassStrongFill}"
+                    <Border Grid.Row="0" Margin="3,0,3,14" Padding="24,18" CornerRadius="28" Background="{DynamicResource Layal.GlassStrongFill}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <Grid Grid.Column="0" VerticalAlignment="Center">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <DockPanel Grid.Row="0">
-                            <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="26" FontWeight="SemiBold" DockPanel.Dock="Left"/>
-                            <TextBlock x:Name="ChatProviderStatus" Text="لا يوجد اتصال مختبَر" Foreground="{DynamicResource Layal.Warning}" HorizontalAlignment="Right" AutomationProperties.Name="حالة اتصال المزود"/>
+                        <DockPanel Grid.Row="0" LastChildFill="False">
+                            <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="LAYAL  /  مساعد سطح المكتب" FlowDirection="RightToLeft"
+                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="28"
+                                           FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <TextBlock x:Name="ChatProviderStatus" DockPanel.Dock="Right" Text="لا يوجد اتصال مختبَر"
+                                       Foreground="{DynamicResource Layal.Warning}" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" MaxWidth="190" AutomationProperties.Name="حالة اتصال المزود"/>
                         </DockPanel>
                         <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,7,0,0">
                             <ComboBox x:Name="ChatHistorySelector" ItemsSource="{Binding ChatConversations}" DisplayMemberPath="Title"
@@ -186,7 +211,10 @@
                                                             AutomationProperties.HelpText="يجلب الطقس للمدينة المحددة في الإعدادات."/>
                                                 </Grid>
                                             </Border>
-                    <ListBox x:Name="ChatMessagesList" Grid.Row="2" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="8" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
+                    <Border x:Name="ChatMessagesShell" Grid.Row="2" Margin="3,0,3,8" CornerRadius="24"
+                            Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                            BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}" IsHitTestVisible="False"/>
+                    <ListBox x:Name="ChatMessagesList" Grid.Row="2" Margin="5,3,5,9" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="12" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Border x:Name="Bubble" Background="{DynamicResource Layal.GlassStrongFill}" CornerRadius="20" Padding="15,10" Margin="6,4"
@@ -229,7 +257,10 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <StackPanel Grid.Row="3" Margin="4,8">
+                    <Border x:Name="ChatStatusShell" Grid.Row="3" Margin="3,0,3,6" CornerRadius="18"
+                            Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                            BorderThickness="1" IsHitTestVisible="False"/>
+                    <StackPanel Grid.Row="3" Margin="12,8">
                         <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,6">
                             <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
                                     ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
@@ -251,7 +282,10 @@
                         <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"
                                    AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
-                    <Grid Grid.Row="4">
+                    <Border x:Name="ChatComposerShell" Grid.Row="4" Margin="3,0,3,0" Padding="8,6" CornerRadius="26"
+                            Background="{DynamicResource Layal.GlassStrongFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                            BorderThickness="1">
+                    <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="46" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+2 ينقلك إلى هذا الحقل."/>
                         <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي فقط؛ لا يُرسل الصوت إلا بعد تأكيدك." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. لن يُرسل الصوت إلى المزود إلا بعد تأكيد منفصل، وسيظهر النص للمراجعة قبل الإرسال."/>
@@ -261,6 +295,7 @@
                         <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="3" Content="إرسال" Click="SendButton_Click" MinWidth="84"/>
                         <Button x:Name="CancelResponseButton" Grid.Column="4" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
+                    </Border>
                 </Grid>
             </TabItem>
 
