@@ -38,21 +38,23 @@
 
 ### جمع أدلة التشخيص في جلسة واحدة
 
-بعد بناء النسخة المرشحة على commit محدد، شغّل المشغّل التالي من جهاز Windows تفاعلي؛ سيحفظ سجلات اختبار النقر والسحب والتنقل ومعاينة GLB ورصد الشاشة/DPI في مجلد جلسة موحّد. استخدم رابط تشغيل CI/الحزمة المطابقة، ومعرّف جهاز غير شخصي. لا تشغّله من GitHub Actions ولا أثناء استخدام سطح المكتب لأعمال أخرى.
+نزّل artifact التوزيع من تشغيل GitHub Actions المطابق، واحتفظ بملف portable ZIP وSHA256SUMS.txt في المجلد نفسه. تحقّق من أن checkout المصدر على نفس commit الذي أنتج الحزمة، ثم شغّل المشغّل من حساب Windows اختباري نظيف، لا يحتوي على مجلد بيانات Layal سابق ولا مفاتيح أو بيانات شخصية. لا تشغّله من GitHub Actions؛ سيحرّك المؤشر والنوافذ أثناء الاختبارات.
 
 ~~~powershell
+git checkout <EXACT-TESTED-COMMIT-SHA>
 $testedCommitSha = (git rev-parse HEAD).Trim()
 $acceptanceArgs = @{
-  LayalExePath = ".\src\Layal.Desktop\bin\Release\net10.0-windows10.0.19041.0\Layal.exe"
+  PortableArchivePath = ".\artifacts\downloaded-distribution\Layal-0.5.4-portable-win-x64.zip"
+  ChecksumManifestPath = ".\artifacts\downloaded-distribution\SHA256SUMS.txt"
   DeviceId = "lab-device-01"
   TestedCommitSha = $testedCommitSha
   ArtifactReference = "https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/<RUN-ID>"
+  ConfirmDisposableProfile = $true
 }
 & ".\tools\Start-LayalLiveAcceptance.ps1" @acceptanceArgs
 ~~~
 
-استبدل RUN-ID بالرابط الفعلي، ونفّذ من checkout يطابق الملف التنفيذي. عند توفر شاشتين بمقياسي DPI مختلفين، أضف -RequireMixedDpiTransition كي يفشل الفحص إن لم يرصد الانتقال. ينتج المشغّل ملف live-acceptance-session.json وmanual-checklist.csv؛ هذه سجلات تشخيص وليست موافقات بشرية، وتظل بوابات القبول اليدوي PENDING إلى أن تُستكمل الخطوات التالية بأدلة فعلية.
-
+استبدل SHA واسم ZIP ورابط التشغيل بالقيم الفعلية. سيتحقق المشغّل من بصمة ZIP مقابل SHA256SUMS.txt، ثم يستخرج الملف التنفيذي من الحزمة نفسها ويشغّل اختبارات النقر والسحب والتنقل ومعاينة GLB ورصد الشاشة/DPI. عند توفر شاشتين مختلفتي المقياس، أضف RequireMixedDpiTransition = $true إلى جدول المعاملات. ينتج المشغّل live-acceptance-session.json وmanual-checklist.csv؛ تبقى هذه أدلة تشخيص وليست موافقات بشرية، وتظل بوابات القبول اليدوي PENDING حتى تُستكمل الخطوات التالية بأدلة فعلية.
 
 ### 1. قارئ الشاشة والتنقل
 - افتح Narrator من Windows باستخدام `Win+Ctrl+Enter`، أو شغّل NVDA إن كان مثبتًا.
