@@ -364,6 +364,12 @@ public partial class MainWindow : Window
         // Keep the root visual tree LTR: setting RTL on the entire Window mirrors glyphs and icons.
         // Apply RTL to input fields and Arabic text runs locally instead of flipping all visuals.
         FlowDirection = FlowDirection.LeftToRight;
+        // Mirror the navigation rail only. The native window and content surface remain LTR so
+        // icons, caption controls, and provider/model inputs do not get accidentally mirrored.
+        MainTabs.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        SidebarOverlay.HorizontalAlignment = ar ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        SidebarBrandRow.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        SidebarFooterPanel.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         SpeechModelInput.FlowDirection = VoiceReplyModelInput.FlowDirection = FlowDirection.LeftToRight;
         TaskResult.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
