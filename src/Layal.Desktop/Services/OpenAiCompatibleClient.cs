@@ -231,6 +231,7 @@ public sealed class OpenAiCompatibleClient
             throw new InvalidOperationException("The provider stream exceeds the 8 MB safety limit.");
 
         var result = new StringBuilder();
+        var receivedDoneMarker = false;
         await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var limitedBody = new ResponseLimitStream(body, MaxStreamResponseBytes);
         using var reader = new StreamReader(limitedBody, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
@@ -242,7 +243,11 @@ public sealed class OpenAiCompatibleClient
             if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
             var data = line[5..].Trim();
             if (data.Length == 0) continue;
-            if (data.Equals("[DONE]", StringComparison.Ordinal)) break;
+            if (data.Equals("[DONE]", StringComparison.Ordinal))
+            {
+                receivedDoneMarker = true;
+                break;
+            }
 
             JsonDocument chunk;
             try { chunk = JsonDocument.Parse(data); }
@@ -268,6 +273,9 @@ public sealed class OpenAiCompatibleClient
                 onDelta(text);
             }
         }
+
+        if (!receivedDoneMarker)
+            throw new InvalidOperationException("The provider SSE stream ended before the [DONE] marker. The response may be incomplete and was rejected.");
 
         return result.ToString();
     }

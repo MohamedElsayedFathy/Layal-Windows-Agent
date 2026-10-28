@@ -3266,6 +3266,8 @@ public partial class MainWindow : Window
         CancelResponseButton.IsEnabled = true;
         SetChatActivityStatus(IsArabic ? "جارٍ تجهيز الرد..." : "Preparing the response...");
         AppRuntime.MascotWindow?.SetMood("thinking");
+        ChatMessage? liveAssistantMessage = null;
+        var responseStreamCompleted = false;
         try
         {
             if (useLocal && !await EnsureLocalAiSetupAsync(
@@ -3280,7 +3282,6 @@ public partial class MainWindow : Window
 
             // Keep the most recent chat context bounded; archive history remains saved locally.
             var history = ChatContextBuilder.Build(LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language), ChatMessages);
-            ChatMessage? liveAssistantMessage = null;
             var streamedChunks = 0;
             void HandleDelta(string delta)
             {
@@ -3317,6 +3318,7 @@ public partial class MainWindow : Window
                     HandleDelta,
                     _chatCancellation.Token);
 
+            responseStreamCompleted = true;
             if (liveAssistantMessage is null)
                 AddMessage("assistant", response);
             else
@@ -3388,6 +3390,10 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // A streamed assistant bubble is only a valid chat answer after the stream completed.
+            // Remove partial output when the provider disconnects or the request is cancelled.
+            if (liveAssistantMessage is not null && !responseStreamCompleted)
+                ChatMessages.Remove(liveAssistantMessage);
             SaveCurrentChatMessages();
             _chatCancellation?.Dispose();
             _chatCancellation = null;
