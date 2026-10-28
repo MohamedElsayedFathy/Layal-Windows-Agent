@@ -67,7 +67,7 @@
 
 **لا تشغّل هذا الأمر في GitHub Actions أو جلسة غير تفاعلية.** أجره على جهاز Windows المستهدف، من checkout كامل على نفس الـ commit الذي بُني منه ملف Layal.exe. سيحرّك الاختبار بعض النوافذ والمؤشر، لذا اترك سطح المكتب للاختبار وأغلق التطبيقات المهمة أولًا.
 
-\`\`\`powershell
+~~~powershell
 git checkout <EXACT-TESTED-COMMIT-SHA>
 dotnet build Layal.sln --configuration Release
 $testedCommitSha = (git rev-parse HEAD).Trim()
@@ -78,7 +78,7 @@ $acceptanceArgs = @{
   ArtifactReference = "https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/<RUN-ID>"
 }
 & ".\tools\Start-LayalLiveAcceptance.ps1" @acceptanceArgs
-\`\`\`
+~~~
 
 استبدل <EXACT-TESTED-COMMIT-SHA> و<RUN-ID> بالقيم الفعلية للحزمة المختبرة. يجب أن يكون ArtifactReference رابط HTTPS لتشغيل البناء أو الـ artifact نفسه، وأن يطابق TestedCommitSha قيمة HEAD. استخدم معرّف جهاز غير شخصي. ولإلزام اختبار انتقال فعلي بين شاشتين مضبوطتين على مقاسي DPI مختلفين، أضف المفتاح -RequireMixedDpiTransition؛ عندئذ يفشل الاختبار إذا لم يرصد الانتقال المطلوب.
 
