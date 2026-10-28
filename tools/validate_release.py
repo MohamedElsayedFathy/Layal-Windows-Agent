@@ -45,6 +45,7 @@ required = [
     "BUILD-DISTRIBUTION.bat",
     "tools/Build-LayalDistribution.ps1",
     "tools/Test-LayalInstaller.ps1",
+    "tools/Start-LayalLiveAcceptance.ps1",
     "tools/validate_distribution.py",
     "tools/Sign-LayalFile.ps1",
     "tools/Verify-LayalDistributionIntegrity.ps1",

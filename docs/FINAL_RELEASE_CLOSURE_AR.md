@@ -36,6 +36,26 @@
 
 ابنِ/نزّل النسخة المرشحة وسجّل commit وSHA-256 في [سجل القبول الحي](WINDOWS_LIVE_ACCEPTANCE_REPORT_AR.md). لا تستخدم نسخة مثبتة قديمة.
 
+### جمع أدلة التشخيص في جلسة واحدة
+
+نزّل artifact التوزيع من تشغيل GitHub Actions المطابق، واحتفظ بملف portable ZIP وSHA256SUMS.txt في المجلد نفسه. تحقّق من أن checkout المصدر على نفس commit الذي أنتج الحزمة، ثم شغّل المشغّل من حساب Windows اختباري نظيف، لا يحتوي على مجلد بيانات Layal سابق ولا مفاتيح أو بيانات شخصية. لا تشغّله من GitHub Actions؛ سيحرّك المؤشر والنوافذ أثناء الاختبارات.
+
+~~~powershell
+git checkout <EXACT-TESTED-COMMIT-SHA>
+$testedCommitSha = (git rev-parse HEAD).Trim()
+$acceptanceArgs = @{
+  PortableArchivePath = ".\artifacts\downloaded-distribution\Layal-0.5.4-portable-win-x64.zip"
+  ChecksumManifestPath = ".\artifacts\downloaded-distribution\SHA256SUMS.txt"
+  DeviceId = "lab-device-01"
+  TestedCommitSha = $testedCommitSha
+  ArtifactReference = "https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/<RUN-ID>"
+  ConfirmDisposableProfile = $true
+}
+& ".\tools\Start-LayalLiveAcceptance.ps1" @acceptanceArgs
+~~~
+
+استبدل SHA واسم ZIP ورابط التشغيل بالقيم الفعلية. سيتحقق المشغّل من بصمة ZIP مقابل SHA256SUMS.txt، ثم يستخرج الملف التنفيذي من الحزمة نفسها ويشغّل اختبارات النقر والسحب والتنقل ومعاينة GLB ورصد الشاشة/DPI. عند توفر شاشتين مختلفتي المقياس، أضف RequireMixedDpiTransition = $true إلى جدول المعاملات. ينتج المشغّل live-acceptance-session.json وmanual-checklist.csv؛ تبقى هذه أدلة تشخيص وليست موافقات بشرية، وتظل بوابات القبول اليدوي PENDING حتى تُستكمل الخطوات التالية بأدلة فعلية.
+
 ### 1. قارئ الشاشة والتنقل
 - افتح Narrator من Windows باستخدام `Win+Ctrl+Enter`، أو شغّل NVDA إن كان مثبتًا.
 - استخدم Tab وShift+Tab وCtrl+1 إلى Ctrl+7 وF1؛ تحقق من قراءة أسماء التبويبات والحقول والأزرار والحالات وعدم فقدان التركيز.
