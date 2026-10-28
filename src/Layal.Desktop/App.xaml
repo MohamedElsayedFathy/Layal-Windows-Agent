@@ -604,14 +604,16 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabControl">
-                        <Grid KeyboardNavigation.TabNavigation="Local" SnapsToDevicePixels="True">
+                        <!-- Keep the shell's column coordinate system LTR; RTL is handled explicitly so panels swap without mirroring glyphs. -->
+                        <Grid x:Name="ShellGrid" FlowDirection="LeftToRight"
+                              KeyboardNavigation.TabNavigation="Local" SnapsToDevicePixels="True">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="244" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition x:Name="NavigationColumn" Width="244" />
+                                <ColumnDefinition x:Name="ContentColumn" Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="{DynamicResource Layal.GlassFill}"
+                            <Border x:Name="NavigationBorder" Grid.Column="0" Background="{DynamicResource Layal.GlassFill}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                                    CornerRadius="26" Margin="0,0,16,0">
+                                    CornerRadius="26" Margin="0,0,16,0" Effect="{DynamicResource Layal.CardShadow}">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="88" />
@@ -619,18 +621,29 @@
                                         <RowDefinition Height="156" />
                                     </Grid.RowDefinitions>
                                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,0,4">
-                                        <TabPanel x:Name="HeaderPanel" IsItemsHost="True" KeyboardNavigation.TabIndex="1" KeyboardNavigation.DirectionalNavigation="Cycle"
+                                        <TabPanel x:Name="HeaderPanel" IsItemsHost="True"
+                                                  FlowDirection="{Binding FlowDirection, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  KeyboardNavigation.TabIndex="1" KeyboardNavigation.DirectionalNavigation="Cycle"
                                                   VerticalAlignment="Top" HorizontalAlignment="Center" />
                                     </ScrollViewer>
                                 </Grid>
                             </Border>
-                            <Border Grid.Column="1" Background="{DynamicResource Layal.GlassStrongFill}"
+                            <Border x:Name="ContentBorder" Grid.Column="1" Background="{DynamicResource Layal.GlassStrongFill}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                                     CornerRadius="26" Padding="8">
-                                <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
-                                                  Margin="0" SnapsToDevicePixels="True" />
+                                <ContentPresenter x:Name="PART_SelectedContentHost" FlowDirection="LeftToRight"
+                                                  ContentSource="SelectedContent" Margin="0" SnapsToDevicePixels="True" />
                             </Border>
                         </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="FlowDirection" Value="RightToLeft">
+                                <Setter TargetName="NavigationColumn" Property="Width" Value="*" />
+                                <Setter TargetName="ContentColumn" Property="Width" Value="244" />
+                                <Setter TargetName="NavigationBorder" Property="Grid.Column" Value="1" />
+                                <Setter TargetName="NavigationBorder" Property="Margin" Value="16,0,0,0" />
+                                <Setter TargetName="ContentBorder" Property="Grid.Column" Value="0" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
