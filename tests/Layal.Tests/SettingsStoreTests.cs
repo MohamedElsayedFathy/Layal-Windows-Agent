@@ -45,6 +45,41 @@ public sealed class SettingsStoreTests
     }
 
     [TestMethod]
+    public void InvalidLocalModelIdPreservesOtherSettingsAndUsesSafeModelDefault()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            "{\"Language\":\"en\",\"ThemeMode\":\"dark\",\"ProviderBaseUrl\":\"https://provider.example/v1\",\"ModelId\":\"saved-model\",\"UseLocalAi\":false,\"LocalAiModelId\":\"../../invalid\",\"MascotScale\":1.25}");
+
+        var settings = new SettingsStore(temp.Path).Load();
+
+        Assert.AreEqual("en", settings.Language);
+        Assert.AreEqual("dark", settings.ThemeMode);
+        Assert.AreEqual("https://provider.example/v1", settings.ProviderBaseUrl);
+        Assert.AreEqual("saved-model", settings.ModelId);
+        Assert.IsFalse(settings.UseLocalAi);
+        Assert.AreEqual(LocalAiService.DefaultModelId, settings.LocalAiModelId);
+        Assert.AreEqual(1.25, settings.MascotScale, 0.0001);
+    }
+
+    [TestMethod]
+    public void InvalidPropertyTypeFallsBackOnlyForThatProperty()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            "{\"Language\":\"en\",\"ThemeMode\":\"dark\",\"ProviderBaseUrl\":\"https://provider.example/v1\",\"UseLocalAi\":false,\"MascotScale\":\"not-a-number\",\"MascotOpacity\":0.8}");
+
+        var settings = new SettingsStore(temp.Path).Load();
+
+        Assert.AreEqual("en", settings.Language);
+        Assert.AreEqual("dark", settings.ThemeMode);
+        Assert.AreEqual("https://provider.example/v1", settings.ProviderBaseUrl);
+        Assert.IsFalse(settings.UseLocalAi);
+        Assert.AreEqual(1.0, settings.MascotScale, 0.0001);
+        Assert.AreEqual(0.8, settings.MascotOpacity, 0.0001);
+    }
+
+    [TestMethod]
     public void SaveAndLoadRoundTripPreservesValidSettings()
     {
         using var temp = new TestTempDirectory();
@@ -86,10 +121,12 @@ public sealed class SettingsStoreTests
     }
 
     [TestMethod]
-    public void DamagedSettingsDoNotPreventStartup()
+    public void DamagedSettingsAreBackedUpBeforeSafeDefaultsAreReturned()
     {
         using var temp = new TestTempDirectory();
-        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"), "{ this is not valid json");
+        const string damagedJson = "{ this is not valid json";
+        var settingsPath = System.IO.Path.Combine(temp.Path, "settings.json");
+        File.WriteAllText(settingsPath, damagedJson);
 
         var settings = new SettingsStore(temp.Path).Load();
 
@@ -97,5 +134,10 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("light", settings.ThemeMode);
         Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
+        Assert.AreEqual(damagedJson, File.ReadAllText(settingsPath), "The original malformed file must remain untouched during recovery.");
+
+        var backups = Directory.GetFiles(temp.Path, "settings.json.corrupt-*.bak");
+        Assert.AreEqual(1, backups.Length, "A recoverable copy of the malformed settings must be created.");
+        Assert.AreEqual(damagedJson, File.ReadAllText(backups[0]));
     }
 }
