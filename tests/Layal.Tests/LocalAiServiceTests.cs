@@ -100,7 +100,7 @@ public sealed class LocalAiServiceTests
                 () => GetTemporaryArtifactCleanupMethod().Invoke(null, new object[] { directory, nowUtc }));
 
             Assert.IsInstanceOfType(exception.InnerException, typeof(InvalidOperationException));
-            StringAssert.Contains(exception.InnerException!.Message, "الخصوصية");
+            StringAssert.Contains(exception.InnerException!.Message, "أوقفنا المعالجة");
             Assert.IsTrue(File.Exists(staleWav), "The failed cleanup must not pretend the artifact was removed.");
         }
         finally
