@@ -184,8 +184,23 @@ public sealed class AgentToolExecutor
         if (info.Length > MaxReadBytes) throw new InvalidOperationException($"File exceeds the {MaxReadBytes / 1024} KB read limit.");
         if (!await confirm("Read and share file", $"Read '{Path.GetRelativePath(_workspaceRoot, path)}' and send its contents to the configured AI provider? Only do this if the file does not contain secrets or private data.", token))
             return "User declined to share this file with the configured AI provider.";
+
+        // Revalidate after the approval dialog: while the user is reviewing it, the file
+        // or one of its parent directories may have been replaced by a reparse point.
+        token.ThrowIfCancellationRequested();
+        if (!File.Exists(path))
+            throw new FileNotFoundException("The approved workspace file no longer exists. No data was read.", relativePath);
+        EnsureNoReparsePoints(path);
+        var approvedInfo = new FileInfo(path);
+        if (!ReadableExtensions.Contains(approvedInfo.Extension))
+            throw new InvalidOperationException("The approved file no longer has an allowed text-reading extension.");
+        if (approvedInfo.Length > MaxReadBytes)
+            throw new InvalidOperationException($"File exceeds the {MaxReadBytes / 1024} KB read limit.");
+        if (approvedInfo.Length != info.Length || approvedInfo.LastWriteTimeUtc != info.LastWriteTimeUtc)
+            throw new IOException("The file changed while awaiting approval. No data was read; review the file and approve again.");
+
         var content = await File.ReadAllTextAsync(path, token);
-        report($"Read approved text file: {Path.GetRelativePath(_workspaceRoot, path)} ({info.Length} bytes)");
+        report($"Read approved text file: {Path.GetRelativePath(_workspaceRoot, path)} ({approvedInfo.Length} bytes)");
         return content;
     }
 
@@ -201,6 +216,15 @@ public sealed class AgentToolExecutor
         if (!await confirm("Create file", $"Create a new file at '{Path.GetRelativePath(_workspaceRoot, path)}' ({content.Length} characters)?", token))
             return "User declined file creation.";
         token.ThrowIfCancellationRequested();
+
+        // The approved target and its parent must still be the same safe workspace paths.
+        // Never rely only on the checks performed before showing the approval dialog.
+        if (File.Exists(path) || Directory.Exists(path))
+            throw new IOException("The target appeared while awaiting approval. No file was created.");
+        if (!Directory.Exists(parent))
+            throw new DirectoryNotFoundException("The approved parent directory no longer exists. No file was created.");
+        EnsureNoReparsePoints(parent);
+
         using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         using (var writer = new StreamWriter(stream, new UTF8Encoding(false))) await writer.WriteAsync(content.AsMemory(), token);
         report($"Created file: {Path.GetRelativePath(_workspaceRoot, path)}");
@@ -226,6 +250,18 @@ public sealed class AgentToolExecutor
         if (!await confirm("Modify file", $"Replace one exact text match in '{Path.GetRelativePath(_workspaceRoot, path)}'? A timestamped backup will be created first.", token))
             return "User declined the file modification.";
         token.ThrowIfCancellationRequested();
+
+        // Revalidate the approved file before reading it again. This prevents a file or
+        // parent directory changed during the consent prompt from redirecting the operation.
+        if (!File.Exists(path))
+            throw new FileNotFoundException("The approved target no longer exists. No changes were made.", relativePath);
+        EnsureNoReparsePoints(path);
+        var approvedInfo = new FileInfo(path);
+        if (approvedInfo.Length > 512 * 1024)
+            throw new InvalidOperationException("The approved file exceeds the 512 KB edit limit.");
+        if (approvedInfo.Length != info.Length || approvedInfo.LastWriteTimeUtc != info.LastWriteTimeUtc)
+            throw new IOException("The file changed while awaiting approval. No changes were made; re-read it and approve again.");
+
         var current = await File.ReadAllTextAsync(path, token);
         if (!string.Equals(current, original, StringComparison.Ordinal)) throw new IOException("The file changed after preview; no changes were written. Re-read it and try again.");
         var backupRoot = Path.Combine(_workspaceRoot, ".layal-backups");
@@ -242,6 +278,7 @@ public sealed class AgentToolExecutor
             await using (var tempStream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             await using (var tempWriter = new StreamWriter(tempStream, new UTF8Encoding(false)))
                 await tempWriter.WriteAsync(updated.AsMemory(), token);
+            EnsureNoReparsePoints(Path.GetDirectoryName(path)!);
             EnsureNoReparsePoints(path);
             File.Move(temp, path, overwrite: true);
         }
