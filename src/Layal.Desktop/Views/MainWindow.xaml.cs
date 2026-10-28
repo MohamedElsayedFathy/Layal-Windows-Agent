@@ -3199,10 +3199,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            // A streamed assistant bubble is only a valid chat answer after the stream completed.
-            // Remove partial output when the provider disconnects or the request is cancelled.
-            if (liveAssistantMessage is not null && !responseStreamCompleted)
-                ChatMessages.Remove(liveAssistantMessage);
             SaveCurrentChatMessages();
             _cameraAutomaticObservationRequest = false;
             _chatCancellation?.Dispose();
@@ -3394,6 +3390,10 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // A streamed assistant bubble is only a valid chat answer after the stream completed.
+            // Remove partial output when the provider disconnects or the request is cancelled.
+            if (liveAssistantMessage is not null && !responseStreamCompleted)
+                ChatMessages.Remove(liveAssistantMessage);
             SaveCurrentChatMessages();
             _chatCancellation?.Dispose();
             _chatCancellation = null;
