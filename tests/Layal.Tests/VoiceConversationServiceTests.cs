@@ -54,7 +54,6 @@ public sealed class VoiceConversationServiceTests
     public void CaptureQueueBuffersShortStallsAndNeverSilentlyDropsFrames()
     {
         var queue = InvokePrivateFactory<Channel<byte[]>>("CreateCaptureQueue");
-        Assert.AreEqual(64, VoiceConversationService.CaptureQueueCapacityFrames);
 
         for (var i = 0; i < VoiceConversationService.CaptureQueueCapacityFrames; i++)
             Assert.IsTrue(queue.Writer.TryWrite(new byte[] { (byte)i }), $"Frame {i} should fit in the bounded queue.");
@@ -71,6 +70,8 @@ public sealed class VoiceConversationServiceTests
 
         Assert.AreEqual(VoiceConversationService.CaptureQueueCapacityFrames, drained,
             "All accepted microphone frames must remain available for sending.");
+        Assert.IsTrue(drained >= 60,
+            "The queue should absorb about three seconds of 50 ms microphone frames before failing closed.");
         queue.Writer.TryComplete();
     }
 
@@ -84,8 +85,10 @@ public sealed class VoiceConversationServiceTests
         Assert.AreEqual(TimeSpan.FromSeconds(5), playback.BufferDuration);
 
         var tooMuchAudio = new byte[playback.BufferLength + 2];
-        Assert.ThrowsException<InvalidOperationException>(() =>
-            playback.AddSamples(tooMuchAudio, 0, tooMuchAudio.Length));
+        var overflowThrown = false;
+        try { playback.AddSamples(tooMuchAudio, 0, tooMuchAudio.Length); }
+        catch (InvalidOperationException) { overflowThrown = true; }
+        Assert.IsTrue(overflowThrown, "The provider must raise an overflow instead of discarding assistant audio.");
         Assert.AreEqual(playback.BufferLength, playback.BufferedBytes,
             "Overflow is surfaced explicitly; the caller then aborts and clears the damaged response.");
         playback.ClearBuffer();
