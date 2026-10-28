@@ -1975,13 +1975,13 @@ public partial class MainWindow : Window
 
             if (originalProfile is not null)
             {
-                var updatedProfile = CloneApiConnectionProfile(originalProfile);
-                updatedProfile.BaseUrl = baseUrl;
-                updatedProfile.ModelId = model;
-                updatedProfile.AuthSecret = profileSecret!;
-                AppRuntime.ApiConnectionService.Save(updatedProfile);
+                var layalProviderProfile = CloneApiConnectionProfile(originalProfile);
+                layalProviderProfile.BaseUrl = baseUrl;
+                layalProviderProfile.ModelId = model;
+                layalProviderProfile.AuthSecret = profileSecret!;
+                AppRuntime.ApiConnectionService.Save(layalProviderProfile);
                 profileWriteSucceeded = true;
-                profileNameToRefresh = updatedProfile.Name;
+                profileNameToRefresh = layalProviderProfile.Name;
             }
 
             AppRuntime.SettingsStore.Save(settingsToSave);
