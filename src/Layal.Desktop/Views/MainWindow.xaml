@@ -112,8 +112,7 @@
                 <Grid Margin="14">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Border Grid.Row="0" Margin="3,0,3,14" Padding="24,18" CornerRadius="28" Background="{DynamicResource Layal.GlassStrongFill}"
-                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                            Effect="{DynamicResource Layal.GlassShadow}">
+                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <Grid Grid.Column="0" VerticalAlignment="Center">
@@ -285,7 +284,7 @@
                     </StackPanel>
                     <Border x:Name="ChatComposerShell" Grid.Row="4" Margin="3,0,3,0" Padding="8,6" CornerRadius="26"
                             Background="{DynamicResource Layal.GlassStrongFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
-                            BorderThickness="1" Effect="{DynamicResource Layal.GlassShadow}">
+                            BorderThickness="1">
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="46" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+2 ينقلك إلى هذا الحقل."/>
