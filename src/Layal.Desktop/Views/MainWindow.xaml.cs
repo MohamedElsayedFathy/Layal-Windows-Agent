@@ -848,7 +848,7 @@ public partial class MainWindow : Window
         try
         {
             _localAiReady = await _localAiService.IsReadyAsync(AppRuntime.Settings.LocalAiModelId);
-            _localVoiceReady = _localVoiceService.IsReady;
+            _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync();
             UpdateLocalAiStatusText();
             RefreshProviderStatus();
         }
@@ -919,7 +919,7 @@ public partial class MainWindow : Window
             LocalAiProgressBar.IsIndeterminate = true;
             LocalAiProgressBar.Value = 0;
             _localAiReady = await _localAiService.IsReadyAsync(AppRuntime.Settings.LocalAiModelId, setupToken);
-            _localVoiceReady = _localVoiceService.IsReady;
+            _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync(setupToken);
             var needsVoice = includeVoice && !_localVoiceReady && (!_localVoiceSetupAttempted || retryVoice);
             if (_localAiReady && !needsVoice)
             {
