@@ -91,6 +91,12 @@ public sealed class LocalVoiceService
         IProgress<LocalAiProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // A retry starts from an untrusted cache state. Never leave a prior success bit set
+        // if revalidation, download, extraction or repair fails partway through this attempt.
+        Volatile.Write(ref _ready, 0);
+        _whisperExecutable = null;
+        _piperExecutable = null;
+
         if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
             throw new PlatformNotSupportedException("Local voice setup currently requires 64-bit Windows.");
 
