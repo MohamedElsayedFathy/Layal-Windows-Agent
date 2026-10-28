@@ -175,7 +175,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("https://new-provider.example/v1", target.ProviderBaseUrl);
         Assert.AreEqual("new-model", target.ModelId);
         Assert.AreEqual("en", target.Language);
-        Assert.AreEqual("light", original.ThemeMode is "light" ? original.ThemeMode : "light");
+        Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("marin", target.VoiceReplyId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
     }
