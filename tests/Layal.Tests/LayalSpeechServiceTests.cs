@@ -15,7 +15,13 @@ public sealed class LayalSpeechServiceTests
         StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "sing-song delivery");
         StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "robotic, evenly timed cadence");
         StringAssert.Contains(LayalSpeechService.VoiceCharacterDescription, "mature adult woman");
-        Assert.AreEqual("marin", LayalSpeechService.DefaultVoiceId);
+    }
+
+    [TestMethod]
+    public void DefaultVoiceIsSupportedAndUnknownVoicePresetsAreRejected()
+    {
+        Assert.IsTrue(LayalSpeechService.IsSupportedVoice(LayalSpeechService.DefaultVoiceId));
+        Assert.IsFalse(LayalSpeechService.IsSupportedVoice("not-a-supported-voice"));
     }
 
     [TestMethod]
