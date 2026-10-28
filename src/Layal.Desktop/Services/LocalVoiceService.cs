@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -27,6 +29,9 @@ public sealed class LocalVoiceService
     private const string PiperArchiveUrl =
         "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip";
     private const long PiperArchiveSize = 22_477_236;
+    // The official release metadata does not publish an asset digest. This SHA-256 is pinned
+    // for the exact official 2023.11.14-2 Windows x64 asset and checked on every reuse. 
+    private const string PiperArchiveSha256 = "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea";
 
     private const string ArabicVoiceBase =
         "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium/ar_JO-kareem-medium";
@@ -37,6 +42,24 @@ public sealed class LocalVoiceService
         "9e95cab07b679da603bba17c4dec7ab3111320571964ee95c0379603c086491e";
     private const string EnglishVoiceSha256 =
         "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f";
+    private const long ArabicVoiceConfigSize = 5_024;
+    private const long EnglishVoiceConfigSize = 4_885;
+    private const string ArabicVoiceConfigSha256 =
+        "ea6d9b9d9076dbdb6bf5c98c6a141ef154959d2359709b37855727964e7d6c4d";
+    private const string EnglishVoiceConfigSha256 =
+        "efe19c417bed055f2d69908248c6ba650fa135bc868b0e6abb3da181dab690a0";
+
+    // Runtime code and model assets from the verified Piper archive. The installed tree is
+    // checked against these pins so replacing an executable or side-loaded DLL is rejected.
+    private static readonly (string RelativePath, long Size, string Sha256)[] PiperRuntimeFileHashes =
+    [
+        ("piper/espeak-ng.dll", 380_928, "9588480f8197df62fd8461a8431f8eaec6e8e7749c5ffcbe7fee656fe40a2189"),
+        ("piper/libtashkeel_model.ort", 10_261_536, "9f27090af3e0f661913af048a739632a3f577b3233512551d8c90580ccad4aa8"),
+        ("piper/onnxruntime_providers_shared.dll", 22_424, "71705b9bd76baced583eb37fe5ec2101946b4de50f1e9bdb156109f7e8082980"),
+        ("piper/onnxruntime.dll", 9_271_704, "a630f67f4a82b6689e4178bf81d362d945522dd907b2a92cb43cebf72c83a06f"),
+        ("piper/piper_phonemize.dll", 407_040, "4b5f344b2f31204a8a94a0bf485f93e4971671e81188a0d67f326e113bfb0b2e"),
+        ("piper/piper.exe", 509_952, "96f3da3811151580073e40bb4dd20eb0fb8115f5f5f76e2fb54282b3edfa5c1f")
+    ];
     private const long MaximumArchiveBytes = 250 * 1024 * 1024;
     private const long MaximumAudioBytes = 64 * 1024 * 1024;
 
@@ -60,29 +83,20 @@ public sealed class LocalVoiceService
     private string? _piperExecutable;
     private int _ready;
 
-    public bool IsReady
-    {
-        get
-        {
-            if (Volatile.Read(ref _ready) == 1) return true;
-
-            // Persisted downloads are reusable across application restarts; re-discover
-            // their executables and model files rather than forcing a second large download.
-            _whisperExecutable ??= FindExecutable(Path.Combine(ToolsRoot, "whisper"), "whisper-cli.exe");
-            _piperExecutable ??= FindExecutable(Path.Combine(ToolsRoot, "piper"), "piper.exe");
-            var ready = _whisperExecutable is not null && _piperExecutable is not null &&
-                        File.Exists(WhisperModelPath) &&
-                        File.Exists(ArabicModelPath) && File.Exists(ArabicConfigPath) &&
-                        File.Exists(EnglishModelPath) && File.Exists(EnglishConfigPath);
-            if (ready) Volatile.Write(ref _ready, 1);
-            return ready;
-        }
-    }
+    // A file's presence is not evidence that it still matches the verified resources. The
+    // cache must be verified in this process before local speech is advertised as ready.
+    public bool IsReady => Volatile.Read(ref _ready) == 1;
 
     public async Task EnsureReadyAsync(
         IProgress<LocalAiProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // A retry starts from an untrusted cache state. Never leave a prior success bit set
+        // if revalidation, download, extraction or repair fails partway through this attempt.
+        Volatile.Write(ref _ready, 0);
+        _whisperExecutable = null;
+        _piperExecutable = null;
+
         if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
             throw new PlatformNotSupportedException("Local voice setup currently requires 64-bit Windows.");
 
@@ -109,38 +123,96 @@ public sealed class LocalVoiceService
             WhisperModelUrl, WhisperModelPath, WhisperModelSize, null, WhisperModelSha1,
             "تنزيل نموذج فهم الكلام العربي والإنجليزي (Whisper base)…", progress, cancellationToken);
 
-        _piperExecutable = FindExecutable(Path.Combine(ToolsRoot, "piper"), "piper.exe");
-        if (_piperExecutable is null)
+        var piperArchive = Path.Combine(Root, "piper-windows-amd64-2023.11.14-2.zip");
+        await EnsureVerifiedFileAsync(
+            PiperArchiveUrl, piperArchive, PiperArchiveSize, PiperArchiveSha256, null,
+            "تنزيل محرك النطق المحلي (Piper)…", progress, cancellationToken);
+
+        var piperDestination = Path.Combine(ToolsRoot, "piper");
+        if (!await MatchesExpectedPiperInstallAsync(piperDestination, cancellationToken))
         {
-            var archive = Path.Combine(Root, "piper-windows-amd64-2023.11.14-2.zip");
-            await EnsureVerifiedFileAsync(
-                PiperArchiveUrl, archive, PiperArchiveSize, null, null,
-                "تنزيل محرك النطق المحلي (Piper)…", progress, cancellationToken);
-            var destination = Path.Combine(ToolsRoot, "piper");
-            SafeExtractZip(archive, destination);
-            _piperExecutable = FindExecutable(destination, "piper.exe");
-            if (_piperExecutable is null)
-                throw new InvalidOperationException("لم يحتوِ أرشيف Piper على piper.exe.");
-            TryDeleteFile(archive);
+            // Never keep using a damaged installed copy. Rebuild it only from the archive whose
+            // pinned SHA-256 was checked above, and refuse to recursively follow reparse points.
+            DeletePiperInstallDirectory(piperDestination);
+            SafeExtractZip(piperArchive, piperDestination);
         }
+
+        // The archive's signed-off layout is fixed. Use the exact manifest path instead of
+        // recursively searching a potentially modified directory for an executable.
+        _piperExecutable = Path.Combine(piperDestination, "piper", "piper.exe");
+        if (!File.Exists(_piperExecutable) ||
+            !await MatchesExpectedPiperInstallAsync(piperDestination, cancellationToken))
+            throw new InvalidOperationException("تعذر التحقق من ملفات محرك النطق Piper؛ لم يتم تشغيلها.");
 
         await EnsureVerifiedFileAsync(
             ArabicVoiceBase + ".onnx", ArabicModelPath, PiperVoiceSize, ArabicVoiceSha256, null,
             "تنزيل الصوت العربي المحلي…", progress, cancellationToken);
         await EnsureVerifiedFileAsync(
-            ArabicVoiceBase + ".onnx.json", ArabicConfigPath, 5_024, null, null,
+            ArabicVoiceBase + ".onnx.json", ArabicConfigPath, ArabicVoiceConfigSize, ArabicVoiceConfigSha256, null,
             "تنزيل إعدادات الصوت العربي…", progress, cancellationToken);
         await EnsureVerifiedFileAsync(
             EnglishVoiceBase + ".onnx", EnglishModelPath, PiperVoiceSize, EnglishVoiceSha256, null,
             "تنزيل الصوت الإنجليزي المحلي…", progress, cancellationToken);
         await EnsureVerifiedFileAsync(
-            EnglishVoiceBase + ".onnx.json", EnglishConfigPath, 4_885, null, null,
+            EnglishVoiceBase + ".onnx.json", EnglishConfigPath, EnglishVoiceConfigSize, EnglishVoiceConfigSha256, null,
             "تنزيل إعدادات الصوت الإنجليزي…", progress, cancellationToken);
 
         ValidateVoiceConfig(ArabicConfigPath, "ar_JO-kareem-medium");
         ValidateVoiceConfig(EnglishConfigPath, "en_US-lessac-medium");
         Volatile.Write(ref _ready, 1);
         progress?.Report(new LocalAiProgress("أصبح تحويل الكلام والنطق متاحين محليًا على جهازك."));
+    }
+
+    public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsReady) return true;
+        Volatile.Write(ref _ready, 0);
+        _whisperExecutable = null;
+        _piperExecutable = null;
+
+        if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
+            return false;
+
+        try
+        {
+            _whisperExecutable = FindExecutable(Path.Combine(ToolsRoot, "whisper"), "whisper-cli.exe");
+            if (_whisperExecutable is null)
+                return false;
+
+            var piperRoot = Path.Combine(ToolsRoot, "piper");
+            if (!await MatchesExpectedPiperInstallAsync(piperRoot, cancellationToken))
+                return false;
+            _piperExecutable = Path.Combine(piperRoot, "piper", "piper.exe");
+            if (!File.Exists(_piperExecutable))
+                return false;
+
+            // The archive is only needed to repair a bad install. Older valid installs may
+            // have already deleted it, so validate installed files independently on startup.
+            if (!await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, null, WhisperModelSha1, cancellationToken) ||
+                !await MatchesExpectedFileAsync(ArabicModelPath, PiperVoiceSize, ArabicVoiceSha256, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(ArabicConfigPath, ArabicVoiceConfigSize, ArabicVoiceConfigSha256, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(EnglishModelPath, PiperVoiceSize, EnglishVoiceSha256, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(EnglishConfigPath, EnglishVoiceConfigSize, EnglishVoiceConfigSha256, null, cancellationToken))
+                return false;
+
+            ValidateVoiceConfig(ArabicConfigPath, "ar_JO-kareem-medium");
+            ValidateVoiceConfig(EnglishConfigPath, "en_US-lessac-medium");
+            Volatile.Write(ref _ready, 1);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+        {
+            // Treat unreadable or invalid cache entries as not ready. Setup will ask for consent
+            // before attempting a repair or network download.
+            Volatile.Write(ref _ready, 0);
+            _whisperExecutable = null;
+            _piperExecutable = null;
+            return false;
+        }
     }
 
     public async Task<string> TranscribeAsync(byte[] wavBytes, CancellationToken cancellationToken = default)
@@ -222,6 +294,17 @@ public sealed class LocalVoiceService
         var arabic = normalized.Any(c => c is >= '\u0600' and <= '\u06FF');
         var modelPath = arabic ? ArabicModelPath : EnglishModelPath;
         var configPath = arabic ? ArabicConfigPath : EnglishConfigPath;
+        var modelHash = arabic ? ArabicVoiceSha256 : EnglishVoiceSha256;
+        var configHash = arabic ? ArabicVoiceConfigSha256 : EnglishVoiceConfigSha256;
+        var configSize = arabic ? ArabicVoiceConfigSize : EnglishVoiceConfigSize;
+
+        if (!await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken) ||
+            !await MatchesExpectedFileAsync(modelPath, PiperVoiceSize, modelHash, null, cancellationToken) ||
+            !await MatchesExpectedFileAsync(configPath, configSize, configHash, null, cancellationToken))
+        {
+            Volatile.Write(ref _ready, 0);
+            throw new InvalidOperationException("اكتُشف تغيير في موارد النطق المحلية؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
+        }
 
         Directory.CreateDirectory(TempRoot);
         var outputPath = Path.Combine(TempRoot, Guid.NewGuid().ToString("N") + ".wav");
@@ -349,6 +432,87 @@ public sealed class LocalVoiceService
             actual = Convert.ToHexString(await SHA1.HashDataAsync(stream, cancellationToken)).ToLowerInvariant();
         var expected = expectedSha256 ?? expectedSha1!;
         return string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<bool> MatchesExpectedPiperInstallAsync(string root, CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(root)) return false;
+        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("رفض التطبيق استخدام مجلد Piper الذي يمثل رابطًا رمزيًا أو reparse point.");
+
+        var actualRuntimePaths = EnumerateFilesWithoutFollowingReparsePoints(root)
+            .Where(IsPiperRuntimeCodeFile)
+            .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var expectedRuntimePaths = PiperRuntimeFileHashes
+            .Select(item => item.RelativePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!actualRuntimePaths.SetEquals(expectedRuntimePaths)) return false;
+
+        foreach (var item in PiperRuntimeFileHashes)
+        {
+            var path = Path.Combine(root, item.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!await MatchesExpectedFileAsync(path, item.Size, item.Sha256, null, cancellationToken))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsPiperRuntimeCodeFile(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".exe", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".dll", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".ort", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> EnumerateFilesWithoutFollowingReparsePoints(string directory)
+    {
+        foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+        {
+            var attributes = File.GetAttributes(entry);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("رفض التطبيق استخدام رابط رمزي أو reparse point داخل مجلد Piper.");
+
+            if ((attributes & FileAttributes.Directory) != 0)
+            {
+                foreach (var nested in EnumerateFilesWithoutFollowingReparsePoints(entry))
+                    yield return nested;
+            }
+            else
+            {
+                yield return entry;
+            }
+        }
+    }
+
+    private static void DeletePiperInstallDirectory(string directory)
+    {
+        var expected = Path.GetFullPath(Path.Combine(ToolsRoot, "piper")).TrimEnd(Path.DirectorySeparatorChar);
+        var actual = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar);
+        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("رفض التطبيق حذف مسار خارج تثبيت Piper المعتمد.");
+
+        if (Directory.Exists(actual))
+            DeleteDirectoryWithoutFollowingReparsePoints(actual);
+    }
+
+    private static void DeleteDirectoryWithoutFollowingReparsePoints(string path)
+    {
+        var attributes = File.GetAttributes(path);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("رفض التطبيق حذف مجلد تثبيت Piper الذي يمثل رابطًا رمزيًا.");
+
+        if ((attributes & FileAttributes.Directory) == 0)
+        {
+            File.Delete(path);
+            return;
+        }
+
+        foreach (var entry in Directory.EnumerateFileSystemEntries(path))
+            DeleteDirectoryWithoutFollowingReparsePoints(entry);
+        Directory.Delete(path, recursive: false);
     }
 
     private static void SafeExtractZip(string archivePath, string destination)
