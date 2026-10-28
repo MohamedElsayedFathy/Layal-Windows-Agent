@@ -16,7 +16,7 @@
         <Color x:Key="Layal.Color.Cyan">#087B8F</Color>
         <Color x:Key="Layal.Color.Purple">#7563D6</Color>
         <Color x:Key="Layal.Color.Text">#1C2940</Color>
-        <Color x:Key="Layal.Color.Muted">#5D6D84</Color>
+        <Color x:Key="Layal.Color.Muted">#4D5C75</Color>
         <Color x:Key="Layal.Color.ScrollThumb">#9BAEC7</Color>
         <Color x:Key="Layal.Color.Success">#177A57</Color>
         <Color x:Key="Layal.Color.Warning">#946200</Color>
@@ -84,9 +84,21 @@
         <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
         <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />
         <SolidColorBrush x:Key="Layal.GlassBorderBrush" Color="{DynamicResource Layal.Color.GlassBorder}" />
-        <SolidColorBrush x:Key="Layal.GlowBlueBrush" Color="{DynamicResource Layal.Color.GlowBlue}" />
-        <SolidColorBrush x:Key="Layal.GlowVioletBrush" Color="{DynamicResource Layal.Color.GlowViolet}" />
-        <SolidColorBrush x:Key="Layal.GlowPinkBrush" Color="{DynamicResource Layal.Color.GlowPink}" />
+        <RadialGradientBrush x:Key="Layal.GlowBlueBrush" RadiusX="0.5" RadiusY="0.5">
+            <GradientStop Color="{DynamicResource Layal.Color.GlowBlue}" Offset="0" />
+            <GradientStop Color="{DynamicResource Layal.Color.GlowBlue}" Offset="0.42" />
+            <GradientStop Color="#00FFFFFF" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="Layal.GlowVioletBrush" RadiusX="0.5" RadiusY="0.5">
+            <GradientStop Color="{DynamicResource Layal.Color.GlowViolet}" Offset="0" />
+            <GradientStop Color="{DynamicResource Layal.Color.GlowViolet}" Offset="0.42" />
+            <GradientStop Color="#00FFFFFF" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="Layal.GlowPinkBrush" RadiusX="0.5" RadiusY="0.5">
+            <GradientStop Color="{DynamicResource Layal.Color.GlowPink}" Offset="0" />
+            <GradientStop Color="{DynamicResource Layal.Color.GlowPink}" Offset="0.42" />
+            <GradientStop Color="#00FFFFFF" Offset="1" />
+        </RadialGradientBrush>
         <SolidColorBrush x:Key="Layal.OnAccent" Color="{DynamicResource Layal.Color.OnAccent}" />
 
         <LinearGradientBrush x:Key="Layal.HeaderGradient" StartPoint="0,0" EndPoint="1,1">
@@ -123,7 +135,7 @@
         </LinearGradientBrush>
 
         <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="24" ShadowDepth="5" Opacity="0.22" />
-        <DropShadowEffect x:Key="Layal.GlassShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="38" ShadowDepth="10" Opacity="0.24" />
+        <DropShadowEffect x:Key="Layal.GlassShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="24" ShadowDepth="5" Opacity="0.18" />
 
         <!-- Shared high-visibility keyboard focus ring for controls without a custom focus state. -->
         <Style x:Key="Layal.KeyboardFocusVisual" TargetType="{x:Type Control}">
