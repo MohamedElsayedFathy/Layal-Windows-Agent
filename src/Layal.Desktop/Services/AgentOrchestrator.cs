@@ -65,7 +65,16 @@ public sealed class AgentOrchestrator
                 var turn = await _client.AgentTurnAsync(baseUrl, model, apiKey, messages, toolDefinitions, cancellationToken);
                 if (turn.ToolCalls.Count == 0)
                 {
-                    task.Result = string.IsNullOrWhiteSpace(turn.Content) ? "The model returned an empty final answer." : turn.Content;
+                    if (string.IsNullOrWhiteSpace(turn.Content))
+                    {
+                        task.Status = "Failed";
+                        task.Result = "The model returned an empty final answer. The task is not complete; try again or choose another model/provider.";
+                        Log(task.Result);
+                        _history.Upsert(task);
+                        return task;
+                    }
+
+                    task.Result = turn.Content;
                     task.Status = hadToolErrorsOrDeclinedActions ? "CompletedWithWarnings" : "Completed";
                     Log(hadToolErrorsOrDeclinedActions
                         ? "Model returned a final response, but one or more tool actions failed or were declined. Review the event log before treating the goal as complete."
