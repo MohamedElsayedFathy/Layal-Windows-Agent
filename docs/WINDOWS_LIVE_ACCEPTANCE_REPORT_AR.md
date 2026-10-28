@@ -83,7 +83,7 @@ $acceptanceArgs = @{
 & ".\tools\Start-LayalLiveAcceptance.ps1" @acceptanceArgs
 ~~~
 
-استبدل SHA واسم ZIP ورابط التشغيل بأسماء وقيم فعلية؛ مثال اسم ZIP يوضح النمط فقط، وليس إصدارًا مضمونًا. تحقق أن تشغيل GitHub Actions المشار إليه بنى الـ commit نفسه. لا تعدّل ملف SHA256SUMS.txt. إذا توفرت شاشتان بمقياسي DPI مختلفين، أضف ConfirmMixedDpiTransition = $true إلى جدول المعاملات كي يفشل التشخيص إن لم يرصد الانتقال الفعلي.
+استبدل SHA واسم ZIP ورابط التشغيل بأسماء وقيم فعلية؛ مثال اسم ZIP يوضح النمط فقط، وليس إصدارًا مضمونًا. تحقق أن تشغيل GitHub Actions المشار إليه بنى الـ commit نفسه. لا تعدّل ملف SHA256SUMS.txt. إذا توفرت شاشتان بمقياسي DPI مختلفين، أضف RequireMixedDpiTransition = $true إلى جدول المعاملات كي يفشل التشخيص إن لم يرصد الانتقال الفعلي.
 
 ينشئ المشغّل live-acceptance-session.json وmanual-checklist.csv وسجلات فرعية داخل artifacts/windows-live-acceptance/. سيظل قرار الجلسة NO-GO وبوابات القبول اليدوي PENDING حتى بعد نجاح التشخيصات؛ لا يختبر المشغّل وحده Narrator/NVDA أو High Contrast أو القبول البصري البشري، ولا يعدّ نجاح CI قبولًا حيًا. أكمل المراجعة اليدوية وأدلّتها قبل تحديث docs/RELEASE_GATE_EVIDENCE.json.
 
