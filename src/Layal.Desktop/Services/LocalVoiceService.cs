@@ -83,8 +83,8 @@ public sealed class LocalVoiceService
     private string? _piperExecutable;
     private int _ready;
 
-    // A file's presence is not evidence that it still matches the verified resources. Each
-    // process instance becomes ready only after EnsureReadyAsync validates or repairs the cache.
+    // A file's presence is not evidence that it still matches the verified resources. The
+    // cache must be verified in this process before local speech is advertised as ready.
     public bool IsReady => Volatile.Read(ref _ready) == 1;
 
     public async Task EnsureReadyAsync(
@@ -153,6 +153,53 @@ public sealed class LocalVoiceService
         ValidateVoiceConfig(EnglishConfigPath, "en_US-lessac-medium");
         Volatile.Write(ref _ready, 1);
         progress?.Report(new LocalAiProgress("أصبح تحويل الكلام والنطق متاحين محليًا على جهازك."));
+    }
+
+    public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsReady) return true;
+        Volatile.Write(ref _ready, 0);
+        _whisperExecutable = null;
+        _piperExecutable = null;
+
+        if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
+            return false;
+
+        try
+        {
+            _whisperExecutable = FindExecutable(Path.Combine(ToolsRoot, "whisper"), "whisper-cli.exe");
+            _piperExecutable = FindExecutable(Path.Combine(ToolsRoot, "piper"), "piper.exe");
+            if (_whisperExecutable is null || _piperExecutable is null)
+                return false;
+
+            var piperArchive = Path.Combine(Root, "piper-windows-amd64-2023.11.14-2.zip");
+            if (!await MatchesExpectedFileAsync(piperArchive, PiperArchiveSize, PiperArchiveSha256, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, null, WhisperModelSha1, cancellationToken) ||
+                !await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken) ||
+                !await MatchesExpectedFileAsync(ArabicModelPath, PiperVoiceSize, ArabicVoiceSha256, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(ArabicConfigPath, ArabicVoiceConfigSize, ArabicVoiceConfigSha256, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(EnglishModelPath, PiperVoiceSize, EnglishVoiceSha256, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(EnglishConfigPath, EnglishVoiceConfigSize, EnglishVoiceConfigSha256, null, cancellationToken))
+                return false;
+
+            ValidateVoiceConfig(ArabicConfigPath, "ar_JO-kareem-medium");
+            ValidateVoiceConfig(EnglishConfigPath, "en_US-lessac-medium");
+            Volatile.Write(ref _ready, 1);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+        {
+            // Treat unreadable or invalid cache entries as not ready. Setup will ask for consent
+            // before attempting a repair or network download.
+            Volatile.Write(ref _ready, 0);
+            _whisperExecutable = null;
+            _piperExecutable = null;
+            return false;
+        }
     }
 
     public async Task<string> TranscribeAsync(byte[] wavBytes, CancellationToken cancellationToken = default)
