@@ -342,6 +342,10 @@
                                     MinWidth="105" ToolTip="إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
                                     AutomationProperties.Name="إدارة التذكيرات المحلية"
                                     AutomationProperties.HelpText="أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."/>
+                            <Button x:Name="ManageRoutinesButton" Content="الروتينات" Click="ManageRoutinesButton_Click"
+                                    MinWidth="105" ToolTip="احفظ أهدافًا نصية متكررة. اختيار الروتين يملأ المسودة فقط ولا يشغله تلقائيًا."
+                                    AutomationProperties.Name="إدارة الروتينات المحفوظة"
+                                    AutomationProperties.HelpText="قوالب نصية مشفرة محليًا وليست سكربتات؛ راجع الهدف واضغط تنفيذ المهمة بنفسك."/>
                         </WrapPanel>
                         <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,6,4,0"/>
                         <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
