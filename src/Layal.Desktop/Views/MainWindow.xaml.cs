@@ -884,6 +884,14 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(ManageRoutinesButton, ar
             ? "قوالب نصية مشفرة محليًا وليست سكربتات؛ راجع الهدف واضغط تنفيذ المهمة بنفسك."
             : "Locally encrypted text templates, not scripts. Review the goal and press Run task yourself.");
+        ManageRoutinesButton.Content = ar ? "الروتينات" : "Routines";
+        ManageRoutinesButton.ToolTip = ar
+            ? "احفظ أهدافًا نصية متكررة؛ الاختيار يملأ مسودة المهمة فقط."
+            : "Save recurring text goals; choosing one only fills the task draft.";
+        AutomationProperties.SetName(ManageRoutinesButton, ar ? "إدارة الروتينات المحفوظة" : "Manage saved routines");
+        AutomationProperties.SetHelpText(ManageRoutinesButton, ar
+            ? "قوالب نصية مشفرة محليًا وليست سكربتات؛ راجع الهدف واضغط تنفيذ المهمة بنفسك."
+            : "Locally encrypted text templates, not scripts. Review the goal and press Run task yourself.");
         TasksDescription.Text = ar
             ? "اكتب مهمة بالعربية أو الإنجليزية. تستخدم ليال استدعاء الأدوات المحددة، وتطلب موافقتك قبل الإجراءات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات."
             : "Describe a task in Arabic or English. Layal uses allow-listed tools and requests approval before file changes, application launches, or data disclosure.";
@@ -4593,6 +4601,26 @@ public partial class MainWindow : Window
     private void ManageRemindersButton_Click(object sender, RoutedEventArgs e)
     {
         var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    private void ManageRoutinesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new SavedRoutineManagerWindow(
+            AppRuntime.SavedRoutineService,
+            IsArabic,
+            goal =>
+            {
+                TaskInput.Text = goal;
+                MainTabs.SelectedItem = TasksTab;
+                TaskInput.Focus();
+                SetAccessibleStatusText(TaskResult, IsArabic
+                    ? "تم تحميل قالب الروتين في مسودة المهمة. راجع الهدف ثم اضغط تنفيذ المهمة."
+                    : "The saved routine was loaded into the task draft. Review it, then press Run task.");
+            })
         {
             Owner = this
         };
