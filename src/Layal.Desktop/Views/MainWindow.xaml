@@ -266,6 +266,10 @@
                                     ToolTip="اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S."
                                     AutomationProperties.Name="سؤال سريع"
                                     AutomationProperties.HelpText="يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا."/>
+                            <Button x:Name="IncognitoModeButton" Content="محادثة خاصة" Click="IncognitoModeButton_Click" MinWidth="110"
+                                    ToolTip="جلسة دردشة مؤقتة لا تحفظ رسائلها محليًا؛ تظل بيانات الإرسال للمزود حسب إعداداتك."
+                                    AutomationProperties.Name="محادثة خاصة"
+                                    AutomationProperties.HelpText="يخفي سجل المحادثات ويبدأ سياقًا مؤقتًا. لا يعطل حفظ سجلات المهام أو الذاكرة."/>
                             <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
                                     ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
                                     AutomationProperties.Name="إرفاق صورة أو لقطة شاشة"
