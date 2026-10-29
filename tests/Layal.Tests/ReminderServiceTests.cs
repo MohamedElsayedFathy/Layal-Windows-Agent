@@ -80,6 +80,48 @@ public sealed class ReminderServiceTests
     }
 
     [TestMethod]
+    public void UpdatingDeliveredReminderChangesScheduleAndReactivatesIt()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The reminder store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var service = new ReminderService(Path.Combine(temp.Path, "reminders.dpapi"));
+        var originalDue = DateTimeOffset.Now.AddMinutes(1);
+        var created = service.Create("Old title", originalDue);
+        Assert.IsNotNull(service.MarkDelivered(created.Id, originalDue, originalDue.AddSeconds(1)));
+        Assert.IsFalse(service.GetAll()[0].IsActive);
+
+        var nextDue = DateTimeOffset.Now.AddHours(2);
+        var updated = service.Update(created.Id, "Updated title", nextDue, "Weekly");
+
+        Assert.IsNotNull(updated);
+        Assert.AreEqual("Updated title", updated!.Title);
+        Assert.AreEqual(nextDue, updated.DueAt);
+        Assert.AreEqual("Weekly", updated.Recurrence);
+        Assert.IsTrue(updated.IsActive);
+        Assert.IsNull(updated.LastDeliveredAt);
+
+        var persisted = new ReminderService(Path.Combine(temp.Path, "reminders.dpapi")).GetAll()[0];
+        Assert.AreEqual("Updated title", persisted.Title);
+        Assert.IsTrue(persisted.IsActive);
+    }
+
+    [TestMethod]
+    public void ReminderUpdateRejectsPastTimesAndUnknownIds()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The reminder store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var service = new ReminderService(Path.Combine(temp.Path, "reminders.dpapi"));
+        var created = service.Create("Update me", DateTimeOffset.Now.AddHours(1));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            service.Update(created.Id, "Update me", DateTimeOffset.Now.AddMinutes(-2)));
+        Assert.IsNull(service.Update("missing", "Update me", DateTimeOffset.Now.AddHours(1)));
+    }
+
+    [TestMethod]
     public void ReminderCreationValidatesTitlesAndFutureDueTimes()
     {
         if (!OperatingSystem.IsWindows())
