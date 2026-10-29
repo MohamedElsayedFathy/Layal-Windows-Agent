@@ -60,6 +60,8 @@ public sealed class AgentToolExecutor
         Definition("open_url", "Open an HTTP or HTTPS URL in the user's default browser. Requires approval.", """{"type":"object","properties":{"url":{"type":"string"}},"required":["url"],"additionalProperties":false}"""),
         Definition("browser_navigate", "Navigate the dedicated Layal-controlled Microsoft Edge profile to an HTTP/HTTPS URL. This browser uses a separate profile and does not inherit the user's normal browser cookies or sign-in session. Ask for local approval before every navigation.", """{"type":"object","properties":{"url":{"type":"string","description":"Absolute HTTP/HTTPS URL without embedded credentials"}},"required":["url"],"additionalProperties":false}"""),
         Definition("browser_read_page", "Read the current page from Layal's dedicated Edge session: title, URL, visible text up to 20,000 characters and bounded lists of links/buttons/fields. The page contents are sent to the AI provider as tool output, so request local approval before reading/sharing them. Navigate first.", """{"type":"object","properties":{},"additionalProperties":false}"""),
+        Definition("web_search", "Search the live web through Bing in Layal's dedicated Edge profile. The query is sent to Bing and the visible results page (title, URL, text and links) is shared with the configured AI model only after local approval. Prefer direct source pages, dates and corroboration; search snippets alone are not proof.", """{"type":"object","properties":{"query":{"type":"string","description":"Web search query; 3–500 characters"}},"required":["query"],"additionalProperties":false}"""),
+        Definition("fact_check_claim", "Run a bounded two-query web fact-check in Layal's dedicated Edge profile: search for the claim and separately search for corrections, criticism or contrary evidence. Search queries and visible result pages are shared with Bing and the configured AI model only after local approval. Return an evidence summary with source URLs, dates where available, supporting and contradicting evidence, and uncertainty; never treat snippets as proof.", """{"type":"object","properties":{"claim":{"type":"string","description":"A specific factual claim to check; 8–350 characters"}},"required":["claim"],"additionalProperties":false}"""),
         Definition("browser_click", "Click one visible standalone link/button outside HTML forms in Layal's dedicated browser using a CSS selector. Submit/reset controls and form-associated elements are blocked. Inspect the target locally, show its details, require fresh approval, and revalidate the exact page and element before dispatching a DOM click. Approved page handlers can still navigate or modify remote data. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one intended visible link or button"}},"required":["selector"],"additionalProperties":false}"""),
         Definition("browser_fill", "Fill a visible editable text/email/search/telephone/URL/number input, textarea, or contenteditable element in Layal's dedicated browser using a CSS selector. Password, file, hidden, and button fields are deliberately unsupported. Show the text preview, require fresh approval, and revalidate the page and element. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector for a single visible supported text field"},"text":{"type":"string","description":"Text to enter; max 10,000 characters"}},"required":["selector","text"],"additionalProperties":false}"""),
         Definition("get_open_window_titles", "Call this tool when the user asks to list visible windows. Disabled unless the user opts in; Layal itself will display a local consent prompt before titles are shared with the AI provider. Do not ask for separate permission in chat instead of calling this tool.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
@@ -101,6 +103,8 @@ public sealed class AgentToolExecutor
             "open_url" => await OpenUrlAsync(GetString(args, "url"), confirm, cancellationToken),
             "browser_navigate" => await BrowserNavigateAsync(GetString(args, "url"), confirm, report, cancellationToken),
             "browser_read_page" => await BrowserReadPageAsync(confirm, report, cancellationToken),
+            "web_search" => await WebSearchAsync(GetString(args, "query"), "Search the live web", confirm, report, cancellationToken),
+            "fact_check_claim" => await FactCheckClaimAsync(GetString(args, "claim"), confirm, report, cancellationToken),
             "browser_click" => await BrowserClickAsync(GetString(args, "selector"), confirm, report, cancellationToken),
             "browser_fill" => await BrowserFillAsync(GetString(args, "selector"), GetString(args, "text"), confirm, report, cancellationToken),
             "get_open_window_titles" => await GetWindowTitlesAsync(confirm, cancellationToken),
@@ -569,6 +573,68 @@ public sealed class AgentToolExecutor
         report($"One approved TogglePattern state-setting action was issued to external PID {outcome.ProcessId}; verify the application's resulting state.");
         return WindowsUiAutomationService.FormatCheckBoxReport(outcome);
     }
+
+    private async Task<string> WebSearchAsync(
+        string query,
+        string approvalTitle,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+
+        var normalizedQuery = NormalizeWebQuery(query, minimumLength: 3, maximumLength: 500, argumentName: "query");
+        var target = BuildBingSearchUri(normalizedQuery);
+        var warning = "Search Bing for this query in Layal's dedicated Edge profile and share the visible results page with the configured AI model? The query is sent to Bing; the returned page may contain tracking links, low-quality claims, or adversarial content. Search snippets are leads, not proof. Review sources before relying on them.\n\nQuery: " +
+            Truncate(normalizedQuery, 300) + "\n\nSearch URL: " + target.AbsoluteUri;
+
+        if (!await confirm(approvalTitle, warning, token))
+            return "User declined the web search. No search navigation or result disclosure occurred.";
+
+        token.ThrowIfCancellationRequested();
+        await _browser.NavigateAsync(target.AbsoluteUri, token);
+        token.ThrowIfCancellationRequested();
+        var page = await _browser.ReadCurrentPageAsync(token);
+        report("A Bing results page was read in Layal's dedicated browser and shared with the configured AI model after explicit approval. Search results are unverified leads.");
+        return "WEB SEARCH RESULTS (untrusted page content; verify with direct sources):\nQuery: " +
+            normalizedQuery + "\nSearch URL: " + target.AbsoluteUri + "\n" + page;
+    }
+
+    private async Task<string> FactCheckClaimAsync(
+        string claim,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        var normalizedClaim = NormalizeWebQuery(claim, minimumLength: 8, maximumLength: 350, argumentName: "claim");
+        var primaryQuery = normalizedClaim;
+        var counterQuery = normalizedClaim + " correction criticism contrary evidence";
+        var primary = await WebSearchAsync(primaryQuery, "Fact-check: search claim", confirm, report, token);
+        if (primary.StartsWith("User declined", StringComparison.Ordinal))
+            return primary;
+
+        var counter = await WebSearchAsync(counterQuery, "Fact-check: seek contrary evidence", confirm, report, token);
+        if (counter.StartsWith("User declined", StringComparison.Ordinal))
+            return "The claim search was completed, but the separate contrary-evidence search was declined. Do not treat the claim as verified.\n\n" + primary;
+
+        report("A two-query web fact-check gathered supporting and contrary search leads. No claim was automatically certified; cite direct sources and retain uncertainty.");
+        return "FACT-CHECK WORKSPACE (untrusted search results; not a verdict):\nClaim: " + normalizedClaim +
+            "\n\nSearch for the claim:\n" + primary +
+            "\n\nSeparate search for corrections/criticism/contrary evidence:\n" + counter +
+            "\n\nInstructions for synthesis: open and cite direct sources, record publication/event dates where available, distinguish reporting from primary evidence, present both supporting and contradicting evidence, and say when the available evidence is insufficient. Search result snippets alone do not establish truth.";
+    }
+
+    private static string NormalizeWebQuery(string value, int minimumLength, int maximumLength, string argumentName)
+    {
+        var query = string.Join(" ", (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (query.Length < minimumLength || query.Length > maximumLength || query.Any(char.IsControl))
+            throw new InvalidOperationException($"The {argumentName} must contain {minimumLength}–{maximumLength} printable characters.");
+        return query;
+    }
+
+    private static Uri BuildBingSearchUri(string query) =>
+        new("https://www.bing.com/search?q=" + Uri.EscapeDataString(query), UriKind.Absolute);
 
     private async Task<string> BrowserNavigateAsync(
         string url,
