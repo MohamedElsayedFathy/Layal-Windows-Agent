@@ -4140,11 +4140,14 @@ public partial class MainWindow : Window
     {
         if (DocumentAttachmentStatus is null) return;
         var hasDocument = !string.IsNullOrWhiteSpace(_pendingDocumentText);
-        ChooseDocumentButton.IsEnabled = _chatCancellation is null;
+        var hasImage = _pendingVisionImageBytes is { Length: > 0 };
+        ChooseDocumentButton.IsEnabled = _chatCancellation is null && !hasImage;
+        ChooseImageButton.IsEnabled = _chatCancellation is null && !hasDocument;
+        CaptureScreenRegionButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled && _chatCancellation is null && !hasDocument;
         ClearDocumentButton.Visibility = hasDocument ? Visibility.Visible : Visibility.Collapsed;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
         PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
-            _chatCancellation is null && !hasDocument && _pendingVisionImageBytes is not { Length: > 0 };
+            _chatCancellation is null && !hasDocument && !hasImage;
         DocumentAttachmentStatus.Text = hasDocument
             ? (IsArabic ? "جاهز للمراجعة والإرسال: " : "Ready for review and send: ") + (_pendingDocumentFileName ?? (IsArabic ? "ملف" : "document"))
             : (IsArabic ? "لا يوجد ملف مرفق" : "No document attached");
@@ -4269,10 +4272,10 @@ public partial class MainWindow : Window
               (previewLoaded ? string.Empty : (IsArabic ? " (تعذرت المعاينة)" : " (preview unavailable)"))
             : (IsArabic ? "لا توجد صورة مرفقة" : "No image attached");
         ClearVisionImageButton.Visibility = hasImage ? Visibility.Visible : Visibility.Collapsed;
-        ChooseImageButton.IsEnabled = _chatCancellation is null;
-        CaptureScreenRegionButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled && _chatCancellation is null;
+        ChooseImageButton.IsEnabled = _chatCancellation is null && !hasDocument;
+        CaptureScreenRegionButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled && _chatCancellation is null && !hasDocument;
         ClearVisionImageButton.IsEnabled = _chatCancellation is null;
-        ChooseDocumentButton.IsEnabled = _chatCancellation is null;
+        ChooseDocumentButton.IsEnabled = _chatCancellation is null && !hasImage;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
         PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
             _chatCancellation is null && !hasDocument && !hasImage;
