@@ -337,7 +337,7 @@ public sealed class DocumentTextExtractionService
         {
             throw;
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
         {
             return textExtraction with
             {
