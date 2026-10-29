@@ -354,6 +354,24 @@
                         <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,6,4,0"/>
                         <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
                         <TextBlock x:Name="TaskSafeToolDescription" Text="الأدوات المتاحة محددة؛ لا يوجد وصول عام غير مقيد إلى سطر الأوامر أو الملفات." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,3,4,0"/>
+                        <WrapPanel Margin="4,8,4,0" VerticalAlignment="Center">
+                            <CheckBox x:Name="ProactiveCheckInEnabledCheckBox" Content="تذكيرات متابعة استباقية" Click="ProactiveCheckInEnabledCheckBox_Click"
+                                      VerticalAlignment="Center" Margin="0,0,10,0"
+                                      AutomationProperties.Name="تفعيل تذكيرات المتابعة المجدولة"
+                                      AutomationProperties.HelpText="إشعارات محلية في موعد تختاره. لا تراقب الشاشة أو التطبيقات ولا تستدعي نموذج AI في الخلفية."/>
+                            <ComboBox x:Name="ProactiveCheckInIntervalSelector" Width="130" MinHeight="28"
+                                      SelectionChanged="ProactiveCheckInIntervalSelector_SelectionChanged"
+                                      AutomationProperties.Name="الفاصل الزمني لتذكير المتابعة"
+                                      AutomationProperties.HelpText="اختر 15 أو 30 أو 60 أو 120 دقيقة بين إشعارات المتابعة.">
+                                <ComboBoxItem Content="15 دقيقة" Tag="15"/>
+                                <ComboBoxItem Content="30 دقيقة" Tag="30"/>
+                                <ComboBoxItem Content="60 دقيقة" Tag="60"/>
+                                <ComboBoxItem Content="120 دقيقة" Tag="120"/>
+                            </ComboBox>
+                        </WrapPanel>
+                        <TextBlock x:Name="ProactiveCheckInPrivacyNote" Text="الوضع الاستباقي هنا يرسل تذكيرًا محليًا فقط، ولا يفحص النوافذ أو الشاشة أو الملفات."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,0"
+                                   AutomationProperties.Name="حدود خصوصية تذكيرات المتابعة"/>
                     </StackPanel>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
