@@ -245,23 +245,23 @@ public partial class FloatingMascotWindow : Window
         // The test asset is an engineering preview, not the production Layal character.
         // It is opt-in and remains off unless the user saved the preference or CI explicitly requests a smoke test.
         var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
-        if (AppRuntime.Settings.MascotUseGlbPreview || automatedGlbPreviewTest)
+        if ((AppRuntime.Settings.MascotUseGlbPreview && !AppRuntime.Settings.PerformanceModeEnabled) || automatedGlbPreviewTest)
             SetGlbPreviewEnabled(true, persist: false, showFailureDialog: !automatedGlbPreviewTest);
 
-        _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(3650) };
+        _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AppRuntime.Settings.PerformanceModeEnabled ? 10_000 : 3650) };
         _blinkTimer.Tick += (_, _) => Blink();
         _restoreEyesTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(135) };
         _restoreEyesTimer.Tick += (_, _) => RestoreEyes();
-        _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(45) };
+        _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AppRuntime.Settings.PerformanceModeEnabled ? 100 : 45) };
         _floatTimer.Tick += (_, _) => AnimateMoodTick();
         _moodResetTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2600) };
         _moodResetTimer.Tick += (_, _) => ResetTerminalMood();
-        _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(AppRuntime.Settings.PerformanceModeEnabled ? 45 : 15) };
         _idleTimer.Tick += (_, _) => UpdateIdleState();
         // A transparent layered window must opt out of input hit-testing for points outside
         // the mascot. Polling is intentional: once WS_EX_TRANSPARENT is active, mouse moves
         // over the pass-through area are delivered to the application underneath, not here.
-        _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(8) };
+        _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AppRuntime.Settings.PerformanceModeEnabled ? 33 : 8) };
         _hitTestTimer.Tick += (_, _) => UpdateHitTestTransparency();
         IsVisibleChanged += (_, _) => UpdateTimersForVisibility();
         UpdateTimersForVisibility();
@@ -270,16 +270,46 @@ public partial class FloatingMascotWindow : Window
     }
 
     /// <summary>Stop high-frequency polling and animation while the mascot window is hidden.</summary>
+    private bool AnimationsAllowed => !AppRuntime.Settings.PerformanceModeEnabled && AppRuntime.Settings.MascotAnimationsEnabled;
+
+    /// <summary>Applies the effective animation/rendering budget without overwriting normal animation preferences.</summary>
+    public void ApplyPerformanceMode()
+    {
+        var performanceMode = AppRuntime.Settings.PerformanceModeEnabled;
+        _blinkTimer.Interval = TimeSpan.FromMilliseconds(performanceMode ? 10_000 : 3650);
+        _floatTimer.Interval = TimeSpan.FromMilliseconds(performanceMode ? 100 : 45);
+        _idleTimer.Interval = TimeSpan.FromSeconds(performanceMode ? 45 : 15);
+        _hitTestTimer.Interval = TimeSpan.FromMilliseconds(performanceMode ? 33 : 8);
+
+        if (performanceMode && _glbPreviewEnabled)
+            SetGlbPreviewEnabled(false, persist: false, showFailureDialog: false);
+        else if (!performanceMode && AppRuntime.Settings.MascotUseGlbPreview && !_glbPreviewEnabled)
+            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: false);
+
+        UpdateTimersForVisibility();
+    }
+
     private void UpdateTimersForVisibility()
     {
         if (AppRuntime.IsExiting) return;
         if (IsVisible)
         {
-            _blinkTimer.Start();
-            _restoreEyesTimer.Start();
             _idleTimer.Start();
             _hitTestTimer.Start();
-            _floatTimer.Start();
+            if (AnimationsAllowed)
+            {
+                _blinkTimer.Start();
+                _restoreEyesTimer.Start();
+                _floatTimer.Start();
+            }
+            else
+            {
+                _blinkTimer.Stop();
+                _restoreEyesTimer.Stop();
+                _floatTimer.Stop();
+                Root.RenderTransform = Transform.Identity;
+                RestoreEyes();
+            }
         }
         else
         {
@@ -326,7 +356,7 @@ public partial class FloatingMascotWindow : Window
         Shell.Effect = highContrast ? null : _normalShellEffect;
 
         CinematicEffectsLayer.Visibility =
-            !highContrast && AppRuntime.Settings.MascotAnimationsEnabled && _cinematicParticles.Count > 0
+            !highContrast && AnimationsAllowed && _cinematicParticles.Count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
@@ -821,14 +851,14 @@ public partial class FloatingMascotWindow : Window
 
         _particleSeed++;
         CinematicEffectsLayer.Visibility =
-            AppRuntime.Settings.MascotAnimationsEnabled && count > 0
+            AnimationsAllowed && count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
 
     private void AnimateCinematicEffects()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || _cinematicParticles.Count == 0)
+        if (!AnimationsAllowed || _cinematicParticles.Count == 0)
         {
             CinematicEffectsLayer.Visibility = Visibility.Collapsed;
             return;
@@ -1509,7 +1539,7 @@ public partial class FloatingMascotWindow : Window
     {
         if (!IsVisible) Show();
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
-        if (!AppRuntime.Settings.MascotAnimationsEnabled) Root.RenderTransform = Transform.Identity;
+        if (!AnimationsAllowed) Root.RenderTransform = Transform.Identity;
     }
 
     public void UpdateLanguage()
@@ -2114,7 +2144,7 @@ public partial class FloatingMascotWindow : Window
 
     private void ShowReactionForMood(string mood)
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || !ReactionSets.TryGetValue(mood, out var choices)) return;
+        if (!AnimationsAllowed || !ReactionSets.TryGetValue(mood, out var choices)) return;
         var now = DateTimeOffset.UtcNow;
         if (_lastReactionMood.Equals(mood, StringComparison.OrdinalIgnoreCase) && now - _lastReactionShownAt < TimeSpan.FromMilliseconds(900)) return;
         _lastReactionMood = mood;
@@ -2209,7 +2239,7 @@ public partial class FloatingMascotWindow : Window
 
     private void AnimateMoodTick()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || !IsVisible || !SystemParameters.ClientAreaAnimation)
+        if (!AnimationsAllowed || !IsVisible || !SystemParameters.ClientAreaAnimation)
         {
             Root.RenderTransform = Transform.Identity;
             AntennaDot.RenderTransform = Transform.Identity;
@@ -2310,7 +2340,7 @@ public partial class FloatingMascotWindow : Window
 
     private void Blink()
     {
-        if (!AppRuntime.Settings.MascotAnimationsEnabled || _blinked || !IsVisible || !SystemParameters.ClientAreaAnimation ||
+        if (!AnimationsAllowed || _blinked || !IsVisible || !SystemParameters.ClientAreaAnimation ||
             _mood is "listening" or "transcribing" or "privacy" or "offline") return;
         _blinked = true;
         if (UseSpriteCharacter)
@@ -2424,11 +2454,11 @@ public partial class FloatingMascotWindow : Window
         // bubble but keep the real task face and task props intact.
         if (_taskActive || IsTaskMood(_mood))
         {
-            if (AppRuntime.Settings.MascotAnimationsEnabled) ShowReactionForMood(_mood);
+            if (AnimationsAllowed) ShowReactionForMood(_mood);
             return;
         }
 
-        if (!AppRuntime.Settings.MascotAnimationsEnabled)
+        if (!AnimationsAllowed)
         {
             // With decorative animation disabled, still provide a static facial response
             // rather than unexpectedly opening the full application on a single tap.
@@ -2481,7 +2511,7 @@ public partial class FloatingMascotWindow : Window
         _isPointerOver = true;
         _lastInteractionAt = DateTimeOffset.UtcNow;
         if (_mood is "idle" or "sleepy")
-            SetMood("curious", showReaction: AppRuntime.Settings.MascotAnimationsEnabled);
+            SetMood("curious", showReaction: AnimationsAllowed);
     }
 
     private void Window_MouseMove(object sender, MouseEventArgs e)
@@ -2539,7 +2569,7 @@ public partial class FloatingMascotWindow : Window
             _isPointerOver = true;
             _lastInteractionAt = DateTimeOffset.UtcNow;
             if (_mood is "idle" or "sleepy")
-                SetMood("curious", showReaction: AppRuntime.Settings.MascotAnimationsEnabled);
+                SetMood("curious", showReaction: AnimationsAllowed);
         }
 
         var size = FaceCanvas.RenderSize;

@@ -145,6 +145,7 @@ public partial class MainWindow : Window
             .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), AppRuntime.Settings.AssistantPersona, StringComparison.Ordinal));
         AlwaysOnTopCheckbox.IsChecked = AppRuntime.Settings.MascotAlwaysOnTop;
         AnimationsCheckbox.IsChecked = AppRuntime.Settings.MascotAnimationsEnabled;
+        PerformanceModeCheckbox.IsChecked = AppRuntime.Settings.PerformanceModeEnabled;
         MascotSizeSlider.Value = AppRuntime.Settings.MascotScale;
         MascotOpacitySlider.Value = AppRuntime.Settings.MascotOpacity;
         WindowInspectionCheckbox.IsChecked = AppRuntime.Settings.AllowWindowTitleInspection;
@@ -1287,6 +1288,14 @@ public partial class MainWindow : Window
         MascotSettingsTitle.Text = ar ? "إعدادات الشخصية العائمة" : "Floating mascot settings";
         AlwaysOnTopCheckbox.Content = ar ? "إبقاء الشخصية فوق النوافذ الأخرى" : "Keep mascot above other windows";
         AnimationsCheckbox.Content = ar ? "تفعيل حركة الشخصية والرمش" : "Enable mascot movement and blinking";
+        PerformanceModeCheckbox.Content = ar ? "وضع الأداء (حركة أقل واستهلاك أقل)" : "Performance mode (less animation and CPU use)";
+        PerformanceModeCheckbox.ToolTip = ar
+            ? "يقلل معدل فحص النقرات ويوقف مؤقتات الحركة والرمش ومعاينة GLB الثقيلة دون تغيير تفضيل الحركة المحفوظ."
+            : "Reduces hit-test polling and pauses animation/blink timers and heavy GLB preview without changing your saved animation preference.";
+        AutomationProperties.SetName(PerformanceModeCheckbox, ar ? "تفعيل وضع الأداء للشخصية" : "Enable mascot performance mode");
+        AutomationProperties.SetHelpText(PerformanceModeCheckbox, ar
+            ? "يقلل فحص تمرير النقرات إلى نحو 30 مرة في الثانية، ويوقف مؤقتات الحركة والرمش ويغلق معاينة GLB الثقيلة. عند إيقافه تعود الإعدادات السابقة."
+            : "Reduces click-through hit testing to about 30 checks per second, stops movement/blink timers, and closes heavy GLB preview. Previous settings return when disabled.");
         MascotSizeLabel.Text = ar ? "حجم الشخصية" : "Mascot size";
         MascotOpacityLabel.Text = ar ? "شفافية الشخصية" : "Mascot opacity";
         System.Windows.Automation.AutomationProperties.SetName(MascotSizeSlider, MascotSizeLabel.Text);
@@ -2990,8 +2999,13 @@ public partial class MainWindow : Window
         if (!IsLoaded) return;
         AppRuntime.Settings.MascotAlwaysOnTop = AlwaysOnTopCheckbox.IsChecked == true;
         AppRuntime.Settings.MascotAnimationsEnabled = AnimationsCheckbox.IsChecked == true;
+        AppRuntime.Settings.PerformanceModeEnabled = PerformanceModeCheckbox.IsChecked == true;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
-        if (AppRuntime.MascotWindow is not null) AppRuntime.MascotWindow.Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
+        if (AppRuntime.MascotWindow is not null)
+        {
+            AppRuntime.MascotWindow.Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
+            AppRuntime.MascotWindow.ApplyPerformanceMode();
+        }
     }
 
     private void WindowInspectionSettingChanged(object sender, RoutedEventArgs e)
@@ -3005,6 +3019,7 @@ public partial class MainWindow : Window
     {
         AppRuntime.Settings.MascotAlwaysOnTop = AlwaysOnTopCheckbox.IsChecked == true;
         AppRuntime.Settings.MascotAnimationsEnabled = AnimationsCheckbox.IsChecked == true;
+        AppRuntime.Settings.PerformanceModeEnabled = PerformanceModeCheckbox.IsChecked == true;
         AppRuntime.Settings.MascotScale = Math.Clamp(MascotSizeSlider.Value, 0.65, 1.8);
         AppRuntime.Settings.MascotOpacity = Math.Clamp(MascotOpacitySlider.Value, 0.35, 1.0);
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
@@ -3013,6 +3028,7 @@ public partial class MainWindow : Window
             AppRuntime.MascotWindow.Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
             AppRuntime.MascotWindow.Opacity = AppRuntime.Settings.MascotOpacity;
             AppRuntime.MascotWindow.ApplyScale(AppRuntime.Settings.MascotScale);
+            AppRuntime.MascotWindow.ApplyPerformanceMode();
         }
         SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم تطبيق إعدادات الشخصية." : "Mascot settings applied.");
     }

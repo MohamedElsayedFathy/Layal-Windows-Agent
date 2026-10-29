@@ -24,6 +24,8 @@ public sealed class UserSettings
     public string GmailOAuthClientId { get; set; } = string.Empty;
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
+    /// <summary>Reduces animation, 3D rendering and hit-test polling while preserving the user's animation preference.</summary>
+    public bool PerformanceModeEnabled { get; set; } = false;
     public bool MascotUseGlbPreview { get; set; } = false;
     public double MascotScale { get; set; } = 1.0;
     public double MascotOpacity { get; set; } = 1.0;
@@ -57,6 +59,7 @@ public sealed class UserSettings
         GmailOAuthClientId = GmailOAuthClientId,
         MascotAlwaysOnTop = MascotAlwaysOnTop,
         MascotAnimationsEnabled = MascotAnimationsEnabled,
+        PerformanceModeEnabled = PerformanceModeEnabled,
         MascotUseGlbPreview = MascotUseGlbPreview,
         MascotScale = MascotScale,
         MascotOpacity = MascotOpacity,
@@ -89,6 +92,7 @@ public sealed class UserSettings
         GmailOAuthClientId = source.GmailOAuthClientId;
         MascotAlwaysOnTop = source.MascotAlwaysOnTop;
         MascotAnimationsEnabled = source.MascotAnimationsEnabled;
+        PerformanceModeEnabled = source.PerformanceModeEnabled;
         MascotUseGlbPreview = source.MascotUseGlbPreview;
         MascotScale = source.MascotScale;
         MascotOpacity = source.MascotOpacity;

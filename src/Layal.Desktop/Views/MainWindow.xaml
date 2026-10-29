@@ -774,6 +774,10 @@
                         <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="AlwaysOnTopCheckbox" Content="إبقاء الشخصية فوق النوافذ الأخرى" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
                         <CheckBox x:Name="AnimationsCheckbox" Content="تفعيل حركة الشخصية والرمش" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
+                        <CheckBox x:Name="PerformanceModeCheckbox" Content="وضع الأداء (حركة أقل واستهلاك أقل)" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"
+                                  Margin="0,3,0,3"
+                                  AutomationProperties.Name="تفعيل وضع الأداء للشخصية"
+                                  AutomationProperties.HelpText="يقلل فحص تمرير النقرات إلى 30 مرة في الثانية تقريبًا، ويوقف مؤقتات الحركة والرمش ويغلق معاينة GLB الثقيلة. لا يغيّر تفضيل الحركة المحفوظ؛ يرجع السلوك السابق عند إيقاف الوضع."/>
                         <CheckBox x:Name="WindowInspectionCheckbox" Content="السماح بقراءة عناوين النوافذ عند الطلب (يتطلب موافقة قبل مشاركتها مع AI)" Checked="WindowInspectionSettingChanged" Unchecked="WindowInspectionSettingChanged"/>
                         <TextBlock x:Name="MascotSizeLabel" Text="حجم الشخصية" Margin="4,8,4,0"/>
                         <Slider x:Name="MascotSizeSlider" Minimum="0.65" Maximum="1.8" Value="1" TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="4,4" AutomationProperties.LabeledBy="{Binding ElementName=MascotSizeLabel}"/>

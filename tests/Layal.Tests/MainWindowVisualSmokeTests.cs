@@ -477,6 +477,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(routinesButton)),
             "The routine manager must disclose that choosing a routine does not run it.");
+        var performanceModeCheckbox = window.FindName("PerformanceModeCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("PerformanceModeCheckbox was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(performanceModeCheckbox)),
+            "Performance mode must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(performanceModeCheckbox)),
+            "Performance mode must describe its effect on animations and 3D rendering.");
         var themePresetSelector = window.FindName("ThemePresetSelector") as ComboBox
             ?? throw new InvalidOperationException("ThemePresetSelector was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(

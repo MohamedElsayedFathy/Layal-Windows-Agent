@@ -104,6 +104,7 @@ public sealed class SettingsStoreTests
             LocalAiModelId = "qwen3.5:2b",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
+            PerformanceModeEnabled = true,
             MascotScale = 1.25,
             MascotOpacity = 0.8,
             MascotLeft = 1284.5,
@@ -130,6 +131,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("qwen3.5:2b", reloaded.LocalAiModelId);
         Assert.IsFalse(reloaded.MascotAlwaysOnTop);
         Assert.IsFalse(reloaded.MascotAnimationsEnabled);
+        Assert.IsTrue(reloaded.PerformanceModeEnabled);
         Assert.AreEqual(1.25, reloaded.MascotScale, 0.0001);
         Assert.AreEqual(0.8, reloaded.MascotOpacity, 0.0001);
         Assert.AreEqual(1284.5, reloaded.MascotLeft, 0.0001);
@@ -193,6 +195,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", candidate.GmailOAuthClientId);
         Assert.IsFalse(candidate.MascotAlwaysOnTop);
         Assert.IsFalse(candidate.MascotAnimationsEnabled);
+        Assert.IsTrue(candidate.PerformanceModeEnabled);
         Assert.IsTrue(candidate.MascotUseGlbPreview);
         Assert.AreEqual(1.4, candidate.MascotScale, 0.0001);
         Assert.AreEqual(0.75, candidate.MascotOpacity, 0.0001);
@@ -214,6 +217,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("professional", target.AssistantPersona);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", target.GmailOAuthClientId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
+        Assert.IsTrue(target.PerformanceModeEnabled);
         Assert.IsTrue(target.PrivacyShieldEnabled);
         Assert.IsTrue(target.ProactiveCheckInEnabled);
         Assert.AreEqual(120, target.ProactiveCheckInIntervalMinutes);
