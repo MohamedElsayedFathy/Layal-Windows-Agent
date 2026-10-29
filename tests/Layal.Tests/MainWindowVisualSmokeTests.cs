@@ -484,6 +484,14 @@ public sealed class MainWindowVisualSmokeTests
             "Theme preset selector must expose an accessible name.");
         Assert.AreEqual(4, themePresetSelector.Items.Count,
             "The app should offer four named presets (Classic, Ocean, Forest, Sunset).");
+        var gmailButton = window.FindName("GmailInboxButton") as Button
+            ?? throw new InvalidOperationException("GmailInboxButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(gmailButton)),
+            "The Gmail inbox button must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(gmailButton)),
+            "The Gmail inbox button must disclose read-only access and manual sharing.");
         var personaSelector = window.FindName("AssistantPersonaSelector") as ComboBox
             ?? throw new InvalidOperationException("AssistantPersonaSelector was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
