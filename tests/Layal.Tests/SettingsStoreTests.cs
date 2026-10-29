@@ -96,6 +96,8 @@ public sealed class SettingsStoreTests
             ThemeMode = "dark",
             ThemePreset = "ocean",
             AssistantPersona = "focused",
+            QuickAskHotkeyPreset = "AltShiftQ",
+            GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "test-model",
             UseLocalAi = false,
