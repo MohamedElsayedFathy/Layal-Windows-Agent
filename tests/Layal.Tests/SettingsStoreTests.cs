@@ -25,6 +25,12 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotLeft, 0.0001);
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
+        Assert.AreEqual("warm", settings.AssistantPersona);
+        Assert.AreEqual(string.Empty, settings.GmailOAuthClientId);
+        Assert.IsFalse(settings.PrivacyShieldEnabled);
+        Assert.IsFalse(settings.ProactiveCheckInEnabled);
+        Assert.AreEqual(60, settings.ProactiveCheckInIntervalMinutes);
+        Assert.IsNull(settings.LastProactiveCheckInAt);
         Assert.IsTrue(settings.UseAutomaticLocation);
     }
 
@@ -88,17 +94,26 @@ public sealed class SettingsStoreTests
         {
             Language = "en",
             ThemeMode = "dark",
+            ThemePreset = "ocean",
+            AssistantPersona = "focused",
+            QuickAskHotkeyPreset = "AltShiftQ",
+            GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "test-model",
             UseLocalAi = false,
             LocalAiModelId = "qwen3.5:2b",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
+            PerformanceModeEnabled = true,
             MascotScale = 1.25,
             MascotOpacity = 0.8,
             MascotLeft = 1284.5,
             MascotTop = 424.25,
             AllowWindowTitleInspection = true,
+            PrivacyShieldEnabled = true,
+            ProactiveCheckInEnabled = true,
+            ProactiveCheckInIntervalMinutes = 30,
+            LastProactiveCheckInAt = new DateTimeOffset(2026, 10, 29, 8, 30, 0, TimeSpan.Zero),
             UseAutomaticLocation = false
         });
 
@@ -106,17 +121,26 @@ public sealed class SettingsStoreTests
 
         Assert.AreEqual("en", reloaded.Language);
         Assert.AreEqual("dark", reloaded.ThemeMode);
+        Assert.AreEqual("ocean", reloaded.ThemePreset);
+        Assert.AreEqual("AltShiftQ", reloaded.QuickAskHotkeyPreset);
+        Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
+        Assert.AreEqual("focused", reloaded.AssistantPersona);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
         Assert.IsFalse(reloaded.UseLocalAi);
         Assert.AreEqual("qwen3.5:2b", reloaded.LocalAiModelId);
         Assert.IsFalse(reloaded.MascotAlwaysOnTop);
         Assert.IsFalse(reloaded.MascotAnimationsEnabled);
+        Assert.IsTrue(reloaded.PerformanceModeEnabled);
         Assert.AreEqual(1.25, reloaded.MascotScale, 0.0001);
         Assert.AreEqual(0.8, reloaded.MascotOpacity, 0.0001);
         Assert.AreEqual(1284.5, reloaded.MascotLeft, 0.0001);
         Assert.AreEqual(424.25, reloaded.MascotTop, 0.0001);
         Assert.IsTrue(reloaded.AllowWindowTitleInspection);
+        Assert.IsTrue(reloaded.PrivacyShieldEnabled);
+        Assert.IsTrue(reloaded.ProactiveCheckInEnabled);
+        Assert.AreEqual(30, reloaded.ProactiveCheckInIntervalMinutes);
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 29, 8, 30, 0, TimeSpan.Zero), reloaded.LastProactiveCheckInAt);
         Assert.IsFalse(reloaded.UseAutomaticLocation);
     }
 
@@ -137,14 +161,21 @@ public sealed class SettingsStoreTests
             VoiceRepliesEnabled = false,
             VoiceReplyModelId = "old-voice-model",
             VoiceReplyId = "marin",
+            AssistantPersona = "professional",
+            GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
+            PerformanceModeEnabled = true,
             MascotUseGlbPreview = true,
             MascotScale = 1.4,
             MascotOpacity = 0.75,
             MascotLeft = 120.5,
             MascotTop = 240.5,
-            AllowWindowTitleInspection = true
+            AllowWindowTitleInspection = true,
+            PrivacyShieldEnabled = true,
+            ProactiveCheckInEnabled = true,
+            ProactiveCheckInIntervalMinutes = 120,
+            LastProactiveCheckInAt = new DateTimeOffset(2026, 10, 28, 14, 0, 0, TimeSpan.Zero)
         };
 
         var candidate = original.Clone();
@@ -161,14 +192,21 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("old-transcriber", candidate.SpeechToTextModelId);
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
         Assert.AreEqual("old-voice-model", candidate.VoiceReplyModelId);
+        Assert.AreEqual("professional", candidate.AssistantPersona);
+        Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", candidate.GmailOAuthClientId);
         Assert.IsFalse(candidate.MascotAlwaysOnTop);
         Assert.IsFalse(candidate.MascotAnimationsEnabled);
+        Assert.IsTrue(candidate.PerformanceModeEnabled);
         Assert.IsTrue(candidate.MascotUseGlbPreview);
         Assert.AreEqual(1.4, candidate.MascotScale, 0.0001);
         Assert.AreEqual(0.75, candidate.MascotOpacity, 0.0001);
         Assert.AreEqual(120.5, candidate.MascotLeft, 0.0001);
         Assert.AreEqual(240.5, candidate.MascotTop, 0.0001);
         Assert.IsTrue(candidate.AllowWindowTitleInspection);
+        Assert.IsTrue(candidate.PrivacyShieldEnabled);
+        Assert.IsTrue(candidate.ProactiveCheckInEnabled);
+        Assert.AreEqual(120, candidate.ProactiveCheckInIntervalMinutes);
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 28, 14, 0, 0, TimeSpan.Zero), candidate.LastProactiveCheckInAt);
 
         var target = new UserSettings();
         target.CopyFrom(candidate);
@@ -177,7 +215,38 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("en", target.Language);
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("marin", target.VoiceReplyId);
+        Assert.AreEqual("professional", target.AssistantPersona);
+        Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", target.GmailOAuthClientId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
+        Assert.IsTrue(target.PerformanceModeEnabled);
+        Assert.IsTrue(target.PrivacyShieldEnabled);
+        Assert.IsTrue(target.ProactiveCheckInEnabled);
+        Assert.AreEqual(120, target.ProactiveCheckInIntervalMinutes);
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 28, 14, 0, 0, TimeSpan.Zero), target.LastProactiveCheckInAt);
+    }
+
+    [TestMethod]
+    public void InvalidThemePresetFallsBackToClassicWithoutChangingLightDarkPreference()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\",\"AssistantPersona\":\"malicious-custom-value\",\"GmailOAuthClientId\":\"not-a-valid-client\"}");
+        var settings = new SettingsStore(temp.Path).Load();
+        Assert.AreEqual("dark", settings.ThemeMode);
+        Assert.AreEqual("classic", settings.ThemePreset);
+        Assert.AreEqual("AltShiftS", settings.QuickAskHotkeyPreset);
+        Assert.AreEqual("warm", settings.AssistantPersona);
+    }
+
+    [TestMethod]
+    public void InvalidCheckInIntervalFallsBackToSixtyMinutes()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            "{\"ProactiveCheckInEnabled\":true,\"ProactiveCheckInIntervalMinutes\":9999}");
+        var settings = new SettingsStore(temp.Path).Load();
+        Assert.IsTrue(settings.ProactiveCheckInEnabled);
+        Assert.AreEqual(60, settings.ProactiveCheckInIntervalMinutes);
     }
 
     [TestMethod]
@@ -192,6 +261,7 @@ public sealed class SettingsStoreTests
 
         Assert.AreEqual("ar", settings.Language);
         Assert.AreEqual("light", settings.ThemeMode);
+        Assert.AreEqual("classic", settings.ThemePreset);
         Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
         Assert.AreEqual(damagedJson, File.ReadAllText(settingsPath), "The original malformed file must remain untouched during recovery.");

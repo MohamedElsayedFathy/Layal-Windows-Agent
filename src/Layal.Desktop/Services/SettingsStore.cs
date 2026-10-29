@@ -98,6 +98,17 @@ public sealed class SettingsStore
     {
         if (settings.Language is not ("ar" or "en")) settings.Language = "ar";
         if (settings.ThemeMode is not ("light" or "dark")) settings.ThemeMode = "light";
+        if (settings.ThemePreset is not ("classic" or "ocean" or "forest" or "sunset"))
+            settings.ThemePreset = "classic";
+        settings.QuickAskHotkeyPreset = GlobalHotkeyService.NormalizePreset(settings.QuickAskHotkeyPreset);
+        if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
+            settings.AssistantPersona = "warm";
+        settings.GmailOAuthClientId = (settings.GmailOAuthClientId ?? string.Empty).Trim();
+        if (settings.GmailOAuthClientId.Length > 300 ||
+            settings.GmailOAuthClientId.Any(char.IsControl) ||
+            (settings.GmailOAuthClientId.Length > 0 &&
+             !settings.GmailOAuthClientId.EndsWith(".apps.googleusercontent.com", StringComparison.Ordinal)))
+            settings.GmailOAuthClientId = string.Empty;
 
         settings.WeatherLocation = (settings.WeatherLocation ?? string.Empty).Trim();
         settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();
@@ -124,6 +135,12 @@ public sealed class SettingsStore
         settings.VoiceReplyId = LayalSpeechService.IsSupportedVoice(settings.VoiceReplyId)
             ? settings.VoiceReplyId.Trim().ToLowerInvariant()
             : LayalSpeechService.DefaultVoiceId;
+
+        settings.ProactiveCheckInIntervalMinutes = settings.ProactiveCheckInIntervalMinutes is 15 or 30 or 60 or 120
+            ? settings.ProactiveCheckInIntervalMinutes
+            : 60;
+        if (settings.LastProactiveCheckInAt is { } lastCheckIn && lastCheckIn > DateTimeOffset.Now.AddMinutes(5))
+            settings.LastProactiveCheckInAt = DateTimeOffset.Now;
 
         settings.MascotScale = double.IsFinite(settings.MascotScale)
             ? Math.Clamp(settings.MascotScale, 0.65, 1.8)

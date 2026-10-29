@@ -82,6 +82,96 @@ public sealed class BrowserAutomationServiceTests
     }
 
     [TestMethod]
+    public async Task DeclinedWebSearchDoesNotLaunchOrCreateBrowserProfile()
+    {
+        using var temp = new TestTempDirectory();
+        var dataRoot = Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            Path.Combine(temp.Path, "workspace"),
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCount = 0;
+
+        var result = await executor.ExecuteAsync(
+            "web_search",
+            "{\"query\":\"how to validate an engineering claim\"}",
+            (title, preview, token) =>
+            {
+                approvalCount++;
+                StringAssert.Contains(title, "Search");
+                StringAssert.Contains(preview, "bing.com/search");
+                StringAssert.Contains(preview, "how to validate an engineering claim");
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, approvalCount);
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")),
+            "Declining search must not launch Edge or create its isolated profile.");
+    }
+
+    [TestMethod]
+    public async Task DeclinedFactCheckDoesNotStartTheSecondQueryOrLaunchBrowser()
+    {
+        using var temp = new TestTempDirectory();
+        var dataRoot = Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            Path.Combine(temp.Path, "workspace"),
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCount = 0;
+
+        var result = await executor.ExecuteAsync(
+            "fact_check_claim",
+            "{\"claim\":\"The release was published in 2025\"}",
+            (title, preview, token) =>
+            {
+                approvalCount++;
+                StringAssert.Contains(title, "Fact-check: search claim");
+                StringAssert.Contains(preview, "The release was published in 2025");
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, approvalCount, "A declined first query must not trigger the contrary-evidence query.");
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")),
+            "Declining a fact-check query must not launch Edge or create its isolated profile.");
+    }
+
+    [TestMethod]
+    public async Task InvalidFactCheckClaimIsRejectedBeforeApprovalOrBrowserStartup()
+    {
+        using var temp = new TestTempDirectory();
+        var dataRoot = Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            Path.Combine(temp.Path, "workspace"),
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCount = 0;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "fact_check_claim",
+            "{\"claim\":\"tiny\"}",
+            (_, _, _) =>
+            {
+                approvalCount++;
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.AreEqual(0, approvalCount, "Invalid claims must be rejected before requesting consent.");
+        Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")));
+    }
+
+    [TestMethod]
     public void BrowserClickValidationBlocksSubmitResetAndFormAssociatedTargets()
     {
         Assert.ThrowsExactly<InvalidOperationException>(() =>

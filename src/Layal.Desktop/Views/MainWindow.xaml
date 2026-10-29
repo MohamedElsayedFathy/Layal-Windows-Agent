@@ -262,19 +262,63 @@
                             BorderThickness="1" IsHitTestVisible="False"/>
                     <StackPanel Grid.Row="3" Margin="10,3">
                         <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,2">
+                            <Button x:Name="QuickAskButton" Content="سؤال سريع" Click="QuickAskButton_Click" MinWidth="100"
+                                    ToolTip="اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S."
+                                    AutomationProperties.Name="سؤال سريع"
+                                    AutomationProperties.HelpText="يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا."/>
+                            <Button x:Name="GmailInboxButton" Content="Gmail" Click="GmailInboxButton_Click" MinWidth="85"
+                                    ToolTip="عرض بريد Gmail محليًا بصلاحية قراءة فقط. لا تتم مشاركته مع AI تلقائيًا."
+                                    AutomationProperties.Name="فتح بريد Gmail للقراءة فقط"
+                                    AutomationProperties.HelpText="يتطلب موافقة Google الرسمية. يمكن عرض الرسائل محليًا؛ لا إرسال أو حذف أو تعديل، ولا مشاركة مع AI حتى تنسخ الرسالة لمسودة الشات وتضغط إرسال."/>
+                            <Button x:Name="PrivacyShieldButton" Content="درع الخصوصية: مغلق" Click="PrivacyShieldButton_Click" MinWidth="155"
+                                    ToolTip="إيقاف بدء التقاط الميكروفون والكاميرا والشاشة والحافظة."
+                                    AutomationProperties.Name="مفتاح خصوصية شامل"
+                                    AutomationProperties.HelpText="عند التفعيل يمنع بدء التسجيل والكاميرا وقص الشاشة وقراءة الحافظة، ويحاول إيقاف الالتقاطات الجارية. تظل الدردشة النصية متاحة."/>
+                            <Button x:Name="IncognitoModeButton" Content="محادثة خاصة" Click="IncognitoModeButton_Click" MinWidth="110"
+                                    ToolTip="جلسة دردشة مؤقتة لا تحفظ رسائلها محليًا؛ تظل بيانات الإرسال للمزود حسب إعداداتك."
+                                    AutomationProperties.Name="محادثة خاصة"
+                                    AutomationProperties.HelpText="يخفي سجل المحادثات ويبدأ سياقًا مؤقتًا. لا يعطل حفظ سجلات المهام أو الذاكرة."/>
+                            <Button x:Name="CaptureScreenRegionButton" Content="قص جزء من الشاشة" Click="CaptureScreenRegionButton_Click"
+                                    ToolTip="يلتقط الشاشة الموجودة على الشاشة الحالية بعد موافقتك، ويعرض معاينة لقص منطقة قبل الإرفاق."
+                                    MinWidth="135" AutomationProperties.Name="التقاط وقص جزء من الشاشة"
+                                    AutomationProperties.HelpText="يُلتقط المحتوى محليًا بعد موافقتك، وتظهر معاينة لتحديد مستطيل. لا تُرسل الصورة إلا عند الضغط على إرسال."/>
+                            <Button x:Name="InspectHoveredElementButton" Content="السؤال عن عنصر" Click="InspectHoveredElementButton_Click"
+                                    ToolTip="بعد موافقتك، اقرأ اسم ونوع عنصر Windows أسفل المؤشر محليًا دون التقاط الشاشة."
+                                    MinWidth="120" AutomationProperties.Name="فحص عنصر أسفل المؤشر"
+                                    AutomationProperties.HelpText="تُقرأ خصائص واجهة محدودة فقط بعد موافقتك. لا تُقرأ قيم الحقول ولا تُرسل النتيجة إلا بعد ضغط إرسال."/>
                             <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
                                     ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
                                     AutomationProperties.Name="إرفاق صورة أو لقطة شاشة"
                                     AutomationProperties.HelpText="اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."/>
                             <Button x:Name="ClearVisionImageButton" Content="إزالة الصورة" Click="ClearVisionImageButton_Click"
                                     Visibility="Collapsed" MinWidth="90" ToolTip="إزالة الصورة المرفقة قبل الإرسال."/>
+                            <Button x:Name="ReadClipboardButton" Content="قراءة الحافظة" Click="ReadClipboardButton_Click"
+                                    MinWidth="105" ToolTip="اقرأ النص من الحافظة بطلب صريح، وراجعه محليًا قبل إرفاقه."
+                                    AutomationProperties.Name="قراءة نص الحافظة لمراجعته"
+                                    AutomationProperties.HelpText="قراءة نص الحافظة لا تغيّر محتواها ولا ترسله. الإرسال لا يحدث إلا بعد الضغط على إرسال."/>
+                            <Button x:Name="PasteClipboardImageButton" Content="إرفاق صورة الحافظة" Click="PasteClipboardImageButton_Click"
+                                    MinWidth="140" ToolTip="قراءة صورة الحافظة بعد موافقتك وإرفاقها للمراجعة فقط."
+                                    AutomationProperties.Name="إرفاق صورة الحافظة بعد الموافقة"
+                                    AutomationProperties.HelpText="تُقرأ الصورة بعد تأكيدك وتُحوّل إلى PNG محليًا بحد 40 مليون بكسل و10 ميجابايت. لا تُرسل إلا عند الضغط على إرسال."/>
+                            <Button x:Name="ChooseDocumentButton" Content="إرفاق ملف نصي/PDF/Office" Click="ChooseDocumentButton_Click"
+                                    MinWidth="160" ToolTip="يُستخرج النص محليًا وتراجعه قبل الإرفاق؛ لا يُرسل إلا عند الضغط على إرسال."
+                                    AutomationProperties.Name="اختيار ملف لمراجعته وإرفاقه"
+                                    AutomationProperties.HelpText="يدعم TXT وMarkdown وCSV وJSON وXML وHTML وPDF النصي وDOCX وXLSX، بحد أقصى 20 ميجابايت."/>
+                            <Button x:Name="ClearDocumentButton" Content="إزالة الملف" Click="ClearDocumentButton_Click"
+                                    Visibility="Collapsed" MinWidth="90" ToolTip="إزالة محتوى الملف المرفق قبل الإرسال."/>
                             <Button x:Name="CameraVisionButton" Content="فتح الكاميرا" Click="CameraVisionButton_Click"
                                     ToolTip="معاينة الكاميرا محليًا وتحليل لقطة عند الطلب." MinWidth="110"
                                     AutomationProperties.Name="فتح كاميرا الرؤية"
                                     AutomationProperties.HelpText="يفتح معاينة الكاميرا بعد موافقتك. لا تُرسل اللقطات إلا عند التحليل اليدوي أو تفعيل التحليل التلقائي."/>
+                            <Image x:Name="VisionAttachmentPreview" Width="54" Height="40" Margin="7,0,2,0"
+                                   Stretch="Uniform" Visibility="Collapsed"
+                                   AutomationProperties.Name="معاينة الصورة المرفقة"/>
                             <TextBlock x:Name="VisionAttachmentStatus" Text="لا توجد صورة مرفقة" VerticalAlignment="Center"
                                        Margin="8,0,4,0" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
                                        AutomationProperties.Name="حالة الصورة المرفقة" AutomationProperties.LiveSetting="Polite"/>
+                            <TextBlock x:Name="DocumentAttachmentStatus" Text="لا يوجد ملف مرفق" VerticalAlignment="Center"
+                                       MaxWidth="280" Margin="8,0,4,0" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                       AutomationProperties.Name="حالة الملف النصي المرفق" AutomationProperties.LiveSetting="Polite"/>
                         </WrapPanel>
                         <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." FontSize="11" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0"/>
                         <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
@@ -310,10 +354,44 @@
                             <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
                             <Button x:Name="CancelAgentTaskButton" Content="إيقاف المهمة" Click="CancelAgentTaskButton_Click" IsEnabled="False" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
                             <Button x:Name="TaskOpenNotepadButton" Content="فتح المفكرة (اختبار)" Click="OpenNotepadButton_Click"/>
+                            <Button x:Name="ManageRemindersButton" Content="التذكيرات" Click="ManageRemindersButton_Click"
+                                    MinWidth="105" ToolTip="إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
+                                    AutomationProperties.Name="إدارة التذكيرات المحلية"
+                                    AutomationProperties.HelpText="أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."/>
+                            <Button x:Name="ManageRoutinesButton" Content="الروتينات" Click="ManageRoutinesButton_Click"
+                                    MinWidth="105" ToolTip="احفظ أهدافًا نصية متكررة. اختيار الروتين يملأ المسودة فقط ولا يشغله تلقائيًا."
+                                    AutomationProperties.Name="إدارة الروتينات المحفوظة"
+                                    AutomationProperties.HelpText="قوالب نصية مشفرة محليًا وليست سكربتات؛ راجع الهدف واضغط تنفيذ المهمة بنفسك."/>
+                            <Button x:Name="WorkspaceHubButton" Content="مساحة العمل" Click="WorkspaceHubButton_Click"
+                                    MinWidth="115" ToolTip="بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
+                                    AutomationProperties.Name="فتح مساحة عمل ليال الموحدة"
+                                    AutomationProperties.HelpText="يعرض المهام والملاحظات وبيانات الملفات محليًا. لا يقرأ محتوى الملفات تلقائيًا؛ التصدير غير مشفر بعد تأكيدك."/>
+                            <Button x:Name="GameModeButton" Content="وضع الألعاب" Click="GameModeButton_Click" MinWidth="110"
+                                    ToolTip="تشغيل HUD يدوي صغير؛ لا يوجد اكتشاف ألعاب أو مراقبة عمليات أو حقن."
+                                    AutomationProperties.Name="تفعيل وضع الألعاب اليدوي"
+                                    AutomationProperties.HelpText="يفتح HUD فوق النوافذ ويوقف إشعارات المتابعة والتذكيرات أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها."/>
                         </WrapPanel>
                         <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,6,4,0"/>
                         <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
                         <TextBlock x:Name="TaskSafeToolDescription" Text="الأدوات المتاحة محددة؛ لا يوجد وصول عام غير مقيد إلى سطر الأوامر أو الملفات." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,3,4,0"/>
+                        <WrapPanel Margin="4,8,4,0" VerticalAlignment="Center">
+                            <CheckBox x:Name="ProactiveCheckInEnabledCheckBox" Content="تذكيرات متابعة استباقية" Click="ProactiveCheckInEnabledCheckBox_Click"
+                                      VerticalAlignment="Center" Margin="0,0,10,0"
+                                      AutomationProperties.Name="تفعيل تذكيرات المتابعة المجدولة"
+                                      AutomationProperties.HelpText="إشعارات محلية في موعد تختاره. لا تراقب الشاشة أو التطبيقات ولا تستدعي نموذج AI في الخلفية."/>
+                            <ComboBox x:Name="ProactiveCheckInIntervalSelector" Width="130" MinHeight="28"
+                                      SelectionChanged="ProactiveCheckInIntervalSelector_SelectionChanged"
+                                      AutomationProperties.Name="الفاصل الزمني لتذكير المتابعة"
+                                      AutomationProperties.HelpText="اختر 15 أو 30 أو 60 أو 120 دقيقة بين إشعارات المتابعة.">
+                                <ComboBoxItem Content="15 دقيقة" Tag="15"/>
+                                <ComboBoxItem Content="30 دقيقة" Tag="30"/>
+                                <ComboBoxItem Content="60 دقيقة" Tag="60"/>
+                                <ComboBoxItem Content="120 دقيقة" Tag="120"/>
+                            </ComboBox>
+                        </WrapPanel>
+                        <TextBlock x:Name="ProactiveCheckInPrivacyNote" Text="الوضع الاستباقي هنا يرسل تذكيرًا محليًا فقط، ولا يفحص النوافذ أو الشاشة أو الملفات."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,0"
+                                   AutomationProperties.Name="حدود خصوصية تذكيرات المتابعة"/>
                     </StackPanel>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
@@ -432,10 +510,14 @@
                         <TextBlock x:Name="MemoryDescription" Text="ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ البحث الذي يشارك النتائج مع AI يتطلب موافقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>
                     <Grid Grid.Row="1" Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="32" ToolTip="بحث في الذاكرة" AutomationProperties.Name="البحث في الذاكرة / Search memory notes" AutomationProperties.HelpText="أدخل كلمات البحث ثم استخدم زر بحث / Enter search terms and use Search."/>
                         <Button x:Name="MemorySearchButton" Grid.Column="1" Content="بحث" Click="MemorySearchButton_Click"/>
                         <Button x:Name="NewMemoryButton" Grid.Column="2" Content="ملاحظة جديدة" Click="NewMemoryButton_Click"/>
+                        <Button x:Name="LoreWebButton" Grid.Column="3" Content="خريطة الذاكرة 3D" Click="LoreWebButton_Click" MinWidth="135"
+                                ToolTip="عرض الملاحظات وروابطها التقريبية محليًا؛ لا تُرسل إلى AI."
+                                AutomationProperties.Name="فتح خريطة الذاكرة ثلاثية الأبعاد"
+                                AutomationProperties.HelpText="خريطة محلية تفاعلية؛ الروابط مبنية على كلمات عنوان مشتركة والترتيب الزمني فقط، وليست استنتاجات مضمونة."/>
                     </Grid>
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
@@ -644,6 +726,18 @@
                             <ComboBoxItem Tag="marin" Content="طبيعي وعفوي (Marin)"/>
                             <ComboBoxItem Tag="cedar" Content="هادئة وواضحة (Cedar)"/>
                         </ComboBox>
+                        <TextBlock x:Name="AssistantPersonaLabel" Text="نمط شخصية ليال" Margin="4,8,4,0"/>
+                        <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
+                                  SelectionChanged="AssistantPersonaSelector_SelectionChanged"
+                                  AutomationProperties.Name="نمط شخصية ليال"
+                                  AutomationProperties.HelpText="اختيار الأسلوب يغيّر طريقة الصياغة فقط ولا يغيّر قواعد الأمان أو الموافقات أو الصلاحيات.">
+                            <ComboBoxItem Tag="warm" Content="رفيقة دافئة"/>
+                            <ComboBoxItem Tag="focused" Content="مركزة ومختصرة"/>
+                            <ComboBoxItem Tag="professional" Content="احترافية ومنظمة"/>
+                        </ComboBox>
+                        <TextBlock x:Name="AssistantPersonaDisclosure" Text="نمط الرد يغيّر طريقة الصياغة فقط، ولا يغيّر الهوية أو حدود الأمان."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
+                                   AutomationProperties.Name="حدود نمط الشخصية"/>
                         <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" Margin="4,8,4,0"/>
                         <TextBox x:Name="VoiceReplyModelInput" FlowDirection="LeftToRight" Text="gpt-realtime-2.1-mini" AutomationProperties.Name="معرّف نموذج الرد الصوتي" AutomationProperties.LabeledBy="{Binding ElementName=VoiceReplyModelLabel}"/>
                         <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك؛ عند اختيار المزود السحابي قد تُطبق رسوم." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
@@ -655,9 +749,39 @@
                         <WrapPanel><Button x:Name="SaveProviderButton" Content="حفظ الإعدادات" Click="SaveProviderButton_Click"/><Button x:Name="TestProviderButton" Content="اختبار الاتصال" Click="TestProviderButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/><Button x:Name="DeleteKeyButton" Content="حذف المفتاح المحفوظ" Click="DeleteKeyButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/></WrapPanel>
                         <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12" AutomationProperties.LiveSetting="Polite"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
+                        <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
+                        <TextBlock x:Name="QuickAskHotkeyLabel" Text="اختصار السؤال السريع العالمي" Margin="4,8,4,0"/>
+                        <ComboBox x:Name="QuickAskHotkeySelector" MinHeight="32" MinWidth="240" SelectedValuePath="Tag"
+                                  SelectionChanged="QuickAskHotkeySelector_SelectionChanged"
+                                  AutomationProperties.Name="اختصار السؤال السريع العالمي"
+                                  AutomationProperties.HelpText="اختر أحد الاختصارات المقترحة. إذا كان الاختصار مستخدمًا من تطبيق آخر، يبقى زر السؤال السريع داخل ليال متاحًا.">
+                            <ComboBoxItem Tag="AltShiftS" Content="Alt+Shift+S"/>
+                            <ComboBoxItem Tag="AltShiftQ" Content="Alt+Shift+Q"/>
+                            <ComboBoxItem Tag="CtrlAltShiftSpace" Content="Ctrl+Alt+Shift+Space"/>
+                        </ComboBox>
+                        <TextBlock x:Name="QuickAskHotkeyStatus" Text="" Foreground="{DynamicResource Layal.Muted}"
+                                   TextWrapping="Wrap" Margin="4,3,4,8" AutomationProperties.LiveSetting="Polite"
+                                   AutomationProperties.Name="حالة تسجيل اختصار السؤال السريع"/>
+                        <TextBlock x:Name="ThemePresetLabel" Text="مجموعة ألوان الواجهة" Margin="4,5,4,0"/>
+                        <ComboBox x:Name="ThemePresetSelector" MinHeight="32" MinWidth="240" SelectedValuePath="Tag"
+                                  SelectionChanged="ThemePresetSelector_SelectionChanged"
+                                  AutomationProperties.Name="مجموعة ألوان الواجهة"
+                                  AutomationProperties.HelpText="اختر Classic أو Ocean أو Forest أو Sunset. يمكن التبديل بين الفاتح والداكن بشكل مستقل، ويتقدم High Contrast الخاص بـ Windows على جميع المجموعات.">
+                            <ComboBoxItem Tag="classic" Content="Classic — الكلاسيكي"/>
+                            <ComboBoxItem Tag="ocean" Content="Ocean — المحيط"/>
+                            <ComboBoxItem Tag="forest" Content="Forest — الغابة"/>
+                            <ComboBoxItem Tag="sunset" Content="Sunset — الغروب"/>
+                        </ComboBox>
+                        <TextBlock x:Name="ThemePresetPrivacyNote" Text="مجموعة الألوان إعداد محلي. تظل إعدادات التباين العالي في Windows هي الأولوية."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
+                                   AutomationProperties.Name="ملاحظة أولوية التباين العالي"/>
                         <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="AlwaysOnTopCheckbox" Content="إبقاء الشخصية فوق النوافذ الأخرى" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
                         <CheckBox x:Name="AnimationsCheckbox" Content="تفعيل حركة الشخصية والرمش" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
+                        <CheckBox x:Name="PerformanceModeCheckbox" Content="وضع الأداء (حركة أقل واستهلاك أقل)" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"
+                                  Margin="0,3,0,3"
+                                  AutomationProperties.Name="تفعيل وضع الأداء للشخصية"
+                                  AutomationProperties.HelpText="يقلل فحص تمرير النقرات إلى 30 مرة في الثانية تقريبًا، ويوقف مؤقتات الحركة والرمش ويغلق معاينة GLB الثقيلة. لا يغيّر تفضيل الحركة المحفوظ؛ يرجع السلوك السابق عند إيقاف الوضع."/>
                         <CheckBox x:Name="WindowInspectionCheckbox" Content="السماح بقراءة عناوين النوافذ عند الطلب (يتطلب موافقة قبل مشاركتها مع AI)" Checked="WindowInspectionSettingChanged" Unchecked="WindowInspectionSettingChanged"/>
                         <TextBlock x:Name="MascotSizeLabel" Text="حجم الشخصية" Margin="4,8,4,0"/>
                         <Slider x:Name="MascotSizeSlider" Minimum="0.65" Maximum="1.8" Value="1" TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="4,4" AutomationProperties.LabeledBy="{Binding ElementName=MascotSizeLabel}"/>
