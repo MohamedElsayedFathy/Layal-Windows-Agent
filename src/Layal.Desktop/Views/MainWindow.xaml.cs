@@ -196,6 +196,43 @@ public partial class MainWindow : Window
 
     private void QuickAskButton_Click(object sender, RoutedEventArgs e) => OpenQuickAskWindow();
 
+    private void GmailInboxButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var window = new GmailInboxWindow(
+                AppRuntime.GmailReadOnlyService,
+                AppRuntime.Settings.GmailOAuthClientId,
+                IsArabic,
+                clientId =>
+                {
+                    AppRuntime.Settings.GmailOAuthClientId = clientId;
+                    AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+                },
+                emailText =>
+                {
+                    MainTabs.SelectedItem = ChatTab;
+                    ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
+                        ? emailText
+                        : ChatInput.Text.TrimEnd() + Environment.NewLine + Environment.NewLine + emailText;
+                    ChatInput.CaretIndex = ChatInput.Text.Length;
+                    SetChatActivityStatus(IsArabic
+                        ? "تمت إضافة البريد إلى مسودة الشات فقط؛ لم يُرسل بعد."
+                        : "Email was added to the chat draft only; it has not been sent.");
+                    ChatInput.Focus();
+                })
+            {
+                Owner = this
+            };
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر فتح بريد Gmail", "Could not open Gmail inbox", ex, IsArabic));
+        }
+    }
+
     private void IncognitoModeButton_Click(object sender, RoutedEventArgs e)
     {
         if (!_incognitoMode)
@@ -974,6 +1011,14 @@ public partial class MainWindow : Window
         UpdateSpeechToTextButton();
         UpdateVoiceConversationControls();
         QuickAskButton.Content = ar ? "سؤال سريع" : "Quick Ask";
+        GmailInboxButton.Content = ar ? "Gmail" : "Gmail";
+        GmailInboxButton.ToolTip = ar
+            ? "عرض بريد Gmail محليًا بصلاحية قراءة فقط. لا تتم مشاركته مع AI تلقائيًا."
+            : "Preview Gmail locally with read-only access. Messages are not automatically shared with AI.";
+        AutomationProperties.SetName(GmailInboxButton, ar ? "فتح بريد Gmail للقراءة فقط" : "Open read-only Gmail inbox");
+        AutomationProperties.SetHelpText(GmailInboxButton, ar
+            ? "يتطلب موافقة Google الرسمية. لا إرسال أو حذف أو تعديل؛ لن يصل محتوى البريد إلى AI إلا بعد إضافته لمسودة الشات ثم الضغط على إرسال."
+            : "Requires Google's official consent. No sending, deleting, or modifying; email content reaches AI only after you add it to the chat draft and press Send.");
         UpdatePrivacyShieldUi();
         QuickAskButton.ToolTip = ar ? "اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S." : "Ask by typing from any app. Shortcut: Alt+Shift+S.";
         AutomationProperties.SetName(QuickAskButton, ar ? "سؤال سريع" : "Quick Ask");
