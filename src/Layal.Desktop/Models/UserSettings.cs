@@ -18,6 +18,8 @@ public sealed class UserSettings
     public string VoiceReplyId { get; set; } = "marin";
     /// <summary>Conversational response style only; never changes safety rules, tool permissions, or confirmation requirements.</summary>
     public string AssistantPersona { get; set; } = "warm";
+    /// <summary>Public Google OAuth Desktop client ID; the refresh token itself is stored in a separate DPAPI-protected file.</summary>
+    public string GmailOAuthClientId { get; set; } = string.Empty;
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
     public bool MascotUseGlbPreview { get; set; } = false;
@@ -49,6 +51,7 @@ public sealed class UserSettings
         VoiceReplyModelId = VoiceReplyModelId,
         VoiceReplyId = VoiceReplyId,
         AssistantPersona = AssistantPersona,
+        GmailOAuthClientId = GmailOAuthClientId,
         MascotAlwaysOnTop = MascotAlwaysOnTop,
         MascotAnimationsEnabled = MascotAnimationsEnabled,
         MascotUseGlbPreview = MascotUseGlbPreview,
@@ -79,6 +82,7 @@ public sealed class UserSettings
         VoiceReplyModelId = source.VoiceReplyModelId;
         VoiceReplyId = source.VoiceReplyId;
         AssistantPersona = source.AssistantPersona;
+        GmailOAuthClientId = source.GmailOAuthClientId;
         MascotAlwaysOnTop = source.MascotAlwaysOnTop;
         MascotAnimationsEnabled = source.MascotAnimationsEnabled;
         MascotUseGlbPreview = source.MascotUseGlbPreview;
