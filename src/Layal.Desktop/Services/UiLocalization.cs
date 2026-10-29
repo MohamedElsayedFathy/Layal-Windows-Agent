@@ -217,7 +217,7 @@ public static class UiLocalization
                 .Replace("Proposed replacement preview:", "معاينة التعديل المقترح:", StringComparison.Ordinal)
                 .Replace("--- Removed (max 1800 characters) ---", "--- النص المحذوف (بحد أقصى 1800 حرف) ---", StringComparison.Ordinal)
                 .Replace("--- Added (max 1800 characters) ---", "--- النص المضاف (بحد أقصى 1800 حرف) ---", StringComparison.Ordinal)
-                .Replace(ApprovalPreviewOmissionText, "…[تم اقتطاع الباقي]", StringComparison.Ordinal);
+                .Replace("…[preview truncated; remaining content omitted]", "…[تم اقتطاع الباقي]", StringComparison.Ordinal);
 
         if (details.StartsWith("The following window titles and process IDs will be sent", StringComparison.Ordinal))
         {
