@@ -4,6 +4,8 @@ public sealed class UserSettings
 {
     public string Language { get; set; } = "ar";
     public string ThemeMode { get; set; } = "light";
+    /// <summary>Accent and surface palette; High Contrast always overrides this preference.</summary>
+    public string ThemePreset { get; set; } = "classic";
     public string WeatherLocation { get; set; } = string.Empty;
     public bool UseAutomaticLocation { get; set; } = true;
     public string ProviderBaseUrl { get; set; } = string.Empty;
@@ -33,6 +35,7 @@ public sealed class UserSettings
     {
         Language = Language,
         ThemeMode = ThemeMode,
+        ThemePreset = ThemePreset,
         WeatherLocation = WeatherLocation,
         UseAutomaticLocation = UseAutomaticLocation,
         ProviderBaseUrl = ProviderBaseUrl,
@@ -61,6 +64,7 @@ public sealed class UserSettings
     {
         Language = source.Language;
         ThemeMode = source.ThemeMode;
+        ThemePreset = source.ThemePreset;
         WeatherLocation = source.WeatherLocation;
         UseAutomaticLocation = source.UseAutomaticLocation;
         ProviderBaseUrl = source.ProviderBaseUrl;
