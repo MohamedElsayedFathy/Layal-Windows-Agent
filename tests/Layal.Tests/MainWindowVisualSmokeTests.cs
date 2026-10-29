@@ -126,6 +126,89 @@ public sealed class MainWindowVisualSmokeTests
         };
     }
 
+    [TestMethod]
+    public void PrivateChatDoesNotPersistMessagesAndRestoresSavedConversation()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The desktop chat history store uses Windows DPAPI.");
+
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            MainWindow? window = null;
+            App? app = null;
+            try
+            {
+                using var temp = new TestTempDirectory();
+                App.SuppressStartupForTests = true;
+                app = new App();
+                app.InitializeComponent();
+                app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                InitializeRuntime(temp.Path);
+                AppRuntime.Settings.UseAutomaticLocation = false;
+                AppRuntime.ChatSessionService.SaveCurrentMessages(new[]
+                {
+                    new ChatMessage { Role = "user", Content = "Saved conversation sentinel" },
+                    new ChatMessage { Role = "assistant", Content = "Saved reply sentinel" }
+                });
+
+                window = new MainWindow { ShowInTaskbar = false };
+                AppRuntime.MainWindow = window;
+                window.Show();
+                window.UpdateLayout();
+
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                var enterPrivate = typeof(MainWindow).GetMethod("EnterPrivateChatMode", flags)
+                    ?? throw new InvalidOperationException("Private-chat entry method was not found.");
+                var addMessage = typeof(MainWindow).GetMethod("AddMessage", flags)
+                    ?? throw new InvalidOperationException("Chat message method was not found.");
+                var exitPrivate = typeof(MainWindow).GetMethod("ExitPrivateChatMode", flags)
+                    ?? throw new InvalidOperationException("Private-chat exit method was not found.");
+
+                enterPrivate.Invoke(window, null);
+                Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
+                Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
+                var historySelector = (ComboBox?)window.FindName("ChatHistorySelector")
+                    ?? throw new InvalidOperationException("Chat history selector was not found.");
+                Assert.IsFalse(historySelector.IsEnabled, "Saved history must not be selectable in private chat.");
+
+                addMessage.Invoke(window, new object[] { "user", "Private-only sentinel" });
+                Assert.AreEqual(1, window.ChatMessages.Count);
+                var storedWhilePrivate = AppRuntime.ChatSessionService.GetCurrent();
+                Assert.AreEqual(2, storedWhilePrivate.Messages.Count, "Private messages must not change persisted history.");
+                Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
+                Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
+
+                exitPrivate.Invoke(window, null);
+                Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
+                Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
+                Assert.AreEqual("Saved conversation sentinel", window.ChatMessages[0].Content);
+                Assert.AreEqual("Saved reply sentinel", window.ChatMessages[1].Content);
+                Assert.AreEqual(1, window.ChatConversations.Count);
+                Assert.AreEqual(2, AppRuntime.ChatSessionService.GetCurrent().Messages.Count);
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+            finally
+            {
+                AppRuntime.IsExiting = true;
+                window?.Close();
+                AppRuntime.MainWindow = null;
+                app?.Shutdown();
+                App.SuppressStartupForTests = false;
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Start();
+        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(30)), "Private-chat WPF test timed out.");
+        if (failure is not null)
+            Assert.Fail("Private-chat test failed: " + failure);
+    }
+
     private static void RenderAllStates()
     {
         using var temp = new TestTempDirectory();
