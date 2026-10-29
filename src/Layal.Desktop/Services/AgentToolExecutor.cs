@@ -55,7 +55,7 @@ public sealed class AgentToolExecutor
         Definition("list_workspace_files", "List files and directories directly within an approved workspace directory. Provide a relative directory path or an empty string for the workspace root.", """{"type":"object","properties":{"directory":{"type":"string","description":"Relative directory inside the workspace; empty means the workspace root"}},"required":["directory"],"additionalProperties":false}"""),
         Definition("read_text_file", "Read a small text/source file from the approved workspace. The user must approve because its contents may be sent to the configured AI provider.", """{"type":"object","properties":{"path":{"type":"string","description":"Relative file path inside the workspace"}},"required":["path"],"additionalProperties":false}"""),
         Definition("create_text_file", "Create a new text/source file inside the workspace. Requires user approval; existing files are never overwritten.", """{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false}"""),
-        Definition("replace_text_in_file", "Replace an exact unique string in a UTF-8 text file inside the workspace. Creates a backup and requires user approval.", """{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}"""),
+        Definition("replace_text_in_file", "Replace an exact unique string in a text file inside the workspace while preserving its encoding. Creates a backup and requires user approval.", """{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}"""),
         Definition("open_notepad", "Open Windows Notepad. Requires user approval.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("open_url", "Open an HTTP or HTTPS URL in the user's default browser. Requires approval.", """{"type":"object","properties":{"url":{"type":"string"}},"required":["url"],"additionalProperties":false}"""),
         Definition("browser_navigate", "Navigate the dedicated Layal-controlled Microsoft Edge profile to an HTTP/HTTPS URL. This browser uses a separate profile and does not inherit the user's normal browser cookies or sign-in session. Ask for local approval before every navigation.", """{"type":"object","properties":{"url":{"type":"string","description":"Absolute HTTP/HTTPS URL without embedded credentials"}},"required":["url"],"additionalProperties":false}"""),
@@ -211,6 +211,7 @@ public sealed class AgentToolExecutor
     {
         if (content.Length > MaxWriteChars) throw new InvalidOperationException("File content exceeds the 100 KB limit.");
         var path = ResolvePath(relativePath);
+        EnsureNotBuildControlFile(path, "created");
         if (!WritableExtensions.Contains(Path.GetExtension(path))) throw new InvalidOperationException("This file extension is not on the creation allow-list.");
         if (File.Exists(path) || Directory.Exists(path)) throw new IOException("The target already exists. Layal never overwrites an existing file with create_text_file.");
         var parent = Path.GetDirectoryName(path)!;
@@ -247,15 +248,17 @@ public sealed class AgentToolExecutor
         var path = ResolvePath(relativePath);
         if (!File.Exists(path)) throw new FileNotFoundException("The target file does not exist.", relativePath);
         EnsureNoReparsePoints(path);
+        EnsureNotBuildControlFile(path, "modified");
         if (!WritableExtensions.Contains(Path.GetExtension(path))) throw new InvalidOperationException("This file extension is not on the text-modification allow-list.");
         var info = new FileInfo(path);
         if (info.Length > 512 * 1024) throw new InvalidOperationException("The file exceeds the 512 KB edit limit.");
-        var original = await File.ReadAllTextAsync(path, token);
-        var first = original.IndexOf(oldText, StringComparison.Ordinal);
+        var (original, fileEncoding) = await ReadTextWithEncodingAsync(path, token);
+        var (needle, replacement) = ConformLineEndings(original, oldText, newText);
+        var first = original.IndexOf(needle, StringComparison.Ordinal);
         if (first < 0) throw new InvalidOperationException("The exact old_text was not found. No changes were made.");
-        if (original.IndexOf(oldText, first + oldText.Length, StringComparison.Ordinal) >= 0)
+        if (original.IndexOf(needle, first + needle.Length, StringComparison.Ordinal) >= 0)
             throw new InvalidOperationException("old_text occurs more than once. Provide a more specific unique snippet.");
-        var updated = original[..first] + newText + original[(first + oldText.Length)..];
+        var updated = original[..first] + replacement + original[(first + needle.Length)..];
         var approvalDetails =
             $"Replace one exact text match in '{Path.GetRelativePath(_workspaceRoot, path)}'? A timestamped backup will be created first."
             + Environment.NewLine + Environment.NewLine
@@ -279,21 +282,21 @@ public sealed class AgentToolExecutor
         if (approvedInfo.Length != info.Length || approvedInfo.LastWriteTimeUtc != info.LastWriteTimeUtc)
             throw new IOException("The file changed while awaiting approval. No changes were made; re-read it and approve again.");
 
-        var current = await File.ReadAllTextAsync(path, token);
+        var (current, _) = await ReadTextWithEncodingAsync(path, token);
         if (!string.Equals(current, original, StringComparison.Ordinal)) throw new IOException("The file changed after preview; no changes were written. Re-read it and try again.");
         var backupRoot = Path.Combine(_workspaceRoot, ".layal-backups");
         Directory.CreateDirectory(backupRoot);
         EnsureNoReparsePoints(backupRoot);
         var backupName = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + "-" + Path.GetFileName(path) + ".bak";
         var backupPath = Path.Combine(backupRoot, backupName);
-        await using (var backupStream = new FileStream(backupPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-        await using (var backupWriter = new StreamWriter(backupStream, new UTF8Encoding(false)))
-            await backupWriter.WriteAsync(original.AsMemory(), token);
+        // Preserve the original bytes, including BOM and the source file's encoding.
+        File.Copy(path, backupPath, overwrite: false);
+        PruneBackups(backupRoot);
         var temp = path + ".layal-tmp-" + Guid.NewGuid().ToString("N");
         try
         {
             await using (var tempStream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            await using (var tempWriter = new StreamWriter(tempStream, new UTF8Encoding(false)))
+            await using (var tempWriter = new StreamWriter(tempStream, fileEncoding))
                 await tempWriter.WriteAsync(updated.AsMemory(), token);
             EnsureNoReparsePoints(Path.GetDirectoryName(path)!);
             EnsureNoReparsePoints(path);
@@ -302,6 +305,66 @@ public sealed class AgentToolExecutor
         finally { if (File.Exists(temp)) File.Delete(temp); }
         report($"Modified file: {Path.GetRelativePath(_workspaceRoot, path)}; backup: {Path.GetRelativePath(_workspaceRoot, backupPath)}");
         return $"Updated file: {Path.GetRelativePath(_workspaceRoot, path)}{Environment.NewLine}Backup: {Path.GetRelativePath(_workspaceRoot, backupPath)}";
+    }
+
+    private const int MaxBackupFiles = 200;
+
+    // Prevent the agent from changing inputs that control SDK selection, package sources, or build evaluation.
+    private static readonly HashSet<string> BuildControlFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "global.json", "nuget.config", "packages.lock.json", "dotnet-tools.json",
+        "Directory.Build.props", "Directory.Build.targets", "Directory.Build.rsp", "Directory.Packages.props"
+    };
+
+    private static void EnsureNotBuildControlFile(string path, string verb)
+    {
+        if (BuildControlFileNames.Contains(Path.GetFileName(path)))
+            throw new InvalidOperationException($"Build-configuration files such as global.json or nuget.config cannot be {verb} by the agent.");
+    }
+
+    /// <summary>Read text with BOM detection so an approved rewrite keeps its original encoding.</summary>
+    internal static async Task<(string Text, Encoding Encoding)> ReadTextWithEncodingAsync(string path, CancellationToken token)
+    {
+        using var reader = new StreamReader(path, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: true);
+        var text = await reader.ReadToEndAsync(token);
+        return (text, reader.CurrentEncoding);
+    }
+
+    /// <summary>Matches the supplied text using the file's line-ending convention and preserves that convention on output.</summary>
+    internal static (string Needle, string Replacement) ConformLineEndings(string original, string oldText, string newText)
+    {
+        var crlfCount = CountOccurrences(original, "\r\n");
+        var lfOnlyCount = CountOccurrences(original, "\n") - crlfCount;
+        var useCrlf = crlfCount > 0 && crlfCount >= lfOnlyCount;
+
+        string Conform(string value)
+        {
+            var lf = value.Replace("\r\n", "\n", StringComparison.Ordinal);
+            return useCrlf ? lf.Replace("\n", "\r\n", StringComparison.Ordinal) : lf;
+        }
+
+        var needle = original.Contains(oldText, StringComparison.Ordinal) ? oldText : Conform(oldText);
+        return (needle, Conform(newText));
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        for (var i = text.IndexOf(value, StringComparison.Ordinal); i >= 0; i = text.IndexOf(value, i + value.Length, StringComparison.Ordinal))
+            count++;
+        return count;
+    }
+
+    private static void PruneBackups(string backupRoot)
+    {
+        try
+        {
+            foreach (var old in Directory.EnumerateFiles(backupRoot, "*.bak")
+                         .OrderByDescending(x => Path.GetFileName(x), StringComparer.Ordinal)
+                         .Skip(MaxBackupFiles))
+                File.Delete(old);
+        }
+        catch { /* Retention is best-effort and must never fail an approved edit. */ }
     }
 
     private async Task<string> OpenNotepadAsync(Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)

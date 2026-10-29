@@ -34,13 +34,20 @@ public sealed class AgentOrchestrator
         string interfaceLanguage = "ar")
     {
         var task = new AgentTaskRecord { Goal = goal.Trim(), Status = "Running" };
+        var lastPersist = DateTimeOffset.MinValue;
         void Log(string message)
         {
             var line = $"{DateTimeOffset.Now:HH:mm:ss}  {message}";
             task.Events.Add(line);
             if (task.Events.Count > 300) task.Events.RemoveAt(0);
             task.UpdatedAt = DateTimeOffset.Now;
-            _history.Upsert(task);
+            // Upsert re-encrypts the entire history. Keep UI event delivery immediate, but persist at most every two seconds.
+            var now = DateTimeOffset.UtcNow;
+            if (now - lastPersist >= TimeSpan.FromSeconds(2))
+            {
+                lastPersist = now;
+                _history.Upsert(task);
+            }
             onEvent(line);
         }
 

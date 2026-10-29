@@ -13,6 +13,9 @@ public partial class App : Application
     // launching a second tray agent/window set from the WPF dispatcher startup event.
     public static bool SuppressStartupForTests { get; set; }
 
+    private const string ActivateEventName = @"Local\Layal.Desktop.Activate";
+    private EventWaitHandle? _activateEvent;
+    private bool _ownsSingleInstanceMutex;
     private Mutex? _singleInstanceMutex;
     private bool _crashDialogShown;
     private string _logDirectory = string.Empty;
@@ -66,16 +69,80 @@ public partial class App : Application
 
         AppRuntime.MainWindow.Show();
         AppRuntime.MascotWindow.Show();
+        StartActivationListener();
+    }
+
+    /// <summary>Waits for another launch to request activation of this instance's main window.</summary>
+    private void StartActivationListener()
+    {
+        var signal = _activateEvent;
+        if (signal is null) return;
+        var thread = new Thread(() =>
+        {
+            while (!AppRuntime.IsExiting)
+            {
+                try { signal.WaitOne(); } catch { return; }
+                if (AppRuntime.IsExiting) return;
+                try { Dispatcher.BeginInvoke(new Action(() => AppRuntime.MainWindow?.ShowFromTray())); }
+                catch { return; }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "Layal activation listener"
+        };
+        thread.Start();
     }
 
     private bool TryAcquireSingleInstance()
     {
         try
         {
+            // Create/open the signal before publishing the mutex. A losing launch can then notify
+            // the owner even while its windows are still starting.
+            _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivateEventName);
             _singleInstanceMutex = new Mutex(true, @"Local\Layal.Desktop.SingleInstance", out var createdNew);
-            if (createdNew) return true;
-            try { return _singleInstanceMutex.WaitOne(TimeSpan.FromSeconds(10)); }
-            catch (AbandonedMutexException) { return true; } // the previous instance died; we now own the mutex
+            if (createdNew)
+            {
+                _ownsSingleInstanceMutex = true;
+                return true;
+            }
+
+            // If the mutex exists but is currently unowned, this process can become the owner
+            // (for example after an abnormal shutdown racing with another launch).
+            try
+            {
+                if (_singleInstanceMutex.WaitOne(0))
+                {
+                    _ownsSingleInstanceMutex = true;
+                    return true;
+                }
+            }
+            catch (AbandonedMutexException)
+            {
+                _ownsSingleInstanceMutex = true;
+                return true;
+            }
+
+            try
+            {
+                _activateEvent.Set();
+                return false; // Do not wait behind the still-running instance's mutex.
+            }
+            catch
+            {
+                // If signaling is unavailable, retain the previous bounded recovery wait.
+                try
+                {
+                    _ownsSingleInstanceMutex = _singleInstanceMutex.WaitOne(TimeSpan.FromSeconds(10));
+                    return _ownsSingleInstanceMutex;
+                }
+                catch (AbandonedMutexException)
+                {
+                    _ownsSingleInstanceMutex = true;
+                    return true;
+                }
+            }
         }
         catch
         {
@@ -134,6 +201,7 @@ public partial class App : Application
         if (AppRuntime.IsExiting) return;
         AppRuntime.IsExiting = true;
         AppRuntime.Tray?.Dispose();
+        AppRuntime.BrowserAutomationService?.Shutdown();
         // Close hidden windows too: a user may have hidden the main window before exiting from the tray.
         // MainWindow.Window_Closing cancels active requests when IsExiting is true.
         AppRuntime.MascotWindow?.Close();
@@ -144,8 +212,14 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         AppRuntime.Tray?.Dispose();
+        if (_ownsSingleInstanceMutex)
+        {
+            AppRuntime.IsExiting = true;
+            try { _activateEvent?.Set(); } catch { }
+        }
         try { _singleInstanceMutex?.ReleaseMutex(); } catch { /* not owned (second instance) or already released */ }
         _singleInstanceMutex?.Dispose();
+        _activateEvent?.Dispose();
         base.OnExit(e);
     }
 }

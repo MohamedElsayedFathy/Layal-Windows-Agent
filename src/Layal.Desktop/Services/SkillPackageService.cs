@@ -134,8 +134,7 @@ public sealed class SkillPackageService
             if (candidates.Count == 0) throw new InvalidOperationException("The ZIP does not contain a SKILL.md file.");
             if (candidates[0].Length > 1_000_000) throw new InvalidOperationException("SKILL.md is unexpectedly large.");
             skillMarkdownEntry = candidates[0].FullName;
-            using var reader = new StreamReader(candidates[0].Open());
-            var text = reader.ReadToEnd();
+            var text = ReadEntryTextBounded(candidates[0], 1_000_000);
             (name, description) = ParseFrontMatter(text);
         }
 
@@ -282,8 +281,7 @@ public sealed class SkillPackageService
             .ToList();
         var selected = candidates.FirstOrDefault(e => string.Equals(e.FullName, record.SkillMarkdownEntry, StringComparison.Ordinal)) ?? candidates.FirstOrDefault();
         if (selected is null) throw new InvalidOperationException("No SKILL.md was found in the stored skill package.");
-        using var reader = new StreamReader(selected.Open());
-        var content = reader.ReadToEnd();
+        var content = ReadEntryTextBounded(selected, 1_000_000);
         return content.Length <= maxCharacters ? content : content[..maxCharacters] + "\n[skill text truncated by Layal]";
     }
 
@@ -383,6 +381,7 @@ public sealed class SkillPackageService
 
         using var outputFile = new FileStream(destinationZip, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
         using var target = new ZipArchive(outputFile, ZipArchiveMode.Create, leaveOpen: false);
+        long actualTotal = 0;
         foreach (var entry in selectedEntries)
         {
             var full = Normalize(entry.FullName);
@@ -393,8 +392,44 @@ public sealed class SkillPackageService
             if (entry.FullName.EndsWith('/')) continue;
             using var input = entry.Open();
             using var destination = newEntry.Open();
-            input.CopyTo(destination);
+            var remainingTotal = 10L * 1024 * 1024 - actualTotal;
+            var entryLimit = Math.Min(5L * 1024 * 1024, remainingTotal);
+            actualTotal += CopyBounded(input, destination, entryLimit);
+            if (actualTotal > 10L * 1024 * 1024)
+                throw new InvalidOperationException("The selected skill exceeds the 10 MB extracted-size limit.");
         }
+    }
+
+    /// <summary>Read a compressed entry with a bound on bytes actually expanded, not only its ZIP header.</summary>
+    internal static string ReadEntryTextBounded(ZipArchiveEntry entry, long maxBytes)
+    {
+        using var source = entry.Open();
+        using var buffer = new MemoryStream();
+        CopyBounded(source, buffer, maxBytes);
+        buffer.Position = 0;
+        using var reader = new StreamReader(buffer);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>Copy no more than maxBytes of actual source data to the destination.</summary>
+    internal static long CopyBounded(Stream source, Stream destination, long maxBytes)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        if (maxBytes < 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
+
+        var chunk = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = source.Read(chunk, 0, chunk.Length)) > 0)
+        {
+            // Check before writing this chunk so a malicious entry cannot exceed the output bound.
+            if (read > maxBytes - total)
+                throw new InvalidOperationException("A skill archive entry expanded beyond its allowed size; the archive was rejected.");
+            destination.Write(chunk, 0, read);
+            total += read;
+        }
+        return total;
     }
 
     private static GitHubSkillSource ParseGitHubUrl(string sourceUrl)
