@@ -22,6 +22,7 @@ public sealed class ReminderManagerWindow : Window
     private readonly ListBox _remindersList;
     private readonly TextBlock _status;
     private readonly ObservableCollection<ReminderListEntry> _entries = new();
+    private string? _selectedReminderId;
 
     public ReminderManagerWindow(ReminderService service, bool isArabic)
     {
@@ -119,6 +120,19 @@ public sealed class ReminderManagerWindow : Window
         AutomationProperties.SetName(deleteButton, isArabic ? "حذف التذكير المحدد" : "Delete selected reminder");
         deleteButton.Click += DeleteButton_Click;
         actions.Children.Add(addButton);
+        var updateButton = new Button
+        {
+            Content = isArabic ? "تحديث المحدد" : "Update selected",
+            MinWidth = 130,
+            MinHeight = 34,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        AutomationProperties.SetName(updateButton, isArabic ? "تحديث التذكير المحدد" : "Update selected reminder");
+        AutomationProperties.SetHelpText(updateButton, isArabic
+            ? "يعدّل نص وموعد وتكرار التذكير المحدد ويعيد تفعيله دون إنشاء تذكير آخر."
+            : "Edits the selected reminder text, time, and recurrence and reactivates it without creating a duplicate.");
+        updateButton.Click += UpdateButton_Click;
+        actions.Children.Add(updateButton);
         actions.Children.Add(deleteButton);
         form.Children.Add(actions);
         Grid.SetRow(form, 1);
@@ -134,7 +148,8 @@ public sealed class ReminderManagerWindow : Window
             BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray
         };
         AutomationProperties.SetName(_remindersList, isArabic ? "قائمة التذكيرات المحفوظة" : "Saved reminders");
-        AutomationProperties.SetHelpText(_remindersList, isArabic ? "اختر تذكيرًا ثم اضغط حذف المحدد." : "Select a reminder, then choose Delete selected.");
+        AutomationProperties.SetHelpText(_remindersList, isArabic ? "اختر تذكيرًا لتعديله أو حذفه." : "Select a reminder to edit or delete it.");
+        _remindersList.SelectionChanged += (_, _) => UpdateSelectedPreview();
         Grid.SetRow(_remindersList, 2);
         root.Children.Add(_remindersList);
 
@@ -198,6 +213,43 @@ public sealed class ReminderManagerWindow : Window
         }
     }
 
+    private void UpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedReminderId))
+        {
+            _status.Text = _isArabic ? "اختر تذكيرًا من القائمة أولًا." : "Select a reminder from the list first.";
+            return;
+        }
+
+        try
+        {
+            if (_datePicker.SelectedDate is not DateTime selectedDate)
+                throw new ArgumentException(_isArabic ? "اختر تاريخًا صالحًا." : "Choose a valid date.");
+            if (!TimeOnly.TryParseExact(_timeInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+                throw new ArgumentException(_isArabic ? "اكتب الوقت بصيغة 24 ساعة مثل 09:30." : "Enter a 24-hour time such as 09:30.");
+
+            var dueLocal = DateTime.SpecifyKind(selectedDate.Date + time.ToTimeSpan(), DateTimeKind.Local);
+            var dueAt = new DateTimeOffset(dueLocal);
+            var recurrence = (_recurrenceSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "None";
+            var updated = _service.Update(_selectedReminderId, _titleInput.Text, dueAt, recurrence);
+            if (updated is null)
+            {
+                _status.Text = _isArabic ? "لم يعد التذكير موجودًا؛ حدّث القائمة." : "The reminder no longer exists; refresh the list.";
+                RefreshList();
+                return;
+            }
+
+            RefreshList(updated.Id);
+            _status.Text = _isArabic
+                ? "تم تحديث التذكير وإعادة تفعيله محليًا."
+                : "Reminder updated and reactivated locally.";
+        }
+        catch (Exception ex)
+        {
+            _status.Text = (_isArabic ? "تعذر تحديث التذكير: " : "Could not update reminder: ") + ex.Message;
+        }
+    }
+
     private void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
         if (_remindersList.SelectedItem is not ReminderListEntry selected)
@@ -209,6 +261,8 @@ public sealed class ReminderManagerWindow : Window
         try
         {
             var removed = _service.Delete(selected.Record.Id);
+            _selectedReminderId = null;
+            _titleInput.Clear();
             _status.Text = removed
                 ? (_isArabic ? "تم حذف التذكير المحدد." : "Selected reminder deleted.")
                 : (_isArabic ? "لم يعد التذكير موجودًا." : "The reminder no longer exists.");
@@ -220,7 +274,27 @@ public sealed class ReminderManagerWindow : Window
         }
     }
 
-    private void RefreshList()
+    private void UpdateSelectedPreview()
+    {
+        if (_remindersList.SelectedItem is not ReminderListEntry selected)
+        {
+            _selectedReminderId = null;
+            return;
+        }
+
+        var reminder = selected.Record;
+        _selectedReminderId = reminder.Id;
+        _titleInput.Text = reminder.Title;
+        _datePicker.SelectedDate = reminder.DueAt.ToLocalTime().Date;
+        _timeInput.Text = reminder.DueAt.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
+        _recurrenceSelector.SelectedItem = _recurrenceSelector.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), reminder.Recurrence, StringComparison.Ordinal));
+        _status.Text = _isArabic
+            ? "تم تحميل التذكير في الحقول. عدّلها ثم اضغط «تحديث المحدد»، أو احذف التذكير."
+            : "Reminder loaded into the form. Edit the fields then choose Update selected, or delete the reminder.";
+    }
+
+    private void RefreshList(string? selectedId = null)
     {
         _entries.Clear();
         foreach (var reminder in _service.GetAll())
@@ -235,6 +309,10 @@ public sealed class ReminderManagerWindow : Window
             var due = reminder.DueAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
             _entries.Add(new ReminderListEntry(reminder.Clone(), $"{reminder.Title} — {due} — {recurrence}{active}"));
         }
+
+        if (!string.IsNullOrWhiteSpace(selectedId))
+            _remindersList.SelectedItem = _entries.FirstOrDefault(entry =>
+                string.Equals(entry.Record.Id, selectedId, StringComparison.Ordinal));
 
         if (_entries.Count == 0)
             _status.Text = _isArabic
