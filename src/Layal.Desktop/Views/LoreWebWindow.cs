@@ -93,7 +93,6 @@ public sealed class LoreWebWindow : Window
         _viewport = new Viewport3D
         {
             ClipToBounds = true,
-            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
             IsHitTestVisible = true,
             Cursor = Cursors.Hand
         };
@@ -111,8 +110,15 @@ public sealed class LoreWebWindow : Window
         _viewport.MouseLeftButtonUp += Viewport_MouseLeftButtonUp;
         _viewport.MouseMove += Viewport_MouseMove;
         _viewport.MouseWheel += Viewport_MouseWheel;
-        Grid.SetColumn(_viewport, 0);
-        contentGrid.Children.Add(_viewport);
+        var viewportFrame = new Border
+        {
+            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
+            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray,
+            BorderThickness = new Thickness(1),
+            Child = _viewport
+        };
+        Grid.SetColumn(viewportFrame, 0);
+        contentGrid.Children.Add(viewportFrame);
 
         var side = new Grid { Margin = new Thickness(14, 0, 0, 0) };
         side.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -390,8 +396,14 @@ public sealed class LoreWebWindow : Window
         return mesh;
     }
 
-    private static Material CreateMaterial(Color color) =>
-        new DiffuseMaterial(new SolidColorBrush(color));
+    private static Material CreateMaterial(Color color)
+    {
+        var material = new MaterialGroup();
+        material.Children.Add(new DiffuseMaterial(new SolidColorBrush(color)));
+        // The emissive layer keeps links and spheres visible even when the mesh has no explicit normal buffer.
+        material.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(85, color.R, color.G, color.B))));
+        return material;
+    }
 
     private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
