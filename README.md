@@ -34,7 +34,7 @@ Layal agent file tools and dotnet build/test operations are limited to `%USERPRO
 - `python tools/package_source.py` creates a versioned source ZIP, excludes build/cache/user-artifact folders, and validates the exact archive before reporting success.
 - On Windows, run `powershell -ExecutionPolicy Bypass -File .\tools\VERIFY-LAYAL.ps1` to execute the static checks, restore packages, and build Release. This does not replace manual acceptance tests.
 - `.github/workflows/windows-build.yml` runs static validation, Windows Release build, and `dotnet test`; it validates non-empty TRX results and uploads build, test, and validated source artifacts.
-- `tests/Layal.Tests/` contains the automated C# suite. The current main commit has a successful [Windows CI run 40683297849](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/40683297849). Check the report for the exact test count on the commit being reviewed; a passing automated suite does not replace manual Windows acceptance or external provider/device integration tests.
+- `tests/Layal.Tests/` contains the automated C# suite. The pre-audit main baseline (`8f0c9346992347faaaf3783e74510ad28605444a`) passed [Windows CI run 40683297849](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/40683297849). Always use the workflow run associated with the commit being reviewed for its exact test result; a passing automated suite does not replace manual Windows acceptance or external provider/device integration tests.
 - `docs/MANUAL_ACCEPTANCE_AR.md` provides the manual Windows acceptance checklist for the browser and native UI automation features; `tools/Start-LayalUiAutomationSample.ps1` launches a disposable WPF sample for safe testing.
 
 
