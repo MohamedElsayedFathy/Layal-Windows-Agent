@@ -876,6 +876,14 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(ManageRemindersButton, ar
             ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."
             : "Create one-time, daily, or weekly reminders. They are stored locally encrypted and are not sent to an AI provider.");
+        ManageRoutinesButton.Content = ar ? "الروتينات" : "Routines";
+        ManageRoutinesButton.ToolTip = ar
+            ? "احفظ أهدافًا نصية متكررة؛ الاختيار يملأ مسودة المهمة فقط."
+            : "Save recurring text goals; choosing one only fills the task draft.";
+        AutomationProperties.SetName(ManageRoutinesButton, ar ? "إدارة الروتينات المحفوظة" : "Manage saved routines");
+        AutomationProperties.SetHelpText(ManageRoutinesButton, ar
+            ? "قوالب نصية مشفرة محليًا وليست سكربتات؛ راجع الهدف واضغط تنفيذ المهمة بنفسك."
+            : "Locally encrypted text templates, not scripts. Review the goal and press Run task yourself.");
         TasksDescription.Text = ar
             ? "اكتب مهمة بالعربية أو الإنجليزية. تستخدم ليال استدعاء الأدوات المحددة، وتطلب موافقتك قبل الإجراءات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات."
             : "Describe a task in Arabic or English. Layal uses allow-listed tools and requests approval before file changes, application launches, or data disclosure.";
