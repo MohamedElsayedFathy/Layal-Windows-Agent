@@ -139,6 +139,8 @@ public partial class MainWindow : Window
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         }
         VoiceReplyVoiceSelector.SelectedValue = AppRuntime.Settings.VoiceReplyId;
+        AssistantPersonaSelector.SelectedItem = AssistantPersonaSelector.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), AppRuntime.Settings.AssistantPersona, StringComparison.Ordinal));
         AlwaysOnTopCheckbox.IsChecked = AppRuntime.Settings.MascotAlwaysOnTop;
         AnimationsCheckbox.IsChecked = AppRuntime.Settings.MascotAnimationsEnabled;
         MascotSizeSlider.Value = AppRuntime.Settings.MascotScale;
@@ -934,6 +936,24 @@ public partial class MainWindow : Window
                 _ => voiceItem.Tag?.ToString() ?? string.Empty
             };
         }
+        AssistantPersonaLabel.Text = ar ? "نمط شخصية ليال" : "Layal response style";
+        AssistantPersonaDisclosure.Text = ar
+            ? "نمط الرد يغيّر طريقة الصياغة فقط، ولا يغيّر الهوية أو حدود الأمان."
+            : "Response style changes wording only; it does not change identity or safety boundaries.";
+        foreach (ComboBoxItem personaItem in AssistantPersonaSelector.Items)
+        {
+            personaItem.Content = (personaItem.Tag?.ToString() ?? string.Empty) switch
+            {
+                "warm" => ar ? "رفيقة دافئة" : "Warm companion",
+                "focused" => ar ? "مركزة ومختصرة" : "Focused and concise",
+                "professional" => ar ? "احترافية ومنظمة" : "Professional and structured",
+                _ => personaItem.Tag?.ToString() ?? string.Empty
+            };
+        }
+        AutomationProperties.SetName(AssistantPersonaSelector, ar ? "نمط شخصية ليال" : "Layal response style");
+        AutomationProperties.SetHelpText(AssistantPersonaSelector, ar
+            ? "اختيار الأسلوب يغيّر طريقة الصياغة فقط ولا يغيّر قواعد الأمان أو الموافقات أو الصلاحيات."
+            : "Style changes wording only and never changes safety rules, confirmations, or tool permissions.");
         AutomationProperties.SetName(VoiceReplyCheckbox, ar ? "الردود الصوتية لليال" : "Layal voice replies");
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
             ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
@@ -2667,6 +2687,36 @@ public partial class MainWindow : Window
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
     }
 
+    private void AssistantPersonaSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || AssistantPersonaSelector.SelectedItem is not ComboBoxItem item)
+            return;
+
+        var persona = item.Tag?.ToString();
+        if (persona is not ("warm" or "focused" or "professional"))
+            persona = "warm";
+        if (string.Equals(AppRuntime.Settings.AssistantPersona, persona, StringComparison.Ordinal))
+            return;
+
+        var previous = AppRuntime.Settings.AssistantPersona;
+        AppRuntime.Settings.AssistantPersona = persona;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            SetChatActivityStatus(IsArabic
+                ? "تم حفظ نمط الرد. هذا الإعداد يغيّر الصياغة فقط ولا يغيّر الصلاحيات."
+                : "Response style saved. This preference changes wording only, not permissions.");
+        }
+        catch (Exception ex)
+        {
+            AppRuntime.Settings.AssistantPersona = previous;
+            AssistantPersonaSelector.SelectedItem = AssistantPersonaSelector.Items.OfType<ComboBoxItem>()
+                .FirstOrDefault(candidate => string.Equals(candidate.Tag?.ToString(), previous, StringComparison.Ordinal));
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر حفظ نمط الرد", "Could not save response style", ex, IsArabic));
+        }
+    }
+
     private async void TestVoiceReplyButton_Click(object sender, RoutedEventArgs e)
     {
         if (_voiceTestCancellation is not null) return;
@@ -3374,7 +3424,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var characterInstructions = LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language);
+            var characterInstructions = LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language, AppRuntime.Settings.AssistantPersona);
             var instructions = characterInstructions + Environment.NewLine + Environment.NewLine +
                 "This is a natural, full-duplex spoken conversation with Layal, a fictional young-girl character. " +
                 LayalSpeechService.VoiceCharacterDescription + " " +
@@ -4257,7 +4307,7 @@ public partial class MainWindow : Window
         try
         {
             var history = ChatContextBuilder.Build(
-                LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language), ChatMessages).ToList();
+                LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language, AppRuntime.Settings.AssistantPersona), ChatMessages).ToList();
             var requestText = automaticObservation
                 ? (IsArabic
                     ? "أنت تتابعين صورة ثابتة من كاميرا المستخدم بناءً على موافقته. صف فقط التغيرات الخارجية الواضحة في تعبير الوجه أو وضعية الرأس أو الإيماءة، ولا تدّعي معرفة المشاعر الداخلية أو النوايا. قارن بالملاحظة النصية السابقة التالية: " +
@@ -4461,7 +4511,7 @@ public partial class MainWindow : Window
             }
 
             // Keep the most recent chat context bounded; archive history remains saved locally.
-            var history = ChatContextBuilder.Build(LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language), ChatMessages);
+            var history = ChatContextBuilder.Build(LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language, AppRuntime.Settings.AssistantPersona), ChatMessages);
             var streamedChunks = 0;
             void HandleDelta(string delta)
             {
@@ -5200,7 +5250,8 @@ public partial class MainWindow : Window
                 ConfirmToolActionAsync,
                 AddTaskEvent,
                 cancellation.Token,
-                AppRuntime.Settings.Language);
+                AppRuntime.Settings.Language,
+                AppRuntime.Settings.AssistantPersona);
 
             SetAccessibleStatusText(TaskResult, UiLocalization.FormatTaskResult(record, IsArabic));
             finalMood = record.Status switch

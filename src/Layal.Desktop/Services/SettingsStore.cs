@@ -100,6 +100,8 @@ public sealed class SettingsStore
         if (settings.ThemeMode is not ("light" or "dark")) settings.ThemeMode = "light";
         if (settings.ThemePreset is not ("classic" or "ocean" or "forest" or "sunset"))
             settings.ThemePreset = "classic";
+        if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
+            settings.AssistantPersona = "warm";
 
         settings.WeatherLocation = (settings.WeatherLocation ?? string.Empty).Trim();
         settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();

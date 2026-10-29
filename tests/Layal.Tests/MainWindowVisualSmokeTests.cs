@@ -484,6 +484,17 @@ public sealed class MainWindowVisualSmokeTests
             "Theme preset selector must expose an accessible name.");
         Assert.AreEqual(4, themePresetSelector.Items.Count,
             "The app should offer four named presets (Classic, Ocean, Forest, Sunset).");
+        var personaSelector = window.FindName("AssistantPersonaSelector") as ComboBox
+            ?? throw new InvalidOperationException("AssistantPersonaSelector was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(personaSelector)),
+            "The assistant persona selector must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(personaSelector)),
+            "The assistant persona selector must disclose that style does not change permissions.");
+        Assert.AreEqual(3, personaSelector.Items.Count,
+            "The app should offer three named response styles.");
+
         var privacyShieldButton = window.FindName("PrivacyShieldButton") as Button
             ?? throw new InvalidOperationException("PrivacyShieldButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(

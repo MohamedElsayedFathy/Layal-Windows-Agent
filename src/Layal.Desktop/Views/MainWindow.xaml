@@ -710,6 +710,18 @@
                             <ComboBoxItem Tag="marin" Content="طبيعي وعفوي (Marin)"/>
                             <ComboBoxItem Tag="cedar" Content="هادئة وواضحة (Cedar)"/>
                         </ComboBox>
+                        <TextBlock x:Name="AssistantPersonaLabel" Text="نمط شخصية ليال" Margin="4,8,4,0"/>
+                        <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
+                                  SelectionChanged="AssistantPersonaSelector_SelectionChanged"
+                                  AutomationProperties.Name="نمط شخصية ليال"
+                                  AutomationProperties.HelpText="اختيار الأسلوب يغيّر طريقة الصياغة فقط ولا يغيّر قواعد الأمان أو الموافقات أو الصلاحيات.">
+                            <ComboBoxItem Tag="warm" Content="رفيقة دافئة"/>
+                            <ComboBoxItem Tag="focused" Content="مركزة ومختصرة"/>
+                            <ComboBoxItem Tag="professional" Content="احترافية ومنظمة"/>
+                        </ComboBox>
+                        <TextBlock x:Name="AssistantPersonaDisclosure" Text="نمط الرد يغيّر طريقة الصياغة فقط، ولا يغيّر الهوية أو حدود الأمان."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
+                                   AutomationProperties.Name="حدود نمط الشخصية"/>
                         <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" Margin="4,8,4,0"/>
                         <TextBox x:Name="VoiceReplyModelInput" FlowDirection="LeftToRight" Text="gpt-realtime-2.1-mini" AutomationProperties.Name="معرّف نموذج الرد الصوتي" AutomationProperties.LabeledBy="{Binding ElementName=VoiceReplyModelLabel}"/>
                         <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك؛ عند اختيار المزود السحابي قد تُطبق رسوم." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>

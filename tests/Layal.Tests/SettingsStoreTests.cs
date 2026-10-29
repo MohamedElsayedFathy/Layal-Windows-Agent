@@ -25,6 +25,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotLeft, 0.0001);
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
+        Assert.AreEqual("warm", settings.AssistantPersona);
         Assert.IsFalse(settings.PrivacyShieldEnabled);
         Assert.IsFalse(settings.ProactiveCheckInEnabled);
         Assert.AreEqual(60, settings.ProactiveCheckInIntervalMinutes);
@@ -93,6 +94,7 @@ public sealed class SettingsStoreTests
             Language = "en",
             ThemeMode = "dark",
             ThemePreset = "ocean",
+            AssistantPersona = "focused",
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "test-model",
             UseLocalAi = false,
@@ -116,6 +118,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("en", reloaded.Language);
         Assert.AreEqual("dark", reloaded.ThemeMode);
         Assert.AreEqual("ocean", reloaded.ThemePreset);
+        Assert.AreEqual("focused", reloaded.AssistantPersona);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
         Assert.IsFalse(reloaded.UseLocalAi);
@@ -151,6 +154,7 @@ public sealed class SettingsStoreTests
             VoiceRepliesEnabled = false,
             VoiceReplyModelId = "old-voice-model",
             VoiceReplyId = "marin",
+            AssistantPersona = "professional",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
             MascotUseGlbPreview = true,
@@ -179,6 +183,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("old-transcriber", candidate.SpeechToTextModelId);
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
         Assert.AreEqual("old-voice-model", candidate.VoiceReplyModelId);
+        Assert.AreEqual("professional", candidate.AssistantPersona);
         Assert.IsFalse(candidate.MascotAlwaysOnTop);
         Assert.IsFalse(candidate.MascotAnimationsEnabled);
         Assert.IsTrue(candidate.MascotUseGlbPreview);
@@ -199,6 +204,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("en", target.Language);
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("marin", target.VoiceReplyId);
+        Assert.AreEqual("professional", target.AssistantPersona);
         Assert.IsTrue(target.AllowWindowTitleInspection);
         Assert.IsTrue(target.PrivacyShieldEnabled);
         Assert.IsTrue(target.ProactiveCheckInEnabled);
@@ -211,10 +217,11 @@ public sealed class SettingsStoreTests
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
-            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\"}");
+            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\",\"AssistantPersona\":\"malicious-custom-value\"}");
         var settings = new SettingsStore(temp.Path).Load();
         Assert.AreEqual("dark", settings.ThemeMode);
         Assert.AreEqual("classic", settings.ThemePreset);
+        Assert.AreEqual("warm", settings.AssistantPersona);
     }
 
     [TestMethod]
