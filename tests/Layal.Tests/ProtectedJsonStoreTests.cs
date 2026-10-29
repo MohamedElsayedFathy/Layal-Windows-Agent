@@ -24,6 +24,27 @@ public sealed class ProtectedJsonStoreTests
     }
 
     [TestMethod]
+    public void DifferentUnreadablePayloadsAreEachPreservedByTheSameStoreInstance()
+    {
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "changing-state.dpapi");
+        const string firstPayload = "first unreadable payload";
+        const string secondPayload = "second unreadable payload";
+        File.WriteAllText(path, firstPayload);
+        var store = new ProtectedJsonStore<List<string>>(path);
+
+        _ = store.Load(new List<string>());
+        File.WriteAllText(path, secondPayload);
+        _ = store.Load(new List<string>());
+
+        var copies = Directory.GetFiles(temp.Path, "changing-state.dpapi.unreadable-*");
+        Assert.AreEqual(2, copies.Length, "A new corrupt payload must not be skipped just because this instance recovered an earlier payload.");
+        CollectionAssert.AreEquivalent(
+            new[] { firstPayload, secondPayload },
+            copies.Select(File.ReadAllText).ToArray());
+    }
+
+    [TestMethod]
     public void LockedStoreFailsClosedInsteadOfReturningFallbackState()
     {
         using var temp = new TestTempDirectory();

@@ -74,6 +74,27 @@ public sealed class AgentToolExecutorEditFidelityTests
     }
 
     [TestMethod]
+    public async Task NewEditBackupSurvivesPruningWhenExistingBackupsHaveFutureTimestamps()
+    {
+        using var temp = new TestTempDirectory();
+        var executor = CreateExecutor(temp.Path);
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "future.txt"), "before after");
+        var backupRoot = System.IO.Path.Combine(temp.Path, ".layal-backups");
+        Directory.CreateDirectory(backupRoot);
+
+        // A clock adjustment or corrupt backup filenames must never cause the new recovery copy to be deleted.
+        for (var i = 0; i < 200; i++)
+            File.WriteAllText(System.IO.Path.Combine(backupRoot, $"99991231-235959-999-future-{i:000}.bak"), "older payload");
+
+        await Replace(executor, "future.txt", "before", "after");
+
+        var remaining = Directory.GetFiles(backupRoot, "*.bak");
+        Assert.AreEqual(200, remaining.Length);
+        Assert.IsTrue(remaining.Any(path => !Path.GetFileName(path).StartsWith("99991231-", StringComparison.Ordinal)),
+            "The backup created for the current edit must be protected from retention pruning.");
+    }
+
+    [TestMethod]
     public async Task AgentCannotCreateOrModifyBuildConfigurationFiles()
     {
         using var temp = new TestTempDirectory();
