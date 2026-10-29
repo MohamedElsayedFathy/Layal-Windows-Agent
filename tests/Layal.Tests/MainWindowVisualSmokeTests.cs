@@ -44,6 +44,88 @@ public sealed class MainWindowVisualSmokeTests
             Assert.Fail("WPF visual smoke failed: " + failure);
     }
 
+    [TestMethod]
+    public void EscapeCancelsActiveChatAndAgentOperations()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            CancellationTokenSource? chatCancellation = null;
+            CancellationTokenSource? taskCancellation = null;
+            MainWindow? window = null;
+            App? app = null;
+            try
+            {
+                using var temp = new TestTempDirectory();
+                App.SuppressStartupForTests = true;
+                app = new App();
+                app.InitializeComponent();
+                app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                InitializeRuntime(temp.Path);
+                AppRuntime.Settings.UseAutomaticLocation = false;
+
+                window = new MainWindow { ShowInTaskbar = false };
+                AppRuntime.MainWindow = window;
+                window.Show();
+                window.UpdateLayout();
+
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                var chatField = typeof(MainWindow).GetField("_chatCancellation", flags)
+                    ?? throw new InvalidOperationException("Chat cancellation field was not found.");
+                var taskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
+                    ?? throw new InvalidOperationException("Agent task cancellation field was not found.");
+                var keyHandler = typeof(MainWindow).GetMethod("MainWindow_PreviewKeyDown", flags)
+                    ?? throw new InvalidOperationException("Main window keyboard handler was not found.");
+
+                chatCancellation = new CancellationTokenSource();
+                chatField.SetValue(window, chatCancellation);
+                var chatEscape = CreateEscapeKeyEvent(window);
+                keyHandler.Invoke(window, new object[] { window, chatEscape });
+                Assert.IsTrue(chatCancellation.IsCancellationRequested, "Escape should cancel an active chat request.");
+                Assert.IsTrue(chatEscape.Handled, "Escape should be handled when it cancels an operation.");
+
+                chatField.SetValue(window, null);
+                taskCancellation = new CancellationTokenSource();
+                taskField.SetValue(window, taskCancellation);
+                var taskEscape = CreateEscapeKeyEvent(window);
+                keyHandler.Invoke(window, new object[] { window, taskEscape });
+                Assert.IsTrue(taskCancellation.IsCancellationRequested, "Escape should cancel an active agent task.");
+                Assert.IsTrue(taskEscape.Handled, "Escape should be handled when it cancels an agent task.");
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+            finally
+            {
+                AppRuntime.IsExiting = true;
+                window?.Close();
+                AppRuntime.MainWindow = null;
+                chatCancellation?.Dispose();
+                taskCancellation?.Dispose();
+                app?.Shutdown();
+                App.SuppressStartupForTests = false;
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Start();
+        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(30)), "Escape-cancellation WPF test timed out.");
+        if (failure is not null)
+            Assert.Fail("Escape-cancellation test failed: " + failure);
+    }
+
+    private static KeyEventArgs CreateEscapeKeyEvent(MainWindow window)
+    {
+        var source = PresentationSource.FromVisual(window)
+            ?? throw new InvalidOperationException("The main window has no presentation source.");
+        return new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Escape)
+        {
+            RoutedEvent = Keyboard.PreviewKeyDownEvent
+        };
+    }
+
     private static void RenderAllStates()
     {
         using var temp = new TestTempDirectory();
