@@ -24,6 +24,10 @@ public sealed class UserSettings
     public bool AllowWindowTitleInspection { get; set; } = false;
     /// <summary>Blocks new microphone, camera, screen-capture and clipboard-read operations when enabled.</summary>
     public bool PrivacyShieldEnabled { get; set; } = false;
+    /// <summary>Enables local scheduled check-in notifications; this never inspects the screen or calls an AI model.</summary>
+    public bool ProactiveCheckInEnabled { get; set; } = false;
+    public int ProactiveCheckInIntervalMinutes { get; set; } = 60;
+    public DateTimeOffset? LastProactiveCheckInAt { get; set; }
 
     public UserSettings Clone() => new()
     {
@@ -47,7 +51,10 @@ public sealed class UserSettings
         MascotLeft = MascotLeft,
         MascotTop = MascotTop,
         AllowWindowTitleInspection = AllowWindowTitleInspection,
-        PrivacyShieldEnabled = PrivacyShieldEnabled
+        PrivacyShieldEnabled = PrivacyShieldEnabled,
+        ProactiveCheckInEnabled = ProactiveCheckInEnabled,
+        ProactiveCheckInIntervalMinutes = ProactiveCheckInIntervalMinutes,
+        LastProactiveCheckInAt = LastProactiveCheckInAt
     };
 
     public void CopyFrom(UserSettings source)
@@ -73,5 +80,8 @@ public sealed class UserSettings
         MascotTop = source.MascotTop;
         AllowWindowTitleInspection = source.AllowWindowTitleInspection;
         PrivacyShieldEnabled = source.PrivacyShieldEnabled;
+        ProactiveCheckInEnabled = source.ProactiveCheckInEnabled;
+        ProactiveCheckInIntervalMinutes = source.ProactiveCheckInIntervalMinutes;
+        LastProactiveCheckInAt = source.LastProactiveCheckInAt;
     }
 }
