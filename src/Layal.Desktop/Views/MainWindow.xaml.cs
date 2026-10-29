@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
     private readonly DispatcherTimer _reminderTimer = new() { Interval = TimeSpan.FromSeconds(15) };
+    private readonly DispatcherTimer _proactiveCheckInTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly WeatherService _weatherService = new();
     private readonly DeviceLocationService _deviceLocationService = new();
     private CancellationTokenSource? _weatherCancellation;
@@ -118,6 +119,7 @@ public partial class MainWindow : Window
         _clockTimer.Tick += ClockTimer_Tick;
         _weatherRefreshTimer.Tick += WeatherRefreshTimer_Tick;
         _reminderTimer.Tick += ReminderTimer_Tick;
+        _proactiveCheckInTimer.Tick += ProactiveCheckInTimer_Tick;
         DataContext = this;
         _apiConnectionsView = CollectionViewSource.GetDefaultView(ApiConnections);
         _apiConnectionsView.Filter = ApiConnectionMatchesSearch;
@@ -142,6 +144,10 @@ public partial class MainWindow : Window
         MascotSizeSlider.Value = AppRuntime.Settings.MascotScale;
         MascotOpacitySlider.Value = AppRuntime.Settings.MascotOpacity;
         WindowInspectionCheckbox.IsChecked = AppRuntime.Settings.AllowWindowTitleInspection;
+        ProactiveCheckInEnabledCheckBox.IsChecked = AppRuntime.Settings.ProactiveCheckInEnabled;
+        ProactiveCheckInIntervalSelector.SelectedItem =
+            ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
+                string.Equals(item.Tag?.ToString(), AppRuntime.Settings.ProactiveCheckInIntervalMinutes.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
         var currentConversation = AppRuntime.ChatSessionService.GetCurrent();
         _currentConversationId = currentConversation.Id;
         foreach (var message in currentConversation.Messages.TakeLast(ChatSessionService.MaxMessagesPerConversation)) ChatMessages.Add(message);
@@ -166,6 +172,15 @@ public partial class MainWindow : Window
         RefreshProviderStatus();
         if (!Layal.App.SuppressStartupForTests && AppRuntime.ReminderService is not null)
             _reminderTimer.Start();
+        if (!Layal.App.SuppressStartupForTests && AppRuntime.Settings.ProactiveCheckInEnabled)
+        {
+            if (AppRuntime.Settings.LastProactiveCheckInAt is null)
+            {
+                AppRuntime.Settings.LastProactiveCheckInAt = DateTimeOffset.Now;
+                AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            }
+            _proactiveCheckInTimer.Start();
+        }
     }
 
     public void ShowFromTray()
@@ -670,9 +685,11 @@ public partial class MainWindow : Window
         _clockTimer.Stop();
         _weatherRefreshTimer.Stop();
         _reminderTimer.Stop();
+        _proactiveCheckInTimer.Stop();
         _clockTimer.Tick -= ClockTimer_Tick;
         _weatherRefreshTimer.Tick -= WeatherRefreshTimer_Tick;
         _reminderTimer.Tick -= ReminderTimer_Tick;
+        _proactiveCheckInTimer.Tick -= ProactiveCheckInTimer_Tick;
         _weatherCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
@@ -1005,6 +1022,25 @@ public partial class MainWindow : Window
             : "Describe a task in Arabic or English. Layal uses allow-listed tools and requests approval before file changes, application launches, or data disclosure.";
         TaskSafeToolTitle.Text = ar ? "أدوات Windows المحدودة" : "Bounded Windows tools";
         TaskSafeToolDescription.Text = ar ? "الأدوات المتاحة محددة؛ لا يوجد وصول عام غير مقيد إلى سطر الأوامر أو الملفات." : "Available tools are allow-listed; there is no unrestricted shell or filesystem access.";
+        ProactiveCheckInEnabledCheckBox.Content = ar ? "تذكيرات متابعة استباقية" : "Proactive check-in reminders";
+        ProactiveCheckInEnabledCheckBox.ToolTip = ar
+            ? "إشعارات محلية حسب الفاصل الذي تختاره؛ لا تراقب الشاشة أو التطبيقات ولا تستدعي AI في الخلفية."
+            : "Local notifications at your chosen interval; no screen/app monitoring or background AI calls.";
+        AutomationProperties.SetName(ProactiveCheckInEnabledCheckBox, ar ? "تفعيل تذكيرات المتابعة المجدولة" : "Enable scheduled check-in reminders");
+        AutomationProperties.SetHelpText(ProactiveCheckInEnabledCheckBox, ar
+            ? "ميزة استباقية محدودة وآمنة: إشعار محلي فقط. لا تفحص الشاشة أو التطبيقات ولا تستخدم الشبكة."
+            : "A limited privacy-safe proactive feature: local notifications only. It does not inspect the screen/apps or use the network.");
+        var checkInIntervals = ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().ToArray();
+        var intervalLabels = ar ? new[] { "15 دقيقة", "30 دقيقة", "60 دقيقة", "120 دقيقة" } : new[] { "15 minutes", "30 minutes", "60 minutes", "120 minutes" };
+        for (var i = 0; i < Math.Min(checkInIntervals.Length, intervalLabels.Length); i++)
+            checkInIntervals[i].Content = intervalLabels[i];
+        AutomationProperties.SetName(ProactiveCheckInIntervalSelector, ar ? "الفاصل الزمني لتذكير المتابعة" : "Check-in reminder interval");
+        AutomationProperties.SetHelpText(ProactiveCheckInIntervalSelector, ar
+            ? "إشعارات محلية كل 15 أو 30 أو 60 أو 120 دقيقة. يتطلب تشغيل ليال."
+            : "Local notifications every 15, 30, 60, or 120 minutes. Requires Layal to be running.");
+        ProactiveCheckInPrivacyNote.Text = ar
+            ? "الوضع الاستباقي هنا إشعار محلي فقط: لا يفحص النوافذ أو الشاشة أو الملفات ولا يستدعي نموذج AI."
+            : "Proactive mode here is a local reminder only: no window, screen, or file inspection, and no AI model calls.";
         TaskOpenNotepadButton.Content = ar ? "فتح المفكرة (اختبار)" : "Launch Notepad (test)";
         RunAgentTaskButton.Content = ar ? "تنفيذ المهمة" : "Run task";
         CancelAgentTaskButton.Content = ar ? "إيقاف المهمة" : "Stop task";
@@ -4801,6 +4837,97 @@ public partial class MainWindow : Window
             Owner = this
         };
         window.ShowDialog();
+    }
+
+    private void ProactiveCheckInEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded)
+            return;
+
+        AppRuntime.Settings.ProactiveCheckInEnabled = ProactiveCheckInEnabledCheckBox.IsChecked == true;
+        AppRuntime.Settings.LastProactiveCheckInAt = DateTimeOffset.Now;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            if (AppRuntime.Settings.ProactiveCheckInEnabled)
+                _proactiveCheckInTimer.Start();
+            else
+                _proactiveCheckInTimer.Stop();
+
+            SetChatActivityStatus(AppRuntime.Settings.ProactiveCheckInEnabled
+                ? (IsArabic
+                    ? "تم تفعيل تذكيرات المتابعة المحلية؛ لا يوجد فحص للشاشة أو استدعاء AI في الخلفية."
+                    : "Local check-in reminders are enabled; there is no screen monitoring or background AI call.")
+                : (IsArabic ? "تم إيقاف تذكيرات المتابعة." : "Check-in reminders are disabled."));
+        }
+        catch (Exception ex)
+        {
+            AppRuntime.Settings.ProactiveCheckInEnabled = !AppRuntime.Settings.ProactiveCheckInEnabled;
+            ProactiveCheckInEnabledCheckBox.IsChecked = AppRuntime.Settings.ProactiveCheckInEnabled;
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر حفظ تذكيرات المتابعة", "Could not save check-in reminder settings", ex, IsArabic));
+        }
+    }
+
+    private void ProactiveCheckInIntervalSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || ProactiveCheckInIntervalSelector.SelectedItem is not ComboBoxItem item ||
+            !int.TryParse(item.Tag?.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutes))
+            return;
+
+        AppRuntime.Settings.ProactiveCheckInIntervalMinutes = minutes;
+        AppRuntime.Settings.LastProactiveCheckInAt = DateTimeOffset.Now;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر حفظ الفاصل الزمني", "Could not save the check-in interval", ex, IsArabic));
+        }
+    }
+
+    private void ProactiveCheckInTimer_Tick(object? sender, EventArgs e)
+    {
+        if (AppRuntime.IsExiting || !AppRuntime.Settings.ProactiveCheckInEnabled)
+            return;
+
+        var now = DateTimeOffset.Now;
+        var last = AppRuntime.Settings.LastProactiveCheckInAt;
+        if (last is null)
+        {
+            AppRuntime.Settings.LastProactiveCheckInAt = now;
+            try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
+            catch { _proactiveCheckInTimer.Stop(); }
+            return;
+        }
+
+        if (now - last.Value < TimeSpan.FromMinutes(AppRuntime.Settings.ProactiveCheckInIntervalMinutes))
+            return;
+
+        // Advance the schedule before notifying, so repeated timer ticks cannot create a storm.
+        AppRuntime.Settings.LastProactiveCheckInAt = now;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        }
+        catch (Exception ex)
+        {
+            _proactiveCheckInTimer.Stop();
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر حفظ حالة تذكير المتابعة؛ أُوقف المؤقت", "Could not save check-in state; the timer was stopped", ex, IsArabic));
+            return;
+        }
+
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+            return;
+
+        var recentTask = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
+        var message = recentTask is null
+            ? (IsArabic ? "موعد مراجعة قصيرة. افتح ليال وحدد ما تريد التركيز عليه الآن." : "Time for a quick check-in. Open Layal and choose what to focus on now.")
+            : (IsArabic ? "موعد مراجعة المهمة. افتح ليال لمراجعة التقدم أو تحديث الهدف." : "Time to check in on your task. Open Layal to review progress or update the goal.");
+        AppRuntime.Tray?.ShowReminderNotification(message, IsArabic);
     }
 
     private void ReminderTimer_Tick(object? sender, EventArgs e)
