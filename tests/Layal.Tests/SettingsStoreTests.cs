@@ -25,6 +25,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotLeft, 0.0001);
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
+        Assert.IsFalse(settings.PrivacyShieldEnabled);
         Assert.IsTrue(settings.UseAutomaticLocation);
     }
 
@@ -99,6 +100,7 @@ public sealed class SettingsStoreTests
             MascotLeft = 1284.5,
             MascotTop = 424.25,
             AllowWindowTitleInspection = true,
+            PrivacyShieldEnabled = true,
             UseAutomaticLocation = false
         });
 
@@ -117,6 +119,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(1284.5, reloaded.MascotLeft, 0.0001);
         Assert.AreEqual(424.25, reloaded.MascotTop, 0.0001);
         Assert.IsTrue(reloaded.AllowWindowTitleInspection);
+        Assert.IsTrue(reloaded.PrivacyShieldEnabled);
         Assert.IsFalse(reloaded.UseAutomaticLocation);
     }
 
@@ -144,7 +147,8 @@ public sealed class SettingsStoreTests
             MascotOpacity = 0.75,
             MascotLeft = 120.5,
             MascotTop = 240.5,
-            AllowWindowTitleInspection = true
+            AllowWindowTitleInspection = true,
+            PrivacyShieldEnabled = true
         };
 
         var candidate = original.Clone();
@@ -169,6 +173,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(120.5, candidate.MascotLeft, 0.0001);
         Assert.AreEqual(240.5, candidate.MascotTop, 0.0001);
         Assert.IsTrue(candidate.AllowWindowTitleInspection);
+        Assert.IsTrue(candidate.PrivacyShieldEnabled);
 
         var target = new UserSettings();
         target.CopyFrom(candidate);
@@ -178,6 +183,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("marin", target.VoiceReplyId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
+        Assert.IsTrue(target.PrivacyShieldEnabled);
     }
 
     [TestMethod]
