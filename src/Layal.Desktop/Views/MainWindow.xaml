@@ -266,6 +266,10 @@
                                     ToolTip="اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S."
                                     AutomationProperties.Name="سؤال سريع"
                                     AutomationProperties.HelpText="يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا."/>
+                            <Button x:Name="PrivacyShieldButton" Content="درع الخصوصية: مغلق" Click="PrivacyShieldButton_Click" MinWidth="155"
+                                    ToolTip="إيقاف بدء التقاط الميكروفون والكاميرا والشاشة والحافظة."
+                                    AutomationProperties.Name="مفتاح خصوصية شامل"
+                                    AutomationProperties.HelpText="عند التفعيل يمنع بدء التسجيل والكاميرا وقص الشاشة وقراءة الحافظة، ويحاول إيقاف الالتقاطات الجارية. تظل الدردشة النصية متاحة."/>
                             <Button x:Name="IncognitoModeButton" Content="محادثة خاصة" Click="IncognitoModeButton_Click" MinWidth="110"
                                     ToolTip="جلسة دردشة مؤقتة لا تحفظ رسائلها محليًا؛ تظل بيانات الإرسال للمزود حسب إعداداتك."
                                     AutomationProperties.Name="محادثة خاصة"
