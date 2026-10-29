@@ -280,6 +280,12 @@
                                     AutomationProperties.HelpText="اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."/>
                             <Button x:Name="ClearVisionImageButton" Content="إزالة الصورة" Click="ClearVisionImageButton_Click"
                                     Visibility="Collapsed" MinWidth="90" ToolTip="إزالة الصورة المرفقة قبل الإرسال."/>
+                            <Button x:Name="ChooseDocumentButton" Content="إرفاق ملف نصي/PDF/Office" Click="ChooseDocumentButton_Click"
+                                    MinWidth="160" ToolTip="يُستخرج النص محليًا وتراجعه قبل الإرفاق؛ لا يُرسل إلا عند الضغط على إرسال."
+                                    AutomationProperties.Name="اختيار ملف لمراجعته وإرفاقه"
+                                    AutomationProperties.HelpText="يدعم TXT وMarkdown وCSV وJSON وXML وHTML وPDF النصي وDOCX وXLSX، بحد أقصى 20 ميجابايت."/>
+                            <Button x:Name="ClearDocumentButton" Content="إزالة الملف" Click="ClearDocumentButton_Click"
+                                    Visibility="Collapsed" MinWidth="90" ToolTip="إزالة محتوى الملف المرفق قبل الإرسال."/>
                             <Button x:Name="CameraVisionButton" Content="فتح الكاميرا" Click="CameraVisionButton_Click"
                                     ToolTip="معاينة الكاميرا محليًا وتحليل لقطة عند الطلب." MinWidth="110"
                                     AutomationProperties.Name="فتح كاميرا الرؤية"
@@ -290,6 +296,9 @@
                             <TextBlock x:Name="VisionAttachmentStatus" Text="لا توجد صورة مرفقة" VerticalAlignment="Center"
                                        Margin="8,0,4,0" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
                                        AutomationProperties.Name="حالة الصورة المرفقة" AutomationProperties.LiveSetting="Polite"/>
+                            <TextBlock x:Name="DocumentAttachmentStatus" Text="لا يوجد ملف مرفق" VerticalAlignment="Center"
+                                       MaxWidth="280" Margin="8,0,4,0" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                       AutomationProperties.Name="حالة الملف النصي المرفق" AutomationProperties.LiveSetting="Polite"/>
                         </WrapPanel>
                         <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." FontSize="11" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0"/>
                         <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
