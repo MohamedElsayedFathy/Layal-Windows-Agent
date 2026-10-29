@@ -17,17 +17,23 @@ public sealed class BrowserAutomationShutdownTests
         Assert.IsNotNull(gateField, "Browser operations must remain serialized by a gate.");
         var gate = (SemaphoreSlim)gateField!.GetValue(browser)!;
 
-        // Simulate an in-flight CDP operation holding the service gate without launching a real browser.
+        // Simulate a CDP operation in progress and another queued request without launching Edge.
         await gate.WaitAsync();
         Task shutdown;
+        var queuedOperation = browser.ReadCurrentPageAsync();
         try
         {
+            Assert.IsFalse(queuedOperation.IsCompleted, "The simulated request must be waiting for the gate.");
             shutdown = browser.ShutdownAsync();
 
-            // Waiting for this rejection proves shutdown has set its terminal state before resource cleanup.
+            // A new call is rejected immediately, and an already-queued call is canceled.
             await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() =>
                 browser.NavigateAsync("https://example.com/"));
-            Assert.IsFalse(shutdown.IsCompleted, "Shutdown must not dispose resources while another operation owns the gate.");
+            var queuedOperationCancelled = false;
+            try { await queuedOperation; }
+            catch (OperationCanceledException) { queuedOperationCancelled = true; }
+            Assert.IsTrue(queuedOperationCancelled, "Shutdown must cancel operations waiting for the browser gate.");
+            Assert.IsFalse(shutdown.IsCompleted, "Shutdown must wait for the active operation to release the gate.");
         }
         finally
         {
