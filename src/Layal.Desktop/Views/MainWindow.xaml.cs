@@ -3907,15 +3907,6 @@ public partial class MainWindow : Window
             return;
         }
         if (string.IsNullOrWhiteSpace(text)) return;
-        ChatInput.Clear();
-        AddMessage("user", text);
-        if (documentTextToSend is { Length: > 0 })
-        {
-            _pendingDocumentText = null;
-            _pendingDocumentFileName = null;
-            _pendingDocumentNotice = null;
-            UpdateDocumentAttachmentUi();
-        }
         var key = AppRuntime.SecretStore.Load();
         if (!useLocal && string.IsNullOrWhiteSpace(key))
         {
@@ -3927,6 +3918,16 @@ public partial class MainWindow : Window
                 : "No cloud provider is configured. Use local mode or configure a provider.");
             MainTabs.SelectedItem = ChatTab;
             return;
+        }
+
+        ChatInput.Clear();
+        AddMessage("user", text);
+        if (documentTextToSend is { Length: > 0 })
+        {
+            _pendingDocumentText = null;
+            _pendingDocumentFileName = null;
+            _pendingDocumentNotice = null;
+            UpdateDocumentAttachmentUi();
         }
 
         _chatCancellation = new CancellationTokenSource();
