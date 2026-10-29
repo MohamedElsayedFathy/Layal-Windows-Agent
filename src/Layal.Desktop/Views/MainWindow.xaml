@@ -270,6 +270,10 @@
                                     ToolTip="جلسة دردشة مؤقتة لا تحفظ رسائلها محليًا؛ تظل بيانات الإرسال للمزود حسب إعداداتك."
                                     AutomationProperties.Name="محادثة خاصة"
                                     AutomationProperties.HelpText="يخفي سجل المحادثات ويبدأ سياقًا مؤقتًا. لا يعطل حفظ سجلات المهام أو الذاكرة."/>
+                            <Button x:Name="CaptureScreenRegionButton" Content="قص جزء من الشاشة" Click="CaptureScreenRegionButton_Click"
+                                    ToolTip="يلتقط الشاشة الموجودة على الشاشة الحالية بعد موافقتك، ويعرض معاينة لقص منطقة قبل الإرفاق."
+                                    MinWidth="135" AutomationProperties.Name="التقاط وقص جزء من الشاشة"
+                                    AutomationProperties.HelpText="يُلتقط المحتوى محليًا بعد موافقتك، وتظهر معاينة لتحديد مستطيل. لا تُرسل الصورة إلا عند الضغط على إرسال."/>
                             <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
                                     ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
                                     AutomationProperties.Name="إرفاق صورة أو لقطة شاشة"
@@ -280,6 +284,9 @@
                                     ToolTip="معاينة الكاميرا محليًا وتحليل لقطة عند الطلب." MinWidth="110"
                                     AutomationProperties.Name="فتح كاميرا الرؤية"
                                     AutomationProperties.HelpText="يفتح معاينة الكاميرا بعد موافقتك. لا تُرسل اللقطات إلا عند التحليل اليدوي أو تفعيل التحليل التلقائي."/>
+                            <Image x:Name="VisionAttachmentPreview" Width="54" Height="40" Margin="7,0,2,0"
+                                   Stretch="Uniform" Visibility="Collapsed"
+                                   AutomationProperties.Name="معاينة الصورة المرفقة"/>
                             <TextBlock x:Name="VisionAttachmentStatus" Text="لا توجد صورة مرفقة" VerticalAlignment="Center"
                                        Margin="8,0,4,0" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
                                        AutomationProperties.Name="حالة الصورة المرفقة" AutomationProperties.LiveSetting="Polite"/>
