@@ -493,6 +493,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(checkInToggle)),
             "Scheduled check-ins must disclose that they do not inspect the screen or call AI.");
+        var inspectElementButton = window.FindName("InspectHoveredElementButton") as Button
+            ?? throw new InvalidOperationException("InspectHoveredElementButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(inspectElementButton)),
+            "UI element inspection must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(inspectElementButton)),
+            "UI element inspection must disclose that no field values or screenshots are captured.");
         var loreWebButton = window.FindName("LoreWebButton") as Button
             ?? throw new InvalidOperationException("LoreWebButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
