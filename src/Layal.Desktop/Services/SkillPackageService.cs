@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -15,19 +17,102 @@ public sealed class SkillPackageService
 
     public SkillPackageService(string root)
     {
-        _root = root;
-        Directory.CreateDirectory(root);
-        _indexPath = Path.Combine(root, "skills-index.json");
+        _root = Path.GetFullPath(root);
+        Directory.CreateDirectory(_root);
+        EnsureNotReparsePoint(_root);
+        _indexPath = Path.Combine(_root, "skills-index.json");
     }
 
     public IReadOnlyList<SkillRecord> GetInstalled()
     {
         try
         {
-            if (!File.Exists(_indexPath)) return Array.Empty<SkillRecord>();
-            return JsonSerializer.Deserialize<List<SkillRecord>>(File.ReadAllText(_indexPath), JsonOptions) ?? new();
+            return ReadIndexStrict();
         }
-        catch { return Array.Empty<SkillRecord>(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or System.Security.SecurityException)
+        {
+            // Keep the UI usable, but never treat an unreadable index as a valid empty catalog.
+            // Mutating operations call ReadIndexStrict directly and fail closed.
+            PreserveUnreadableIndexBestEffort();
+            return Array.Empty<SkillRecord>();
+        }
+    }
+
+    private List<SkillRecord> ReadIndexStrict()
+    {
+        if (Directory.Exists(_indexPath))
+            throw new IOException("The skills index path is a directory; refusing to modify the skill catalog.");
+        EnsureNotReparsePoint(_indexPath);
+
+        string json;
+        try
+        {
+            json = File.ReadAllText(_indexPath);
+        }
+        catch (FileNotFoundException)
+        {
+            // A genuinely missing index is normal for a first run.
+            return new List<SkillRecord>();
+        }
+
+        var records = JsonSerializer.Deserialize<List<SkillRecord>>(json, JsonOptions);
+        if (records is null)
+            throw new JsonException("The skills index must contain a JSON array.");
+
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var record in records)
+        {
+            if (record is null || !NamePattern.IsMatch(record.Name ?? string.Empty))
+                throw new JsonException("The skills index contains a missing or invalid skill name.");
+
+            if (!names.Add(record.Name))
+                throw new JsonException("The skills index contains duplicate skill names.");
+
+            string expectedPackagePath;
+            string actualPackagePath;
+            try
+            {
+                expectedPackagePath = Path.GetFullPath(Path.Combine(_root, record.Name, record.Name + ".zip"));
+                actualPackagePath = Path.GetFullPath(record.PackagePath ?? string.Empty);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                throw new JsonException("The skills index contains an invalid package path.", ex);
+            }
+
+            if (!string.Equals(expectedPackagePath, actualPackagePath, StringComparison.OrdinalIgnoreCase))
+                throw new JsonException("The skills index contains a package path outside its managed skill directory.");
+        }
+
+        return records;
+    }
+
+    private void PreserveUnreadableIndexBestEffort()
+    {
+        try
+        {
+            if (!File.Exists(_indexPath)) return;
+
+            // RefreshSkills may call GetInstalled repeatedly. Do not accumulate another copy
+            // every time the same corrupt index is read; retain one backup per distinct payload.
+            byte[] sourceHash;
+            using (var source = File.OpenRead(_indexPath))
+                sourceHash = SHA256.HashData(source);
+
+            foreach (var existingBackup in Directory.EnumerateFiles(_root, "skills-index.json.corrupt-*.bak"))
+            {
+                using var backup = File.OpenRead(existingBackup);
+                var backupHash = SHA256.HashData(backup);
+                if (CryptographicOperations.FixedTimeEquals(sourceHash, backupHash)) return;
+            }
+
+            var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmssfff'Z'", CultureInfo.InvariantCulture);
+            var backupPath = _indexPath + ".corrupt-" + timestamp + "-" + Guid.NewGuid().ToString("N") + ".bak";
+            File.Copy(_indexPath, backupPath, overwrite: false);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        catch (System.Security.SecurityException) { }
     }
 
     public SkillRecord ImportZip(string zipPath, bool overwrite)
@@ -54,17 +139,34 @@ public sealed class SkillPackageService
             (name, description) = ParseFrontMatter(text);
         }
 
-        var records = GetInstalled().ToList();
+        // Read strictly before changing any package files. A broken index must not be
+        // interpreted as an empty catalog, or an existing package could be overwritten.
+        var records = ReadIndexStrict();
         var existing = records.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         if (existing is not null && !overwrite)
             throw new SkillAlreadyExistsException(name);
 
         var folder = Path.Combine(_root, name);
         Directory.CreateDirectory(folder);
+        EnsureNotReparsePoint(folder);
+
         var target = Path.Combine(folder, name + ".zip");
-        var temp = target + ".tmp";
-        File.Copy(zipPath, temp, true);
-        File.Move(temp, target, overwrite: true);
+        if (Directory.Exists(target))
+            throw new IOException("The skill package target is a directory; refusing to replace it.");
+        EnsureNotReparsePoint(target);
+
+        var temp = target + ".tmp-" + Guid.NewGuid().ToString("N");
+        var previous = target + ".previous-" + Guid.NewGuid().ToString("N");
+        var hadPreviousPackage = File.Exists(target);
+        if (hadPreviousPackage && existing is null && !overwrite)
+        {
+            // A package can remain on disk after an interrupted older import even when the
+            // index has no corresponding record. Never silently overwrite that orphan package.
+            throw new SkillAlreadyExistsException(name);
+        }
+
+        var previousPackageMoved = false;
+        var newPackageInstalled = false;
 
         var record = new SkillRecord
         {
@@ -78,7 +180,62 @@ public sealed class SkillPackageService
         };
         records.RemoveAll(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         records.Add(record);
-        SaveIndex(records);
+
+        try
+        {
+            // Stage the package with a unique name. When replacing an existing package,
+            // retain the previous ZIP until the matching index update has succeeded.
+            File.Copy(zipPath, temp, overwrite: false);
+            if (File.Exists(target) != hadPreviousPackage)
+                throw new IOException("The skill package changed during import; no package was replaced.");
+            if (hadPreviousPackage)
+            {
+                File.Move(target, previous, overwrite: false);
+                previousPackageMoved = true;
+            }
+
+            File.Move(temp, target, overwrite: false);
+            newPackageInstalled = true;
+            SaveIndex(records);
+        }
+        catch (Exception importError)
+        {
+            try
+            {
+                if (previousPackageMoved && File.Exists(previous))
+                {
+                    if (newPackageInstalled && File.Exists(target)) File.Delete(target);
+                    File.Move(previous, target, overwrite: false);
+                }
+                else if (!hadPreviousPackage && newPackageInstalled && File.Exists(target))
+                {
+                    File.Delete(target);
+                }
+            }
+            catch (Exception rollbackError)
+            {
+                throw new IOException(
+                    $"Skill import failed and automatic rollback was incomplete. Inspect the retained package backup '{previous}' before retrying.",
+                    new AggregateException(importError, rollbackError));
+            }
+
+            throw;
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        // A stale backup must not turn a successful import into a reported failure.
+        if (hadPreviousPackage)
+        {
+            try { if (File.Exists(previous)) File.Delete(previous); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
         return record;
     }
 
@@ -349,12 +506,30 @@ public sealed class SkillPackageService
         ((value[0] == '"' && value[^1] == '"') || (value[0] == '\'' && value[^1] == '\''))
         ? value[1..^1] : value;
 
+    private static void EnsureNotReparsePoint(string path)
+    {
+        if (!File.Exists(path) && !Directory.Exists(path)) return;
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            throw new IOException("The skill catalog contains a symbolic link or reparse point; refusing to follow it.");
+    }
+
     private void SaveIndex(List<SkillRecord> records)
     {
-        var temp = _indexPath + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(records, JsonOptions));
-        if (File.Exists(_indexPath)) File.Replace(temp, _indexPath, null);
-        else File.Move(temp, _indexPath);
+        var temp = _indexPath + ".tmp-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(records, JsonOptions));
+            if (File.Exists(_indexPath)) File.Replace(temp, _indexPath, null);
+            else File.Move(temp, _indexPath);
+        }
+        finally
+        {
+            // Unique staging names avoid collisions between operations, and cleanup must
+            // not mask the original save/replace failure.
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 }
 
