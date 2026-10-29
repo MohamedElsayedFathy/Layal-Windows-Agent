@@ -266,6 +266,10 @@
                                     ToolTip="اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S."
                                     AutomationProperties.Name="سؤال سريع"
                                     AutomationProperties.HelpText="يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا."/>
+                            <Button x:Name="GmailInboxButton" Content="Gmail" Click="GmailInboxButton_Click" MinWidth="85"
+                                    ToolTip="عرض بريد Gmail محليًا بصلاحية قراءة فقط. لا تتم مشاركته مع AI تلقائيًا."
+                                    AutomationProperties.Name="فتح بريد Gmail للقراءة فقط"
+                                    AutomationProperties.HelpText="يتطلب موافقة Google الرسمية. يمكن عرض الرسائل محليًا؛ لا إرسال أو حذف أو تعديل، ولا مشاركة مع AI حتى تنسخ الرسالة لمسودة الشات وتضغط إرسال."/>
                             <Button x:Name="PrivacyShieldButton" Content="درع الخصوصية: مغلق" Click="PrivacyShieldButton_Click" MinWidth="155"
                                     ToolTip="إيقاف بدء التقاط الميكروفون والكاميرا والشاشة والحافظة."
                                     AutomationProperties.Name="مفتاح خصوصية شامل"
