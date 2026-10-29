@@ -259,7 +259,7 @@ public sealed class WorkspaceHubWindow : Window
                     output.Add(new WorkspaceEntry("file", fullPath, info.Name,
                         _isArabic ? "مجلد" : "Folder", new DateTimeOffset(info.LastWriteTime),
                         Path.GetRelativePath(_workspaceRoot, fullPath), string.Empty,
-                        null, null, fullPath, isDirectory: true));
+                        null, null, fullPath, IsDirectory: true));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
                 {
