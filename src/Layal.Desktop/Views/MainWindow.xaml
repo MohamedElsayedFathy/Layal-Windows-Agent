@@ -490,10 +490,14 @@
                         <TextBlock x:Name="MemoryDescription" Text="ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ البحث الذي يشارك النتائج مع AI يتطلب موافقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>
                     <Grid Grid.Row="1" Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="32" ToolTip="بحث في الذاكرة" AutomationProperties.Name="البحث في الذاكرة / Search memory notes" AutomationProperties.HelpText="أدخل كلمات البحث ثم استخدم زر بحث / Enter search terms and use Search."/>
                         <Button x:Name="MemorySearchButton" Grid.Column="1" Content="بحث" Click="MemorySearchButton_Click"/>
                         <Button x:Name="NewMemoryButton" Grid.Column="2" Content="ملاحظة جديدة" Click="NewMemoryButton_Click"/>
+                        <Button x:Name="LoreWebButton" Grid.Column="3" Content="خريطة الذاكرة 3D" Click="LoreWebButton_Click" MinWidth="135"
+                                ToolTip="عرض الملاحظات وروابطها التقريبية محليًا؛ لا تُرسل إلى AI."
+                                AutomationProperties.Name="فتح خريطة الذاكرة ثلاثية الأبعاد"
+                                AutomationProperties.HelpText="خريطة محلية تفاعلية؛ الروابط مبنية على كلمات عنوان مشتركة والترتيب الزمني فقط، وليست استنتاجات مضمونة."/>
                     </Grid>
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
