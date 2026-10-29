@@ -95,6 +95,7 @@ public partial class MainWindow : Window
     private string? _editingApiConnectionName;
     private readonly GlobalHotkeyService? _globalHotkeyService;
     private QuickAskWindow? _quickAskWindow;
+    private bool _incognitoMode;
 
     public MainWindow()
     {
@@ -165,6 +166,110 @@ public partial class MainWindow : Window
     }
 
     private void QuickAskButton_Click(object sender, RoutedEventArgs e) => OpenQuickAskWindow();
+
+    private void IncognitoModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_incognitoMode)
+        {
+            if (_chatCancellation is not null || _agentTaskCancellation is not null ||
+                _voiceConversationCancellation is not null || _speechCancellation is not null ||
+                _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+                _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+                _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "أوقف العمليات النشطة وأغلق نافذة السؤال السريع والكاميرا قبل بدء المحادثة الخاصة."
+                    : "Stop active operations and close Quick Ask and the camera before starting a private chat.");
+                return;
+            }
+
+            var confirm = MessageBox.Show(this,
+                IsArabic
+                    ? "سيبدأ سياق دردشة مؤقت فارغ، ولن تُحفظ رسائله الجديدة في سجل المحادثات المحلي. إذا أرسلت رسالة، فستظل تُرسل إلى مزود الذكاء الاصطناعي حسب إعداداتك. هذا الوضع لا يعطّل سجل المهام أو الذاكرة أو سجلات المزود الخارجية. هل تريد المتابعة؟"
+                    : "This starts a blank temporary chat and does not save its new messages in local chat history. Messages you send may still go to the configured AI provider. This mode does not disable task history, memory, or provider-side logs. Continue?",
+                IsArabic ? "بدء محادثة خاصة" : "Start private chat",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            EnterPrivateChatMode();
+            return;
+        }
+
+        var exit = MessageBox.Show(this,
+            IsArabic
+                ? "سيتم التخلص من رسائل المحادثة الخاصة غير المحفوظة واستعادة آخر محادثة محفوظة. لن يتم حذف المحادثات المحفوظة أو الذاكرة. هل تريد المتابعة؟"
+                : "Unsaved private-chat messages will be discarded and the last saved conversation will be restored. Saved conversations and memory will not be deleted. Continue?",
+            IsArabic ? "إنهاء المحادثة الخاصة" : "Exit private chat",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (exit == MessageBoxResult.Yes)
+            ExitPrivateChatMode();
+    }
+
+    private void EnterPrivateChatMode()
+    {
+        _incognitoMode = true;
+        ChatMessages.Clear();
+        ChatInput.Clear();
+        _pendingVisionImageBytes = null;
+        _pendingVisionContentType = null;
+        _pendingVisionFileName = null;
+        ChatConversations.Clear();
+        ChatHistorySelector.SelectedItem = null;
+        UpdateVisionAttachmentControls();
+        UpdatePrivateChatModeUi();
+        SetChatActivityStatus(IsArabic
+            ? "المحادثة الخاصة نشطة: لن تُحفظ رسائلها محليًا. لا يزال الإرسال للمزود ممكنًا حسب إعداداتك."
+            : "Private chat is active: messages will not be saved locally. Provider transmission still follows your settings.");
+    }
+
+    private void ExitPrivateChatMode()
+    {
+        _incognitoMode = false;
+        var conversation = AppRuntime.ChatSessionService.GetCurrent();
+        _currentConversationId = conversation.Id;
+        ChatMessages.Clear();
+        foreach (var message in conversation.Messages.TakeLast(100))
+        {
+            message.DisplayRole = message.Role switch
+            {
+                "user" => IsArabic ? "أنت" : "You",
+                "assistant" => "Layal | ليال",
+                _ => IsArabic ? "حالة النظام" : "System status"
+            };
+            message.Direction = ContainsArabic(message.Content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+            ChatMessages.Add(message);
+        }
+        ChatInput.Clear();
+        ChatMessagesList.Items.Refresh();
+        AppRuntime.ChatSessionService.SetDefaultTitle(IsArabic ? "محادثة جديدة" : "New conversation");
+        RefreshChatSessions(_currentConversationId);
+        UpdatePrivateChatModeUi();
+        RefreshProviderStatus();
+        SetChatActivityStatus(IsArabic
+            ? "تم التخلص من رسائل المحادثة الخاصة واستعادة المحادثة المحفوظة."
+            : "Private-chat messages were discarded and the saved conversation was restored.");
+    }
+
+    private void UpdatePrivateChatModeUi()
+    {
+        var ar = IsArabic;
+        IncognitoModeButton.Content = _incognitoMode
+            ? (ar ? "إنهاء الوضع الخاص" : "Exit private chat")
+            : (ar ? "محادثة خاصة" : "Private chat");
+        IncognitoModeButton.ToolTip = _incognitoMode
+            ? (ar ? "إنهاء الجلسة المؤقتة والتخلص من رسائلها غير المحفوظة." : "End this temporary session and discard its unsaved messages.")
+            : (ar ? "بدء سياق فارغ لا يحفظ رسائل الدردشة محليًا. قد تُرسل الرسائل إلى مزودك حسب الإعدادات." : "Start a blank chat that does not save messages locally. Messages may still be sent to your provider.");
+        AutomationProperties.SetName(IncognitoModeButton, _incognitoMode
+            ? (ar ? "إنهاء المحادثة الخاصة" : "Exit private chat")
+            : (ar ? "بدء محادثة خاصة" : "Start private chat"));
+        AutomationProperties.SetHelpText(IncognitoModeButton, ar
+            ? "يمنع حفظ رسائل هذه الجلسة في سجل الدردشة المحلي ويخفي قائمة المحادثات. لا يعطّل حفظ سجلات المهام أو الذاكرة أو سجلات المزود."
+            : "Prevents this session's messages from being saved in local chat history and hides the conversation list. Task history, memory, and provider logs are not disabled.");
+        ChatHistorySelector.IsEnabled = !_incognitoMode;
+        NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
+        ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
+    }
 
     private void OpenQuickAskWindow()
     {
@@ -678,6 +783,7 @@ public partial class MainWindow : Window
         QuickAskButton.ToolTip = ar ? "اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S." : "Ask by typing from any app. Shortcut: Alt+Shift+S.";
         AutomationProperties.SetName(QuickAskButton, ar ? "سؤال سريع" : "Quick Ask");
         AutomationProperties.SetHelpText(QuickAskButton, ar ? "يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا." : "Opens a small typing window. No screen capture or files are sent automatically.");
+        UpdatePrivateChatModeUi();
         ChooseImageButton.Content = ar ? "إرفاق صورة/لقطة شاشة" : "Attach image/screenshot";
         ChooseImageButton.ToolTip = ar ? "اختر صورة لإرسالها إلى النموذج مع سؤالك." : "Choose an image to send to the model with your question.";
         ClearVisionImageButton.Content = ar ? "إزالة الصورة" : "Remove image";
@@ -1213,7 +1319,8 @@ public partial class MainWindow : Window
 
     private void SetLanguage(string language)
     {
-        AppRuntime.ChatSessionService.SetDefaultTitle(language == "ar" ? "محادثة جديدة" : "New conversation");
+        if (!_incognitoMode)
+            AppRuntime.ChatSessionService.SetDefaultTitle(language == "ar" ? "محادثة جديدة" : "New conversation");
         AppRuntime.Settings.Language = language;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         ChatHistorySelector.Items.Refresh();
@@ -2796,9 +2903,9 @@ public partial class MainWindow : Window
             {
                 ChatInput.IsEnabled = true;
                 SendButton.IsEnabled = _chatCancellation is null;
-                NewConversationButton.IsEnabled = true;
-                ClearSavedChatHistoryButton.IsEnabled = true;
-                ChatHistorySelector.IsEnabled = true;
+                NewConversationButton.IsEnabled = !_incognitoMode;
+                ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
+                ChatHistorySelector.IsEnabled = !_incognitoMode;
             }
             UpdateVoiceConversationControls();
             SetChatActivityStatus(IsArabic
@@ -2831,9 +2938,9 @@ public partial class MainWindow : Window
             {
                 ChatInput.IsEnabled = true;
                 SendButton.IsEnabled = _chatCancellation is null;
-                NewConversationButton.IsEnabled = true;
-                ClearSavedChatHistoryButton.IsEnabled = true;
-                ChatHistorySelector.IsEnabled = true;
+                NewConversationButton.IsEnabled = !_incognitoMode;
+                ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
+                ChatHistorySelector.IsEnabled = !_incognitoMode;
                 RefreshProviderStatus();
             }
         }
@@ -2852,9 +2959,9 @@ public partial class MainWindow : Window
         _voiceConversationStatus = VoiceConversationStatus.Stopped;
         ChatInput.IsEnabled = true;
         SendButton.IsEnabled = _chatCancellation is null;
-        NewConversationButton.IsEnabled = true;
-        ClearSavedChatHistoryButton.IsEnabled = true;
-        ChatHistorySelector.IsEnabled = true;
+        NewConversationButton.IsEnabled = !_incognitoMode;
+        ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
+        ChatHistorySelector.IsEnabled = !_incognitoMode;
         SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل المحلي؛ لم يتم إرسال الصوت." : "Local recording cancelled; audio was not sent.");
         UpdateVoiceConversationControls();
         UpdateSpeechToTextButton();
@@ -2985,9 +3092,9 @@ public partial class MainWindow : Window
             {
                 ChatInput.IsEnabled = true;
                 SendButton.IsEnabled = _chatCancellation is null;
-                NewConversationButton.IsEnabled = true;
-                ClearSavedChatHistoryButton.IsEnabled = true;
-                ChatHistorySelector.IsEnabled = true;
+                NewConversationButton.IsEnabled = !_incognitoMode;
+                ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
+                ChatHistorySelector.IsEnabled = !_incognitoMode;
                 UpdateSpeechToTextButton();
                 RefreshProviderStatus();
             }
@@ -3706,6 +3813,9 @@ public partial class MainWindow : Window
 
     private void SaveCurrentChatMessages()
     {
+        if (_incognitoMode)
+            return;
+
         try
         {
             AppRuntime.ChatSessionService.SaveCurrentMessages(ChatMessages.ToList());
@@ -3880,6 +3990,20 @@ public partial class MainWindow : Window
     private void RefreshChatSessions(string? selectedId = null)
     {
         _refreshingChatSessions = true;
+        if (_incognitoMode)
+        {
+            try
+            {
+                ChatConversations.Clear();
+                ChatHistorySelector.SelectedItem = null;
+                ChatHistorySelector.IsEnabled = false;
+            }
+            finally
+            {
+                _refreshingChatSessions = false;
+            }
+            return;
+        }
         try
         {
             ChatConversations.Clear();
@@ -3894,6 +4018,11 @@ public partial class MainWindow : Window
 
     private void NewConversationButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_incognitoMode)
+        {
+            SetChatActivityStatus(IsArabic ? "أنهِ المحادثة الخاصة ثم ابدأ محادثة محفوظة جديدة." : "Exit private chat before creating a saved conversation.");
+            return;
+        }
         if (_chatCancellation is not null)
         {
             SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل بدء محادثة جديدة." : "Cancel the active response before starting a new conversation.");
@@ -3913,6 +4042,11 @@ public partial class MainWindow : Window
 
     private void ClearSavedChatHistoryButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_incognitoMode)
+        {
+            SetChatActivityStatus(IsArabic ? "مسح السجل المحفوظ غير متاح أثناء المحادثة الخاصة." : "Clearing saved history is unavailable during private chat.");
+            return;
+        }
         if (_chatCancellation is not null)
         {
             SetChatActivityStatus(IsArabic ? "أوقف الرد الحالي قبل مسح السجل." : "Cancel the active response before clearing history.");
@@ -3938,6 +4072,11 @@ public partial class MainWindow : Window
 
     private void ChatHistorySelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_incognitoMode)
+        {
+            ChatHistorySelector.SelectedItem = null;
+            return;
+        }
         if (_refreshingChatSessions || ChatHistorySelector.SelectedItem is not ChatConversation selected)
             return;
         if (string.Equals(selected.Id, _currentConversationId, StringComparison.Ordinal))
