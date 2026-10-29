@@ -222,7 +222,7 @@ public sealed class SettingsStoreTests
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
-            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\",\"AssistantPersona\":\"malicious-custom-value\",\"GmailOAuthClientId\":\"not-a-valid-client\u0001\"}");
+            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\",\"AssistantPersona\":\"malicious-custom-value\",\"GmailOAuthClientId\":\"not-a-valid-client\"}");
         var settings = new SettingsStore(temp.Path).Load();
         Assert.AreEqual("dark", settings.ThemeMode);
         Assert.AreEqual("classic", settings.ThemePreset);
