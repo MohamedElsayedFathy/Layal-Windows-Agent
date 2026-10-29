@@ -26,6 +26,9 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
         Assert.IsFalse(settings.PrivacyShieldEnabled);
+        Assert.IsFalse(settings.ProactiveCheckInEnabled);
+        Assert.AreEqual(60, settings.ProactiveCheckInIntervalMinutes);
+        Assert.IsNull(settings.LastProactiveCheckInAt);
         Assert.IsTrue(settings.UseAutomaticLocation);
     }
 
@@ -101,6 +104,9 @@ public sealed class SettingsStoreTests
             MascotTop = 424.25,
             AllowWindowTitleInspection = true,
             PrivacyShieldEnabled = true,
+            ProactiveCheckInEnabled = true,
+            ProactiveCheckInIntervalMinutes = 30,
+            LastProactiveCheckInAt = new DateTimeOffset(2026, 10, 29, 8, 30, 0, TimeSpan.Zero),
             UseAutomaticLocation = false
         });
 
@@ -120,6 +126,9 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(424.25, reloaded.MascotTop, 0.0001);
         Assert.IsTrue(reloaded.AllowWindowTitleInspection);
         Assert.IsTrue(reloaded.PrivacyShieldEnabled);
+        Assert.IsTrue(reloaded.ProactiveCheckInEnabled);
+        Assert.AreEqual(30, reloaded.ProactiveCheckInIntervalMinutes);
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 29, 8, 30, 0, TimeSpan.Zero), reloaded.LastProactiveCheckInAt);
         Assert.IsFalse(reloaded.UseAutomaticLocation);
     }
 
@@ -148,7 +157,10 @@ public sealed class SettingsStoreTests
             MascotLeft = 120.5,
             MascotTop = 240.5,
             AllowWindowTitleInspection = true,
-            PrivacyShieldEnabled = true
+            PrivacyShieldEnabled = true,
+            ProactiveCheckInEnabled = true,
+            ProactiveCheckInIntervalMinutes = 120,
+            LastProactiveCheckInAt = new DateTimeOffset(2026, 10, 28, 14, 0, 0, TimeSpan.Zero)
         };
 
         var candidate = original.Clone();
@@ -174,6 +186,9 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(240.5, candidate.MascotTop, 0.0001);
         Assert.IsTrue(candidate.AllowWindowTitleInspection);
         Assert.IsTrue(candidate.PrivacyShieldEnabled);
+        Assert.IsTrue(candidate.ProactiveCheckInEnabled);
+        Assert.AreEqual(120, candidate.ProactiveCheckInIntervalMinutes);
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 28, 14, 0, 0, TimeSpan.Zero), candidate.LastProactiveCheckInAt);
 
         var target = new UserSettings();
         target.CopyFrom(candidate);
@@ -184,6 +199,20 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("marin", target.VoiceReplyId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
         Assert.IsTrue(target.PrivacyShieldEnabled);
+        Assert.IsTrue(target.ProactiveCheckInEnabled);
+        Assert.AreEqual(120, target.ProactiveCheckInIntervalMinutes);
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 28, 14, 0, 0, TimeSpan.Zero), target.LastProactiveCheckInAt);
+    }
+
+    [TestMethod]
+    public void InvalidCheckInIntervalFallsBackToSixtyMinutes()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            "{\"ProactiveCheckInEnabled\":true,\"ProactiveCheckInIntervalMinutes\":9999}");
+        var settings = new SettingsStore(temp.Path).Load();
+        Assert.IsTrue(settings.ProactiveCheckInEnabled);
+        Assert.AreEqual(60, settings.ProactiveCheckInIntervalMinutes);
     }
 
     [TestMethod]
