@@ -175,7 +175,7 @@ public sealed class DocumentTextExtractionServiceTests
         var textPath = Path.Combine(temp.Path, "text.pdf");
         using (var builder = new PdfDocumentBuilder())
         {
-            var font = PdfDocumentBuilder.AddStandard14Font(Standard14Font.Helvetica);
+            var font = builder.AddStandard14Font(Standard14Font.Helvetica);
             var page = builder.AddPage(PageSize.A4);
             page.AddText("PDF extraction sentinel", 12, new PdfPoint(40, 700), font);
             File.WriteAllBytes(textPath, builder.Build());
