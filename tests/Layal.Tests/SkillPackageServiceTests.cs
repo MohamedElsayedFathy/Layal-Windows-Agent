@@ -117,6 +117,30 @@ public sealed class SkillPackageServiceTests
     }
 
     [TestMethod]
+    public void OrphanedPackageRequiresExplicitOverwrite()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var orphanFolder = System.IO.Path.Combine(root, "sample-skill");
+        Directory.CreateDirectory(orphanFolder);
+        var orphanPackage = System.IO.Path.Combine(orphanFolder, "sample-skill.zip");
+        var originalBytes = new byte[] { 0x50, 0x4B, 0x03, 0x04, 0x55, 0xAA };
+        File.WriteAllBytes(orphanPackage, originalBytes);
+
+        var replacementZip = CreateSkillZip(temp.Path, "sample-skill", "Replacement package.", "replacement body");
+        var service = new SkillPackageService(root);
+
+        Assert.ThrowsExactly<SkillAlreadyExistsException>(
+            () => service.ImportZip(replacementZip, overwrite: false));
+        CollectionAssert.AreEqual(originalBytes, File.ReadAllBytes(orphanPackage),
+            "An unindexed package must not be overwritten without explicit consent.");
+
+        var imported = service.ImportZip(replacementZip, overwrite: true);
+        Assert.AreEqual("sample-skill", imported.Name);
+        Assert.AreEqual(1, service.GetInstalled().Count);
+    }
+
+    [TestMethod]
     public void CorruptSkillsIndexIsPreservedAndImportFailsClosed()
     {
         using var temp = new TestTempDirectory();
