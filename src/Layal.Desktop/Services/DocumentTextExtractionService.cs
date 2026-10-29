@@ -144,6 +144,14 @@ public sealed class DocumentTextExtractionService
                 notice = ExtractSpreadsheet(fullPath, builder, ref unitsProcessed, ref wasTruncated);
                 break;
 
+            case ".png":
+            case ".jpg":
+            case ".jpeg":
+            case ".bmp":
+            case ".tif":
+            case ".tiff":
+                throw new NotSupportedException("Image OCR uses Windows Runtime and must be called asynchronously. Use ExtractFileAsync for image files.");
+
             default:
                 throw new NotSupportedException($"The {extension} format is not supported.");
         }
