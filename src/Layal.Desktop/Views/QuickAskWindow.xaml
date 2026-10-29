@@ -21,7 +21,7 @@
                 <TextBlock x:Name="HeadingText" Text="سؤال سريع" FontSize="20" FontWeight="SemiBold"
                            VerticalAlignment="Center" AutomationProperties.Name="سؤال سريع"/>
             </DockPanel>
-            <TextBlock x:Name="HintText" Grid.Row="1" Text="اكتب سؤالك. ستُرسل الرسالة فقط إلى محادثة Layal الحالية؛ لا يتم التقاط الشاشة تلقائيًا."
+            <TextBlock x:Name="HintText" Grid.Row="1" Text="اكتب سؤالك. يستخدم Layal سياق المحادثة وإعدادات المزود الحالية؛ لا يتم التقاط الشاشة أو إرفاق ملفات تلقائيًا."
                        Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
             <TextBox x:Name="QuestionInput" Grid.Row="2" MinHeight="66" MaxHeight="130" Padding="10"
                      AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
