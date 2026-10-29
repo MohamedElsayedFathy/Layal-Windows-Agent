@@ -746,6 +746,18 @@
                         <TextBlock x:Name="ProviderActionStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,8,5,12" AutomationProperties.LiveSetting="Polite"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
+                        <TextBlock x:Name="QuickAskHotkeyLabel" Text="اختصار السؤال السريع العالمي" Margin="4,8,4,0"/>
+                        <ComboBox x:Name="QuickAskHotkeySelector" MinHeight="32" MinWidth="240" SelectedValuePath="Tag"
+                                  SelectionChanged="QuickAskHotkeySelector_SelectionChanged"
+                                  AutomationProperties.Name="اختصار السؤال السريع العالمي"
+                                  AutomationProperties.HelpText="اختر أحد الاختصارات المقترحة. إذا كان الاختصار مستخدمًا من تطبيق آخر، يبقى زر السؤال السريع داخل ليال متاحًا.">
+                            <ComboBoxItem Tag="AltShiftS" Content="Alt+Shift+S"/>
+                            <ComboBoxItem Tag="AltShiftQ" Content="Alt+Shift+Q"/>
+                            <ComboBoxItem Tag="CtrlAltShiftSpace" Content="Ctrl+Alt+Shift+Space"/>
+                        </ComboBox>
+                        <TextBlock x:Name="QuickAskHotkeyStatus" Text="" Foreground="{DynamicResource Layal.Muted}"
+                                   TextWrapping="Wrap" Margin="4,3,4,8" AutomationProperties.LiveSetting="Polite"
+                                   AutomationProperties.Name="حالة تسجيل اختصار السؤال السريع"/>
                         <TextBlock x:Name="ThemePresetLabel" Text="مجموعة ألوان الواجهة" Margin="4,5,4,0"/>
                         <ComboBox x:Name="ThemePresetSelector" MinHeight="32" MinWidth="240" SelectedValuePath="Tag"
                                   SelectionChanged="ThemePresetSelector_SelectionChanged"
