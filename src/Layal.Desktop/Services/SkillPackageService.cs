@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -89,6 +90,20 @@ public sealed class SkillPackageService
         try
         {
             if (!File.Exists(_indexPath)) return;
+
+            // RefreshSkills may call GetInstalled repeatedly. Do not accumulate another copy
+            // every time the same corrupt index is read; retain one backup per distinct payload.
+            byte[] sourceHash;
+            using (var source = File.OpenRead(_indexPath))
+                sourceHash = SHA256.HashData(source);
+
+            foreach (var existingBackup in Directory.EnumerateFiles(_root, "skills-index.json.corrupt-*.bak"))
+            {
+                using var backup = File.OpenRead(existingBackup);
+                var backupHash = SHA256.HashData(backup);
+                if (CryptographicOperations.FixedTimeEquals(sourceHash, backupHash)) return;
+            }
+
             var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmssfff'Z'", CultureInfo.InvariantCulture);
             var backupPath = _indexPath + ".corrupt-" + timestamp + "-" + Guid.NewGuid().ToString("N") + ".bak";
             File.Copy(_indexPath, backupPath, overwrite: false);
