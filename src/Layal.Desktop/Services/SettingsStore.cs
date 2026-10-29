@@ -98,6 +98,8 @@ public sealed class SettingsStore
     {
         if (settings.Language is not ("ar" or "en")) settings.Language = "ar";
         if (settings.ThemeMode is not ("light" or "dark")) settings.ThemeMode = "light";
+        if (settings.ThemePreset is not ("classic" or "ocean" or "forest" or "sunset"))
+            settings.ThemePreset = "classic";
 
         settings.WeatherLocation = (settings.WeatherLocation ?? string.Empty).Trim();
         settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();
