@@ -26,6 +26,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
         Assert.AreEqual("warm", settings.AssistantPersona);
+        Assert.AreEqual(string.Empty, settings.GmailOAuthClientId);
         Assert.IsFalse(settings.PrivacyShieldEnabled);
         Assert.IsFalse(settings.ProactiveCheckInEnabled);
         Assert.AreEqual(60, settings.ProactiveCheckInIntervalMinutes);
@@ -118,6 +119,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("en", reloaded.Language);
         Assert.AreEqual("dark", reloaded.ThemeMode);
         Assert.AreEqual("ocean", reloaded.ThemePreset);
+        Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
         Assert.AreEqual("focused", reloaded.AssistantPersona);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
@@ -155,6 +157,7 @@ public sealed class SettingsStoreTests
             VoiceReplyModelId = "old-voice-model",
             VoiceReplyId = "marin",
             AssistantPersona = "professional",
+            GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
             MascotUseGlbPreview = true,
@@ -184,6 +187,7 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
         Assert.AreEqual("old-voice-model", candidate.VoiceReplyModelId);
         Assert.AreEqual("professional", candidate.AssistantPersona);
+        Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", candidate.GmailOAuthClientId);
         Assert.IsFalse(candidate.MascotAlwaysOnTop);
         Assert.IsFalse(candidate.MascotAnimationsEnabled);
         Assert.IsTrue(candidate.MascotUseGlbPreview);
@@ -205,6 +209,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("marin", target.VoiceReplyId);
         Assert.AreEqual("professional", target.AssistantPersona);
+        Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", target.GmailOAuthClientId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
         Assert.IsTrue(target.PrivacyShieldEnabled);
         Assert.IsTrue(target.ProactiveCheckInEnabled);
@@ -217,7 +222,7 @@ public sealed class SettingsStoreTests
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
-            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\",\"AssistantPersona\":\"malicious-custom-value\"}");
+            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\",\"AssistantPersona\":\"malicious-custom-value\",\"GmailOAuthClientId\":\"not-a-valid-client\u0001\"}");
         var settings = new SettingsStore(temp.Path).Load();
         Assert.AreEqual("dark", settings.ThemeMode);
         Assert.AreEqual("classic", settings.ThemePreset);
