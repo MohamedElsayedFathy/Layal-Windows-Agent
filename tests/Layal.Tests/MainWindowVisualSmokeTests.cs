@@ -485,6 +485,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(privacyShieldButton)),
             "The master privacy shield must disclose the capture operations it blocks.");
+        var checkInToggle = window.FindName("ProactiveCheckInEnabledCheckBox") as CheckBox
+            ?? throw new InvalidOperationException("ProactiveCheckInEnabledCheckBox was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(checkInToggle)),
+            "Scheduled check-ins must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(checkInToggle)),
+            "Scheduled check-ins must disclose that they do not inspect the screen or call AI.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
