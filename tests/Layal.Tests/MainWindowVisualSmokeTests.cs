@@ -940,6 +940,8 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("AlwaysOnTopCheckbox was not found.");
         var animations = window.FindName("AnimationsCheckbox") as CheckBox
             ?? throw new InvalidOperationException("AnimationsCheckbox was not found.");
+        var performanceMode = window.FindName("PerformanceModeCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("PerformanceModeCheckbox was not found.");
         var windowInspection = window.FindName("WindowInspectionCheckbox") as CheckBox
             ?? throw new InvalidOperationException("WindowInspectionCheckbox was not found.");
         var size = window.FindName("MascotSizeSlider") as Slider
@@ -990,6 +992,25 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(store.Load().MascotAnimationsEnabled, "Disabling mascot animation must persist immediately.");
         animations.IsChecked = true;
         Assert.IsTrue(store.Load().MascotAnimationsEnabled, "Re-enabling mascot animation must persist.");
+
+        // Performance mode is an effective override only; it must not rewrite the user's
+        // animation preference, and the live hit-test budget must switch between both rates.
+        var hitTestTimerField = typeof(FloatingMascotWindow).GetField("_hitTestTimer", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Mascot hit-test timer was not found.");
+        var hitTestTimer = hitTestTimerField.GetValue(mascot) as DispatcherTimer
+            ?? throw new InvalidOperationException("Mascot hit-test timer is not initialized.");
+        performanceMode.IsChecked = true;
+        var performanceSettings = store.Load();
+        Assert.IsTrue(performanceSettings.PerformanceModeEnabled, "Enabling performance mode must persist.");
+        Assert.IsTrue(performanceSettings.MascotAnimationsEnabled, "Performance mode must preserve the normal animation preference.");
+        Assert.AreEqual(33, hitTestTimer.Interval.TotalMilliseconds, 0.1,
+            "Performance mode should reduce high-frequency hit testing to about 30 Hz.");
+        performanceMode.IsChecked = false;
+        var normalSettings = store.Load();
+        Assert.IsFalse(normalSettings.PerformanceModeEnabled, "Disabling performance mode must persist.");
+        Assert.IsTrue(normalSettings.MascotAnimationsEnabled, "Disabling performance mode should restore the previously enabled animation preference.");
+        Assert.AreEqual(8, hitTestTimer.Interval.TotalMilliseconds, 0.1,
+            "Disabling performance mode should restore the normal hit-test interval.");
 
         // The window-title permission is opt-in and must round-trip in both directions.
         windowInspection.IsChecked = true;
