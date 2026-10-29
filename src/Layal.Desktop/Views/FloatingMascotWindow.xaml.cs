@@ -263,12 +263,32 @@ public partial class FloatingMascotWindow : Window
         // over the pass-through area are delivered to the application underneath, not here.
         _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(8) };
         _hitTestTimer.Tick += (_, _) => UpdateHitTestTransparency();
-        _blinkTimer.Start();
-        _idleTimer.Start();
-        _hitTestTimer.Start();
-        _floatTimer.Start();
+        IsVisibleChanged += (_, _) => UpdateTimersForVisibility();
+        UpdateTimersForVisibility();
         UpdateLanguage();
         SetMood("idle");
+    }
+
+    /// <summary>Stop high-frequency polling and animation while the mascot window is hidden.</summary>
+    private void UpdateTimersForVisibility()
+    {
+        if (AppRuntime.IsExiting) return;
+        if (IsVisible)
+        {
+            _blinkTimer.Start();
+            _restoreEyesTimer.Start();
+            _idleTimer.Start();
+            _hitTestTimer.Start();
+            _floatTimer.Start();
+        }
+        else
+        {
+            _blinkTimer.Stop();
+            _restoreEyesTimer.Stop();
+            _idleTimer.Stop();
+            _hitTestTimer.Stop();
+            _floatTimer.Stop();
+        }
     }
 
     protected override void OnSourceInitialized(EventArgs e)
