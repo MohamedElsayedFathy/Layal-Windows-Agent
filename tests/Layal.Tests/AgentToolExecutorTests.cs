@@ -29,6 +29,41 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public void FactCheckSearchExtractsDirectHttpsSourcesAndRejectsRedirectorsAndLocalTargets()
+    {
+        var searchResult = """
+            WEB SEARCH RESULTS
+            Query: a factual claim
+            Search URL: https://www.bing.com/search?q=a%20factual%20claim
+            {"title":"Bing","url":"https://www.bing.com/search?q=a%20factual%20claim","links":[
+              {"text":"Official source","href":"https://data.example.org/report?id=12#section"},
+              {"text":"Bing tracking","href":"https://www.bing.com/ck/a?u=https%3A%2F%2Fbad.example"},
+              {"text":"Plain HTTP source","href":"http://source.example.org/report"},
+              {"text":"Local target","href":"https://127.0.0.1/private"},
+              {"text":"Embedded credentials","href":"https://user:pass@source.example.org/report"},
+              {"text":"Second source","href":"https://journal.example.org/study"},
+              {"text":"Duplicate source","href":"https://data.example.org/report?id=12#different-section"}
+            ]}
+            """;
+
+        var candidates = AgentToolExecutor.ExtractDirectSourceCandidates(searchResult);
+
+        Assert.AreEqual(2, candidates.Count);
+        Assert.AreEqual("data.example.org", candidates[0].Host);
+        Assert.AreEqual("Official source", candidates[0].Title);
+        Assert.IsTrue(candidates[0].Url.StartsWith("https://data.example.org/report?id=12", StringComparison.Ordinal));
+        Assert.AreEqual("journal.example.org", candidates[1].Host);
+    }
+
+    [TestMethod]
+    public void FactCheckSearchWithoutPageJsonReturnsNoSources()
+    {
+        var candidates = AgentToolExecutor.ExtractDirectSourceCandidates(
+            "WEB SEARCH RESULTS\nQuery: claim\nSearch URL: https://www.bing.com/search?q=claim\nAccess denied");
+        Assert.AreEqual(0, candidates.Count);
+    }
+
+    [TestMethod]
     public void ToolDefinitionsIncludeSearchForLargeApiCatalogs()
     {
         using var temp = new TestTempDirectory();
