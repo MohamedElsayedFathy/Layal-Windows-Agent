@@ -477,6 +477,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(routinesButton)),
             "The routine manager must disclose that choosing a routine does not run it.");
+        var privacyShieldButton = window.FindName("PrivacyShieldButton") as Button
+            ?? throw new InvalidOperationException("PrivacyShieldButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(privacyShieldButton)),
+            "The master privacy shield must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(privacyShieldButton)),
+            "The master privacy shield must disclose the capture operations it blocks.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
