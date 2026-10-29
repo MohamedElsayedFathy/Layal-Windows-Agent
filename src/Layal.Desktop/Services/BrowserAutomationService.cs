@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading;
 
 namespace Layal.Services;
 
@@ -22,8 +23,10 @@ public sealed class BrowserAutomationService
     private readonly string _profileDirectory;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
+    private readonly CancellationTokenSource _shutdownCancellation = new();
     private Process? _browserProcess;
     private int _debugPort;
+    private int _shutdownRequested;
 
     public BrowserAutomationService(string dataRoot)
     {
@@ -31,23 +34,56 @@ public sealed class BrowserAutomationService
         _profileDirectory = Path.Combine(Path.GetFullPath(dataRoot), "BrowserProfile");
     }
 
-    /// <summary>Closes the dedicated Edge instance owned by this service.</summary>
-    public void Shutdown()
+    /// <summary>
+    /// Rejects new browser work, cancels active/queued operations, then closes an owned Edge process
+    /// only after the operation gate is available. This avoids racing process disposal with CDP I/O.
+    /// </summary>
+    public async Task ShutdownAsync()
     {
-        var process = _browserProcess;
-        _browserProcess = null;
-        _debugPort = 0;
-        if (process is null) return;
+        Interlocked.Exchange(ref _shutdownRequested, 1);
+        try { _shutdownCancellation.Cancel(); }
+        catch { /* Cancellation must not prevent process cleanup. */ }
 
+        await _gate.WaitAsync();
         try
         {
-            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
-            catch { /* Shutdown must not prevent the rest of the app from exiting. */ }
+            var process = _browserProcess;
+            _browserProcess = null;
+            _debugPort = 0;
+            if (process is not null)
+            {
+                try
+                {
+                    try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+                    catch { /* Shutdown must not prevent the rest of the app from exiting. */ }
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+
+            // All operations have left the gate and new operations are permanently rejected.
+            _http.Dispose();
         }
         finally
         {
-            process.Dispose();
+            _gate.Release();
         }
+    }
+
+    private CancellationTokenSource CreateOperationToken(CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref _shutdownRequested) != 0)
+            throw new ObjectDisposedException(nameof(BrowserAutomationService), "The browser service is shutting down.");
+
+        var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdownCancellation.Token);
+        if (Volatile.Read(ref _shutdownRequested) != 0)
+        {
+            linked.Dispose();
+            throw new ObjectDisposedException(nameof(BrowserAutomationService), "The browser service is shutting down.");
+        }
+        return linked;
     }
 
     public static Uri ValidateHttpUrl(string value)
@@ -96,9 +132,12 @@ public sealed class BrowserAutomationService
     public async Task<string> NavigateAsync(string url, CancellationToken token = default)
     {
         var targetUrl = ValidateHttpUrl(url);
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
         await _gate.WaitAsync(token);
         try
         {
+            token.ThrowIfCancellationRequested();
             await EnsureBrowserStartedAsync(token);
             var page = await GetPageTargetAsync(token);
             var response = await SendCommandAsync(page, "Page.navigate", new JsonObject { ["url"] = targetUrl.AbsoluteUri }, token);
@@ -131,9 +170,12 @@ public sealed class BrowserAutomationService
 
     public async Task<string> ReadCurrentPageAsync(CancellationToken token = default)
     {
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
         await _gate.WaitAsync(token);
         try
         {
+            token.ThrowIfCancellationRequested();
             var page = await GetPageTargetAsync(token);
             var snapshot = await ReadPageSnapshotAsync(page, token);
             var output = new JsonObject
@@ -158,9 +200,12 @@ public sealed class BrowserAutomationService
         if (action is not ("click" or "fill"))
             throw new InvalidOperationException("Supported browser element actions are click and fill.");
 
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
         await _gate.WaitAsync(token);
         try
         {
+            token.ThrowIfCancellationRequested();
             var page = await GetPageTargetAsync(token);
             var expression = BuildPreviewExpression(selector, action);
             var json = await EvaluateAsync(page, expression, token);
@@ -203,9 +248,12 @@ public sealed class BrowserAutomationService
     {
         ArgumentNullException.ThrowIfNull(preview);
         if (preview.Action != "click") throw new InvalidOperationException("The preview was not created for a click action.");
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
         await _gate.WaitAsync(token);
         try
         {
+            token.ThrowIfCancellationRequested();
             var page = await GetPageTargetAsync(token);
             if (!string.Equals(page.Id, preview.PageTargetId, StringComparison.Ordinal))
                 throw new InvalidOperationException("The active browser tab changed while awaiting approval. Inspect the intended tab again; no click was dispatched.");
@@ -225,9 +273,12 @@ public sealed class BrowserAutomationService
         if (preview.Action != "fill") throw new InvalidOperationException("The preview was not created for a fill action.");
         if (value is null || value.Length > 10_000)
             throw new InvalidOperationException("Text entry is limited to 10,000 characters.");
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
         await _gate.WaitAsync(token);
         try
         {
+            token.ThrowIfCancellationRequested();
             var page = await GetPageTargetAsync(token);
             if (!string.Equals(page.Id, preview.PageTargetId, StringComparison.Ordinal))
                 throw new InvalidOperationException("The active browser tab changed while awaiting approval. Inspect the intended tab again; no text was entered.");
