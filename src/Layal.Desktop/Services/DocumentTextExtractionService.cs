@@ -69,7 +69,8 @@ public sealed class DocumentTextExtractionService
         {
             try
             {
-                return await Task.Run(() => ExtractFile(fullPath), cancellationToken);
+                var textExtraction = await Task.Run(() => ExtractFile(fullPath), cancellationToken);
+                return await SupplementImageOnlyPdfPagesWithOcrAsync(fullPath, textExtraction, cancellationToken);
             }
             catch (InvalidDataException ex) when (
                 ex.Message.StartsWith("The PDF contains no extractable text.", StringComparison.Ordinal))
@@ -221,6 +222,128 @@ public sealed class DocumentTextExtractionService
 
         return new DocumentTextExtractionResult(
             Path.GetFileName(path), Path.GetExtension(path).ToLowerInvariant(), text, 1, truncated, notice);
+    }
+
+    private async Task<DocumentTextExtractionResult> SupplementImageOnlyPdfPagesWithOcrAsync(
+        string path,
+        DocumentTextExtractionResult textExtraction,
+        CancellationToken cancellationToken)
+    {
+        if (textExtraction.Text.Length >= MaximumTextCharacters)
+            return textExtraction;
+
+        var imageOnlyPages = new List<int>();
+        using (var textDocument = PdfDocument.Open(path))
+        {
+            var pagesToInspect = Math.Min(textDocument.NumberOfPages, MaximumPdfPages);
+            for (var pageNumber = 1; pageNumber <= pagesToInspect; pageNumber++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var pageText = ContentOrderTextExtractor.GetText(textDocument.GetPage(pageNumber));
+                if (string.IsNullOrWhiteSpace(pageText))
+                    imageOnlyPages.Add(pageNumber);
+            }
+        }
+
+        if (imageOnlyPages.Count == 0)
+            return textExtraction;
+
+        OcrEngine engine;
+        try
+        {
+            engine = CreateLocalOcrEngine();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return textExtraction with
+            {
+                Notice = textExtraction.Notice + $" {imageOnlyPages.Count} PDF page(s) had no extractable text; Windows OCR could not run: {ex.Message}"
+            };
+        }
+
+        try
+        {
+            var file = await StorageFile.GetFileFromPathAsync(path);
+            var renderedPdf = await WinPdfDocument.LoadFromFileAsync(file);
+            var combined = new StringBuilder(textExtraction.Text);
+            var truncated = textExtraction.WasTruncated;
+            var recognizedPages = 0;
+
+            foreach (var pageNumber in imageOnlyPages)
+            {
+                if (combined.Length >= MaximumTextCharacters)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                using var page = renderedPdf.GetPage((uint)(pageNumber - 1));
+                var pageSize = page.Size;
+                if (pageSize.Width <= 0 || pageSize.Height <= 0)
+                    continue;
+
+                var scale = Math.Min(1.0, MaximumOcrPageSidePixels / Math.Max(pageSize.Width, pageSize.Height));
+                var destinationWidth = checked((uint)Math.Max(1, Math.Ceiling(pageSize.Width * scale)));
+                var destinationHeight = checked((uint)Math.Max(1, Math.Ceiling(pageSize.Height * scale)));
+                if ((long)destinationWidth * destinationHeight > MaximumOcrPagePixels)
+                {
+                    truncated = true;
+                    continue;
+                }
+
+                using var stream = new InMemoryRandomAccessStream();
+                await page.RenderToStreamAsync(stream, new Windows.Data.Pdf.PdfPageRenderOptions
+                {
+                    DestinationWidth = destinationWidth,
+                    DestinationHeight = destinationHeight
+                });
+
+                var pageText = (await RecognizeStreamAsync(stream, engine, cancellationToken)).Trim();
+                if (string.IsNullOrWhiteSpace(pageText))
+                    continue;
+
+                var addition = (combined.Length > 0 ? "\n\n" : string.Empty) +
+                    $"[OCR page {pageNumber}]\n{pageText}\n";
+                var beforeLength = combined.Length;
+                AppendLimited(combined, addition, ref truncated);
+                recognizedPages++;
+                if (combined.Length == beforeLength)
+                {
+                    truncated = true;
+                    break;
+                }
+            }
+
+            var notice = textExtraction.Notice;
+            if (recognizedPages > 0)
+                notice += $" Windows OCR added text from {recognizedPages} scanned/image-only page(s) locally. Review recognition quality before relying on it.";
+            else
+                notice += $" {imageOnlyPages.Count} page(s) had no extractable text; Windows OCR did not recognize additional readable text on those pages.";
+
+            if (truncated)
+                notice += $" The combined text is limited to {MaximumTextCharacters:N0} characters or the configured {MaximumPdfPages}-page inspection limit.";
+            notice += " OCR content remains local until you attach the reviewed text and press Send.";
+
+            return new DocumentTextExtractionResult(
+                textExtraction.FileName,
+                textExtraction.Extension,
+                combined.ToString().Trim(),
+                textExtraction.UnitsProcessed,
+                truncated,
+                notice);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            return textExtraction with
+            {
+                Notice = textExtraction.Notice + " Some image-only pages could not be OCRed locally: " + ex.Message
+            };
+        }
     }
 
     private async Task<DocumentTextExtractionResult> ExtractScannedPdfWithOcrAsync(
