@@ -34,6 +34,7 @@ public partial class MainWindow : Window
 
     private readonly List<string> _rawTaskEvents = new();
     private bool _refreshingRecentTasks;
+    private GameModeHudWindow? _gameModeHudWindow;
     private bool _cameraAutomaticObservationRequest;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
@@ -758,6 +759,13 @@ public partial class MainWindow : Window
         _globalHotkeyService?.Dispose();
         _quickAskWindow?.Close();
         _quickAskWindow = null;
+        if (_gameModeHudWindow is not null)
+        {
+            var hud = _gameModeHudWindow;
+            _gameModeHudWindow = null;
+            AppRuntime.IsGameModeActive = false;
+            hud.Close();
+        }
         Closed -= MainWindow_Closed;
     }
 
@@ -1086,6 +1094,7 @@ public partial class MainWindow : Window
             ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."
             : "Create one-time, daily, or weekly reminders. They are stored locally encrypted and are not sent to an AI provider.");
         ManageRoutinesButton.Content = ar ? "الروتينات" : "Routines";
+        UpdateGameModeButtonUi();
         WorkspaceHubButton.Content = ar ? "مساحة العمل" : "Workspace hub";
         WorkspaceHubButton.ToolTip = ar
             ? "بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
@@ -5102,6 +5111,65 @@ public partial class MainWindow : Window
         window.ShowDialog();
     }
 
+    private void GameModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_gameModeHudWindow is { IsVisible: true })
+        {
+            _gameModeHudWindow.Close();
+            return;
+        }
+
+        AppRuntime.IsGameModeActive = true;
+        var hud = new GameModeHudWindow(IsArabic, () =>
+        {
+            if (_agentTaskCancellation is not null)
+                return IsArabic ? "جارٍ تنفيذ مهمة." : "A task is running.";
+            if (_chatCancellation is not null)
+                return IsArabic ? "جارٍ تجهيز رد." : "A chat response is active.";
+            return IsArabic ? "ليال جاهزة عند الطلب." : "Layal is available on demand.";
+        })
+        {
+            Owner = this
+        };
+        _gameModeHudWindow = hud;
+        hud.ExitRequested += (_, _) =>
+        {
+            if (!ReferenceEquals(_gameModeHudWindow, hud))
+                return;
+            _gameModeHudWindow = null;
+            AppRuntime.IsGameModeActive = false;
+            UpdateGameModeButtonUi();
+            SetChatActivityStatus(IsArabic
+                ? "تم إيقاف وضع الألعاب؛ عادت التذكيرات للعمل وفق إعداداتها."
+                : "Game mode ended; reminders resumed according to their settings.");
+        };
+        UpdateGameModeButtonUi();
+        hud.Show();
+        SetChatActivityStatus(IsArabic
+            ? "وضع الألعاب نشط. لا يجري فحص الألعاب أو العمليات، وتم إيقاف إشعارات ليال مؤقتًا."
+            : "Game mode is active. No game/process inspection is running, and Layal notifications are paused temporarily.");
+    }
+
+    private void UpdateGameModeButtonUi()
+    {
+        if (GameModeButton is null)
+            return;
+        var active = AppRuntime.IsGameModeActive;
+        GameModeButton.Content = active
+            ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
+            : (IsArabic ? "وضع الألعاب" : "Game mode");
+        GameModeButton.ToolTip = active
+            ? (IsArabic ? "إغلاق HUD واستئناف التذكيرات." : "Close the HUD and resume reminders.")
+            : (IsArabic ? "تشغيل HUD يدوي صغير؛ لا يوجد اكتشاف ألعاب أو مراقبة عمليات أو حقن."
+                        : "Open a compact manual HUD; no game detection, process monitoring, or injection.");
+        AutomationProperties.SetName(GameModeButton, active
+            ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
+            : (IsArabic ? "تفعيل وضع الألعاب اليدوي" : "Enable manual game mode"));
+        AutomationProperties.SetHelpText(GameModeButton, IsArabic
+            ? "يفتح HUD فوق النوافذ ويوقف إشعارات المتابعة والتذكيرات أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها."
+            : "Shows an always-on-top HUD and pauses Layal reminder notifications while open. It does not inspect game data or control games.");
+    }
+
     private void WorkspaceHubButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -5221,7 +5289,7 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.IsExiting || !AppRuntime.Settings.ProactiveCheckInEnabled)
+        if (AppRuntime.IsExiting || AppRuntime.IsGameModeActive || !AppRuntime.Settings.ProactiveCheckInEnabled)
             return;
 
         var now = DateTimeOffset.Now;
@@ -5263,7 +5331,7 @@ public partial class MainWindow : Window
 
     private void ReminderTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.IsExiting)
+        if (AppRuntime.IsExiting || AppRuntime.IsGameModeActive)
             return;
 
         var now = DateTimeOffset.Now;
