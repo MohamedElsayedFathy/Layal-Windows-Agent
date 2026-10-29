@@ -114,13 +114,16 @@ public sealed class ScreenRegionCaptureService
                 Cursor = Cursors.Cross,
                 AccessibleName = isArabic ? "معاينة الشاشة وتحديد المنطقة" : "Screen preview and region selection",
                 AccessibleDescription = isArabic
-                    ? "اسحب بالماوس لتحديد المنطقة المراد إرفاقها. اضغط Escape للإلغاء."
-                    : "Drag with the mouse to select the region to attach. Press Escape to cancel."
+                    ? "اسحب لتحديد المنطقة، أو اضغط Space لإنشاء تحديد في الوسط. الأسهم لتحريك التحديد وShift مع الأسهم لتغيير حجمه. Enter للاختيار وEscape للإلغاء."
+                    : "Drag to select, or press Space to create a centered crop. Arrow keys move it; Shift+arrows resize it. Enter chooses, Escape cancels.",
+                TabStop = true
             };
             _canvas.Paint += Canvas_Paint;
             _canvas.MouseDown += Canvas_MouseDown;
             _canvas.MouseMove += Canvas_MouseMove;
             _canvas.MouseUp += Canvas_MouseUp;
+            _canvas.KeyDown += Canvas_KeyDown;
+            Shown += (_, _) => _canvas.Focus();
 
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 66, Padding = new Padding(12, 8, 12, 8) };
             _status = new Label
@@ -245,6 +248,90 @@ public sealed class ScreenRegionCaptureService
                 : (_isArabic
                     ? $"الحد الأدنى للتحديد {MinimumRegionPixels} × {MinimumRegionPixels} بكسل."
                     : $"The selection must be at least {MinimumRegionPixels} × {MinimumRegionPixels} pixels.");
+            _canvas.Invalidate();
+        }
+
+        private void Canvas_KeyDown(object? sender, System.Windows.Forms.KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
+            if (e.KeyCode == Keys.Space && !e.Control && !e.Alt && !e.Shift)
+            {
+                StartCenteredKeyboardSelection();
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
+            if (e.KeyCode == Keys.Enter && _useSelection.Enabled)
+            {
+                _useSelection.PerformClick();
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
+            if (e.KeyCode is not (Keys.Left or Keys.Right or Keys.Up or Keys.Down))
+                return;
+
+            if (_selection.Width < MinimumRegionPixels || _selection.Height < MinimumRegionPixels)
+                StartCenteredKeyboardSelection();
+
+            if (e.Shift)
+            {
+                var width = _selection.Width;
+                var height = _selection.Height;
+                if (e.KeyCode == Keys.Left) width = Math.Max(MinimumRegionPixels, width - 10);
+                if (e.KeyCode == Keys.Right) width = Math.Min(_screenshot.Width - _selection.Left, width + 10);
+                if (e.KeyCode == Keys.Up) height = Math.Max(MinimumRegionPixels, height - 10);
+                if (e.KeyCode == Keys.Down) height = Math.Min(_screenshot.Height - _selection.Top, height + 10);
+                _selection = new Rectangle(_selection.Left, _selection.Top, width, height);
+            }
+            else
+            {
+                var step = e.Control ? 1 : 10;
+                var left = _selection.Left;
+                var top = _selection.Top;
+                if (e.KeyCode == Keys.Left) left -= step;
+                if (e.KeyCode == Keys.Right) left += step;
+                if (e.KeyCode == Keys.Up) top -= step;
+                if (e.KeyCode == Keys.Down) top += step;
+                left = Math.Clamp(left, 0, _screenshot.Width - _selection.Width);
+                top = Math.Clamp(top, 0, _screenshot.Height - _selection.Height);
+                _selection = new Rectangle(left, top, _selection.Width, _selection.Height);
+            }
+
+            UpdateKeyboardSelectionStatus();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
+
+        private void StartCenteredKeyboardSelection()
+        {
+            var width = Math.Min(_screenshot.Width, Math.Max(MinimumRegionPixels, _screenshot.Width / 3));
+            var height = Math.Min(_screenshot.Height, Math.Max(MinimumRegionPixels, _screenshot.Height / 3));
+            _selection = new Rectangle(
+                (_screenshot.Width - width) / 2,
+                (_screenshot.Height - height) / 2,
+                width,
+                height);
+            UpdateKeyboardSelectionStatus();
+        }
+
+        private void UpdateKeyboardSelectionStatus()
+        {
+            _useSelection.Enabled = _selection.Width >= MinimumRegionPixels &&
+                                    _selection.Height >= MinimumRegionPixels;
+            _status.Text = _isArabic
+                ? $"التحديد: {_selection.Width} × {_selection.Height} بكسل. الأسهم للتحريك، وShift+الأسهم لتغيير الحجم، وEnter للاختيار."
+                : $"Selection: {_selection.Width} × {_selection.Height} pixels. Arrows move, Shift+arrows resize, Enter selects.";
             _canvas.Invalidate();
         }
 
