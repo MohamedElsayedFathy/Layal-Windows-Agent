@@ -51,6 +51,41 @@ public sealed class UiThemePaletteTests
         Assert.AreEqual("#00FFFFFF", UiThemePalette.Create(dark: true, highContrast: true)["Layal.Color.GlowPink"]);
     }
 
+    [TestMethod]
+    public void NamedPresetsChangeAccentAndSurfacesInBothLightAndDarkModes()
+    {
+        var classicLight = UiThemePalette.Create(dark: false, highContrast: false, preset: "classic");
+        var oceanLight = UiThemePalette.Create(dark: false, highContrast: false, preset: "ocean");
+        var forestLight = UiThemePalette.Create(dark: false, highContrast: false, preset: "forest");
+        var sunsetLight = UiThemePalette.Create(dark: false, highContrast: false, preset: "sunset");
+        var oceanDark = UiThemePalette.Create(dark: true, highContrast: false, preset: "ocean");
+        var forestDark = UiThemePalette.Create(dark: true, highContrast: false, preset: "forest");
+        var sunsetDark = UiThemePalette.Create(dark: true, highContrast: false, preset: "sunset");
+
+        Assert.AreNotEqual(classicLight["Layal.Color.Cyan"], oceanLight["Layal.Color.Cyan"]);
+        Assert.AreNotEqual(oceanLight["Layal.Color.Cyan"], forestLight["Layal.Color.Cyan"]);
+        Assert.AreNotEqual(forestLight["Layal.Color.Cyan"], sunsetLight["Layal.Color.Cyan"]);
+        Assert.AreNotEqual(classicLight["Layal.Color.Background"], oceanLight["Layal.Color.Background"]);
+        Assert.AreNotEqual(oceanDark["Layal.Color.Background"], forestDark["Layal.Color.Background"]);
+        Assert.AreNotEqual(forestDark["Layal.Color.Background"], sunsetDark["Layal.Color.Background"]);
+        CollectionAssert.AreEquivalent(classicLight.Keys.ToArray(), sunsetLight.Keys.ToArray());
+        CollectionAssert.AreEquivalent(classicLight.Keys.ToArray(), sunsetDark.Keys.ToArray());
+    }
+
+    [TestMethod]
+    public void HighContrastOverridesEveryNamedPreset()
+    {
+        var classic = UiThemePalette.Create(dark: false, highContrast: true, preset: "classic");
+        foreach (var preset in new[] { "ocean", "forest", "sunset" })
+        {
+            var themed = UiThemePalette.Create(dark: true, highContrast: true, preset: preset);
+            CollectionAssert.AreEquivalent(classic.Keys.ToArray(), themed.Keys.ToArray());
+            Assert.AreEqual(classic["Layal.Color.Background"], themed["Layal.Color.Background"]);
+            Assert.AreEqual(classic["Layal.Color.Text"], themed["Layal.Color.Text"]);
+            Assert.AreEqual(classic["Layal.Color.Cyan"], themed["Layal.Color.Cyan"]);
+        }
+    }
+
     private static Color ToColor(IReadOnlyDictionary<string, string> palette, string key) =>
         (Color)ColorConverter.ConvertFromString(palette[key])!;
 }
