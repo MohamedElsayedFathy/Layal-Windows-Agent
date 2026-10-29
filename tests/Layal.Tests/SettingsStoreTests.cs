@@ -165,6 +165,7 @@ public sealed class SettingsStoreTests
             GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
+            PerformanceModeEnabled = true,
             MascotUseGlbPreview = true,
             MascotScale = 1.4,
             MascotOpacity = 0.75,

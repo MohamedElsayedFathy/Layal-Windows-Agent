@@ -371,7 +371,7 @@ public partial class MainWindow : Window
         CaptureScreenRegionButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
         ReadClipboardButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
         PasteClipboardImageButton.IsEnabled = !shieldEnabled && _chatCancellation is null &&
-            string.IsNullOrWhiteSpace(_pendingDocumentText);
+            string.IsNullOrWhiteSpace(_pendingDocumentText) && _pendingVisionImageBytes is not { Length: > 0 };
         CameraVisionButton.IsEnabled = !shieldEnabled;
         SpeechToTextButton.IsEnabled = !_speechIsStopping &&
             (!shieldEnabled || _speechToText.IsRecording || _speechCancellation is not null);
@@ -4045,28 +4045,8 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (image.PixelWidth <= 0 || image.PixelHeight <= 0 ||
-                (long)image.PixelWidth * image.PixelHeight > 40_000_000L)
-            {
-                SetChatActivityStatus(IsArabic
-                    ? "الصورة تتجاوز حد 40 مليون بكسل. قلّصها في أداة الصور ثم أعد المحاولة."
-                    : "The image exceeds the 40-million-pixel limit. Resize it in an image editor and retry.");
-                return;
-            }
-
-            using var stream = new MemoryStream();
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(image));
-            encoder.Save(stream);
-            if (stream.Length <= 0 || stream.Length > ScreenRegionCaptureService.MaximumImageBytes)
-            {
-                SetChatActivityStatus(IsArabic
-                    ? "صورة الحافظة تتجاوز حد المرفق البالغ 10 ميجابايت."
-                    : "The clipboard image exceeds the 10 MB attachment limit.");
-                return;
-            }
-
-            _pendingVisionImageBytes = stream.ToArray();
+            var pngBytes = ClipboardImageAttachmentEncoder.EncodePng(image);
+            _pendingVisionImageBytes = pngBytes;
             _pendingVisionContentType = "image/png";
             _pendingVisionFileName = $"clipboard-image-{image.PixelWidth}x{image.PixelHeight}.png";
             UpdateVisionAttachmentControls();
@@ -4163,6 +4143,8 @@ public partial class MainWindow : Window
         ChooseDocumentButton.IsEnabled = _chatCancellation is null;
         ClearDocumentButton.Visibility = hasDocument ? Visibility.Visible : Visibility.Collapsed;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
+        PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
+            _chatCancellation is null && !hasDocument && _pendingVisionImageBytes is not { Length: > 0 };
         DocumentAttachmentStatus.Text = hasDocument
             ? (IsArabic ? "جاهز للمراجعة والإرسال: " : "Ready for review and send: ") + (_pendingDocumentFileName ?? (IsArabic ? "ملف" : "document"))
             : (IsArabic ? "لا يوجد ملف مرفق" : "No document attached");
@@ -4254,6 +4236,7 @@ public partial class MainWindow : Window
     {
         if (VisionAttachmentStatus is null) return;
         var hasImage = _pendingVisionImageBytes is { Length: > 0 };
+        var hasDocument = !string.IsNullOrWhiteSpace(_pendingDocumentText);
         var previewLoaded = false;
         if (hasImage)
         {
@@ -4292,7 +4275,7 @@ public partial class MainWindow : Window
         ChooseDocumentButton.IsEnabled = _chatCancellation is null;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
         PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
-            _chatCancellation is null && !hasDocument;
+            _chatCancellation is null && !hasDocument && !hasImage;
     }
 
     private void CameraVisionButton_Click(object sender, RoutedEventArgs e)
