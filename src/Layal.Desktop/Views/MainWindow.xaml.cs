@@ -311,15 +311,15 @@ public partial class MainWindow : Window
             : (ar ? "درع الخصوصية: مغلق" : "Privacy shield: OFF");
         PrivacyShieldButton.ToolTip = AppRuntime.Settings.PrivacyShieldEnabled
             ? (ar
-                ? "درع الخصوصية نشط: لا يمكن بدء الميكروفون أو الكاميرا أو قص الشاشة أو قراءة الحافظة."
-                : "Privacy shield is active: microphone, camera, screen cropping, and clipboard reads cannot be started.")
+                ? "درع الخصوصية نشط: لا يمكن بدء الميكروفون أو الكاميرا أو قص الشاشة أو فحص العنصر أو قراءة الحافظة."
+                : "Privacy shield is active: microphone, camera, screen cropping, UI element inspection, and clipboard reads cannot be started.")
             : (ar
-                ? "تفعيل مفتاح واحد يمنع بدء الميكروفون والكاميرا وقص الشاشة وقراءة الحافظة."
-                : "One switch blocks starting the microphone, camera, screen cropping, and clipboard reads.");
+                ? "تفعيل مفتاح واحد يمنع بدء الميكروفون والكاميرا وقص الشاشة وفحص العناصر وقراءة الحافظة."
+                : "One switch blocks starting the microphone, camera, screen cropping, UI element inspection, and clipboard reads.");
         AutomationProperties.SetName(PrivacyShieldButton, ar ? "مفتاح خصوصية شامل" : "Master privacy shield");
         AutomationProperties.SetHelpText(PrivacyShieldButton, ar
-            ? "عند التفعيل يمنع بدء التسجيل والكاميرا وقص الشاشة وقراءة الحافظة، ويحاول إيقاف الالتقاطات الجارية. تظل الدردشة النصية متاحة. لا يمكن التراجع عن بيانات أُرسلت بالفعل."
-            : "When enabled, blocks new recording, camera, screen crop, and clipboard-read operations, and requests stopping active captures. Text chat remains available. Data already sent cannot be recalled.");
+            ? "عند التفعيل يمنع بدء التسجيل والكاميرا وقص الشاشة وفحص العناصر وقراءة الحافظة، ويحاول إيقاف الالتقاطات الجارية. تظل الدردشة النصية متاحة. لا يمكن التراجع عن بيانات أُرسلت بالفعل."
+            : "When enabled, blocks new recording, camera, screen crop, UI element inspection, and clipboard-read operations, and requests stopping active captures. Text chat remains available. Data already sent cannot be recalled.");
         var shieldEnabled = AppRuntime.Settings.PrivacyShieldEnabled;
         InspectHoveredElementButton.IsEnabled = !shieldEnabled;
         CaptureScreenRegionButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
@@ -337,11 +337,11 @@ public partial class MainWindow : Window
         var confirm = MessageBox.Show(this,
             enable
                 ? (IsArabic
-                    ? "سيمنع الدرع بدء تسجيل الميكروفون وفتح الكاميرا وقص الشاشة وقراءة الحافظة. سيحاول إيقاف الالتقاطات الجارية وإغلاق الكاميرا وإلغاء أي طلب نشط؛ وقد يحتاج إيقاف بعض موارد النظام لحظات. لن تُحذف بيانات أُرسلت إلى مزود أو حُفظت سابقًا. هل تريد التفعيل؟"
-                    : "The shield will block starting microphone recording, opening the camera, cropping the screen, and reading the clipboard. It will request stopping active captures, close the camera, and cancel active requests; some system resources may take a moment to stop. Previously sent or saved data cannot be deleted by this switch. Enable it?")
+                    ? "سيمنع الدرع بدء تسجيل الميكروفون وفتح الكاميرا وقص الشاشة وفحص العناصر وقراءة الحافظة. سيحاول إيقاف الالتقاطات الجارية وإغلاق الكاميرا وإلغاء أي طلب نشط؛ وقد يحتاج إيقاف بعض موارد النظام لحظات. لن تُحذف بيانات أُرسلت إلى مزود أو حُفظت سابقًا. هل تريد التفعيل؟"
+                    : "The shield will block microphone recording, camera opening, screen cropping, UI element inspection, and clipboard reads. It will request stopping active captures, close the camera, and cancel active requests; some system resources may take a moment to stop. Previously sent or saved data cannot be deleted by this switch. Enable it?")
                 : (IsArabic
-                    ? "سيُسمح مجددًا ببدء الميكروفون والكاميرا وقص الشاشة وقراءة الحافظة، مع بقاء الموافقة المطلوبة لكل عملية. هل تريد تعطيل الدرع؟"
-                    : "Starting the microphone, camera, screen crop, and clipboard reads will become available again, with the individual consent prompts still required. Disable the shield?"),
+                    ? "سيُسمح مجددًا ببدء الميكروفون والكاميرا وقص الشاشة وفحص العناصر وقراءة الحافظة، مع بقاء الموافقة المطلوبة لكل عملية. هل تريد تعطيل الدرع؟"
+                    : "Starting the microphone, camera, screen crop, UI element inspection, and clipboard reads will become available again, with the individual consent prompts still required. Disable the shield?"),
             enable
                 ? (IsArabic ? "تفعيل درع الخصوصية" : "Enable privacy shield")
                 : (IsArabic ? "تعطيل درع الخصوصية" : "Disable privacy shield"),
