@@ -22,6 +22,8 @@ public sealed class UserSettings
     public double MascotLeft { get; set; } = -1;
     public double MascotTop { get; set; } = -1;
     public bool AllowWindowTitleInspection { get; set; } = false;
+    /// <summary>Blocks new microphone, camera, screen-capture and clipboard-read operations when enabled.</summary>
+    public bool PrivacyShieldEnabled { get; set; } = false;
 
     public UserSettings Clone() => new()
     {
@@ -44,7 +46,8 @@ public sealed class UserSettings
         MascotOpacity = MascotOpacity,
         MascotLeft = MascotLeft,
         MascotTop = MascotTop,
-        AllowWindowTitleInspection = AllowWindowTitleInspection
+        AllowWindowTitleInspection = AllowWindowTitleInspection,
+        PrivacyShieldEnabled = PrivacyShieldEnabled
     };
 
     public void CopyFrom(UserSettings source)
@@ -69,5 +72,6 @@ public sealed class UserSettings
         MascotLeft = source.MascotLeft;
         MascotTop = source.MascotTop;
         AllowWindowTitleInspection = source.AllowWindowTitleInspection;
+        PrivacyShieldEnabled = source.PrivacyShieldEnabled;
     }
 }
