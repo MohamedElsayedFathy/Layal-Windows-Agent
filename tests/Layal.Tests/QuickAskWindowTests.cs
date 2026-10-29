@@ -45,7 +45,9 @@ public sealed class QuickAskWindowTests
                 submit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.AreEqual("اشرح لي هذه الوظيفة", receivedQuestion);
                 Assert.AreEqual("الإجابة: اشرح لي هذه الوظيفة", answer.Text);
-                Assert.IsTrue(window.IsVisible);
+                var answerRegion = (ScrollViewer?)window.FindName("AnswerScrollViewer")
+                    ?? throw new InvalidOperationException("Quick Ask answer container was not found.");
+                Assert.AreEqual(Visibility.Visible, answerRegion.Visibility);
             }
             catch (Exception ex)
             {
