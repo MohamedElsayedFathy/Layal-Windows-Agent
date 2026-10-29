@@ -59,6 +59,40 @@ public sealed class SavedRoutineService
         }
     }
 
+    public SavedRoutineRecord? Update(string id, string name, string goal)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        var safeName = (name ?? string.Empty).Trim();
+        var safeGoal = (goal ?? string.Empty).Trim();
+        if (safeName.Length is < 1 or > MaximumNameCharacters)
+            throw new ArgumentException($"Routine names must contain 1–{MaximumNameCharacters} characters.", nameof(name));
+        if (safeGoal.Length is < 1 or > MaximumGoalCharacters)
+            throw new ArgumentException($"Routine prompts must contain 1–{MaximumGoalCharacters} characters.", nameof(goal));
+
+        lock (_sync)
+        {
+            var routines = LoadAndNormalize();
+            var existing = routines.FirstOrDefault(item => string.Equals(item.Id, id, StringComparison.Ordinal));
+            if (existing is null)
+                return null;
+
+            if (routines.Any(item =>
+                !string.Equals(item.Id, id, StringComparison.Ordinal) &&
+                string.Equals(item.Name, safeName, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("A routine with this name already exists.");
+            }
+
+            existing.Name = safeName;
+            existing.Goal = safeGoal;
+            existing.UpdatedAt = DateTimeOffset.Now;
+            _store.Save(routines);
+            return existing.Clone();
+        }
+    }
+
     public bool Delete(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
