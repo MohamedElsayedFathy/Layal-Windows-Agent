@@ -31,6 +31,25 @@ public sealed class BrowserAutomationService
         _profileDirectory = Path.Combine(Path.GetFullPath(dataRoot), "BrowserProfile");
     }
 
+    /// <summary>Closes the dedicated Edge instance owned by this service.</summary>
+    public void Shutdown()
+    {
+        var process = _browserProcess;
+        _browserProcess = null;
+        _debugPort = 0;
+        if (process is null) return;
+
+        try
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch { /* Shutdown must not prevent the rest of the app from exiting. */ }
+        }
+        finally
+        {
+            process.Dispose();
+        }
+    }
+
     public static Uri ValidateHttpUrl(string value)
     {
         var text = (value ?? string.Empty).Trim();
