@@ -103,7 +103,10 @@ public sealed class SettingsStore
         if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
             settings.AssistantPersona = "warm";
         settings.GmailOAuthClientId = (settings.GmailOAuthClientId ?? string.Empty).Trim();
-        if (settings.GmailOAuthClientId.Length > 300 || settings.GmailOAuthClientId.Any(char.IsControl))
+        if (settings.GmailOAuthClientId.Length > 300 ||
+            settings.GmailOAuthClientId.Any(char.IsControl) ||
+            (settings.GmailOAuthClientId.Length > 0 &&
+             !settings.GmailOAuthClientId.EndsWith(".apps.googleusercontent.com", StringComparison.Ordinal)))
             settings.GmailOAuthClientId = string.Empty;
 
         settings.WeatherLocation = (settings.WeatherLocation ?? string.Empty).Trim();
