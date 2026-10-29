@@ -13,6 +13,7 @@ public static class AppRuntime
     public static SkillPackageService SkillPackageService { get; set; } = null!;
     public static MemoryService MemoryService { get; set; } = null!;
     public static TaskHistoryService TaskHistoryService { get; set; } = null!;
+    public static ReminderService ReminderService { get; set; } = null!;
     public static ProtectedJsonStore<List<ChatMessage>> ChatHistoryStore { get; set; } = null!;
     public static ChatSessionService ChatSessionService { get; set; } = null!;
     public static AgentToolExecutor AgentToolExecutor { get; set; } = null!;
