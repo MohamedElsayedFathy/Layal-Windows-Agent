@@ -238,6 +238,13 @@ public partial class MainWindow : Window
     private void ExitPrivateChatMode()
     {
         _incognitoMode = false;
+        // Discard any image or camera attachment created during the temporary session.
+        _pendingVisionImageBytes = null;
+        _pendingVisionContentType = null;
+        _pendingVisionFileName = null;
+        _lastCameraObservation = string.Empty;
+        UpdateVisionAttachmentControls();
+
         var conversation = AppRuntime.ChatSessionService.GetCurrent();
         _currentConversationId = conversation.Id;
         ChatMessages.Clear();
