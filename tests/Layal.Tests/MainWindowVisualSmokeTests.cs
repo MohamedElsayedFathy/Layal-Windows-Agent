@@ -493,6 +493,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(checkInToggle)),
             "Scheduled check-ins must disclose that they do not inspect the screen or call AI.");
+        var loreWebButton = window.FindName("LoreWebButton") as Button
+            ?? throw new InvalidOperationException("LoreWebButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(loreWebButton)),
+            "The local 3D memory web must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(loreWebButton)),
+            "The local 3D memory web must disclose that links are approximate and private.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
