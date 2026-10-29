@@ -14,6 +14,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Layal.Models;
@@ -60,6 +61,7 @@ public partial class MainWindow : Window
     }
     public ObservableCollection<MemoryNote> MemoryNotes { get; } = new();
 
+    private readonly ScreenRegionCaptureService _screenRegionCaptureService = new();
     private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly SpeechToTextService _speechToText = new();
     private readonly LayalSpeechService _layalSpeech = new();
@@ -803,6 +805,14 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(QuickAskButton, ar ? "سؤال سريع" : "Quick Ask");
         AutomationProperties.SetHelpText(QuickAskButton, ar ? "يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا." : "Opens a small typing window. No screen capture or files are sent automatically.");
         UpdatePrivateChatModeUi();
+        CaptureScreenRegionButton.Content = ar ? "قص جزء من الشاشة" : "Crop screen region";
+        CaptureScreenRegionButton.ToolTip = ar
+            ? "يخفي ليال مؤقتًا، ثم يعرض معاينة محلية للشاشة لتحديد مستطيل. لن يُرسل شيء حتى تضغط إرسال."
+            : "Temporarily hides Layal and shows a local screen preview for rectangle selection. Nothing is sent until you press Send.";
+        AutomationProperties.SetName(CaptureScreenRegionButton, ar ? "التقاط وقص جزء من الشاشة" : "Capture and crop a screen region");
+        AutomationProperties.SetHelpText(CaptureScreenRegionButton, ar
+            ? "التقاط صريح للشاشة التي يوجد عليها المؤشر، مع معاينة محلية قبل الإرفاق. لا تُرسل الصورة إلا عند الضغط على إرسال."
+            : "Explicitly captures the display under the pointer with a local crop preview before attachment. The image is not sent until you press Send.");
         ChooseImageButton.Content = ar ? "إرفاق صورة/لقطة شاشة" : "Attach image/screenshot";
         ChooseImageButton.ToolTip = ar ? "اختر صورة لإرسالها إلى النموذج مع سؤالك." : "Choose an image to send to the model with your question.";
         ClearVisionImageButton.Content = ar ? "إزالة الصورة" : "Remove image";
@@ -3207,6 +3217,73 @@ public partial class MainWindow : Window
             _ => IsArabic ? "الميكروفون متوقف" : "Mic off"
         };
 
+    private async void CaptureScreenRegionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chatCancellation is not null || _agentTaskCancellation is not null ||
+            _voiceConversationCancellation is not null || _speechCancellation is not null ||
+            _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف العمليات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل التقاط الشاشة."
+                : "Stop active work and close Quick Ask or the camera before capturing the screen.");
+            return;
+        }
+
+        var consent = MessageBox.Show(this,
+            IsArabic
+                ? "ستُلتقط الشاشة الموجودة أسفل المؤشر بعد إخفاء ليال مؤقتًا. ستظهر معاينة محلية لتحديد مستطيل. لن تُرسل الصورة إلى مزود الذكاء الاصطناعي حتى ترفقها ثم تضغط إرسال. قد تحتوي المنطقة المختارة على بيانات حساسة؛ راجعها قبل الإرسال. هل تريد المتابعة؟"
+                : "Layal will temporarily hide and capture the display under the pointer. A local preview lets you select a rectangle. The image will not be sent to the AI provider until you attach it and press Send. The selected region may contain sensitive information; review it before sending. Continue?",
+            IsArabic ? "موافقة على التقاط الشاشة" : "Confirm screen capture",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (consent != MessageBoxResult.Yes)
+            return;
+
+        var previousWindowState = WindowState;
+        var wasVisible = IsVisible;
+        CaptureScreenRegionButton.IsEnabled = false;
+        try
+        {
+            Hide();
+            // Let Windows expose the app beneath Layal before copying pixels.
+            await Task.Delay(250);
+
+            var capture = _screenRegionCaptureService.CaptureRegionUnderCursor(IsArabic);
+            if (capture is null)
+            {
+                SetChatActivityStatus(IsArabic ? "تم إلغاء قص الشاشة؛ لم يتم إرفاق أي صورة." : "Screen crop cancelled; no image was attached.");
+                return;
+            }
+
+            _pendingVisionImageBytes = capture.PngBytes;
+            _pendingVisionContentType = "image/png";
+            _pendingVisionFileName = $"screen-region-{capture.Width}x{capture.Height}.png";
+            UpdateVisionAttachmentControls();
+            SetChatActivityStatus(IsArabic
+                ? $"تم إرفاق قصاصة شاشة ({capture.Width} × {capture.Height} بكسل) بعد المعاينة. لم تُرسل؛ اكتب سؤالك واضغط إرسال."
+                : $"Screen crop attached ({capture.Width} × {capture.Height} pixels) after preview. It has not been sent; ask a question and press Send.");
+            ChatInput.Focus();
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر التقاط الشاشة", "Screen capture failed", ex, IsArabic));
+        }
+        finally
+        {
+            if (wasVisible && !IsVisible)
+                Show();
+            WindowState = previousWindowState;
+            if (wasVisible)
+            {
+                Activate();
+                ChatInput.Focus();
+            }
+            UpdateVisionAttachmentControls();
+        }
+    }
+
     private void ChooseImageButton_Click(object sender, RoutedEventArgs e)
     {
         if (_chatCancellation is not null)
@@ -3280,11 +3357,40 @@ public partial class MainWindow : Window
     {
         if (VisionAttachmentStatus is null) return;
         var hasImage = _pendingVisionImageBytes is { Length: > 0 };
+        var previewLoaded = false;
+        if (hasImage)
+        {
+            try
+            {
+                using var stream = new MemoryStream(_pendingVisionImageBytes!, writable: false);
+                var preview = new BitmapImage();
+                preview.BeginInit();
+                preview.CacheOption = BitmapCacheOption.OnLoad;
+                preview.DecodePixelWidth = 128;
+                preview.StreamSource = stream;
+                preview.EndInit();
+                preview.Freeze();
+                VisionAttachmentPreview.Source = preview;
+                previewLoaded = true;
+            }
+            catch
+            {
+                VisionAttachmentPreview.Source = null;
+            }
+        }
+        else
+        {
+            VisionAttachmentPreview.Source = null;
+        }
+
+        VisionAttachmentPreview.Visibility = hasImage && previewLoaded ? Visibility.Visible : Visibility.Collapsed;
         VisionAttachmentStatus.Text = hasImage
-            ? (IsArabic ? "جاهزة للإرسال: " : "Ready to send: ") + (_pendingVisionFileName ?? (IsArabic ? "صورة" : "image"))
+            ? (IsArabic ? "جاهزة للإرسال: " : "Ready to send: ") + (_pendingVisionFileName ?? (IsArabic ? "صورة" : "image")) +
+              (previewLoaded ? string.Empty : (IsArabic ? " (تعذرت المعاينة)" : " (preview unavailable)"))
             : (IsArabic ? "لا توجد صورة مرفقة" : "No image attached");
         ClearVisionImageButton.Visibility = hasImage ? Visibility.Visible : Visibility.Collapsed;
         ChooseImageButton.IsEnabled = _chatCancellation is null;
+        CaptureScreenRegionButton.IsEnabled = _chatCancellation is null;
         ClearVisionImageButton.IsEnabled = _chatCancellation is null;
     }
 
