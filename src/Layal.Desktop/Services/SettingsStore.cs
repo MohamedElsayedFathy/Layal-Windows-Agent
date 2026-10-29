@@ -125,6 +125,12 @@ public sealed class SettingsStore
             ? settings.VoiceReplyId.Trim().ToLowerInvariant()
             : LayalSpeechService.DefaultVoiceId;
 
+        settings.ProactiveCheckInIntervalMinutes = settings.ProactiveCheckInIntervalMinutes is 15 or 30 or 60 or 120
+            ? settings.ProactiveCheckInIntervalMinutes
+            : 60;
+        if (settings.LastProactiveCheckInAt is { } lastCheckIn && lastCheckIn > DateTimeOffset.Now.AddMinutes(5))
+            settings.LastProactiveCheckInAt = DateTimeOffset.Now;
+
         settings.MascotScale = double.IsFinite(settings.MascotScale)
             ? Math.Clamp(settings.MascotScale, 0.65, 1.8)
             : 1.0;
