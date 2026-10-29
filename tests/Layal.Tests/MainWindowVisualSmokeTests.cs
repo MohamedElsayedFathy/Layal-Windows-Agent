@@ -484,6 +484,17 @@ public sealed class MainWindowVisualSmokeTests
             "Theme preset selector must expose an accessible name.");
         Assert.AreEqual(4, themePresetSelector.Items.Count,
             "The app should offer four named presets (Classic, Ocean, Forest, Sunset).");
+        var hotkeySelector = window.FindName("QuickAskHotkeySelector") as ComboBox
+            ?? throw new InvalidOperationException("QuickAskHotkeySelector was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(hotkeySelector)),
+            "Quick Ask shortcut selector must expose an accessible name.");
+        Assert.AreEqual(3, hotkeySelector.Items.Count, "Three safe shortcut presets should be available.");
+        var hotkeyStatus = window.FindName("QuickAskHotkeyStatus") as TextBlock
+            ?? throw new InvalidOperationException("QuickAskHotkeyStatus was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(hotkeyStatus)),
+            "Quick Ask shortcut registration status must be accessible.");
         var gameModeButton = window.FindName("GameModeButton") as Button
             ?? throw new InvalidOperationException("GameModeButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
