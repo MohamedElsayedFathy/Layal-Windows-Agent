@@ -370,6 +370,8 @@ public partial class MainWindow : Window
         InspectHoveredElementButton.IsEnabled = !shieldEnabled;
         CaptureScreenRegionButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
         ReadClipboardButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
+        PasteClipboardImageButton.IsEnabled = !shieldEnabled && _chatCancellation is null &&
+            string.IsNullOrWhiteSpace(_pendingDocumentText);
         CameraVisionButton.IsEnabled = !shieldEnabled;
         SpeechToTextButton.IsEnabled = !_speechIsStopping &&
             (!shieldEnabled || _speechToText.IsRecording || _speechCancellation is not null);
@@ -1076,6 +1078,14 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(ReadClipboardButton, ar
             ? "قراءة نص الحافظة لا تغيّر محتواها ولا ترسله. الإرسال لا يحدث إلا بعد الضغط على إرسال."
             : "Reading clipboard text does not modify or transmit it. Nothing is sent until you press Send.");
+        PasteClipboardImageButton.Content = ar ? "إرفاق صورة الحافظة" : "Attach clipboard image";
+        PasteClipboardImageButton.ToolTip = ar
+            ? "بعد موافقتك، تُقرأ صورة الحافظة وتظهر كمعاينة محلية؛ لا يحدث إرسال تلقائي."
+            : "With your consent, read the clipboard image and show a local preview; nothing is sent automatically.";
+        AutomationProperties.SetName(PasteClipboardImageButton, ar ? "إرفاق صورة الحافظة بعد الموافقة" : "Attach clipboard image with consent");
+        AutomationProperties.SetHelpText(PasteClipboardImageButton, ar
+            ? "حد 40 مليون بكسل و10 ميجابايت. لا تُغيّر الحافظة ولا يُرسل شيء حتى تضغط إرسال."
+            : "40-million-pixel and 10 MB limits. The clipboard is not changed and nothing is sent until you press Send.");
         CameraVisionButton.Content = ar ? "فتح الكاميرا" : "Open camera";
         CameraVisionButton.ToolTip = ar
             ? "معاينة الكاميرا محليًا وتحليل لقطة عند الطلب أو كل 10 ثوانٍ بموافقتك."
@@ -3982,6 +3992,96 @@ public partial class MainWindow : Window
         }
     }
 
+    private void PasteClipboardImageButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ قراءة الصور من الحافظة محظورة."
+                : "Privacy shield is enabled; clipboard image reads are blocked.");
+            return;
+        }
+
+        if (_chatCancellation is not null || _agentTaskCancellation is not null ||
+            _voiceConversationCancellation is not null || _speechCancellation is not null ||
+            _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف العمليات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل قراءة صورة الحافظة."
+                : "Stop active work and close Quick Ask or the camera before reading a clipboard image.");
+            return;
+        }
+
+        if (_pendingVisionImageBytes is { Length: > 0 } || !string.IsNullOrWhiteSpace(_pendingDocumentText))
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أزل المرفق الحالي أولًا قبل إرفاق صورة الحافظة."
+                : "Remove the current attachment before attaching a clipboard image.");
+            return;
+        }
+
+        var consent = MessageBox.Show(this,
+            IsArabic
+                ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك، وتُحوّل إلى PNG في الذاكرة للمعاينة والإرفاق. قد تحتوي الصورة على بيانات حساسة؛ راجع المعاينة قبل الإرسال. لن تتغير الحافظة ولن تُرسل الصورة إلى AI إلا إذا أرفقتها ثم ضغطت إرسال. هل تريد المتابعة؟"
+                : "With your consent, the current clipboard image will be read and encoded as PNG in memory for preview and attachment. It may contain sensitive data; review it before sending. The clipboard will not be modified and the image will not be sent to AI unless you attach it and press Send. Continue?",
+            IsArabic ? "موافقة على قراءة صورة الحافظة" : "Confirm clipboard image read",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (consent != MessageBoxResult.Yes)
+        {
+            SetChatActivityStatus(IsArabic ? "تم إلغاء قراءة صورة الحافظة؛ لم يُقرأ أي محتوى." : "Clipboard image read cancelled; no image was read.");
+            return;
+        }
+
+        try
+        {
+            var image = Clipboard.GetImage();
+            if (image is null)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "لا توجد صورة قابلة للقراءة في الحافظة."
+                    : "The clipboard does not contain a readable image.");
+                return;
+            }
+
+            if (image.PixelWidth <= 0 || image.PixelHeight <= 0 ||
+                (long)image.PixelWidth * image.PixelHeight > 40_000_000L)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "الصورة تتجاوز حد 40 مليون بكسل. قلّصها في أداة الصور ثم أعد المحاولة."
+                    : "The image exceeds the 40-million-pixel limit. Resize it in an image editor and retry.");
+                return;
+            }
+
+            using var stream = new MemoryStream();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(image));
+            encoder.Save(stream);
+            if (stream.Length <= 0 || stream.Length > ScreenRegionCaptureService.MaximumImageBytes)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "صورة الحافظة تتجاوز حد المرفق البالغ 10 ميجابايت."
+                    : "The clipboard image exceeds the 10 MB attachment limit.");
+                return;
+            }
+
+            _pendingVisionImageBytes = stream.ToArray();
+            _pendingVisionContentType = "image/png";
+            _pendingVisionFileName = $"clipboard-image-{image.PixelWidth}x{image.PixelHeight}.png";
+            UpdateVisionAttachmentControls();
+            SetChatActivityStatus(IsArabic
+                ? $"تم إرفاق صورة الحافظة ({image.PixelWidth} × {image.PixelHeight} بكسل) للمعاينة. لم تُرسل؛ راجع السؤال واضغط إرسال."
+                : $"Clipboard image attached ({image.PixelWidth} × {image.PixelHeight} pixels) for preview. It has not been sent; review your prompt and press Send.");
+            ChatInput.Focus();
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذرت قراءة صورة الحافظة", "Could not read clipboard image", ex, IsArabic));
+        }
+    }
+
     private async void ChooseDocumentButton_Click(object sender, RoutedEventArgs e)
     {
         if (_chatCancellation is not null || _agentTaskCancellation is not null ||
@@ -4191,6 +4291,8 @@ public partial class MainWindow : Window
         ClearVisionImageButton.IsEnabled = _chatCancellation is null;
         ChooseDocumentButton.IsEnabled = _chatCancellation is null;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
+        PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
+            _chatCancellation is null && !hasDocument;
     }
 
     private void CameraVisionButton_Click(object sender, RoutedEventArgs e)

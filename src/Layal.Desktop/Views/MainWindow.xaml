@@ -296,6 +296,10 @@
                                     MinWidth="105" ToolTip="اقرأ النص من الحافظة بطلب صريح، وراجعه محليًا قبل إرفاقه."
                                     AutomationProperties.Name="قراءة نص الحافظة لمراجعته"
                                     AutomationProperties.HelpText="قراءة نص الحافظة لا تغيّر محتواها ولا ترسله. الإرسال لا يحدث إلا بعد الضغط على إرسال."/>
+                            <Button x:Name="PasteClipboardImageButton" Content="إرفاق صورة الحافظة" Click="PasteClipboardImageButton_Click"
+                                    MinWidth="140" ToolTip="قراءة صورة الحافظة بعد موافقتك وإرفاقها للمراجعة فقط."
+                                    AutomationProperties.Name="إرفاق صورة الحافظة بعد الموافقة"
+                                    AutomationProperties.HelpText="تُقرأ الصورة بعد تأكيدك وتُحوّل إلى PNG محليًا بحد 40 مليون بكسل و10 ميجابايت. لا تُرسل إلا عند الضغط على إرسال."/>
                             <Button x:Name="ChooseDocumentButton" Content="إرفاق ملف نصي/PDF/Office" Click="ChooseDocumentButton_Click"
                                     MinWidth="160" ToolTip="يُستخرج النص محليًا وتراجعه قبل الإرفاق؛ لا يُرسل إلا عند الضغط على إرسال."
                                     AutomationProperties.Name="اختيار ملف لمراجعته وإرفاقه"

@@ -461,6 +461,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(clipboardButton)),
             "Clipboard text review must disclose its privacy behaviour.");
+        var clipboardImageButton = window.FindName("PasteClipboardImageButton") as Button
+            ?? throw new InvalidOperationException("PasteClipboardImageButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(clipboardImageButton)),
+            "Clipboard image attachment must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(clipboardImageButton)),
+            "Clipboard image attachment must disclose consent, size limits, and no-auto-send behaviour.");
         var remindersButton = window.FindName("ManageRemindersButton") as Button
             ?? throw new InvalidOperationException("ManageRemindersButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
