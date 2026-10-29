@@ -44,76 +44,41 @@ public sealed class MainWindowVisualSmokeTests
             Assert.Fail("WPF visual smoke failed: " + failure);
     }
 
-    [TestMethod]
-    public void EscapeCancelsActiveChatAndAgentOperations()
+    private static void AssertEscapeCancelsActiveChatAndAgentOperations(MainWindow window)
     {
-        Exception? failure = null;
-        var thread = new Thread(() =>
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var chatField = typeof(MainWindow).GetField("_chatCancellation", flags)
+            ?? throw new InvalidOperationException("Chat cancellation field was not found.");
+        var taskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
+            ?? throw new InvalidOperationException("Agent task cancellation field was not found.");
+        var keyHandler = typeof(MainWindow).GetMethod("MainWindow_PreviewKeyDown", flags)
+            ?? throw new InvalidOperationException("Main window keyboard handler was not found.");
+
+        if (chatField.GetValue(window) is not null || taskField.GetValue(window) is not null)
+            throw new InvalidOperationException("The Escape regression test requires an idle chat and task runner.");
+
+        using var chatCancellation = new CancellationTokenSource();
+        using var taskCancellation = new CancellationTokenSource();
+        try
         {
-            CancellationTokenSource? chatCancellation = null;
-            CancellationTokenSource? taskCancellation = null;
-            MainWindow? window = null;
-            App? app = null;
-            try
-            {
-                using var temp = new TestTempDirectory();
-                App.SuppressStartupForTests = true;
-                app = new App();
-                app.InitializeComponent();
-                app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                InitializeRuntime(temp.Path);
-                AppRuntime.Settings.UseAutomaticLocation = false;
+            chatField.SetValue(window, chatCancellation);
+            var chatEscape = CreateEscapeKeyEvent(window);
+            keyHandler.Invoke(window, new object[] { window, chatEscape });
+            Assert.IsTrue(chatCancellation.IsCancellationRequested, "Escape should cancel an active chat request.");
+            Assert.IsTrue(chatEscape.Handled, "Escape should be handled when it cancels an operation.");
 
-                window = new MainWindow { ShowInTaskbar = false };
-                AppRuntime.MainWindow = window;
-                window.Show();
-                window.UpdateLayout();
-
-                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-                var chatField = typeof(MainWindow).GetField("_chatCancellation", flags)
-                    ?? throw new InvalidOperationException("Chat cancellation field was not found.");
-                var taskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
-                    ?? throw new InvalidOperationException("Agent task cancellation field was not found.");
-                var keyHandler = typeof(MainWindow).GetMethod("MainWindow_PreviewKeyDown", flags)
-                    ?? throw new InvalidOperationException("Main window keyboard handler was not found.");
-
-                chatCancellation = new CancellationTokenSource();
-                chatField.SetValue(window, chatCancellation);
-                var chatEscape = CreateEscapeKeyEvent(window);
-                keyHandler.Invoke(window, new object[] { window, chatEscape });
-                Assert.IsTrue(chatCancellation.IsCancellationRequested, "Escape should cancel an active chat request.");
-                Assert.IsTrue(chatEscape.Handled, "Escape should be handled when it cancels an operation.");
-
-                chatField.SetValue(window, null);
-                taskCancellation = new CancellationTokenSource();
-                taskField.SetValue(window, taskCancellation);
-                var taskEscape = CreateEscapeKeyEvent(window);
-                keyHandler.Invoke(window, new object[] { window, taskEscape });
-                Assert.IsTrue(taskCancellation.IsCancellationRequested, "Escape should cancel an active agent task.");
-                Assert.IsTrue(taskEscape.Handled, "Escape should be handled when it cancels an agent task.");
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-            }
-            finally
-            {
-                AppRuntime.IsExiting = true;
-                window?.Close();
-                AppRuntime.MainWindow = null;
-                chatCancellation?.Dispose();
-                taskCancellation?.Dispose();
-                app?.Shutdown();
-                App.SuppressStartupForTests = false;
-            }
-        });
-
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.IsBackground = true;
-        thread.Start();
-        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(30)), "Escape-cancellation WPF test timed out.");
-        if (failure is not null)
-            Assert.Fail("Escape-cancellation test failed: " + failure);
+            chatField.SetValue(window, null);
+            taskField.SetValue(window, taskCancellation);
+            var taskEscape = CreateEscapeKeyEvent(window);
+            keyHandler.Invoke(window, new object[] { window, taskEscape });
+            Assert.IsTrue(taskCancellation.IsCancellationRequested, "Escape should cancel an active agent task.");
+            Assert.IsTrue(taskEscape.Handled, "Escape should be handled when it cancels an agent task.");
+        }
+        finally
+        {
+            chatField.SetValue(window, null);
+            taskField.SetValue(window, null);
+        }
     }
 
     private static KeyEventArgs CreateEscapeKeyEvent(MainWindow window)
@@ -126,87 +91,43 @@ public sealed class MainWindowVisualSmokeTests
         };
     }
 
-    [TestMethod]
-    public void PrivateChatDoesNotPersistMessagesAndRestoresSavedConversation()
+    private static void AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(MainWindow window)
     {
-        if (!OperatingSystem.IsWindows())
-            Assert.Inconclusive("The desktop chat history store uses Windows DPAPI.");
-
-        Exception? failure = null;
-        var thread = new Thread(() =>
+        AppRuntime.ChatSessionService.SaveCurrentMessages(new[]
         {
-            MainWindow? window = null;
-            App? app = null;
-            try
-            {
-                using var temp = new TestTempDirectory();
-                App.SuppressStartupForTests = true;
-                app = new App();
-                app.InitializeComponent();
-                app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                InitializeRuntime(temp.Path);
-                AppRuntime.Settings.UseAutomaticLocation = false;
-                AppRuntime.ChatSessionService.SaveCurrentMessages(new[]
-                {
-                    new ChatMessage { Role = "user", Content = "Saved conversation sentinel" },
-                    new ChatMessage { Role = "assistant", Content = "Saved reply sentinel" }
-                });
-
-                window = new MainWindow { ShowInTaskbar = false };
-                AppRuntime.MainWindow = window;
-                window.Show();
-                window.UpdateLayout();
-
-                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-                var enterPrivate = typeof(MainWindow).GetMethod("EnterPrivateChatMode", flags)
-                    ?? throw new InvalidOperationException("Private-chat entry method was not found.");
-                var addMessage = typeof(MainWindow).GetMethod("AddMessage", flags)
-                    ?? throw new InvalidOperationException("Chat message method was not found.");
-                var exitPrivate = typeof(MainWindow).GetMethod("ExitPrivateChatMode", flags)
-                    ?? throw new InvalidOperationException("Private-chat exit method was not found.");
-
-                enterPrivate.Invoke(window, null);
-                Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
-                Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
-                var historySelector = (ComboBox?)window.FindName("ChatHistorySelector")
-                    ?? throw new InvalidOperationException("Chat history selector was not found.");
-                Assert.IsFalse(historySelector.IsEnabled, "Saved history must not be selectable in private chat.");
-
-                addMessage.Invoke(window, new object[] { "user", "Private-only sentinel" });
-                Assert.AreEqual(1, window.ChatMessages.Count);
-                var storedWhilePrivate = AppRuntime.ChatSessionService.GetCurrent();
-                Assert.AreEqual(2, storedWhilePrivate.Messages.Count, "Private messages must not change persisted history.");
-                Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
-                Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
-
-                exitPrivate.Invoke(window, null);
-                Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
-                Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
-                Assert.AreEqual("Saved conversation sentinel", window.ChatMessages[0].Content);
-                Assert.AreEqual("Saved reply sentinel", window.ChatMessages[1].Content);
-                Assert.AreEqual(1, window.ChatConversations.Count);
-                Assert.AreEqual(2, AppRuntime.ChatSessionService.GetCurrent().Messages.Count);
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-            }
-            finally
-            {
-                AppRuntime.IsExiting = true;
-                window?.Close();
-                AppRuntime.MainWindow = null;
-                app?.Shutdown();
-                App.SuppressStartupForTests = false;
-            }
+            new ChatMessage { Role = "user", Content = "Saved conversation sentinel" },
+            new ChatMessage { Role = "assistant", Content = "Saved reply sentinel" }
         });
 
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.IsBackground = true;
-        thread.Start();
-        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(30)), "Private-chat WPF test timed out.");
-        if (failure is not null)
-            Assert.Fail("Private-chat test failed: " + failure);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var enterPrivate = typeof(MainWindow).GetMethod("EnterPrivateChatMode", flags)
+            ?? throw new InvalidOperationException("Private-chat entry method was not found.");
+        var addMessage = typeof(MainWindow).GetMethod("AddMessage", flags)
+            ?? throw new InvalidOperationException("Chat message method was not found.");
+        var exitPrivate = typeof(MainWindow).GetMethod("ExitPrivateChatMode", flags)
+            ?? throw new InvalidOperationException("Private-chat exit method was not found.");
+
+        enterPrivate.Invoke(window, null);
+        Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
+        Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
+        var historySelector = (ComboBox?)window.FindName("ChatHistorySelector")
+            ?? throw new InvalidOperationException("Chat history selector was not found.");
+        Assert.IsFalse(historySelector.IsEnabled, "Saved history must not be selectable in private chat.");
+
+        addMessage.Invoke(window, new object[] { "user", "Private-only sentinel" });
+        Assert.AreEqual(1, window.ChatMessages.Count);
+        var storedWhilePrivate = AppRuntime.ChatSessionService.GetCurrent();
+        Assert.AreEqual(2, storedWhilePrivate.Messages.Count, "Private messages must not change persisted history.");
+        Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
+        Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
+
+        exitPrivate.Invoke(window, null);
+        Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
+        Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
+        Assert.AreEqual("Saved conversation sentinel", window.ChatMessages[0].Content);
+        Assert.AreEqual("Saved reply sentinel", window.ChatMessages[1].Content);
+        Assert.AreEqual(1, window.ChatConversations.Count);
+        Assert.AreEqual(2, AppRuntime.ChatSessionService.GetCurrent().Messages.Count);
     }
 
     private static void RenderAllStates()
@@ -491,6 +412,10 @@ public sealed class MainWindowVisualSmokeTests
 
         AssertInteractionAndSettingsPersistence(window, mascot, temp.Path);
         lines.Add("Interactive settings regression: language/theme/navigation, mascot toggles, size/opacity, opt-in window inspection, provider validation/persistence, and show/hide passed.");
+
+        AssertEscapeCancelsActiveChatAndAgentOperations(window);
+        AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window);
+        lines.Add("AYO safety regression: Escape cancellation and non-persistent private-chat history passed.");
 
         File.WriteAllLines(Path.Combine(outputDirectory, "manifest.txt"), lines);
         AppRuntime.IsExiting = true;
