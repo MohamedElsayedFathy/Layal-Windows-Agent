@@ -28,4 +28,6 @@ public static class AppRuntime
     public static TrayService? Tray { get; set; }
     public static Action? ExitAction { get; set; }
     public static bool IsExiting { get; set; }
+    /// <summary>Manual, user-invoked game mode. It pauses local reminder notifications and performs no game/process inspection.</summary>
+    public static bool IsGameModeActive { get; set; }
 }
