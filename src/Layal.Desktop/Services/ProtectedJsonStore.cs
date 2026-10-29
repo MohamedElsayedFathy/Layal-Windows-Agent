@@ -33,8 +33,18 @@ public sealed class ProtectedJsonStore<T> where T : class
     private void PreserveOnce()
     {
         if (_preservedUnreadable) return;
+
+        var recoveryCopy = _secretStore.PreserveUnreadableCopy();
+        if (string.IsNullOrWhiteSpace(recoveryCopy) || !File.Exists(recoveryCopy))
+        {
+            // Do not hand out fallback state that a caller may later save over the only
+            // remaining copy of data we could not read. A failed recovery copy must stop
+            // the operation instead of turning unreadable state into an apparent empty store.
+            throw new IOException(
+                "The protected state file is unreadable and a recovery copy could not be created. The original was left untouched; refusing to return fallback state.");
+        }
+
         _preservedUnreadable = true;
-        _ = _secretStore.PreserveUnreadableCopy();
     }
 
     public void Save(T value)

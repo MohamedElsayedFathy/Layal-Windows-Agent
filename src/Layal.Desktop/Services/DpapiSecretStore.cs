@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -100,7 +101,8 @@ public sealed class DpapiSecretStore
         try
         {
             if (!File.Exists(_path)) return null;
-            var copy = _path + ".unreadable-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmssfff'Z'", CultureInfo.InvariantCulture);
+            var copy = _path + ".unreadable-" + timestamp + "-" + Guid.NewGuid().ToString("N");
             File.Copy(_path, copy, overwrite: false);
             return copy;
         }
