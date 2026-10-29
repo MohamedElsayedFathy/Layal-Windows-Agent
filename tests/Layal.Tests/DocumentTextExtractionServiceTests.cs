@@ -52,6 +52,19 @@ public sealed class DocumentTextExtractionServiceTests
     }
 
     [TestMethod]
+    public void ImageExtensionsUseTheAsyncWindowsOcrPath()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "sample.png");
+        File.WriteAllBytes(path, new byte[] { 1, 2, 3 });
+
+        var exception = Assert.ThrowsExactly<NotSupportedException>(() => _service.ExtractFile(path));
+        StringAssert.Contains(exception.Message, "ExtractFileAsync");
+        CollectionAssert.Contains(DocumentTextExtractionService.SupportedExtensions.ToArray(), ".png");
+        CollectionAssert.Contains(DocumentTextExtractionService.SupportedExtensions.ToArray(), ".tiff");
+    }
+
+    [TestMethod]
     public void UnsupportedAndEmptyFilesAreRejected()
     {
         using var temp = new TestTempDirectory();
