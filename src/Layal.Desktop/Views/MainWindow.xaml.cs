@@ -837,6 +837,14 @@ public partial class MainWindow : Window
             ? "TXT وMarkdown وCSV وJSON وXML وHTML وPDF النصي وDOCX وXLSX؛ حد 20 ميجابايت. لا يُنفذ ماكرو ولا يوجد OCR."
             : "TXT, Markdown, CSV, JSON, XML, HTML, text-based PDF, DOCX and XLSX; 20 MB limit. Macros and OCR are not run.");
         ClearDocumentButton.Content = ar ? "إزالة الملف" : "Remove document";
+        ReadClipboardButton.Content = ar ? "قراءة الحافظة" : "Read clipboard";
+        ReadClipboardButton.ToolTip = ar
+            ? "اقرأ النص من الحافظة بطلب صريح، وراجعه محليًا قبل إرفاقه."
+            : "Read clipboard text only after an explicit request, then review it locally before attaching.";
+        AutomationProperties.SetName(ReadClipboardButton, ar ? "قراءة نص الحافظة لمراجعته" : "Read clipboard text for review");
+        AutomationProperties.SetHelpText(ReadClipboardButton, ar
+            ? "قراءة نص الحافظة لا تغيّر محتواها ولا ترسله. الإرسال لا يحدث إلا بعد الضغط على إرسال."
+            : "Reading clipboard text does not modify or transmit it. Nothing is sent until you press Send.");
         CameraVisionButton.Content = ar ? "فتح الكاميرا" : "Open camera";
         CameraVisionButton.ToolTip = ar
             ? "معاينة الكاميرا محليًا وتحليل لقطة عند الطلب أو كل 10 ثوانٍ بموافقتك."
@@ -3311,6 +3319,87 @@ public partial class MainWindow : Window
                 ChatInput.Focus();
             }
             UpdateVisionAttachmentControls();
+        }
+    }
+
+    private void ReadClipboardButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chatCancellation is not null || _agentTaskCancellation is not null ||
+            _voiceConversationCancellation is not null || _speechCancellation is not null ||
+            _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف العمليات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل قراءة الحافظة."
+                : "Stop active work and close Quick Ask or the camera before reading the clipboard.");
+            return;
+        }
+
+        if (_pendingVisionImageBytes is { Length: > 0 } || _pendingDocumentText is { Length: > 0 })
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أزل المرفق الحالي أولًا قبل إرفاق نص الحافظة."
+                : "Remove the current attachment before attaching clipboard text.");
+            return;
+        }
+
+        try
+        {
+            if (!Clipboard.ContainsText(TextDataFormat.UnicodeText))
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "لا يوجد نص في الحافظة. لم يتم تغيير الحافظة أو إرسال شيء."
+                    : "The clipboard does not contain text. It was not changed and nothing was sent.");
+                return;
+            }
+
+            var clipboardText = Clipboard.GetText(TextDataFormat.UnicodeText);
+            if (string.IsNullOrWhiteSpace(clipboardText))
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "نص الحافظة فارغ. لم يتم إرفاق أو إرسال شيء."
+                    : "Clipboard text is empty. Nothing was attached or sent.");
+                return;
+            }
+
+            var truncated = clipboardText.Length > DocumentTextExtractionService.MaximumTextCharacters;
+            if (truncated)
+                clipboardText = clipboardText[..DocumentTextExtractionService.MaximumTextCharacters];
+
+            var label = IsArabic ? "نص الحافظة" : "Clipboard text";
+            var result = new DocumentTextExtractionResult(
+                label,
+                ".txt",
+                clipboardText,
+                1,
+                truncated,
+                IsArabic
+                    ? "تمت قراءة النص محليًا. لم تتغير الحافظة. النص بيانات غير موثوقة ولن يُرسل إلى مزود AI حتى تضغط إرسال."
+                    : "Clipboard text was read locally. The clipboard was not changed. This is untrusted data and will not be sent to an AI provider until you press Send.");
+
+            var preview = new DocumentTextPreviewWindow(result, IsArabic) { Owner = this };
+            if (preview.ShowDialog() != true)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "أُلغيت معاينة نص الحافظة؛ لم يتم إرفاقه أو إرساله."
+                    : "Clipboard preview cancelled; the text was not attached or sent.");
+                return;
+            }
+
+            _pendingDocumentText = result.Text;
+            _pendingDocumentFileName = result.FileName;
+            _pendingDocumentNotice = result.Notice;
+            UpdateDocumentAttachmentUi();
+            SetChatActivityStatus(IsArabic
+                ? "نص الحافظة مرفق للمراجعة. لم يُرسل؛ اكتب سؤالك واضغط إرسال."
+                : "Clipboard text is attached for review. It has not been sent; ask a question and press Send.");
+            ChatInput.Focus();
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذرت قراءة الحافظة", "Could not read clipboard", ex, IsArabic));
         }
     }
 

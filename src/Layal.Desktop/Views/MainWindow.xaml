@@ -280,6 +280,10 @@
                                     AutomationProperties.HelpText="اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."/>
                             <Button x:Name="ClearVisionImageButton" Content="إزالة الصورة" Click="ClearVisionImageButton_Click"
                                     Visibility="Collapsed" MinWidth="90" ToolTip="إزالة الصورة المرفقة قبل الإرسال."/>
+                            <Button x:Name="ReadClipboardButton" Content="قراءة الحافظة" Click="ReadClipboardButton_Click"
+                                    MinWidth="105" ToolTip="اقرأ النص من الحافظة بطلب صريح، وراجعه محليًا قبل إرفاقه."
+                                    AutomationProperties.Name="قراءة نص الحافظة لمراجعته"
+                                    AutomationProperties.HelpText="قراءة نص الحافظة لا تغيّر محتواها ولا ترسله. الإرسال لا يحدث إلا بعد الضغط على إرسال."/>
                             <Button x:Name="ChooseDocumentButton" Content="إرفاق ملف نصي/PDF/Office" Click="ChooseDocumentButton_Click"
                                     MinWidth="160" ToolTip="يُستخرج النص محليًا وتراجعه قبل الإرفاق؛ لا يُرسل إلا عند الضغط على إرسال."
                                     AutomationProperties.Name="اختيار ملف لمراجعته وإرفاقه"

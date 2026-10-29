@@ -453,6 +453,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(chatInput)),
             "Chat input must expose an accessible name.");
+        var clipboardButton = window.FindName("ReadClipboardButton") as Button
+            ?? throw new InvalidOperationException("ReadClipboardButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(clipboardButton)),
+            "Clipboard text review must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(clipboardButton)),
+            "Clipboard text review must disclose its privacy behaviour.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
