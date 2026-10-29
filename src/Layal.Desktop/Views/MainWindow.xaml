@@ -338,6 +338,10 @@
                             <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
                             <Button x:Name="CancelAgentTaskButton" Content="إيقاف المهمة" Click="CancelAgentTaskButton_Click" IsEnabled="False" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
                             <Button x:Name="TaskOpenNotepadButton" Content="فتح المفكرة (اختبار)" Click="OpenNotepadButton_Click"/>
+                            <Button x:Name="ManageRemindersButton" Content="التذكيرات" Click="ManageRemindersButton_Click"
+                                    MinWidth="105" ToolTip="إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
+                                    AutomationProperties.Name="إدارة التذكيرات المحلية"
+                                    AutomationProperties.HelpText="أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."/>
                         </WrapPanel>
                         <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,6,4,0"/>
                         <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
