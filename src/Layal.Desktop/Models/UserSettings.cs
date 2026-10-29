@@ -16,6 +16,8 @@ public sealed class UserSettings
     public bool VoiceRepliesEnabled { get; set; } = true;
     public string VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini";
     public string VoiceReplyId { get; set; } = "marin";
+    /// <summary>Conversational response style only; never changes safety rules, tool permissions, or confirmation requirements.</summary>
+    public string AssistantPersona { get; set; } = "warm";
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
     public bool MascotUseGlbPreview { get; set; } = false;
@@ -46,6 +48,7 @@ public sealed class UserSettings
         VoiceRepliesEnabled = VoiceRepliesEnabled,
         VoiceReplyModelId = VoiceReplyModelId,
         VoiceReplyId = VoiceReplyId,
+        AssistantPersona = AssistantPersona,
         MascotAlwaysOnTop = MascotAlwaysOnTop,
         MascotAnimationsEnabled = MascotAnimationsEnabled,
         MascotUseGlbPreview = MascotUseGlbPreview,
@@ -75,6 +78,7 @@ public sealed class UserSettings
         VoiceRepliesEnabled = source.VoiceRepliesEnabled;
         VoiceReplyModelId = source.VoiceReplyModelId;
         VoiceReplyId = source.VoiceReplyId;
+        AssistantPersona = source.AssistantPersona;
         MascotAlwaysOnTop = source.MascotAlwaysOnTop;
         MascotAnimationsEnabled = source.MascotAnimationsEnabled;
         MascotUseGlbPreview = source.MascotUseGlbPreview;
