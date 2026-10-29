@@ -291,7 +291,7 @@ public sealed class AgentToolExecutor
         var backupPath = Path.Combine(backupRoot, backupName);
         // Preserve the original bytes, including BOM and the source file's encoding.
         File.Copy(path, backupPath, overwrite: false);
-        PruneBackups(backupRoot);
+        PruneBackups(backupRoot, backupPath);
         var temp = path + ".layal-tmp-" + Guid.NewGuid().ToString("N");
         try
         {
@@ -355,13 +355,16 @@ public sealed class AgentToolExecutor
         return count;
     }
 
-    private static void PruneBackups(string backupRoot)
+    private static void PruneBackups(string backupRoot, string protectedBackupPath)
     {
         try
         {
-            foreach (var old in Directory.EnumerateFiles(backupRoot, "*.bak")
-                         .OrderByDescending(x => Path.GetFileName(x), StringComparer.Ordinal)
-                         .Skip(MaxBackupFiles))
+            var protectedPath = Path.GetFullPath(protectedBackupPath);
+            var olderBackups = Directory.EnumerateFiles(backupRoot, "*.bak")
+                .Where(path => !string.Equals(Path.GetFullPath(path), protectedPath, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(path => Path.GetFileName(path), StringComparer.Ordinal)
+                .Skip(Math.Max(0, MaxBackupFiles - 1));
+            foreach (var old in olderBackups)
                 File.Delete(old);
         }
         catch { /* Retention is best-effort and must never fail an approved edit. */ }
