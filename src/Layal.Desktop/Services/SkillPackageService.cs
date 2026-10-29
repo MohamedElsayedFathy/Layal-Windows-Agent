@@ -19,6 +19,7 @@ public sealed class SkillPackageService
     {
         _root = Path.GetFullPath(root);
         Directory.CreateDirectory(_root);
+        EnsureNotReparsePoint(_root);
         _indexPath = Path.Combine(_root, "skills-index.json");
     }
 
@@ -41,6 +42,7 @@ public sealed class SkillPackageService
     {
         if (Directory.Exists(_indexPath))
             throw new IOException("The skills index path is a directory; refusing to modify the skill catalog.");
+        EnsureNotReparsePoint(_indexPath);
 
         string json;
         try
@@ -146,10 +148,16 @@ public sealed class SkillPackageService
 
         var folder = Path.Combine(_root, name);
         Directory.CreateDirectory(folder);
+        EnsureNotReparsePoint(folder);
+
         var target = Path.Combine(folder, name + ".zip");
-        var temp = target + ".tmp";
-        File.Copy(zipPath, temp, true);
-        File.Move(temp, target, overwrite: true);
+        if (Directory.Exists(target))
+            throw new IOException("The skill package target is a directory; refusing to replace it.");
+        EnsureNotReparsePoint(target);
+
+        var temp = target + ".tmp-" + Guid.NewGuid().ToString("N");
+        var previous = target + ".previous-" + Guid.NewGuid().ToString("N");
+        var hadPreviousPackage = File.Exists(target);
 
         var record = new SkillRecord
         {
@@ -163,7 +171,58 @@ public sealed class SkillPackageService
         };
         records.RemoveAll(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         records.Add(record);
-        SaveIndex(records);
+
+        try
+        {
+            // Stage the package with a unique name. When replacing an existing package,
+            // retain the previous ZIP until the matching index update has succeeded.
+            File.Copy(zipPath, temp, overwrite: false);
+            if (File.Exists(target) != hadPreviousPackage)
+                throw new IOException("The skill package changed during import; no package was replaced.");
+            if (hadPreviousPackage)
+                File.Move(target, previous, overwrite: false);
+
+            File.Move(temp, target, overwrite: false);
+            SaveIndex(records);
+        }
+        catch (Exception importError)
+        {
+            try
+            {
+                if (File.Exists(previous))
+                {
+                    if (File.Exists(target)) File.Delete(target);
+                    File.Move(previous, target, overwrite: false);
+                }
+                else if (!hadPreviousPackage && File.Exists(target))
+                {
+                    File.Delete(target);
+                }
+            }
+            catch (Exception rollbackError)
+            {
+                throw new IOException(
+                    $"Skill import failed and automatic rollback was incomplete. Inspect the retained package backup '{previous}' before retrying.",
+                    new AggregateException(importError, rollbackError));
+            }
+
+            throw;
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        // A stale backup must not turn a successful import into a reported failure.
+        if (hadPreviousPackage)
+        {
+            try { if (File.Exists(previous)) File.Delete(previous); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
         return record;
     }
 
@@ -433,6 +492,13 @@ public sealed class SkillPackageService
     private static string Unquote(string value) => value.Length >= 2 &&
         ((value[0] == '"' && value[^1] == '"') || (value[0] == '\'' && value[^1] == '\''))
         ? value[1..^1] : value;
+
+    private static void EnsureNotReparsePoint(string path)
+    {
+        if (!File.Exists(path) && !Directory.Exists(path)) return;
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            throw new IOException("The skill catalog contains a symbolic link or reparse point; refusing to follow it.");
+    }
 
     private void SaveIndex(List<SkillRecord> records)
     {
