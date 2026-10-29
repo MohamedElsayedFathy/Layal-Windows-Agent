@@ -158,6 +158,8 @@ public sealed class SkillPackageService
         var temp = target + ".tmp-" + Guid.NewGuid().ToString("N");
         var previous = target + ".previous-" + Guid.NewGuid().ToString("N");
         var hadPreviousPackage = File.Exists(target);
+        var previousPackageMoved = false;
+        var newPackageInstalled = false;
 
         var record = new SkillRecord
         {
@@ -180,21 +182,25 @@ public sealed class SkillPackageService
             if (File.Exists(target) != hadPreviousPackage)
                 throw new IOException("The skill package changed during import; no package was replaced.");
             if (hadPreviousPackage)
+            {
                 File.Move(target, previous, overwrite: false);
+                previousPackageMoved = true;
+            }
 
             File.Move(temp, target, overwrite: false);
+            newPackageInstalled = true;
             SaveIndex(records);
         }
         catch (Exception importError)
         {
             try
             {
-                if (File.Exists(previous))
+                if (previousPackageMoved && File.Exists(previous))
                 {
-                    if (File.Exists(target)) File.Delete(target);
+                    if (newPackageInstalled && File.Exists(target)) File.Delete(target);
                     File.Move(previous, target, overwrite: false);
                 }
-                else if (!hadPreviousPackage && File.Exists(target))
+                else if (!hadPreviousPackage && newPackageInstalled && File.Exists(target))
                 {
                     File.Delete(target);
                 }
