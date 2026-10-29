@@ -140,6 +140,29 @@ public sealed class SkillPackageServiceTests
         Assert.AreEqual(1, service.GetInstalled().Count);
     }
 
+
+    [TestMethod]
+    public void NullSkillNameInIndexIsRejectedWithoutReplacingInstalledPackage()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var originalZip = CreateSkillZip(temp.Path, "sample-skill", "Original package.", "original body");
+        var service = new SkillPackageService(root);
+        var original = service.ImportZip(originalZip, overwrite: false);
+        var originalPackageBytes = File.ReadAllBytes(original.PackagePath);
+
+        var indexPath = System.IO.Path.Combine(root, "skills-index.json");
+        File.WriteAllText(indexPath, "[{\"Name\":null,\"Description\":\"invalid\",\"PackagePath\":\"\"}]");
+        var replacementZip = CreateSkillZip(temp.Path, "sample-skill", "Replacement package.", "replacement body");
+
+        Assert.ThrowsExactly<System.Text.Json.JsonException>(
+            () => service.ImportZip(replacementZip, overwrite: true));
+
+        CollectionAssert.AreEqual(originalPackageBytes, File.ReadAllBytes(original.PackagePath),
+            "A null skill name must be rejected before changing an installed package.");
+        StringAssert.Contains(File.ReadAllText(indexPath), "\"Name\":null");
+    }
+
     [TestMethod]
     public void CorruptSkillsIndexIsPreservedAndImportFailsClosed()
     {

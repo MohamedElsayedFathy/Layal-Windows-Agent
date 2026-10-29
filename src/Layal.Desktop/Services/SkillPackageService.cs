@@ -62,17 +62,21 @@ public sealed class SkillPackageService
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var record in records)
         {
-            if (record is null || !NamePattern.IsMatch(record.Name ?? string.Empty))
+            if (record is null)
                 throw new JsonException("The skills index contains a missing or invalid skill name.");
 
-            if (!names.Add(record.Name))
+            var skillName = record.Name;
+            if (string.IsNullOrWhiteSpace(skillName) || !NamePattern.IsMatch(skillName))
+                throw new JsonException("The skills index contains a missing or invalid skill name.");
+
+            if (!names.Add(skillName))
                 throw new JsonException("The skills index contains duplicate skill names.");
 
             string expectedPackagePath;
             string actualPackagePath;
             try
             {
-                expectedPackagePath = Path.GetFullPath(Path.Combine(_root, record.Name, record.Name + ".zip"));
+                expectedPackagePath = Path.GetFullPath(Path.Combine(_root, skillName, skillName + ".zip"));
                 actualPackagePath = Path.GetFullPath(record.PackagePath ?? string.Empty);
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
