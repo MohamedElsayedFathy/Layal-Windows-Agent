@@ -398,7 +398,6 @@ public sealed class GmailReadOnlyService
             (HttpStatusCode)429 => "Google rate-limited this request. Try again shortly.",
             _ => "Google returned HTTP " + (int)response.StatusCode + "."
         };
-        await response.Content.DisposeAsync();
         return new InvalidOperationException(operation + ". " + detail);
     }
 
