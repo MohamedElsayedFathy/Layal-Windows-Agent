@@ -4088,18 +4088,20 @@ public partial class MainWindow : Window
         {
             Title = IsArabic ? "اختيار ملف لمراجعته قبل الإرفاق" : "Choose a document to review before attaching",
             Filter = IsArabic
-                ? "ملفات مدعومة (*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx)|*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx|كل الملفات (*.*)|*.*"
-                : "Supported files (*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx)|*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx|All files (*.*)|*.*",
+                ? "ملفات مدعومة (*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff)|*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|كل الملفات (*.*)|*.*"
+                : "Supported files (*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff)|*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|All files (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false
         };
         if (dialog.ShowDialog(this) != true) return;
 
         ChooseDocumentButton.IsEnabled = false;
-        SetChatActivityStatus(IsArabic ? "جارٍ استخراج النص محليًا؛ لن يُرسل الملف." : "Extracting text locally; the file will not be sent.");
+        SetChatActivityStatus(IsArabic
+            ? "جارٍ استخراج النص محليًا. قد يستخدم Windows OCR للصور وPDF الممسوح؛ لن يُرسل شيء."
+            : "Extracting text locally. Windows OCR may be used for images and scanned PDFs; nothing will be sent.");
         try
         {
-            var extraction = await Task.Run(() => _documentTextExtractionService.ExtractFile(dialog.FileName));
+            var extraction = await _documentTextExtractionService.ExtractFileAsync(dialog.FileName);
             var preview = new DocumentTextPreviewWindow(extraction, IsArabic) { Owner = this };
             if (preview.ShowDialog() != true)
             {
