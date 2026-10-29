@@ -1,4 +1,9 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Reflection;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -44,6 +49,57 @@ public sealed class BrowserAutomationShutdownTests
         await browser.ShutdownAsync(); // repeated shutdown is safe and idempotent
         Assert.IsFalse(Directory.Exists(Path.Combine(temp.Path, "app-data", "BrowserProfile")),
             "The shutdown test must not create or launch a real browser profile.");
+    }
+
+    [TestMethod]
+    public async Task ShutdownSendsBrowserCloseForAnAlreadyAttachedDedicatedSession()
+    {
+        using var reservation = new TcpListener(IPAddress.Loopback, 0);
+        reservation.Start();
+        var port = ((IPEndPoint)reservation.LocalEndpoint).Port;
+        reservation.Stop();
+
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+        listener.Start();
+        using var serverTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var serverTask = Task.Run(async () =>
+        {
+            var versionContext = await listener.GetContextAsync().WaitAsync(serverTimeout.Token);
+            Assert.AreEqual("/json/version", versionContext.Request.Url?.AbsolutePath);
+            var versionJson = JsonSerializer.Serialize(new
+            {
+                webSocketDebuggerUrl = $"ws://127.0.0.1:{port}/devtools/browser/test"
+            });
+            var versionBytes = Encoding.UTF8.GetBytes(versionJson);
+            versionContext.Response.ContentType = "application/json";
+            versionContext.Response.ContentLength64 = versionBytes.Length;
+            await versionContext.Response.OutputStream.WriteAsync(versionBytes, serverTimeout.Token);
+            versionContext.Response.Close();
+
+            var websocketContext = await listener.GetContextAsync().WaitAsync(serverTimeout.Token);
+            Assert.IsTrue(websocketContext.Request.IsWebSocketRequest);
+            using var websocket = (await websocketContext.AcceptWebSocketAsync(null)).WebSocket;
+            var buffer = new byte[4096];
+            var received = await websocket.ReceiveAsync(buffer.AsMemory(), serverTimeout.Token);
+            Assert.AreEqual(WebSocketMessageType.Text, received.MessageType);
+            return Encoding.UTF8.GetString(buffer, 0, received.Count);
+        });
+
+        using var temp = new TestTempDirectory();
+        var browser = new BrowserAutomationService(Path.Combine(temp.Path, "app-data"));
+        var portField = typeof(BrowserAutomationService).GetField("_debugPort", BindingFlags.Instance | BindingFlags.NonPublic);
+        var attachedField = typeof(BrowserAutomationService).GetField("_attachedToExistingSession", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(portField);
+        Assert.IsNotNull(attachedField);
+        portField!.SetValue(browser, port);
+        attachedField!.SetValue(browser, true);
+
+        await browser.ShutdownAsync();
+        var command = await serverTask.WaitAsync(TimeSpan.FromSeconds(5));
+        using var commandDocument = JsonDocument.Parse(command);
+        Assert.AreEqual("Browser.close", commandDocument.RootElement.GetProperty("method").GetString());
     }
 
     [TestMethod]
