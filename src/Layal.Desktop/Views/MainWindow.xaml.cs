@@ -1166,6 +1166,14 @@ public partial class MainWindow : Window
             : "The default mode provides local chat, speech recognition, and speech synthesis after you consent to downloading resources. Advanced agent tasks, image analysis, and some integrations still need an optional cloud provider. Local microphone audio is not uploaded to a speech service.";
         WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة وتنفيذ فعل واحد بموافقة" : "Allow window/UI inspection and one approved control action";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
+        LoreWebButton.Content = ar ? "خريطة الذاكرة 3D" : "3D memory web";
+        LoreWebButton.ToolTip = ar
+            ? "عرض الملاحظات وروابطها التقريبية محليًا؛ لا تُرسل إلى AI."
+            : "View notes and approximate links locally; nothing is sent to AI.";
+        AutomationProperties.SetName(LoreWebButton, ar ? "فتح خريطة الذاكرة ثلاثية الأبعاد" : "Open 3D memory web");
+        AutomationProperties.SetHelpText(LoreWebButton, ar
+            ? "خريطة محلية تفاعلية؛ الروابط مبنية على كلمات عنوان مشتركة والترتيب الزمني فقط، وليست استنتاجات مضمونة."
+            : "Interactive local map; connections use shared title terms and chronology only, not guaranteed semantic inferences.");
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
         MemoryEmptyStateText.Text = ar
             ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء."
@@ -5172,6 +5180,39 @@ public partial class MainWindow : Window
     }
 
     private void MemorySearchButton_Click(object sender, RoutedEventArgs e) => RefreshMemoryNotes(MemorySearchInput.Text);
+
+    private void LoreWebButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var notes = AppRuntime.MemoryService.GetAll();
+            var window = new LoreWebWindow(notes, IsArabic, selectedNote =>
+            {
+                MainTabs.SelectedItem = MemoryTab;
+                MemorySearchInput.Clear();
+                RefreshMemoryNotes();
+                MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(note =>
+                    string.Equals(note.Id, selectedNote.Id, StringComparison.Ordinal));
+                _selectedMemoryId = selectedNote.Id;
+                MemoryTitleInput.Text = selectedNote.Title;
+                MemoryContentInput.Text = selectedNote.Content;
+                SetAccessibleStatusText(MemoryResult,
+                    IsArabic
+                        ? "تم فتح الملاحظة من خريطة الذاكرة المحلية."
+                        : "Note opened from the local memory web.");
+                MemoryTitleInput.Focus();
+            })
+            {
+                Owner = this
+            };
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            SetAccessibleStatusText(MemoryResult, UiLocalization.FormatTechnicalError(
+                "تعذر فتح خريطة الذاكرة", "Could not open the memory web", ex, IsArabic));
+        }
+    }
 
     private void NewMemoryButton_Click(object sender, RoutedEventArgs e)
     {
