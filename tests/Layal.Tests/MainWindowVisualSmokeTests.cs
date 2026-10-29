@@ -477,6 +477,13 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(routinesButton)),
             "The routine manager must disclose that choosing a routine does not run it.");
+        var themePresetSelector = window.FindName("ThemePresetSelector") as ComboBox
+            ?? throw new InvalidOperationException("ThemePresetSelector was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(themePresetSelector)),
+            "Theme preset selector must expose an accessible name.");
+        Assert.AreEqual(4, themePresetSelector.Items.Count,
+            "The app should offer four named presets (Classic, Ocean, Forest, Sunset).");
         var privacyShieldButton = window.FindName("PrivacyShieldButton") as Button
             ?? throw new InvalidOperationException("PrivacyShieldButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
