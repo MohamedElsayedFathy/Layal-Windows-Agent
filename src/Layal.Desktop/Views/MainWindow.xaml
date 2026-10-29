@@ -358,6 +358,10 @@
                                     MinWidth="105" ToolTip="احفظ أهدافًا نصية متكررة. اختيار الروتين يملأ المسودة فقط ولا يشغله تلقائيًا."
                                     AutomationProperties.Name="إدارة الروتينات المحفوظة"
                                     AutomationProperties.HelpText="قوالب نصية مشفرة محليًا وليست سكربتات؛ راجع الهدف واضغط تنفيذ المهمة بنفسك."/>
+                            <Button x:Name="WorkspaceHubButton" Content="مساحة العمل" Click="WorkspaceHubButton_Click"
+                                    MinWidth="115" ToolTip="بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
+                                    AutomationProperties.Name="فتح مساحة عمل ليال الموحدة"
+                                    AutomationProperties.HelpText="يعرض المهام والملاحظات وبيانات الملفات محليًا. لا يقرأ محتوى الملفات تلقائيًا؛ التصدير غير مشفر بعد تأكيدك."/>
                         </WrapPanel>
                         <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,6,4,0"/>
                         <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
