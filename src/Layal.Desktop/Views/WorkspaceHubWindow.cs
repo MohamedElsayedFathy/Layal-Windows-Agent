@@ -235,7 +235,7 @@ public sealed class WorkspaceHubWindow : Window
                         "{0:N0} bytes · {1:g}", info.Length, info.LastWriteTime);
                     output.Add(new WorkspaceEntry("file", fullPath, Path.GetFileName(path), detail,
                         new DateTimeOffset(info.LastWriteTime), relative + "\n" + detail,
-                        (string)_isArabic ? "ملف" : "File", null, null, fullPath));
+                        string.Empty, null, null, fullPath));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
                 {
