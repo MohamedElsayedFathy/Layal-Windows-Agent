@@ -18,7 +18,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
-using Windows.Data.Pdf;
+using WinPdfDocument = Windows.Data.Pdf.PdfDocument;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
 using Windows.Storage;
@@ -239,7 +239,7 @@ public sealed class DocumentTextExtractionService
         cancellationToken.ThrowIfCancellationRequested();
         var engine = CreateLocalOcrEngine();
         var file = await StorageFile.GetFileFromPathAsync(path);
-        using var document = await PdfDocument.LoadFromFileAsync(file);
+        using var document = await WinPdfDocument.LoadFromFileAsync(file);
         var pageCount = checked((int)document.PageCount);
         if (pageCount <= 0)
             throw new InvalidDataException("The PDF has no readable pages.");
@@ -265,7 +265,7 @@ public sealed class DocumentTextExtractionService
                 throw new InvalidDataException("A PDF page exceeds the safe OCR pixel limit.");
 
             using var stream = new InMemoryRandomAccessStream();
-            var renderOptions = new PdfPageRenderOptions
+            var renderOptions = new Windows.Data.Pdf.PdfPageRenderOptions
             {
                 DestinationWidth = destinationWidth,
                 DestinationHeight = destinationHeight
