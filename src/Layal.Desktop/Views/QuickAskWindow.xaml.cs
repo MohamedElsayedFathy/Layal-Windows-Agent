@@ -12,14 +12,16 @@ public partial class QuickAskWindow : Window
     private readonly bool _isArabic;
     private readonly Func<string, Task<string>> _askAsync;
     private readonly Action _cancelRequest;
+    private readonly string _shortcutDisplay;
     private bool _isSubmitting;
     private bool _isDisposed;
 
-    public QuickAskWindow(bool isArabic, Func<string, Task<string>> askAsync, Action cancelRequest)
+    public QuickAskWindow(bool isArabic, Func<string, Task<string>> askAsync, Action cancelRequest, string shortcutDisplay = "Alt+Shift+S")
     {
         _isArabic = isArabic;
         _askAsync = askAsync ?? throw new ArgumentNullException(nameof(askAsync));
         _cancelRequest = cancelRequest ?? throw new ArgumentNullException(nameof(cancelRequest));
+        _shortcutDisplay = shortcutDisplay;
         InitializeComponent();
         ApplyLanguage();
     }
@@ -45,8 +47,8 @@ public partial class QuickAskWindow : Window
         QuestionInput.TextAlignment = _isArabic ? TextAlignment.Right : TextAlignment.Left;
         AutomationProperties.SetName(QuestionInput, _isArabic ? "سؤالك" : "Your question");
         AutomationProperties.SetHelpText(QuestionInput,
-            _isArabic ? "Ctrl+Enter للإرسال، وShift+Enter لسطر جديد، وEsc للإغلاق أو إيقاف الطلب."
-                : "Ctrl+Enter submits, Shift+Enter inserts a new line, and Esc closes or stops the request.");
+            _isArabic ? $"الاختصار العالمي: {_shortcutDisplay}. Ctrl+Enter للإرسال، وShift+Enter لسطر جديد، وEsc للإغلاق أو إيقاف الطلب."
+                : $"Global shortcut: {_shortcutDisplay}. Ctrl+Enter submits, Shift+Enter inserts a new line, and Esc closes or stops the request.");
         CloseButton.Content = _isArabic ? "إغلاق" : "Close";
         CancelButton.Content = _isArabic ? "إغلاق" : "Close";
         SubmitButton.Content = _isArabic ? "اسأل" : "Ask";
