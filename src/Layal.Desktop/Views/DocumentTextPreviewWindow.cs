@@ -125,8 +125,6 @@ public sealed class DocumentTextPreviewWindow : Window
         root.Children.Add(footer);
 
         Content = root;
-        CancelButton = cancel;
-        AcceptButton = attach;
     }
 
     private static string BuildDetails(DocumentTextExtractionResult extraction, bool isArabic)
