@@ -196,6 +196,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_chatCancellation is not null || _voiceConversationCancellation is not null ||
+            _speechCancellation is not null || _voiceTestCancellation is not null ||
+            _localAiSetupCancellation is not null || _localVoiceRecordingActive ||
+            _speechToText.IsRecording || _speechIsStopping ||
+            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أوقف الرد أو التسجيل النشط وأغلق نافذة السؤال السريع أو الكاميرا قبل إنهاء المحادثة الخاصة."
+                : "Stop active chat/audio work and close Quick Ask or the camera before exiting private chat.");
+            return;
+        }
+
         var exit = MessageBox.Show(this,
             IsArabic
                 ? "سيتم التخلص من رسائل المحادثة الخاصة غير المحفوظة واستعادة آخر محادثة محفوظة. لن يتم حذف المحادثات المحفوظة أو الذاكرة. هل تريد المتابعة؟"
