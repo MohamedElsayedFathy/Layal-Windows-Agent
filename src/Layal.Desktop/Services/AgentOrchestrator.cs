@@ -31,7 +31,8 @@ public sealed class AgentOrchestrator
         Func<string, string, CancellationToken, Task<bool>> confirm,
         Action<string> onEvent,
         CancellationToken cancellationToken,
-        string interfaceLanguage = "ar")
+        string interfaceLanguage = "ar",
+        string assistantPersona = "warm")
     {
         var task = new AgentTaskRecord { Goal = goal.Trim(), Status = "Running" };
         var lastPersist = DateTimeOffset.MinValue;
@@ -53,7 +54,7 @@ public sealed class AgentOrchestrator
 
         _history.Upsert(task);
         Log("Task accepted; building a bounded execution plan through the configured model.");
-        var systemPrompt = LayalIdentity.ForInterfaceLanguage(interfaceLanguage);
+        var systemPrompt = LayalIdentity.ForInterfaceLanguage(interfaceLanguage, assistantPersona);
         var messages = new JsonArray
         {
             new JsonObject { ["role"] = "system", ["content"] = systemPrompt },
