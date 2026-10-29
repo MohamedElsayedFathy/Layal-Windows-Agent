@@ -20,12 +20,12 @@ public sealed class ScreenRegionCaptureServiceTests
             graphics.FillRectangle(Brushes.Blue, new Rectangle(20, 10, 30, 25));
         }
 
-        var png = ScreenRegionCaptureService.EncodeCropPng(source, new Rectangle(24, 14, 12, 10));
+        var png = ScreenRegionCaptureService.EncodeCropPng(source, new Rectangle(24, 14, 18, 18));
         using var stream = new MemoryStream(png, writable: false);
         using var crop = new Bitmap(stream);
 
-        Assert.AreEqual(12, crop.Width);
-        Assert.AreEqual(10, crop.Height);
+        Assert.AreEqual(18, crop.Width);
+        Assert.AreEqual(18, crop.Height);
         Assert.AreEqual(Color.Blue.ToArgb(), crop.GetPixel(0, 0).ToArgb());
         Assert.IsTrue(png.Length > 0 && png.Length <= ScreenRegionCaptureService.MaximumImageBytes);
     }
