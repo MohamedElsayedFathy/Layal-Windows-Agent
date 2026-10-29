@@ -1086,6 +1086,14 @@ public partial class MainWindow : Window
             ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."
             : "Create one-time, daily, or weekly reminders. They are stored locally encrypted and are not sent to an AI provider.");
         ManageRoutinesButton.Content = ar ? "الروتينات" : "Routines";
+        WorkspaceHubButton.Content = ar ? "مساحة العمل" : "Workspace hub";
+        WorkspaceHubButton.ToolTip = ar
+            ? "بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
+            : "Unified local search across tasks, memories, and LayalWorkspace files.";
+        AutomationProperties.SetName(WorkspaceHubButton, ar ? "فتح مساحة عمل ليال الموحدة" : "Open Layal workspace hub");
+        AutomationProperties.SetHelpText(WorkspaceHubButton, ar
+            ? "يعرض المهام والملاحظات وبيانات الملفات محليًا. لا يقرأ محتوى الملفات تلقائيًا؛ التصدير غير مشفر بعد تأكيدك."
+            : "Shows tasks, memories, and file metadata locally. File contents are not read automatically; export is unencrypted and requires confirmation.");
         ManageRoutinesButton.ToolTip = ar
             ? "احفظ أهدافًا نصية متكررة؛ الاختيار يملأ مسودة المهمة فقط."
             : "Save recurring text goals; choosing one only fills the task draft.";
@@ -5092,6 +5100,54 @@ public partial class MainWindow : Window
             Owner = this
         };
         window.ShowDialog();
+    }
+
+    private void WorkspaceHubButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var window = new WorkspaceHubWindow(
+                AppRuntime.TaskHistoryService,
+                AppRuntime.MemoryService,
+                AppRuntime.WorkspaceRoot,
+                IsArabic,
+                taskId =>
+                {
+                    MainTabs.SelectedItem = TasksTab;
+                    RefreshRecentTasks(taskId);
+                    SetAccessibleStatusText(TaskResult, IsArabic
+                        ? "تم فتح سجل المهمة المحددة من مساحة العمل."
+                        : "Opened the selected task record from the workspace hub.");
+                },
+                memoryId =>
+                {
+                    MainTabs.SelectedItem = MemoryTab;
+                    MemorySearchInput.Clear();
+                    RefreshMemoryNotes();
+                    var note = MemoryNotes.FirstOrDefault(item =>
+                        string.Equals(item.Id, memoryId, StringComparison.Ordinal));
+                    if (note is not null)
+                    {
+                        MemoryList.SelectedItem = note;
+                        _selectedMemoryId = note.Id;
+                        MemoryTitleInput.Text = note.Title;
+                        MemoryContentInput.Text = note.Content;
+                        SetAccessibleStatusText(MemoryResult, IsArabic
+                            ? "تم فتح الملاحظة من مساحة العمل."
+                            : "Opened the memory note from the workspace hub.");
+                        MemoryTitleInput.Focus();
+                    }
+                })
+            {
+                Owner = this
+            };
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError(
+                "تعذر فتح مساحة العمل", "Could not open the workspace hub", ex, IsArabic));
+        }
     }
 
     private void ManageRoutinesButton_Click(object sender, RoutedEventArgs e)
