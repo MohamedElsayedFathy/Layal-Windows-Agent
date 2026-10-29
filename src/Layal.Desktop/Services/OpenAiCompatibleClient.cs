@@ -391,8 +391,8 @@ public sealed class OpenAiCompatibleClient
 
     /// <summary>
     /// Reads at most maxBytes from an HTTP response body. Oversized successful payloads fail closed;
-    /// error payloads may return a bounded prefix for diagnostics. Unknown-length bodies that reach
-    /// the cap are treated as truncated rather than waiting indefinitely for another byte.
+    /// error payloads may return a bounded prefix for diagnostics. Bodies at the cap use a short
+    /// one-byte end probe; a stalled/unknown-length response is conservatively treated as truncated.
     /// </summary>
     private static async Task<(byte[] Bytes, bool Truncated)> ReadLimitedResponseBytesAsync(
         HttpContent content,
@@ -421,9 +421,21 @@ public sealed class OpenAiCompatibleClient
                 output.Write(buffer, 0, read);
             }
 
-            if (output.Length == maxBytes &&
-                (!declaredLength.HasValue || declaredLength.Value != maxBytes))
-                truncated = true;
+            if (output.Length == maxBytes && !truncated)
+            {
+                // Distinguish an exactly-at-limit response from an oversized unknown-length body,
+                // without allowing a provider that leaves the connection open to stall this request.
+                using var probeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                probeTimeout.CancelAfter(TimeSpan.FromMilliseconds(250));
+                try
+                {
+                    truncated = await input.ReadAsync(buffer.AsMemory(0, 1), probeTimeout.Token) > 0;
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    truncated = true;
+                }
+            }
 
             if (rejectOversized && truncated)
                 throw new InvalidOperationException($"The provider response exceeds the {maxBytes / 1024} KB safety limit.");

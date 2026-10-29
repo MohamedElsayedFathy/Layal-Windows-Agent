@@ -333,6 +333,29 @@ data: [DONE]
     }
 
     [TestMethod]
+    public async Task ChatAcceptsUnknownLengthJsonResponseThatEndsExactlyAtLimit()
+    {
+        const int limit = 4 * 1024 * 1024;
+        const string prefix = "{\"choices\":[{\"message\":{\"content\":\"";
+        const string suffix = "\"}}]}";
+        var payload = prefix + new string('x', limit - Encoding.UTF8.GetByteCount(prefix) - Encoding.UTF8.GetByteCount(suffix)) + suffix;
+        var bytes = Encoding.UTF8.GetBytes(payload);
+        Assert.AreEqual(limit, bytes.Length, "Test payload must exactly match the response limit.");
+
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new NonSeekableReadStream(bytes))
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var response = await client.ChatAsync("https://provider.example/v1", "model", "key",
+            new[] { new ChatMessage { Role = "user", Content = "hello" } });
+
+        Assert.AreEqual(limit - prefix.Length - suffix.Length, response.Length);
+        Assert.IsTrue(response.StartsWith(new string('x', 100), StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task AgentTurnRejectsOversizedJsonResponse()
     {
         var content = new StringContent(
