@@ -119,6 +119,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("en", reloaded.Language);
         Assert.AreEqual("dark", reloaded.ThemeMode);
         Assert.AreEqual("ocean", reloaded.ThemePreset);
+        Assert.AreEqual("AltShiftQ", reloaded.QuickAskHotkeyPreset);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
         Assert.AreEqual("focused", reloaded.AssistantPersona);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
@@ -226,6 +227,7 @@ public sealed class SettingsStoreTests
         var settings = new SettingsStore(temp.Path).Load();
         Assert.AreEqual("dark", settings.ThemeMode);
         Assert.AreEqual("classic", settings.ThemePreset);
+        Assert.AreEqual("AltShiftS", settings.QuickAskHotkeyPreset);
         Assert.AreEqual("warm", settings.AssistantPersona);
     }
 
