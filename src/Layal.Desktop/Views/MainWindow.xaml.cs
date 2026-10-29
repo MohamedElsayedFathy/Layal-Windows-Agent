@@ -144,6 +144,8 @@ public partial class MainWindow : Window
         MascotSizeSlider.Value = AppRuntime.Settings.MascotScale;
         MascotOpacitySlider.Value = AppRuntime.Settings.MascotOpacity;
         WindowInspectionCheckbox.IsChecked = AppRuntime.Settings.AllowWindowTitleInspection;
+        ThemePresetSelector.SelectedItem = ThemePresetSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
+            string.Equals(item.Tag?.ToString(), AppRuntime.Settings.ThemePreset, StringComparison.Ordinal));
         ProactiveCheckInEnabledCheckBox.IsChecked = AppRuntime.Settings.ProactiveCheckInEnabled;
         ProactiveCheckInIntervalSelector.SelectedItem =
             ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
@@ -542,7 +544,7 @@ public partial class MainWindow : Window
         // DynamicResource consumers then receive the replacement even if a control was
         // constructed before the user switched themes.
         var highContrast = SystemParameters.HighContrast;
-        var palette = UiThemePalette.Create(IsDarkTheme, highContrast);
+        var palette = UiThemePalette.Create(IsDarkTheme, highContrast, AppRuntime.Settings.ThemePreset);
 
         var colors = new Dictionary<string, Color>(StringComparer.Ordinal);
         foreach (var (key, value) in palette)
@@ -1168,6 +1170,20 @@ public partial class MainWindow : Window
         SaveProviderButton.Content = ar ? "حفظ الإعدادات" : "Save settings";
         TestProviderButton.Content = ar ? "اختبار الاتصال" : "Test connection";
         DeleteKeyButton.Content = ar ? "حذف المفتاح المحفوظ" : "Delete saved key";
+        ThemePresetLabel.Text = ar ? "مجموعة ألوان الواجهة" : "Interface color preset";
+        ThemePresetPrivacyNote.Text = ar
+            ? "مجموعة الألوان إعداد محلي. تظل إعدادات التباين العالي في Windows هي الأولوية."
+            : "The color preset is local. Windows High Contrast always takes priority.";
+        var themeItems = ThemePresetSelector.Items.OfType<ComboBoxItem>().ToArray();
+        var themeLabels = ar
+            ? new[] { "Classic — الكلاسيكي", "Ocean — المحيط", "Forest — الغابة", "Sunset — الغروب" }
+            : new[] { "Classic", "Ocean", "Forest", "Sunset" };
+        for (var i = 0; i < Math.Min(themeItems.Length, themeLabels.Length); i++)
+            themeItems[i].Content = themeLabels[i];
+        AutomationProperties.SetName(ThemePresetSelector, ar ? "مجموعة ألوان الواجهة" : "Interface color preset");
+        AutomationProperties.SetHelpText(ThemePresetSelector, ar
+            ? "اختر Classic أو Ocean أو Forest أو Sunset. الفاتح/الداكن مستقل، والتباين العالي في Windows له الأولوية."
+            : "Choose Classic, Ocean, Forest, or Sunset. Light/dark is independent; Windows High Contrast takes priority.");
         MascotSettingsTitle.Text = ar ? "إعدادات الشخصية العائمة" : "Floating mascot settings";
         AlwaysOnTopCheckbox.Content = ar ? "إبقاء الشخصية فوق النوافذ الأخرى" : "Keep mascot above other windows";
         AnimationsCheckbox.Content = ar ? "تفعيل حركة الشخصية والرمش" : "Enable mascot movement and blinking";
@@ -1584,6 +1600,38 @@ public partial class MainWindow : Window
         ChatHistorySelector.Items.Refresh();
         ApplyLanguage();
         AppRuntime.Tray?.SetLanguage(language);
+    }
+
+    private void ThemePresetSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || ThemePresetSelector.SelectedItem is not ComboBoxItem item)
+            return;
+
+        var preset = item.Tag?.ToString() ?? "classic";
+        if (preset is not ("classic" or "ocean" or "forest" or "sunset"))
+            preset = "classic";
+        if (string.Equals(AppRuntime.Settings.ThemePreset, preset, StringComparison.Ordinal))
+            return;
+
+        var previous = AppRuntime.Settings.ThemePreset;
+        AppRuntime.Settings.ThemePreset = preset;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            ApplyTheme();
+            SetChatActivityStatus(IsArabic
+                ? "تم تطبيق مجموعة الألوان وحفظها محليًا."
+                : "Theme preset applied and saved locally.");
+        }
+        catch (Exception ex)
+        {
+            AppRuntime.Settings.ThemePreset = previous;
+            ThemePresetSelector.SelectedItem = ThemePresetSelector.Items.OfType<ComboBoxItem>()
+                .FirstOrDefault(candidate => string.Equals(candidate.Tag?.ToString(), previous, StringComparison.Ordinal));
+            ApplyTheme();
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر حفظ مجموعة الألوان", "Could not save the theme preset", ex, IsArabic));
+        }
     }
 
     private void ThemeButton_Click(object sender, RoutedEventArgs e)
