@@ -386,7 +386,7 @@ public sealed class GmailReadOnlyService
         }
     }
 
-    private static async Task<InvalidOperationException> CreateGmailApiExceptionAsync(
+    private static Task<InvalidOperationException> CreateGmailApiExceptionAsync(
         HttpResponseMessage response,
         string operation)
     {
@@ -398,7 +398,7 @@ public sealed class GmailReadOnlyService
             (HttpStatusCode)429 => "Google rate-limited this request. Try again shortly.",
             _ => "Google returned HTTP " + (int)response.StatusCode + "."
         };
-        return new InvalidOperationException(operation + ". " + detail);
+        return Task.FromResult(new InvalidOperationException(operation + ". " + detail));
     }
 
     private static Dictionary<string, string> GetHeaders(JsonElement root)
