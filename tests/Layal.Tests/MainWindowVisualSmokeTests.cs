@@ -484,6 +484,14 @@ public sealed class MainWindowVisualSmokeTests
             "Theme preset selector must expose an accessible name.");
         Assert.AreEqual(4, themePresetSelector.Items.Count,
             "The app should offer four named presets (Classic, Ocean, Forest, Sunset).");
+        var gameModeButton = window.FindName("GameModeButton") as Button
+            ?? throw new InvalidOperationException("GameModeButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(gameModeButton)),
+            "Manual game mode must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(gameModeButton)),
+            "Manual game mode must disclose that it does not inspect or control games.");
         var workspaceHubButton = window.FindName("WorkspaceHubButton") as Button
             ?? throw new InvalidOperationException("WorkspaceHubButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
