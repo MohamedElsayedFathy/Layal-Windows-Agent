@@ -22,7 +22,14 @@ public sealed class ProtectedJsonStore<T> where T : class
             if (_secretStore.Exists) PreserveOnce();
             return fallback;
         }
-        try { return JsonSerializer.Deserialize<T>(json, Options) ?? fallback; }
+        try
+        {
+            // A JSON literal "null" is not a valid persisted state for this store. Treat it
+            // like corrupt JSON so the original encrypted payload is preserved before fallback
+            // data can be saved over it.
+            return JsonSerializer.Deserialize<T>(json, Options)
+                ?? throw new JsonException("The protected JSON state must not have a null root value.");
+        }
         catch
         {
             PreserveOnce();
