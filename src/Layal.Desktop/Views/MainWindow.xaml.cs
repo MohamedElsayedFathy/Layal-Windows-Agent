@@ -320,6 +320,15 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(PrivacyShieldButton, ar
             ? "عند التفعيل يمنع بدء التسجيل والكاميرا وقص الشاشة وقراءة الحافظة، ويحاول إيقاف الالتقاطات الجارية. تظل الدردشة النصية متاحة. لا يمكن التراجع عن بيانات أُرسلت بالفعل."
             : "When enabled, blocks new recording, camera, screen crop, and clipboard-read operations, and requests stopping active captures. Text chat remains available. Data already sent cannot be recalled.");
+        var shieldEnabled = AppRuntime.Settings.PrivacyShieldEnabled;
+        InspectHoveredElementButton.IsEnabled = !shieldEnabled;
+        CaptureScreenRegionButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
+        ReadClipboardButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
+        CameraVisionButton.IsEnabled = !shieldEnabled;
+        SpeechToTextButton.IsEnabled = !_speechIsStopping &&
+            (!shieldEnabled || _speechToText.IsRecording || _speechCancellation is not null);
+        VoiceConversationButton.IsEnabled = !shieldEnabled ||
+            _voiceConversationCancellation is not null || _localVoiceRecordingActive;
     }
 
     private void PrivacyShieldButton_Click(object sender, RoutedEventArgs e)
@@ -3029,7 +3038,8 @@ public partial class MainWindow : Window
                 : _speechCancellation is not null
                     ? (IsArabic ? "إلغاء التحويل" : "Cancel transcription")
                     : (IsArabic ? "تسجيل صوت" : "Record voice");
-        SpeechToTextButton.IsEnabled = !_speechIsStopping;
+        SpeechToTextButton.IsEnabled = !_speechIsStopping &&
+            (!AppRuntime.Settings.PrivacyShieldEnabled || _speechToText.IsRecording || _speechCancellation is not null);
         SpeechToTextButton.ToolTip = _speechToText.IsRecording
             ? AppRuntime.Settings.UseLocalAi
                 ? (IsArabic ? "اضغط لإيقاف التسجيل وتحويله محليًا. لن يُرفع الصوت." : "Stop recording and transcribe locally. Audio will not be uploaded.")
@@ -3442,6 +3452,8 @@ public partial class MainWindow : Window
             micActive ? "Layal.Danger" : "Layal.Warning",
             micActive ? System.Windows.Media.Brushes.Firebrick : System.Windows.Media.Brushes.DarkGoldenrod);
         VoiceConversationMicStatus.Text = VoiceConversationIndicatorMessage(_voiceConversationStatus);
+        VoiceConversationButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled ||
+            _voiceConversationCancellation is not null || _localVoiceRecordingActive;
     }
 
     private string VoiceConversationIndicatorMessage(VoiceConversationStatus status) =>
@@ -3935,7 +3947,7 @@ public partial class MainWindow : Window
             : (IsArabic ? "لا توجد صورة مرفقة" : "No image attached");
         ClearVisionImageButton.Visibility = hasImage ? Visibility.Visible : Visibility.Collapsed;
         ChooseImageButton.IsEnabled = _chatCancellation is null;
-        CaptureScreenRegionButton.IsEnabled = _chatCancellation is null;
+        CaptureScreenRegionButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled && _chatCancellation is null;
         ClearVisionImageButton.IsEnabled = _chatCancellation is null;
         ChooseDocumentButton.IsEnabled = _chatCancellation is null;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
