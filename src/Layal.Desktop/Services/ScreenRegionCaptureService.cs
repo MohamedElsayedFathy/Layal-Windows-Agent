@@ -357,6 +357,15 @@ public sealed class ScreenRegionCaptureService
             e.Graphics.DrawRectangle(outline, selectionOnCanvas.X, selectionOnCanvas.Y,
                 selectionOnCanvas.Width, selectionOnCanvas.Height);
         }
+
+        private sealed class SelectionCanvas : Panel
+        {
+            public SelectionCanvas()
+            {
+                DoubleBuffered = true;
+                ResizeRedraw = true;
+            }
+        }
     }
 }
 
