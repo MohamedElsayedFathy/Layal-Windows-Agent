@@ -44,6 +44,80 @@ public sealed class MainWindowVisualSmokeTests
             Assert.Fail("WPF visual smoke failed: " + failure);
     }
 
+    private static void AssertAttachmentControlMutualExclusion(MainWindow window)
+    {
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var imageBytesField = typeof(MainWindow).GetField("_pendingVisionImageBytes", flags)
+            ?? throw new InvalidOperationException("Pending image bytes field was not found.");
+        var imageTypeField = typeof(MainWindow).GetField("_pendingVisionContentType", flags)
+            ?? throw new InvalidOperationException("Pending image content-type field was not found.");
+        var imageNameField = typeof(MainWindow).GetField("_pendingVisionFileName", flags)
+            ?? throw new InvalidOperationException("Pending image filename field was not found.");
+        var documentTextField = typeof(MainWindow).GetField("_pendingDocumentText", flags)
+            ?? throw new InvalidOperationException("Pending document text field was not found.");
+        var documentNameField = typeof(MainWindow).GetField("_pendingDocumentFileName", flags)
+            ?? throw new InvalidOperationException("Pending document filename field was not found.");
+        var documentNoticeField = typeof(MainWindow).GetField("_pendingDocumentNotice", flags)
+            ?? throw new InvalidOperationException("Pending document notice field was not found.");
+        var updateVision = typeof(MainWindow).GetMethod("UpdateVisionAttachmentControls", flags)
+            ?? throw new InvalidOperationException("Vision attachment UI updater was not found.");
+        var updateDocument = typeof(MainWindow).GetMethod("UpdateDocumentAttachmentUi", flags)
+            ?? throw new InvalidOperationException("Document attachment UI updater was not found.");
+
+        var chooseImage = (Button?)window.FindName("ChooseImageButton")
+            ?? throw new InvalidOperationException("ChooseImageButton was not found.");
+        var chooseDocument = (Button?)window.FindName("ChooseDocumentButton")
+            ?? throw new InvalidOperationException("ChooseDocumentButton was not found.");
+        var captureScreen = (Button?)window.FindName("CaptureScreenRegionButton")
+            ?? throw new InvalidOperationException("CaptureScreenRegionButton was not found.");
+        var pasteClipboardImage = (Button?)window.FindName("PasteClipboardImageButton")
+            ?? throw new InvalidOperationException("PasteClipboardImageButton was not found.");
+
+        var previousImageBytes = imageBytesField.GetValue(window);
+        var previousImageType = imageTypeField.GetValue(window);
+        var previousImageName = imageNameField.GetValue(window);
+        var previousDocumentText = documentTextField.GetValue(window);
+        var previousDocumentName = documentNameField.GetValue(window);
+        var previousDocumentNotice = documentNoticeField.GetValue(window);
+
+        try
+        {
+            documentTextField.SetValue(window, null);
+            documentNameField.SetValue(window, null);
+            documentNoticeField.SetValue(window, null);
+            imageBytesField.SetValue(window, new byte[] { 0x01, 0x02, 0x03 });
+            imageTypeField.SetValue(window, "image/png");
+            imageNameField.SetValue(window, "attachment-regression.png");
+            updateVision.Invoke(window, null);
+
+            Assert.IsFalse(chooseDocument.IsEnabled, "A pending image must disable choosing a text document.");
+            Assert.IsFalse(pasteClipboardImage.IsEnabled, "A pending image must disable reading another clipboard image.");
+
+            imageBytesField.SetValue(window, null);
+            imageTypeField.SetValue(window, null);
+            imageNameField.SetValue(window, null);
+            documentTextField.SetValue(window, "document attachment sentinel");
+            documentNameField.SetValue(window, "attachment-regression.txt");
+            documentNoticeField.SetValue(window, "Local test preview only.");
+            updateDocument.Invoke(window, null);
+
+            Assert.IsFalse(chooseImage.IsEnabled, "A pending document must disable choosing another image.");
+            Assert.IsFalse(captureScreen.IsEnabled, "A pending document must disable screen capture.");
+            Assert.IsFalse(pasteClipboardImage.IsEnabled, "A pending document must disable clipboard image input.");
+        }
+        finally
+        {
+            imageBytesField.SetValue(window, previousImageBytes);
+            imageTypeField.SetValue(window, previousImageType);
+            imageNameField.SetValue(window, previousImageName);
+            documentTextField.SetValue(window, previousDocumentText);
+            documentNameField.SetValue(window, previousDocumentName);
+            documentNoticeField.SetValue(window, previousDocumentNotice);
+            updateVision.Invoke(window, null);
+            updateDocument.Invoke(window, null);
+        }
+    }
+
     private static void AssertEscapeCancelsActiveChatAndAgentOperations(MainWindow window)
     {
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -416,6 +490,8 @@ public sealed class MainWindowVisualSmokeTests
         AssertEscapeCancelsActiveChatAndAgentOperations(window);
         AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window);
         lines.Add("AYO safety regression: Escape cancellation and non-persistent private-chat history passed.");
+        AssertAttachmentControlMutualExclusion(window);
+        lines.Add("Attachment regression: image and document inputs stay mutually exclusive and respect privacy/preview state.");
 
         File.WriteAllLines(Path.Combine(outputDirectory, "manifest.txt"), lines);
         AppRuntime.IsExiting = true;
