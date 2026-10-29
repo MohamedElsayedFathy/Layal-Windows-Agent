@@ -158,6 +158,13 @@ public sealed class SkillPackageService
         var temp = target + ".tmp-" + Guid.NewGuid().ToString("N");
         var previous = target + ".previous-" + Guid.NewGuid().ToString("N");
         var hadPreviousPackage = File.Exists(target);
+        if (hadPreviousPackage && existing is null && !overwrite)
+        {
+            // A package can remain on disk after an interrupted older import even when the
+            // index has no corresponding record. Never silently overwrite that orphan package.
+            throw new SkillAlreadyExistsException(name);
+        }
+
         var previousPackageMoved = false;
         var newPackageInstalled = false;
 
