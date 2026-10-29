@@ -1239,21 +1239,111 @@ public partial class MainWindow : Window
         }
     }
 
-    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    /// <summary>
+    /// Gives Escape one predictable cancellation path for the foreground AI operation.
+    /// Cancellation is cooperative: the status text reports that cancellation was requested,
+    /// while each operation's existing finally block owns cleanup and the final result.
+    /// </summary>
+    private bool TryCancelActiveOperationFromEscape()
     {
-        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape && _localAiSetupCancellation is not null)
+        if (_localAiSetupCancellation is not null)
         {
             _localAiSetupCancellation.Cancel();
-            e.Handled = true;
-            return;
+            SetChatActivityStatus(IsArabic
+                ? "تم طلب إلغاء إعداد الذكاء الاصطناعي المحلي."
+                : "Local AI setup cancellation requested.");
+            return true;
         }
 
-        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape && _voiceConversationCancellation is not null)
+        if (_voiceConversationCancellation is not null)
         {
             if (AppRuntime.Settings.UseLocalAi && _localVoiceRecordingActive)
                 CancelLocalVoiceRecording();
             else
                 _voiceConversationCancellation.Cancel();
+
+            SetChatActivityStatus(IsArabic
+                ? "تم طلب إيقاف المحادثة الصوتية."
+                : "Voice conversation stop requested.");
+            return true;
+        }
+
+        // Prefer the operation in the selected surface, then fall back to any remaining task.
+        if (ReferenceEquals(MainTabs.SelectedItem, TasksTab) && _agentTaskCancellation is not null)
+        {
+            _agentTaskCancellation.Cancel();
+            SetAccessibleStatusText(TaskResult, IsArabic
+                ? "تم طلب إلغاء المهمة. جارٍ إيقاف الأداة الحالية بأمان..."
+                : "Task cancellation requested. Safely stopping the current tool...");
+            return true;
+        }
+
+        if (_chatCancellation is not null)
+        {
+            _chatCancellation.Cancel();
+            SetChatActivityStatus(IsArabic
+                ? "تم طلب إيقاف الرد أو التحليل الحالي."
+                : "Current reply or analysis cancellation requested.");
+            return true;
+        }
+
+        if (_agentTaskCancellation is not null)
+        {
+            _agentTaskCancellation.Cancel();
+            SetAccessibleStatusText(TaskResult, IsArabic
+                ? "تم طلب إلغاء المهمة. جارٍ إيقاف الأداة الحالية بأمان..."
+                : "Task cancellation requested. Safely stopping the current tool...");
+            return true;
+        }
+
+        if (_speechCancellation is not null)
+        {
+            _speechCancellation.Cancel();
+            SetChatActivityStatus(IsArabic
+                ? "تم طلب إلغاء معالجة التسجيل الصوتي."
+                : "Speech-processing cancellation requested.");
+            return true;
+        }
+
+        if (_voiceTestCancellation is not null)
+        {
+            _voiceTestCancellation.Cancel();
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "تم طلب إيقاف اختبار الصوت."
+                : "Voice preview stop requested.");
+            return true;
+        }
+
+        if (_localVoiceRecordingActive)
+        {
+            CancelLocalVoiceRecording();
+            return true;
+        }
+
+        if (_speechToText.IsRecording && !_speechIsStopping)
+        {
+            try
+            {
+                _speechToText.CancelRecording();
+                SetChatActivityStatus(IsArabic
+                    ? "تم إلغاء التسجيل الصوتي المحلي؛ لم يتم إرسال الصوت."
+                    : "Local recording cancelled; audio was not sent.");
+            }
+            catch (InvalidOperationException)
+            {
+                // Recording may have completed between the state check and cancellation.
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape &&
+            TryCancelActiveOperationFromEscape())
+        {
             e.Handled = true;
             return;
         }
