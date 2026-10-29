@@ -24,7 +24,7 @@ public sealed class ProtectedJsonStoreTests
     }
 
     [TestMethod]
-    public void UnreadableStoreFailsClosedWhenRecoveryCopyCannotBeCreated()
+    public void LockedStoreFailsClosedInsteadOfReturningFallbackState()
     {
         using var temp = new TestTempDirectory();
         var path = System.IO.Path.Combine(temp.Path, "locked.dpapi");

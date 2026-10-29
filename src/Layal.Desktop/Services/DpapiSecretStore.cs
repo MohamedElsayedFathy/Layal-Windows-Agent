@@ -57,10 +57,22 @@ public sealed class DpapiSecretStore
 
     public string? Load()
     {
-        if (!File.Exists(_path)) return null;
+        string protectedText;
         try
         {
-            var encrypted = Convert.FromBase64String(File.ReadAllText(_path));
+            // Only a genuinely missing store is an ordinary empty state. I/O/access failures
+            // must propagate so a caller cannot mistake an unreadable existing secret for absence.
+            protectedText = File.ReadAllText(_path);
+        }
+        catch (FileNotFoundException) { return null; }
+        catch (DirectoryNotFoundException) { return null; }
+
+        byte[] encrypted;
+        try { encrypted = Convert.FromBase64String(protectedText); }
+        catch (FormatException) { return null; }
+
+        try
+        {
             var input = Allocate(encrypted);
             try
             {
@@ -75,13 +87,9 @@ public sealed class DpapiSecretStore
                 }
                 finally { ClearAndLocalFree(output); }
             }
-            finally
-            {
-                CryptographicOperations.ZeroMemory(encrypted);
-                Free(input);
-            }
+            finally { Free(input); }
         }
-        catch { return null; }
+        finally { CryptographicOperations.ZeroMemory(encrypted); }
     }
 
     public void Delete()
