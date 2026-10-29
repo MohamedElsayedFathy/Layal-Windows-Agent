@@ -27,6 +27,9 @@ public sealed class AgentToolExecutor
             System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
     private const int MaxReadBytes = 256 * 1024;
     private const int MaxWriteChars = 100 * 1024;
+    private const int MaxNewFilePreviewChars = 4_000;
+    private const int MaxReplacementPreviewSideChars = 1_800;
+    private const string ApprovalPreviewOmissionText = "…[preview truncated; remaining content omitted]";
     private const int MaxProcessOutputChars = 120_000;
     private readonly string _workspaceRoot;
     private readonly MemoryService _memory;
@@ -213,7 +216,13 @@ public sealed class AgentToolExecutor
         var parent = Path.GetDirectoryName(path)!;
         if (!Directory.Exists(parent)) throw new DirectoryNotFoundException("Parent directory must already exist inside the workspace.");
         EnsureNoReparsePoints(parent);
-        if (!await confirm("Create file", $"Create a new file at '{Path.GetRelativePath(_workspaceRoot, path)}' ({content.Length} characters)?", token))
+        var approvalDetails =
+            $"Create a new file at '{Path.GetRelativePath(_workspaceRoot, path)}' ({content.Length} characters)?"
+            + Environment.NewLine + Environment.NewLine
+            + $"Proposed file content preview (max {MaxNewFilePreviewChars} characters):"
+            + Environment.NewLine
+            + BuildBoundedApprovalPreview(content, MaxNewFilePreviewChars);
+        if (!await confirm("Create file", approvalDetails, token))
             return "User declined file creation.";
         token.ThrowIfCancellationRequested();
 
@@ -247,7 +256,15 @@ public sealed class AgentToolExecutor
         if (original.IndexOf(oldText, first + oldText.Length, StringComparison.Ordinal) >= 0)
             throw new InvalidOperationException("old_text occurs more than once. Provide a more specific unique snippet.");
         var updated = original[..first] + newText + original[(first + oldText.Length)..];
-        if (!await confirm("Modify file", $"Replace one exact text match in '{Path.GetRelativePath(_workspaceRoot, path)}'? A timestamped backup will be created first.", token))
+        var approvalDetails =
+            $"Replace one exact text match in '{Path.GetRelativePath(_workspaceRoot, path)}'? A timestamped backup will be created first."
+            + Environment.NewLine + Environment.NewLine
+            + "Proposed replacement preview:"
+            + Environment.NewLine + $"--- Removed (max {MaxReplacementPreviewSideChars} characters) ---"
+            + Environment.NewLine + BuildBoundedApprovalPreview(oldText, MaxReplacementPreviewSideChars)
+            + Environment.NewLine + $"--- Added (max {MaxReplacementPreviewSideChars} characters) ---"
+            + Environment.NewLine + BuildBoundedApprovalPreview(newText, MaxReplacementPreviewSideChars);
+        if (!await confirm("Modify file", approvalDetails, token))
             return "User declined the file modification.";
         token.ThrowIfCancellationRequested();
 
@@ -718,6 +735,21 @@ public sealed class AgentToolExecutor
         }
         if (truncated) builder.Append("\n[output truncated by Layal]");
         return builder.ToString();
+    }
+
+    private static string BuildBoundedApprovalPreview(string text, int maxCharacters)
+    {
+        if (text.Length <= maxCharacters) return text;
+        var suffix = Environment.NewLine + ApprovalPreviewOmissionText;
+        if (maxCharacters <= suffix.Length) return text[..maxCharacters];
+
+        var contentLength = maxCharacters - suffix.Length;
+        // Do not split a UTF-16 surrogate pair at the preview boundary.
+        if (contentLength > 0 && contentLength < text.Length &&
+            char.IsHighSurrogate(text[contentLength - 1]) && char.IsLowSurrogate(text[contentLength]))
+            contentLength--;
+
+        return text[..contentLength] + suffix;
     }
 
     private static string Truncate(string text, int length) => text.Length <= length ? text : text[..length] + "…";

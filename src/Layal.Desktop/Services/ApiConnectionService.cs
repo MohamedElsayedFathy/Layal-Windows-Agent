@@ -254,8 +254,13 @@ public sealed class ApiConnectionService
             var count = await stream.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, remaining)), token);
             if (count == 0) break;
             output.Write(buffer, 0, count);
-            if (output.Length == MaxResponseBytes) { truncated = true; break; }
         }
+
+        // Reaching the cap alone does not mean bytes were omitted: an exactly-limit response
+        // is valid. Probe one additional byte so unknown-length responses are only marked
+        // truncated when content actually exists beyond the allowed payload.
+        if (output.Length == MaxResponseBytes)
+            truncated = await stream.ReadAsync(buffer.AsMemory(0, 1), token) > 0;
 
         var bytes = output.ToArray();
         try { return (Encoding.UTF8.GetString(bytes), truncated); }

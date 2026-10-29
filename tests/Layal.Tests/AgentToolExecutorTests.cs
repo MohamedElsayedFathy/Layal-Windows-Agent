@@ -232,6 +232,121 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task FileCreationApprovalShowsProposedContentBeforeWriting()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var executor = CreateExecutor(workspace);
+        var destination = System.IO.Path.Combine(workspace, "new-note.txt");
+        var content = "first line" + Environment.NewLine + "second line";
+        var args = new JsonObject { ["path"] = "new-note.txt", ["content"] = content }.ToJsonString();
+        string? approvalDetails = null;
+
+        var result = await executor.ExecuteAsync("create_text_file", args,
+            (_, details, _) =>
+            {
+                approvalDetails = details;
+                Assert.IsFalse(File.Exists(destination), "The preview must be shown before writing.");
+                return Task.FromResult(true);
+            }, _ => { }, CancellationToken.None);
+
+        var details = approvalDetails ?? throw new AssertFailedException("No approval preview was shown.");
+        StringAssert.Contains(details, "Proposed file content preview (max 4000 characters):");
+        StringAssert.Contains(details, content);
+        StringAssert.Contains(result, "File created");
+        Assert.AreEqual(content, File.ReadAllText(destination));
+    }
+
+    [TestMethod]
+    public async Task FileCreationApprovalPreviewIsBoundedAndDeclineHasNoSideEffect()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var executor = CreateExecutor(workspace);
+        var destination = System.IO.Path.Combine(workspace, "large-note.txt");
+        var content = new string('x', 5_000);
+        var args = new JsonObject { ["path"] = "large-note.txt", ["content"] = content }.ToJsonString();
+        string? approvalDetails = null;
+
+        var result = await executor.ExecuteAsync("create_text_file", args,
+            (_, details, _) => { approvalDetails = details; return Task.FromResult(false); },
+            _ => { }, CancellationToken.None);
+
+        var details = approvalDetails ?? throw new AssertFailedException("No approval preview was shown.");
+        const string heading = "Proposed file content preview (max 4000 characters):";
+        var headingStart = details.IndexOf(heading, StringComparison.Ordinal);
+        Assert.IsTrue(headingStart >= 0, "The approval preview heading was missing.");
+        var previewStart = headingStart + heading.Length + Environment.NewLine.Length;
+        var preview = details[previewStart..];
+        Assert.IsTrue(preview.Length <= 4_000, $"Preview length {preview.Length} exceeded the limit.");
+        StringAssert.Contains(preview, "…[preview truncated; remaining content omitted]");
+        Assert.IsFalse(details.Contains(content, StringComparison.Ordinal));
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(File.Exists(destination));
+    }
+
+    [TestMethod]
+    public async Task DeclinedReplacementPreviewShowsActualLinesAndLeavesFileUnchanged()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var path = System.IO.Path.Combine(workspace, "notes.txt");
+        const string oldText = "old line one" + "\n" + "old line two";
+        const string newText = "new line one" + "\n" + "new line two";
+        var original = "before" + Environment.NewLine + oldText + Environment.NewLine + "after";
+        File.WriteAllText(path, original);
+        var executor = CreateExecutor(workspace);
+        string? approvalDetails = null;
+
+        var result = await executor.ExecuteAsync("replace_text_in_file",
+            new JsonObject { ["path"] = "notes.txt", ["old_text"] = oldText, ["new_text"] = newText }.ToJsonString(),
+            (_, details, _) => { approvalDetails = details; return Task.FromResult(false); },
+            _ => { }, CancellationToken.None);
+
+        var details = approvalDetails ?? throw new AssertFailedException("No approval preview was shown.");
+        StringAssert.Contains(details, "Proposed replacement preview:");
+        StringAssert.Contains(details, "--- Removed (max 1800 characters) ---");
+        StringAssert.Contains(details, "--- Added (max 1800 characters) ---");
+        StringAssert.Contains(details, oldText);
+        StringAssert.Contains(details, newText);
+        StringAssert.Contains(result, "declined");
+        Assert.AreEqual(original, File.ReadAllText(path));
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(workspace, ".layal-backups")));
+    }
+
+    [TestMethod]
+    public async Task DeclinedOversizedReplacementPreviewBoundsBothSidesAndDoesNotCreateBackup()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var path = System.IO.Path.Combine(workspace, "notes.txt");
+        var oldText = new string('o', 2_000);
+        var newText = new string('n', 2_200);
+        File.WriteAllText(path, oldText);
+        var executor = CreateExecutor(workspace);
+        string? approvalDetails = null;
+
+        var result = await executor.ExecuteAsync("replace_text_in_file",
+            new JsonObject { ["path"] = "notes.txt", ["old_text"] = oldText, ["new_text"] = newText }.ToJsonString(),
+            (_, details, _) => { approvalDetails = details; return Task.FromResult(false); },
+            _ => { }, CancellationToken.None);
+
+        var details = approvalDetails ?? throw new AssertFailedException("No approval preview was shown.");
+        StringAssert.Contains(details, "--- Removed (max 1800 characters) ---");
+        StringAssert.Contains(details, "--- Added (max 1800 characters) ---");
+        Assert.AreEqual(2, details.Split("…[preview truncated; remaining content omitted]", StringSplitOptions.None).Length - 1);
+        Assert.IsFalse(details.Contains(oldText, StringComparison.Ordinal));
+        Assert.IsFalse(details.Contains(newText, StringComparison.Ordinal));
+        StringAssert.Contains(result, "declined");
+        Assert.AreEqual(oldText, File.ReadAllText(path));
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(workspace, ".layal-backups")));
+    }
+
+    [TestMethod]
     public async Task FileCreationCannotOverwriteExistingFile()
     {
         using var temp = new TestTempDirectory();
