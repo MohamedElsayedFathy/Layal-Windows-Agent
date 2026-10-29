@@ -19,6 +19,7 @@ public sealed class LoreWebWindow : Window
 {
     private readonly bool _isArabic;
     private readonly Action<MemoryNote> _openNote;
+    private readonly Func<MemoryNote, bool> _deleteNote;
     private readonly List<MemoryNote> _notes;
     private readonly Viewport3D _viewport;
     private readonly ListBox _noteList;
@@ -26,11 +27,13 @@ public sealed class LoreWebWindow : Window
     private readonly TextBlock _selectedContent;
     private readonly TextBlock _status;
     private readonly Button _openButton;
+    private readonly Button _deleteButton;
     private readonly PerspectiveCamera _camera;
     private readonly Dictionary<ModelVisual3D, MemoryNote> _visualNotes = new();
     private readonly Dictionary<string, ModelVisual3D> _noteVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, GeometryModel3D> _noteModels = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Point3D> _positions = new(StringComparer.Ordinal);
+    private readonly Dictionary<ModelVisual3D, (string FromId, string ToId)> _edgeVisuals = new();
     private readonly List<NoteListEntry> _entries = new();
     private Point _dragStart;
     private bool _dragging;
@@ -39,10 +42,15 @@ public sealed class LoreWebWindow : Window
     private double _pitch = 0.2;
     private double _distance = 235;
 
-    public LoreWebWindow(IReadOnlyList<MemoryNote> notes, bool isArabic, Action<MemoryNote> openNote)
+    public LoreWebWindow(
+        IReadOnlyList<MemoryNote> notes,
+        bool isArabic,
+        Action<MemoryNote> openNote,
+        Func<MemoryNote, bool> deleteNote)
     {
         ArgumentNullException.ThrowIfNull(notes);
         _openNote = openNote ?? throw new ArgumentNullException(nameof(openNote));
+        _deleteNote = deleteNote ?? throw new ArgumentNullException(nameof(deleteNote));
         _isArabic = isArabic;
         _notes = notes.Take(100).OrderBy(note => note.CreatedAt).ToList();
 
@@ -193,8 +201,24 @@ public sealed class LoreWebWindow : Window
             ? "يعيدك إلى محرر الذاكرة المحلي. لا يشارك الملاحظة مع الذكاء الاصطناعي."
             : "Opens the selected note in the local memory editor. It does not share the note with AI.");
         _openButton.Click += OpenButton_Click;
-        Grid.SetRow(_openButton, 4);
-        side.Children.Add(_openButton);
+        _deleteButton = new Button
+        {
+            Content = isArabic ? "حذف الملاحظة" : "Delete note",
+            MinHeight = 34,
+            MinWidth = 115,
+            Margin = new Thickness(8, 8, 0, 0),
+            IsEnabled = false
+        };
+        AutomationProperties.SetName(_deleteButton, isArabic ? "حذف الملاحظة المحددة من الذاكرة" : "Delete selected memory note");
+        AutomationProperties.SetHelpText(_deleteButton, isArabic
+            ? "يحذف الملاحظة المحددة نهائيًا من مخزن الذاكرة المحلي بعد تأكيد منفصل. لا يحذف نسخًا موجودة في المحادثات."
+            : "Permanently deletes the selected note from local memory after a separate confirmation. Copies in chat conversations are not deleted.");
+        _deleteButton.Click += DeleteButton_Click;
+        var actionButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        actionButtons.Children.Add(_openButton);
+        actionButtons.Children.Add(_deleteButton);
+        Grid.SetRow(actionButtons, 4);
+        side.Children.Add(actionButtons);
 
         Grid.SetColumn(side, 1);
         contentGrid.Children.Add(side);
@@ -256,10 +280,12 @@ public sealed class LoreWebWindow : Window
                 continue;
             var geometry = CreateCylinder(start, end, 0.28, 7);
             var material = CreateMaterial(Color.FromArgb(135, 95, 145, 165));
-            _viewport.Children.Add(new ModelVisual3D
+            var edgeVisual = new ModelVisual3D
             {
                 Content = new GeometryModel3D { Geometry = geometry, Material = material, BackMaterial = material }
-            });
+            };
+            _viewport.Children.Add(edgeVisual);
+            _edgeVisuals[edgeVisual] = (edge.FromId, edge.ToId);
         }
     }
 
@@ -405,6 +431,19 @@ public sealed class LoreWebWindow : Window
         return material;
     }
 
+    private void RebuildGraph()
+    {
+        _viewport.Children.Clear();
+        _visualNotes.Clear();
+        _noteVisuals.Clear();
+        _noteModels.Clear();
+        _positions.Clear();
+        _edgeVisuals.Clear();
+        _entries.Clear();
+        BuildGraph();
+        _noteList.Items.Refresh();
+    }
+
     private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStart = e.GetPosition(_viewport);
@@ -495,9 +534,65 @@ public sealed class LoreWebWindow : Window
         _selectedTitle.Text = note.Title;
         _selectedContent.Text = note.Content;
         _openButton.IsEnabled = true;
+        _deleteButton.IsEnabled = true;
         _status.Text = _isArabic
             ? $"الملاحظة المحددة: {note.Title}. لم يتم إرسال المحتوى."
             : $"Selected note: {note.Title}. No content was sent.";
+    }
+
+    private void DeleteButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_noteList.SelectedItem is not NoteListEntry entry)
+            return;
+
+        var confirm = MessageBox.Show(this,
+            _isArabic
+                ? $"سيتم حذف الملاحظة «{entry.Note.Title}» نهائيًا من الذاكرة المحلية المشفرة. لا يشمل ذلك نسخًا في المحادثات أو ملفات سبق تصديرها. هل تريد المتابعة؟"
+                : $"Permanently delete “{entry.Note.Title}” from encrypted local memory? This does not remove copies in chat history or previously exported files. Continue?",
+            _isArabic ? "تأكيد حذف الملاحظة" : "Confirm note deletion",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            if (!_deleteNote(entry.Note))
+            {
+                _status.Text = _isArabic
+                    ? "لم يتم حذف الملاحظة؛ قد تكون حُذفت بالفعل أو تعذر حفظ التغيير."
+                    : "The note was not deleted; it may already be gone or the change could not be saved.";
+                return;
+            }
+
+            var deletedId = entry.Note.Id;
+            _notes.RemoveAll(note => string.Equals(note.Id, deletedId, StringComparison.Ordinal));
+            _noteList.SelectedItem = null;
+            RebuildGraph();
+
+            _selectedTitle.Text = string.Empty;
+            _selectedContent.Text = string.Empty;
+            _openButton.IsEnabled = false;
+            _deleteButton.IsEnabled = false;
+            if (_entries.Count > 0)
+            {
+                _noteList.SelectedItem = _entries[0];
+                _status.Text = _isArabic
+                    ? $"تم حذف «{entry.Note.Title}» من الذاكرة المحلية وتحديث الخريطة."
+                    : $"Deleted “{entry.Note.Title}” from local memory and updated the graph.";
+            }
+            else
+            {
+                _status.Text = _isArabic
+                    ? "تم حذف آخر ملاحظة. لا توجد ملاحظات لإنشاء خريطة جديدة."
+                    : "The last note was deleted. There are no notes left to map.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _status.Text = (_isArabic ? "تعذر حذف الملاحظة: " : "Could not delete note: ") + ex.Message;
+        }
     }
 
     private void OpenButton_Click(object sender, RoutedEventArgs e)
