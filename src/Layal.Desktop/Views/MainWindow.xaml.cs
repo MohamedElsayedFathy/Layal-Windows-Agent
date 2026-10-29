@@ -288,6 +288,113 @@ public partial class MainWindow : Window
             : "Private-chat messages were discarded and the saved conversation was restored.");
     }
 
+    private void UpdatePrivacyShieldUi()
+    {
+        var ar = IsArabic;
+        PrivacyShieldButton.Content = AppRuntime.Settings.PrivacyShieldEnabled
+            ? (ar ? "درع الخصوصية: مفعّل" : "Privacy shield: ON")
+            : (ar ? "درع الخصوصية: مغلق" : "Privacy shield: OFF");
+        PrivacyShieldButton.ToolTip = AppRuntime.Settings.PrivacyShieldEnabled
+            ? (ar
+                ? "درع الخصوصية نشط: لا يمكن بدء الميكروفون أو الكاميرا أو قص الشاشة أو قراءة الحافظة."
+                : "Privacy shield is active: microphone, camera, screen cropping, and clipboard reads cannot be started.")
+            : (ar
+                ? "تفعيل مفتاح واحد يمنع بدء الميكروفون والكاميرا وقص الشاشة وقراءة الحافظة."
+                : "One switch blocks starting the microphone, camera, screen cropping, and clipboard reads.");
+        AutomationProperties.SetName(PrivacyShieldButton, ar ? "مفتاح خصوصية شامل" : "Master privacy shield");
+        AutomationProperties.SetHelpText(PrivacyShieldButton, ar
+            ? "عند التفعيل يمنع بدء التسجيل والكاميرا وقص الشاشة وقراءة الحافظة، ويحاول إيقاف الالتقاطات الجارية. تظل الدردشة النصية متاحة. لا يمكن التراجع عن بيانات أُرسلت بالفعل."
+            : "When enabled, blocks new recording, camera, screen crop, and clipboard-read operations, and requests stopping active captures. Text chat remains available. Data already sent cannot be recalled.");
+    }
+
+    private void PrivacyShieldButton_Click(object sender, RoutedEventArgs e)
+    {
+        var enable = !AppRuntime.Settings.PrivacyShieldEnabled;
+        var confirm = MessageBox.Show(this,
+            enable
+                ? (IsArabic
+                    ? "سيمنع الدرع بدء تسجيل الميكروفون وفتح الكاميرا وقص الشاشة وقراءة الحافظة. سيحاول إيقاف الالتقاطات الجارية وإغلاق الكاميرا وإلغاء أي طلب نشط؛ وقد يحتاج إيقاف بعض موارد النظام لحظات. لن تُحذف بيانات أُرسلت إلى مزود أو حُفظت سابقًا. هل تريد التفعيل؟"
+                    : "The shield will block starting microphone recording, opening the camera, cropping the screen, and reading the clipboard. It will request stopping active captures, close the camera, and cancel active requests; some system resources may take a moment to stop. Previously sent or saved data cannot be deleted by this switch. Enable it?")
+                : (IsArabic
+                    ? "سيُسمح مجددًا ببدء الميكروفون والكاميرا وقص الشاشة وقراءة الحافظة، مع بقاء الموافقة المطلوبة لكل عملية. هل تريد تعطيل الدرع؟"
+                    : "Starting the microphone, camera, screen crop, and clipboard reads will become available again, with the individual consent prompts still required. Disable the shield?"),
+            enable
+                ? (IsArabic ? "تفعيل درع الخصوصية" : "Enable privacy shield")
+                : (IsArabic ? "تعطيل درع الخصوصية" : "Disable privacy shield"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        AppRuntime.Settings.PrivacyShieldEnabled = enable;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        }
+        catch (Exception ex)
+        {
+            AppRuntime.Settings.PrivacyShieldEnabled = !enable;
+            UpdatePrivacyShieldUi();
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر حفظ إعداد درع الخصوصية", "Could not save the privacy shield setting", ex, IsArabic));
+            return;
+        }
+
+        if (enable)
+            StopCaptureSourcesForPrivacyShield();
+
+        UpdatePrivacyShieldUi();
+        SetChatActivityStatus(enable
+            ? (IsArabic
+                ? "درع الخصوصية مفعّل. التسجيل والكاميرا وقص الشاشة وقراءة الحافظة محظورة؛ الدردشة النصية ما زالت متاحة."
+                : "Privacy shield enabled. Recording, camera, screen cropping, and clipboard reads are blocked; text chat remains available.")
+            : (IsArabic
+                ? "درع الخصوصية مغلق. تظل موافقة منفصلة مطلوبة قبل بدء أي التقاط."
+                : "Privacy shield disabled. Separate consent is still required before any capture."));
+    }
+
+    private void StopCaptureSourcesForPrivacyShield()
+    {
+        _speechRecordingTimer.Stop();
+
+        if (_localVoiceRecordingActive)
+        {
+            CancelLocalVoiceRecording();
+        }
+        else if (_speechToText.IsRecording)
+        {
+            try { _speechToText.CancelRecording(); }
+            catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Privacy shield could not cancel microphone capture: {0}", ex.Message); }
+            UpdateSpeechToTextButton();
+        }
+
+        _speechCancellation?.Cancel();
+        _voiceTestCancellation?.Cancel();
+        _voiceConversationCancellation?.Cancel();
+        // Also cancel a still-image analysis request that may be processing a captured camera frame.
+        _chatCancellation?.Cancel();
+
+        if (_cameraVisionWindow is { } camera)
+        {
+            try { camera.Close(); }
+            catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Privacy shield could not close the camera window: {0}", ex.Message); }
+            _cameraVisionWindow = null;
+        }
+
+        if (_pendingVisionFileName?.StartsWith("screen-region-", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            _pendingVisionImageBytes = null;
+            _pendingVisionContentType = null;
+            _pendingVisionFileName = null;
+            UpdateVisionAttachmentControls();
+        }
+
+        _lastCameraObservation = string.Empty;
+        UpdateVoiceConversationControls();
+        UpdateCameraVisionIndicator();
+    }
+
     private void UpdatePrivateChatModeUi()
     {
         var ar = IsArabic;
@@ -819,6 +926,7 @@ public partial class MainWindow : Window
         UpdateSpeechToTextButton();
         UpdateVoiceConversationControls();
         QuickAskButton.Content = ar ? "سؤال سريع" : "Quick Ask";
+        UpdatePrivacyShieldUi();
         QuickAskButton.ToolTip = ar ? "اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S." : "Ask by typing from any app. Shortcut: Alt+Shift+S.";
         AutomationProperties.SetName(QuickAskButton, ar ? "سؤال سريع" : "Quick Ask");
         AutomationProperties.SetHelpText(QuickAskButton, ar ? "يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا." : "Opens a small typing window. No screen capture or files are sent automatically.");
@@ -2634,6 +2742,14 @@ public partial class MainWindow : Window
         }
         if (_speechIsStopping) return;
 
+        if (AppRuntime.Settings.PrivacyShieldEnabled && !_speechToText.IsRecording)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لا يمكن بدء تسجيل أو تحويل صوت جديد."
+                : "Privacy shield is enabled; new microphone recording or transcription is blocked.");
+            return;
+        }
+
         if (_speechToText.IsRecording)
         {
             _speechRecordingTimer.Stop();
@@ -3058,6 +3174,15 @@ public partial class MainWindow : Window
 
     private async void VoiceConversationButton_Click(object sender, RoutedEventArgs e)
     {
+        if (AppRuntime.Settings.PrivacyShieldEnabled &&
+            _voiceConversationCancellation is null && !_localVoiceRecordingActive)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لا يمكن بدء محادثة صوتية أو تشغيل الميكروفون."
+                : "Privacy shield is enabled; starting voice chat or the microphone is blocked.");
+            return;
+        }
+
         if (AppRuntime.Settings.UseLocalAi)
         {
             await LocalVoiceConversationButton_ClickAsync();
@@ -3279,6 +3404,14 @@ public partial class MainWindow : Window
 
     private async void CaptureScreenRegionButton_Click(object sender, RoutedEventArgs e)
     {
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ قص الشاشة محظور. عطّل الدرع أولًا إذا كنت تريد التقاطًا بموافقة صريحة."
+                : "Privacy shield is enabled; screen cropping is blocked. Disable the shield first to capture with explicit consent.");
+            return;
+        }
+
         if (_pendingDocumentText is { Length: > 0 })
         {
             SetChatActivityStatus(IsArabic
@@ -3354,6 +3487,14 @@ public partial class MainWindow : Window
 
     private void ReadClipboardButton_Click(object sender, RoutedEventArgs e)
     {
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ قراءة الحافظة محظورة. يمكنك كتابة النص يدويًا بدلًا من ذلك."
+                : "Privacy shield is enabled; clipboard reads are blocked. You can type the text manually instead.");
+            return;
+        }
+
         if (_chatCancellation is not null || _agentTaskCancellation is not null ||
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
@@ -3646,6 +3787,14 @@ public partial class MainWindow : Window
 
     private void CameraVisionButton_Click(object sender, RoutedEventArgs e)
     {
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ فتح الكاميرا محظور."
+                : "Privacy shield is enabled; opening the camera is blocked.");
+            return;
+        }
+
         if (_voiceConversationCancellation is not null)
         {
             SetChatActivityStatus(IsArabic
@@ -3683,6 +3832,15 @@ public partial class MainWindow : Window
 
     private async void CameraVisionWindow_AnalyzeRequested(byte[] imageBytes)
     {
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            Array.Clear(imageBytes, 0, imageBytes.Length);
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ تم رفض إطار الكاميرا ولم يُرسل."
+                : "Privacy shield is enabled; the camera frame was rejected and not sent.");
+            return;
+        }
+
         if (_chatCancellation is not null)
         {
             SetChatActivityStatus(IsArabic ? "انتظر انتهاء الطلب الحالي قبل تحليل لقطة أخرى." : "Wait for the active request to finish before analyzing another frame.");
@@ -3700,6 +3858,15 @@ public partial class MainWindow : Window
 
     private async void CameraVisionWindow_ScanSurroundingsRequested(byte[] imageBytes)
     {
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            Array.Clear(imageBytes, 0, imageBytes.Length);
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ تم رفض إطار الكاميرا ولم يُرسل."
+                : "Privacy shield is enabled; the camera frame was rejected and not sent.");
+            return;
+        }
+
         if (_chatCancellation is not null)
         {
             SetChatActivityStatus(IsArabic ? "انتظر انتهاء الطلب الحالي قبل مسح المكان." : "Wait for the current request to finish before scanning surroundings.");
@@ -3724,6 +3891,15 @@ public partial class MainWindow : Window
 
     private async void CameraVisionWindow_ObserveRequested(byte[] imageBytes)
     {
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            Array.Clear(imageBytes, 0, imageBytes.Length);
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ تم رفض إطار الكاميرا ولم يُرسل."
+                : "Privacy shield is enabled; the camera frame was rejected and not sent.");
+            return;
+        }
+
         // Automatic observation never interrupts a typed request or live voice session.
         if (_chatCancellation is not null || _voiceConversationCancellation is not null ||
             _cameraVisionWindow is not { IsVisible: true })
