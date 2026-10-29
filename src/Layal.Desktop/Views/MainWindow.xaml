@@ -278,6 +278,10 @@
                                     ToolTip="يلتقط الشاشة الموجودة على الشاشة الحالية بعد موافقتك، ويعرض معاينة لقص منطقة قبل الإرفاق."
                                     MinWidth="135" AutomationProperties.Name="التقاط وقص جزء من الشاشة"
                                     AutomationProperties.HelpText="يُلتقط المحتوى محليًا بعد موافقتك، وتظهر معاينة لتحديد مستطيل. لا تُرسل الصورة إلا عند الضغط على إرسال."/>
+                            <Button x:Name="InspectHoveredElementButton" Content="السؤال عن عنصر" Click="InspectHoveredElementButton_Click"
+                                    ToolTip="بعد موافقتك، اقرأ اسم ونوع عنصر Windows أسفل المؤشر محليًا دون التقاط الشاشة."
+                                    MinWidth="120" AutomationProperties.Name="فحص عنصر أسفل المؤشر"
+                                    AutomationProperties.HelpText="تُقرأ خصائص واجهة محدودة فقط بعد موافقتك. لا تُقرأ قيم الحقول ولا تُرسل النتيجة إلا بعد ضغط إرسال."/>
                             <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
                                     ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
                                     AutomationProperties.Name="إرفاق صورة أو لقطة شاشة"
