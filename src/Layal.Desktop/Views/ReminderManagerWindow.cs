@@ -72,7 +72,7 @@ public sealed class ReminderManagerWindow : Window
         schedule.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
         var dateStack = new StackPanel { Margin = new Thickness(0, 0, 8, 0) };
         dateStack.Children.Add(new TextBlock { Text = isArabic ? "التاريخ" : "Date" });
-        _datePicker = new DatePicker { SelectedDate = DateTime.Today, MinWidth = 120 };
+        _datePicker = new DatePicker { SelectedDate = DateTime.Now.AddHours(1).Date, MinWidth = 120 };
         AutomationProperties.SetName(_datePicker, isArabic ? "تاريخ التذكير" : "Reminder date");
         dateStack.Children.Add(_datePicker);
         Grid.SetColumn(dateStack, 0);
