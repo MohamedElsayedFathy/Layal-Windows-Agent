@@ -251,7 +251,14 @@ public sealed class OpenAiCompatibleClient
 
             JsonDocument chunk;
             try { chunk = JsonDocument.Parse(data); }
-            catch (JsonException) { continue; }
+            catch (JsonException ex)
+            {
+                // A successful HTTP status and a later [DONE] marker do not make a stream
+                // trustworthy if an intermediate data frame was malformed. Reject it rather
+                // than silently returning a response with missing text.
+                throw new InvalidOperationException(
+                    "The provider returned a malformed SSE data chunk. The response may be incomplete and was rejected.", ex);
+            }
 
             using (chunk)
             {
