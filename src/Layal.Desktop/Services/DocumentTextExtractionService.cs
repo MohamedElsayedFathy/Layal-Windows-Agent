@@ -175,7 +175,7 @@ public sealed class DocumentTextExtractionService
                 break;
             }
 
-            var paragraphText = string.Concat(paragraph.Descendants<Text>().Select(item => item.Text));
+            var paragraphText = string.Concat(paragraph.Descendants<DocumentFormat.OpenXml.Wordprocessing.Text>().Select(item => item.Text));
             if (string.IsNullOrWhiteSpace(paragraphText))
                 continue;
 
