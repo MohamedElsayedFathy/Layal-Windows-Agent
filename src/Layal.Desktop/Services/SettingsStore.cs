@@ -102,6 +102,9 @@ public sealed class SettingsStore
             settings.ThemePreset = "classic";
         if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
             settings.AssistantPersona = "warm";
+        settings.GmailOAuthClientId = (settings.GmailOAuthClientId ?? string.Empty).Trim();
+        if (settings.GmailOAuthClientId.Length > 300 || settings.GmailOAuthClientId.Any(char.IsControl))
+            settings.GmailOAuthClientId = string.Empty;
 
         settings.WeatherLocation = (settings.WeatherLocation ?? string.Empty).Trim();
         settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();
