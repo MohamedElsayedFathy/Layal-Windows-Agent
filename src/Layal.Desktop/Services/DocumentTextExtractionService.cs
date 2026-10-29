@@ -7,6 +7,8 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml;
@@ -16,6 +18,11 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
+using Windows.Data.Pdf;
+using Windows.Graphics.Imaging;
+using Windows.Media.Ocr;
+using Windows.Storage;
+using Windows.Storage.Streams;
 
 namespace Layal.Services;
 
@@ -36,8 +43,43 @@ public sealed class DocumentTextExtractionService
     private const long MaximumArchiveEntryBytes = 32L * 1024 * 1024;
     private const int MaximumCompressionRatio = 500;
 
+    public const int MaximumOcrPagePixels = 8_000_000;
+    public const uint MaximumOcrPageSidePixels = 3_000;
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff" };
+
     public static IReadOnlyList<string> SupportedExtensions { get; } =
-        new[] { ".txt", ".md", ".csv", ".json", ".xml", ".html", ".htm", ".pdf", ".docx", ".xlsx" };
+        new[] { ".txt", ".md", ".csv", ".json", ".xml", ".html", ".htm", ".pdf", ".docx", ".xlsx", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff" };
+
+    /// <summary>
+    /// Extracts text locally. Text PDFs use PdfPig first; scanned PDFs and image files may use
+    /// the Windows OCR engine for languages installed on the current Windows user profile.
+    /// </summary>
+    public async Task<DocumentTextExtractionResult> ExtractFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("A file path is required.", nameof(path));
+
+        var fullPath = Path.GetFullPath(path);
+        var extension = Path.GetExtension(fullPath).ToLowerInvariant();
+        if (ImageExtensions.Contains(extension))
+            return await ExtractImageWithOcrAsync(fullPath, cancellationToken);
+
+        if (extension == ".pdf")
+        {
+            try
+            {
+                return await Task.Run(() => ExtractFile(fullPath), cancellationToken);
+            }
+            catch (InvalidDataException ex) when (
+                ex.Message.StartsWith("The PDF contains no extractable text.", StringComparison.Ordinal))
+            {
+                return await ExtractScannedPdfWithOcrAsync(fullPath, cancellationToken);
+            }
+        }
+
+        return await Task.Run(() => ExtractFile(fullPath), cancellationToken);
+    }
 
     public DocumentTextExtractionResult ExtractFile(string path)
     {
@@ -126,6 +168,163 @@ public sealed class DocumentTextExtractionService
             unitsProcessed,
             wasTruncated,
             notice);
+    }
+
+    private static OcrEngine CreateLocalOcrEngine()
+    {
+        var engine = OcrEngine.TryCreateFromUserProfileLanguages();
+        if (engine is null)
+        {
+            throw new InvalidOperationException(
+                "Windows has no usable OCR language installed for the current user. Install an OCR language in Windows Settings > Time & language > Language & region, then retry. No OCR text was produced or sent.");
+        }
+        return engine;
+    }
+
+    private async Task<DocumentTextExtractionResult> ExtractImageWithOcrAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+            throw new FileNotFoundException("The selected image no longer exists.", path);
+
+        var info = new FileInfo(path);
+        if (info.Length <= 0)
+            throw new InvalidDataException("The selected image is empty.");
+        if (info.Length > MaximumFileBytes)
+            throw new InvalidDataException($"The selected image exceeds the {MaximumFileBytes / (1024 * 1024)} MB limit.");
+
+        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var engine = CreateLocalOcrEngine();
+        using var stream = new InMemoryRandomAccessStream();
+        await WriteBytesToStreamAsync(stream, bytes, cancellationToken);
+        var text = await RecognizeStreamAsync(stream, engine, cancellationToken);
+        if (string.IsNullOrWhiteSpace(text))
+            throw new InvalidDataException("Windows OCR did not detect readable text in this image.");
+
+        var truncated = text.Length > MaximumTextCharacters;
+        if (truncated)
+            text = text[..MaximumTextCharacters];
+
+        var notice = "Image text was recognized locally by Windows OCR. Accuracy depends on image quality and installed language packs; review names, numbers, dates, and right-to-left text before relying on it. Nothing is sent until you attach the preview and press Send.";
+        if (truncated)
+            notice += $" Output truncated at {MaximumTextCharacters:N0} characters.";
+
+        return new DocumentTextExtractionResult(
+            Path.GetFileName(path), Path.GetExtension(path).ToLowerInvariant(), text, 1, truncated, notice);
+    }
+
+    private async Task<DocumentTextExtractionResult> ExtractScannedPdfWithOcrAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+            throw new FileNotFoundException("The selected PDF no longer exists.", path);
+
+        var info = new FileInfo(path);
+        if (info.Length <= 0)
+            throw new InvalidDataException("The selected PDF is empty.");
+        if (info.Length > MaximumFileBytes)
+            throw new InvalidDataException($"The selected PDF exceeds the {MaximumFileBytes / (1024 * 1024)} MB limit.");
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var engine = CreateLocalOcrEngine();
+        var file = await StorageFile.GetFileFromPathAsync(path);
+        using var document = await PdfDocument.LoadFromFileAsync(file);
+        var pageCount = checked((int)document.PageCount);
+        if (pageCount <= 0)
+            throw new InvalidDataException("The PDF has no readable pages.");
+
+        var pagesToProcess = Math.Min(pageCount, MaximumPdfPages);
+        var output = new StringBuilder(Math.Min(MaximumTextCharacters, 2048));
+        var pagesProcessed = 0;
+        var truncated = pageCount > pagesToProcess;
+
+        for (var pageIndex = 0; pageIndex < pagesToProcess && output.Length < MaximumTextCharacters; pageIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var page = document.GetPage((uint)pageIndex);
+            var pageSize = page.Size;
+            if (pageSize.Width <= 0 || pageSize.Height <= 0)
+                continue;
+
+            // Render at a bounded resolution before decoding to avoid allocating an unbounded bitmap.
+            var scale = Math.Min(1.0, MaximumOcrPageSidePixels / Math.Max(pageSize.Width, pageSize.Height));
+            var destinationWidth = checked((uint)Math.Max(1, Math.Ceiling(pageSize.Width * scale)));
+            var destinationHeight = checked((uint)Math.Max(1, Math.Ceiling(pageSize.Height * scale)));
+            if ((long)destinationWidth * destinationHeight > MaximumOcrPagePixels)
+                throw new InvalidDataException("A PDF page exceeds the safe OCR pixel limit.");
+
+            using var stream = new InMemoryRandomAccessStream();
+            var renderOptions = new PdfPageRenderOptions
+            {
+                DestinationWidth = destinationWidth,
+                DestinationHeight = destinationHeight
+            };
+            await page.RenderToStreamAsync(stream, renderOptions);
+            cancellationToken.ThrowIfCancellationRequested();
+            stream.Seek(0);
+            var pageText = await RecognizeStreamAsync(stream, engine, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(pageText))
+                AppendLimited(output, $"[OCR page {pageIndex + 1}]\n{pageText}\n\n", ref truncated);
+            pagesProcessed++;
+        }
+
+        var text = output.ToString().Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            throw new InvalidDataException(
+                "Windows OCR did not detect readable text in the scanned PDF. Install the required Windows OCR language pack or use a clearer scan. No OCR text was produced or sent.");
+
+        if (pageCount > pagesToProcess)
+            truncated = true;
+        var notice = $"Scanned PDF pages were rendered locally by Windows and recognized with its installed OCR language packs ({pagesProcessed} of {pageCount} pages). OCR can misread Arabic/English mixed text, tables, dates, and numbers; verify the preview before sending.";
+        if (truncated)
+            notice += $" Output truncated at {MaximumTextCharacters:N0} characters or the {MaximumPdfPages}-page OCR limit.";
+        notice += " Nothing is sent to an AI provider until you attach the reviewed text and press Send.";
+
+        return new DocumentTextExtractionResult(Path.GetFileName(path), ".pdf", text, pagesProcessed, truncated, notice);
+    }
+
+    private static async Task WriteBytesToStreamAsync(
+        InMemoryRandomAccessStream stream,
+        byte[] bytes,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var writer = new DataWriter(stream);
+        writer.WriteBytes(bytes);
+        await writer.StoreAsync();
+        await writer.FlushAsync();
+        writer.DetachStream();
+        stream.Seek(0);
+    }
+
+    private static async Task<string> RecognizeStreamAsync(
+        InMemoryRandomAccessStream stream,
+        OcrEngine engine,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        stream.Seek(0);
+        var decoder = await BitmapDecoder.CreateAsync(stream);
+        var width = decoder.PixelWidth;
+        var height = decoder.PixelHeight;
+        if (width == 0 || height == 0 ||
+            (long)width * height > MaximumOcrPagePixels ||
+            width > MaximumOcrPageSidePixels || height > MaximumOcrPageSidePixels)
+        {
+            throw new InvalidDataException(
+                $"The image exceeds the safe OCR limit ({MaximumOcrPageSidePixels} pixels per side and {MaximumOcrPagePixels:N0} pixels total). Resize it or use Windows Snipping Tool to select a smaller area.");
+        }
+
+        using var bitmap = await decoder.GetSoftwareBitmapAsync(
+            BitmapPixelFormat.Bgra8,
+            BitmapAlphaMode.Premultiplied);
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = await engine.RecognizeAsync(bitmap);
+        cancellationToken.ThrowIfCancellationRequested();
+        return result.Text ?? string.Empty;
     }
 
     private static string ExtractPdf(string path, StringBuilder output, ref int pagesProcessed, ref bool truncated)
