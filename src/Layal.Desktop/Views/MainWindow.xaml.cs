@@ -93,10 +93,14 @@ public partial class MainWindow : Window
     private bool _refreshingChatSessions;
     private ICollectionView? _apiConnectionsView;
     private string? _editingApiConnectionName;
+    private readonly GlobalHotkeyService? _globalHotkeyService;
+    private QuickAskWindow? _quickAskWindow;
 
     public MainWindow()
     {
         InitializeComponent();
+        if (!Layal.App.SuppressStartupForTests)
+            _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow);
         // The chat is Layal's primary surface; Home remains available from the navigation rail.
         // Clock/date/weather live in the chat header so core context is visible immediately.
         MainTabs.SelectedItem = ChatTab;
@@ -158,6 +162,84 @@ public partial class MainWindow : Window
         if (!IsVisible) Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
+    }
+
+    private void QuickAskButton_Click(object sender, RoutedEventArgs e) => OpenQuickAskWindow();
+
+    private void OpenQuickAskWindow()
+    {
+        if (AppRuntime.IsExiting || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        ShowFromTray();
+        MainTabs.SelectedItem = ChatTab;
+
+        if (_quickAskWindow is { } existing)
+        {
+            if (!existing.IsVisible) existing.Show();
+            existing.Activate();
+            existing.FocusInput();
+            return;
+        }
+
+        var quickAsk = new QuickAskWindow(IsArabic, SubmitQuickAskAsync, CancelQuickAskRequest)
+        {
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        _quickAskWindow = quickAsk;
+        quickAsk.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_quickAskWindow, quickAsk))
+                _quickAskWindow = null;
+        };
+        quickAsk.Show();
+        quickAsk.Activate();
+        quickAsk.FocusInput();
+    }
+
+    private void CancelQuickAskRequest() => _chatCancellation?.Cancel();
+
+    private async Task<string> SubmitQuickAskAsync(string question)
+    {
+        if (_chatCancellation is not null || _voiceConversationCancellation is not null)
+            return IsArabic
+                ? "هناك طلب أو جلسة صوتية قيد التشغيل. أوقفها أولًا ثم أعد السؤال."
+                : "A chat request or voice session is already running. Stop it before asking again.";
+
+        if (_pendingVisionImageBytes is { Length: > 0 })
+            return IsArabic
+                ? "هناك صورة مرفقة بالمحادثة. أزل الصورة أو أرسلها أولًا من نافذة المحادثة، ثم أعد السؤال السريع."
+                : "An image is attached to the chat. Remove or send it from the main chat before using Quick Ask.";
+
+        var priorDraft = ChatInput.Text;
+        var previousMessageCount = ChatMessages.Count;
+        ChatInput.Text = question;
+        Task sendTask;
+        try
+        {
+            // Run through the established chat pipeline; restore any draft already typed in the main composer.
+            sendTask = SendMessageAsync();
+        }
+        finally
+        {
+            ChatInput.Text = priorDraft;
+        }
+
+        await sendTask;
+        var newMessages = ChatMessages.Skip(previousMessageCount).ToList();
+        var answer = newMessages.LastOrDefault(message =>
+            string.Equals(message.Role, "assistant", StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(message.Content));
+        if (answer is not null)
+            return answer.Content;
+
+        var status = newMessages.LastOrDefault(message =>
+            string.Equals(message.Role, "status", StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(message.Content));
+        return status?.Content ?? (IsArabic
+            ? "لم تُنتج المحادثة إجابة نصية. افتح سجل المحادثة لمعرفة الحالة."
+            : "The chat did not return a text answer. Check the main conversation for its status.");
     }
 
     private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -355,6 +437,9 @@ public partial class MainWindow : Window
         _speechCancellation?.Dispose();
         _voiceTestCancellation?.Dispose();
         SystemEvents.UserPreferenceChanged -= MainWindow_UserPreferenceChanged;
+        _globalHotkeyService?.Dispose();
+        _quickAskWindow?.Close();
+        _quickAskWindow = null;
         Closed -= MainWindow_Closed;
     }
 
@@ -589,6 +674,10 @@ public partial class MainWindow : Window
                 : "Manual recording; audio is uploaded to the API provider only after a separate confirmation."));
         UpdateSpeechToTextButton();
         UpdateVoiceConversationControls();
+        QuickAskButton.Content = ar ? "سؤال سريع" : "Quick Ask";
+        QuickAskButton.ToolTip = ar ? "اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S." : "Ask by typing from any app. Shortcut: Alt+Shift+S.";
+        AutomationProperties.SetName(QuickAskButton, ar ? "سؤال سريع" : "Quick Ask");
+        AutomationProperties.SetHelpText(QuickAskButton, ar ? "يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا." : "Opens a small typing window. No screen capture or files are sent automatically.");
         ChooseImageButton.Content = ar ? "إرفاق صورة/لقطة شاشة" : "Attach image/screenshot";
         ChooseImageButton.ToolTip = ar ? "اختر صورة لإرسالها إلى النموذج مع سؤالك." : "Choose an image to send to the model with your question.";
         ClearVisionImageButton.Content = ar ? "إزالة الصورة" : "Remove image";
@@ -1252,6 +1341,7 @@ public partial class MainWindow : Window
               "Ctrl+6 — الذاكرة\n" +
               "Ctrl+7 — تكاملات API\n" +
               "Ctrl+8 — الإعدادات\n" +
+              "Alt+Shift+S — سؤال سريع من نافذة صغيرة\n" +
               "F1 — عرض هذه المساعدة\n\n" +
               "استخدم Tab للتنقل للأمام وShift+Tab للرجوع. استخدم الأسهم داخل قوائم التبويبات والقوائم، وSpace لتبديل مربعات الاختيار، والأسهم لتعديل أشرطة التمرير. في حقل المحادثة، Enter يرسل الرسالة."
             : "Keyboard shortcuts\n\n" +
@@ -1263,6 +1353,7 @@ public partial class MainWindow : Window
               "Ctrl+6 — Memory\n" +
               "Ctrl+7 — API integrations\n" +
               "Ctrl+8 — Settings\n" +
+              "Alt+Shift+S — Open Quick Ask\n" +
               "F1 — Show this help\n\n" +
               "Use Tab to move forward and Shift+Tab to move backward. Use the arrow keys inside tab and list controls, Space to toggle checkboxes, and the arrow keys to adjust sliders. In the chat field, Enter sends the message.";
 

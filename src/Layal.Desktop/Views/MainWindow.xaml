@@ -262,6 +262,10 @@
                             BorderThickness="1" IsHitTestVisible="False"/>
                     <StackPanel Grid.Row="3" Margin="10,3">
                         <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,2">
+                            <Button x:Name="QuickAskButton" Content="سؤال سريع" Click="QuickAskButton_Click" MinWidth="100"
+                                    ToolTip="اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S."
+                                    AutomationProperties.Name="سؤال سريع"
+                                    AutomationProperties.HelpText="يفتح نافذة كتابة صغيرة. لا تُلتقط الشاشة أو تُرسل ملفات تلقائيًا."/>
                             <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
                                     ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
                                     AutomationProperties.Name="إرفاق صورة أو لقطة شاشة"
