@@ -15,6 +15,7 @@ public sealed class GameModeHudWindow : Window
 {
     private readonly bool _isArabic;
     private readonly Func<string> _getActivity;
+    private readonly string _shortcutDisplay;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly TextBlock _clock;
     private readonly TextBlock _activity;
@@ -22,10 +23,11 @@ public sealed class GameModeHudWindow : Window
 
     public event EventHandler? ExitRequested;
 
-    public GameModeHudWindow(bool isArabic, Func<string> getActivity)
+    public GameModeHudWindow(bool isArabic, Func<string> getActivity, string shortcutDisplay = "Alt+Shift+S")
     {
         _isArabic = isArabic;
         _getActivity = getActivity ?? throw new ArgumentNullException(nameof(getActivity));
+        _shortcutDisplay = string.IsNullOrWhiteSpace(shortcutDisplay) ? "Alt+Shift+S" : shortcutDisplay.Trim();
 
         Title = isArabic ? "ليال | وضع الألعاب" : "Layal | Game mode";
         Width = 335;
@@ -90,7 +92,7 @@ public sealed class GameModeHudWindow : Window
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var shortcut = new TextBlock
         {
-            Text = "Alt+Shift+S · Esc",
+            Text = _shortcutDisplay + " · Esc",
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
             Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
@@ -133,10 +135,10 @@ public sealed class GameModeHudWindow : Window
         var activity = _getActivity();
         _activity.Text = string.IsNullOrWhiteSpace(activity)
             ? (_isArabic
-                ? "لا توجد مهمة نشطة.\nسؤال سريع: Alt+Shift+S\nإلغاء العملية الحالية: Esc"
-                : "No active task.\nQuick Ask: Alt+Shift+S\nCancel current operation: Esc")
+                ? $"لا توجد مهمة نشطة.\nسؤال سريع: {_shortcutDisplay}\nإلغاء العملية الحالية: Esc"
+                : $"No active task.\nQuick Ask: {_shortcutDisplay}\nCancel current operation: Esc")
             : activity + Environment.NewLine +
-              (_isArabic ? "سؤال سريع: Alt+Shift+S · إلغاء: Esc" : "Quick Ask: Alt+Shift+S · Cancel: Esc");
+              (_isArabic ? $"سؤال سريع: {_shortcutDisplay} · إلغاء: Esc" : $"Quick Ask: {_shortcutDisplay} · Cancel: Esc");
     }
 
     private void RaiseExitRequested()
