@@ -52,21 +52,13 @@ public sealed class BrowserAutomationShutdownTests
         await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() =>
             browser.PreviewElementAsync("button.ok", "click"));
         await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() =>
-            browser.ClickElementAsync(new BrowserElementPreview
-            {
-                Action = "click",
-                PageTargetId = "page",
-                Selector = "button.ok",
-                Description = "test"
-            }));
+            browser.ClickElementAsync(new BrowserElementPreview(
+                "click", "page", "https://example.com/", "button.ok", "fingerprint",
+                "button", "button", "ok", "", "OK", "OK", "", false, false)));
         await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() =>
-            browser.FillElementAsync(new BrowserElementPreview
-            {
-                Action = "fill",
-                PageTargetId = "page",
-                Selector = "input[name=q]",
-                Description = "test"
-            }, "value"));
+            browser.FillElementAsync(new BrowserElementPreview(
+                "fill", "page", "https://example.com/", "input[name=q]", "fingerprint",
+                "input", "text", "", "q", "Search", "", "", false, false), "value"));
 
         Assert.IsFalse(Directory.Exists(Path.Combine(temp.Path, "app-data", "BrowserProfile")));
     }
