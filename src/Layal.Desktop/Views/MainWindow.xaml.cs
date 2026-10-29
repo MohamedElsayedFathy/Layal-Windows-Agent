@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private bool _cameraAutomaticObservationRequest;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
+    private readonly DispatcherTimer _reminderTimer = new() { Interval = TimeSpan.FromSeconds(15) };
     private readonly WeatherService _weatherService = new();
     private readonly DeviceLocationService _deviceLocationService = new();
     private CancellationTokenSource? _weatherCancellation;
@@ -116,6 +117,7 @@ public partial class MainWindow : Window
         _speechRecordingTimer.Tick += SpeechRecordingTimer_Tick;
         _clockTimer.Tick += ClockTimer_Tick;
         _weatherRefreshTimer.Tick += WeatherRefreshTimer_Tick;
+        _reminderTimer.Tick += ReminderTimer_Tick;
         DataContext = this;
         _apiConnectionsView = CollectionViewSource.GetDefaultView(ApiConnections);
         _apiConnectionsView.Filter = ApiConnectionMatchesSearch;
@@ -162,6 +164,8 @@ public partial class MainWindow : Window
         ApplyTheme();
         ApplyLanguage();
         RefreshProviderStatus();
+        if (!Layal.App.SuppressStartupForTests && AppRuntime.ReminderService is not null)
+            _reminderTimer.Start();
     }
 
     public void ShowFromTray()
@@ -558,8 +562,10 @@ public partial class MainWindow : Window
     {
         _clockTimer.Stop();
         _weatherRefreshTimer.Stop();
+        _reminderTimer.Stop();
         _clockTimer.Tick -= ClockTimer_Tick;
         _weatherRefreshTimer.Tick -= WeatherRefreshTimer_Tick;
+        _reminderTimer.Tick -= ReminderTimer_Tick;
         _weatherCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
@@ -862,6 +868,14 @@ public partial class MainWindow : Window
         UpdateCameraVisionIndicator();
 
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
+        ManageRemindersButton.Content = ar ? "التذكيرات" : "Reminders";
+        ManageRemindersButton.ToolTip = ar
+            ? "إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
+            : "Manage encrypted local reminders; notifications appear while Layal is running.";
+        AutomationProperties.SetName(ManageRemindersButton, ar ? "إدارة التذكيرات المحلية" : "Manage local reminders");
+        AutomationProperties.SetHelpText(ManageRemindersButton, ar
+            ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."
+            : "Create one-time, daily, or weekly reminders. They are stored locally encrypted and are not sent to an AI provider.");
         TasksDescription.Text = ar
             ? "اكتب مهمة بالعربية أو الإنجليزية. تستخدم ليال استدعاء الأدوات المحددة، وتطلب موافقتك قبل الإجراءات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات."
             : "Describe a task in Arabic or English. Layal uses allow-listed tools and requests approval before file changes, application launches, or data disclosure.";
@@ -4566,6 +4580,54 @@ public partial class MainWindow : Window
             SkillsResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally { ImportGitHubSkillButton.IsEnabled = true; }
+    }
+
+    private void ManageRemindersButton_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    private void ReminderTimer_Tick(object? sender, EventArgs e)
+    {
+        if (AppRuntime.IsExiting)
+            return;
+
+        var now = DateTimeOffset.Now;
+        try
+        {
+            foreach (var due in AppRuntime.ReminderService.GetDue(now))
+            {
+                // Persist the next schedule (or deactivate a one-shot item) before notifying.
+                // A stale/overlapping tick can therefore never deliver the same due instant twice.
+                var delivered = AppRuntime.ReminderService.MarkDelivered(due.Id, due.DueAt, now);
+                if (delivered is null)
+                    continue;
+
+                if (AppRuntime.Tray is { } tray)
+                {
+                    tray.ShowReminderNotification(delivered.Title, IsArabic);
+                }
+                else
+                {
+                    SetAccessibleStatusText(TaskResult,
+                        (IsArabic ? "حان موعد التذكير: " : "Reminder due: ") + delivered.Title);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Avoid a notification storm if the protected store becomes unavailable.
+            _reminderTimer.Stop();
+            SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError(
+                "تعذر فحص التذكيرات؛ تم إيقاف المؤقت لحماية السجل",
+                "Could not check reminders; the timer was stopped to protect the saved history",
+                ex,
+                IsArabic));
+        }
     }
 
     private async void RunAgentTaskButton_Click(object sender, RoutedEventArgs e)
