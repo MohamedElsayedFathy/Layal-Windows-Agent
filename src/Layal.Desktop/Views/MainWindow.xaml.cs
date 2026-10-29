@@ -131,7 +131,7 @@ public partial class MainWindow : Window
         WindowInspectionCheckbox.IsChecked = AppRuntime.Settings.AllowWindowTitleInspection;
         var currentConversation = AppRuntime.ChatSessionService.GetCurrent();
         _currentConversationId = currentConversation.Id;
-        foreach (var message in currentConversation.Messages.TakeLast(100)) ChatMessages.Add(message);
+        foreach (var message in currentConversation.Messages.TakeLast(ChatSessionService.MaxMessagesPerConversation)) ChatMessages.Add(message);
         RefreshChatSessions(_currentConversationId);
         var recent = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         if (recent is not null)
@@ -3517,7 +3517,7 @@ public partial class MainWindow : Window
         var direction = ContainsArabic(content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         var message = new ChatMessage { Role = role, Content = content, DisplayRole = display, CreatedAt = DateTimeOffset.Now, Direction = direction };
         ChatMessages.Add(message);
-        while (ChatMessages.Count > 100) ChatMessages.RemoveAt(0);
+        while (ChatMessages.Count > ChatSessionService.MaxMessagesPerConversation) ChatMessages.RemoveAt(0);
         SaveCurrentChatMessages();
         ChatMessagesList.ScrollIntoView(ChatMessages.LastOrDefault());
         return message;
