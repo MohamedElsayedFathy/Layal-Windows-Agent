@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Layal.Services;
@@ -5,12 +6,20 @@ namespace Layal.Services;
 /// <summary>Stores JSON encrypted by Windows DPAPI for the current Windows user.</summary>
 public sealed class ProtectedJsonStore<T> where T : class
 {
+    private readonly string _path;
     private readonly DpapiSecretStore _secretStore;
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false, PropertyNameCaseInsensitive = true };
 
-    public ProtectedJsonStore(string path) => _secretStore = new DpapiSecretStore(path, "Layal encrypted JSON state");
+    public ProtectedJsonStore(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        _path = Path.GetFullPath(path);
+        _secretStore = new DpapiSecretStore(_path, "Layal encrypted JSON state");
+    }
 
-    private bool _preservedUnreadable;
+    // Cache the content fingerprint, not a lifetime-wide boolean. A different corrupt payload
+    // must receive its own recovery copy even when this store instance has already recovered once.
+    private string? _preservedUnreadableFingerprint;
 
     public T Load(T fallback)
     {
@@ -39,7 +48,9 @@ public sealed class ProtectedJsonStore<T> where T : class
 
     private void PreserveOnce()
     {
-        if (_preservedUnreadable) return;
+        var currentFingerprint = ComputeFingerprint(_path);
+        if (string.Equals(currentFingerprint, _preservedUnreadableFingerprint, StringComparison.Ordinal))
+            return;
 
         var recoveryCopy = _secretStore.PreserveUnreadableCopy();
         if (string.IsNullOrWhiteSpace(recoveryCopy) || !File.Exists(recoveryCopy))
@@ -51,14 +62,36 @@ public sealed class ProtectedJsonStore<T> where T : class
                 "The protected state file is unreadable and a recovery copy could not be created. The original was left untouched; refusing to return fallback state.");
         }
 
-        _preservedUnreadable = true;
+        // The original may change while it is copied by another process. Only cache the state
+        // if the recovery file and current source still match the bytes we initially inspected.
+        var recoveryFingerprint = ComputeFingerprint(recoveryCopy);
+        var afterCopyFingerprint = ComputeFingerprint(_path);
+        if (!string.Equals(currentFingerprint, recoveryFingerprint, StringComparison.Ordinal) ||
+            !string.Equals(currentFingerprint, afterCopyFingerprint, StringComparison.Ordinal))
+        {
+            throw new IOException(
+                "The protected state file changed while its recovery copy was being created. The copy was retained; retry the operation before saving fallback state.");
+        }
+
+        _preservedUnreadableFingerprint = currentFingerprint;
+    }
+
+    private static string ComputeFingerprint(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return Convert.ToHexString(SHA256.HashData(stream));
     }
 
     public void Save(T value)
     {
         var json = JsonSerializer.Serialize(value, Options);
         _secretStore.Save(json);
+        _preservedUnreadableFingerprint = null;
     }
 
-    public void Delete() => _secretStore.Delete();
+    public void Delete()
+    {
+        _secretStore.Delete();
+        _preservedUnreadableFingerprint = null;
+    }
 }
