@@ -100,6 +100,7 @@ public sealed class SettingsStore
         if (settings.ThemeMode is not ("light" or "dark")) settings.ThemeMode = "light";
         if (settings.ThemePreset is not ("classic" or "ocean" or "forest" or "sunset"))
             settings.ThemePreset = "classic";
+        settings.QuickAskHotkeyPreset = GlobalHotkeyService.NormalizePreset(settings.QuickAskHotkeyPreset);
         if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
             settings.AssistantPersona = "warm";
         settings.GmailOAuthClientId = (settings.GmailOAuthClientId ?? string.Empty).Trim();
