@@ -484,6 +484,14 @@ public sealed class MainWindowVisualSmokeTests
             "Theme preset selector must expose an accessible name.");
         Assert.AreEqual(4, themePresetSelector.Items.Count,
             "The app should offer four named presets (Classic, Ocean, Forest, Sunset).");
+        var workspaceHubButton = window.FindName("WorkspaceHubButton") as Button
+            ?? throw new InvalidOperationException("WorkspaceHubButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(workspaceHubButton)),
+            "Workspace hub must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(workspaceHubButton)),
+            "Workspace hub must disclose local indexing and export privacy.");
         var gmailButton = window.FindName("GmailInboxButton") as Button
             ?? throw new InvalidOperationException("GmailInboxButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
