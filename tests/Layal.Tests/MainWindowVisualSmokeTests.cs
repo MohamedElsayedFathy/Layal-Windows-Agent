@@ -461,6 +461,14 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(clipboardButton)),
             "Clipboard text review must disclose its privacy behaviour.");
+        var remindersButton = window.FindName("ManageRemindersButton") as Button
+            ?? throw new InvalidOperationException("ManageRemindersButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(remindersButton)),
+            "The reminder manager must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(remindersButton)),
+            "The reminder manager must disclose where reminders are stored and how notifications work.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
@@ -1020,6 +1028,7 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.SkillPackageService = new SkillPackageService(Path.Combine(root, "skills"));
         AppRuntime.MemoryService = new MemoryService(Path.Combine(root, "memory.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(root, "tasks.dpapi"));
+        AppRuntime.ReminderService = new ReminderService(Path.Combine(root, "reminders.dpapi"));
         AppRuntime.ChatHistoryStore = new ProtectedJsonStore<List<ChatMessage>>(Path.Combine(root, "chat.dpapi"));
         AppRuntime.ChatSessionService = new ChatSessionService(
             Path.Combine(root, "sessions.dpapi"), AppRuntime.ChatHistoryStore, "Visual smoke");
