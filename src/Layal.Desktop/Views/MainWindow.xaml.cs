@@ -102,7 +102,7 @@ public partial class MainWindow : Window
     private bool _refreshingChatSessions;
     private ICollectionView? _apiConnectionsView;
     private string? _editingApiConnectionName;
-    private readonly GlobalHotkeyService? _globalHotkeyService;
+    private GlobalHotkeyService? _globalHotkeyService;
     private QuickAskWindow? _quickAskWindow;
     private bool _incognitoMode;
 
@@ -110,7 +110,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         if (!Layal.App.SuppressStartupForTests)
-            _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow);
+            _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow, AppRuntime.Settings.QuickAskHotkeyPreset);
+        SourceInitialized += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateQuickAskHotkeyStatus));
         // The chat is Layal's primary surface; Home remains available from the navigation rail.
         // Clock/date/weather live in the chat header so core context is visible immediately.
         MainTabs.SelectedItem = ChatTab;
@@ -149,6 +150,8 @@ public partial class MainWindow : Window
         WindowInspectionCheckbox.IsChecked = AppRuntime.Settings.AllowWindowTitleInspection;
         ThemePresetSelector.SelectedItem = ThemePresetSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
             string.Equals(item.Tag?.ToString(), AppRuntime.Settings.ThemePreset, StringComparison.Ordinal));
+        QuickAskHotkeySelector.SelectedItem = QuickAskHotkeySelector.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
+            string.Equals(item.Tag?.ToString(), AppRuntime.Settings.QuickAskHotkeyPreset, StringComparison.Ordinal));
         ProactiveCheckInEnabledCheckBox.IsChecked = AppRuntime.Settings.ProactiveCheckInEnabled;
         ProactiveCheckInIntervalSelector.SelectedItem =
             ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
@@ -497,7 +500,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        var quickAsk = new QuickAskWindow(IsArabic, SubmitQuickAskAsync, CancelQuickAskRequest)
+        var quickAsk = new QuickAskWindow(
+            IsArabic,
+            SubmitQuickAskAsync,
+            CancelQuickAskRequest,
+            GlobalHotkeyService.GetDisplayName(AppRuntime.Settings.QuickAskHotkeyPreset))
         {
             Owner = this,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
@@ -1252,6 +1259,17 @@ public partial class MainWindow : Window
         SaveProviderButton.Content = ar ? "حفظ الإعدادات" : "Save settings";
         TestProviderButton.Content = ar ? "اختبار الاتصال" : "Test connection";
         DeleteKeyButton.Content = ar ? "حذف المفتاح المحفوظ" : "Delete saved key";
+        QuickAskHotkeyLabel.Text = ar ? "اختصار السؤال السريع العالمي" : "Global Quick Ask shortcut";
+        var hotkeyItems = QuickAskHotkeySelector.Items.OfType<ComboBoxItem>().ToArray();
+        for (var i = 0; i < hotkeyItems.Length; i++)
+        {
+            var preset = hotkeyItems[i].Tag?.ToString();
+            hotkeyItems[i].Content = GlobalHotkeyService.GetDisplayName(preset);
+        }
+        AutomationProperties.SetName(QuickAskHotkeySelector, ar ? "اختصار السؤال السريع العالمي" : "Global Quick Ask shortcut");
+        AutomationProperties.SetHelpText(QuickAskHotkeySelector, ar
+            ? "اختر اختصارًا عالميًا. إذا كان مستخدمًا من تطبيق آخر، يظل زر السؤال السريع داخل ليال متاحًا."
+            : "Choose a global shortcut. If another app owns it, the in-app Quick Ask button remains available.");
         ThemePresetLabel.Text = ar ? "مجموعة ألوان الواجهة" : "Interface color preset";
         ThemePresetPrivacyNote.Text = ar
             ? "مجموعة الألوان إعداد محلي. تظل إعدادات التباين العالي في Windows هي الأولوية."
@@ -1682,6 +1700,52 @@ public partial class MainWindow : Window
         ChatHistorySelector.Items.Refresh();
         ApplyLanguage();
         AppRuntime.Tray?.SetLanguage(language);
+    }
+
+    private void QuickAskHotkeySelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || QuickAskHotkeySelector.SelectedItem is not ComboBoxItem item)
+            return;
+
+        var preset = GlobalHotkeyService.NormalizePreset(item.Tag?.ToString());
+        var previous = AppRuntime.Settings.QuickAskHotkeyPreset;
+        if (string.Equals(previous, preset, StringComparison.Ordinal))
+            return;
+
+        AppRuntime.Settings.QuickAskHotkeyPreset = preset;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+        }
+        catch (Exception ex)
+        {
+            AppRuntime.Settings.QuickAskHotkeyPreset = previous;
+            QuickAskHotkeySelector.SelectedItem = QuickAskHotkeySelector.Items.OfType<ComboBoxItem>()
+                .FirstOrDefault(candidate => string.Equals(candidate.Tag?.ToString(), previous, StringComparison.Ordinal));
+            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError(
+                "تعذر حفظ الاختصار", "Could not save the shortcut", ex, IsArabic));
+            return;
+        }
+
+        if (!Layal.App.SuppressStartupForTests)
+        {
+            _globalHotkeyService?.Dispose();
+            _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow, preset);
+        }
+        UpdateQuickAskHotkeyStatus();
+    }
+
+    private void UpdateQuickAskHotkeyStatus()
+    {
+        if (QuickAskHotkeyStatus is null)
+            return;
+        var shortcut = GlobalHotkeyService.GetDisplayName(AppRuntime.Settings.QuickAskHotkeyPreset);
+        QuickAskHotkeyStatus.Text = _globalHotkeyService?.IsRegistered == true
+            ? (IsArabic ? "الاختصار مسجل: " : "Shortcut registered: ") + shortcut
+            : (IsArabic
+                ? "تعذر تسجيل الاختصار عالميًا؛ جرّب اختيار اختصار آخر أو استخدم زر السؤال السريع داخل ليال. الاختصار: "
+                : "The global shortcut could not be registered. Choose another or use the in-app Quick Ask button. Shortcut: ") + shortcut;
+        AutomationProperties.SetHelpText(QuickAskHotkeyStatus, QuickAskHotkeyStatus.Text);
     }
 
     private void ThemePresetSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
