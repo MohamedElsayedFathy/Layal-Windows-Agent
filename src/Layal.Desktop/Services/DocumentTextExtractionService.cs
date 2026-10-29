@@ -116,7 +116,7 @@ public sealed class DocumentTextExtractionService
         }
 
         if (wasTruncated)
-            notice += $" Extraction was limited to the first {MaximumTextCharacters:N0} characters or the per-format page/row limits.";
+            notice += $" Output truncated: extraction was limited to the first {MaximumTextCharacters:N0} characters or the per-format page/row limits.";
         notice += " Content is treated as untrusted data. Nothing is sent to an AI provider until you attach it and press Send.";
 
         return new DocumentTextExtractionResult(
@@ -199,10 +199,11 @@ public sealed class DocumentTextExtractionService
         var sheets = workbook.Sheets?.Elements<Sheet>().ToList()
             ?? throw new InvalidDataException("The XLSX file contains no worksheet list.");
 
-        var cellCount = 0;
+        var cellsVisited = 0;
+        var nonEmptyCellCount = 0;
         foreach (var sheet in sheets.Take(MaximumWorksheets))
         {
-            if (output.Length >= MaximumTextCharacters || cellCount >= MaximumSpreadsheetCells)
+            if (output.Length >= MaximumTextCharacters || cellsVisited >= MaximumSpreadsheetCells)
             {
                 truncated = true;
                 break;
@@ -220,12 +221,12 @@ public sealed class DocumentTextExtractionService
                 truncated = true;
                 continue;
             }
-            var rows = worksheet.GetFirstChild<SheetData>()?.Elements<Row>().ToList()
+            var rows = worksheet.GetFirstChild<SheetData>()?.Elements<Row>().Take(MaximumRowsPerWorksheet + 1).ToList()
                 ?? new List<Row>();
 
             foreach (var row in rows.Take(MaximumRowsPerWorksheet))
             {
-                if (output.Length >= MaximumTextCharacters || cellCount >= MaximumSpreadsheetCells)
+                if (output.Length >= MaximumTextCharacters || cellsVisited >= MaximumSpreadsheetCells)
                 {
                     truncated = true;
                     break;
@@ -234,18 +235,19 @@ public sealed class DocumentTextExtractionService
                 var values = new List<string>();
                 foreach (var cell in row.Elements<Cell>())
                 {
-                    if (cellCount >= MaximumSpreadsheetCells || output.Length >= MaximumTextCharacters)
+                    if (cellsVisited >= MaximumSpreadsheetCells || output.Length >= MaximumTextCharacters)
                     {
                         truncated = true;
                         break;
                     }
 
+                    cellsVisited++;
                     var value = GetCellText(cell, sharedStrings);
                     if (string.IsNullOrWhiteSpace(value))
                         continue;
                     var reference = cell.CellReference?.Value;
                     values.Add(string.IsNullOrWhiteSpace(reference) ? value : $"{reference}: {value}");
-                    cellCount++;
+                    nonEmptyCellCount++;
                 }
 
                 if (values.Count > 0)
@@ -260,10 +262,10 @@ public sealed class DocumentTextExtractionService
 
         if (sheets.Count > MaximumWorksheets)
             truncated = true;
-        if (worksheetsProcessed == 0 || cellCount == 0)
+        if (worksheetsProcessed == 0 || nonEmptyCellCount == 0)
             throw new InvalidDataException("No readable cell values were found in the XLSX workbook.");
 
-        return $"Extracted {cellCount} non-empty Excel cells across {worksheetsProcessed} worksheets locally. Formula results are read only when saved in the workbook; formulas are not executed.";
+        return $"Extracted {nonEmptyCellCount} non-empty Excel cells across {worksheetsProcessed} worksheets locally. Formula results are read only when saved in the workbook; formulas are not executed.";
     }
 
     private static string GetCellText(Cell cell, SharedStringTable? sharedStrings)
