@@ -214,7 +214,13 @@ public sealed class DocumentTextExtractionService
                 continue;
 
             AppendLimited(output, $"[Worksheet: {sheet.Name?.Value ?? "Sheet"}]\n", ref truncated);
-            var rows = worksheetPart.Worksheet.GetFirstChild<SheetData>()?.Elements<Row>().ToList()
+            var worksheet = worksheetPart.Worksheet;
+            if (worksheet is null)
+            {
+                truncated = true;
+                continue;
+            }
+            var rows = worksheet.GetFirstChild<SheetData>()?.Elements<Row>().ToList()
                 ?? new List<Row>();
 
             foreach (var row in rows.Take(MaximumRowsPerWorksheet))
