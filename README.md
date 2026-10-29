@@ -22,7 +22,7 @@ On Windows 10/11 x64 with the .NET 10 SDK:
 Layal agent file tools and dotnet build/test operations are limited to `%USERPROFILE%\Documents\LayalWorkspace`; build/test commands can still execute project-defined targets and should only be run on trusted projects. See README_AR.md for limits, safeguards, and data locations. The automatic local chat/memory retention limits are documented in [English](docs/LOCAL_DATA_RETENTION.md) and [Arabic](docs/LOCAL_DATA_RETENTION_AR.md).
 
 
-- Release preparation: [release Go/No-Go approval gate](docs/RELEASE_APPROVAL_AR.md) and [unpublished 0.5.2 candidate notes](docs/RELEASE_NOTES_0.5.2_AR.md). Current decision is **NO-GO**; do not publish unsigned CI artifacts.
+- The current source snapshot is 0.5.7, but the release decision remains **NO-GO**. See the [release Go/No-Go approval gate](docs/RELEASE_APPROVAL_AR.md), [implementation status and pending evidence](docs/IMPLEMENTATION_STATUS.md), and [live Windows acceptance procedure](docs/WINDOWS_LIVE_ACCEPTANCE_REPORT_AR.md). Do not publish unsigned CI artifacts.
 
 ## Quality gates and traceability
 
@@ -34,7 +34,7 @@ Layal agent file tools and dotnet build/test operations are limited to `%USERPRO
 - `python tools/package_source.py` creates a versioned source ZIP, excludes build/cache/user-artifact folders, and validates the exact archive before reporting success.
 - On Windows, run `powershell -ExecutionPolicy Bypass -File .\tools\VERIFY-LAYAL.ps1` to execute the static checks, restore packages, and build Release. This does not replace manual acceptance tests.
 - `.github/workflows/windows-build.yml` runs static validation, Windows Release build, and `dotnet test`; it validates non-empty TRX results and uploads build, test, and validated source artifacts.
-- `tests/Layal.Tests/` contains automated tests. The authoring environment lacks the .NET SDK, but Windows CI run [39863364728](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/39863364728) executed the suite successfully for code commit `034fa598d8ec219e6c59019984013ac649055e5b`: **77 passed, 0 failed, 0 skipped**. PR #3 adds regression cases for encoded/double-encoded path traversal and folded/literal YAML descriptions; rerun CI on the combined head to confirm the combined test count. The automated-test gate passed for that code commit; manual Windows acceptance and external provider/device integration tests remain separate.
+- `tests/Layal.Tests/` contains the automated C# suite. The current main commit has a successful [Windows CI run 40683297849](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/40683297849). Check the report for the exact test count on the commit being reviewed; a passing automated suite does not replace manual Windows acceptance or external provider/device integration tests.
 - `docs/MANUAL_ACCEPTANCE_AR.md` provides the manual Windows acceptance checklist for the browser and native UI automation features; `tools/Start-LayalUiAutomationSample.ps1` launches a disposable WPF sample for safe testing.
 
 
