@@ -4172,6 +4172,30 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Cancels operations that may be waiting on the browser or other services before application shutdown
+    /// begins awaiting resource cleanup. The normal Closing handler still owns final window cleanup.
+    /// </summary>
+    public void CancelActiveOperationsForShutdown()
+    {
+        _weatherCancellation?.Cancel();
+        _speechRecordingTimer.Stop();
+        _speechCancellation?.Cancel();
+        _voiceTestCancellation?.Cancel();
+        _localAiSetupCancellation?.Cancel();
+        _chatCancellation?.Cancel();
+        _agentTaskCancellation?.Cancel();
+        _voiceConversationCancellation?.Cancel();
+
+        if (_localVoiceRecordingActive)
+            CancelLocalVoiceRecording();
+        else if (!_speechIsStopping)
+        {
+            try { _speechToText.CancelRecording(); }
+            catch { /* Shutdown should continue even if capture already stopped. */ }
+        }
+    }
+
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         _speechRecordingTimer.Stop();

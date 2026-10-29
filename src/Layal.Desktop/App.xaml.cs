@@ -196,17 +196,33 @@ public partial class App : Application
         catch { /* logging must never throw */ }
     }
 
-    private void ShutdownLayal()
+    private async void ShutdownLayal()
     {
         if (AppRuntime.IsExiting) return;
         AppRuntime.IsExiting = true;
         AppRuntime.Tray?.Dispose();
-        AppRuntime.BrowserAutomationService?.Shutdown();
-        // Close hidden windows too: a user may have hidden the main window before exiting from the tray.
-        // MainWindow.Window_Closing cancels active requests when IsExiting is true.
-        AppRuntime.MascotWindow?.Close();
-        AppRuntime.MainWindow?.Close();
-        Shutdown();
+
+        // Cancel chat/agent/browser callers first so no new CDP work can begin while Edge is being closed.
+        try { AppRuntime.MainWindow?.CancelActiveOperationsForShutdown(); }
+        catch (Exception ex) { WriteCrashLog("Cancel operations during shutdown", ex); }
+
+        try
+        {
+            if (AppRuntime.BrowserAutomationService is { } browser)
+                await browser.ShutdownAsync();
+        }
+        catch (Exception ex)
+        {
+            // Cleanup failure is logged, but must not leave the app stranded in an exiting state.
+            WriteCrashLog("Browser shutdown", ex);
+        }
+        finally
+        {
+            // Close hidden windows too; Window_Closing performs its own idempotent cleanup.
+            AppRuntime.MascotWindow?.Close();
+            AppRuntime.MainWindow?.Close();
+            Shutdown();
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
