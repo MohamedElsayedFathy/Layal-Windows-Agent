@@ -116,6 +116,57 @@ public sealed class SkillPackageServiceTests
         Assert.IsTrue(result.Length < 100);
     }
 
+    [TestMethod]
+    public void OrphanedPackageRequiresExplicitOverwrite()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var orphanFolder = System.IO.Path.Combine(root, "sample-skill");
+        Directory.CreateDirectory(orphanFolder);
+        var orphanPackage = System.IO.Path.Combine(orphanFolder, "sample-skill.zip");
+        var originalBytes = new byte[] { 0x50, 0x4B, 0x03, 0x04, 0x55, 0xAA };
+        File.WriteAllBytes(orphanPackage, originalBytes);
+
+        var replacementZip = CreateSkillZip(temp.Path, "sample-skill", "Replacement package.", "replacement body");
+        var service = new SkillPackageService(root);
+
+        Assert.ThrowsExactly<SkillAlreadyExistsException>(
+            () => service.ImportZip(replacementZip, overwrite: false));
+        CollectionAssert.AreEqual(originalBytes, File.ReadAllBytes(orphanPackage),
+            "An unindexed package must not be overwritten without explicit consent.");
+
+        var imported = service.ImportZip(replacementZip, overwrite: true);
+        Assert.AreEqual("sample-skill", imported.Name);
+        Assert.AreEqual(1, service.GetInstalled().Count);
+    }
+
+    [TestMethod]
+    public void CorruptSkillsIndexIsPreservedAndImportFailsClosed()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var originalZip = CreateSkillZip(temp.Path, "sample-skill", "Original package.", "original body");
+        var service = new SkillPackageService(root);
+        var original = service.ImportZip(originalZip, overwrite: false);
+        var originalPackageBytes = File.ReadAllBytes(original.PackagePath);
+
+        var indexPath = System.IO.Path.Combine(root, "skills-index.json");
+        File.WriteAllText(indexPath, "{ this is not valid JSON");
+
+        // Refreshing the UI remains non-fatal and preserves the unreadable index for recovery.
+        Assert.AreEqual(0, service.GetInstalled().Count);
+        Assert.IsTrue(Directory.GetFiles(root, "skills-index.json.corrupt-*.bak").Length > 0);
+
+        var replacementZip = CreateSkillZip(temp.Path, "sample-skill", "Replacement package.", "replacement body");
+        Assert.ThrowsExactly<System.Text.Json.JsonException>(
+            () => service.ImportZip(replacementZip, overwrite: true));
+
+        CollectionAssert.AreEqual(originalPackageBytes, File.ReadAllBytes(original.PackagePath),
+            "A failed catalog read must not replace a package that was previously installed.");
+        Assert.AreEqual("{ this is not valid JSON", File.ReadAllText(indexPath),
+            "The unreadable index must remain untouched until explicitly recovered.");
+    }
+
     private static string CreateSkillZip(string directory, string name, string description, string body, bool validateName = true)
     {
         var frontName = validateName ? name : "Invalid_Name";
