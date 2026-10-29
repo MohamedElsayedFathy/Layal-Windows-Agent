@@ -61,6 +61,36 @@ public sealed class ReminderService
         }
     }
 
+    public ReminderRecord? Update(string id, string title, DateTimeOffset dueAt, string recurrence = "None")
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        var normalizedTitle = (title ?? string.Empty).Trim();
+        if (normalizedTitle.Length is < 1 or > MaximumTitleCharacters)
+            throw new ArgumentException($"Reminder titles must contain 1–{MaximumTitleCharacters} characters.", nameof(title));
+        if (dueAt <= DateTimeOffset.Now)
+            throw new ArgumentOutOfRangeException(nameof(dueAt), "The reminder time must be in the future.");
+        var normalizedRecurrence = NormalizeRecurrence(recurrence);
+
+        lock (_sync)
+        {
+            var items = LoadAndNormalize();
+            var item = items.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, id, StringComparison.Ordinal));
+            if (item is null)
+                return null;
+
+            item.Title = normalizedTitle;
+            item.DueAt = dueAt;
+            item.Recurrence = normalizedRecurrence;
+            item.IsActive = true;
+            item.LastDeliveredAt = null;
+            _store.Save(items);
+            return item.Clone();
+        }
+    }
+
     public bool Delete(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
