@@ -207,11 +207,17 @@ public static class UiLocalization
 
         if (details.StartsWith("Create a new file at '", StringComparison.Ordinal))
             return details.Replace("Create a new file at '", "هل تريد إنشاء ملف جديد في '", StringComparison.Ordinal)
-                .Replace(" characters)?", " حرفًا)؟", StringComparison.Ordinal);
+                .Replace(" characters)?", " حرفًا)؟", StringComparison.Ordinal)
+                .Replace("Proposed file content preview (max 4000 characters):", "معاينة محتوى الملف المقترح (بحد أقصى 4000 حرف):", StringComparison.Ordinal)
+                .Replace("…[preview truncated; remaining content omitted]", "…[تم اقتطاع الباقي]", StringComparison.Ordinal);
 
         if (details.StartsWith("Replace one exact text match in '", StringComparison.Ordinal))
             return details.Replace("Replace one exact text match in '", "هل تريد استبدال تطابق نصي واحد في '", StringComparison.Ordinal)
-                .Replace("'? A timestamped backup will be created first.", "'؟ سيتم إنشاء نسخة احتياطية مؤرخة أولًا.", StringComparison.Ordinal);
+                .Replace("'? A timestamped backup will be created first.", "'؟ سيتم إنشاء نسخة احتياطية مؤرخة أولًا.", StringComparison.Ordinal)
+                .Replace("Proposed replacement preview:", "معاينة التعديل المقترح:", StringComparison.Ordinal)
+                .Replace("--- Removed (max 1800 characters) ---", "--- النص المحذوف (بحد أقصى 1800 حرف) ---", StringComparison.Ordinal)
+                .Replace("--- Added (max 1800 characters) ---", "--- النص المضاف (بحد أقصى 1800 حرف) ---", StringComparison.Ordinal)
+                .Replace("…[preview truncated; remaining content omitted]", "…[تم اقتطاع الباقي]", StringComparison.Ordinal);
 
         if (details.StartsWith("The following window titles and process IDs will be sent", StringComparison.Ordinal))
         {

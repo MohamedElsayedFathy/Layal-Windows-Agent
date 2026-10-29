@@ -24,6 +24,24 @@ public sealed class ProtectedJsonStoreTests
     }
 
     [TestMethod]
+    public void LockedStoreFailsClosedInsteadOfReturningFallbackState()
+    {
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "locked.dpapi");
+        const string original = "unreadable original payload";
+        File.WriteAllText(path, original);
+        var store = new ProtectedJsonStore<List<string>>(path);
+
+        using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.ThrowsExactly<IOException>(() => store.Load(new List<string>()));
+        }
+
+        Assert.AreEqual(original, File.ReadAllText(path), "A failed recovery copy must not permit the unreadable original to be replaced.");
+        Assert.AreEqual(0, Directory.GetFiles(temp.Path, "locked.dpapi.unreadable-*").Length);
+    }
+
+    [TestMethod]
     public void MissingStoreDoesNotCreateRecoveryCopies()
     {
         using var temp = new TestTempDirectory();

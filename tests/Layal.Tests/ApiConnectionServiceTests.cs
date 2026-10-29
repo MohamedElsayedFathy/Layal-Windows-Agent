@@ -66,6 +66,54 @@ public sealed class ApiConnectionServiceTests
     }
 
     [TestMethod]
+    public async Task UnknownLengthResponseExactlyAtLimitIsNotMarkedTruncated()
+    {
+        using var temp = new TestTempDirectory();
+        const int limit = 256 * 1024;
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new UnknownLengthContent(Encoding.UTF8.GetBytes(new string('x', limit)))
+        });
+        using var client = new HttpClient(handler, disposeHandler: false) { Timeout = Timeout.InfiniteTimeSpan };
+        var service = new ApiConnectionService(Path.Combine(temp.Path, "api-connections.dpapi"), client);
+        var profile = new ApiConnectionProfile
+        {
+            Name = "Example",
+            BaseUrl = "https://api.example.test/v1",
+            AuthenticationType = "None"
+        };
+
+        var result = await service.TestAsync(profile, string.Empty);
+
+        Assert.AreEqual(limit, Encoding.UTF8.GetByteCount(result.Body));
+        Assert.IsFalse(result.BodyTruncated, "A response that ends exactly at the limit was not truncated.");
+    }
+
+    [TestMethod]
+    public async Task UnknownLengthResponseOverLimitIsTruncatedAtTheConfiguredBound()
+    {
+        using var temp = new TestTempDirectory();
+        const int limit = 256 * 1024;
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new UnknownLengthContent(Encoding.UTF8.GetBytes(new string('x', limit + 1)))
+        });
+        using var client = new HttpClient(handler, disposeHandler: false) { Timeout = Timeout.InfiniteTimeSpan };
+        var service = new ApiConnectionService(Path.Combine(temp.Path, "api-connections.dpapi"), client);
+        var profile = new ApiConnectionProfile
+        {
+            Name = "Example",
+            BaseUrl = "https://api.example.test/v1",
+            AuthenticationType = "None"
+        };
+
+        var result = await service.TestAsync(profile, string.Empty);
+
+        Assert.AreEqual(limit, Encoding.UTF8.GetByteCount(result.Body));
+        Assert.IsTrue(result.BodyTruncated, "An additional byte beyond the response limit must be reported as truncated.");
+    }
+
+    [TestMethod]
     public void AdditionalHeadersCannotOverrideAuthenticationOrTransportHeaders()
     {
         using var temp = new TestTempDirectory();
@@ -243,6 +291,18 @@ public sealed class ApiConnectionServiceTests
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")
     };
+
+    private sealed class UnknownLengthContent(byte[] payload) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            stream.WriteAsync(payload, 0, payload.Length);
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+    }
 
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
     {

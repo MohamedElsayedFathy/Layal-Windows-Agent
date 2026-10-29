@@ -52,6 +52,36 @@ public sealed class UiLocalizationTests
     }
 
     [TestMethod]
+    public void FileApprovalPreviewHeadingsAreLocalizedWithoutChangingPreviewContent()
+    {
+        var create = "Create a new file at 'new-note.txt' (5000 characters)?"
+            + Environment.NewLine + Environment.NewLine
+            + "Proposed file content preview (max 4000 characters):"
+            + Environment.NewLine + "some proposed text" + Environment.NewLine
+            + "…[preview truncated; remaining content omitted]";
+        var createArabic = UiLocalization.LocalizeApprovalDetails(create, isArabic: true);
+        StringAssert.Contains(createArabic, "معاينة محتوى الملف المقترح");
+        StringAssert.Contains(createArabic, "some proposed text");
+        StringAssert.Contains(createArabic, "…[تم اقتطاع الباقي]");
+        Assert.AreEqual(create, UiLocalization.LocalizeApprovalDetails(create, isArabic: false));
+
+        var replace = "Replace one exact text match in 'notes.txt'? A timestamped backup will be created first."
+            + Environment.NewLine + Environment.NewLine
+            + "Proposed replacement preview:"
+            + Environment.NewLine + "--- Removed (max 1800 characters) ---"
+            + Environment.NewLine + "old text"
+            + Environment.NewLine + "--- Added (max 1800 characters) ---"
+            + Environment.NewLine + "new text";
+        var replaceArabic = UiLocalization.LocalizeApprovalDetails(replace, isArabic: true);
+        StringAssert.Contains(replaceArabic, "معاينة التعديل المقترح");
+        StringAssert.Contains(replaceArabic, "النص المحذوف");
+        StringAssert.Contains(replaceArabic, "النص المضاف");
+        StringAssert.Contains(replaceArabic, "old text");
+        StringAssert.Contains(replaceArabic, "new text");
+        Assert.AreEqual(replace, UiLocalization.LocalizeApprovalDetails(replace, isArabic: false));
+    }
+
+    [TestMethod]
     public void ApprovalTitlesAreLocalizedWithoutChangingCommandIdentifiers()
     {
         Assert.AreEqual("فتح المفكرة", UiLocalization.LocalizeApprovalTitle("Launch Notepad", isArabic: true));
