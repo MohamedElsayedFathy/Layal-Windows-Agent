@@ -20,6 +20,7 @@ public sealed class SavedRoutineManagerWindow : Window
     private readonly ListBox _list;
     private readonly TextBlock _status;
     private readonly ObservableCollection<RoutineListEntry> _entries = new();
+    private string? _selectedRoutineId;
 
     public SavedRoutineManagerWindow(SavedRoutineService service, bool isArabic, Action<string> onUse)
     {
@@ -100,7 +101,7 @@ public sealed class SavedRoutineManagerWindow : Window
         goalPanel.Children.Add(_goalInput);
         var saveButton = new Button
         {
-            Content = isArabic ? "حفظ قالب الروتين" : "Save routine template",
+            Content = isArabic ? "حفظ كقالب جديد" : "Save as new template",
             MinWidth = 160,
             MinHeight = 34,
             HorizontalAlignment = HorizontalAlignment.Left,
@@ -112,6 +113,20 @@ public sealed class SavedRoutineManagerWindow : Window
             : "Stores the name and goal locally with DPAPI encryption without executing them.");
         saveButton.Click += SaveButton_Click;
         goalPanel.Children.Add(saveButton);
+        var updateButton = new Button
+        {
+            Content = isArabic ? "تحديث القالب المحدد" : "Update selected template",
+            MinWidth = 170,
+            MinHeight = 34,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        AutomationProperties.SetName(updateButton, isArabic ? "حفظ التعديلات على الروتين المحدد" : "Save edits to selected routine");
+        AutomationProperties.SetHelpText(updateButton, isArabic
+            ? "يعدّل الاسم والهدف للقالب المحدد محليًا دون تشغيله."
+            : "Updates the selected template name and goal locally without running it.");
+        updateButton.Click += UpdateSelectedButton_Click;
+        goalPanel.Children.Add(updateButton);
         Grid.SetRow(goalPanel, 2);
         form.Children.Add(goalPanel);
         Grid.SetRow(form, 1);
@@ -210,6 +225,35 @@ public sealed class SavedRoutineManagerWindow : Window
         }
     }
 
+    private void UpdateSelectedButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedRoutineId))
+        {
+            _status.Text = _isArabic ? "اختر قالبًا من القائمة أولًا." : "Select a template from the list first.";
+            return;
+        }
+
+        try
+        {
+            var updated = _service.Update(_selectedRoutineId, _nameInput.Text, _goalInput.Text);
+            if (updated is null)
+            {
+                _status.Text = _isArabic ? "لم يعد القالب موجودًا؛ حدّث القائمة." : "The template no longer exists; refresh the list.";
+                RefreshList();
+                return;
+            }
+
+            RefreshList(updated.Id);
+            _status.Text = _isArabic
+                ? "تم تحديث الروتين محليًا بتشفير DPAPI. لم يتم تشغيله."
+                : "Routine updated locally with DPAPI. It was not executed.";
+        }
+        catch (Exception ex)
+        {
+            _status.Text = (_isArabic ? "تعذر تحديث الروتين: " : "Could not update routine: ") + ex.Message;
+        }
+    }
+
     private void UseButton_Click(object sender, RoutedEventArgs e)
     {
         if (_list.SelectedItem is not RoutineListEntry selected)
@@ -232,16 +276,31 @@ public sealed class SavedRoutineManagerWindow : Window
         }
 
         if (_service.Delete(selected.Record.Id))
+        {
+            _selectedRoutineId = null;
+            _nameInput.Clear();
+            _goalInput.Clear();
             _status.Text = _isArabic ? "تم حذف الروتين المحدد." : "Selected routine deleted.";
+        }
         else
+        {
             _status.Text = _isArabic ? "لم يعد الروتين موجودًا." : "The routine no longer exists.";
+        }
         RefreshList();
     }
 
     private void UpdateSelectedPreview()
     {
-        if (_list.SelectedItem is RoutineListEntry selected)
-            _status.Text = (_isArabic ? "معاينة الهدف: " : "Goal preview: ") + selected.Record.Goal;
+        if (_list.SelectedItem is not RoutineListEntry selected)
+        {
+            _selectedRoutineId = null;
+            return;
+        }
+
+        _selectedRoutineId = selected.Record.Id;
+        _nameInput.Text = selected.Record.Name;
+        _goalInput.Text = selected.Record.Goal;
+        _status.Text = (_isArabic ? "معاينة الهدف: " : "Goal preview: ") + selected.Record.Goal;
     }
 
     private void RefreshList(string? selectedId = null)
