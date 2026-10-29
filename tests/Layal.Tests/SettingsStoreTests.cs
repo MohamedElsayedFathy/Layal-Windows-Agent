@@ -92,6 +92,7 @@ public sealed class SettingsStoreTests
         {
             Language = "en",
             ThemeMode = "dark",
+            ThemePreset = "ocean",
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "test-model",
             UseLocalAi = false,
@@ -114,6 +115,7 @@ public sealed class SettingsStoreTests
 
         Assert.AreEqual("en", reloaded.Language);
         Assert.AreEqual("dark", reloaded.ThemeMode);
+        Assert.AreEqual("ocean", reloaded.ThemePreset);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
         Assert.IsFalse(reloaded.UseLocalAi);
@@ -205,6 +207,17 @@ public sealed class SettingsStoreTests
     }
 
     [TestMethod]
+    public void InvalidThemePresetFallsBackToClassicWithoutChangingLightDarkPreference()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            "{\"ThemeMode\":\"dark\",\"ThemePreset\":\"malicious-custom-value\"}");
+        var settings = new SettingsStore(temp.Path).Load();
+        Assert.AreEqual("dark", settings.ThemeMode);
+        Assert.AreEqual("classic", settings.ThemePreset);
+    }
+
+    [TestMethod]
     public void InvalidCheckInIntervalFallsBackToSixtyMinutes()
     {
         using var temp = new TestTempDirectory();
@@ -227,6 +240,7 @@ public sealed class SettingsStoreTests
 
         Assert.AreEqual("ar", settings.Language);
         Assert.AreEqual("light", settings.ThemeMode);
+        Assert.AreEqual("classic", settings.ThemePreset);
         Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
         Assert.AreEqual(damagedJson, File.ReadAllText(settingsPath), "The original malformed file must remain untouched during recovery.");
