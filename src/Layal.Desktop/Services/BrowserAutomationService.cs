@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http;
 using System.Net.WebSockets;
 using System.Text;
@@ -25,6 +26,7 @@ public sealed class BrowserAutomationService
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
     private readonly CancellationTokenSource _shutdownCancellation = new();
     private Process? _browserProcess;
+    private bool _attachedToExistingSession;
     private int _debugPort;
     private int _shutdownRequested;
 
@@ -48,7 +50,9 @@ public sealed class BrowserAutomationService
         try
         {
             var process = _browserProcess;
+            var attachedPort = process is null && _attachedToExistingSession ? _debugPort : 0;
             _browserProcess = null;
+            _attachedToExistingSession = false;
             _debugPort = 0;
             if (process is not null)
             {
@@ -60,6 +64,21 @@ public sealed class BrowserAutomationService
                 finally
                 {
                     process.Dispose();
+                }
+            }
+            else if (attachedPort > 0)
+            {
+                // This is an Edge session recovered after an abnormal exit, not a process
+                // we launched in this instance. Close it through the validated loopback CDP
+                // endpoint instead of leaving it running after Layal exits.
+                try
+                {
+                    if (!await TryCloseAttachedBrowserSessionAsync(attachedPort))
+                        Trace.TraceWarning("Layal could not issue Browser.close to the previously attached Edge session on port {0}.", attachedPort);
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceWarning("Layal failed to close the previously attached Edge session on port {0}: {1}", attachedPort, ex.Message);
                 }
             }
 
@@ -326,6 +345,7 @@ public sealed class BrowserAutomationService
         start.ArgumentList.Add("--new-window");
         start.ArgumentList.Add("about:blank");
 
+        _attachedToExistingSession = false;
         _browserProcess = Process.Start(start) ?? throw new InvalidOperationException("Microsoft Edge could not be started.");
         try
         {
@@ -368,6 +388,7 @@ public sealed class BrowserAutomationService
 
     private async Task<bool> TryAttachExistingSessionAsync(CancellationToken token)
     {
+        _attachedToExistingSession = false;
         var activePortFile = Path.Combine(_profileDirectory, "DevToolsActivePort");
         if (!File.Exists(activePortFile)) return false;
         try
@@ -385,6 +406,7 @@ public sealed class BrowserAutomationService
                 return false;
 
             _debugPort = port;
+            _attachedToExistingSession = true;
             return true;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -395,6 +417,34 @@ public sealed class BrowserAutomationService
         {
             return false;
         }
+    }
+
+    private async Task<bool> TryCloseAttachedBrowserSessionAsync(int port)
+    {
+        if (port is <= 0 or > 65535) return false;
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var response = await _http.GetAsync($"http://127.0.0.1:{port}/json/version", timeout.Token);
+        if (!response.IsSuccessStatusCode) return false;
+
+        var json = await response.Content.ReadAsStringAsync(timeout.Token);
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("webSocketDebuggerUrl", out var endpointValue))
+            return false;
+
+        var endpointText = endpointValue.GetString();
+        if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var endpoint) ||
+            !string.Equals(endpoint.Scheme, "ws", StringComparison.OrdinalIgnoreCase) ||
+            endpoint.Port != port ||
+            !IPAddress.TryParse(endpoint.Host, out var address) ||
+            !IPAddress.IsLoopback(address))
+            return false;
+
+        using var socket = new ClientWebSocket();
+        await socket.ConnectAsync(endpoint, timeout.Token);
+        var closeCommand = JsonSerializer.SerializeToUtf8Bytes(new { id = 1, method = "Browser.close" });
+        await socket.SendAsync(closeCommand.AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
+        return true;
     }
 
     private static string FindEdgeExecutable()
@@ -415,6 +465,7 @@ public sealed class BrowserAutomationService
         {
             _browserProcess.Dispose();
             _browserProcess = null;
+            _attachedToExistingSession = false;
             _debugPort = 0;
         }
         if (_debugPort <= 0)
