@@ -92,7 +92,7 @@ public sealed class SafeBrowserDownloadService
         }
 
         if (address.AddressFamily != AddressFamily.InterNetworkV6 ||
-            address.Equals(IPAddress.IPv6Any) || address.IsIPv6Loopback ||
+            address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.IPv6Loopback) ||
             address.IsIPv6LinkLocal || address.IsIPv6Multicast)
             return false;
 
