@@ -119,7 +119,7 @@ public sealed class VoiceConversationServiceTests
     public void CreateMicrophoneFrame_RejectsPartialPcmSamples()
     {
         byte[] source = [1, 2, 3];
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+        CaptureException<ArgumentOutOfRangeException>(() =>
             VoiceConversationService.CreateMicrophoneFrame(source, 3, muted: false));
     }
 
@@ -159,6 +159,22 @@ public sealed class VoiceConversationServiceTests
         Assert.IsNotNull(result);
         Assert.IsInstanceOfType(result, typeof(T));
         return (T)result!;
+    }
+
+    private static TException CaptureException<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        Assert.Fail($"Expected {typeof(TException).Name}.");
+        throw new AssertFailedException("Expected exception was not thrown.");
     }
 
     private static void AssertInvalidOperation(Action action)

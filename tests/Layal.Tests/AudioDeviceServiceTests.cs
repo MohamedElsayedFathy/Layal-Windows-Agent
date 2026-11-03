@@ -45,7 +45,7 @@ public sealed class AudioDeviceServiceTests
             AudioDeviceService.CreateUnavailableSelection("mic:disconnected", isInput: true, isArabic: true)
         };
 
-        var error = Assert.ThrowsException<InvalidOperationException>(() =>
+        var error = CaptureException<InvalidOperationException>(() =>
             AudioDeviceService.ResolveDeviceNumber("mic:disconnected", devices, "microphone"));
 
         StringAssert.Contains(error.Message, "not available");
@@ -60,7 +60,7 @@ public sealed class AudioDeviceServiceTests
             new("mic:built-in", "Built-in microphone", 0)
         };
 
-        Assert.ThrowsException<InvalidOperationException>(() =>
+        CaptureException<InvalidOperationException>(() =>
             AudioDeviceService.ResolveDeviceNumber("mic:removed", devices, "microphone"));
     }
 
@@ -75,4 +75,20 @@ public sealed class AudioDeviceServiceTests
         Assert.AreEqual(-2, unavailable.DeviceNumber);
         StringAssert.Contains(unavailable.Name, "unavailable");
     }
+    private static TException CaptureException<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        Assert.Fail($"Expected {typeof(TException).Name}.");
+        throw new AssertFailedException("Expected exception was not thrown.");
+    }
+
 }
