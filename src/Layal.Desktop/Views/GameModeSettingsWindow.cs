@@ -22,10 +22,10 @@ public sealed class GameModeSettingsWindow : Window
     private readonly TextBox _processNames;
     private readonly TextBlock _status;
 
-    public GameModeSettingsWindow(UserSettings settings, Action<UserSettings> save, bool isArabic)
+    public GameModeSettingsWindow(UserSettings settings, Action<UserSettings> saveSettings, bool isArabic)
     {
         _draft = settings?.Clone() ?? throw new ArgumentNullException(nameof(settings));
-        _save = save ?? throw new ArgumentNullException(nameof(save));
+        _save = saveSettings ?? throw new ArgumentNullException(nameof(saveSettings));
         _isArabic = isArabic;
 
         Title = isArabic ? "إعداد اكتشاف وضع الألعاب" : "Game detection settings";
@@ -152,7 +152,7 @@ public sealed class GameModeSettingsWindow : Window
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right
         };
-        var save = new Button
+        var saveButton = new Button
         {
             Content = isArabic ? "حفظ الإعدادات" : "Save settings",
             MinWidth = 125,
@@ -160,8 +160,8 @@ public sealed class GameModeSettingsWindow : Window
             IsDefault = true,
             Margin = new Thickness(0, 0, 8, 0)
         };
-        AutomationProperties.SetName(save, isArabic ? "حفظ إعداد اكتشاف الألعاب" : "Save game detection settings");
-        save.Click += Save_Click;
+        AutomationProperties.SetName(saveButton, isArabic ? "حفظ إعداد اكتشاف الألعاب" : "Save game detection settings");
+        saveButton.Click += Save_Click;
         var cancel = new Button
         {
             Content = isArabic ? "إلغاء" : "Cancel",
@@ -170,7 +170,7 @@ public sealed class GameModeSettingsWindow : Window
             IsCancel = true
         };
         AutomationProperties.SetName(cancel, isArabic ? "إلغاء إعداد اكتشاف الألعاب" : "Cancel game detection settings");
-        buttons.Children.Add(save);
+        buttons.Children.Add(saveButton);
         buttons.Children.Add(cancel);
         Grid.SetRow(buttons, 4);
         root.Children.Add(buttons);
