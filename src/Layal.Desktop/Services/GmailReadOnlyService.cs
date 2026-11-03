@@ -470,26 +470,26 @@ public sealed class GmailReadOnlyService
 
         var value = System.Text.RegularExpressions.Regex.Replace(
             html,
-            @"(?is)<(script|style|noscript|iframe|object|embed|svg|form|head)\\b[^>]*>.*?(?:</\\1\\s*>|$)",
+            @"(?is)<(script|style|noscript|iframe|object|embed|svg|form|head)\b[^>]*>.*?(?:</\1\s*>|$)",
             " ");
         value = System.Text.RegularExpressions.Regex.Replace(value, @"(?is)<!--.*?-->", " ");
-        value = System.Text.RegularExpressions.Regex.Replace(value, @"(?i)<\\s*br\\s*/?\\s*>", "\\n");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"(?i)<\s*br\s*/?\s*>", "\n");
         value = System.Text.RegularExpressions.Regex.Replace(
             value,
-            @"(?i)</\\s*(p|div|tr|li|h[1-6]|table|section|article|blockquote|pre)\\s*>",
-            "\\n");
+            @"(?i)</\s*(p|div|tr|li|h[1-6]|table|section|article|blockquote|pre)\s*>",
+            "\n");
         value = System.Text.RegularExpressions.Regex.Replace(value, @"(?is)<[^>]+>", " ");
         value = WebUtility.HtmlDecode(value);
-        value = System.Text.RegularExpressions.Regex.Replace(value, @"[ \\t\\f\\v]+", " ");
-        value = System.Text.RegularExpressions.Regex.Replace(value, @" *\\n *", "\\n");
-        value = System.Text.RegularExpressions.Regex.Replace(value, @"\\n{3,}", "\\n\\n");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"[ \t\f\v]+", " ");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @" *\n *", "\n");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"\n{3,}", "\n\n");
         return Truncate(value.Trim(), MaximumBodyCharacters);
     }
 
     public static string SanitizeAttachmentFileName(string fileName)
     {
         var value = (fileName ?? string.Empty)
-            .Replace('\\\\', '_')
+            .Replace('\\', '_')
             .Replace('/', '_');
         var builder = new StringBuilder(Math.Min(value.Length, 120));
         foreach (var character in value)
