@@ -30,6 +30,9 @@ public sealed class ReminderTaskSchedulerServiceTests
             .Element(ns + "StartWhenAvailable")!.Value);
         Assert.AreEqual("IgnoreNew", document.Root.Element(ns + "Settings")!
             .Element(ns + "MultipleInstancesPolicy")!.Value);
+        Assert.AreEqual("PT0S", document.Root.Element(ns + "Settings")!
+            .Element(ns + "ExecutionTimeLimit")!.Value,
+            "The scheduled application must not be terminated while running in the tray.");
         Assert.IsNull(document.Descendants(ns + "WakeToRun").FirstOrDefault(),
             "Layal must not wake the user's computer for a reminder.");
         Assert.IsNull(document.Descendants(ns + "HighestAvailable").FirstOrDefault(),
