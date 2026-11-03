@@ -46,6 +46,7 @@ public partial class App : Application
         AppRuntime.MemoryService = new MemoryService(Path.Combine(dataRoot, "memory-notes.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(dataRoot, "agent-tasks.dpapi"));
         AppRuntime.ReminderService = new ReminderService(Path.Combine(dataRoot, "reminders.dpapi"));
+        AppRuntime.ReminderTaskSchedulerService = new ReminderTaskSchedulerService();
         AppRuntime.SavedRoutineService = new SavedRoutineService(Path.Combine(dataRoot, "saved-routines.dpapi"));
         AppRuntime.GmailReadOnlyService = new GmailReadOnlyService(Path.Combine(dataRoot, "secrets", "gmail-refresh-token.dpapi"));
         AppRuntime.ChatHistoryStore = new ProtectedJsonStore<List<Layal.Models.ChatMessage>>(Path.Combine(dataRoot, "chat-history.dpapi"));
@@ -73,6 +74,29 @@ public partial class App : Application
         AppRuntime.MainWindow.Show();
         AppRuntime.MascotWindow.Show();
         StartActivationListener();
+
+        // Reconcile overdue reminders before scheduling the next one. This also catches
+        // reminders missed while Windows was asleep or Layal was closed.
+        var deliveredAtStartup = new List<Layal.Models.ReminderRecord>();
+        var reminderNow = DateTimeOffset.Now;
+        foreach (var due in AppRuntime.ReminderService.GetDue(reminderNow))
+        {
+            var delivered = AppRuntime.ReminderService.MarkDelivered(due.Id, due.DueAt, reminderNow);
+            if (delivered is not null)
+                deliveredAtStartup.Add(delivered);
+        }
+
+        try
+        {
+            AppRuntime.ReminderTaskSchedulerService.Synchronize(AppRuntime.ReminderService.GetAll());
+        }
+        catch (Exception ex)
+        {
+            WriteCrashLog("Schedule reminders", ex);
+        }
+
+        foreach (var reminder in deliveredAtStartup)
+            AppRuntime.Tray?.ShowReminderNotification(reminder.Title, AppRuntime.Settings.Language == "ar");
     }
 
     /// <summary>Waits for another launch to request activation of this instance's main window.</summary>
