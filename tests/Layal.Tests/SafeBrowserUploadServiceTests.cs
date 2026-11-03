@@ -16,7 +16,7 @@ public sealed class SafeBrowserUploadServiceTests
         var workspace = Path.Combine(temp.Path, "LayalWorkspace");
         Directory.CreateDirectory(Path.Combine(workspace, "reports"));
         var file = Path.Combine(workspace, "reports", "summary.PDF");
-        File.WriteAllText(file, "PDF test payload");
+        File.WriteAllText(file, "%PDF-1.7\\n1 0 obj<<>>endobj\\n%%EOF");
 
         var service = new SafeBrowserUploadService(workspace);
         var candidate = service.PrepareUpload(@"reports\summary.PDF");
@@ -26,6 +26,22 @@ public sealed class SafeBrowserUploadServiceTests
         Assert.AreEqual(".PDF", candidate.Extension, ignoreCase: true);
         Assert.AreEqual(new FileInfo(file).Length, candidate.LengthBytes);
         Assert.AreEqual(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))), candidate.Sha256);
+    }
+
+    [TestMethod]
+    public void PrepareUploadRejectsContentThatDoesNotMatchItsExtension()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "LayalWorkspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "fake.pdf"), "MZ executable content");
+        File.WriteAllText(Path.Combine(workspace, "binary.txt"), "text\\0with a binary null");
+        File.WriteAllText(Path.Combine(workspace, "invalid.json"), "{not-json}");
+
+        var service = new SafeBrowserUploadService(workspace);
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("fake.pdf"));
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("binary.txt"));
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("invalid.json"));
     }
 
     [TestMethod]
