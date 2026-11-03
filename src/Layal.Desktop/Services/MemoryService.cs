@@ -116,10 +116,28 @@ public sealed class MemoryService
     private List<MemoryNote> LoadBoundedNotes()
     {
         var notes = _store.Load(new List<MemoryNote>());
-        if (notes.Count <= MaxSavedNotes) return notes;
+        var metadataChanged = false;
+        foreach (var note in notes)
+        {
+            string normalized;
+            try { normalized = NormalizeCategory(note.Category); }
+            catch (InvalidOperationException) { normalized = "General"; }
+            if (!string.Equals(note.Category, normalized, StringComparison.Ordinal))
+            {
+                note.Category = normalized;
+                metadataChanged = true;
+            }
+        }
+
+        if (notes.Count <= MaxSavedNotes)
+        {
+            if (metadataChanged)
+                _store.Save(notes);
+            return notes;
+        }
 
         var bounded = KeepNewest(notes);
-        // Apply retention to legacy/existing files on the first normal access.
+        // Apply retention and category migration to legacy/existing files on normal access.
         _store.Save(bounded);
         return bounded;
     }
