@@ -117,7 +117,7 @@ public sealed class QuickAskWindowTests
         thread.Start();
         Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(20)), "The Quick Ask WPF test timed out.");
         if (failure is not null)
-            throw new AssertFailedException("Quick Ask STA test failed.", failure);
+            Assert.Fail("Quick Ask STA test failed: " + failure);
     }
 
     [TestMethod]
