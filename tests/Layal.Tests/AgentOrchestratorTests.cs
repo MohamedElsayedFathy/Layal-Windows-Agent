@@ -149,7 +149,7 @@ public sealed class AgentOrchestratorTests
             _ => { },
             CancellationToken.None);
 
-        Assert.AreEqual("Completed", task.Status);
+        Assert.AreEqual("Completed", task.Status, string.Join(Environment.NewLine, task.Events));
         Assert.AreEqual(1, approvalCount);
         CollectionAssert.AreEqual(new[] { "reports/final-report.txt" }, task.Artifacts);
         Assert.AreEqual("Verified task artifact",
@@ -264,7 +264,7 @@ public sealed class AgentOrchestratorTests
             _ => { },
             CancellationToken.None);
 
-        Assert.AreEqual("Completed", task.Status);
+        Assert.AreEqual("Completed", task.Status, string.Join(Environment.NewLine, task.Events));
         Assert.AreEqual(2, approvalCount);
         Assert.AreEqual(3, handler.RequestCount);
         Assert.AreEqual("Final report", File.ReadAllText(Path.Combine(workspace, "reports", "summary.txt")));
