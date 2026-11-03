@@ -591,9 +591,14 @@ public sealed class GmailReadOnlyService
                 attachmentId = GetJsonString(attachmentBody, "attachmentId");
             }
 
+            var usedPreviewCharacters = output.Sum(item => item.PreviewText.Length);
+            var remainingPreviewCharacters = Math.Max(0, MaximumAttachmentPreviewCharacters - usedPreviewCharacters);
             var preview = string.Empty;
-            var status = "Not previewed: unsupported type or attachment exceeds the 1 MB text-preview limit.";
-            if (IsSupportedTextAttachment(safeName, mimeType) && size <= MaximumAttachmentBytes)
+            var status = remainingPreviewCharacters == 0
+                ? "Not previewed: the message attachment preview budget has been reached."
+                : "Not previewed: unsupported type or attachment exceeds the 1 MB text-preview limit.";
+            if (remainingPreviewCharacters > 0 &&
+                IsSupportedTextAttachment(safeName, mimeType) && size <= MaximumAttachmentBytes)
             {
                 try
                 {
@@ -622,15 +627,13 @@ public sealed class GmailReadOnlyService
                 }
             }
 
-            var usedPreviewCharacters = output.Sum(item => item.PreviewText.Length);
-            if (usedPreviewCharacters >= MaximumAttachmentPreviewCharacters)
+            if (preview.Length > remainingPreviewCharacters)
             {
-                preview = string.Empty;
-                status = "Not previewed: the message attachment preview budget has been reached.";
-            }
-            else if (preview.Length > MaximumAttachmentPreviewCharacters - usedPreviewCharacters)
-            {
-                preview = preview[..(MaximumAttachmentPreviewCharacters - usedPreviewCharacters)] + "…";
+                // Keep the ellipsis inside the aggregate character budget; truncating to N and
+                // then appending an ellipsis would otherwise produce N+1 characters.
+                preview = remainingPreviewCharacters == 1
+                    ? "…"
+                    : preview[..(remainingPreviewCharacters - 1)] + "…";
                 status = "Text preview truncated because the message attachment preview budget was reached.";
             }
 
