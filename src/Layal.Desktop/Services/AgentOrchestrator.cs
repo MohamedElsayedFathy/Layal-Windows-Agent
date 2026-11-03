@@ -182,7 +182,7 @@ public sealed class AgentOrchestrator
         {
             var prefix = toolName == "create_text_file" ? "File created: " : "Updated file: ";
             if (output.StartsWith(prefix, StringComparison.Ordinal))
-                return output[prefix.Length..].Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+                return output[prefix.Length..].Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
             return null;
         }
 
@@ -193,7 +193,7 @@ public sealed class AgentOrchestrator
             if (index < 0)
                 return null;
             return output[(index + marker.Length)..]
-                .Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .FirstOrDefault()?.Trim();
         }
 
