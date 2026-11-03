@@ -14,6 +14,7 @@ public static class AppRuntime
     public static MemoryService MemoryService { get; set; } = null!;
     public static TaskHistoryService TaskHistoryService { get; set; } = null!;
     public static ReminderService ReminderService { get; set; } = null!;
+    public static ReminderTaskSchedulerService? ReminderTaskSchedulerService { get; set; }
     public static SavedRoutineService SavedRoutineService { get; set; } = null!;
     public static GmailReadOnlyService GmailReadOnlyService { get; set; } = null!;
     public static ProtectedJsonStore<List<ChatMessage>> ChatHistoryStore { get; set; } = null!;
