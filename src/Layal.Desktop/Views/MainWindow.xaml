@@ -524,10 +524,14 @@
                         <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" AutomationProperties.Name="ملاحظات الذاكرة" AutomationProperties.HelpText="اختر ملاحظة لعرضها أو تعديلها." SelectionChanged="MemoryList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Title}"
-                                               FlowDirection="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
-                                               TextAlignment="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
-                                               TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" />
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}"
+                                                   FlowDirection="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
+                                                   TextAlignment="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
+                                                   TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" />
+                                        <TextBlock Text="{Binding Category}" FontSize="11"
+                                                   Foreground="{DynamicResource Layal.Muted}" Margin="0,2,0,0" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -546,12 +550,18 @@
                         </TextBlock>
                         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="12,0,0,0">
                             <StackPanel>
-                                <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="MemoryCategoryLabel" Text="التصنيف" Margin="0,0,0,4"/>
+                                <TextBox x:Name="MemoryCategoryInput" MinHeight="32" MaxLength="40" Text="General"
+                                         AutomationProperties.Name="تصنيف الملاحظة / Memory note category"
+                                         AutomationProperties.LabeledBy="{Binding ElementName=MemoryCategoryLabel}"
+                                         ToolTip="General, Work, Project..."/>
+                                <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,10,0,4"/>
                                 <TextBox x:Name="MemoryTitleInput" MinHeight="32" AutomationProperties.Name="عنوان الملاحظة / Memory note title" AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"/>
                                 <TextBlock x:Name="MemoryContentLabel" Text="المحتوى" Margin="0,10,0,4"/>
                                 <TextBox x:Name="MemoryContentInput" MinHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="محتوى الملاحظة / Memory note content" AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"/>
                                 <WrapPanel Margin="0,10,0,0">
                                     <Button x:Name="SaveMemoryButton" Content="حفظ الملاحظة" Click="SaveMemoryButton_Click"/>
+                                    <Button x:Name="ArchiveMemoryButton" Content="أرشفة" Click="ArchiveMemoryButton_Click"/>
                                     <Button x:Name="DeleteMemoryButton" Content="حذف" Click="DeleteMemoryButton_Click"/>
                                     <Button x:Name="ExportMemoryButton" Content="تصدير JSON" Click="ExportMemoryButton_Click"/>
                                 </WrapPanel>
