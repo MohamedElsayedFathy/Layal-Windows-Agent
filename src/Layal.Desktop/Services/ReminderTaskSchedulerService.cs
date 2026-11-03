@@ -137,7 +137,7 @@ public sealed class ReminderTaskSchedulerService
                         Environment.GetFolderPath(Environment.SpecialFolder.System),
                         "WindowsPowerShell", "v1.0", "powershell.exe")),
                     new XElement(ns + "Arguments", BuildDetachedLaunchArguments(fullExecutablePath)),
-                    new XElement(ns + "WorkingDirectory", Environment.GetFolderPath(Environment.SpecialFolder.System))));
+                    new XElement(ns + "WorkingDirectory", Environment.GetFolderPath(Environment.SpecialFolder.System)))));
         return new XDocument(new XDeclaration("1.0", "UTF-8", null), root)
             .ToString(SaveOptions.DisableFormatting);
     }
