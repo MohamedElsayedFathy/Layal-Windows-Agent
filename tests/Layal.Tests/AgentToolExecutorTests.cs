@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Threading;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -131,6 +132,55 @@ public sealed class AgentToolExecutorTests
 
         StringAssert.Contains(result, "declined");
         Assert.IsFalse(result.Contains("private.example.test", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task CancellingAfterMemoryDisclosureApprovalPreventsToolOutput()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var memory = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        _ = memory.Save("Private note", "Do not disclose this after cancellation.");
+        var executor = new AgentToolExecutor(temp.Path, memory);
+        using var cancellation = new CancellationTokenSource();
+        var approvalCount = 0;
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => executor.ExecuteAsync(
+            "search_memory",
+            "{\"query\":\"Private note\"}",
+            (_, _, _) =>
+            {
+                approvalCount++;
+                cancellation.Cancel();
+                return Task.FromResult(true);
+            },
+            _ => { },
+            cancellation.Token));
+
+        Assert.AreEqual(1, approvalCount);
+    }
+
+    [TestMethod]
+    public async Task DotnetOperationRevalidatesProjectFileAfterApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var projectPath = System.IO.Path.Combine(temp.Path, "TrustedProject.csproj");
+        File.WriteAllText(projectPath, "<Project />");
+        var executor = CreateExecutor(temp.Path);
+
+        await Assert.ThrowsExactlyAsync<FileNotFoundException>(() => executor.ExecuteAsync(
+            "run_dotnet_build",
+            "{\"project_file\":\"TrustedProject.csproj\",\"configuration\":\"Debug\"}",
+            (_, _, _) =>
+            {
+                File.Delete(projectPath);
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+        Assert.IsFalse(File.Exists(projectPath));
     }
 
     [TestMethod]
