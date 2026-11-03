@@ -158,6 +158,12 @@ public sealed class GmailReadOnlyServiceTests
                     },
                     new
                     {
+                        mimeType = "text/plain",
+                        filename = "four.txt",
+                        body = new { size = longPreview.Length, data = Base64Url(longPreview) }
+                    },
+                    new
+                    {
                         mimeType = "application/octet-stream",
                         filename = "payload.exe",
                         body = new { size = 32, attachmentId = "must-not-download" }
@@ -181,7 +187,7 @@ public sealed class GmailReadOnlyServiceTests
         StringAssert.Contains(detail.PlainTextBody, "HTML only body");
         Assert.IsFalse(detail.PlainTextBody.Contains("bad()", StringComparison.Ordinal));
         Assert.IsFalse(detail.PlainTextBody.Contains(".x{", StringComparison.Ordinal));
-        Assert.AreEqual(7, detail.Attachments!.Count);
+        Assert.AreEqual(8, detail.Attachments!.Count);
         Assert.AreEqual(inlineText, detail.Attachments[0].PreviewText);
         Assert.AreEqual(remoteText, detail.Attachments[1].PreviewText);
         StringAssert.Contains(detail.Attachments[0].Status, "available");
@@ -192,6 +198,8 @@ public sealed class GmailReadOnlyServiceTests
             "Total text previews across all message attachments must stay within the aggregate budget.");
         Assert.IsTrue(detail.Attachments.Take(5).All(item =>
             item.PreviewText.Length <= GmailReadOnlyService.MaximumAttachmentPreviewCharacters));
+        Assert.IsTrue(detail.Attachments.Single(item => item.FileName == "four.txt").PreviewText.Length < longPreview.Length,
+            "The final text attachment should be truncated when the aggregate preview budget is exhausted.");
         Assert.AreEqual(1, handler.AttachmentRequests);
         Assert.IsFalse(handler.RequestedPaths.Any(path => path.Contains("must-not-download", StringComparison.Ordinal)));
         Assert.IsFalse(handler.RequestedPaths.Any(path => path.Contains("too-large", StringComparison.Ordinal)));
