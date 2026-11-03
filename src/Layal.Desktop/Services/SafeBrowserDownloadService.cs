@@ -92,9 +92,8 @@ public sealed class SafeBrowserDownloadService
         }
 
         if (address.AddressFamily != AddressFamily.InterNetworkV6 ||
-            address.IsIPv6Any || address.IsIPv6Loopback ||
-            address.IsIPv6LinkLocal || address.IsIPv6SiteLocal ||
-            address.IsIPv6Multicast || address.IsIPv6Teredo)
+            address.Equals(IPAddress.IPv6Any) || address.IsIPv6Loopback ||
+            address.IsIPv6LinkLocal || address.IsIPv6Multicast)
             return false;
 
         // Only global-unicast 2000::/3 is accepted. Unique-local, documentation,
@@ -283,7 +282,7 @@ public sealed class SafeBrowserDownloadService
                        Encoding.ASCII.GetString(header, 8, 4) == "WEBP",
             ".docx" or ".xlsx" => count >= 4 && header[0] == 0x50 && header[1] == 0x4B &&
                                   header[2] is 0x03 or 0x05 or 0x07,
-            _ => await ValidateUtf8TextAsync(stream, header, count, token)
+            _ => await ValidateUtf8TextAsync(path, token)
         };
         if (!valid)
             throw new InvalidDataException("The downloaded bytes do not match the approved file type. The file was discarded.");
@@ -297,15 +296,17 @@ public sealed class SafeBrowserDownloadService
         }
     }
 
-    private static async Task<bool> ValidateUtf8TextAsync(Stream stream, byte[] header, int count, CancellationToken token)
+    private static async Task<bool> ValidateUtf8TextAsync(string path, CancellationToken token)
     {
         try
         {
-            _ = new UTF8Encoding(false, true).GetString(header, 0, count);
-            var buffer = new byte[4096];
-            var read = await stream.ReadAsync(buffer, token);
-            if (read > 0)
-                _ = new UTF8Encoding(false, true).GetString(buffer, 0, read);
+            using var reader = new StreamReader(
+                path,
+                new UTF8Encoding(false, true),
+                detectEncodingFromByteOrderMarks: true);
+            var buffer = new char[4096];
+            while (await reader.ReadAsync(buffer.AsMemory(), token) > 0)
+                token.ThrowIfCancellationRequested();
             return true;
         }
         catch (DecoderFallbackException)
