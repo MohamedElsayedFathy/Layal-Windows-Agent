@@ -815,7 +815,17 @@ public sealed class AgentToolExecutor
         if (_browser is null)
             throw new InvalidOperationException("The dedicated browser service is not initialized.");
 
-        // Show only the target identity in the consent prompt; no visible page text or DOM values
+        // First obtain explicit permission to inspect only the active tab identity locally.
+        // This lets the user decline without touching the browser session or creating a profile.
+        if (!await confirm(
+                "Preview browser tab",
+                "Layal will inspect only the active tab's title, URL, and ready state locally so it can show you the exact page before asking whether to share page contents. No visible page text or DOM data will be read or sent at this stage. Continue?",
+                token))
+            return "User declined the local browser-tab preview. No browser tab identity or page content was read.";
+
+        token.ThrowIfCancellationRequested();
+
+        // Show only the target identity in the second consent prompt; no visible page text or DOM values
         // are extracted until the user explicitly approves sharing the page.
         var preview = await _browser.GetCurrentPageIdentityAsync(token);
         var warning =
