@@ -31,6 +31,8 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(settings.ProactiveCheckInEnabled);
         Assert.AreEqual(60, settings.ProactiveCheckInIntervalMinutes);
         Assert.IsNull(settings.LastProactiveCheckInAt);
+        Assert.IsFalse(settings.GameModeAutoDetectionEnabled);
+        Assert.AreEqual(0, settings.GameModeAllowedProcessNames.Count);
         Assert.IsTrue(settings.UseAutomaticLocation);
     }
 
