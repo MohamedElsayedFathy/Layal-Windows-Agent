@@ -5525,7 +5525,7 @@ public partial class MainWindow : Window
             if (_chatCancellation is not null)
                 return IsArabic ? "جارٍ تجهيز رد." : "A chat response is active.";
             return IsArabic ? "ليال جاهزة عند الطلب." : "Layal is available on demand.";
-        })
+        }, automaticallyLaunched: automaticallyLaunched)
         {
             Owner = this
         };
