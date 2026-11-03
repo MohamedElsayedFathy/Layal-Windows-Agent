@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Layal.Models;
@@ -9,15 +10,19 @@ using Layal.Models;
 namespace Layal.Services;
 
 /// <summary>
-/// Creates and merges a versioned workspace backup. Task and memory data are exported as plaintext
-/// JSON; workspace files are represented by metadata only and are never read, copied, executed, or restored.
-/// Imports merge into the local DPAPI stores without overwriting existing IDs or deleting records.
+/// Creates and merges a bounded workspace backup. Task/memory records are exported as plaintext JSON.
+/// File contents are metadata-only by default; a separate explicit option embeds a small, bounded set.
+/// Imports merge records without overwriting existing IDs. File restoration is independently opt-in,
+/// hash-verified, create-new only, and never executes or opens restored files.
 /// </summary>
 public sealed class WorkspaceSnapshotService
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
     public const int MaximumJsonBytes = 10 * 1024 * 1024;
     public const int MaximumManifestEntries = 300;
+    public const int MaximumEmbeddedFiles = 100;
+    public const int MaximumSingleFileContentBytes = 1 * 1024 * 1024;
+    public const int MaximumTotalFileContentBytes = 4 * 1024 * 1024;
     private const int MaximumFolderDepth = 4;
 
     private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
@@ -28,16 +33,22 @@ public sealed class WorkspaceSnapshotService
     private readonly TaskHistoryService _taskHistory;
     private readonly MemoryService _memory;
     private readonly string _workspaceRoot;
+    private readonly string _rootPrefix;
 
     public WorkspaceSnapshotService(TaskHistoryService taskHistory, MemoryService memory, string workspaceRoot)
     {
         _taskHistory = taskHistory ?? throw new ArgumentNullException(nameof(taskHistory));
         _memory = memory ?? throw new ArgumentNullException(nameof(memory));
         ArgumentException.ThrowIfNullOrWhiteSpace(workspaceRoot);
-        _workspaceRoot = Path.GetFullPath(workspaceRoot);
+        _workspaceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workspaceRoot));
+        _rootPrefix = _workspaceRoot + Path.DirectorySeparatorChar;
     }
 
-    public string ExportJson()
+    /// <summary>
+    /// Metadata-only is the safe default. Pass includeWorkspaceFileContents=true only after
+    /// warning the user that the resulting unencrypted JSON contains local file bytes.
+    /// </summary>
+    public string ExportJson(bool includeWorkspaceFileContents = false)
     {
         var document = new WorkspaceSnapshotDocument
         {
@@ -45,7 +56,7 @@ public sealed class WorkspaceSnapshotService
             ExportedAt = DateTimeOffset.UtcNow,
             Tasks = _taskHistory.GetRecent(100).ToList(),
             Memories = _memory.GetAll(includeArchived: true).ToList(),
-            Files = BuildFileManifest()
+            Files = BuildFileManifest(includeWorkspaceFileContents)
         };
         var json = JsonSerializer.Serialize(document, new JsonSerializerOptions { WriteIndented = true });
         if (Encoding.UTF8.GetByteCount(json) > MaximumJsonBytes)
@@ -60,21 +71,43 @@ public sealed class WorkspaceSnapshotService
             document.Tasks.Count,
             document.Memories.Count,
             document.Files.Count,
-            document.ExportedAt);
+            document.ExportedAt,
+            document.Files.Count(entry => entry.ContentBase64 is not null));
     }
 
-    public WorkspaceSnapshotImportResult ImportJson(string json)
+    /// <summary>
+    /// Merges task and memory records. Embedded file bytes are never restored unless the caller
+    /// explicitly passes restoreWorkspaceFiles=true after a separate user confirmation.
+    /// </summary>
+    public WorkspaceSnapshotImportResult ImportJson(string json, bool restoreWorkspaceFiles = false)
     {
         var document = ParseAndValidate(json);
 
-        // Preflight both DPAPI stores before either is changed. Each store repeats validation
-        // while holding its own lock when the merge is committed.
+        // Preflight both protected stores before changing either one.
         _taskHistory.ValidateImportMany(document.Tasks);
         _memory.ValidateImportMany(document.Memories);
 
-        var tasksImported = _taskHistory.ImportMany(document.Tasks);
-        var memoriesImported = _memory.ImportMany(document.Memories);
-        return new WorkspaceSnapshotImportResult(tasksImported, memoriesImported, document.Files.Count);
+        var createdFiles = new List<string>();
+        var createdDirectories = new List<string>();
+        var filesRestored = 0;
+        var embeddedCount = document.Files.Count(entry => entry.ContentBase64 is not null);
+        var filesSkipped = restoreWorkspaceFiles ? 0 : embeddedCount;
+
+        try
+        {
+            if (restoreWorkspaceFiles)
+                filesRestored = RestoreWorkspaceFiles(document.Files, createdFiles, createdDirectories, out filesSkipped);
+
+            var tasksImported = _taskHistory.ImportMany(document.Tasks);
+            var memoriesImported = _memory.ImportMany(document.Memories);
+            return new WorkspaceSnapshotImportResult(
+                tasksImported, memoriesImported, document.Files.Count, filesRestored, filesSkipped);
+        }
+        catch
+        {
+            RollBackCreatedFiles(createdFiles, createdDirectories);
+            throw;
+        }
     }
 
     private WorkspaceSnapshotDocument ParseAndValidate(string json)
@@ -97,7 +130,8 @@ public sealed class WorkspaceSnapshotService
             throw new InvalidOperationException("The selected file is not a valid Layal workspace backup.", ex);
         }
 
-        if (document.SchemaVersion != CurrentSchemaVersion)
+        // Version 1 backups remain readable; their file entries contain metadata only.
+        if (document.SchemaVersion is not 1 and not CurrentSchemaVersion)
             throw new InvalidOperationException($"Workspace backup version {document.SchemaVersion} is not supported.");
         if (document.Tasks is null || document.Memories is null || document.Files is null)
             throw new InvalidOperationException("The workspace backup is missing one or more required collections.");
@@ -111,19 +145,74 @@ public sealed class WorkspaceSnapshotService
         return document;
     }
 
-    private static void ValidateFileManifest(IEnumerable<WorkspaceFileManifestEntry> manifest)
+    private static void ValidateFileManifest(IReadOnlyList<WorkspaceFileManifestEntry> manifest)
     {
+        var paths = new Dictionary<string, WorkspaceFileManifestEntry>(StringComparer.OrdinalIgnoreCase);
+        var embeddedFiles = 0;
+        long embeddedBytes = 0;
+
         foreach (var entry in manifest)
         {
-            if (entry is null || entry.SizeBytes < 0)
+            if (entry is null || entry.SizeBytes < 0 || string.IsNullOrWhiteSpace(entry.RelativePath))
                 throw new InvalidOperationException("The workspace backup contains an invalid file-manifest entry.");
+
             var normalized = TaskHistoryService.NormalizeArtifactPath(entry.RelativePath);
             if (!string.Equals(normalized, entry.RelativePath, StringComparison.Ordinal))
                 throw new InvalidOperationException("The workspace backup contains a non-canonical file path.");
+            if (!paths.TryAdd(normalized, entry))
+                throw new InvalidOperationException("The workspace backup contains duplicate file paths.");
+
+            if (entry.IsDirectory && entry.SizeBytes != 0)
+                throw new InvalidOperationException("A directory manifest entry cannot have a file size.");
+            if (entry.ContentOmittedReason?.Length > 200)
+                throw new InvalidOperationException("A file omission note exceeds the allowed length.");
+
+            if (entry.ContentBase64 is null)
+            {
+                if (entry.Sha256 is not null)
+                    throw new InvalidOperationException("A file hash was supplied without its content.");
+                continue;
+            }
+
+            if (entry.IsDirectory || entry.Sha256 is null || entry.Sha256.Length != 64 ||
+                entry.Sha256.Any(character => !Uri.IsHexDigit(character)))
+                throw new InvalidOperationException("An embedded file entry has invalid type or hash metadata.");
+
+            byte[] bytes;
+            try { bytes = Convert.FromBase64String(entry.ContentBase64); }
+            catch (FormatException ex) { throw new InvalidOperationException("An embedded file payload is not valid Base64.", ex); }
+
+            try
+            {
+                if (bytes.Length > MaximumSingleFileContentBytes || bytes.LongLength != entry.SizeBytes)
+                    throw new InvalidOperationException("An embedded file payload does not match its declared size or exceeds the per-file limit.");
+                var actualHash = Convert.ToHexString(SHA256.HashData(bytes));
+                if (!string.Equals(actualHash, entry.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("An embedded file failed its SHA-256 integrity check.");
+                embeddedFiles++;
+                embeddedBytes += bytes.Length;
+                if (embeddedFiles > MaximumEmbeddedFiles || embeddedBytes > MaximumTotalFileContentBytes)
+                    throw new InvalidOperationException("The backup exceeds the embedded file count or total-size limit.");
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(bytes);
+            }
+        }
+
+        foreach (var pair in paths)
+        {
+            var segments = pair.Key.Split('/');
+            for (var index = 1; index < segments.Length; index++)
+            {
+                var parent = string.Join("/", segments.Take(index));
+                if (paths.TryGetValue(parent, out var parentEntry) && !parentEntry.IsDirectory)
+                    throw new InvalidOperationException("A file path is also used as a parent directory in the backup.");
+            }
         }
     }
 
-    private List<WorkspaceFileManifestEntry> BuildFileManifest()
+    private List<WorkspaceFileManifestEntry> BuildFileManifest(bool includeContents)
     {
         var output = new List<WorkspaceFileManifestEntry>();
         if (!Directory.Exists(_workspaceRoot))
@@ -131,17 +220,17 @@ public sealed class WorkspaceSnapshotService
 
         try
         {
-            if ((File.GetAttributes(_workspaceRoot) & FileAttributes.ReparsePoint) != 0)
-                return output;
+            EnsureNoReparsePointsInExistingPath(_workspaceRoot);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             return output;
         }
 
-        var prefix = Path.TrimEndingDirectorySeparator(_workspaceRoot) + Path.DirectorySeparatorChar;
         var pending = new Stack<(string Path, int Depth)>();
         pending.Push((_workspaceRoot, 0));
+        var embeddedFiles = 0;
+        long embeddedBytes = 0;
 
         while (pending.Count > 0 && output.Count < MaximumManifestEntries)
         {
@@ -166,14 +255,47 @@ public sealed class WorkspaceSnapshotService
                     var info = new FileInfo(file);
                     if ((info.Attributes & FileAttributes.ReparsePoint) != 0) continue;
                     var fullPath = Path.GetFullPath(file);
-                    if (!fullPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                    EnsureWithinWorkspace(fullPath);
                     var relative = TaskHistoryService.NormalizeArtifactPath(
                         Path.GetRelativePath(_workspaceRoot, fullPath).Replace('\\', '/'));
+
+                    string? contentBase64 = null;
+                    string? sha256 = null;
+                    string? omittedReason = null;
+                    if (includeContents)
+                    {
+                        if (info.Length > MaximumSingleFileContentBytes)
+                            omittedReason = "File exceeds the 1 MiB per-file backup limit.";
+                        else if (embeddedFiles >= MaximumEmbeddedFiles)
+                            omittedReason = "The backup reached the 100-file content limit.";
+                        else if (embeddedBytes + info.Length > MaximumTotalFileContentBytes)
+                            omittedReason = "The backup reached the 4 MiB total file-content limit.";
+                        else
+                        {
+                            var bytes = ReadStableFile(fullPath, info.Length);
+                            try
+                            {
+                                contentBase64 = Convert.ToBase64String(bytes);
+                                sha256 = Convert.ToHexString(SHA256.HashData(bytes));
+                                embeddedFiles++;
+                                embeddedBytes += bytes.Length;
+                                info.Refresh();
+                            }
+                            finally
+                            {
+                                CryptographicOperations.ZeroMemory(bytes);
+                            }
+                        }
+                    }
+
                     output.Add(new WorkspaceFileManifestEntry(
                         relative,
                         Math.Max(0, info.Length),
                         new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                        IsDirectory: false));
+                        IsDirectory: false,
+                        contentBase64,
+                        sha256,
+                        omittedReason));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
                 {
@@ -191,23 +313,190 @@ public sealed class WorkspaceSnapshotService
                     if ((info.Attributes & FileAttributes.ReparsePoint) != 0 || ExcludedDirectories.Contains(info.Name))
                         continue;
                     var fullPath = Path.GetFullPath(child);
-                    if (!fullPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                    EnsureWithinWorkspace(fullPath);
                     var relative = TaskHistoryService.NormalizeArtifactPath(
                         Path.GetRelativePath(_workspaceRoot, fullPath).Replace('\\', '/'));
                     pending.Push((fullPath, depth + 1));
                     output.Add(new WorkspaceFileManifestEntry(
-                        relative,
-                        0,
-                        new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                        IsDirectory: true));
+                        relative, 0, new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero), IsDirectory: true));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
                 {
-                    // Skip entries that disappear or become inaccessible during traversal.
+                    // Skip entries that disappear or become inaccessible while traversing.
                 }
             }
         }
 
         return output;
+    }
+
+    private byte[] ReadStableFile(string path, long expectedLength)
+    {
+        EnsureNoReparsePointsInExistingPath(Path.GetDirectoryName(path)!);
+        var before = new FileInfo(path);
+        if ((before.Attributes & FileAttributes.ReparsePoint) != 0 || before.Length != expectedLength ||
+            expectedLength > MaximumSingleFileContentBytes)
+            throw new IOException("A workspace file changed before it could be backed up.");
+
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (stream.Length != expectedLength)
+            throw new IOException("A workspace file changed while the backup was being prepared.");
+        var bytes = new byte[checked((int)expectedLength)];
+        var offset = 0;
+        while (offset < bytes.Length)
+        {
+            var read = stream.Read(bytes, offset, bytes.Length - offset);
+            if (read == 0)
+                throw new EndOfStreamException("A workspace file was truncated while being backed up.");
+            offset += read;
+        }
+        if (stream.ReadByte() != -1)
+            throw new IOException("A workspace file grew while the backup was being prepared.");
+
+        var after = new FileInfo(path);
+        after.Refresh();
+        if ((after.Attributes & FileAttributes.ReparsePoint) != 0 || after.Length != expectedLength ||
+            after.LastWriteTimeUtc != before.LastWriteTimeUtc)
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+            throw new IOException("A workspace file changed while the backup was being prepared.");
+        }
+        return bytes;
+    }
+
+    private int RestoreWorkspaceFiles(
+        IEnumerable<WorkspaceFileManifestEntry> manifest,
+        List<string> createdFiles,
+        List<string> createdDirectories,
+        out int skipped)
+    {
+        skipped = 0;
+        var restored = 0;
+        var files = manifest.Where(entry => entry.ContentBase64 is not null)
+            .OrderBy(entry => entry.RelativePath.Count(character => character == '/'))
+            .ToArray();
+        if (files.Length == 0)
+            return 0;
+
+        Directory.CreateDirectory(_workspaceRoot);
+        EnsureNoReparsePointsInExistingPath(_workspaceRoot);
+
+        foreach (var entry in files)
+        {
+            var bytes = Convert.FromBase64String(entry.ContentBase64!);
+            try
+            {
+                var target = ResolveSafeTargetPath(entry.RelativePath);
+                var parent = Path.GetDirectoryName(target)!;
+                EnsureParentDirectories(parent, createdDirectories);
+
+                if (File.Exists(target) || Directory.Exists(target))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                EnsureNoReparsePointsInExistingPath(parent);
+                using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    output.Write(bytes, 0, bytes.Length);
+                createdFiles.Add(target);
+                File.SetLastWriteTimeUtc(target, entry.LastWriteTimeUtc.UtcDateTime);
+                restored++;
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(bytes);
+            }
+        }
+
+        return restored;
+    }
+
+    private void EnsureParentDirectories(string parent, List<string> createdDirectories)
+    {
+        EnsureWithinWorkspace(parent);
+        var relative = Path.GetRelativePath(_workspaceRoot, parent);
+        var current = _workspaceRoot;
+        if (!Directory.Exists(current))
+        {
+            Directory.CreateDirectory(current);
+            createdDirectories.Add(current);
+        }
+        EnsureNoReparsePointsInExistingPath(current);
+
+        if (relative == ".")
+            return;
+
+        foreach (var segment in relative.Split(
+                     new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if (!Directory.Exists(current))
+            {
+                if (File.Exists(current))
+                    throw new IOException("A workspace file blocks a required restore directory.");
+                Directory.CreateDirectory(current);
+                createdDirectories.Add(current);
+            }
+            var attributes = File.GetAttributes(current);
+            if ((attributes & FileAttributes.ReparsePoint) != 0 ||
+                (attributes & FileAttributes.Directory) == 0)
+                throw new InvalidOperationException("File restoration is blocked by a symbolic link or non-directory parent.");
+        }
+    }
+
+    private string ResolveSafeTargetPath(string relativePath)
+    {
+        var normalized = TaskHistoryService.NormalizeArtifactPath(relativePath);
+        if (!string.Equals(normalized, relativePath, StringComparison.Ordinal))
+            throw new InvalidOperationException("A file restore path is not canonical.");
+        var target = Path.GetFullPath(Path.Combine(_workspaceRoot, normalized.Replace('/', Path.DirectorySeparatorChar)));
+        EnsureWithinWorkspace(target);
+        return target;
+    }
+
+    private void EnsureWithinWorkspace(string fullPath)
+    {
+        var canonical = Path.GetFullPath(fullPath);
+        if (!canonical.StartsWith(_rootPrefix, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(canonical, _workspaceRoot, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("A workspace path resolves outside LayalWorkspace.");
+    }
+
+    private static void EnsureNoReparsePointsInExistingPath(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath)
+            ?? throw new InvalidOperationException("The workspace path has no filesystem root.");
+        var current = root;
+        foreach (var segment in fullPath[root.Length..].Split(
+                     new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if (!Directory.Exists(current))
+                throw new DirectoryNotFoundException("A workspace directory does not exist.");
+            var attributes = File.GetAttributes(current);
+            if ((attributes & FileAttributes.ReparsePoint) != 0 ||
+                (attributes & FileAttributes.Directory) == 0)
+                throw new InvalidOperationException("The workspace path contains a symbolic link, reparse point, or non-directory parent.");
+        }
+    }
+
+    private static void RollBackCreatedFiles(List<string> files, List<string> directories)
+    {
+        foreach (var path in files.AsEnumerable().Reverse())
+        {
+            try { if (File.Exists(path)) File.Delete(path); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        foreach (var path in directories.OrderByDescending(value => value.Length))
+        {
+            try { if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any()) Directory.Delete(path); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 }
