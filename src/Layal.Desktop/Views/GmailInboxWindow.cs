@@ -146,7 +146,7 @@ public sealed class GmailInboxWindow : Window
             Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black };
         AutomationProperties.SetName(_body, isArabic ? "معاينة نص البريد" : "Email text preview");
         AutomationProperties.SetHelpText(_body, isArabic
-            ? "نص text/plain محلي بحد 15000 حرف؛ المرفقات وHTML فقط غير معروضين."
+            ? "نص البريد أو HTML بعد تحويله إلى نص آمن، مع معاينات محدودة للمرفقات النصية فقط. لا يتم تشغيل HTML أو فتح المرفقات الثنائية."
             : "Local text/plain body, capped at 15,000 characters; attachments and HTML-only content are not rendered.");
         Grid.SetRow(_body, 2); preview.Children.Add(_body);
         Grid.SetColumn(preview, 1); split.Children.Add(preview);
