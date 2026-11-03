@@ -271,7 +271,7 @@ public sealed class SettingsStoreTests
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
-            "{\\"GameModeAutoDetectionEnabled\\":true,\\"GameModeAllowedProcessNames\\":[\\"../bad\\",\\"bad/name\\"]}");
+            """{"GameModeAutoDetectionEnabled":true,"GameModeAllowedProcessNames":["../bad","bad/name"]}""");
         var loaded = new SettingsStore(temp.Path).Load();
 
         Assert.IsFalse(loaded.GameModeAutoDetectionEnabled);
