@@ -5699,7 +5699,7 @@ public partial class MainWindow : Window
 
         if (scheduleChanged && AppRuntime.ReminderTaskSchedulerService is { } scheduler)
         {
-            try { scheduler.Synchronize(AppRuntime.ReminderService.GetAll()); }
+            try { AppRuntime.SynchronizeLocalNotifications(); }
             catch (Exception ex)
             {
                 SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError(
