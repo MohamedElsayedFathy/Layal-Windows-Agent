@@ -82,6 +82,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _localAiSetupCancellation;
     private readonly DispatcherTimer _speechRecordingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private CancellationTokenSource? _speechCancellation;
+    private bool _discardSpeechAudioOnStop;
     private CancellationTokenSource? _voiceTestCancellation;
     private CancellationTokenSource? _voiceConversationCancellation;
     private VoiceConversationStatus _voiceConversationStatus = VoiceConversationStatus.Stopped;
@@ -429,6 +430,10 @@ public partial class MainWindow : Window
     private void StopCaptureSourcesForPrivacyShield()
     {
         _speechRecordingTimer.Stop();
+        // StopRecordingAsync has no cancellation token. Mark its in-flight finalization so
+        // the resulting audio is discarded before any local transcription or cloud upload.
+        if (_speechIsStopping && _speechCancellation is null)
+            _discardSpeechAudioOnStop = true;
 
         if (_localVoiceRecordingActive)
         {
@@ -1883,6 +1888,17 @@ public partial class MainWindow : Window
             return true;
         }
 
+        if (_speechIsStopping)
+        {
+            // StopRecordingAsync is finalizing its buffer and cannot be cancelled directly.
+            // Do not allow that buffer to proceed into transcription or upload after Esc.
+            _discardSpeechAudioOnStop = true;
+            SetChatActivityStatus(IsArabic
+                ? "تم طلب التخلص من التسجيل الجاري إيقافه؛ لن يُحوّل أو يُرسل."
+                : "Discard requested for the recording being finalized; it will not be transcribed or uploaded.");
+            return true;
+        }
+
         if (_voiceTestCancellation is not null)
         {
             _voiceTestCancellation.Cancel();
@@ -3147,6 +3163,7 @@ public partial class MainWindow : Window
     private async Task StopSpeechRecordingAndTranscribeAsync()
     {
         if (_speechIsStopping || !_speechToText.IsRecording) return;
+        _discardSpeechAudioOnStop = false;
         _speechIsStopping = true;
         _speechRecordingTimer.Stop();
         UpdateSpeechToTextButton();
@@ -3158,16 +3175,28 @@ public partial class MainWindow : Window
             _speechIsStopping = false;
             UpdateSpeechToTextButton();
 
-            // If the window was hidden while StopRecordingAsync yielded, discard the clip.
-            if (!IsVisible || AppRuntime.IsExiting)
+            // The recording stop itself is not cancellable. Re-check the shield and user
+            // cancellation immediately after it yields, before either local processing or upload.
+            if (ShouldDiscardPendingSpeechAudio())
             {
-                SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل والتخلص من الصوت المؤقت." : "Recording cancelled; temporary audio discarded.");
+                SetChatActivityStatus(IsArabic
+                    ? "تم التخلص من التسجيل؛ درع الخصوصية أو طلب الإلغاء منع تحويله أو إرساله."
+                    : "Recording discarded; the privacy shield or a cancellation request prevented transcription and upload.");
                 return;
             }
 
             if (AppRuntime.Settings.UseLocalAi)
             {
                 if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true)) return;
+                // Local resource setup can yield to the UI; the shield may have been enabled
+                // while it was running, before a transcription token exists to cancel.
+                if (ShouldDiscardPendingSpeechAudio())
+                {
+                    SetChatActivityStatus(IsArabic
+                        ? "تم التخلص من التسجيل؛ لم يبدأ التحويل بعد تفعيل درع الخصوصية أو طلب الإلغاء."
+                        : "Recording discarded; transcription did not start after the privacy shield or cancellation request became active.");
+                    return;
+                }
                 var localTranscriptCancellation = new CancellationTokenSource();
                 _speechCancellation = localTranscriptCancellation;
                 UpdateSpeechToTextButton();
@@ -3274,10 +3303,18 @@ public partial class MainWindow : Window
         finally
         {
             if (audio is not null) Array.Clear(audio, 0, audio.Length);
+            _discardSpeechAudioOnStop = false;
             _speechIsStopping = false;
             UpdateSpeechToTextButton();
         }
     }
+
+    private bool ShouldDiscardPendingSpeechAudio() =>
+        PrivacyShieldPolicy.ShouldDiscardCapturedAudio(
+            AppRuntime.Settings.PrivacyShieldEnabled,
+            IsVisible,
+            AppRuntime.IsExiting,
+            _discardSpeechAudioOnStop);
 
     private void UpdateSpeechToTextButton()
     {
