@@ -120,7 +120,6 @@ public sealed class ReminderTaskSchedulerService
                 new XElement(ns + "Enabled", "true"),
                 new XElement(ns + "Hidden", "true"),
                 new XElement(ns + "ExecutionTimeLimit", "PT0S"),
-                new XElement(ns + "DeleteExpiredTaskAfter", "PT1H"),
                 new XElement(ns + "Priority", "7")),
             new XElement(ns + "Actions",
                 new XAttribute("Context", "LayalUser"),
