@@ -256,7 +256,7 @@ public sealed class GmailReadOnlyService
         using var response = await SendGmailRequestAsync(HttpMethod.Get, url, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw await CreateGmailApiExceptionAsync(response, "Could not list Gmail messages");
-        using var json = await ReadBoundedJsonAsync(response.Content, MaximumMessageResponseBytes, cancellationToken);
+        using var json = await ReadBoundedJsonAsync(response.Content, 1024 * 1024, cancellationToken);
         if (!json.RootElement.TryGetProperty("messages", out var messages) ||
             messages.ValueKind != JsonValueKind.Array)
             return Array.Empty<GmailMessageSummary>();
@@ -275,7 +275,7 @@ public sealed class GmailReadOnlyService
             if (!detailResponse.IsSuccessStatusCode)
                 continue;
 
-            using var detail = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync(cancellationToken));
+            using var detail = await ReadBoundedJsonAsync(detailResponse.Content, 512 * 1024, cancellationToken);
             var root = detail.RootElement;
             var headers = GetHeaders(root);
             output.Add(new GmailMessageSummary(
@@ -303,7 +303,7 @@ public sealed class GmailReadOnlyService
         using var response = await SendGmailRequestAsync(HttpMethod.Get, url, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw await CreateGmailApiExceptionAsync(response, "Could not read the selected Gmail message");
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        using var json = await ReadBoundedJsonAsync(response.Content, MaximumMessageResponseBytes, cancellationToken);
         var root = json.RootElement;
         var headers = GetHeaders(root);
         var body = new StringBuilder();
@@ -608,7 +608,7 @@ public sealed class GmailReadOnlyService
                         }
                     }
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException)
+                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException)
                 {
                     status = "Preview unavailable: the read-only attachment request failed.";
                 }
