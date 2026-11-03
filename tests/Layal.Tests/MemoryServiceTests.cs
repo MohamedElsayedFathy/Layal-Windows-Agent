@@ -67,9 +67,9 @@ public sealed class MemoryServiceTests
     public void LegacyMemoryJsonDefaultsToGeneralAndActive()
     {
         const string legacyJson = """{"Id":"legacy-note","Title":"Legacy","Content":"Old note"}""";
-        var note = System.Text.Json.JsonSerializer.Deserialize<MemoryNote>(legacyJson);
+        var note = System.Text.Json.JsonSerializer.Deserialize<MemoryNote>(legacyJson)
+            ?? throw new AssertFailedException("Legacy memory JSON did not deserialize.");
 
-        Assert.IsNotNull(note);
         Assert.AreEqual("General", note.Category);
         Assert.IsFalse(note.IsArchived);
     }
