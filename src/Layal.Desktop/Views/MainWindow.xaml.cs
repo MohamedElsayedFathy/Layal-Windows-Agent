@@ -464,12 +464,32 @@ public partial class MainWindow : Window
             _cameraVisionWindow = null;
         }
 
-        if (_pendingVisionFileName?.StartsWith("screen-region-", StringComparison.OrdinalIgnoreCase) == true)
+        var visionAttachmentIsCapture = _pendingVisionFileName?.StartsWith(
+            "screen-region-", StringComparison.OrdinalIgnoreCase) == true;
+        var visionAttachmentIsClipboard = _pendingVisionFileName?.StartsWith(
+            "clipboard-image-", StringComparison.OrdinalIgnoreCase) == true;
+        if ((visionAttachmentIsCapture || visionAttachmentIsClipboard) &&
+            _pendingVisionImageBytes is { } pendingImageBytes)
         {
+            Array.Clear(pendingImageBytes, 0, pendingImageBytes.Length);
             _pendingVisionImageBytes = null;
             _pendingVisionContentType = null;
             _pendingVisionFileName = null;
             UpdateVisionAttachmentControls();
+        }
+
+        var documentAttachmentIsClipboard =
+            string.Equals(_pendingDocumentFileName, "Clipboard text", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(_pendingDocumentFileName, "نص الحافظة", StringComparison.Ordinal);
+        if (documentAttachmentIsClipboard && _pendingDocumentText is { } clipboardText)
+        {
+            _pendingDocumentText = null;
+            _pendingDocumentFileName = null;
+            _pendingDocumentNotice = null;
+            UpdateDocumentAttachmentUi();
+            // Strings are immutable; dropping all UI/service references is the strongest
+            // cleanup available for already-created clipboard text in managed memory.
+            _ = clipboardText.Length;
         }
 
         _lastCameraObservation = string.Empty;
