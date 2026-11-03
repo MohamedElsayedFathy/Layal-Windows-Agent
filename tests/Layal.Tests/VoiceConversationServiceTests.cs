@@ -53,18 +53,18 @@ public sealed class VoiceConversationServiceTests
     [TestMethod]
     public void CaptureQueueBuffersShortStallsAndNeverSilentlyDropsFrames()
     {
-        var queue = InvokePrivateFactory<Channel<byte[]>>("CreateCaptureQueue");
+        var queue = InvokePrivateFactory<Channel<CapturedMicrophoneFrame>>("CreateCaptureQueue");
 
         for (var i = 0; i < VoiceConversationService.CaptureQueueCapacityFrames; i++)
-            Assert.IsTrue(queue.Writer.TryWrite(new byte[] { (byte)i }), $"Frame {i} should fit in the bounded queue.");
+            Assert.IsTrue(queue.Writer.TryWrite(new CapturedMicrophoneFrame(new byte[] { (byte)i, 0 }, 0)), $"Frame {i} should fit in the bounded queue.");
 
-        Assert.IsFalse(queue.Writer.TryWrite(new byte[] { 255 }),
+        Assert.IsFalse(queue.Writer.TryWrite(new CapturedMicrophoneFrame(new byte[] { 255, 0 }, 0)),
             "A full queue must report backpressure instead of silently dropping an older frame.");
 
         var drained = 0;
         while (queue.Reader.TryRead(out var frame))
         {
-            Array.Clear(frame, 0, frame.Length);
+            Array.Clear(frame.PcmBytes, 0, frame.PcmBytes.Length);
             drained++;
         }
 
@@ -92,6 +92,61 @@ public sealed class VoiceConversationServiceTests
         Assert.AreEqual(playback.BufferLength, playback.BufferedBytes,
             "Overflow is surfaced explicitly; the caller then aborts and clears the damaged response.");
         playback.ClearBuffer();
+    }
+
+    [TestMethod]
+    public void CreateMicrophoneFrame_CopiesPcmWhenUnmuted()
+    {
+        byte[] source = [0, 1, 2, 3, 4, 5];
+        var frame = VoiceConversationService.CreateMicrophoneFrame(source, source.Length, muted: false);
+
+        CollectionAssert.AreEqual(source, frame);
+        frame[0] = 255;
+        Assert.AreEqual(0, source[0], "Queued frames must not alias NAudio's reusable capture buffer.");
+    }
+
+    [TestMethod]
+    public void CreateMicrophoneFrame_ProducesSilenceWhenMuted()
+    {
+        byte[] source = [7, 9, 11, 13, 15, 17];
+        var frame = VoiceConversationService.CreateMicrophoneFrame(source, source.Length, muted: true);
+
+        CollectionAssert.AreEqual(new byte[source.Length], frame);
+        Assert.AreNotEqual(source[0], frame[0]);
+    }
+
+    [TestMethod]
+    public void CreateMicrophoneFrame_RejectsPartialPcmSamples()
+    {
+        byte[] source = [1, 2, 3];
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+            VoiceConversationService.CreateMicrophoneFrame(source, 3, muted: false));
+    }
+
+    [TestMethod]
+    public void CapturedMicrophoneFrame_MuteGenerationInvalidatesQueuedAudioAfterQuickUnmute()
+    {
+        byte[] source = [10, 20, 30, 40];
+        var capturedBeforeMute = new CapturedMicrophoneFrame(
+            VoiceConversationService.CreateMicrophoneFrame(source, source.Length, muted: false),
+            MuteGeneration: 4);
+        var generationAfterMuteAndUnmute = 6;
+
+        Assert.IsTrue(VoiceConversationService.ShouldSendMicrophoneSilence(
+            microphoneMuted: false,
+            capturedBeforeMute.MuteGeneration,
+            generationAfterMuteAndUnmute),
+            "A frame from before mute must be converted to silence even after the user unmutes quickly.");
+        Assert.IsTrue(VoiceConversationService.ShouldSendMicrophoneSilence(
+            microphoneMuted: true,
+            generationAfterMuteAndUnmute,
+            generationAfterMuteAndUnmute));
+        Assert.IsFalse(VoiceConversationService.ShouldSendMicrophoneSilence(
+            microphoneMuted: false,
+            generationAfterMuteAndUnmute,
+            generationAfterMuteAndUnmute));
+        Array.Clear(capturedBeforeMute.PcmBytes, 0, capturedBeforeMute.PcmBytes.Length);
+        CollectionAssert.AreEqual(new byte[source.Length], capturedBeforeMute.PcmBytes);
     }
 
     private static T InvokePrivateFactory<T>(string methodName)

@@ -9,12 +9,15 @@ using NAudio.Wave;
 
 namespace Layal.Services;
 
+public sealed record CapturedMicrophoneFrame(byte[] PcmBytes, int MuteGeneration);
+
 public enum VoiceConversationStatus
 {
     Connecting,
     Listening,
     UserSpeaking,
     AssistantSpeaking,
+    Muted,
     Stopped
 }
 
@@ -37,6 +40,34 @@ public sealed class VoiceConversationService : IDisposable
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private int _running;
     private int _disposed;
+    private int _microphoneMuted;
+    private int _microphoneMuteGeneration;
+    private Channel<CapturedMicrophoneFrame>? _activeCaptureQueue;
+
+    public bool IsMicrophoneMuted => Volatile.Read(ref _microphoneMuted) != 0;
+
+    /// <summary>Temporarily sends silence instead of microphone samples without ending the live session.</summary>
+    public void SetMicrophoneMuted(bool muted)
+    {
+        if (Volatile.Read(ref _running) == 0)
+            throw new InvalidOperationException("No live voice conversation is running.");
+
+        var nextValue = muted ? 1 : 0;
+        if (Interlocked.Exchange(ref _microphoneMuted, nextValue) == nextValue)
+            return;
+
+        // Every endpoint transition invalidates queued frames captured under the prior state.
+        // A sender that already dequeued one also checks this generation immediately before send.
+        Interlocked.Increment(ref _microphoneMuteGeneration);
+        var queue = Volatile.Read(ref _activeCaptureQueue);
+        if (queue is not null)
+        {
+            while (queue.Reader.TryRead(out var pendingFrame))
+                Array.Clear(pendingFrame.PcmBytes, 0, pendingFrame.PcmBytes.Length);
+        }
+        RaiseStatus(muted ? VoiceConversationStatus.Muted : VoiceConversationStatus.Listening,
+            muted ? "Microphone muted" : "Microphone unmuted");
+    }
 
     public event Action<VoiceConversationStatus, string?>? StatusChanged;
     public event Action<string, string>? TranscriptReceived;
@@ -93,7 +124,9 @@ public sealed class VoiceConversationService : IDisposable
         string modelId,
         string voiceId,
         string instructions,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? inputDeviceId = null,
+        string? outputDeviceId = null)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         if (Interlocked.Exchange(ref _running, 1) != 0)
@@ -107,6 +140,8 @@ public sealed class VoiceConversationService : IDisposable
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = lifetime.Token;
         var captureQueue = CreateCaptureQueue();
+        Volatile.Write(ref _microphoneMuted, 0);
+        Volatile.Write(ref _activeCaptureQueue, captureQueue);
 
         Exception? inputPipelineError = null;
         ClientWebSocket? socket = null;
@@ -134,12 +169,15 @@ public sealed class VoiceConversationService : IDisposable
                 _ = updated.RootElement.ValueKind;
 
             playback = CreatePlaybackBuffer();
-            output = new WaveOut();
+            output = new WaveOut
+            {
+                DeviceNumber = AudioDeviceService.ResolveOutputDeviceNumber(outputDeviceId)
+            };
             output.Init(playback);
 
             microphone = new WaveIn
             {
-                DeviceNumber = 0,
+                DeviceNumber = AudioDeviceService.ResolveInputDeviceNumber(inputDeviceId),
                 WaveFormat = new WaveFormat(SampleRate, BitsPerSample, Channels),
                 BufferMilliseconds = CaptureFrameDurationMilliseconds,
                 NumberOfBuffers = 3
@@ -152,18 +190,32 @@ public sealed class VoiceConversationService : IDisposable
 
                 var count = args.BytesRecorded - (args.BytesRecorded % (BitsPerSample / 8));
                 if (count <= 0) return;
-                var frame = new byte[count];
-                Buffer.BlockCopy(args.Buffer, 0, frame, 0, count);
+                var muteGeneration = Volatile.Read(ref _microphoneMuteGeneration);
+                var muted = IsMicrophoneMuted;
+                var frame = new CapturedMicrophoneFrame(
+                    CreateMicrophoneFrame(args.Buffer, count, muted),
+                    muteGeneration);
                 if (!captureQueue.Writer.TryWrite(frame))
                 {
-                    Array.Clear(frame, 0, frame.Length);
-                    var bufferedSeconds = CaptureQueueCapacityFrames * CaptureFrameDurationMilliseconds / 1000d;
-                    Interlocked.CompareExchange(ref inputPipelineError,
-                        new InvalidOperationException(
-                            $"Realtime microphone transmission lagged beyond the bounded {CaptureQueueCapacityFrames}-frame queue (about {bufferedSeconds:0.#} seconds). " +
-                            "The session was stopped to avoid silently losing input audio. Check the connection and retry."), null);
-                    lifetime.Cancel();
+                    Array.Clear(frame.PcmBytes, 0, frame.PcmBytes.Length);
+                    // A frame invalidated by a concurrent mute/unmute transition is disposable.
+                    // Current, unmuted speech is never dropped silently: fail closed on backpressure.
+                    var staleOrMuted = ShouldSendMicrophoneSilence(
+                        IsMicrophoneMuted, frame.MuteGeneration, Volatile.Read(ref _microphoneMuteGeneration));
+                    if (!staleOrMuted)
+                    {
+                        var bufferedSeconds = CaptureQueueCapacityFrames * CaptureFrameDurationMilliseconds / 1000d;
+                        Interlocked.CompareExchange(ref inputPipelineError,
+                            new InvalidOperationException(
+                                $"Realtime microphone transmission lagged beyond the bounded {CaptureQueueCapacityFrames}-frame queue (about {bufferedSeconds:0.#} seconds). " +
+                                "The session was stopped to avoid silently losing input audio. Check the connection and retry."), null);
+                        lifetime.Cancel();
+                    }
                 }
+
+                // NAudio reuses the event buffer. The frame above owns its copy; clear the source
+                // buffer now so microphone samples do not linger in the reusable native callback array.
+                Array.Clear(args.Buffer, 0, Math.Min(args.BytesRecorded, args.Buffer.Length));
             };
             stoppedHandler = (_, args) =>
             {
@@ -292,7 +344,7 @@ public sealed class VoiceConversationService : IDisposable
                 try { await playbackMonitor; } catch { /* The primary session or cancellation error wins. */ }
             }
             while (captureQueue.Reader.TryRead(out var pendingFrame))
-                Array.Clear(pendingFrame, 0, pendingFrame.Length);
+                Array.Clear(pendingFrame.PcmBytes, 0, pendingFrame.PcmBytes.Length);
 
             if (playback is not null)
             {
@@ -305,15 +357,17 @@ public sealed class VoiceConversationService : IDisposable
             }
 
             socket?.Dispose();
+            Volatile.Write(ref _activeCaptureQueue, null);
+            Volatile.Write(ref _microphoneMuted, 0);
             Interlocked.Exchange(ref _running, 0);
             RaiseStatus(VoiceConversationStatus.Stopped, null);
         }
     }
 
-    private static Channel<byte[]> CreateCaptureQueue() =>
-        Channel.CreateBounded<byte[]>(new BoundedChannelOptions(CaptureQueueCapacityFrames)
+    private static Channel<CapturedMicrophoneFrame> CreateCaptureQueue() =>
+        Channel.CreateBounded<CapturedMicrophoneFrame>(new BoundedChannelOptions(CaptureQueueCapacityFrames)
         {
-            SingleReader = true,
+            SingleReader = false,
             SingleWriter = true,
             FullMode = BoundedChannelFullMode.Wait
         });
@@ -329,7 +383,7 @@ public sealed class VoiceConversationService : IDisposable
 
     private async Task SendMicrophoneFramesAsync(
         ClientWebSocket socket,
-        ChannelReader<byte[]> frames,
+        ChannelReader<CapturedMicrophoneFrame> frames,
         CancellationToken cancellationToken,
         Action<Exception> reportFailure)
     {
@@ -339,15 +393,13 @@ public sealed class VoiceConversationService : IDisposable
             {
                 try
                 {
-                    await SendJsonAsync(socket, new
-                    {
-                        type = "input_audio_buffer.append",
-                        audio = Convert.ToBase64String(frame)
-                    }, cancellationToken);
+                    // Re-check the mute flag at send time so a frame already queued when the
+                    // user pressed Mute cannot leak that queued microphone audio to the provider.
+                    await SendMicrophoneFrameAsync(socket, frame, cancellationToken);
                 }
                 finally
                 {
-                    Array.Clear(frame, 0, frame.Length);
+                    Array.Clear(frame.PcmBytes, 0, frame.PcmBytes.Length);
                 }
             }
         }
@@ -358,6 +410,69 @@ public sealed class VoiceConversationService : IDisposable
         catch (Exception ex)
         {
             reportFailure(ex);
+        }
+    }
+
+    public static byte[] CreateMicrophoneFrame(byte[] source, int byteCount, bool muted)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (byteCount < 0 || byteCount > source.Length || byteCount % (BitsPerSample / 8) != 0)
+            throw new ArgumentOutOfRangeException(nameof(byteCount), "Microphone frame size must be a valid PCM sample boundary.");
+
+        var frame = new byte[byteCount];
+        if (!muted && byteCount > 0)
+            Buffer.BlockCopy(source, 0, frame, 0, byteCount);
+        return frame;
+    }
+
+    public static bool ShouldSendMicrophoneSilence(bool microphoneMuted, int frameMuteGeneration, int currentMuteGeneration) =>
+        microphoneMuted || frameMuteGeneration != currentMuteGeneration;
+
+    private async Task SendMicrophoneFrameAsync(
+        ClientWebSocket socket,
+        CapturedMicrophoneFrame frame,
+        CancellationToken cancellationToken)
+    {
+        await _sendGate.WaitAsync(cancellationToken);
+        try
+        {
+            var needsSilence = ShouldSendMicrophoneSilence(
+                IsMicrophoneMuted, frame.MuteGeneration, Volatile.Read(ref _microphoneMuteGeneration));
+            var mutedFrame = needsSilence ? new byte[frame.PcmBytes.Length] : null;
+            var payload = mutedFrame ?? frame.PcmBytes;
+            try
+            {
+                await SendJsonAsyncWhileGateHeldAsync(socket, new
+                {
+                    type = "input_audio_buffer.append",
+                    audio = Convert.ToBase64String(payload)
+                }, cancellationToken);
+            }
+            finally
+            {
+                if (mutedFrame is not null)
+                    Array.Clear(mutedFrame, 0, mutedFrame.Length);
+            }
+        }
+        finally
+        {
+            _sendGate.Release();
+        }
+    }
+
+    private static async Task SendJsonAsyncWhileGateHeldAsync(
+        ClientWebSocket socket,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+        try
+        {
+            await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
+        }
+        finally
+        {
+            Array.Clear(bytes, 0, bytes.Length);
         }
     }
 
@@ -556,6 +671,8 @@ public sealed class VoiceConversationService : IDisposable
 
     private void RaiseStatus(VoiceConversationStatus status, string? detail)
     {
+        if (status is not VoiceConversationStatus.Connecting and not VoiceConversationStatus.Stopped && IsMicrophoneMuted)
+            status = VoiceConversationStatus.Muted;
         var handlers = StatusChanged;
         if (handlers is null) return;
         foreach (Action<VoiceConversationStatus, string?> handler in handlers.GetInvocationList())

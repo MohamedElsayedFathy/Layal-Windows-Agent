@@ -89,6 +89,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _voiceTestCancellation;
     private CancellationTokenSource? _voiceConversationCancellation;
     private VoiceConversationStatus _voiceConversationStatus = VoiceConversationStatus.Stopped;
+    private VoiceConversationService? _voiceConversationService;
+    private bool _refreshingAudioDeviceSelectors;
     private DateTimeOffset _speechRecordingStartedAt;
     private bool _speechIsStopping;
     private CancellationTokenSource? _chatCancellation;
@@ -183,6 +185,7 @@ public partial class MainWindow : Window
         RefreshMemoryNotes();
         StateChanged += MainWindow_StateChanged;
         ApplyTheme();
+        RefreshAudioDeviceSelectors();
         ApplyLanguage();
         RefreshProviderStatus();
         if (!Layal.App.SuppressStartupForTests && AppRuntime.ReminderService is not null)
@@ -200,6 +203,141 @@ public partial class MainWindow : Window
             AppRuntime.Settings.GameModeAutoDetectionEnabled &&
             AppRuntime.Settings.GameModeAllowedProcessNames.Count > 0)
             _gameModeDetectionTimer.Start();
+    }
+
+    private void RefreshAudioDeviceSelectors()
+    {
+        if (AudioInputDeviceSelector is null || AudioOutputDeviceSelector is null)
+            return;
+
+        _refreshingAudioDeviceSelectors = true;
+        try
+        {
+            var inputDevices = AudioDeviceService.GetInputDevices(IsArabic).ToList();
+            var outputDevices = AudioDeviceService.GetOutputDevices(IsArabic).ToList();
+            var inputId = string.IsNullOrWhiteSpace(AppRuntime.Settings.AudioInputDeviceId)
+                ? AudioDeviceService.WindowsDefaultDeviceId
+                : AppRuntime.Settings.AudioInputDeviceId;
+            var outputId = string.IsNullOrWhiteSpace(AppRuntime.Settings.AudioOutputDeviceId)
+                ? AudioDeviceService.WindowsDefaultDeviceId
+                : AppRuntime.Settings.AudioOutputDeviceId;
+
+            if (!inputDevices.Any(device => string.Equals(device.Id, inputId, StringComparison.Ordinal)))
+            {
+                if (!string.Equals(inputId, AudioDeviceService.WindowsDefaultDeviceId, StringComparison.Ordinal))
+                    inputDevices.Add(AudioDeviceService.CreateUnavailableSelection(inputId, isInput: true, isArabic: IsArabic));
+                else
+                    inputId = AudioDeviceService.WindowsDefaultDeviceId;
+            }
+            if (!outputDevices.Any(device => string.Equals(device.Id, outputId, StringComparison.Ordinal)))
+            {
+                if (!string.Equals(outputId, AudioDeviceService.WindowsDefaultDeviceId, StringComparison.Ordinal))
+                    outputDevices.Add(AudioDeviceService.CreateUnavailableSelection(outputId, isInput: false, isArabic: IsArabic));
+                else
+                    outputId = AudioDeviceService.WindowsDefaultDeviceId;
+            }
+
+            AudioInputDeviceSelector.ItemsSource = inputDevices;
+            AudioOutputDeviceSelector.ItemsSource = outputDevices;
+            AudioInputDeviceSelector.SelectedValue = inputId;
+            AudioOutputDeviceSelector.SelectedValue = outputId;
+
+            var unavailableInput = inputDevices.FirstOrDefault(device => device.Id == inputId && !device.IsAvailable);
+            var unavailableOutput = outputDevices.FirstOrDefault(device => device.Id == outputId && !device.IsAvailable);
+            var unavailable = unavailableInput is not null || unavailableOutput is not null;
+            AudioDeviceStatus.Text = unavailable
+                ? (IsArabic
+                    ? "الجهاز المحفوظ غير متصل. وصّل الجهاز أو اختر جهازًا متاحًا؛ لن نبدّل الميكروفون أو السماعة بصمت."
+                    : "A saved audio device is disconnected. Reconnect it or choose an available device; Layal will not silently switch endpoints.")
+                : (IsArabic
+                    ? "تُحفظ اختيارات الصوت لهذا المستخدم. اختر «افتراضي Windows» للعودة إلى الجهاز الافتراضي."
+                    : "Audio selections are saved for this Windows user. Choose Windows default to restore automatic routing.");
+            AudioDeviceStatus.Foreground = ThemeBrush(
+                unavailable ? "Layal.Warning" : "Layal.Muted",
+                unavailable ? System.Windows.Media.Brushes.DarkGoldenrod : System.Windows.Media.Brushes.Gray);
+        }
+        finally
+        {
+            _refreshingAudioDeviceSelectors = false;
+        }
+    }
+
+    private void AudioInputDeviceSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || _refreshingAudioDeviceSelectors || AudioInputDeviceSelector.SelectedValue is not string selectedId)
+            return;
+        if (_speechToText.IsRecording || _localVoiceRecordingActive ||
+            _voiceConversationCancellation is not null || _speechIsStopping)
+        {
+            RefreshAudioDeviceSelectors();
+            SetChatActivityStatus(IsArabic
+                ? "أوقف استخدام الميكروفون قبل تغيير جهاز الإدخال."
+                : "Stop microphone use before changing the input device.");
+            return;
+        }
+        try
+        {
+            _ = AudioDeviceService.ResolveInputDeviceNumber(selectedId);
+            AppRuntime.Settings.AudioInputDeviceId = selectedId;
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            RefreshAudioDeviceSelectors();
+        }
+        catch (Exception ex)
+        {
+            RefreshAudioDeviceSelectors();
+            SetChatActivityStatus((IsArabic ? "تعذر اختيار الميكروفون: " : "Could not select microphone: ") + ex.Message);
+        }
+    }
+
+    private void AudioOutputDeviceSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || _refreshingAudioDeviceSelectors || AudioOutputDeviceSelector.SelectedValue is not string selectedId)
+            return;
+        if (_voiceConversationCancellation is not null || _chatCancellation is not null || _voiceTestCancellation is not null)
+        {
+            RefreshAudioDeviceSelectors();
+            SetChatActivityStatus(IsArabic
+                ? "أوقف تشغيل الصوت الحالي قبل تغيير مخرج الصوت."
+                : "Stop current audio playback before changing the output device.");
+            return;
+        }
+        try
+        {
+            _ = AudioDeviceService.ResolveOutputDeviceNumber(selectedId);
+            AppRuntime.Settings.AudioOutputDeviceId = selectedId;
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            RefreshAudioDeviceSelectors();
+        }
+        catch (Exception ex)
+        {
+            RefreshAudioDeviceSelectors();
+            SetChatActivityStatus((IsArabic ? "تعذر اختيار مخرج الصوت: " : "Could not select audio output: ") + ex.Message);
+        }
+    }
+
+    private void RefreshAudioDevicesButton_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshAudioDeviceSelectors();
+        SetChatActivityStatus(IsArabic ? "تم تحديث قائمة أجهزة الصوت." : "Audio device lists refreshed.");
+    }
+
+    private void VoiceMuteButton_Click(object sender, RoutedEventArgs e)
+    {
+        var service = _voiceConversationService;
+        if (service is null || _voiceConversationCancellation is null)
+            return;
+        try
+        {
+            service.SetMicrophoneMuted(!service.IsMicrophoneMuted);
+            UpdateVoiceConversationControls();
+            SetChatActivityStatus(service.IsMicrophoneMuted
+                ? (IsArabic ? "الميكروفون مكتوم؛ المحادثة ما زالت متصلة." : "Microphone muted; the voice conversation remains connected.")
+                : (IsArabic ? "تم تشغيل الميكروفون؛ يمكنك متابعة الكلام." : "Microphone unmuted; you can continue speaking."));
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus((IsArabic ? "تعذر تغيير حالة الميكروفون: " : "Could not change microphone mute: ") + ex.Message);
+        }
     }
 
     public void ShowFromTray()
@@ -864,6 +1002,7 @@ public partial class MainWindow : Window
             message.Direction = ContainsArabic(message.Content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         }
         ChatMessagesList?.Items.Refresh();
+        RefreshAudioDeviceSelectors();
 
         Title = ar ? "ليال | Layal" : "Layal | ليال";
         TitleText.Text = ar ? "ليال | \u2066Layal\u2069" : "Layal | Bilingual Desktop AI";
@@ -1027,6 +1166,18 @@ public partial class MainWindow : Window
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
         SpeechModelLabel.Text = ar ? "نموذج تحويل الكلام السحابي (اختياري)" : "Cloud speech-to-text model (optional)";
         VoiceReplySectionTitle.Text = ar ? "صوت ليال" : "Layal voice";
+        AudioInputDeviceLabel.Text = ar ? "الميكروفون المستخدم" : "Input microphone";
+        AudioOutputDeviceLabel.Text = ar ? "مخرج صوت ليال" : "Layal audio output";
+        RefreshAudioDevicesButton.Content = ar ? "تحديث أجهزة الصوت" : "Refresh audio devices";
+        AutomationProperties.SetName(AudioInputDeviceSelector, ar ? "اختيار ميكروفون ليال" : "Choose Layal microphone");
+        AutomationProperties.SetHelpText(AudioInputDeviceSelector, ar
+            ? "حدد الميكروفون المستخدم للتسجيل والمحادثة المباشرة. لن يتم التبديل بصمت إلى جهاز آخر."
+            : "Select the microphone for recording and live conversations. Layal never silently switches to another device.");
+        AutomationProperties.SetName(AudioOutputDeviceSelector, ar ? "اختيار مخرج صوت ليال" : "Choose Layal audio output");
+        AutomationProperties.SetHelpText(AudioOutputDeviceSelector, ar
+            ? "حدد السماعة أو مخرج الصوت لردود ليال والمحادثة الصوتية."
+            : "Select the speaker or audio output used for Layal's spoken replies and live conversations.");
+        AutomationProperties.SetName(RefreshAudioDevicesButton, ar ? "تحديث قائمة أجهزة الصوت" : "Refresh audio devices");
         VoiceReplyCheckbox.Content = ar ? "ليال تقرأ ردودها بصوت طفولي" : "Have Layal read replies aloud in a childlike voice";
         VoiceReplyVoiceLabel.Text = ar ? "نبرة الصوت السحابي (اختياري)" : "Cloud voice preset (optional)";
         VoiceReplyModelLabel.Text = ar ? "معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" : "Cloud voice model ID (Realtime; optional)";
@@ -2980,7 +3131,8 @@ public partial class MainWindow : Window
             await _layalSpeech.SpeakAsync(
                 baseUrl, apiKey, model, voiceId,
                 "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak gently and clearly.",
-                cancellation.Token);
+                cancellation.Token,
+                AppRuntime.Settings.AudioOutputDeviceId);
             SetAccessibleStatusText(ProviderActionStatus, IsArabic
                 ? "انتهت تجربة صوت ليال."
                 : "Layal voice preview completed.");
@@ -3018,7 +3170,8 @@ public partial class MainWindow : Window
                 return;
             await _localVoiceService.SpeakAsync(
                 "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak locally and clearly.",
-                cancellation.Token);
+                cancellation.Token,
+                AppRuntime.Settings.AudioOutputDeviceId);
             SetAccessibleStatusText(ProviderActionStatus, IsArabic
                 ? "انتهت تجربة الصوت المحلي؛ لم يُرسل النص إلى خادم."
                 : "Local voice preview completed; text was not sent to a server.");
@@ -3238,7 +3391,7 @@ public partial class MainWindow : Window
 
         try
         {
-            _speechToText.StartRecording();
+            _speechToText.StartRecording(AppRuntime.Settings.AudioInputDeviceId);
             _speechRecordingStartedAt = DateTimeOffset.UtcNow;
             _speechRecordingTimer.Start();
             UpdateSpeechToTextButton();
@@ -3488,7 +3641,7 @@ public partial class MainWindow : Window
         var session = new CancellationTokenSource();
         try
         {
-            _speechToText.StartRecording();
+            _speechToText.StartRecording(AppRuntime.Settings.AudioInputDeviceId);
             _voiceConversationCancellation = session;
             _localVoiceRecordingActive = true;
             _voiceConversationStatus = VoiceConversationStatus.UserSpeaking;
@@ -3703,6 +3856,7 @@ public partial class MainWindow : Window
 
         var cancellation = new CancellationTokenSource();
         var service = new VoiceConversationService();
+        _voiceConversationService = service;
         _voiceConversationCancellation = cancellation;
         _voiceConversationStatus = VoiceConversationStatus.Connecting;
         service.StatusChanged += VoiceConversationService_StatusChanged;
@@ -3728,7 +3882,10 @@ public partial class MainWindow : Window
                 "and respond naturally without announcing turn detection. If the user speaks while you are talking, stop your response and listen to them. " +
                 "The voice is AI-generated, not a human recording.";
 
-            await service.RunAsync(baseUrl, apiKey, modelId, voiceId, instructions, cancellation.Token);
+            await service.RunAsync(
+                baseUrl, apiKey, modelId, voiceId, instructions, cancellation.Token,
+                AppRuntime.Settings.AudioInputDeviceId,
+                AppRuntime.Settings.AudioOutputDeviceId);
             SetChatActivityStatus(IsArabic ? "انتهت المحادثة الصوتية." : "Voice conversation ended.");
         }
         catch (OperationCanceledException)
@@ -3756,6 +3913,7 @@ public partial class MainWindow : Window
                 cancellation.Dispose();
             }
             service.Dispose();
+            if (ReferenceEquals(_voiceConversationService, service)) _voiceConversationService = null;
             UpdateVoiceConversationControls();
             if (IsLoaded)
             {
@@ -3802,6 +3960,7 @@ public partial class MainWindow : Window
             VoiceConversationStatus.Listening => IsArabic ? "الميكروفون نشط — تحدث إلى ليال في أي وقت." : "Microphone active — speak to Layal at any time.",
             VoiceConversationStatus.UserSpeaking => IsArabic ? "ليال بتسمعك الآن..." : "Layal is listening to you...",
             VoiceConversationStatus.AssistantSpeaking => IsArabic ? "ليال بترد — تقدر تقاطعها بالكلام." : "Layal is responding — speak to interrupt.",
+            VoiceConversationStatus.Muted => IsArabic ? "الميكروفون مكتوم؛ المحادثة ما زالت متصلة." : "Microphone muted; the voice session remains connected.",
             _ => IsArabic ? "الميكروفون متوقف." : "Microphone is off."
         };
 
@@ -3836,6 +3995,18 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(VoiceConversationButton, IsArabic
             ? "وضع الصوت الحالي يظهر في مؤشر الميكروفون أعلى النافذة. في الوضع المحلي اضغط للتسجيل ومرة ثانية لإرسال الكلام."
             : "The microphone indicator appears in the window header. Local mode uses press-to-record and press-again-to-send.");
+        var liveService = _voiceConversationService;
+        var liveMuteAvailable = liveService is not null && !AppRuntime.Settings.UseLocalAi &&
+                                _voiceConversationCancellation is not null;
+        VoiceMuteButton.Visibility = liveMuteAvailable ? Visibility.Visible : Visibility.Collapsed;
+        VoiceMuteButton.Content = liveService?.IsMicrophoneMuted == true
+            ? (IsArabic ? "تشغيل الميكروفون" : "Unmute microphone")
+            : (IsArabic ? "كتم الميكروفون" : "Mute microphone");
+        AutomationProperties.SetName(VoiceMuteButton, VoiceMuteButton.Content?.ToString() ?? string.Empty);
+        AutomationProperties.SetHelpText(VoiceMuteButton, IsArabic
+            ? "يكتم الصوت الملتقط مؤقتًا دون إنهاء المحادثة، والضغط مرة أخرى يعيد الميكروفون."
+            : "Temporarily mutes captured microphone audio without ending the conversation. Press again to unmute.");
+
         var micActive = _voiceConversationStatus is VoiceConversationStatus.Listening or
             VoiceConversationStatus.UserSpeaking or VoiceConversationStatus.AssistantSpeaking;
         VoiceConversationIndicator.Visibility = _voiceConversationStatus == VoiceConversationStatus.Stopped
@@ -3856,6 +4027,7 @@ public partial class MainWindow : Window
             VoiceConversationStatus.Listening => IsArabic ? "الميكروفون نشط" : "Mic active",
             VoiceConversationStatus.UserSpeaking => IsArabic ? "بتسمعك ليال" : "Listening",
             VoiceConversationStatus.AssistantSpeaking => IsArabic ? "تقدر تقاطعها" : "Speak to interrupt",
+            VoiceConversationStatus.Muted => IsArabic ? "الميكروفون مكتوم" : "Microphone muted",
             _ => IsArabic ? "الميكروفون متوقف" : "Mic off"
         };
 
@@ -4742,7 +4914,8 @@ public partial class MainWindow : Window
                         AppRuntime.Settings.VoiceReplyModelId,
                         AppRuntime.Settings.VoiceReplyId,
                         response.Trim(),
-                        _chatCancellation.Token);
+                        _chatCancellation.Token,
+                        AppRuntime.Settings.AudioOutputDeviceId);
                     completionStatus = IsArabic ? "اكتمل التحليل الصوتي للصورة." : "Image analysis completed with voice.";
                 }
                 catch (OperationCanceledException)
@@ -4952,7 +5125,7 @@ public partial class MainWindow : Window
                     {
                         if (useLocal)
                         {
-                            await _localVoiceService.SpeakAsync(response, _chatCancellation.Token);
+                            await _localVoiceService.SpeakAsync(response, _chatCancellation.Token, AppRuntime.Settings.AudioOutputDeviceId);
                         }
                         else
                         {
@@ -4962,7 +5135,8 @@ public partial class MainWindow : Window
                                 AppRuntime.Settings.VoiceReplyModelId,
                                 AppRuntime.Settings.VoiceReplyId,
                                 response,
-                                _chatCancellation.Token);
+                                _chatCancellation.Token,
+                                AppRuntime.Settings.AudioOutputDeviceId);
                         }
                         completionStatus = IsArabic ? "اكتمل الرد الصوتي" : "Response completed with voice";
                     }
