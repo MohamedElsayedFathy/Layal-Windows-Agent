@@ -117,15 +117,18 @@ public sealed class SavedRoutineService
     }
 
     /// <summary>Formats a routine as a user-reviewed task draft; it never starts execution.</summary>
-    public static string BuildReviewPrompt(SavedRoutineRecord routine)
+    public static string BuildReviewPrompt(SavedRoutineRecord routine, bool isArabic = false)
     {
         ArgumentNullException.ThrowIfNull(routine);
         var steps = NormalizeSteps(routine.Steps);
         if (steps.Count == 0)
             return routine.Goal;
 
+        var heading = isArabic
+            ? "خطوات مقترحة للمراجعة (لم يبدأ التنفيذ):"
+            : "Proposed steps to review (no execution has started):";
         return routine.Goal + Environment.NewLine + Environment.NewLine +
-            "Proposed steps to review (no execution has started):" + Environment.NewLine +
+            heading + Environment.NewLine +
             string.Join(Environment.NewLine, steps.Select((step, index) => $"{index + 1}. {step}"));
     }
 
