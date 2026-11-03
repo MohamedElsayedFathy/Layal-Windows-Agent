@@ -74,11 +74,25 @@ public sealed class WorkspaceArtifactService
 
     private static void EnsureDirectoryIsNotReparsePoint(string path)
     {
-        if (!Directory.Exists(path))
+        var fullPath = Path.GetFullPath(path);
+        if (!Directory.Exists(fullPath))
             throw new DirectoryNotFoundException("The Layal workspace directory does not exist.");
-        var attributes = File.GetAttributes(path);
-        if ((attributes & FileAttributes.ReparsePoint) != 0 ||
-            (attributes & FileAttributes.Directory) == 0)
-            throw new InvalidOperationException("The Layal workspace root must be a regular directory and cannot be a reparse point.");
+
+        var root = Path.GetPathRoot(fullPath)
+            ?? throw new InvalidOperationException("The Layal workspace directory has no filesystem root.");
+        var current = root;
+        foreach (var segment in fullPath[root.Length..].Split(
+                     new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if (!Directory.Exists(current))
+                throw new DirectoryNotFoundException("A Layal workspace parent directory does not exist.");
+            var attributes = File.GetAttributes(current);
+            if ((attributes & FileAttributes.ReparsePoint) != 0 ||
+                (attributes & FileAttributes.Directory) == 0)
+                throw new InvalidOperationException(
+                    "The Layal workspace path contains a symbolic link, reparse point, or non-directory parent.");
+        }
     }
 }
