@@ -119,7 +119,7 @@ public sealed class SafeBrowserDownloadService
 
         var extension = Path.GetExtension(safe);
         if (!AllowedExtensions.Contains(extension))
-            safe = Path.GetFileNameWithoutExtension(safe) + fallbackExtension;
+            safe = "download" + fallbackExtension;
 
         var baseName = Path.GetFileNameWithoutExtension(safe);
         if (string.Equals(baseName, "CON", StringComparison.OrdinalIgnoreCase) ||
@@ -161,7 +161,7 @@ public sealed class SafeBrowserDownloadService
             ValidateDownloadTarget(page.AbsoluteUri, current.AbsoluteUri);
             using var request = new HttpRequestMessage(HttpMethod.Get, current);
             request.Headers.UserAgent.ParseAdd("Layal-Safe-Downloader/1.0");
-            request.Headers.Accept.ParseAdd("application/pdf, text/plain, text/markdown, text/csv, application/json, application/vnd.openxmlformats-officedocument.*, image/png, image/jpeg, image/webp, application/octet-stream;q=0.5");
+            request.Headers.Accept.ParseAdd("application/pdf, text/plain, text/markdown, text/csv, application/json, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, image/png, image/jpeg, image/webp, application/octet-stream;q=0.5");
 
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             if (IsRedirect(response.StatusCode))
