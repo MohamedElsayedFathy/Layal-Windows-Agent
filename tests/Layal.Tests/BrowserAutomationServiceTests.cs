@@ -87,6 +87,22 @@ public sealed class BrowserAutomationServiceTests
     }
 
     [TestMethod]
+    public void BrowserUploadValidationAcceptsOnlyHtmlFileInputs()
+    {
+        BrowserAutomationService.ValidateBrowserUploadTarget("input", "file");
+        BrowserAutomationService.ValidateBrowserUploadTarget("INPUT", "FILE");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadTarget("input", "text"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadTarget("input", "password"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadTarget("button", "file"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadTarget("div", "file"));
+    }
+
+    [TestMethod]
     public async Task DeclinedNavigationDoesNotLaunchOrCreateBrowserProfile()
     {
         using var temp = new TestTempDirectory();
