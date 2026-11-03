@@ -187,7 +187,7 @@ public sealed class SafeBrowserUploadService
     {
         try
         {
-            using var reader = new StreamReader(stream, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+            using var reader = new StreamReader(stream, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: true);
             var json = reader.ReadToEnd();
             stream.Position = 0;
             using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 32 });
