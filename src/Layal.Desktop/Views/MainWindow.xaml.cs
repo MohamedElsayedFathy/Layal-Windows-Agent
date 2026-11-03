@@ -5397,7 +5397,7 @@ public partial class MainWindow : Window
 
     private void ManageRemindersButton_Click(object sender, RoutedEventArgs e)
     {
-        var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic)
+        var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic, AppRuntime.ReminderTaskSchedulerService)
         {
             Owner = this
         };
