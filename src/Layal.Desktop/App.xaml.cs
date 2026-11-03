@@ -16,6 +16,7 @@ public partial class App : Application
     private const string ActivateEventName = @"Local\Layal.Desktop.Activate";
     private EventWaitHandle? _activateEvent;
     private bool _ownsSingleInstanceMutex;
+    private bool _isScheduledReminderLaunch;
     private Mutex? _singleInstanceMutex;
     private bool _crashDialogShown;
     private string _logDirectory = string.Empty;
@@ -24,6 +25,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
         if (SuppressStartupForTests) return;
+        _isScheduledReminderLaunch = e.Args.Any(argument =>
+            string.Equals(argument, "--scheduled-reminder", StringComparison.Ordinal));
 
         var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Layal");
         Directory.CreateDirectory(dataRoot);
@@ -81,7 +84,16 @@ public partial class App : Application
             language: AppRuntime.Settings.Language);
 
         AppRuntime.MainWindow.Show();
-        AppRuntime.MascotWindow.Show();
+        if (_isScheduledReminderLaunch)
+        {
+            // A scheduled launch exists only to deliver local notifications. Keep the app and
+            // tray services alive without taking focus or showing the mascot over the user's app.
+            AppRuntime.MainWindow.Hide();
+        }
+        else
+        {
+            AppRuntime.MascotWindow.Show();
+        }
         StartActivationListener();
 
         // Reconcile overdue reminders before scheduling the next one. This also catches
@@ -167,6 +179,11 @@ public partial class App : Application
                 _ownsSingleInstanceMutex = true;
                 return true;
             }
+
+            // A scheduled dispatcher must not steal focus from the user's active application.
+            // The existing instance's reminder timer will process the due item shortly.
+            if (_isScheduledReminderLaunch)
+                return false;
 
             try
             {
