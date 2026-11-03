@@ -1331,7 +1331,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(LoreWebButton, ar
             ? "خريطة محلية للملاحظات النشطة والمؤرشفة؛ تعرض التصنيف وتتيح الأرشفة والاستعادة. الروابط تقريبية بحسب التصنيف وكلمات العنوان والترتيب الزمني."
             : "Local map of active and archived notes; shows categories and supports archive/restore. Links are approximate, based on category, title terms and chronology.");
-        MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
+        MemoryDescription.Text = ar ? "ملاحظات وتصنيفات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ الأرشفة لا تحذف الملاحظة، واستعادة الملاحظات متاحة من المحرر والخريطة. مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes and categories encrypted with Windows DPAPI. Archiving does not delete a note; restore is available from the editor and memory map. Sharing search results with AI requires approval.";
         MemoryEmptyStateText.Text = ar
             ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء."
             : "No saved notes. Create a note to get started.";
@@ -5829,6 +5829,9 @@ public partial class MainWindow : Window
                 MemoryCategoryInput.Text = selectedNote.Category;
                 MemoryTitleInput.Text = selectedNote.Title;
                 MemoryContentInput.Text = selectedNote.Content;
+                ArchiveMemoryButton.Content = selectedNote.IsArchived
+                    ? (IsArabic ? "استعادة" : "Restore")
+                    : (IsArabic ? "أرشفة" : "Archive");
                 SetAccessibleStatusText(MemoryResult,
                     IsArabic
                         ? "تم فتح الملاحظة من خريطة الذاكرة المحلية."
@@ -5867,6 +5870,9 @@ public partial class MainWindow : Window
         MemoryCategoryInput.Text = note.Category;
         MemoryTitleInput.Text = note.Title;
         MemoryContentInput.Text = note.Content;
+        ArchiveMemoryButton.Content = note.IsArchived
+            ? (IsArabic ? "استعادة" : "Restore")
+            : (IsArabic ? "أرشفة" : "Archive");
         SetAccessibleStatusText(MemoryResult, UiLocalization.FormatDateTime(note.UpdatedAt.LocalDateTime, IsArabic));
     }
 
@@ -5898,38 +5904,56 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(_selectedMemoryId))
         {
-            SetAccessibleStatusText(MemoryResult, IsArabic ? "حدد ملاحظة لأرشفتها." : "Select a note to archive.");
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "حدد ملاحظة لأرشفتها أو استعادتها." : "Select a note to archive or restore.");
             return;
         }
 
-        var note = AppRuntime.MemoryService.GetAll().FirstOrDefault(item =>
+        var note = AppRuntime.MemoryService.GetAll(includeArchived: true).FirstOrDefault(item =>
             string.Equals(item.Id, _selectedMemoryId, StringComparison.Ordinal));
         if (note is null)
         {
-            SetAccessibleStatusText(MemoryResult, IsArabic ? "الملاحظة غير موجودة أو مؤرشفة بالفعل." : "The note is missing or already archived.");
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "الملاحظة غير موجودة." : "The note no longer exists.");
             return;
         }
 
+        var shouldArchive = !note.IsArchived;
         var answer = MessageBox.Show(this,
-            IsArabic
-                ? $"سيتم نقل «{note.Title}» إلى الأرشيف. لن تُحذف ويمكن استعادتها من خريطة الذاكرة. هل تريد المتابعة؟"
-                : $"“{note.Title}” will be moved to the archive. It will not be deleted and can be restored from the memory web. Continue?",
-            IsArabic ? "تأكيد الأرشفة" : "Confirm archive",
+            shouldArchive
+                ? (IsArabic
+                    ? $"سيتم نقل «{note.Title}» إلى الأرشيف. لن تُحذف ويمكن استعادتها لاحقًا. هل تريد المتابعة؟"
+                    : $"“{note.Title}” will be moved to the archive. It will not be deleted and can be restored later. Continue?")
+                : (IsArabic
+                    ? $"ستتم استعادة «{note.Title}» إلى قائمة الملاحظات النشطة. هل تريد المتابعة؟"
+                    : $"“{note.Title}” will be restored to active memory. Continue?"),
+            shouldArchive
+                ? (IsArabic ? "تأكيد الأرشفة" : "Confirm archive")
+                : (IsArabic ? "تأكيد الاستعادة" : "Confirm restore"),
             MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return;
 
-        if (!AppRuntime.MemoryService.SetArchived(note.Id, true))
+        if (!AppRuntime.MemoryService.SetArchived(note.Id, shouldArchive))
         {
-            SetAccessibleStatusText(MemoryResult, IsArabic ? "تعذرت أرشفة الملاحظة." : "Could not archive the note.");
+            SetAccessibleStatusText(MemoryResult,
+                IsArabic ? "تعذر تحديث حالة الأرشفة." : "Could not update the archive state.");
             return;
         }
 
-        _selectedMemoryId = null;
-        MemoryCategoryInput.Text = "General";
-        MemoryTitleInput.Clear();
-        MemoryContentInput.Clear();
-        RefreshMemoryNotes(MemorySearchInput.Text);
-        SetAccessibleStatusText(MemoryResult, IsArabic ? "تمت أرشفة الملاحظة ويمكن استعادتها من خريطة الذاكرة." : "Note archived. Restore it from the memory web.");
+        note.IsArchived = shouldArchive;
+        MemorySearchInput.Clear();
+        RefreshMemoryNotes();
+        MemoryList.SelectedItem = shouldArchive
+            ? null
+            : MemoryNotes.FirstOrDefault(item => string.Equals(item.Id, note.Id, StringComparison.Ordinal));
+        _selectedMemoryId = note.Id;
+        MemoryCategoryInput.Text = note.Category;
+        MemoryTitleInput.Text = note.Title;
+        MemoryContentInput.Text = note.Content;
+        ArchiveMemoryButton.Content = shouldArchive
+            ? (IsArabic ? "استعادة" : "Restore")
+            : (IsArabic ? "أرشفة" : "Archive");
+        SetAccessibleStatusText(MemoryResult, shouldArchive
+            ? (IsArabic ? "تمت أرشفة الملاحظة دون حذفها؛ يمكنك استعادتها من هنا أو من خريطة الذاكرة." : "Note archived without deletion. You can restore it here or from the memory map.")
+            : (IsArabic ? "تمت استعادة الملاحظة إلى قائمة الذاكرة النشطة." : "Note restored to the active memory list."));
         MemoryResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
     }
 
