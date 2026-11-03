@@ -377,9 +377,9 @@ public sealed class WorkspaceHubWindow : Window
             _exportButton.IsEnabled = false;
             return;
         }
-        if (entry.Kind == "task" && entry.Task?.Artifacts is { Count: > 0 } artifacts)
+        if (entry.Kind == "task" && entry.Task?.Artifacts is { Count: > 0 } taskArtifactPaths)
         {
-            foreach (var artifact in artifacts)
+            foreach (var artifact in taskArtifactPaths)
                 _artifactList.Items.Add(artifact);
         }
         _details.Text = entry.Kind switch
