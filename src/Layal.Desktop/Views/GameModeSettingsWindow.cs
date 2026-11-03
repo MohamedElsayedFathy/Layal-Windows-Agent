@@ -193,7 +193,6 @@ public sealed class GameModeSettingsWindow : Window
             _draft.GameModeAllowedProcessNames = names;
             _save(_draft.Clone());
             DialogResult = true;
-            Close();
         }
         catch (Exception ex)
         {
