@@ -400,7 +400,7 @@ public sealed class GmailReadOnlyService
                 throw new InvalidOperationException(
                     "Google rejected the stored Gmail authorization. Disconnect Gmail, then connect it again from Settings.");
 
-            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            using var json = await ReadBoundedJsonAsync(response.Content, 1024 * 1024, cancellationToken);
             var accessToken = GetJsonString(json.RootElement, "access_token");
             var expiresIn = json.RootElement.TryGetProperty("expires_in", out var expiry) &&
                 expiry.TryGetInt32(out var seconds) ? Math.Clamp(seconds, 60, 86_400) : 3600;
