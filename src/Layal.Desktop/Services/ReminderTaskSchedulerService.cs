@@ -127,16 +127,36 @@ public sealed class ReminderTaskSchedulerService
                 new XElement(ns + "StartWhenAvailable", "true"),
                 new XElement(ns + "Enabled", "true"),
                 new XElement(ns + "Hidden", "true"),
-                new XElement(ns + "ExecutionTimeLimit", "PT0S"),
+                new XElement(ns + "ExecutionTimeLimit", "PT2M"),
                 new XElement(ns + "Priority", "7")),
             new XElement(ns + "Actions",
                 new XAttribute("Context", "LayalUser"),
                 new XElement(ns + "Exec",
-                    new XElement(ns + "Command", fullExecutablePath),
-                    new XElement(ns + "WorkingDirectory", Path.GetDirectoryName(fullExecutablePath) ?? string.Empty))));
+                    new XElement(ns + "Command", Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.System),
+                        "WindowsPowerShell", "v1.0", "powershell.exe")),
+                    new XElement(ns + "Arguments", BuildDetachedLaunchArguments(fullExecutablePath)),
+                    new XElement(ns + "WorkingDirectory", Environment.GetFolderPath(Environment.SpecialFolder.System))));
         return new XDocument(new XDeclaration("1.0", "UTF-8", null), root)
             .ToString(SaveOptions.DisableFormatting);
     }
+
+    private static string BuildDetachedLaunchArguments(string executablePath)
+    {
+        // The scheduled action must finish immediately. Starting Layal directly would leave the
+        // Task Scheduler instance running for the entire tray lifetime and block future updates
+        // under MultipleInstancesPolicy=IgnoreNew.
+        var workingDirectory = Path.GetDirectoryName(executablePath) ?? string.Empty;
+        var script = "$ErrorActionPreference = 'Stop'; " +
+            "$exe = '" + EscapePowerShellLiteral(executablePath) + "'; " +
+            "$working = '" + EscapePowerShellLiteral(workingDirectory) + "'; " +
+            "Start-Process -FilePath $exe -ArgumentList '--scheduled-reminder' -WorkingDirectory $working -WindowStyle Hidden";
+        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
+        return "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand " + encoded;
+    }
+
+    private static string EscapePowerShellLiteral(string value) =>
+        value.Replace("'", "''", StringComparison.Ordinal);
 
     private static (int ExitCode, string Output) RunSchtasksAllowMissing(params string[] arguments) =>
         RunSchtasksCore(arguments);
