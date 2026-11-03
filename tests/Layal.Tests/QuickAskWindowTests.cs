@@ -39,7 +39,7 @@ public sealed class QuickAskWindowTests
                 Assert.AreEqual(0, askCount);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(
                     ((TextBlock?)window.FindName("StatusText"))?.Text));
-                Assert.IsTrue(window.IsVisible);
+                Assert.AreEqual(Visibility.Visible, window.Visibility);
             }
             catch (Exception ex) { failure = ex; }
             finally { window?.Close(); }
@@ -90,7 +90,7 @@ public sealed class QuickAskWindowTests
                 stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.AreEqual(1, cancelCount, "Repeated stop clicks must not issue duplicate cancellation requests.");
                 Assert.IsFalse(stop.IsEnabled, "The stop control must remain disabled until the pending request settles.");
-                Assert.IsTrue(window.IsVisible, "Requesting cancellation must not close the window before the operation settles.");
+                Assert.AreEqual(Visibility.Visible, window.Visibility, "Requesting cancellation must not close the window before the operation settles.");
                 StringAssert.Contains(status.Text, "Stop requested");
                 Assert.IsFalse(input.IsEnabled, "The input remains disabled until the pending request settles.");
             }
