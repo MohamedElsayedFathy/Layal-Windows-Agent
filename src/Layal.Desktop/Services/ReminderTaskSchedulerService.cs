@@ -12,9 +12,10 @@ namespace Layal.Services;
 
 /// <summary>
 /// Registers one user-scoped Windows Task Scheduler trigger for the next active reminder.
-/// The task runs Layal in the interactive user's session at least-privilege; it never runs
-/// as SYSTEM/elevated and never wakes the computer. StartWhenAvailable catches a missed
-/// trigger after sign-in. The normal encrypted reminder store remains the source of truth.
+/// A short-lived PowerShell wrapper launches Layal in the interactive user's session at
+/// least-privilege and exits immediately; it never runs as SYSTEM/elevated or wakes the
+/// computer. StartWhenAvailable catches a missed trigger after sign-in. The encrypted
+/// reminder store remains the source of truth.
 /// </summary>
 public sealed class ReminderTaskSchedulerService
 {
