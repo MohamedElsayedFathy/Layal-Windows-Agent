@@ -97,6 +97,69 @@ public sealed class SpeechToTextServiceTests
     }
 
     [TestMethod]
+    public async Task TranscribeAsync_RejectsOversizedProviderResponseBeforeParsing()
+    {
+        var requestSent = false;
+        using var client = new HttpClient(new StubHttpMessageHandler((_, _) =>
+        {
+            requestSent = true;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    new string('x', SpeechToTextService.MaximumTranscriptionResponseBytes + 1),
+                    Encoding.UTF8,
+                    "application/json")
+            });
+        }));
+        using var service = new SpeechToTextService(() => client);
+
+        InvalidDataException? error = null;
+        try
+        {
+            await service.TranscribeAsync(
+                "https://speech.example/v1", "test-key", "gpt-transcribe", MakeTinyWav());
+        }
+        catch (InvalidDataException ex)
+        {
+            error = ex;
+        }
+
+        Assert.IsTrue(requestSent);
+        Assert.IsNotNull(error, "The response size must be rejected before an unbounded JSON parse.");
+    }
+
+    [TestMethod]
+    public async Task TranscribeAsync_RejectsTranscriptOverTheLocalDisplayLimit()
+    {
+        using var client = new HttpClient(new StubHttpMessageHandler((_, _) =>
+        {
+            var response = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                text = new string('x', SpeechToTextService.MaximumTranscriptCharacters + 1)
+            });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(response, Encoding.UTF8, "application/json")
+            });
+        }));
+        using var service = new SpeechToTextService(() => client);
+
+        InvalidOperationException? error = null;
+        try
+        {
+            await service.TranscribeAsync(
+                "https://speech.example/v1", "test-key", "gpt-transcribe", MakeTinyWav());
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex;
+        }
+
+        Assert.IsNotNull(error);
+        StringAssert.Contains(error?.Message ?? string.Empty, "display limit");
+    }
+
+    [TestMethod]
     public void BuildTranscriptionUri_RejectsCredentialsAndQueryStrings()
     {
         var rejectedCredentials = false;
