@@ -143,7 +143,7 @@ public sealed class AgentOrchestratorTests
             (_, preview, _) =>
             {
                 approvalCount++;
-                StringAssert.Contains(preview, "reports/final-report.txt");
+                StringAssert.Contains(preview.Replace('\\', '/'), "reports/final-report.txt");
                 return Task.FromResult(true);
             },
             _ => { },
@@ -258,7 +258,7 @@ public sealed class AgentOrchestratorTests
             (_, preview, _) =>
             {
                 approvalCount++;
-                Assert.IsTrue(preview.Contains("reports/summary.txt", StringComparison.Ordinal));
+                Assert.IsTrue(preview.Replace('\\', '/').Contains("reports/summary.txt", StringComparison.Ordinal));
                 return Task.FromResult(true);
             },
             _ => { },
