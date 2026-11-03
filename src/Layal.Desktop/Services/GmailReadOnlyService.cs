@@ -645,10 +645,10 @@ public sealed class GmailReadOnlyService
                         {
                             status = "Not previewed: the attachment is not valid UTF-8 text.";
                         }
-                    }
-                    finally
-                    {
-                        CryptographicOperations.ZeroMemory(bytes);
+                        finally
+                        {
+                            CryptographicOperations.ZeroMemory(bytes);
+                        }
                     }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException)
