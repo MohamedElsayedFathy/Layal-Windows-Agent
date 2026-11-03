@@ -8,14 +8,15 @@ using System.Windows.Threading;
 namespace Layal.Views;
 
 /// <summary>
-/// A user-invoked, minimal always-on-top HUD. It does not inspect games, windows, input,
-/// graphics memory, or processes and never injects input into a game.
+/// A minimal always-on-top HUD that can be opened manually or by the user's explicit foreground
+/// process allowlist. It never reads window titles, game memory, or input and never injects input.
 /// </summary>
 public sealed class GameModeHudWindow : Window
 {
     private readonly bool _isArabic;
     private readonly Func<string> _getActivity;
     private readonly string _shortcutDisplay;
+    private readonly bool _automaticallyLaunched;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly TextBlock _clock;
     private readonly TextBlock _activity;
@@ -23,11 +24,16 @@ public sealed class GameModeHudWindow : Window
 
     public event EventHandler? ExitRequested;
 
-    public GameModeHudWindow(bool isArabic, Func<string> getActivity, string shortcutDisplay = "Alt+Shift+S")
+    public GameModeHudWindow(
+        bool isArabic,
+        Func<string> getActivity,
+        string shortcutDisplay = "Alt+Shift+S",
+        bool automaticallyLaunched = false)
     {
         _isArabic = isArabic;
         _getActivity = getActivity ?? throw new ArgumentNullException(nameof(getActivity));
         _shortcutDisplay = string.IsNullOrWhiteSpace(shortcutDisplay) ? "Alt+Shift+S" : shortcutDisplay.Trim();
+        _automaticallyLaunched = automaticallyLaunched;
 
         Title = isArabic ? "ليال | وضع الألعاب" : "Layal | Game mode";
         Width = 335;
@@ -48,8 +54,8 @@ public sealed class GameModeHudWindow : Window
         Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
-            ? "HUD يدوي محدود. لا يكتشف الألعاب ولا يراقب العمليات أو الشاشة، ولا يتحكم في اللعبة."
-            : "A minimal manual HUD. It does not detect games or monitor processes/screens, and never controls a game.");
+            ? "HUD يدوي أو تم فتحه من قائمة السماح. لا يقرأ عناوين النوافذ أو ذاكرة اللعبة أو مدخلاتها، ولا يتحكم في اللعبة."
+            : "A manual or allowlist-launched HUD. It does not read window titles, game memory, or input, and never controls a game.");
 
         var root = new Grid { Margin = new Thickness(12) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -59,7 +65,9 @@ public sealed class GameModeHudWindow : Window
 
         var heading = new TextBlock
         {
-            Text = isArabic ? "وضع الألعاب — يدوي" : "Game mode — manual",
+            Text = isArabic
+                ? (_automaticallyLaunched ? "وضع الألعاب — تلقائي بقائمة السماح" : "وضع الألعاب — يدوي")
+                : (_automaticallyLaunched ? "Game mode — allowlist detected" : "Game mode — manual"),
             FontSize = 15,
             FontWeight = FontWeights.SemiBold
         };
