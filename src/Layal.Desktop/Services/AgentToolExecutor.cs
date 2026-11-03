@@ -406,6 +406,7 @@ public sealed class AgentToolExecutor
         var content = string.Join(Environment.NewLine, titles.Take(60).Select(x => $"{x.Title} (PID {x.ProcessId})"));
         if (!await confirm("Share open-window titles", "The following window titles and process IDs will be sent to the configured AI provider. They may reveal private information. Continue?\n\n" + content, token))
             return "User declined to share open-window titles.";
+        token.ThrowIfCancellationRequested();
         return content;
     }
 
@@ -947,6 +948,10 @@ public sealed class AgentToolExecutor
         EnsureNoReparsePoints(projectPath);
         if (!await confirm($"Run dotnet {verb}", $"Run `dotnet {verb}` on '{Path.GetRelativePath(_workspaceRoot, projectPath)}' using {configuration}? Build/test targets may execute code in this project and may restore packages from the internet. Only continue if you trust the project.", token))
             return "User declined the build/test operation.";
+        token.ThrowIfCancellationRequested();
+        if (!File.Exists(projectPath))
+            throw new FileNotFoundException("The approved project file no longer exists. No process was started.", relativeProjectFile);
+        EnsureNoReparsePoints(projectPath);
 
         var workingDirectory = Path.GetDirectoryName(projectPath)!;
         var start = new ProcessStartInfo("dotnet")
@@ -993,6 +998,7 @@ public sealed class AgentToolExecutor
         var result = string.Join("\n\n", found.Select(n => $"Title: {n.Title}\nUpdated: {n.UpdatedAt:O}\nContent: {n.Content}"));
         if (!await confirm("Share memory with AI", "Matching memory notes will be sent to the configured AI provider. Review and approve this disclosure?\n\n" + Truncate(result, 1400), token))
             return "User declined to share memory notes with the AI provider.";
+        token.ThrowIfCancellationRequested();
         return result;
     }
 
