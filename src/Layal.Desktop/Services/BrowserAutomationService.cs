@@ -12,7 +12,7 @@ namespace Layal.Services;
 /// <summary>
 /// Controls a dedicated Microsoft Edge profile through its loopback-only Chromium DevTools Protocol.
 /// It never attaches to the user's normal browser profile. Every navigation, page disclosure, click,
-/// and text-entry operation must be gated by the calling agent's local approval callback.
+/// text-entry, and local file-selection operation must be gated by the calling agent's local approval callback.
 /// </summary>
 public sealed class BrowserAutomationService
 {
@@ -715,6 +715,7 @@ public sealed class BrowserAutomationService
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=tag==='input'?(e.getAttribute('accept')||''):'',multiple=tag==='input'&&e.multiple===true;" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
+            "if(action==='upload'){const rect=e.getBoundingClientRect(),style=getComputedStyle(e);if(Number(style.opacity)<=0.01||rect.width<=0||rect.height<=0||e.getAttribute('aria-hidden')==='true')return JSON.stringify({found:false,error:'Hidden or visually transparent file inputs are not supported; use a visible file input.'});}" +
             "if(disabled)return JSON.stringify({found:false,error:'The selected element is disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});" +
             "if(tag==='a'&&(!e.href||!/^https?:/i.test(e.href)))return JSON.stringify({found:false,error:'Only anchors with HTTP/HTTPS destinations are allowed for browser clicks.'});}" +
