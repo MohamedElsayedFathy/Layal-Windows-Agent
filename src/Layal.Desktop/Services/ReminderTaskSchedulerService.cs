@@ -132,7 +132,8 @@ public sealed class ReminderTaskSchedulerService
             new XElement(ns + "Actions",
                 new XAttribute("Context", "LayalUser"),
                 new XElement(ns + "Exec",
-                    new XElement(ns + "Command", fullExecutablePath))));
+                    new XElement(ns + "Command", fullExecutablePath),
+                    new XElement(ns + "WorkingDirectory", Path.GetDirectoryName(fullExecutablePath) ?? string.Empty))));
         return new XDocument(new XDeclaration("1.0", "UTF-8", null), root)
             .ToString(SaveOptions.DisableFormatting);
     }
