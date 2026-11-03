@@ -5414,6 +5414,7 @@ public partial class MainWindow : Window
         }
 
         AppRuntime.IsGameModeActive = true;
+        TrySynchronizeLocalNotificationSchedule();
         var hud = new GameModeHudWindow(IsArabic, () =>
         {
             if (_agentTaskCancellation is not null)
@@ -5432,6 +5433,7 @@ public partial class MainWindow : Window
                 return;
             _gameModeHudWindow = null;
             AppRuntime.IsGameModeActive = false;
+            TrySynchronizeLocalNotificationSchedule();
             UpdateGameModeButtonUi();
             SetChatActivityStatus(IsArabic
                 ? "تم إيقاف وضع الألعاب؛ عادت التذكيرات للعمل وفق إعداداتها."
