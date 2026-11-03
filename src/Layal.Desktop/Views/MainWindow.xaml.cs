@@ -5826,6 +5826,7 @@ public partial class MainWindow : Window
                 MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(note =>
                     string.Equals(note.Id, selectedNote.Id, StringComparison.Ordinal));
                 _selectedMemoryId = selectedNote.Id;
+                MemoryCategoryInput.Text = selectedNote.Category;
                 MemoryTitleInput.Text = selectedNote.Title;
                 MemoryContentInput.Text = selectedNote.Content;
                 SetAccessibleStatusText(MemoryResult,
@@ -5944,6 +5945,7 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         AppRuntime.MemoryService.Delete(_selectedMemoryId);
         _selectedMemoryId = null;
+        MemoryCategoryInput.Text = "General";
         MemoryTitleInput.Clear();
         MemoryContentInput.Clear();
         RefreshMemoryNotes(MemorySearchInput.Text);
