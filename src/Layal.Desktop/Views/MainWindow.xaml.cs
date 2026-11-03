@@ -481,15 +481,14 @@ public partial class MainWindow : Window
         var documentAttachmentIsClipboard =
             string.Equals(_pendingDocumentFileName, "Clipboard text", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(_pendingDocumentFileName, "نص الحافظة", StringComparison.Ordinal);
-        if (documentAttachmentIsClipboard && _pendingDocumentText is { } clipboardText)
+        if (documentAttachmentIsClipboard && _pendingDocumentText is not null)
         {
+            // Strings are immutable; dropping all UI/service references is the strongest
+            // cleanup available for already-created clipboard text in managed memory.
             _pendingDocumentText = null;
             _pendingDocumentFileName = null;
             _pendingDocumentNotice = null;
             UpdateDocumentAttachmentUi();
-            // Strings are immutable; dropping all UI/service references is the strongest
-            // cleanup available for already-created clipboard text in managed memory.
-            _ = clipboardText.Length;
         }
 
         _lastCameraObservation = string.Empty;
