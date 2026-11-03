@@ -1329,8 +1329,8 @@ public partial class MainWindow : Window
             : "View notes and approximate links locally; nothing is sent to AI.";
         AutomationProperties.SetName(LoreWebButton, ar ? "فتح خريطة الذاكرة ثلاثية الأبعاد" : "Open 3D memory web");
         AutomationProperties.SetHelpText(LoreWebButton, ar
-            ? "خريطة محلية تفاعلية؛ الروابط مبنية على كلمات عنوان مشتركة والترتيب الزمني فقط، وليست استنتاجات مضمونة."
-            : "Interactive local map; connections use shared title terms and chronology only, not guaranteed semantic inferences.");
+            ? "خريطة محلية للملاحظات النشطة والمؤرشفة؛ تعرض التصنيف وتتيح الأرشفة والاستعادة. الروابط تقريبية بحسب التصنيف وكلمات العنوان والترتيب الزمني."
+            : "Local map of active and archived notes; shows categories and supports archive/restore. Links are approximate, based on category, title terms and chronology.");
         MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
         MemoryEmptyStateText.Text = ar
             ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء."
