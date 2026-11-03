@@ -85,7 +85,7 @@ public sealed class TaskHistoryService
     {
         var value = (relativePath ?? string.Empty).Trim().Replace('\\', '/');
         if (value.Length is < 1 or > MaximumArtifactPathCharacters ||
-            value.StartsWith('/', StringComparison.Ordinal) ||
+            value.StartsWith("/", StringComparison.Ordinal) ||
             value.Contains(':') ||
             value.Any(char.IsControl))
             throw new ArgumentException("Artifact paths must be bounded, printable, workspace-relative paths.", nameof(relativePath));
@@ -94,7 +94,7 @@ public sealed class TaskHistoryService
         if (segments.Any(segment => segment.Length == 0 || segment is "." or ".."))
             throw new ArgumentException("Artifact paths cannot contain empty, '.' or '..' path segments.", nameof(relativePath));
 
-        return string.Join('/', segments);
+        return string.Join("/", segments);
     }
 
     private static List<string> NormalizeStoredArtifacts(IEnumerable<string>? artifacts)
