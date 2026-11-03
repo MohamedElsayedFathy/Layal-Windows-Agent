@@ -227,6 +227,26 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public void WorkspaceArtifactLookupAcceptsOnlyExistingFilesInsideWorkspace()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(System.IO.Path.Combine(workspace, "reports"));
+        var artifact = System.IO.Path.Combine(workspace, "reports", "report.txt");
+        var outside = System.IO.Path.Combine(temp.Path, "outside.txt");
+        File.WriteAllText(artifact, "report");
+        File.WriteAllText(outside, "outside");
+
+        var executor = CreateExecutor(workspace);
+
+        Assert.IsTrue(executor.TryGetWorkspaceArtifactPath("reports/report.txt", out var normalized));
+        Assert.AreEqual("reports/report.txt", normalized);
+        Assert.IsFalse(executor.TryGetWorkspaceArtifactPath("../outside.txt", out _));
+        Assert.IsFalse(executor.TryGetWorkspaceArtifactPath(outside, out _));
+        Assert.IsFalse(executor.TryGetWorkspaceArtifactPath("reports/missing.txt", out _));
+    }
+
+    [TestMethod]
     public async Task TraversalPathIsRejected()
     {
         using var temp = new TestTempDirectory();
