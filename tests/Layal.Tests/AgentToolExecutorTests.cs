@@ -46,7 +46,7 @@ public sealed class AgentToolExecutorTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
             "browser_upload_file",
-            "{\\"selector\\":\\"input[type=file]\\",\\"path\\":\\"../outside.pdf\\"}",
+            """{"selector":"input[type=file]","path":"../outside.pdf"}""",
             (_, _, _) =>
             {
                 approvalCalled = true;
@@ -76,7 +76,7 @@ public sealed class AgentToolExecutorTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
             "browser_upload_file",
-            "{\\"selector\\":\\"input[type=file]\\",\\"path\\":\\"payload.ps1\\"}",
+            """{"selector":"input[type=file]","path":"payload.ps1"}""",
             (_, _, _) =>
             {
                 approvalCalled = true;
