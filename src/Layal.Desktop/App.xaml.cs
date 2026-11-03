@@ -46,7 +46,16 @@ public partial class App : Application
         AppRuntime.MemoryService = new MemoryService(Path.Combine(dataRoot, "memory-notes.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(dataRoot, "agent-tasks.dpapi"));
         AppRuntime.ReminderService = new ReminderService(Path.Combine(dataRoot, "reminders.dpapi"));
-        AppRuntime.ReminderTaskSchedulerService = new ReminderTaskSchedulerService();
+        try
+        {
+            AppRuntime.ReminderTaskSchedulerService = new ReminderTaskSchedulerService();
+        }
+        catch (Exception ex)
+        {
+            // A Task Scheduler/identity problem must not prevent Layal or in-process reminders from starting.
+            WriteCrashLog("Initialize reminder scheduler", ex);
+            AppRuntime.ReminderTaskSchedulerService = null;
+        }
         AppRuntime.SavedRoutineService = new SavedRoutineService(Path.Combine(dataRoot, "saved-routines.dpapi"));
         AppRuntime.GmailReadOnlyService = new GmailReadOnlyService(Path.Combine(dataRoot, "secrets", "gmail-refresh-token.dpapi"));
         AppRuntime.ChatHistoryStore = new ProtectedJsonStore<List<Layal.Models.ChatMessage>>(Path.Combine(dataRoot, "chat-history.dpapi"));
@@ -78,17 +87,25 @@ public partial class App : Application
         // Reconcile overdue reminders before scheduling the next one. This also catches
         // reminders missed while Windows was asleep or Layal was closed.
         var deliveredAtStartup = new List<Layal.Models.ReminderRecord>();
-        var reminderNow = DateTimeOffset.Now;
-        foreach (var due in AppRuntime.ReminderService.GetDue(reminderNow))
+        try
         {
-            var delivered = AppRuntime.ReminderService.MarkDelivered(due.Id, due.DueAt, reminderNow);
-            if (delivered is not null)
-                deliveredAtStartup.Add(delivered);
+            var reminderNow = DateTimeOffset.Now;
+            foreach (var due in AppRuntime.ReminderService.GetDue(reminderNow))
+            {
+                var delivered = AppRuntime.ReminderService.MarkDelivered(due.Id, due.DueAt, reminderNow);
+                if (delivered is not null)
+                    deliveredAtStartup.Add(delivered);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Keep the UI available if the protected reminder store cannot be read.
+            WriteCrashLog("Deliver overdue reminders", ex);
         }
 
         try
         {
-            AppRuntime.ReminderTaskSchedulerService.Synchronize(AppRuntime.ReminderService.GetAll());
+            AppRuntime.ReminderTaskSchedulerService?.Synchronize(AppRuntime.ReminderService.GetAll());
         }
         catch (Exception ex)
         {
