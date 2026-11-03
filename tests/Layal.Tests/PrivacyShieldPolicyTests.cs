@@ -42,6 +42,13 @@ public sealed class PrivacyShieldPolicyTests
     }
 
     [TestMethod]
+    public void ActiveAgentTaskIsCancelledOnlyWhenPrivacyShieldIsEnabled()
+    {
+        Assert.IsTrue(PrivacyShieldPolicy.ShouldCancelAgentTask(privacyShieldEnabled: true));
+        Assert.IsFalse(PrivacyShieldPolicy.ShouldCancelAgentTask(privacyShieldEnabled: false));
+    }
+
+    [TestMethod]
     public void CapturedAudioCanProceedOnlyWhenAllPrivacyAndLifecycleChecksPass()
     {
         Assert.IsFalse(PrivacyShieldPolicy.ShouldDiscardCapturedAudio(
