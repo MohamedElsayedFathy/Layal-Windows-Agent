@@ -41,6 +41,80 @@ public sealed class TaskHistoryService
     }
 
     /// <summary>
+    /// Merges validated backup records without overwriting or deleting existing task history.
+    /// File paths remain bounded relative metadata and are never opened during import.
+    /// </summary>
+    public int ImportMany(IEnumerable<AgentTaskRecord> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+        var candidates = imported.Take(101).ToList();
+        if (candidates.Count > 100)
+            throw new InvalidOperationException("A task backup may contain at most 100 records.");
+
+        var normalized = new List<AgentTaskRecord>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var record in candidates)
+        {
+            if (record is null ||
+                !Guid.TryParseExact(record.Id, "N", out _) ||
+                string.IsNullOrWhiteSpace(record.Goal) || record.Goal.Length > 10_000 ||
+                string.IsNullOrWhiteSpace(record.Status) || record.Status.Length > 40 ||
+                record.Result is null || record.Result.Length > 120_000)
+                throw new InvalidOperationException("The task backup contains an invalid task record.");
+
+            if (!seenIds.Add(record.Id))
+                continue;
+
+            var events = record.Events ?? new List<string>();
+            if (events.Count > 300 || events.Any(item => item is null || item.Length > 4_000))
+                throw new InvalidOperationException("A task backup contains too many or oversized event entries.");
+
+            var artifacts = NormalizeStoredArtifactsForImport(record.Artifacts);
+            normalized.Add(new AgentTaskRecord
+            {
+                Id = record.Id,
+                Goal = record.Goal,
+                Status = record.Status,
+                CreatedAt = record.CreatedAt,
+                UpdatedAt = record.UpdatedAt,
+                Result = record.Result,
+                Events = events.ToList(),
+                Artifacts = artifacts
+            });
+        }
+
+        lock (_sync)
+        {
+            var items = _store.Load(new List<AgentTaskRecord>());
+            var existingIds = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+            var toAdd = normalized.Where(item => !existingIds.Contains(item.Id)).ToList();
+            if (items.Count + toAdd.Count > 100)
+                throw new InvalidOperationException("There is not enough task-history capacity to merge this backup. Existing tasks were not changed.");
+
+            if (toAdd.Count > 0)
+            {
+                items.AddRange(toAdd);
+                _store.Save(items);
+            }
+            return toAdd.Count;
+        }
+    }
+
+    private static List<string> NormalizeStoredArtifactsForImport(IEnumerable<string>? artifacts)
+    {
+        var output = new List<string>();
+        foreach (var artifact in artifacts ?? Array.Empty<string>())
+        {
+            var normalized = NormalizeArtifactPath(artifact);
+            if (!output.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+                output.Add(normalized);
+            if (output.Count > MaximumArtifactsPerTask)
+                throw new InvalidOperationException($"A task backup may contain at most {MaximumArtifactsPerTask} file references per task.");
+        }
+        return output;
+    }
+
+    /// <summary>
     /// Associates an existing task with a workspace-relative artifact. The path is metadata only:
     /// this method never opens, reads, executes, or exports the referenced file.
     /// </summary>
