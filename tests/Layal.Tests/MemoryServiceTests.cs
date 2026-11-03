@@ -64,6 +64,79 @@ public sealed class MemoryServiceTests
 
 
     [TestMethod]
+    public void CategoryIsTrimmedBoundedAndDefaultsToGeneral()
+    {
+        Assert.AreEqual("General", MemoryService.NormalizeCategory(null));
+        Assert.AreEqual("General", MemoryService.NormalizeCategory("  "));
+        Assert.AreEqual("Research", MemoryService.NormalizeCategory("  Research  "));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            MemoryService.NormalizeCategory(new string('x', 41)));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            MemoryService.NormalizeCategory("bad\ncategory"));
+    }
+
+    [TestMethod]
+    public void SavePersistsCategoryAndSearchCanFindIt()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory.dpapi");
+        var service = new MemoryService(path);
+        var note = service.Save("Architecture review", "Review the service boundaries.", category: "Engineering");
+
+        var reloaded = new MemoryService(path);
+        var saved = reloaded.GetAll().Single(item => item.Id == note.Id);
+
+        Assert.AreEqual("Engineering", saved.Category);
+        Assert.AreEqual(note.Id, reloaded.Search("engineering").Single().Id);
+    }
+
+    [TestMethod]
+    public void ArchivedNotesAreHiddenFromActiveSearchAndCanBeRestored()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory.dpapi");
+        var service = new MemoryService(path);
+        var note = service.Save("Release checklist", "Verify the installer.", category: "Project");
+
+        Assert.IsTrue(service.SetArchived(note.Id, true));
+        Assert.AreEqual(0, service.GetAll().Count);
+        Assert.AreEqual(0, service.Search("checklist").Count);
+        var archived = new MemoryService(path).GetAll(includeArchived: true).Single();
+        Assert.IsTrue(archived.IsArchived);
+        Assert.AreEqual("Project", archived.Category);
+
+        Assert.IsTrue(service.SetArchived(note.Id, false));
+        var restored = new MemoryService(path).GetAll().Single();
+        Assert.IsFalse(restored.IsArchived);
+        Assert.AreEqual(note.Id, restored.Id);
+        Assert.AreEqual(note.Id, service.Search("Project").Single().Id);
+    }
+
+    [TestMethod]
+    public void ExportPreservesArchivedNotesAndTheirCategories()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var service = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        var note = service.Save("Archived project", "Old release notes.", category: "Archive");
+        Assert.IsTrue(service.SetArchived(note.Id, true));
+
+        var exported = service.ExportJson();
+
+        StringAssert.Contains(exported, "Archived project");
+        StringAssert.Contains(exported, "Archive");
+        StringAssert.Contains(exported, "\"IsArchived\": true");
+    }
+
+    [TestMethod]
     public void ExistingMemoryFileIsPrunedToNewestRetentionLimit()
     {
         if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
