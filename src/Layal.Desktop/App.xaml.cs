@@ -45,21 +45,7 @@ public partial class App : Application
         AppRuntime.SkillPackageService = new SkillPackageService(Path.Combine(dataRoot, "Skills"));
         AppRuntime.MemoryService = new MemoryService(Path.Combine(dataRoot, "memory-notes.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(dataRoot, "agent-tasks.dpapi"));
-        AppRuntime.ReminderService = new ReminderService(
-            Path.Combine(dataRoot, "reminders.dpapi"),
-            new WindowsReminderTaskScheduler());
-        try
-        {
-            // Keep reminder delivery available after the main window is closed. Windows tasks
-            // run only for the current interactive user and open Layal with a reminder ID.
-            AppRuntime.ReminderService.ReconcileScheduledTasks();
-        }
-        catch (Exception ex)
-        {
-            // Never block application startup if Task Scheduler is disabled by policy.
-            // The in-app reminder timer remains active as a fallback while Layal is open.
-            WriteCrashLog("Reminder task synchronization", ex);
-        }
+        AppRuntime.ReminderService = new ReminderService(Path.Combine(dataRoot, "reminders.dpapi"));
         try
         {
             AppRuntime.ReminderTaskSchedulerService = new ReminderTaskSchedulerService();
