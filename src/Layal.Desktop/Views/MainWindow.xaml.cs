@@ -302,6 +302,7 @@ public partial class MainWindow : Window
         _pendingDocumentText = null;
         _pendingDocumentFileName = null;
         _pendingDocumentNotice = null;
+        _lastCameraObservation = string.Empty;
         ChatConversations.Clear();
         ChatHistorySelector.SelectedItem = null;
         UpdateVisionAttachmentControls();
@@ -514,10 +515,21 @@ public partial class MainWindow : Window
         ChatHistorySelector.IsEnabled = !_incognitoMode;
         NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
+        QuickAskButton.IsEnabled = !_incognitoMode;
+        QuickAskButton.ToolTip = _incognitoMode
+            ? (ar ? "السؤال السريع متوقف أثناء المحادثة الخاصة." : "Quick Ask is disabled during private chat.")
+            : (ar ? "افتح نافذة سؤال سريع مستقلة." : "Open a separate Quick Ask window.");
     }
 
     private void OpenQuickAskWindow()
     {
+        if (_incognitoMode)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "السؤال السريع غير متاح أثناء المحادثة الخاصة؛ استخدم نافذة المحادثة المؤقتة فقط."
+                : "Quick Ask is unavailable during private chat; use the temporary main chat only.");
+            return;
+        }
         if (AppRuntime.IsExiting || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
             return;
 
@@ -556,6 +568,10 @@ public partial class MainWindow : Window
 
     private async Task<string> SubmitQuickAskAsync(string question)
     {
+        if (_incognitoMode)
+            return IsArabic
+                ? "السؤال السريع غير متاح أثناء المحادثة الخاصة."
+                : "Quick Ask is unavailable during private chat.";
         if (_chatCancellation is not null || _voiceConversationCancellation is not null)
             return IsArabic
                 ? "هناك طلب أو جلسة صوتية قيد التشغيل. أوقفها أولًا ثم أعد السؤال."
