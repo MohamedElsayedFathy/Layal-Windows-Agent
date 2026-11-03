@@ -631,6 +631,7 @@ public sealed class GmailReadOnlyService
             else if (preview.Length > MaximumAttachmentPreviewCharacters - usedPreviewCharacters)
             {
                 preview = preview[..(MaximumAttachmentPreviewCharacters - usedPreviewCharacters)] + "…";
+                status = "Text preview truncated because the message attachment preview budget was reached.";
             }
 
             output.Add(new GmailAttachmentPreview(safeName, mimeType, size, preview, status));
