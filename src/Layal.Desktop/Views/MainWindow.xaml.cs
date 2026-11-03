@@ -1309,6 +1309,12 @@ public partial class MainWindow : Window
         AlwaysOnTopCheckbox.Content = ar ? "إبقاء الشخصية فوق النوافذ الأخرى" : "Keep mascot above other windows";
         AnimationsCheckbox.Content = ar ? "تفعيل حركة الشخصية والرمش" : "Enable mascot movement and blinking";
         PerformanceModeCheckbox.Content = ar ? "وضع الأداء (حركة أقل واستهلاك أقل)" : "Performance mode (less animation and CPU use)";
+        PerformanceMetricsButton.Content = ar ? "قياس أداء ليال الآن" : "Measure Layal performance";
+        AutomationProperties.SetName(PerformanceMetricsButton, ar ? "قياس موارد عملية ليال" : "Measure Layal process resources");
+        AutomationProperties.SetHelpText(PerformanceMetricsButton, ar
+            ? "عينة محلية لمدة ثانية واحدة لوقت CPU والذاكرة وعدد الخيوط وعدادات GC. لا تجمع بيانات عن تطبيقات أخرى ولا تقيس GPU."
+            : "One-second local sample of process CPU time, memory, thread count, and GC counters. Does not inspect other applications or measure GPU.");
+        AutomationProperties.SetName(PerformanceMetricsStatus, ar ? "نتيجة آخر قياس أداء" : "Latest performance measurement");
         PerformanceModeCheckbox.ToolTip = ar
             ? "يقلل معدل فحص النقرات ويوقف مؤقتات الحركة والرمش ومعاينة GLB الثقيلة دون تغيير تفضيل الحركة المحفوظ."
             : "Reduces hit-test polling and pauses animation/blink timers and heavy GLB preview without changing your saved animation preference.";
@@ -3029,6 +3035,41 @@ public partial class MainWindow : Window
         ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         RefreshProviderStatus();
     }
+
+    private async void PerformanceMetricsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (PerformanceMetricsButton is null || PerformanceMetricsStatus is null)
+            return;
+
+        PerformanceMetricsButton.IsEnabled = false;
+        PerformanceMetricsStatus.Text = IsArabic
+            ? "جارٍ قياس موارد عملية ليال محليًا لمدة ثانية..."
+            : "Measuring Layal process resources locally for one second...";
+
+        try
+        {
+            var sample = await PerformanceMetricsService.MeasureCurrentProcessAsync(
+                TimeSpan.FromSeconds(1),
+                CancellationToken.None);
+            var workingSet = FormatMetricBytes(sample.WorkingSetBytes);
+            var privateBytes = FormatMetricBytes(sample.PrivateBytes);
+            var managedHeap = FormatMetricBytes(sample.ManagedHeapBytes);
+            PerformanceMetricsStatus.Text = IsArabic
+                ? $"CPU للعملية: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% خلال {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} ث | الذاكرة الفعلية: {workingSet} | الذاكرة الخاصة: {privateBytes} | .NET Heap: {managedHeap} | الخيوط: {sample.ThreadCount} | GC Gen 0/1/2: {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. قياس للعملية الحالية فقط، وليس GPU أو بقية التطبيقات."
+                : $"Process CPU: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% over {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} s | Working set: {workingSet} | Private memory: {privateBytes} | .NET heap: {managedHeap} | Threads: {sample.ThreadCount} | GC Gen 0/1/2: {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. Current process only; no GPU or other applications.";
+        }
+        catch (Exception ex)
+        {
+            PerformanceMetricsStatus.Text = (IsArabic ? "تعذر قياس الأداء: " : "Performance measurement failed: ") + ex.Message;
+        }
+        finally
+        {
+            PerformanceMetricsButton.IsEnabled = true;
+        }
+    }
+
+    private static string FormatMetricBytes(long bytes) =>
+        (bytes / (1024d * 1024d)).ToString("F1", CultureInfo.InvariantCulture) + " MB";
 
     private void MascotSettingChanged(object sender, RoutedEventArgs e)
     {
