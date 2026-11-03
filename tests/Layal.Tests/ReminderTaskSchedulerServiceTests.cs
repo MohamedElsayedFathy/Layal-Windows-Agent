@@ -37,6 +37,8 @@ public sealed class ReminderTaskSchedulerServiceTests
             "Layal must not wake the user's computer for a reminder.");
         Assert.IsNull(document.Descendants(ns + "HighestAvailable").FirstOrDefault(),
             "Reminder dispatch must never request elevation.");
+        Assert.IsNull(document.Descendants(ns + "DeleteExpiredTaskAfter").FirstOrDefault(),
+            "A task definition must remain registered until Layal explicitly reschedules or deletes it.");
         StringAssert.Contains(xml, "S-1-5-21-1000-2000-3000-1001");
     }
 
