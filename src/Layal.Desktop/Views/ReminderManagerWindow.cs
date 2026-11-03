@@ -289,7 +289,7 @@ public sealed class ReminderManagerWindow : Window
 
         try
         {
-            _scheduler.Synchronize(_service.GetAll());
+            AppRuntime.SynchronizeLocalNotifications();
         }
         catch (Exception ex)
         {
