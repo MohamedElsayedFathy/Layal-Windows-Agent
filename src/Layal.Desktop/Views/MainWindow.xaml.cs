@@ -5547,23 +5547,30 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.IsExiting || AppRuntime.IsGameModeActive || !AppRuntime.Settings.ProactiveCheckInEnabled)
-            return;
-
         var now = DateTimeOffset.Now;
         var last = AppRuntime.Settings.LastProactiveCheckInAt;
         if (last is null)
         {
+            if (AppRuntime.IsExiting || !AppRuntime.Settings.ProactiveCheckInEnabled)
+                return;
             AppRuntime.Settings.LastProactiveCheckInAt = now;
             try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
             catch { _proactiveCheckInTimer.Stop(); }
             return;
         }
 
-        if (now - last.Value < TimeSpan.FromMinutes(AppRuntime.Settings.ProactiveCheckInIntervalMinutes))
+        if (!ProactiveCheckInPolicy.ShouldNotify(
+                enabled: AppRuntime.Settings.ProactiveCheckInEnabled,
+                privacyShieldEnabled: AppRuntime.Settings.PrivacyShieldEnabled,
+                gameModeActive: AppRuntime.IsGameModeActive,
+                applicationExiting: AppRuntime.IsExiting,
+                lastNotifiedAt: last,
+                now: now,
+                intervalMinutes: AppRuntime.Settings.ProactiveCheckInIntervalMinutes))
             return;
 
-        // Advance the schedule before notifying, so repeated timer ticks cannot create a storm.
+        // Persist the next time before notifying. If the machine wakes after several missed
+        // intervals, only one notification is issued; overlapping ticks cannot create a storm.
         AppRuntime.Settings.LastProactiveCheckInAt = now;
         try
         {
@@ -5576,9 +5583,6 @@ public partial class MainWindow : Window
                 "تعذر حفظ حالة تذكير المتابعة؛ أُوقف المؤقت", "Could not save check-in state; the timer was stopped", ex, IsArabic));
             return;
         }
-
-        if (AppRuntime.Settings.PrivacyShieldEnabled)
-            return;
 
         var recentTask = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         var message = recentTask is null
