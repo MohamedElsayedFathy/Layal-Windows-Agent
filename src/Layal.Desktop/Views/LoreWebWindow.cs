@@ -278,11 +278,14 @@ public sealed class LoreWebWindow : Window
             var position = PositionOnSphere(index, _notes.Count, 58);
             _positions[note.Id] = position;
             var radius = 2.5 + Math.Min(2.0, note.Title.Length / 55.0 + note.Content.Length / 6000.0);
+            var nodeColor = note.IsArchived
+                ? Color.FromRgb(125, 132, 145)
+                : Color.FromRgb(55, 164, 181);
             var model = new GeometryModel3D
             {
                 Geometry = CreateSphere(position, radius, 12, 9),
-                Material = CreateMaterial(Color.FromRgb(55, 164, 181)),
-                BackMaterial = CreateMaterial(Color.FromRgb(55, 164, 181))
+                Material = CreateMaterial(nodeColor),
+                BackMaterial = CreateMaterial(nodeColor)
             };
             var visual = new ModelVisual3D { Content = model };
             _viewport.Children.Add(visual);
