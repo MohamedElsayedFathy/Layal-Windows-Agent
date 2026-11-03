@@ -1016,7 +1016,7 @@ public sealed class AgentToolExecutor
                 return false;
 
             EnsureNoReparsePoints(path);
-            var relative = Path.GetRelativePath(_workspaceRoot, path).Replace('\\\\', '/');
+            var relative = Path.GetRelativePath(_workspaceRoot, path).Replace('\\', '/');
             normalizedRelativePath = TaskHistoryService.NormalizeArtifactPath(relative);
             return true;
         }
