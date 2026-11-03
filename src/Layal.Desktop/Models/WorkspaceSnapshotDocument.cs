@@ -19,6 +19,12 @@ public sealed record WorkspaceFileManifestEntry(
     DateTimeOffset LastWriteTimeUtc,
     bool IsDirectory);
 
+public sealed record WorkspaceSnapshotImportPreview(
+    int TaskCount,
+    int MemoryCount,
+    int FileManifestCount,
+    DateTimeOffset ExportedAt);
+
 public sealed record WorkspaceSnapshotImportResult(
     int TasksImported,
     int MemoriesImported,
