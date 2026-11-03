@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using Layal.Models;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -82,6 +84,72 @@ public sealed class SavedRoutineServiceTests
 
         Assert.ThrowsExactly<InvalidOperationException>(() =>
             service.Create("weekly REVIEW", "A second conflicting template."));
+    }
+
+    [TestMethod]
+    public void RoutineStepsPersistCloneAndAreIncludedInReviewOnlyDraft()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The routine store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "routines.dpapi");
+        var service = new SavedRoutineService(path);
+        var created = service.Create(
+            "Release review",
+            "Prepare a release review.",
+            new[] { "Inspect pending changes", "Run the test suite", "Summarize the results" });
+
+        var loaded = new SavedRoutineService(path).GetAll().Single();
+        CollectionAssert.AreEqual(
+            new[] { "Inspect pending changes", "Run the test suite", "Summarize the results" },
+            loaded.Steps);
+        StringAssert.Contains(SavedRoutineService.BuildReviewPrompt(loaded), "Proposed steps to review");
+        StringAssert.Contains(SavedRoutineService.BuildReviewPrompt(loaded), "2. Run the test suite");
+
+        var updated = service.Update(
+            created.Id,
+            "Release review",
+            "Prepare and verify a release.",
+            new[] { "Build", "Test" });
+        Assert.IsNotNull(updated);
+        CollectionAssert.AreEqual(new[] { "Build", "Test" }, updated!.Steps);
+
+        var updatedWithoutSteps = service.Update(
+            created.Id,
+            "Release review",
+            "Prepare a verified release.");
+        Assert.IsNotNull(updatedWithoutSteps);
+        CollectionAssert.AreEqual(new[] { "Build", "Test" }, updatedWithoutSteps!.Steps);
+    }
+
+    [TestMethod]
+    public void LegacyRoutineJsonDefaultsToNoSteps()
+    {
+        const string json = """{"Id":"legacy","Name":"Legacy routine","Goal":"Review a file"}""";
+        var record = System.Text.Json.JsonSerializer.Deserialize<SavedRoutineRecord>(json)
+            ?? throw new AssertFailedException("Legacy routine JSON did not deserialize.");
+
+        Assert.AreEqual(0, record.Steps.Count);
+        Assert.AreEqual("Review a file", SavedRoutineService.BuildReviewPrompt(record));
+    }
+
+    [TestMethod]
+    public void RoutineStepsAreBoundedAndRejectControlCharacters()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "First step", "Second step" },
+            SavedRoutineService.NormalizeSteps(new[] { " ", " First step ", "Second step" }));
+
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            SavedRoutineService.NormalizeSteps(Enumerable.Range(0, SavedRoutineService.MaximumSteps + 1)
+                .Select(index => $"Step {index}")));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            SavedRoutineService.NormalizeSteps(new[] { new string('x', SavedRoutineService.MaximumStepCharacters + 1) }));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            SavedRoutineService.NormalizeSteps(new[] { "bad\tstep" }));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            SavedRoutineService.NormalizeSteps(Enumerable.Repeat(new string('x', SavedRoutineService.MaximumStepCharacters), 17)));
     }
 
     [TestMethod]
