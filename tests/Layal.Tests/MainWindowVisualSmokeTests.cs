@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Windows;
@@ -43,6 +44,79 @@ public sealed class MainWindowVisualSmokeTests
             Assert.Fail("WPF visual smoke thread did not finish within three minutes.");
         if (failure is not null)
             Assert.Fail("WPF visual smoke failed: " + failure);
+    }
+
+    private static void AssertPrivacyShieldClearsUnsubmittedClipboardAttachments(MainWindow window)
+    {
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var imageBytesField = typeof(MainWindow).GetField("_pendingVisionImageBytes", flags)
+            ?? throw new InvalidOperationException("Pending image bytes field was not found.");
+        var imageNameField = typeof(MainWindow).GetField("_pendingVisionFileName", flags)
+            ?? throw new InvalidOperationException("Pending image filename field was not found.");
+        var imageTypeField = typeof(MainWindow).GetField("_pendingVisionContentType", flags)
+            ?? throw new InvalidOperationException("Pending image content-type field was not found.");
+        var documentTextField = typeof(MainWindow).GetField("_pendingDocumentText", flags)
+            ?? throw new InvalidOperationException("Pending document text field was not found.");
+        var documentNameField = typeof(MainWindow).GetField("_pendingDocumentFileName", flags)
+            ?? throw new InvalidOperationException("Pending document filename field was not found.");
+        var documentNoticeField = typeof(MainWindow).GetField("_pendingDocumentNotice", flags)
+            ?? throw new InvalidOperationException("Pending document notice field was not found.");
+        var stopCaptures = typeof(MainWindow).GetMethod("StopCaptureSourcesForPrivacyShield", flags)
+            ?? throw new InvalidOperationException("Privacy shield stop method was not found.");
+
+        var previousShield = AppRuntime.Settings.PrivacyShieldEnabled;
+        var previousImageBytes = imageBytesField.GetValue(window);
+        var previousImageName = imageNameField.GetValue(window);
+        var previousImageType = imageTypeField.GetValue(window);
+        var previousDocumentText = documentTextField.GetValue(window);
+        var previousDocumentName = documentNameField.GetValue(window);
+        var previousDocumentNotice = documentNoticeField.GetValue(window);
+        var clipboardImageBytes = new byte[] { 0xA1, 0xB2, 0xC3 };
+
+        try
+        {
+            AppRuntime.Settings.PrivacyShieldEnabled = true;
+            imageBytesField.SetValue(window, clipboardImageBytes);
+            imageNameField.SetValue(window, "clipboard-image-20x20.png");
+            imageTypeField.SetValue(window, "image/png");
+            documentTextField.SetValue(window, "private clipboard text sentinel");
+            documentNameField.SetValue(window, "Clipboard text");
+            documentNoticeField.SetValue(window, "Local preview only.");
+
+            stopCaptures.Invoke(window, null);
+
+            Assert.IsNull(imageBytesField.GetValue(window),
+                "Enabling the privacy shield must discard an unsubmitted clipboard image.");
+            Assert.IsTrue(clipboardImageBytes.All(value => value == 0),
+                "The unsubmitted clipboard image byte buffer must be cleared.");
+            Assert.IsNull(imageNameField.GetValue(window));
+            Assert.IsNull(imageTypeField.GetValue(window));
+            Assert.IsNull(documentTextField.GetValue(window),
+                "Enabling the privacy shield must detach an unsubmitted clipboard text preview.");
+            Assert.IsNull(documentNameField.GetValue(window));
+            Assert.IsNull(documentNoticeField.GetValue(window));
+
+            documentTextField.SetValue(window, "user-selected document text sentinel");
+            documentNameField.SetValue(window, "selected-notes.txt");
+            documentNoticeField.SetValue(window, "User selected local file.");
+            stopCaptures.Invoke(window, null);
+
+            Assert.AreEqual("user-selected document text sentinel", documentTextField.GetValue(window),
+                "The privacy shield should not silently remove a file the user explicitly selected.");
+            Assert.AreEqual("selected-notes.txt", documentNameField.GetValue(window));
+        }
+        finally
+        {
+            AppRuntime.Settings.PrivacyShieldEnabled = previousShield;
+            imageBytesField.SetValue(window, previousImageBytes);
+            imageNameField.SetValue(window, previousImageName);
+            imageTypeField.SetValue(window, previousImageType);
+            documentTextField.SetValue(window, previousDocumentText);
+            documentNameField.SetValue(window, previousDocumentName);
+            documentNoticeField.SetValue(window, previousDocumentNotice);
+            typeof(MainWindow).GetMethod("UpdateVisionAttachmentControls", flags)?.Invoke(window, null);
+            typeof(MainWindow).GetMethod("UpdateDocumentAttachmentUi", flags)?.Invoke(window, null);
+        }
     }
 
     private static void AssertAttachmentControlMutualExclusion(MainWindow window)
@@ -550,6 +624,7 @@ public sealed class MainWindowVisualSmokeTests
 
         AssertEscapeCancelsActiveChatAndAgentOperations(window);
         AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window);
+        AssertPrivacyShieldClearsUnsubmittedClipboardAttachments(window);
         lines.Add("AYO safety regression: Escape cancellation and non-persistent private-chat history passed.");
         AssertAttachmentControlMutualExclusion(window);
         lines.Add("Attachment regression: image and document inputs stay mutually exclusive and respect privacy/preview state.");
