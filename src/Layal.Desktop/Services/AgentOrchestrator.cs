@@ -127,10 +127,18 @@ public sealed class AgentOrchestrator
 
                     var artifactCandidate = GetArtifactCandidate(call.Name, output);
                     if (artifactCandidate is not null &&
-                        _tools.TryGetWorkspaceArtifactPath(artifactCandidate, out var safeArtifactPath) &&
-                        _history.AttachArtifact(task, safeArtifactPath))
+                        _tools.TryGetWorkspaceArtifactPath(artifactCandidate, out var safeArtifactPath))
                     {
-                        Log("Linked workspace artifact to this task: " + safeArtifactPath);
+                        try
+                        {
+                            if (_history.AttachArtifact(task, safeArtifactPath))
+                                Log("Linked workspace artifact to this task: " + safeArtifactPath);
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            hadToolErrorsOrDeclinedActions = true;
+                            Log("The workspace artifact was created, but its task link could not be saved: " + ex.Message);
+                        }
                     }
 
                     output = output.Length <= MaxToolResultChars ? output : output[..MaxToolResultChars] + "\n[tool output truncated by Layal]";
