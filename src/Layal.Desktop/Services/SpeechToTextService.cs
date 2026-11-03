@@ -9,6 +9,8 @@ namespace Layal.Services;
 public sealed class SpeechToTextService : IDisposable
 {
     public const int MaximumRecordingSeconds = 120;
+    public const int MaximumTranscriptionResponseBytes = 2 * 1024 * 1024;
+    public const int MaximumTranscriptCharacters = 100_000;
     public static readonly TimeSpan MaximumRecordingDuration = TimeSpan.FromSeconds(MaximumRecordingSeconds);
     private const int SampleRate = 16000;
     private const int MaxPcmBytes = SampleRate * 2 * MaximumRecordingSeconds;
@@ -227,14 +229,44 @@ public sealed class SpeechToTextService : IDisposable
             throw new InvalidOperationException($"Speech transcription failed (HTTP {(int)response.StatusCode}). {detail}");
         }
 
-        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
+        using var document = await ReadBoundedJsonAsync(
+            response.Content,
+            MaximumTranscriptionResponseBytes,
+            cancellationToken);
         if (!document.RootElement.TryGetProperty("text", out var transcript) || transcript.ValueKind != JsonValueKind.String)
             throw new InvalidOperationException("The speech provider returned an invalid transcription response.");
         var text = transcript.GetString()?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(text))
             throw new InvalidOperationException("No speech was recognized. Try speaking more clearly or reducing background noise.");
+        if (text.Length > MaximumTranscriptCharacters)
+            throw new InvalidOperationException("The speech provider returned a transcript that exceeds the local display limit.");
         return text;
+    }
+
+    private static async Task<JsonDocument> ReadBoundedJsonAsync(
+        HttpContent content,
+        int maximumBytes,
+        CancellationToken cancellationToken)
+    {
+        if (content.Headers.ContentLength is long declaredLength && declaredLength > maximumBytes)
+            throw new InvalidDataException("The speech provider response exceeded the local size limit.");
+
+        await using var source = await content.ReadAsStreamAsync(cancellationToken);
+        using var buffer = new MemoryStream(Math.Min(maximumBytes, 16 * 1024));
+        var chunk = new byte[8 * 1024];
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var read = await source.ReadAsync(chunk.AsMemory(), cancellationToken);
+            if (read == 0)
+                break;
+            if (buffer.Length + read > maximumBytes)
+                throw new InvalidDataException("The speech provider response exceeded the local size limit.");
+            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
+        }
+
+        buffer.Position = 0;
+        return await JsonDocument.ParseAsync(buffer, cancellationToken: cancellationToken);
     }
 
     private void Capture_DataAvailable(object? sender, WaveInEventArgs e)
