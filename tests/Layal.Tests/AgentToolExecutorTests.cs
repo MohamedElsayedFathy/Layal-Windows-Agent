@@ -21,6 +21,7 @@ public sealed class AgentToolExecutorTests
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "set_ui_checkbox"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "web_search"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "fact_check_claim"));
+        Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "browser_download"));
 
         Assert.AreEqual(names.Count, names.Distinct(StringComparer.Ordinal).Count());
         Assert.IsFalse(names.Any(string.IsNullOrWhiteSpace));
