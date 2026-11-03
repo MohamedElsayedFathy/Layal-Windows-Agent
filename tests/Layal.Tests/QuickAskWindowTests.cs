@@ -87,7 +87,9 @@ public sealed class QuickAskWindowTests
                 Assert.AreEqual(1, askCount, "A pending submission must reject duplicate clicks.");
 
                 stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                Assert.AreEqual(1, cancelCount, "The stop control should request cancellation exactly once per click.");
+                stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.AreEqual(1, cancelCount, "Repeated stop clicks must not issue duplicate cancellation requests.");
+                Assert.IsFalse(stop.IsEnabled, "The stop control must remain disabled until the pending request settles.");
                 Assert.IsTrue(window.IsVisible, "Requesting cancellation must not close the window before the operation settles.");
                 StringAssert.Contains(status.Text, "Stop requested");
                 Assert.IsFalse(input.IsEnabled, "The input remains disabled until the pending request settles.");
