@@ -236,7 +236,7 @@ public sealed class SavedRoutineManagerWindow : Window
     private List<string> ParseSteps()
     {
         return _stepsInput.Text
-            .Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(step => step.Trim())
             .Where(step => step.Length > 0)
             .ToList();
