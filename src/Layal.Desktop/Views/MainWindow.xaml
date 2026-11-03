@@ -792,6 +792,13 @@
                                   Margin="0,3,0,3"
                                   AutomationProperties.Name="تفعيل وضع الأداء للشخصية"
                                   AutomationProperties.HelpText="يقلل فحص تمرير النقرات إلى 30 مرة في الثانية تقريبًا، ويوقف مؤقتات الحركة والرمش ويغلق معاينة GLB الثقيلة. لا يغيّر تفضيل الحركة المحفوظ؛ يرجع السلوك السابق عند إيقاف الوضع."/>
+                        <Button x:Name="PerformanceMetricsButton" Content="قياس أداء ليال الآن" Click="PerformanceMetricsButton_Click"
+                                MinHeight="32" HorizontalAlignment="Left" Margin="0,4,0,2"
+                                AutomationProperties.Name="قياس موارد عملية ليال"
+                                AutomationProperties.HelpText="يقيس CPU والذاكرة وعدد الخيوط وعدادات GC للعملية الحالية فقط خلال ثانية واحدة. لا يقيس GPU ولا يجمع معلومات عن التطبيقات الأخرى."/>
+                        <TextBlock x:Name="PerformanceMetricsStatus" Text="لم يتم أخذ عينة أداء بعد." TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Layal.Muted}" Margin="4,2,4,8"
+                                   AutomationProperties.Name="نتيجة آخر قياس أداء" AutomationProperties.LiveSetting="Polite"/>
                         <CheckBox x:Name="WindowInspectionCheckbox" Content="السماح بقراءة عناوين النوافذ عند الطلب (يتطلب موافقة قبل مشاركتها مع AI)" Checked="WindowInspectionSettingChanged" Unchecked="WindowInspectionSettingChanged"/>
                         <TextBlock x:Name="MascotSizeLabel" Text="حجم الشخصية" Margin="4,8,4,0"/>
                         <Slider x:Name="MascotSizeSlider" Minimum="0.65" Maximum="1.8" Value="1" TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="4,4" AutomationProperties.LabeledBy="{Binding ElementName=MascotSizeLabel}"/>
