@@ -298,7 +298,7 @@ public sealed class SavedRoutineManagerWindow : Window
             return;
         }
 
-        _onUse(SavedRoutineService.BuildReviewPrompt(selected.Record));
+        _onUse(SavedRoutineService.BuildReviewPrompt(selected.Record, _isArabic));
         DialogResult = true;
         Close();
     }
