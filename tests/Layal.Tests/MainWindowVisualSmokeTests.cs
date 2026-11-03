@@ -221,6 +221,25 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
         Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
 
+        var agentTaskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
+            ?? throw new InvalidOperationException("Agent-task cancellation field was not found.");
+        var privateModeField = typeof(MainWindow).GetField("_incognitoMode", flags)
+            ?? throw new InvalidOperationException("Private-chat state field was not found.");
+        var privateToggleHandler = typeof(MainWindow).GetMethod("IncognitoModeButton_Click", flags)
+            ?? throw new InvalidOperationException("Private-chat toggle handler was not found.");
+        using (var activeAgentTask = new CancellationTokenSource())
+        {
+            agentTaskField.SetValue(window, activeAgentTask);
+            privateToggleHandler.Invoke(window, new object[] { window, new RoutedEventArgs() });
+            Assert.IsTrue((bool)privateModeField.GetValue(window)!,
+                "Private chat must remain active until an agent task has stopped.");
+            Assert.IsFalse(activeAgentTask.IsCancellationRequested,
+                "Attempting to exit private chat must not silently cancel or corrupt an active task.");
+            Assert.AreEqual(1, window.ChatMessages.Count,
+                "A blocked exit must leave the unsaved private transcript intact.");
+            agentTaskField.SetValue(window, null);
+        }
+
         exitPrivate.Invoke(window, null);
         Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
         Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
