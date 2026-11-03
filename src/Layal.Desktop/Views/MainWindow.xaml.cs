@@ -451,6 +451,10 @@ public partial class MainWindow : Window
         _voiceConversationCancellation?.Cancel();
         // Also cancel a still-image analysis request that may be processing a captured camera frame.
         _chatCancellation?.Cancel();
+        // Agent tasks may be between model turns and about to invoke UI/screen/clipboard
+        // inspection tools. Cancel the entire task before another tool call can begin.
+        if (PrivacyShieldPolicy.ShouldCancelAgentTask(AppRuntime.Settings.PrivacyShieldEnabled))
+            _agentTaskCancellation?.Cancel();
 
         if (_cameraVisionWindow is { } camera)
         {
