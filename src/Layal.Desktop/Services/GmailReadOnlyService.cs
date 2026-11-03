@@ -505,13 +505,21 @@ public sealed class GmailReadOnlyService
     public static bool IsSupportedTextAttachment(string fileName, string mimeType)
     {
         var extension = Path.GetExtension(fileName ?? string.Empty);
-        return extension.Equals(".txt", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".md", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".csv", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".json", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".xml", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".html", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(mimeType, "text/plain", StringComparison.OrdinalIgnoreCase) ||
+        var hasSupportedExtension =
+            extension.Equals(".txt", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".md", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".csv", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".json", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".xml", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".html", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".htm", StringComparison.OrdinalIgnoreCase);
+
+        // MIME is sender-controlled metadata. When a filename has an extension, require that
+        // extension to be on the text allowlist even if the server labels an executable as text/plain.
+        if (extension.Length > 0)
+            return hasSupportedExtension;
+
+        return string.Equals(mimeType, "text/plain", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(mimeType, "text/csv", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(mimeType, "text/markdown", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(mimeType, "application/json", StringComparison.OrdinalIgnoreCase) ||
