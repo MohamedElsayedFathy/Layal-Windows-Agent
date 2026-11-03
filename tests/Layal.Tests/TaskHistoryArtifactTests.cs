@@ -55,6 +55,34 @@ public sealed class TaskHistoryArtifactTests
     }
 
     [TestMethod]
+    public void RemovingArtifactUnlinksOnlyTheSelectedPathAndPersistsAnEvent()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "tasks.dpapi");
+        var history = new TaskHistoryService(path);
+        var task = new AgentTaskRecord
+        {
+            Id = "task-remove",
+            Goal = "Create report",
+            Status = "Completed",
+            Artifacts = new() { "reports/first.txt", "reports/second.txt" }
+        };
+        history.Upsert(task);
+
+        Assert.IsTrue(history.RemoveArtifact(task.Id, "reports/first.txt"));
+        Assert.IsFalse(history.RemoveArtifact(task.Id, "reports/missing.txt"));
+
+        var reloaded = new TaskHistoryService(path).GetRecent(10).Single();
+        CollectionAssert.AreEqual(new[] { "reports/second.txt" }, reloaded.Artifacts);
+        Assert.IsTrue(reloaded.Events.Any(item =>
+            item.Contains("reports/first.txt", StringComparison.Ordinal) &&
+            item.Contains("Recycle Bin", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public void ArtifactLimitIsEnforced()
     {
         if (!OperatingSystem.IsWindows())
