@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Layal.Models;
 
 public sealed class UserSettings
@@ -38,6 +40,9 @@ public sealed class UserSettings
     public bool ProactiveCheckInEnabled { get; set; } = false;
     public int ProactiveCheckInIntervalMinutes { get; set; } = 60;
     public DateTimeOffset? LastProactiveCheckInAt { get; set; }
+    /// <summary>Enables foreground-only game detection using the user's explicit process allowlist.</summary>
+    public bool GameModeAutoDetectionEnabled { get; set; } = false;
+    public List<string> GameModeAllowedProcessNames { get; set; } = new();
 
     public UserSettings Clone() => new()
     {
@@ -69,7 +74,9 @@ public sealed class UserSettings
         PrivacyShieldEnabled = PrivacyShieldEnabled,
         ProactiveCheckInEnabled = ProactiveCheckInEnabled,
         ProactiveCheckInIntervalMinutes = ProactiveCheckInIntervalMinutes,
-        LastProactiveCheckInAt = LastProactiveCheckInAt
+        LastProactiveCheckInAt = LastProactiveCheckInAt,
+        GameModeAutoDetectionEnabled = GameModeAutoDetectionEnabled,
+        GameModeAllowedProcessNames = new List<string>(GameModeAllowedProcessNames ?? new())
     };
 
     public void CopyFrom(UserSettings source)
@@ -103,5 +110,7 @@ public sealed class UserSettings
         ProactiveCheckInEnabled = source.ProactiveCheckInEnabled;
         ProactiveCheckInIntervalMinutes = source.ProactiveCheckInIntervalMinutes;
         LastProactiveCheckInAt = source.LastProactiveCheckInAt;
+        GameModeAutoDetectionEnabled = source.GameModeAutoDetectionEnabled;
+        GameModeAllowedProcessNames = new List<string>(source.GameModeAllowedProcessNames ?? new());
     }
 }
