@@ -35,6 +35,9 @@ public partial class MainWindow : Window
     private readonly List<string> _rawTaskEvents = new();
     private bool _refreshingRecentTasks;
     private GameModeHudWindow? _gameModeHudWindow;
+    private bool _gameModeHudAutoLaunched;
+    private readonly ForegroundGameDetectionService _foregroundGameDetectionService = new();
+    private readonly DispatcherTimer _gameModeDetectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private bool _cameraAutomaticObservationRequest;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
@@ -124,6 +127,7 @@ public partial class MainWindow : Window
         _weatherRefreshTimer.Tick += WeatherRefreshTimer_Tick;
         _reminderTimer.Tick += ReminderTimer_Tick;
         _proactiveCheckInTimer.Tick += ProactiveCheckInTimer_Tick;
+        _gameModeDetectionTimer.Tick += GameModeDetectionTimer_Tick;
         DataContext = this;
         _apiConnectionsView = CollectionViewSource.GetDefaultView(ApiConnections);
         _apiConnectionsView.Filter = ApiConnectionMatchesSearch;
@@ -192,6 +196,10 @@ public partial class MainWindow : Window
             }
             _proactiveCheckInTimer.Start();
         }
+        if (!Layal.App.SuppressStartupForTests &&
+            AppRuntime.Settings.GameModeAutoDetectionEnabled &&
+            AppRuntime.Settings.GameModeAllowedProcessNames.Count > 0)
+            _gameModeDetectionTimer.Start();
     }
 
     public void ShowFromTray()
@@ -793,10 +801,12 @@ public partial class MainWindow : Window
         _weatherRefreshTimer.Stop();
         _reminderTimer.Stop();
         _proactiveCheckInTimer.Stop();
+        _gameModeDetectionTimer.Stop();
         _clockTimer.Tick -= ClockTimer_Tick;
         _weatherRefreshTimer.Tick -= WeatherRefreshTimer_Tick;
         _reminderTimer.Tick -= ReminderTimer_Tick;
         _proactiveCheckInTimer.Tick -= ProactiveCheckInTimer_Tick;
+        _gameModeDetectionTimer.Tick -= GameModeDetectionTimer_Tick;
         _weatherCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
@@ -819,6 +829,7 @@ public partial class MainWindow : Window
         {
             var hud = _gameModeHudWindow;
             _gameModeHudWindow = null;
+            _gameModeHudAutoLaunched = false;
             AppRuntime.IsGameModeActive = false;
             hud.Close();
         }
@@ -1159,6 +1170,14 @@ public partial class MainWindow : Window
             : "Create one-time, daily, or weekly reminders. They are stored locally encrypted and are not sent to an AI provider.");
         ManageRoutinesButton.Content = ar ? "الروتينات" : "Routines";
         UpdateGameModeButtonUi();
+        GameModeSettingsButton.Content = ar ? "إعداد اكتشاف الألعاب" : "Game detection settings";
+        GameModeSettingsButton.ToolTip = ar
+            ? "كشف اختياري ومغلق افتراضيًا؛ يطابق اسم عملية النافذة الأمامية مع قائمة سماح تحددها."
+            : "Optional and off by default; matches the foreground process name against your allowlist.";
+        AutomationProperties.SetName(GameModeSettingsButton, ar ? "إعداد الكشف التلقائي للألعاب" : "Configure automatic game detection");
+        AutomationProperties.SetHelpText(GameModeSettingsButton, ar
+            ? "يقرأ اسم عملية النافذة الأمامية فقط. لا يقرأ العنوان أو سطر الأوامر أو ذاكرة اللعبة ولا يحقن مدخلات."
+            : "Reads only the foreground process name. No window title, command line, game memory, or input injection.";
         WorkspaceHubButton.Content = ar ? "مساحة العمل" : "Workspace hub";
         WorkspaceHubButton.ToolTip = ar
             ? "بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
@@ -5413,7 +5432,91 @@ public partial class MainWindow : Window
             return;
         }
 
+        OpenGameModeHud(automaticallyLaunched: false);
+    }
+
+    private void ConfigureGameModeDetectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        var draft = AppRuntime.Settings.Clone();
+        var window = new GameModeSettingsWindow(draft, updated =>
+        {
+            var previous = AppRuntime.Settings.Clone();
+            AppRuntime.Settings.CopyFrom(updated);
+            try
+            {
+                AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            }
+            catch
+            {
+                AppRuntime.Settings.CopyFrom(previous);
+                throw;
+            }
+        }, IsArabic)
+        {
+            Owner = this
+        };
+
+        if (window.ShowDialog() != true)
+            return;
+
+        var enabled = AppRuntime.Settings.GameModeAutoDetectionEnabled &&
+            AppRuntime.Settings.GameModeAllowedProcessNames.Count > 0;
+        if (enabled)
+        {
+            _gameModeDetectionTimer.Start();
+            SetChatActivityStatus(IsArabic
+                ? "تم تفعيل اكتشاف الألعاب بقائمة السماح التي حددتها. يقرأ Layal اسم عملية النافذة الأمامية فقط."
+                : "Allowlisted game detection is enabled. Layal reads only the foreground process name.");
+        }
+        else
+        {
+            _gameModeDetectionTimer.Stop();
+            if (_gameModeHudAutoLaunched)
+                _gameModeHudWindow?.Close();
+            TrySynchronizeLocalNotificationSchedule();
+            SetChatActivityStatus(IsArabic
+                ? "تم إيقاف اكتشاف الألعاب التلقائي؛ يظل وضع الألعاب اليدوي متاحًا."
+                : "Automatic game detection is disabled; manual game mode remains available.");
+        }
+    }
+
+    private void GameModeDetectionTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!AppRuntime.Settings.GameModeAutoDetectionEnabled ||
+            AppRuntime.Settings.GameModeAllowedProcessNames.Count == 0 ||
+            AppRuntime.Settings.PrivacyShieldEnabled ||
+            AppRuntime.IsExiting)
+        {
+            if (_gameModeHudAutoLaunched)
+                _gameModeHudWindow?.Close();
+            return;
+        }
+
+        // A manual HUD always wins over automatic detection and remains open until the user closes it.
+        if (_gameModeHudWindow is { IsVisible: true } && !_gameModeHudAutoLaunched)
+            return;
+
+        var isAllowedForeground = _foregroundGameDetectionService.IsAllowedForeground(
+            AppRuntime.Settings.GameModeAllowedProcessNames);
+
+        if (isAllowedForeground)
+        {
+            if (_gameModeHudWindow is not { IsVisible: true })
+                OpenGameModeHud(automaticallyLaunched: true);
+        }
+        else if (_gameModeHudAutoLaunched)
+        {
+            _gameModeHudWindow?.Close();
+        }
+    }
+
+    private void OpenGameModeHud(bool automaticallyLaunched)
+    {
+        if (_gameModeHudWindow is { IsVisible: true })
+            return;
+
         AppRuntime.IsGameModeActive = true;
+        _gameModeHudAutoLaunched = automaticallyLaunched;
         TrySynchronizeLocalNotificationSchedule();
         var hud = new GameModeHudWindow(IsArabic, () =>
         {
@@ -5432,6 +5535,7 @@ public partial class MainWindow : Window
             if (!ReferenceEquals(_gameModeHudWindow, hud))
                 return;
             _gameModeHudWindow = null;
+            _gameModeHudAutoLaunched = false;
             AppRuntime.IsGameModeActive = false;
             TrySynchronizeLocalNotificationSchedule();
             UpdateGameModeButtonUi();
@@ -5441,12 +5545,16 @@ public partial class MainWindow : Window
         };
         UpdateGameModeButtonUi();
         hud.Show();
-        SetChatActivityStatus(IsArabic
-            ? "وضع الألعاب نشط. لا يجري فحص الألعاب أو العمليات، وتم إيقاف إشعارات ليال مؤقتًا."
-            : "Game mode is active. No game/process inspection is running, and Layal notifications are paused temporarily.");
+        SetChatActivityStatus(automaticallyLaunched
+            ? (IsArabic
+                ? "تم فتح HUD تلقائيًا للتطبيق الموجود في قائمة السماح. لا يجري فحص عناوين النوافذ أو محتوى اللعبة."
+                : "The HUD opened automatically for an allowlisted foreground app. Window titles and game contents are not inspected.")
+            : (IsArabic
+                ? "وضع الألعاب اليدوي نشط. لا يجري فحص الألعاب أو العمليات غير الموجودة في قائمة السماح."
+                : "Manual game mode is active. Games or processes outside your allowlist are not inspected."));
     }
 
-    private void UpdateGameModeButtonUi()
+        private void UpdateGameModeButtonUi()
     {
         if (GameModeButton is null)
             return;
