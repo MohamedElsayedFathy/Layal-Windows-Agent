@@ -170,16 +170,73 @@ public sealed class ReminderService
         AllowedRecurrences.FirstOrDefault(
             allowed => string.Equals(allowed, value?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? "None";
 
-    private static DateTimeOffset AdvanceLocalTime(DateTimeOffset previousDueAt, DateTimeOffset now, bool daily)
+    private static DateTimeOffset AdvanceLocalTime(DateTimeOffset previousDueAt, DateTimeOffset now, bool daily) =>
+        GetNextRecurringDueTime(previousDueAt, now, daily, TimeZoneInfo.Local);
+
+    /// <summary>
+    /// Advances a recurring reminder at its original wall-clock time in the selected time zone.
+    /// Invalid spring-forward times move forward by the daylight-saving gap. Ambiguous fall-back
+    /// times choose the first occurrence strictly after the delivery instant.
+    /// </summary>
+    public static DateTimeOffset GetNextRecurringDueTime(
+        DateTimeOffset previousDueAt,
+        DateTimeOffset deliveredAt,
+        bool daily,
+        TimeZoneInfo timeZone)
     {
+        ArgumentNullException.ThrowIfNull(timeZone);
         var intervalDays = daily ? 1 : 7;
-        var nextLocal = previousDueAt.LocalDateTime;
-        var nowLocal = now.LocalDateTime;
-        var elapsedDays = Math.Max(0, (nowLocal - nextLocal).TotalDays);
-        var intervals = Math.Max(1, (int)Math.Floor(elapsedDays / intervalDays) + 1);
-        nextLocal = nextLocal.AddDays(intervals * intervalDays);
-        // Reconstruct using DateTimeKind.Local so Windows applies the local UTC offset for that date
-        // instead of retaining yesterday's offset across a daylight-saving boundary.
-        return new DateTimeOffset(DateTime.SpecifyKind(nextLocal, DateTimeKind.Local));
+        var previousLocal = TimeZoneInfo.ConvertTime(previousDueAt, timeZone).DateTime;
+        var deliveredLocal = TimeZoneInfo.ConvertTime(deliveredAt, timeZone).DateTime;
+        var candidate = previousLocal.AddDays(intervalDays);
+
+        // A reminder may have been missed while the machine was asleep. Advance by whole
+        // local-calendar intervals, not elapsed UTC hours, so its wall-clock schedule remains stable.
+        for (var attempt = 0; attempt < 10_000; attempt++)
+        {
+            var resolved = ResolveLocalDueTime(candidate, deliveredAt, timeZone);
+            if (resolved > deliveredAt)
+                return resolved;
+            candidate = candidate.AddDays(intervalDays);
+        }
+
+        throw new InvalidOperationException("Could not calculate the next recurring reminder time.");
+    }
+
+    private static DateTimeOffset ResolveLocalDueTime(
+        DateTime localTime,
+        DateTimeOffset deliveredAt,
+        TimeZoneInfo timeZone)
+    {
+        var candidate = DateTime.SpecifyKind(localTime, DateTimeKind.Unspecified);
+        if (timeZone.IsInvalidTime(candidate))
+        {
+            var rule = timeZone.GetAdjustmentRules()
+                .FirstOrDefault(item => candidate.Date >= item.DateStart.Date && candidate.Date <= item.DateEnd.Date);
+            if (rule is not null && rule.DaylightDelta > TimeSpan.Zero)
+                candidate = candidate.Add(rule.DaylightDelta);
+
+            // Some custom zones have non-hour transitions; fail forward to the first valid minute.
+            for (var minute = 0; timeZone.IsInvalidTime(candidate) && minute < 240; minute++)
+                candidate = candidate.AddMinutes(1);
+            if (timeZone.IsInvalidTime(candidate))
+                throw new InvalidOperationException("The reminder time falls inside an unresolved daylight-saving gap.");
+        }
+
+        if (timeZone.IsAmbiguousTime(candidate))
+        {
+            var nextOccurrence = timeZone.GetAmbiguousTimeOffsets(candidate)
+                .Select(offset => new DateTimeOffset(candidate, offset))
+                .Where(value => value > deliveredAt)
+                .OrderBy(value => value.UtcDateTime)
+                .FirstOrDefault();
+            if (nextOccurrence != default)
+                return nextOccurrence;
+
+            // Both occurrences have passed; the caller will move to the following interval.
+            return new DateTimeOffset(candidate, timeZone.GetUtcOffset(candidate));
+        }
+
+        return new DateTimeOffset(candidate, timeZone.GetUtcOffset(candidate));
     }
 }
