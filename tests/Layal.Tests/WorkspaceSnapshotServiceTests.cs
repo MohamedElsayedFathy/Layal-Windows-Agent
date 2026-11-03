@@ -220,4 +220,85 @@ public sealed class WorkspaceSnapshotServiceTests
         Assert.ThrowsExactly<InvalidOperationException>(() =>
             service.PreviewImportJson(new string('x', WorkspaceSnapshotService.MaximumJsonBytes + 1)));
     }
+
+    [TestMethod]
+    public void EmbeddedWorkspaceFilesRequireExplicitRestoreAndNeverOverwriteExistingFiles()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source");
+        Directory.CreateDirectory(sourceWorkspace);
+        var sourceFile = Path.Combine(sourceWorkspace, "report.txt");
+        File.WriteAllText(sourceFile, "RESTORABLE_WORKSPACE_CONTENT");
+
+        var sourceTasks = new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi"));
+        var sourceMemory = new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi"));
+        var backupService = new WorkspaceSnapshotService(sourceTasks, sourceMemory, sourceWorkspace);
+        var backup = backupService.ExportJson(includeWorkspaceFileContents: true);
+        var preview = backupService.PreviewImportJson(backup);
+        Assert.AreEqual(1, preview.FilesWithContent);
+
+        var metadataOnlyTarget = Path.Combine(temp.Path, "metadata-only");
+        Directory.CreateDirectory(metadataOnlyTarget);
+        var metadataOnly = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "metadata-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "metadata-memory.dpapi")),
+            metadataOnlyTarget);
+        var metadataResult = metadataOnly.ImportJson(backup);
+        Assert.AreEqual(0, metadataResult.FilesRestored);
+        Assert.AreEqual(1, metadataResult.FilesSkipped);
+        Assert.IsFalse(File.Exists(Path.Combine(metadataOnlyTarget, "report.txt")),
+            "The default import must never restore file contents.");
+
+        var restoreTarget = Path.Combine(temp.Path, "restore");
+        Directory.CreateDirectory(restoreTarget);
+        var restoreService = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "restore-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "restore-memory.dpapi")),
+            restoreTarget);
+        var restoreResult = restoreService.ImportJson(backup, restoreWorkspaceFiles: true);
+        Assert.AreEqual(1, restoreResult.FilesRestored);
+        Assert.AreEqual("RESTORABLE_WORKSPACE_CONTENT", File.ReadAllText(Path.Combine(restoreTarget, "report.txt")));
+
+        var existingTarget = Path.Combine(temp.Path, "existing");
+        Directory.CreateDirectory(existingTarget);
+        File.WriteAllText(Path.Combine(existingTarget, "report.txt"), "KEEP_LOCAL_FILE");
+        var existingService = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "existing-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "existing-memory.dpapi")),
+            existingTarget);
+        var existingResult = existingService.ImportJson(backup, restoreWorkspaceFiles: true);
+        Assert.AreEqual(0, existingResult.FilesRestored);
+        Assert.AreEqual(1, existingResult.FilesSkipped);
+        Assert.AreEqual("KEEP_LOCAL_FILE", File.ReadAllText(Path.Combine(existingTarget, "report.txt")));
+    }
+
+    [TestMethod]
+    public void EmbeddedWorkspaceFileHashMismatchRejectsBackupBeforeImport()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "file.txt"), "original");
+        var sourceTasks = new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi"));
+        var sourceMemory = new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi"));
+        var backup = new WorkspaceSnapshotService(sourceTasks, sourceMemory, workspace)
+            .ExportJson(includeWorkspaceFileContents: true);
+        var node = JsonNode.Parse(backup) ?? throw new AssertFailedException("Backup JSON was empty.");
+        node["Files"]![0]![nameof(WorkspaceFileManifestEntry.ContentBase64)] =
+            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("tampered"));
+
+        var targetTasks = new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi"));
+        var targetMemory = new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi"));
+        var target = new WorkspaceSnapshotService(targetTasks, targetMemory, workspace);
+        Assert.ThrowsExactly<InvalidOperationException>(() => target.ImportJson(node.ToJsonString()));
+        Assert.AreEqual(0, targetTasks.GetRecent(10).Count);
+        Assert.AreEqual(0, targetMemory.GetAll(includeArchived: true).Count);
+    }
+
 }
