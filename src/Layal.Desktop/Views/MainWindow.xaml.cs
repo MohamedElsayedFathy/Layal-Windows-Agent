@@ -35,6 +35,9 @@ public partial class MainWindow : Window
     private readonly List<string> _rawTaskEvents = new();
     private bool _refreshingRecentTasks;
     private GameModeHudWindow? _gameModeHudWindow;
+    private bool _gameModeHudAutoLaunched;
+    private readonly ForegroundGameDetectionService _foregroundGameDetectionService = new();
+    private readonly DispatcherTimer _gameModeDetectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private bool _cameraAutomaticObservationRequest;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
@@ -124,6 +127,7 @@ public partial class MainWindow : Window
         _weatherRefreshTimer.Tick += WeatherRefreshTimer_Tick;
         _reminderTimer.Tick += ReminderTimer_Tick;
         _proactiveCheckInTimer.Tick += ProactiveCheckInTimer_Tick;
+        _gameModeDetectionTimer.Tick += GameModeDetectionTimer_Tick;
         DataContext = this;
         _apiConnectionsView = CollectionViewSource.GetDefaultView(ApiConnections);
         _apiConnectionsView.Filter = ApiConnectionMatchesSearch;
@@ -192,6 +196,10 @@ public partial class MainWindow : Window
             }
             _proactiveCheckInTimer.Start();
         }
+        if (!Layal.App.SuppressStartupForTests &&
+            AppRuntime.Settings.GameModeAutoDetectionEnabled &&
+            AppRuntime.Settings.GameModeAllowedProcessNames.Count > 0)
+            _gameModeDetectionTimer.Start();
     }
 
     public void ShowFromTray()
@@ -419,6 +427,7 @@ public partial class MainWindow : Window
         if (enable)
             StopCaptureSourcesForPrivacyShield();
 
+        TrySynchronizeLocalNotificationSchedule();
         UpdatePrivacyShieldUi();
         SetChatActivityStatus(enable
             ? (IsArabic
@@ -792,10 +801,12 @@ public partial class MainWindow : Window
         _weatherRefreshTimer.Stop();
         _reminderTimer.Stop();
         _proactiveCheckInTimer.Stop();
+        _gameModeDetectionTimer.Stop();
         _clockTimer.Tick -= ClockTimer_Tick;
         _weatherRefreshTimer.Tick -= WeatherRefreshTimer_Tick;
         _reminderTimer.Tick -= ReminderTimer_Tick;
         _proactiveCheckInTimer.Tick -= ProactiveCheckInTimer_Tick;
+        _gameModeDetectionTimer.Tick -= GameModeDetectionTimer_Tick;
         _weatherCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
@@ -818,6 +829,7 @@ public partial class MainWindow : Window
         {
             var hud = _gameModeHudWindow;
             _gameModeHudWindow = null;
+            _gameModeHudAutoLaunched = false;
             AppRuntime.IsGameModeActive = false;
             hud.Close();
         }
@@ -1150,14 +1162,22 @@ public partial class MainWindow : Window
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
         ManageRemindersButton.Content = ar ? "التذكيرات" : "Reminders";
         ManageRemindersButton.ToolTip = ar
-            ? "إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
-            : "Manage encrypted local reminders; notifications appear while Layal is running.";
+            ? "إدارة تذكيرات محلية مشفرة؛ يجدول Windows تشغيل ليال عند الموعد في جلسة المستخدم."
+            : "Manage encrypted local reminders; Windows schedules Layal to launch at the due time in your signed-in session.";
         AutomationProperties.SetName(ManageRemindersButton, ar ? "إدارة التذكيرات المحلية" : "Manage local reminders");
         AutomationProperties.SetHelpText(ManageRemindersButton, ar
-            ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."
-            : "Create one-time, daily, or weekly reminders. They are stored locally encrypted and are not sent to an AI provider.");
+            ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا؛ يجدول Windows تشغيل ليال بعد تسجيل الدخول ولا يوقظ الجهاز."
+            : "Create one-time, daily, or weekly reminders. They are encrypted locally; Windows starts Layal after sign-in and does not wake the computer.");
         ManageRoutinesButton.Content = ar ? "الروتينات" : "Routines";
         UpdateGameModeButtonUi();
+        GameModeSettingsButton.Content = ar ? "إعداد اكتشاف الألعاب" : "Game detection settings";
+        GameModeSettingsButton.ToolTip = ar
+            ? "كشف اختياري ومغلق افتراضيًا؛ يطابق اسم عملية النافذة الأمامية مع قائمة سماح تحددها."
+            : "Optional and off by default; matches the foreground process name against your allowlist.";
+        AutomationProperties.SetName(GameModeSettingsButton, ar ? "إعداد الكشف التلقائي للألعاب" : "Configure automatic game detection");
+        AutomationProperties.SetHelpText(GameModeSettingsButton, ar
+            ? "يقرأ اسم عملية النافذة الأمامية فقط. لا يقرأ العنوان أو سطر الأوامر أو ذاكرة اللعبة ولا يحقن مدخلات."
+            : "Reads only the foreground process name. No window title, command line, game memory, or input injection.");
         WorkspaceHubButton.Content = ar ? "مساحة العمل" : "Workspace hub";
         WorkspaceHubButton.ToolTip = ar
             ? "بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
@@ -1200,8 +1220,8 @@ public partial class MainWindow : Window
             checkInIntervals[i].Content = intervalLabels[i];
         AutomationProperties.SetName(ProactiveCheckInIntervalSelector, ar ? "الفاصل الزمني لتذكير المتابعة" : "Check-in reminder interval");
         AutomationProperties.SetHelpText(ProactiveCheckInIntervalSelector, ar
-            ? "إشعارات محلية كل 15 أو 30 أو 60 أو 120 دقيقة. يتطلب تشغيل ليال."
-            : "Local notifications every 15, 30, 60, or 120 minutes. Requires Layal to be running.");
+            ? "إشعارات متابعة محلية كل 15 أو 30 أو 60 أو 120 دقيقة. يجدول Windows تشغيل ليال في جلسة المستخدم عند الموعد."
+            : "Local check-in notifications every 15, 30, 60, or 120 minutes. Windows schedules Layal to launch in your signed-in session.");
         ProactiveCheckInPrivacyNote.Text = ar
             ? "الوضع الاستباقي هنا إشعار محلي فقط: لا يفحص النوافذ أو الشاشة أو الملفات ولا يستدعي نموذج AI."
             : "Proactive mode here is a local reminder only: no window, screen, or file inspection, and no AI model calls.";
@@ -5397,7 +5417,7 @@ public partial class MainWindow : Window
 
     private void ManageRemindersButton_Click(object sender, RoutedEventArgs e)
     {
-        var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic)
+        var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic, AppRuntime.ReminderTaskSchedulerService)
         {
             Owner = this
         };
@@ -5412,7 +5432,92 @@ public partial class MainWindow : Window
             return;
         }
 
+        OpenGameModeHud(automaticallyLaunched: false);
+    }
+
+    private void ConfigureGameModeDetectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        var draft = AppRuntime.Settings.Clone();
+        var window = new GameModeSettingsWindow(draft, updated =>
+        {
+            var previous = AppRuntime.Settings.Clone();
+            AppRuntime.Settings.CopyFrom(updated);
+            try
+            {
+                AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            }
+            catch
+            {
+                AppRuntime.Settings.CopyFrom(previous);
+                throw;
+            }
+        }, IsArabic)
+        {
+            Owner = this
+        };
+
+        if (window.ShowDialog() != true)
+            return;
+
+        var enabled = AppRuntime.Settings.GameModeAutoDetectionEnabled &&
+            AppRuntime.Settings.GameModeAllowedProcessNames.Count > 0;
+        if (enabled)
+        {
+            _gameModeDetectionTimer.Start();
+            SetChatActivityStatus(IsArabic
+                ? "تم تفعيل اكتشاف الألعاب بقائمة السماح التي حددتها. يقرأ Layal اسم عملية النافذة الأمامية فقط."
+                : "Allowlisted game detection is enabled. Layal reads only the foreground process name.");
+        }
+        else
+        {
+            _gameModeDetectionTimer.Stop();
+            if (_gameModeHudAutoLaunched)
+                _gameModeHudWindow?.Close();
+            TrySynchronizeLocalNotificationSchedule();
+            SetChatActivityStatus(IsArabic
+                ? "تم إيقاف اكتشاف الألعاب التلقائي؛ يظل وضع الألعاب اليدوي متاحًا."
+                : "Automatic game detection is disabled; manual game mode remains available.");
+        }
+    }
+
+    private void GameModeDetectionTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!AppRuntime.Settings.GameModeAutoDetectionEnabled ||
+            AppRuntime.Settings.GameModeAllowedProcessNames.Count == 0 ||
+            AppRuntime.Settings.PrivacyShieldEnabled ||
+            AppRuntime.IsExiting)
+        {
+            if (_gameModeHudAutoLaunched)
+                _gameModeHudWindow?.Close();
+            return;
+        }
+
+        // A manual HUD always wins over automatic detection and remains open until the user closes it.
+        if (_gameModeHudWindow is { IsVisible: true } && !_gameModeHudAutoLaunched)
+            return;
+
+        var isAllowedForeground = _foregroundGameDetectionService.IsAllowedForeground(
+            AppRuntime.Settings.GameModeAllowedProcessNames);
+
+        if (isAllowedForeground)
+        {
+            if (_gameModeHudWindow is not { IsVisible: true })
+                OpenGameModeHud(automaticallyLaunched: true);
+        }
+        else if (_gameModeHudAutoLaunched)
+        {
+            _gameModeHudWindow?.Close();
+        }
+    }
+
+    private void OpenGameModeHud(bool automaticallyLaunched)
+    {
+        if (_gameModeHudWindow is { IsVisible: true })
+            return;
+
         AppRuntime.IsGameModeActive = true;
+        _gameModeHudAutoLaunched = automaticallyLaunched;
+        TrySynchronizeLocalNotificationSchedule();
         var hud = new GameModeHudWindow(IsArabic, () =>
         {
             if (_agentTaskCancellation is not null)
@@ -5420,7 +5525,7 @@ public partial class MainWindow : Window
             if (_chatCancellation is not null)
                 return IsArabic ? "جارٍ تجهيز رد." : "A chat response is active.";
             return IsArabic ? "ليال جاهزة عند الطلب." : "Layal is available on demand.";
-        })
+        }, automaticallyLaunched: automaticallyLaunched)
         {
             Owner = this
         };
@@ -5430,7 +5535,9 @@ public partial class MainWindow : Window
             if (!ReferenceEquals(_gameModeHudWindow, hud))
                 return;
             _gameModeHudWindow = null;
+            _gameModeHudAutoLaunched = false;
             AppRuntime.IsGameModeActive = false;
+            TrySynchronizeLocalNotificationSchedule();
             UpdateGameModeButtonUi();
             SetChatActivityStatus(IsArabic
                 ? "تم إيقاف وضع الألعاب؛ عادت التذكيرات للعمل وفق إعداداتها."
@@ -5438,9 +5545,13 @@ public partial class MainWindow : Window
         };
         UpdateGameModeButtonUi();
         hud.Show();
-        SetChatActivityStatus(IsArabic
-            ? "وضع الألعاب نشط. لا يجري فحص الألعاب أو العمليات، وتم إيقاف إشعارات ليال مؤقتًا."
-            : "Game mode is active. No game/process inspection is running, and Layal notifications are paused temporarily.");
+        SetChatActivityStatus(automaticallyLaunched
+            ? (IsArabic
+                ? "تم فتح HUD تلقائيًا للتطبيق الموجود في قائمة السماح. لا يجري فحص عناوين النوافذ أو محتوى اللعبة."
+                : "The HUD opened automatically for an allowlisted foreground app. Window titles and game contents are not inspected.")
+            : (IsArabic
+                ? "وضع الألعاب اليدوي نشط. لا يجري فحص الألعاب أو العمليات غير الموجودة في قائمة السماح."
+                : "Manual game mode is active. Games or processes outside your allowlist are not inspected."));
     }
 
     private void UpdateGameModeButtonUi()
@@ -5452,15 +5563,15 @@ public partial class MainWindow : Window
             ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
             : (IsArabic ? "وضع الألعاب" : "Game mode");
         GameModeButton.ToolTip = active
-            ? (IsArabic ? "إغلاق HUD واستئناف التذكيرات." : "Close the HUD and resume reminders.")
-            : (IsArabic ? "تشغيل HUD يدوي صغير؛ لا يوجد اكتشاف ألعاب أو مراقبة عمليات أو حقن."
-                        : "Open a compact manual HUD; no game detection, process monitoring, or injection.");
+            ? (IsArabic ? "إغلاق HUD واستئناف تذكيرات المتابعة." : "Close the HUD and resume local check-ins.")
+            : (IsArabic ? "تشغيل HUD يدوي. الكشف التلقائي خيار منفصل ومغلق افتراضيًا."
+                        : "Open the HUD manually. Automatic detection is separate and off by default.");
         AutomationProperties.SetName(GameModeButton, active
             ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
             : (IsArabic ? "تفعيل وضع الألعاب اليدوي" : "Enable manual game mode"));
         AutomationProperties.SetHelpText(GameModeButton, IsArabic
-            ? "يفتح HUD فوق النوافذ ويوقف إشعارات المتابعة والتذكيرات أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها."
-            : "Shows an always-on-top HUD and pauses Layal reminder notifications while open. It does not inspect game data or control games.");
+            ? "يفتح HUD يدويًا ويوقف الإشعارات المحلية أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها. يمكن ضبط الكشف التلقائي بقائمة سماح منفصلة."
+            : "Opens the HUD manually and pauses local notifications while open. It does not inspect or control game data. Optional automatic detection has a separate allowlist setting.");
     }
 
     private void WorkspaceHubButton_Click(object sender, RoutedEventArgs e)
@@ -5545,6 +5656,7 @@ public partial class MainWindow : Window
                 _proactiveCheckInTimer.Start();
             else
                 _proactiveCheckInTimer.Stop();
+            TrySynchronizeLocalNotificationSchedule();
 
             SetChatActivityStatus(AppRuntime.Settings.ProactiveCheckInEnabled
                 ? (IsArabic
@@ -5572,11 +5684,28 @@ public partial class MainWindow : Window
         try
         {
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            TrySynchronizeLocalNotificationSchedule();
         }
         catch (Exception ex)
         {
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
                 "تعذر حفظ الفاصل الزمني", "Could not save the check-in interval", ex, IsArabic));
+        }
+    }
+
+    private void TrySynchronizeLocalNotificationSchedule()
+    {
+        try
+        {
+            AppRuntime.SynchronizeLocalNotifications();
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر تحديث جدولة التذكيرات في Windows",
+                "Windows local notification scheduling could not be updated",
+                ex,
+                IsArabic));
         }
     }
 
@@ -5589,7 +5718,11 @@ public partial class MainWindow : Window
             if (AppRuntime.IsExiting || !AppRuntime.Settings.ProactiveCheckInEnabled)
                 return;
             AppRuntime.Settings.LastProactiveCheckInAt = now;
-            try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
+            try
+            {
+                AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+                TrySynchronizeLocalNotificationSchedule();
+            }
             catch { _proactiveCheckInTimer.Stop(); }
             return;
         }
@@ -5619,6 +5752,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        TrySynchronizeLocalNotificationSchedule();
         var recentTask = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         var message = recentTask is null
             ? (IsArabic ? "موعد مراجعة قصيرة. افتح ليال وحدد ما تريد التركيز عليه الآن." : "Time for a quick check-in. Open Layal and choose what to focus on now.")
@@ -5662,6 +5796,7 @@ public partial class MainWindow : Window
             return;
 
         var now = DateTimeOffset.Now;
+        var scheduleChanged = false;
         try
         {
             foreach (var due in AppRuntime.ReminderService.GetDue(now))
@@ -5671,6 +5806,7 @@ public partial class MainWindow : Window
                 var delivered = AppRuntime.ReminderService.MarkDelivered(due.Id, due.DueAt, now);
                 if (delivered is null)
                     continue;
+                scheduleChanged = true;
 
                 if (AppRuntime.Tray is { } tray)
                 {
@@ -5692,6 +5828,20 @@ public partial class MainWindow : Window
                 "Could not check reminders; the timer was stopped to protect the saved history",
                 ex,
                 IsArabic));
+            return;
+        }
+
+        if (scheduleChanged && AppRuntime.ReminderTaskSchedulerService is { } scheduler)
+        {
+            try { AppRuntime.SynchronizeLocalNotifications(); }
+            catch (Exception ex)
+            {
+                SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError(
+                    "تعذر تحديث جدولة التذكيرات في Windows",
+                    "Windows reminder scheduling could not be updated",
+                    ex,
+                    IsArabic));
+            }
         }
     }
 

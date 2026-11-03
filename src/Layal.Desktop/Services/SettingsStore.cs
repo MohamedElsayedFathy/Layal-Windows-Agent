@@ -139,6 +139,9 @@ public sealed class SettingsStore
         settings.ProactiveCheckInIntervalMinutes = settings.ProactiveCheckInIntervalMinutes is 15 or 30 or 60 or 120
             ? settings.ProactiveCheckInIntervalMinutes
             : 60;
+        settings.GameModeAllowedProcessNames = GameModeProcessAllowlist.NormalizeSettings(settings.GameModeAllowedProcessNames);
+        if (settings.GameModeAllowedProcessNames.Count == 0)
+            settings.GameModeAutoDetectionEnabled = false;
         if (settings.LastProactiveCheckInAt is { } lastCheckIn && lastCheckIn > DateTimeOffset.Now.AddMinutes(5))
             settings.LastProactiveCheckInAt = DateTimeOffset.Now;
 

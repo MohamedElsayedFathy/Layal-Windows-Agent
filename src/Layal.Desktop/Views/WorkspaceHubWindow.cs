@@ -219,8 +219,8 @@ public sealed class WorkspaceHubWindow : Window
         };
         AutomationProperties.SetName(_backupButton, isArabic ? "تصدير نسخة احتياطية كاملة لمساحة العمل" : "Export a full workspace backup");
         AutomationProperties.SetHelpText(_backupButton, isArabic
-            ? "ينشئ ملف JSON غير مشفّر للمهام والذاكرة النشطة والمؤرشفة وبيانات الملفات الوصفية فقط."
-            : "Creates an unencrypted JSON backup of tasks, active and archived memory, and file metadata only.");
+            ? "ينشئ ملف JSON غير مشفّر للمهام والذاكرة. يمكن تضمين محتوى ملفات صغيرة من LayalWorkspace بموافقة منفصلة وحدود حجم، أو الاكتفاء بالبيانات الوصفية."
+            : "Creates an unencrypted JSON backup of tasks and memory. Small LayalWorkspace files may be embedded after separate confirmation and within strict size limits, or metadata-only can be used.");
         _backupButton.Click += BackupButton_Click;
         actions.Children.Add(_backupButton);
 
@@ -233,8 +233,8 @@ public sealed class WorkspaceHubWindow : Window
         };
         AutomationProperties.SetName(_restoreButton, isArabic ? "دمج نسخة مساحة عمل احتياطية" : "Merge a workspace backup");
         AutomationProperties.SetHelpText(_restoreButton, isArabic
-            ? "يفحص ملف JSON ثم يدمج السجلات الجديدة فقط. لا يستبدل أو يحذف سجلات موجودة ولا يستعيد ملفات مساحة العمل."
-            : "Validates a JSON backup and merges only new records. Existing records are not overwritten or deleted, and workspace files are not restored.");
+            ? "يفحص ملف JSON ثم يعرض السجلات ومحتويات الملفات المضمنة؛ دمج السجلات واستعادة الملفات عمليتان منفصلتان بموافقة."
+            : "Validates a JSON backup and previews records and embedded files; merging records and restoring files are separate consented actions.");
         _restoreButton.Click += RestoreButton_Click;
         actions.Children.Add(_restoreButton);
 
@@ -525,8 +525,8 @@ public sealed class WorkspaceHubWindow : Window
             return;
 
         var warning = _isArabic
-            ? "سيُنشأ ملف JSON غير مشفّر يحتوي على سجل المهام ونصوص الذاكرة النشطة والمؤرشفة ومراجع الملفات وبياناتها الوصفية. لا تُصدّر النسخة إلى مجلد مشترك أو سحابي غير موثوق. لن تُنسخ محتويات ملفات مساحة العمل. هل تريد المتابعة؟"
-            : "This creates an unencrypted JSON file containing task history, active and archived memory text, artifact references, and file metadata. Do not export it to an untrusted shared or cloud folder. Workspace file contents are not copied. Continue?";
+            ? "سيُنشأ ملف JSON غير مشفّر يحتوي على سجل المهام ونصوص الذاكرة النشطة والمؤرشفة ومراجع الملفات. لا تُصدّر النسخة إلى مجلد مشترك أو سحابي غير موثوق. هل تريد المتابعة؟"
+            : "This creates an unencrypted JSON file containing task history, active and archived memory text, and artifact references. Do not export it to an untrusted shared or cloud folder. Continue?";
         if (MessageBox.Show(this, warning,
             _isArabic ? "تنبيه خصوصية للنسخة الاحتياطية" : "Workspace backup privacy warning",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
@@ -534,15 +534,22 @@ public sealed class WorkspaceHubWindow : Window
 
         try
         {
+            var includeFileContents = MessageBox.Show(this,
+                _isArabic
+                    ? "هل تريد تضمين محتوى الملفات الصغيرة الموجودة داخل LayalWorkspace؟ سيُضمَّن بحد أقصى 100 ملف، و1 ميجابايت لكل ملف، و4 ميجابايت إجمالًا. ملفات أكبر أو خارج الحدود ستظهر كبيانات وصفية فقط. ستحتوي نسخة JSON غير المشفّرة على محتوى الملفات نفسه؛ لا ترفعها أو تشاركها دون مراجعة."
+                    : "Include small files from LayalWorkspace? The backup embeds at most 100 files, 1 MiB per file, and 4 MiB total. Larger or out-of-limit files remain metadata-only. The unencrypted JSON will contain the actual file contents; do not upload or share it without review.",
+                _isArabic ? "تضمين محتوى الملفات؟" : "Include file contents?",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
             var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
-            var json = service.ExportJson();
+            var json = service.ExportJson(includeFileContents);
+            var preview = service.PreviewImportJson(json);
             var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(json);
             if (bytes.Length > WorkspaceSnapshotService.MaximumJsonBytes)
                 throw new InvalidOperationException("The workspace backup exceeds the configured size limit.");
             File.WriteAllBytes(dialog.FileName, bytes);
             _status.Text = _isArabic
-                ? $"تم إنشاء النسخة الاحتياطية غير المشفّرة: {dialog.FileName}"
-                : $"Unencrypted workspace backup created: {dialog.FileName}";
+                ? $"تم إنشاء النسخة غير المشفّرة: {dialog.FileName} — محتوى {preview.FilesWithContent} ملف مضمّن."
+                : $"Unencrypted backup created: {dialog.FileName} — embedded contents for {preview.FilesWithContent} file(s).";
         }
         catch (Exception ex)
         {
@@ -568,18 +575,29 @@ public sealed class WorkspaceHubWindow : Window
             var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
             var preview = service.PreviewImportJson(json);
             var summary = _isArabic
-                ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد وصفي\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. سجلات الملفات بيانات وصفية فقط ولن تُنسخ ملفات أو تُفتح أو تُشغّل. قد يتضمن JSON نصوصًا خاصة غير مشفّرة. هل تريد المتابعة؟"
-                : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder metadata entries\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. File entries are metadata only; no files are copied, opened, or executed. The JSON may contain sensitive plaintext. Continue?";
+                ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد، منها {preview.FilesWithContent} ملفًا يحتوي النسخ الاحتياطي على محتواه\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. لن تُستعاد الملفات في هذه الخطوة. قد يتضمن JSON نصوصًا ومحتوى ملفات خاصة غير مشفّرة. هل تريد دمج السجلات؟"
+                : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder entries, including {preview.FilesWithContent} with embedded file contents\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. No files will be restored in this step. The JSON may contain sensitive plaintext and file contents. Merge records?";
             if (MessageBox.Show(this, summary,
                 _isArabic ? "مراجعة واستعادة النسخة الاحتياطية" : "Review and restore workspace backup",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
                 return;
 
-            var result = service.ImportJson(json);
+            var restoreFiles = false;
+            if (preview.FilesWithContent > 0)
+            {
+                restoreFiles = MessageBox.Show(this,
+                    _isArabic
+                        ? $"تحتوي النسخة على محتوى {preview.FilesWithContent} ملف. هل تريد استعادة الملفات المضمنة إلى LayalWorkspace؟ لن يُستبدل أي ملف موجود؛ ستُتخطى المسارات الموجودة، وسيُرفض أي مسار غير آمن أو رابط رمزي."
+                        : $"The backup contains {preview.FilesWithContent} embedded file(s). Restore these files into LayalWorkspace? Existing files will never be overwritten; existing paths are skipped, and unsafe paths or symbolic links are rejected.",
+                    _isArabic ? "تأكيد استعادة الملفات" : "Confirm file restoration",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
+            }
+
+            var result = service.ImportJson(json, restoreWorkspaceFiles: restoreFiles);
             RefreshIndex();
             _status.Text = _isArabic
-                ? $"اكتمل الدمج: {result.TasksImported} مهمة جديدة و{result.MemoriesImported} ملاحظة جديدة. لم تُستعد ملفات مساحة العمل ({result.FileManifestEntries} سجل وصفي فقط)."
-                : $"Merge complete: {result.TasksImported} new tasks and {result.MemoriesImported} new memories. Workspace files were not restored ({result.FileManifestEntries} metadata entries only).";
+                ? $"اكتمل الدمج: {result.TasksImported} مهمة و{result.MemoriesImported} ملاحظة. استُعيد {result.FilesRestored} ملف وتُخطّي {result.FilesSkipped} ملف."
+                : $"Merge complete: {result.TasksImported} tasks and {result.MemoriesImported} memories. Restored {result.FilesRestored} file(s); skipped {result.FilesSkipped}.";
         }
         catch (Exception ex)
         {

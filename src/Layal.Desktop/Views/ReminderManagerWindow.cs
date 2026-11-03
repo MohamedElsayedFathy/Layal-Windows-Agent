@@ -14,6 +14,7 @@ namespace Layal.Views;
 public sealed class ReminderManagerWindow : Window
 {
     private readonly ReminderService _service;
+    private readonly ReminderTaskSchedulerService? _scheduler;
     private readonly bool _isArabic;
     private readonly TextBox _titleInput;
     private readonly DatePicker _datePicker;
@@ -24,9 +25,13 @@ public sealed class ReminderManagerWindow : Window
     private readonly ObservableCollection<ReminderListEntry> _entries = new();
     private string? _selectedReminderId;
 
-    public ReminderManagerWindow(ReminderService service, bool isArabic)
+    public ReminderManagerWindow(
+        ReminderService service,
+        bool isArabic,
+        ReminderTaskSchedulerService? scheduler = null)
     {
         _service = service ?? throw new ArgumentNullException(nameof(service));
+        _scheduler = scheduler;
         _isArabic = isArabic;
         Title = isArabic ? "التذكيرات المحلية" : "Local reminders";
         Width = 760;
@@ -161,8 +166,8 @@ public sealed class ReminderManagerWindow : Window
         };
         AutomationProperties.SetName(_status, isArabic ? "حالة التذكيرات" : "Reminder status");
         AutomationProperties.SetHelpText(_status, isArabic
-            ? "التذكيرات محفوظة محليًا. الإشعار يعتمد على تشغيل ليال وWindows."
-            : "Reminders are stored locally. Notifications require Layal and Windows to be running.");
+            ? "التذكيرات مشفرة محليًا. يجدول Windows تشغيل ليال في جلسة المستخدم المسجّل دخوله؛ عند تفويت موعد أثناء تسجيل الخروج يُعالج عند تسجيل الدخول أو فتح ليال."
+            : "Reminders are encrypted locally. Windows schedules Layal in the signed-in user's session; reminders missed while signed out are handled at next sign-in or when Layal is opened.");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         Grid.SetRow(_status, 3);
         root.Children.Add(_status);
@@ -171,8 +176,8 @@ public sealed class ReminderManagerWindow : Window
         var privacy = new TextBlock
         {
             Text = isArabic
-                ? "لا تُرسل التذكيرات إلى مزود AI. يجب أن تكون ليال قيد التشغيل لعرض الإشعار."
-                : "Reminders are not sent to an AI provider. Layal must be running to display notifications.",
+                ? "لا تُرسل التذكيرات إلى مزود AI. يلزم تسجيل الدخول إلى Windows كي يبدأ Task Scheduler تشغيل ليال؛ لا يتم إيقاظ الجهاز."
+                : "Reminders are not sent to an AI provider. Windows must have the user signed in for Task Scheduler to launch Layal; the device is not woken.",
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 12, 0),
@@ -205,6 +210,7 @@ public sealed class ReminderManagerWindow : Window
             _service.Create(title, dueAt, recurrence);
             _titleInput.Clear();
             _status.Text = _isArabic ? "تم حفظ التذكير محليًا بتشفير DPAPI." : "Reminder saved locally with DPAPI encryption.";
+            AppendSchedulerStatus();
             RefreshList();
         }
         catch (Exception ex)
@@ -243,6 +249,7 @@ public sealed class ReminderManagerWindow : Window
             _status.Text = _isArabic
                 ? "تم تحديث التذكير وإعادة تفعيله محليًا."
                 : "Reminder updated and reactivated locally.";
+            AppendSchedulerStatus();
         }
         catch (Exception ex)
         {
@@ -266,11 +273,29 @@ public sealed class ReminderManagerWindow : Window
             _status.Text = removed
                 ? (_isArabic ? "تم حذف التذكير المحدد." : "Selected reminder deleted.")
                 : (_isArabic ? "لم يعد التذكير موجودًا." : "The reminder no longer exists.");
+            AppendSchedulerStatus();
             RefreshList();
         }
         catch (Exception ex)
         {
             _status.Text = (_isArabic ? "تعذر حذف التذكير: " : "Could not delete reminder: ") + ex.Message;
+        }
+    }
+
+    private void AppendSchedulerStatus()
+    {
+        if (_scheduler is null)
+            return;
+
+        try
+        {
+            AppRuntime.SynchronizeLocalNotifications();
+        }
+        catch (Exception ex)
+        {
+            _status.Text += _isArabic
+                ? Environment.NewLine + "تم حفظ التذكير، لكن تعذرت جدولة تشغيل ليال من Windows: " + ex.Message
+                : Environment.NewLine + "The reminder was saved, but Windows could not schedule Layal to start: " + ex.Message;
         }
     }
 

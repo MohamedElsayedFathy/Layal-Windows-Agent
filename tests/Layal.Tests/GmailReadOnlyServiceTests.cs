@@ -75,6 +75,12 @@ public sealed class GmailReadOnlyServiceTests
         Assert.IsFalse(GmailReadOnlyService.IsSupportedTextAttachment("payload.exe", "text/plain"),
             "A sender-controlled MIME type must not override a non-text filename extension.");
         Assert.IsFalse(GmailReadOnlyService.IsSupportedTextAttachment("archive.zip", "application/zip"));
+        Assert.IsTrue(GmailReadOnlyService.IsSupportedDocumentAttachment("report.pdf", "application/pdf"));
+        Assert.IsTrue(GmailReadOnlyService.IsSupportedDocumentAttachment("report.docx", "application/octet-stream"),
+            "The allow-listed filename extension is authoritative when MIME metadata is sender-controlled.");
+        Assert.IsTrue(GmailReadOnlyService.IsSupportedDocumentAttachment("budget.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        Assert.IsFalse(GmailReadOnlyService.IsSupportedDocumentAttachment("payload.exe", "application/pdf"));
+        Assert.IsFalse(GmailReadOnlyService.IsSupportedDocumentAttachment("archive.zip", "application/zip"));
         Assert.IsTrue(GmailReadOnlyService.IsSupportedTextAttachment(string.Empty, "text/plain"),
             "An extensionless attachment may be previewed only when its MIME type is an approved text type.");
 
@@ -206,9 +212,115 @@ public sealed class GmailReadOnlyServiceTests
         Assert.IsFalse(handler.RequestedPaths.Any(path => path.Contains("too-large", StringComparison.Ordinal)));
     }
 
+
+    [TestMethod]
+    public async Task ReadMessageAsyncExtractsDocxAttachmentLocallyWithoutSavingItToWorkspace()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The Gmail credential store uses Windows DPAPI and document preview uses Windows APIs.");
+
+        using var temp = new TestTempDirectory();
+        var credentialPath = Path.Combine(temp.Path, "gmail.dpapi");
+        new ProtectedJsonStore<GmailOAuthCredential>(credentialPath).Save(new GmailOAuthCredential
+        {
+            ClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
+            RefreshToken = "test-refresh-token"
+        });
+
+        var existingTempPreviews = Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        byte[] docxBytes;
+        using (var package = new MemoryStream())
+        {
+            using (var document = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(
+                       package,
+                       DocumentFormat.OpenXml.WordprocessingDocumentType.Document,
+                       true))
+            {
+                var main = document.AddMainDocumentPart();
+                main.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(
+                    new DocumentFormat.OpenXml.Wordprocessing.Body(
+                        new DocumentFormat.OpenXml.Wordprocessing.Paragraph(
+                            new DocumentFormat.OpenXml.Wordprocessing.Run(
+                                new DocumentFormat.OpenXml.Wordprocessing.Text("Gmail document preview sentinel")))));
+                main.Document.Save();
+            }
+            docxBytes = package.ToArray();
+        }
+
+        var messageJson = JsonSerializer.Serialize(new
+        {
+            id = "message-docx",
+            threadId = "thread-docx",
+            snippet = "Document attachment",
+            internalDate = "1790000000000",
+            payload = new
+            {
+                headers = new[]
+                {
+                    new { name = "From", value = "sender@example.com" },
+                    new { name = "Subject", value = "Document preview" }
+                },
+                parts = new[]
+                {
+                    new
+                    {
+                        filename = "report.docx",
+                        mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        body = new { size = docxBytes.Length, data = Base64Url(docxBytes) }
+                    }
+                }
+            }
+        });
+
+        using var http = new HttpClient(new GmailInlineAttachmentHandler(messageJson));
+        var service = new GmailReadOnlyService(credentialPath, http);
+        var detail = await service.ReadMessageAsync("message-docx");
+
+        Assert.AreEqual(1, detail.Attachments!.Count);
+        StringAssert.Contains(detail.Attachments[0].Status, "Local document text preview available");
+        StringAssert.Contains(detail.Attachments[0].PreviewText, "Gmail document preview sentinel");
+        var leakedPreviews = Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .Where(path => !existingTempPreviews.Contains(path)).ToArray();
+        Assert.AreEqual(0, leakedPreviews.Length,
+            "Gmail document bytes must not be retained after the local preview is extracted.");
+    }
+
+
     private static string Base64Url(string value) =>
         Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static string Base64Url(byte[] value) =>
+        Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+
+    private sealed class GmailInlineAttachmentHandler(string messageJson) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri ?? throw new InvalidOperationException("Request URI is missing.");
+            if (uri.Host == "oauth2.googleapis.com" && uri.AbsolutePath == "/token")
+                return Task.FromResult(JsonResponse(JsonSerializer.Serialize(new
+                {
+                    access_token = "test-access-token",
+                    expires_in = 3600
+                })));
+
+            if (uri.Host == "gmail.googleapis.com" &&
+                uri.AbsolutePath.EndsWith("/messages/message-docx", StringComparison.Ordinal))
+                return Task.FromResult(JsonResponse(messageJson));
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+
+        private static HttpResponseMessage JsonResponse(string content) => new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(content, Encoding.UTF8, "application/json")
+        };
+    }
 
     private sealed class GmailApiStubHandler(string fullMessageJson, string remoteAttachmentText) : HttpMessageHandler
     {

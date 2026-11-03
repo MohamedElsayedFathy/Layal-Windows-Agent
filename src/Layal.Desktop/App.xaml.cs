@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Windows;
 using Layal.Services;
@@ -16,6 +17,7 @@ public partial class App : Application
     private const string ActivateEventName = @"Local\Layal.Desktop.Activate";
     private EventWaitHandle? _activateEvent;
     private bool _ownsSingleInstanceMutex;
+    private bool _isScheduledReminderLaunch;
     private Mutex? _singleInstanceMutex;
     private bool _crashDialogShown;
     private string _logDirectory = string.Empty;
@@ -24,6 +26,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
         if (SuppressStartupForTests) return;
+        _isScheduledReminderLaunch = e.Args.Any(argument =>
+            string.Equals(argument, "--scheduled-reminder", StringComparison.Ordinal));
 
         var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Layal");
         Directory.CreateDirectory(dataRoot);
@@ -46,6 +50,16 @@ public partial class App : Application
         AppRuntime.MemoryService = new MemoryService(Path.Combine(dataRoot, "memory-notes.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(dataRoot, "agent-tasks.dpapi"));
         AppRuntime.ReminderService = new ReminderService(Path.Combine(dataRoot, "reminders.dpapi"));
+        try
+        {
+            AppRuntime.ReminderTaskSchedulerService = new ReminderTaskSchedulerService();
+        }
+        catch (Exception ex)
+        {
+            // A Task Scheduler/identity problem must not prevent Layal or in-process reminders from starting.
+            WriteCrashLog("Initialize reminder scheduler", ex);
+            AppRuntime.ReminderTaskSchedulerService = null;
+        }
         AppRuntime.SavedRoutineService = new SavedRoutineService(Path.Combine(dataRoot, "saved-routines.dpapi"));
         AppRuntime.GmailReadOnlyService = new GmailReadOnlyService(Path.Combine(dataRoot, "secrets", "gmail-refresh-token.dpapi"));
         AppRuntime.ChatHistoryStore = new ProtectedJsonStore<List<Layal.Models.ChatMessage>>(Path.Combine(dataRoot, "chat-history.dpapi"));
@@ -71,8 +85,48 @@ public partial class App : Application
             language: AppRuntime.Settings.Language);
 
         AppRuntime.MainWindow.Show();
-        AppRuntime.MascotWindow.Show();
+        if (_isScheduledReminderLaunch)
+        {
+            // A scheduled launch exists only to deliver local notifications. Keep the app and
+            // tray services alive without taking focus or showing the mascot over the user's app.
+            AppRuntime.MainWindow.Hide();
+        }
+        else
+        {
+            AppRuntime.MascotWindow.Show();
+        }
         StartActivationListener();
+
+        // Reconcile overdue reminders before scheduling the next one. This also catches
+        // reminders missed while Windows was asleep or Layal was closed.
+        var deliveredAtStartup = new List<Layal.Models.ReminderRecord>();
+        try
+        {
+            var reminderNow = DateTimeOffset.Now;
+            foreach (var due in AppRuntime.ReminderService.GetDue(reminderNow))
+            {
+                var delivered = AppRuntime.ReminderService.MarkDelivered(due.Id, due.DueAt, reminderNow);
+                if (delivered is not null)
+                    deliveredAtStartup.Add(delivered);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Keep the UI available if the protected reminder store cannot be read.
+            WriteCrashLog("Deliver overdue reminders", ex);
+        }
+
+        try
+        {
+            AppRuntime.SynchronizeLocalNotifications();
+        }
+        catch (Exception ex)
+        {
+            WriteCrashLog("Schedule reminders", ex);
+        }
+
+        foreach (var reminder in deliveredAtStartup)
+            AppRuntime.Tray?.ShowReminderNotification(reminder.Title, AppRuntime.Settings.Language == "ar");
     }
 
     /// <summary>Waits for another launch to request activation of this instance's main window.</summary>
@@ -126,6 +180,11 @@ public partial class App : Application
                 _ownsSingleInstanceMutex = true;
                 return true;
             }
+
+            // A scheduled dispatcher must not steal focus from the user's active application.
+            // The existing instance's reminder timer will process the due item shortly.
+            if (_isScheduledReminderLaunch)
+                return false;
 
             try
             {
