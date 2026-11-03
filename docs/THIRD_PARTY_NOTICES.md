@@ -95,3 +95,22 @@ These components are downloaded to the current user's LocalAppData directory onl
 - **Piper Arabic voice ar_JO-kareem-medium and English voice en_US-lessac-medium** — https://huggingface.co/rhasspy/piper-voices. The ONNX voice files are verified against upstream SHA-256 digests; each model's JSON configuration is size-checked and validated before use. The voice collection declares MIT licensing, and the Arabic voice is Jordanian Arabic rather than Egyptian Arabic.
 
 Upstream notices and model terms apply to the downloaded components separately from Layal. This inventory is informational and does not constitute a legal opinion or rights clearance for every use case.
+
+## PdfPig
+
+- Package: PdfPig version 0.1.16 (stable release; pre-release builds are not used)
+- License declared by upstream package metadata: Apache-2.0
+- Source: https://github.com/UglyToad/PdfPig
+- Package metadata: https://www.nuget.org/packages/PdfPig/0.1.16
+- License text: licenses/Apache-2.0-OpenCvSharp.txt
+
+## DocumentFormat.OpenXml
+
+- Package: DocumentFormat.OpenXml version 3.5.1 (direct dependency)
+- Package: DocumentFormat.OpenXml.Framework version 3.5.1 (transitive dependency)
+- License declared by upstream: MIT
+- Source/license: https://github.com/dotnet/Open-XML-SDK
+- Package metadata: https://www.nuget.org/packages/DocumentFormat.OpenXml/3.5.1
+- License text: licenses/MIT-DocumentFormat-OpenXml.txt
+
+These libraries are used only for local extraction of text from user-selected PDF, DOCX and XLSX files. Their inclusion does not imply that scanned PDFs are OCRed, that macros are executed, or that the app automatically sends a selected file to an AI provider.

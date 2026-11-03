@@ -44,6 +44,166 @@ public sealed class MainWindowVisualSmokeTests
             Assert.Fail("WPF visual smoke failed: " + failure);
     }
 
+    private static void AssertAttachmentControlMutualExclusion(MainWindow window)
+    {
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var imageBytesField = typeof(MainWindow).GetField("_pendingVisionImageBytes", flags)
+            ?? throw new InvalidOperationException("Pending image bytes field was not found.");
+        var imageTypeField = typeof(MainWindow).GetField("_pendingVisionContentType", flags)
+            ?? throw new InvalidOperationException("Pending image content-type field was not found.");
+        var imageNameField = typeof(MainWindow).GetField("_pendingVisionFileName", flags)
+            ?? throw new InvalidOperationException("Pending image filename field was not found.");
+        var documentTextField = typeof(MainWindow).GetField("_pendingDocumentText", flags)
+            ?? throw new InvalidOperationException("Pending document text field was not found.");
+        var documentNameField = typeof(MainWindow).GetField("_pendingDocumentFileName", flags)
+            ?? throw new InvalidOperationException("Pending document filename field was not found.");
+        var documentNoticeField = typeof(MainWindow).GetField("_pendingDocumentNotice", flags)
+            ?? throw new InvalidOperationException("Pending document notice field was not found.");
+        var updateVision = typeof(MainWindow).GetMethod("UpdateVisionAttachmentControls", flags)
+            ?? throw new InvalidOperationException("Vision attachment UI updater was not found.");
+        var updateDocument = typeof(MainWindow).GetMethod("UpdateDocumentAttachmentUi", flags)
+            ?? throw new InvalidOperationException("Document attachment UI updater was not found.");
+
+        var chooseImage = (Button?)window.FindName("ChooseImageButton")
+            ?? throw new InvalidOperationException("ChooseImageButton was not found.");
+        var chooseDocument = (Button?)window.FindName("ChooseDocumentButton")
+            ?? throw new InvalidOperationException("ChooseDocumentButton was not found.");
+        var captureScreen = (Button?)window.FindName("CaptureScreenRegionButton")
+            ?? throw new InvalidOperationException("CaptureScreenRegionButton was not found.");
+        var pasteClipboardImage = (Button?)window.FindName("PasteClipboardImageButton")
+            ?? throw new InvalidOperationException("PasteClipboardImageButton was not found.");
+
+        var previousImageBytes = imageBytesField.GetValue(window);
+        var previousImageType = imageTypeField.GetValue(window);
+        var previousImageName = imageNameField.GetValue(window);
+        var previousDocumentText = documentTextField.GetValue(window);
+        var previousDocumentName = documentNameField.GetValue(window);
+        var previousDocumentNotice = documentNoticeField.GetValue(window);
+
+        try
+        {
+            documentTextField.SetValue(window, null);
+            documentNameField.SetValue(window, null);
+            documentNoticeField.SetValue(window, null);
+            imageBytesField.SetValue(window, new byte[] { 0x01, 0x02, 0x03 });
+            imageTypeField.SetValue(window, "image/png");
+            imageNameField.SetValue(window, "attachment-regression.png");
+            updateVision.Invoke(window, null);
+
+            Assert.IsFalse(chooseDocument.IsEnabled, "A pending image must disable choosing a text document.");
+            Assert.IsFalse(pasteClipboardImage.IsEnabled, "A pending image must disable reading another clipboard image.");
+
+            imageBytesField.SetValue(window, null);
+            imageTypeField.SetValue(window, null);
+            imageNameField.SetValue(window, null);
+            documentTextField.SetValue(window, "document attachment sentinel");
+            documentNameField.SetValue(window, "attachment-regression.txt");
+            documentNoticeField.SetValue(window, "Local test preview only.");
+            updateDocument.Invoke(window, null);
+
+            Assert.IsFalse(chooseImage.IsEnabled, "A pending document must disable choosing another image.");
+            Assert.IsFalse(captureScreen.IsEnabled, "A pending document must disable screen capture.");
+            Assert.IsFalse(pasteClipboardImage.IsEnabled, "A pending document must disable clipboard image input.");
+        }
+        finally
+        {
+            imageBytesField.SetValue(window, previousImageBytes);
+            imageTypeField.SetValue(window, previousImageType);
+            imageNameField.SetValue(window, previousImageName);
+            documentTextField.SetValue(window, previousDocumentText);
+            documentNameField.SetValue(window, previousDocumentName);
+            documentNoticeField.SetValue(window, previousDocumentNotice);
+            updateVision.Invoke(window, null);
+            updateDocument.Invoke(window, null);
+        }
+    }
+
+    private static void AssertEscapeCancelsActiveChatAndAgentOperations(MainWindow window)
+    {
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var chatField = typeof(MainWindow).GetField("_chatCancellation", flags)
+            ?? throw new InvalidOperationException("Chat cancellation field was not found.");
+        var taskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
+            ?? throw new InvalidOperationException("Agent task cancellation field was not found.");
+        var keyHandler = typeof(MainWindow).GetMethod("MainWindow_PreviewKeyDown", flags)
+            ?? throw new InvalidOperationException("Main window keyboard handler was not found.");
+
+        if (chatField.GetValue(window) is not null || taskField.GetValue(window) is not null)
+            throw new InvalidOperationException("The Escape regression test requires an idle chat and task runner.");
+
+        using var chatCancellation = new CancellationTokenSource();
+        using var taskCancellation = new CancellationTokenSource();
+        try
+        {
+            chatField.SetValue(window, chatCancellation);
+            var chatEscape = CreateEscapeKeyEvent(window);
+            keyHandler.Invoke(window, new object[] { window, chatEscape });
+            Assert.IsTrue(chatCancellation.IsCancellationRequested, "Escape should cancel an active chat request.");
+            Assert.IsTrue(chatEscape.Handled, "Escape should be handled when it cancels an operation.");
+
+            chatField.SetValue(window, null);
+            taskField.SetValue(window, taskCancellation);
+            var taskEscape = CreateEscapeKeyEvent(window);
+            keyHandler.Invoke(window, new object[] { window, taskEscape });
+            Assert.IsTrue(taskCancellation.IsCancellationRequested, "Escape should cancel an active agent task.");
+            Assert.IsTrue(taskEscape.Handled, "Escape should be handled when it cancels an agent task.");
+        }
+        finally
+        {
+            chatField.SetValue(window, null);
+            taskField.SetValue(window, null);
+        }
+    }
+
+    private static KeyEventArgs CreateEscapeKeyEvent(MainWindow window)
+    {
+        var source = PresentationSource.FromVisual(window)
+            ?? throw new InvalidOperationException("The main window has no presentation source.");
+        return new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Escape)
+        {
+            RoutedEvent = Keyboard.PreviewKeyDownEvent
+        };
+    }
+
+    private static void AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(MainWindow window)
+    {
+        AppRuntime.ChatSessionService.SaveCurrentMessages(new[]
+        {
+            new ChatMessage { Role = "user", Content = "Saved conversation sentinel" },
+            new ChatMessage { Role = "assistant", Content = "Saved reply sentinel" }
+        });
+
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var enterPrivate = typeof(MainWindow).GetMethod("EnterPrivateChatMode", flags)
+            ?? throw new InvalidOperationException("Private-chat entry method was not found.");
+        var addMessage = typeof(MainWindow).GetMethod("AddMessage", flags)
+            ?? throw new InvalidOperationException("Chat message method was not found.");
+        var exitPrivate = typeof(MainWindow).GetMethod("ExitPrivateChatMode", flags)
+            ?? throw new InvalidOperationException("Private-chat exit method was not found.");
+
+        enterPrivate.Invoke(window, null);
+        Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
+        Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
+        var historySelector = (ComboBox?)window.FindName("ChatHistorySelector")
+            ?? throw new InvalidOperationException("Chat history selector was not found.");
+        Assert.IsFalse(historySelector.IsEnabled, "Saved history must not be selectable in private chat.");
+
+        addMessage.Invoke(window, new object[] { "user", "Private-only sentinel" });
+        Assert.AreEqual(1, window.ChatMessages.Count);
+        var storedWhilePrivate = AppRuntime.ChatSessionService.GetCurrent();
+        Assert.AreEqual(2, storedWhilePrivate.Messages.Count, "Private messages must not change persisted history.");
+        Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
+        Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
+
+        exitPrivate.Invoke(window, null);
+        Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
+        Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
+        Assert.AreEqual("Saved conversation sentinel", window.ChatMessages[0].Content);
+        Assert.AreEqual("Saved reply sentinel", window.ChatMessages[1].Content);
+        Assert.AreEqual(1, window.ChatConversations.Count);
+        Assert.AreEqual(2, AppRuntime.ChatSessionService.GetCurrent().Messages.Count);
+    }
+
     private static void RenderAllStates()
     {
         using var temp = new TestTempDirectory();
@@ -327,6 +487,12 @@ public sealed class MainWindowVisualSmokeTests
         AssertInteractionAndSettingsPersistence(window, mascot, temp.Path);
         lines.Add("Interactive settings regression: language/theme/navigation, mascot toggles, size/opacity, opt-in window inspection, provider validation/persistence, and show/hide passed.");
 
+        AssertEscapeCancelsActiveChatAndAgentOperations(window);
+        AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window);
+        lines.Add("AYO safety regression: Escape cancellation and non-persistent private-chat history passed.");
+        AssertAttachmentControlMutualExclusion(window);
+        lines.Add("Attachment regression: image and document inputs stay mutually exclusive and respect privacy/preview state.");
+
         File.WriteAllLines(Path.Combine(outputDirectory, "manifest.txt"), lines);
         AppRuntime.IsExiting = true;
         mascot.Close();
@@ -363,6 +529,131 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(chatInput)),
             "Chat input must expose an accessible name.");
+        var clipboardButton = window.FindName("ReadClipboardButton") as Button
+            ?? throw new InvalidOperationException("ReadClipboardButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(clipboardButton)),
+            "Clipboard text review must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(clipboardButton)),
+            "Clipboard text review must disclose its privacy behaviour.");
+        var clipboardImageButton = window.FindName("PasteClipboardImageButton") as Button
+            ?? throw new InvalidOperationException("PasteClipboardImageButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(clipboardImageButton)),
+            "Clipboard image attachment must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(clipboardImageButton)),
+            "Clipboard image attachment must disclose consent, size limits, and no-auto-send behaviour.");
+        var remindersButton = window.FindName("ManageRemindersButton") as Button
+            ?? throw new InvalidOperationException("ManageRemindersButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(remindersButton)),
+            "The reminder manager must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(remindersButton)),
+            "The reminder manager must disclose where reminders are stored and how notifications work.");
+        var routinesButton = window.FindName("ManageRoutinesButton") as Button
+            ?? throw new InvalidOperationException("ManageRoutinesButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(routinesButton)),
+            "The routine manager must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(routinesButton)),
+            "The routine manager must disclose that choosing a routine does not run it.");
+        var performanceModeCheckbox = window.FindName("PerformanceModeCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("PerformanceModeCheckbox was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(performanceModeCheckbox)),
+            "Performance mode must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(performanceModeCheckbox)),
+            "Performance mode must describe its effect on animations and 3D rendering.");
+        var themePresetSelector = window.FindName("ThemePresetSelector") as ComboBox
+            ?? throw new InvalidOperationException("ThemePresetSelector was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(themePresetSelector)),
+            "Theme preset selector must expose an accessible name.");
+        Assert.AreEqual(4, themePresetSelector.Items.Count,
+            "The app should offer four named presets (Classic, Ocean, Forest, Sunset).");
+        var hotkeySelector = window.FindName("QuickAskHotkeySelector") as ComboBox
+            ?? throw new InvalidOperationException("QuickAskHotkeySelector was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(hotkeySelector)),
+            "Quick Ask shortcut selector must expose an accessible name.");
+        Assert.AreEqual(3, hotkeySelector.Items.Count, "Three safe shortcut presets should be available.");
+        var hotkeyStatus = window.FindName("QuickAskHotkeyStatus") as TextBlock
+            ?? throw new InvalidOperationException("QuickAskHotkeyStatus was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(hotkeyStatus)),
+            "Quick Ask shortcut registration status must be accessible.");
+        var gameModeButton = window.FindName("GameModeButton") as Button
+            ?? throw new InvalidOperationException("GameModeButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(gameModeButton)),
+            "Manual game mode must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(gameModeButton)),
+            "Manual game mode must disclose that it does not inspect or control games.");
+        var workspaceHubButton = window.FindName("WorkspaceHubButton") as Button
+            ?? throw new InvalidOperationException("WorkspaceHubButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(workspaceHubButton)),
+            "Workspace hub must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(workspaceHubButton)),
+            "Workspace hub must disclose local indexing and export privacy.");
+        var gmailButton = window.FindName("GmailInboxButton") as Button
+            ?? throw new InvalidOperationException("GmailInboxButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(gmailButton)),
+            "The Gmail inbox button must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(gmailButton)),
+            "The Gmail inbox button must disclose read-only access and manual sharing.");
+        var personaSelector = window.FindName("AssistantPersonaSelector") as ComboBox
+            ?? throw new InvalidOperationException("AssistantPersonaSelector was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(personaSelector)),
+            "The assistant persona selector must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(personaSelector)),
+            "The assistant persona selector must disclose that style does not change permissions.");
+        Assert.AreEqual(3, personaSelector.Items.Count,
+            "The app should offer three named response styles.");
+
+        var privacyShieldButton = window.FindName("PrivacyShieldButton") as Button
+            ?? throw new InvalidOperationException("PrivacyShieldButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(privacyShieldButton)),
+            "The master privacy shield must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(privacyShieldButton)),
+            "The master privacy shield must disclose the capture operations it blocks.");
+        var checkInToggle = window.FindName("ProactiveCheckInEnabledCheckBox") as CheckBox
+            ?? throw new InvalidOperationException("ProactiveCheckInEnabledCheckBox was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(checkInToggle)),
+            "Scheduled check-ins must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(checkInToggle)),
+            "Scheduled check-ins must disclose that they do not inspect the screen or call AI.");
+        var inspectElementButton = window.FindName("InspectHoveredElementButton") as Button
+            ?? throw new InvalidOperationException("InspectHoveredElementButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(inspectElementButton)),
+            "UI element inspection must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(inspectElementButton)),
+            "UI element inspection must disclose that no field values or screenshots are captured.");
+        var loreWebButton = window.FindName("LoreWebButton") as Button
+            ?? throw new InvalidOperationException("LoreWebButton was not found.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(loreWebButton)),
+            "The local 3D memory web must expose an accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(loreWebButton)),
+            "The local 3D memory web must disclose that links are approximate and private.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
@@ -725,6 +1016,8 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("AlwaysOnTopCheckbox was not found.");
         var animations = window.FindName("AnimationsCheckbox") as CheckBox
             ?? throw new InvalidOperationException("AnimationsCheckbox was not found.");
+        var performanceMode = window.FindName("PerformanceModeCheckbox") as CheckBox
+            ?? throw new InvalidOperationException("PerformanceModeCheckbox was not found.");
         var windowInspection = window.FindName("WindowInspectionCheckbox") as CheckBox
             ?? throw new InvalidOperationException("WindowInspectionCheckbox was not found.");
         var size = window.FindName("MascotSizeSlider") as Slider
@@ -775,6 +1068,25 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(store.Load().MascotAnimationsEnabled, "Disabling mascot animation must persist immediately.");
         animations.IsChecked = true;
         Assert.IsTrue(store.Load().MascotAnimationsEnabled, "Re-enabling mascot animation must persist.");
+
+        // Performance mode is an effective override only; it must not rewrite the user's
+        // animation preference, and the live hit-test budget must switch between both rates.
+        var hitTestTimerField = typeof(FloatingMascotWindow).GetField("_hitTestTimer", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Mascot hit-test timer was not found.");
+        var hitTestTimer = hitTestTimerField.GetValue(mascot) as DispatcherTimer
+            ?? throw new InvalidOperationException("Mascot hit-test timer is not initialized.");
+        performanceMode.IsChecked = true;
+        var performanceSettings = store.Load();
+        Assert.IsTrue(performanceSettings.PerformanceModeEnabled, "Enabling performance mode must persist.");
+        Assert.IsTrue(performanceSettings.MascotAnimationsEnabled, "Performance mode must preserve the normal animation preference.");
+        Assert.AreEqual(33, hitTestTimer.Interval.TotalMilliseconds, 0.1,
+            "Performance mode should reduce high-frequency hit testing to about 30 Hz.");
+        performanceMode.IsChecked = false;
+        var normalSettings = store.Load();
+        Assert.IsFalse(normalSettings.PerformanceModeEnabled, "Disabling performance mode must persist.");
+        Assert.IsTrue(normalSettings.MascotAnimationsEnabled, "Disabling performance mode should restore the previously enabled animation preference.");
+        Assert.AreEqual(8, hitTestTimer.Interval.TotalMilliseconds, 0.1,
+            "Disabling performance mode should restore the normal hit-test interval.");
 
         // The window-title permission is opt-in and must round-trip in both directions.
         windowInspection.IsChecked = true;
@@ -922,6 +1234,8 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.SkillPackageService = new SkillPackageService(Path.Combine(root, "skills"));
         AppRuntime.MemoryService = new MemoryService(Path.Combine(root, "memory.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(root, "tasks.dpapi"));
+        AppRuntime.ReminderService = new ReminderService(Path.Combine(root, "reminders.dpapi"));
+        AppRuntime.SavedRoutineService = new SavedRoutineService(Path.Combine(root, "saved-routines.dpapi"));
         AppRuntime.ChatHistoryStore = new ProtectedJsonStore<List<ChatMessage>>(Path.Combine(root, "chat.dpapi"));
         AppRuntime.ChatSessionService = new ChatSessionService(
             Path.Combine(root, "sessions.dpapi"), AppRuntime.ChatHistoryStore, "Visual smoke");

@@ -558,7 +558,11 @@ for mood in ("writing", "validating"):
         ERRORS.append(f"Task-stage mood '{mood}' is not fully wired into the mascot expression/reaction lifecycle")
     if f'"{mood}"' not in resolver_code:
         ERRORS.append(f"Task-stage resolver does not route mood '{mood}'")
-if "ForInterfaceLanguage(string? language)" not in (ROOT / "src/Layal.Desktop/Services/LayalIdentity.cs").read_text(encoding="utf-8"):
+identity_source = (ROOT / "src/Layal.Desktop/Services/LayalIdentity.cs").read_text(encoding="utf-8")
+if not any(signature in identity_source for signature in (
+    "ForInterfaceLanguage(string? language)",
+    'ForInterfaceLanguage(string? language, string? persona = "warm")',
+)):
     ERRORS.append("Selected interface language is not applied to Layal's system prompt")
 if "ChatMessageContextMenu_Opened" not in main_code:
     ERRORS.append("Chat message context menu does not switch its label with the interface language")

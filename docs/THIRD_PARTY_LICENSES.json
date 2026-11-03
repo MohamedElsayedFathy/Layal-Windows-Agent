@@ -325,6 +325,36 @@
       "licenseTextPath": "licenses/Apache-2.0-OpenCvSharp.txt",
       "copyright": "OpenCvSharp contributors; see upstream project license and notices.",
       "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "PdfPig",
+      "licenseExpression": "Apache-2.0",
+      "versionPolicy": "direct dependency pinned to stable 0.1.16; 0.1.17 pre-release builds are not used",
+      "sourceUrl": "https://www.nuget.org/packages/PdfPig/0.1.16",
+      "licenseUrl": "https://github.com/UglyToad/PdfPig/blob/master/LICENSE",
+      "licenseTextPath": "licenses/Apache-2.0-OpenCvSharp.txt",
+      "copyright": "PdfPig contributors; Apache License 2.0.",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "DocumentFormat.OpenXml",
+      "licenseExpression": "MIT",
+      "versionPolicy": "direct dependency pinned to 3.5.1",
+      "sourceUrl": "https://www.nuget.org/packages/DocumentFormat.OpenXml/3.5.1",
+      "licenseUrl": "https://github.com/dotnet/Open-XML-SDK/blob/main/LICENSE",
+      "licenseTextPath": "licenses/MIT-DocumentFormat-OpenXml.txt",
+      "copyright": "Copyright (c) .NET Foundation and Contributors",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "DocumentFormat.OpenXml.Framework",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency from DocumentFormat.OpenXml 3.5.1",
+      "sourceUrl": "https://www.nuget.org/packages/DocumentFormat.OpenXml.Framework/3.5.1",
+      "licenseUrl": "https://github.com/dotnet/Open-XML-SDK/blob/main/LICENSE",
+      "licenseTextPath": "licenses/MIT-DocumentFormat-OpenXml.txt",
+      "copyright": "Copyright (c) .NET Foundation and Contributors",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
     }
   ],
   "provenanceReview": {

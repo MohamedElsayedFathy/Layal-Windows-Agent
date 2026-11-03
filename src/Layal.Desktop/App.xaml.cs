@@ -45,6 +45,9 @@ public partial class App : Application
         AppRuntime.SkillPackageService = new SkillPackageService(Path.Combine(dataRoot, "Skills"));
         AppRuntime.MemoryService = new MemoryService(Path.Combine(dataRoot, "memory-notes.dpapi"));
         AppRuntime.TaskHistoryService = new TaskHistoryService(Path.Combine(dataRoot, "agent-tasks.dpapi"));
+        AppRuntime.ReminderService = new ReminderService(Path.Combine(dataRoot, "reminders.dpapi"));
+        AppRuntime.SavedRoutineService = new SavedRoutineService(Path.Combine(dataRoot, "saved-routines.dpapi"));
+        AppRuntime.GmailReadOnlyService = new GmailReadOnlyService(Path.Combine(dataRoot, "secrets", "gmail-refresh-token.dpapi"));
         AppRuntime.ChatHistoryStore = new ProtectedJsonStore<List<Layal.Models.ChatMessage>>(Path.Combine(dataRoot, "chat-history.dpapi"));
         AppRuntime.ChatSessionService = new ChatSessionService(
             Path.Combine(dataRoot, "chat-sessions.dpapi"),

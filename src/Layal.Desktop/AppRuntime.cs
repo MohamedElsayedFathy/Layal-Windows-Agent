@@ -13,6 +13,9 @@ public static class AppRuntime
     public static SkillPackageService SkillPackageService { get; set; } = null!;
     public static MemoryService MemoryService { get; set; } = null!;
     public static TaskHistoryService TaskHistoryService { get; set; } = null!;
+    public static ReminderService ReminderService { get; set; } = null!;
+    public static SavedRoutineService SavedRoutineService { get; set; } = null!;
+    public static GmailReadOnlyService GmailReadOnlyService { get; set; } = null!;
     public static ProtectedJsonStore<List<ChatMessage>> ChatHistoryStore { get; set; } = null!;
     public static ChatSessionService ChatSessionService { get; set; } = null!;
     public static AgentToolExecutor AgentToolExecutor { get; set; } = null!;
@@ -25,4 +28,6 @@ public static class AppRuntime
     public static TrayService? Tray { get; set; }
     public static Action? ExitAction { get; set; }
     public static bool IsExiting { get; set; }
+    /// <summary>Manual, user-invoked game mode. It pauses local reminder notifications and performs no game/process inspection.</summary>
+    public static bool IsGameModeActive { get; set; }
 }

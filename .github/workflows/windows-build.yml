@@ -54,6 +54,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_licenses.py --manifest-only --report artifacts/security/license-manifest-validation.md
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/validate_ayo_parity.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests/python -p "test_*.py"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

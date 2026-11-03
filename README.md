@@ -49,3 +49,7 @@ Layal agent file tools and dotnet build/test operations are limited to `%USERPRO
 ## Digital signatures and file integrity
 
 The normal PR/CI build remains explicitly unsigned. A version tag matching `v*` enters a fail-closed release path that requires a trusted Authenticode Code Signing certificate configured through GitHub Actions repository secrets. That path signs `Layal.exe` and the setup EXE with SHA-256 and an RFC 3161 timestamp, verifies both signatures, and regenerates the SHA-256 manifest after signing. See `docs/CODE_SIGNING_AR.md` and `docs/DISTRIBUTION_AR.md`. A real signing certificate has not yet been provisioned; the release path will not publish an unsigned tag build.
+
+## AYO-inspired capability parity
+
+The AYO-inspired feature inventory and its evidence-based implementation status live in [docs/AYO_FEATURE_PARITY_AR.md](docs/AYO_FEATURE_PARITY_AR.md). This is a tracked roadmap, not a claim of feature-complete parity.

@@ -60,6 +60,27 @@ public sealed class TrayService : IDisposable
         SetLanguage(language);
     }
 
+    public void ShowReminderNotification(string reminderTitle, bool isArabic)
+    {
+        if (_disposed || !_icon.Visible)
+            return;
+
+        var safeTitle = (reminderTitle ?? string.Empty)
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal)
+            .Trim();
+        if (safeTitle.Length > 220)
+            safeTitle = safeTitle[..220] + "…";
+        if (string.IsNullOrWhiteSpace(safeTitle))
+            safeTitle = isArabic ? "تذكير محلي" : "Local reminder";
+
+        _icon.ShowBalloonTip(
+            6000,
+            isArabic ? "حان موعد التذكير" : "Reminder is due",
+            safeTitle,
+            Forms.ToolTipIcon.Info);
+    }
+
     public void SetLanguage(string language)
     {
         var ar = language == "ar";

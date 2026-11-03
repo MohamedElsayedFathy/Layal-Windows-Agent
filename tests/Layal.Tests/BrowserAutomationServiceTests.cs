@@ -1,3 +1,4 @@
+using System.IO;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -16,6 +17,64 @@ public sealed class BrowserAutomationServiceTests
         Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateHttpUrl("file:///C:/private.txt"));
         Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateHttpUrl("https://user:secret@example.com/"));
         Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateHttpUrl("not a url"));
+    }
+
+    [TestMethod]
+    public void BrowserDownloadValidationAllowsOnlySameOriginHttpsDocumentsAndImages()
+    {
+        var page = "https://docs.example.com/articles/guide";
+        var valid = SafeBrowserDownloadService.ValidateDownloadTarget(
+            page,
+            "https://docs.example.com/files/guide.pdf?version=2");
+        Assert.AreEqual("https", valid.Scheme);
+        Assert.AreEqual("docs.example.com", valid.Host);
+        Assert.AreEqual(".pdf", Path.GetExtension(valid.AbsolutePath));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "https://cdn.example.com/guide.pdf"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "http://docs.example.com/guide.pdf"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "https://docs.example.com/setup.exe"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "https://user:pass@docs.example.com/guide.pdf"));
+    }
+
+    [TestMethod]
+    public void BrowserDownloadPublicIpFilterRejectsLocalPrivateAndSpecialRanges()
+    {
+        foreach (var blocked in new[]
+        {
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.0.1",
+            "192.168.1.10",
+            "169.254.10.20",
+            "100.64.1.2",
+            "198.18.0.1",
+            "203.0.113.10",
+            "::1",
+            "fc00::1",
+            "fe80::1",
+            "2001:db8::1",
+            "::ffff:192.168.1.1"
+        })
+        {
+            Assert.IsFalse(
+                SafeBrowserDownloadService.IsPublicAddress(System.Net.IPAddress.Parse(blocked)),
+                $"{blocked} must be blocked.");
+        }
+
+        Assert.IsTrue(SafeBrowserDownloadService.IsPublicAddress(System.Net.IPAddress.Parse("8.8.8.8")));
+        Assert.IsTrue(SafeBrowserDownloadService.IsPublicAddress(System.Net.IPAddress.Parse("2001:4860:4860::8888")));
+    }
+
+    [TestMethod]
+    public void BrowserDownloadFilenameSanitizationRemovesTraversalAndReservedDeviceNames()
+    {
+        Assert.AreEqual("guide.pdf", SafeBrowserDownloadService.SanitizeFileName("../../guide.pdf", ".pdf"));
+        Assert.AreEqual("download.txt", SafeBrowserDownloadService.SanitizeFileName(@"C:\temp\CON.txt", ".txt"));
+        Assert.AreEqual("download.pdf", SafeBrowserDownloadService.SanitizeFileName("payload.exe", ".pdf"));
     }
 
     [TestMethod]
@@ -78,6 +137,96 @@ public sealed class BrowserAutomationServiceTests
             CancellationToken.None);
 
         StringAssert.Contains(result, "declined");
+        Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")));
+    }
+
+    [TestMethod]
+    public async Task DeclinedWebSearchDoesNotLaunchOrCreateBrowserProfile()
+    {
+        using var temp = new TestTempDirectory();
+        var dataRoot = Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            Path.Combine(temp.Path, "workspace"),
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCount = 0;
+
+        var result = await executor.ExecuteAsync(
+            "web_search",
+            "{\"query\":\"how to validate an engineering claim\"}",
+            (title, preview, token) =>
+            {
+                approvalCount++;
+                StringAssert.Contains(title, "Search");
+                StringAssert.Contains(preview, "bing.com/search");
+                StringAssert.Contains(preview, "how to validate an engineering claim");
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, approvalCount);
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")),
+            "Declining search must not launch Edge or create its isolated profile.");
+    }
+
+    [TestMethod]
+    public async Task DeclinedFactCheckDoesNotStartTheSecondQueryOrLaunchBrowser()
+    {
+        using var temp = new TestTempDirectory();
+        var dataRoot = Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            Path.Combine(temp.Path, "workspace"),
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCount = 0;
+
+        var result = await executor.ExecuteAsync(
+            "fact_check_claim",
+            "{\"claim\":\"The release was published in 2025\"}",
+            (title, preview, token) =>
+            {
+                approvalCount++;
+                StringAssert.Contains(title, "Fact-check: search claim");
+                StringAssert.Contains(preview, "The release was published in 2025");
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, approvalCount, "A declined first query must not trigger the contrary-evidence query.");
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")),
+            "Declining a fact-check query must not launch Edge or create its isolated profile.");
+    }
+
+    [TestMethod]
+    public async Task InvalidFactCheckClaimIsRejectedBeforeApprovalOrBrowserStartup()
+    {
+        using var temp = new TestTempDirectory();
+        var dataRoot = Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            Path.Combine(temp.Path, "workspace"),
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCount = 0;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "fact_check_claim",
+            "{\"claim\":\"tiny\"}",
+            (_, _, _) =>
+            {
+                approvalCount++;
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.AreEqual(0, approvalCount, "Invalid claims must be rejected before requesting consent.");
         Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")));
     }
 

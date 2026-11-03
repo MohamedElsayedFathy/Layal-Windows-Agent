@@ -1,0 +1,49 @@
+<Window x:Class="Layal.Views.QuickAskWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Layal | Quick Ask" Width="560" Height="330" MinWidth="420" MinHeight="260" MaxHeight="680"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip"
+        Topmost="True" Background="{DynamicResource Layal.Background}" Foreground="{DynamicResource Layal.Text}"
+        FontFamily="Segoe UI" FontSize="14" PreviewKeyDown="QuickAskWindow_PreviewKeyDown">
+    <Border Margin="12" Padding="18" CornerRadius="18"
+            Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,8">
+                <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="إغلاق" Click="CloseButton_Click"
+                        Padding="12,6" MinWidth="68" AutomationProperties.Name="إغلاق نافذة السؤال السريع"/>
+                <TextBlock x:Name="HeadingText" Text="سؤال سريع" FontSize="20" FontWeight="SemiBold"
+                           VerticalAlignment="Center" AutomationProperties.Name="سؤال سريع"/>
+            </DockPanel>
+            <TextBlock x:Name="HintText" Grid.Row="1" Text="اكتب سؤالك. يستخدم Layal سياق المحادثة وإعدادات المزود الحالية؛ لا يتم التقاط الشاشة أو إرفاق ملفات تلقائيًا."
+                       Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <TextBox x:Name="QuestionInput" Grid.Row="2" MinHeight="66" MaxHeight="130" Padding="10"
+                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                     AutomationProperties.Name="سؤالك" AutomationProperties.HelpText="Ctrl+Enter للإرسال، وShift+Enter لسطر جديد، وEsc للإغلاق أو إيقاف الطلب."
+                     VerticalContentAlignment="Top"/>
+            <ScrollViewer x:Name="AnswerScrollViewer" Grid.Row="3" Margin="0,10,0,8"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Visibility="Collapsed">
+                <TextBlock x:Name="AnswerText" TextWrapping="Wrap" AutomationProperties.Name="إجابة السؤال السريع"
+                           AutomationProperties.LiveSetting="Polite"/>
+            </ScrollViewer>
+            <Grid Grid.Row="4" Margin="0,4,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                           AutomationProperties.Name="حالة السؤال السريع" AutomationProperties.LiveSetting="Polite"/>
+                <Button x:Name="CancelButton" Grid.Column="1" Content="إغلاق" Click="CancelButton_Click"
+                        Padding="12,8" Margin="0,0,8,0" MinWidth="72"/>
+                <Button x:Name="SubmitButton" Grid.Column="2" Content="اسأل" Click="SubmitButton_Click"
+                        Padding="18,8" MinWidth="84" Background="{DynamicResource Layal.PrimaryButtonGradient}"
+                        AutomationProperties.Name="إرسال السؤال السريع"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
