@@ -59,6 +59,63 @@ public sealed class MemoryService
     }
 
     /// <summary>Archives or restores a note without deleting its contents.</summary>
+    /// <summary>
+    /// Merges validated notes from a backup. Existing IDs are left unchanged; no existing note is
+    /// deleted or overwritten, and imported content is checked for credential-like secrets.
+    /// </summary>
+    public int ImportMany(IEnumerable<MemoryNote> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+        var candidates = imported.Take(MaxSavedNotes + 1).ToList();
+        if (candidates.Count > MaxSavedNotes)
+            throw new InvalidOperationException($"A memory backup may contain at most {MaxSavedNotes} notes.");
+
+        var normalized = new List<MemoryNote>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var note in candidates)
+        {
+            if (note is null ||
+                !Guid.TryParseExact(note.Id, "N", out _) ||
+                string.IsNullOrWhiteSpace(note.Title) || note.Title.Length > 120 ||
+                string.IsNullOrWhiteSpace(note.Content) || note.Content.Length > 12_000)
+                throw new InvalidOperationException("The memory backup contains an invalid note.");
+
+            var title = note.Title.Trim();
+            var content = note.Content.Trim();
+            if (LooksLikeSecret(title + "\\n" + content))
+                throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
+            if (!seenIds.Add(note.Id))
+                continue;
+
+            normalized.Add(new MemoryNote
+            {
+                Id = note.Id,
+                Title = title,
+                Content = content,
+                Category = NormalizeCategory(note.Category),
+                IsArchived = note.IsArchived,
+                CreatedAt = note.CreatedAt,
+                UpdatedAt = note.UpdatedAt
+            });
+        }
+
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var existingIds = notes.Select(note => note.Id).ToHashSet(StringComparer.Ordinal);
+            var toAdd = normalized.Where(note => !existingIds.Contains(note.Id)).ToList();
+            if (notes.Count + toAdd.Count > MaxSavedNotes)
+                throw new InvalidOperationException("There is not enough memory capacity to merge this backup. Existing notes were not changed.");
+
+            if (toAdd.Count > 0)
+            {
+                notes.AddRange(toAdd);
+                _store.Save(notes);
+            }
+            return toAdd.Count;
+        }
+    }
+
     public bool SetArchived(string id, bool isArchived)
     {
         if (string.IsNullOrWhiteSpace(id)) return false;
