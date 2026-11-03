@@ -187,6 +187,31 @@ public sealed class BrowserAutomationService
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// Reads only the active tab identity (target id, URL, title and ready state) for a consent
+    /// preview. It does not extract visible page text or DOM element content.
+    /// </summary>
+    public async Task<BrowserPageIdentity> GetCurrentPageIdentityAsync(CancellationToken token = default)
+    {
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
+        await _gate.WaitAsync(token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var page = await GetPageTargetAsync(token);
+            var urlText = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var title = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var readyState = await EvaluateAsync(page, "document.readyState", token) ?? string.Empty;
+            var url = ValidateHttpUrl(urlText).AbsoluteUri;
+            return new BrowserPageIdentity(page.Id, url, title, readyState);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<string> ReadCurrentPageAsync(CancellationToken token = default)
     {
         using var operationCancellation = CreateOperationToken(token);
@@ -677,3 +702,9 @@ public sealed record BrowserPageSnapshot(
     int FormCount);
 
 internal sealed record CdpPageTarget(string Id, string Title, string Url, string WebSocketUrl);
+
+public sealed record BrowserPageIdentity(
+    string PageTargetId,
+    string Url,
+    string Title,
+    string ReadyState);
