@@ -227,6 +227,8 @@ public sealed class GmailReadOnlyServiceTests
             RefreshToken = "test-refresh-token"
         });
 
+        var existingTempPreviews = Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         byte[] docxBytes;
         using (var package = new MemoryStream())
         {
@@ -278,7 +280,9 @@ public sealed class GmailReadOnlyServiceTests
         Assert.AreEqual(1, detail.Attachments!.Count);
         StringAssert.Contains(detail.Attachments[0].Status, "Local document text preview available");
         StringAssert.Contains(detail.Attachments[0].PreviewText, "Gmail document preview sentinel");
-        Assert.IsFalse(Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*").Any(),
+        var leakedPreviews = Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .Where(path => !existingTempPreviews.Contains(path)).ToArray();
+        Assert.AreEqual(0, leakedPreviews.Length,
             "Gmail document bytes must not be retained after the local preview is extracted.");
     }
 
