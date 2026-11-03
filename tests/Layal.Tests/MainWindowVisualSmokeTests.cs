@@ -125,11 +125,18 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("Chat cancellation field was not found.");
         var taskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
             ?? throw new InvalidOperationException("Agent task cancellation field was not found.");
+        var speechStoppingField = typeof(MainWindow).GetField("_speechIsStopping", flags)
+            ?? throw new InvalidOperationException("Speech stopping state was not found.");
+        var discardSpeechField = typeof(MainWindow).GetField("_discardSpeechAudioOnStop", flags)
+            ?? throw new InvalidOperationException("Pending speech discard state was not found.");
+        var speechCancellationField = typeof(MainWindow).GetField("_speechCancellation", flags)
+            ?? throw new InvalidOperationException("Speech cancellation field was not found.");
         var keyHandler = typeof(MainWindow).GetMethod("MainWindow_PreviewKeyDown", flags)
             ?? throw new InvalidOperationException("Main window keyboard handler was not found.");
 
-        if (chatField.GetValue(window) is not null || taskField.GetValue(window) is not null)
-            throw new InvalidOperationException("The Escape regression test requires an idle chat and task runner.");
+        if (chatField.GetValue(window) is not null || taskField.GetValue(window) is not null ||
+            speechCancellationField.GetValue(window) is not null || (bool)speechStoppingField.GetValue(window)!)
+            throw new InvalidOperationException("The Escape regression test requires idle chat, task, and speech operations.");
 
         using var chatCancellation = new CancellationTokenSource();
         using var taskCancellation = new CancellationTokenSource();
@@ -147,11 +154,22 @@ public sealed class MainWindowVisualSmokeTests
             keyHandler.Invoke(window, new object[] { window, taskEscape });
             Assert.IsTrue(taskCancellation.IsCancellationRequested, "Escape should cancel an active agent task.");
             Assert.IsTrue(taskEscape.Handled, "Escape should be handled when it cancels an agent task.");
+
+            taskField.SetValue(window, null);
+            speechStoppingField.SetValue(window, true);
+            discardSpeechField.SetValue(window, false);
+            var speechEscape = CreateEscapeKeyEvent(window);
+            keyHandler.Invoke(window, new object[] { window, speechEscape });
+            Assert.IsTrue((bool)discardSpeechField.GetValue(window)!,
+                "Escape during StopRecordingAsync finalization must mark its audio for discard before transcription or upload.");
+            Assert.IsTrue(speechEscape.Handled, "Escape should be handled while speech audio is being finalized.");
         }
         finally
         {
             chatField.SetValue(window, null);
             taskField.SetValue(window, null);
+            speechStoppingField.SetValue(window, false);
+            discardSpeechField.SetValue(window, false);
         }
     }
 
