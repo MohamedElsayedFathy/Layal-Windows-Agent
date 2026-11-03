@@ -1341,11 +1341,14 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory notes");
         MemorySearchButton.Content = ar ? "بحث" : "Search";
         NewMemoryButton.Content = ar ? "ملاحظة جديدة" : "New note";
+        MemoryCategoryLabel.Text = ar ? "التصنيف" : "Category";
+        System.Windows.Automation.AutomationProperties.SetName(MemoryCategoryInput, MemoryCategoryLabel.Text);
         MemoryTitleLabel.Text = ar ? "العنوان" : "Title";
         MemoryContentLabel.Text = ar ? "المحتوى" : "Content";
         System.Windows.Automation.AutomationProperties.SetName(MemoryTitleInput, MemoryTitleLabel.Text);
         System.Windows.Automation.AutomationProperties.SetName(MemoryContentInput, MemoryContentLabel.Text);
         SaveMemoryButton.Content = ar ? "حفظ الملاحظة" : "Save note";
+        ArchiveMemoryButton.Content = ar ? "أرشفة" : "Archive";
         DeleteMemoryButton.Content = ar ? "حذف الملاحظة" : "Delete note";
         ExportMemoryButton.Content = ar ? "تصدير JSON" : "Export JSON";
         MemoryPrivacyNote.Text = ar ? "لا تحفظ مفاتيح API أو كلمات المرور في الذاكرة. ملف JSON المُصدَّر غير مشفّر." : "Do not store API keys or passwords in memory. Exported JSON is unencrypted.";
@@ -5814,7 +5817,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var notes = AppRuntime.MemoryService.GetAll();
+            var notes = AppRuntime.MemoryService.GetAll(includeArchived: true);
             var window = new LoreWebWindow(notes, IsArabic, selectedNote =>
             {
                 MainTabs.SelectedItem = MemoryTab;
@@ -5831,7 +5834,8 @@ public partial class MainWindow : Window
                         : "Note opened from the local memory web.");
                 MemoryTitleInput.Focus();
             },
-            note => AppRuntime.MemoryService.Delete(note.Id))
+            note => AppRuntime.MemoryService.Delete(note.Id),
+            note => AppRuntime.MemoryService.SetArchived(note.Id, !note.IsArchived))
             {
                 Owner = this
             };
@@ -5848,6 +5852,7 @@ public partial class MainWindow : Window
     {
         _selectedMemoryId = null;
         MemoryList.SelectedItem = null;
+        MemoryCategoryInput.Text = "General";
         MemoryTitleInput.Clear();
         MemoryContentInput.Clear();
         SetAccessibleStatusText(MemoryResult, IsArabic ? "اكتب ملاحظة جديدة ثم اضغط حفظ." : "Write a new note and select Save.");
@@ -5858,6 +5863,7 @@ public partial class MainWindow : Window
     {
         if (MemoryList.SelectedItem is not MemoryNote note) return;
         _selectedMemoryId = note.Id;
+        MemoryCategoryInput.Text = note.Category;
         MemoryTitleInput.Text = note.Title;
         MemoryContentInput.Text = note.Content;
         SetAccessibleStatusText(MemoryResult, UiLocalization.FormatDateTime(note.UpdatedAt.LocalDateTime, IsArabic));
@@ -5873,7 +5879,7 @@ public partial class MainWindow : Window
                 IsArabic ? "سيتم حفظ هذه الملاحظة محليًا مشفرة باستخدام DPAPI لحساب Windows الحالي. لا تحفظ أسرارًا أو كلمات مرور. هل تريد المتابعة؟" : "This note will be saved locally encrypted with DPAPI for the current Windows user. Do not store secrets or passwords. Continue?",
                 IsArabic ? "تأكيد حفظ الذاكرة" : "Confirm memory save", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
             if (answer != MessageBoxResult.Yes) return;
-            var note = AppRuntime.MemoryService.Save(title, content, _selectedMemoryId);
+            var note = AppRuntime.MemoryService.Save(title, content, _selectedMemoryId, MemoryCategoryInput.Text);
             _selectedMemoryId = note.Id;
             RefreshMemoryNotes(MemorySearchInput.Text);
             MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(n => n.Id == note.Id);
@@ -5885,6 +5891,45 @@ public partial class MainWindow : Window
             SetAccessibleStatusText(MemoryResult, UiLocalization.FormatTechnicalError("تعذر حفظ الملاحظة", "Could not save the note", ex, IsArabic));
             MemoryResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
+    }
+
+    private void ArchiveMemoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedMemoryId))
+        {
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "حدد ملاحظة لأرشفتها." : "Select a note to archive.");
+            return;
+        }
+
+        var note = AppRuntime.MemoryService.GetAll().FirstOrDefault(item =>
+            string.Equals(item.Id, _selectedMemoryId, StringComparison.Ordinal));
+        if (note is null)
+        {
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "الملاحظة غير موجودة أو مؤرشفة بالفعل." : "The note is missing or already archived.");
+            return;
+        }
+
+        var answer = MessageBox.Show(this,
+            IsArabic
+                ? $"سيتم نقل «{note.Title}» إلى الأرشيف. لن تُحذف ويمكن استعادتها من خريطة الذاكرة. هل تريد المتابعة؟"
+                : $"“{note.Title}” will be moved to the archive. It will not be deleted and can be restored from the memory web. Continue?",
+            IsArabic ? "تأكيد الأرشفة" : "Confirm archive",
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+
+        if (!AppRuntime.MemoryService.SetArchived(note.Id, true))
+        {
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "تعذرت أرشفة الملاحظة." : "Could not archive the note.");
+            return;
+        }
+
+        _selectedMemoryId = null;
+        MemoryCategoryInput.Text = "General";
+        MemoryTitleInput.Clear();
+        MemoryContentInput.Clear();
+        RefreshMemoryNotes(MemorySearchInput.Text);
+        SetAccessibleStatusText(MemoryResult, IsArabic ? "تمت أرشفة الملاحظة ويمكن استعادتها من خريطة الذاكرة." : "Note archived. Restore it from the memory web.");
+        MemoryResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
     }
 
     private void DeleteMemoryButton_Click(object sender, RoutedEventArgs e)
