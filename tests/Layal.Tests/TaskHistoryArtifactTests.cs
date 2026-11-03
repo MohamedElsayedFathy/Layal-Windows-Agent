@@ -14,7 +14,7 @@ public sealed class TaskHistoryArtifactTests
     public void ArtifactPathNormalizationAcceptsRelativePathsAndUsesForwardSlashes()
     {
         Assert.AreEqual("reports/final.txt",
-            TaskHistoryService.NormalizeArtifactPath(@"reports\\final.txt"));
+            TaskHistoryService.NormalizeArtifactPath(@"reports\final.txt"));
         Assert.AreEqual("result.json",
             TaskHistoryService.NormalizeArtifactPath("result.json"));
     }
@@ -25,7 +25,7 @@ public sealed class TaskHistoryArtifactTests
         foreach (var path in new[]
         {
             "", "  ", "../outside.txt", "folder/../outside.txt", "./file.txt",
-            "/rooted.txt", @"C:\\outside.txt", @"\\\\server\\share\\file.txt",
+            "/rooted.txt", @"C:\outside.txt", @"\\server\share\file.txt",
             "folder//file.txt", "folder/./file.txt", "folder\\..\\file.txt",
             "bad\nname.txt"
         })
@@ -46,7 +46,7 @@ public sealed class TaskHistoryArtifactTests
         var task = new AgentTaskRecord { Id = "task-1", Goal = "Create a report", Status = "Running" };
         history.Upsert(task);
 
-        Assert.IsTrue(history.AttachArtifact(task, @"reports\\summary.txt"));
+        Assert.IsTrue(history.AttachArtifact(task, @"reports\summary.txt"));
         Assert.IsFalse(history.AttachArtifact(task, "reports/summary.txt"));
 
         var reloaded = new TaskHistoryService(path).GetRecent(10).Single();
