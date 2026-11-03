@@ -441,7 +441,16 @@ public sealed class AgentToolExecutor
             return "User declined UI inspection. No controls were read or shared.";
 
         token.ThrowIfCancellationRequested();
-        var controls = await WindowsUiAutomationService.ReadControlsAsync(target, maxControls: 60, cancellationToken: token);
+        // The target may have closed or been replaced while the user reviewed the disclosure prompt.
+        // Do not read or share controls from a different window that happens to reuse the same title.
+        var confirmedTarget = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (confirmedTarget is null ||
+            confirmedTarget.Handle != target.Handle ||
+            confirmedTarget.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The selected window changed while awaiting approval. No controls were read or shared; inspect the target again.");
+
+        token.ThrowIfCancellationRequested();
+        var controls = await WindowsUiAutomationService.ReadControlsAsync(confirmedTarget, maxControls: 60, cancellationToken: token);
         report($"Read-only UI inspection completed for an external window (PID {target.ProcessId}); {controls.Count} eligible controls returned.");
         return WindowsUiAutomationService.FormatReport(target.Title, target.ProcessId, controls);
     }
