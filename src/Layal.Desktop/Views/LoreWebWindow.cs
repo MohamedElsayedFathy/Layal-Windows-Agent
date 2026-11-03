@@ -12,8 +12,8 @@ using Layal.Models;
 namespace Layal.Views;
 
 /// <summary>
-/// A local-only 3D map of encrypted memory notes. Links use title-term overlap and chronological
-/// adjacency; they are visual navigation hints, not AI-generated facts or semantic guarantees.
+/// A local-only 3D map of encrypted memory notes. Links use user-defined category, title-term overlap,
+/// and chronological adjacency; they are navigation hints, not AI-generated facts or semantic guarantees.
 /// </summary>
 public sealed class LoreWebWindow : Window
 {
@@ -328,6 +328,17 @@ public sealed class LoreWebWindow : Window
         var edges = new HashSet<(string FromId, string ToId)>();
         for (var index = 0; index < notes.Count - 1; index++)
             AddEdge(edges, notes[index].Id, notes[index + 1].Id);
+
+        // User-defined categories provide an explicit, local grouping signal. Connect only
+        // adjacent notes per category to keep the graph sparse when a category contains many notes.
+        foreach (var categoryGroup in notes
+                     .Select((note, index) => (Note: note, Index: index))
+                     .GroupBy(item => MemoryService.NormalizeCategory(item.Note.Category), StringComparer.OrdinalIgnoreCase))
+        {
+            var categoryNotes = categoryGroup.OrderBy(item => item.Index).Select(item => item.Note).ToArray();
+            for (var index = 0; index < categoryNotes.Length - 1; index++)
+                AddEdge(edges, categoryNotes[index].Id, categoryNotes[index + 1].Id);
+        }
 
         var titleTokens = notes.ToDictionary(note => note.Id, note => Tokenize(note.Title), StringComparer.Ordinal);
         for (var first = 0; first < notes.Count; first++)
