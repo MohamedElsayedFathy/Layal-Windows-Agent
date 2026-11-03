@@ -1005,6 +1005,28 @@ public sealed class AgentToolExecutor
         return $"Saved memory note '{note.Title}' locally using Windows DPAPI for the current user.";
     }
 
+    /// <summary>Returns a canonical relative path only when an existing regular workspace file is safe to reference.</summary>
+    public bool TryGetWorkspaceArtifactPath(string relativePath, out string normalizedRelativePath)
+    {
+        normalizedRelativePath = string.Empty;
+        try
+        {
+            var path = ResolvePath(relativePath);
+            if (!File.Exists(path))
+                return false;
+
+            EnsureNoReparsePoints(path);
+            var relative = Path.GetRelativePath(_workspaceRoot, path).Replace('\\\\', '/');
+            normalizedRelativePath = TaskHistoryService.NormalizeArtifactPath(relative);
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or
+            UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
     private string ResolvePath(string relativePath, bool allowEmpty = false)
     {
         relativePath = (relativePath ?? string.Empty).Trim();
