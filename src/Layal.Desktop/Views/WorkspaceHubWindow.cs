@@ -179,7 +179,8 @@ public sealed class WorkspaceHubWindow : Window
         var entries = new List<WorkspaceEntry>();
         foreach (var task in _taskHistory.GetRecent(100))
         {
-            var searchable = task.Goal + "\n" + task.Status + "\n" + task.Result;
+            var artifactText = string.Join("\n", task.Artifacts ?? new List<string>());
+            var searchable = task.Goal + "\n" + task.Status + "\n" + task.Result + "\n" + artifactText;
             entries.Add(new WorkspaceEntry("task", task.Id, task.Goal, task.Status,
                 task.UpdatedAt, searchable, task.Result, task, null, null));
         }
@@ -301,6 +302,9 @@ public sealed class WorkspaceHubWindow : Window
             "task" => (_isArabic ? "مهمة\n" : "Task\n") + entry.Title +
                 "\n" + (_isArabic ? "الحالة: " : "Status: ") + entry.Subtitle +
                 "\n" + (_isArabic ? "آخر تحديث: " : "Updated: ") + entry.UpdatedAt.ToLocalTime().ToString("g") +
+                (entry.Task?.Artifacts is { Count: > 0 } artifacts
+                    ? "\n\n" + (_isArabic ? "الملفات المرتبطة بالمهمة:" : "Task artifacts:") + "\n• " + string.Join("\n• ", artifacts)
+                    : string.Empty) +
                 "\n\n" + Truncate(entry.Content, 8000),
             "memory" => (_isArabic ? "ملاحظة\n" : "Memory\n") + entry.Title +
                 "\n" + (_isArabic ? "آخر تحديث: " : "Updated: ") + entry.UpdatedAt.ToLocalTime().ToString("g") +
