@@ -232,9 +232,18 @@ public sealed class WorkspaceSnapshotServiceTests
         {
             var node = JsonNode.Parse(backup) ?? throw new AssertFailedException("Backup JSON was empty.");
             node["Files"]![0]![nameof(WorkspaceFileManifestEntry.RelativePath)] = unsafePath;
-            Assert.ThrowsExactly<InvalidOperationException>(
-                () => target.ImportJson(node.ToJsonString(), restoreWorkspaceFiles: true),
-                "Unsafe path should be rejected: " + unsafePath);
+            if (unsafePath.Contains(':'))
+            {
+                Assert.ThrowsExactly<ArgumentException>(
+                    () => target.ImportJson(node.ToJsonString(), restoreWorkspaceFiles: true),
+                    "Alternate data streams must be rejected before restoration.");
+            }
+            else
+            {
+                Assert.ThrowsExactly<InvalidOperationException>(
+                    () => target.ImportJson(node.ToJsonString(), restoreWorkspaceFiles: true),
+                    "Unsafe path should be rejected: " + unsafePath);
+            }
         }
 
         Assert.AreEqual(0, targetTasks.GetRecent(10).Count,
