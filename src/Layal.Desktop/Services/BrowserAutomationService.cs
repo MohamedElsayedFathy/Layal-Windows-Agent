@@ -353,7 +353,7 @@ public sealed class BrowserAutomationService
     /// The page may react to the file-selection event and upload immediately; Layal never clicks
     /// submit or otherwise submits the surrounding form.
     /// </summary>
-    public async Task UploadFileAsync(BrowserElementPreview preview, string absoluteFilePath, CancellationToken token = default)
+    public async Task<string> UploadFileAsync(BrowserElementPreview preview, string absoluteFilePath, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(preview);
         if (preview.Action != "upload")
