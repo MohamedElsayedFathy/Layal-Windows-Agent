@@ -209,7 +209,7 @@ public sealed class SafeBrowserUploadService
             int read;
             while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
             {
-                if (Array.IndexOf(buffer, '\\0', 0, read) >= 0)
+                if (Array.IndexOf(buffer, '\0', 0, read) >= 0)
                 {
                     stream.Position = 0;
                     return false;
