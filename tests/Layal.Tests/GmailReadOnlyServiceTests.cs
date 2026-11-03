@@ -72,7 +72,11 @@ public sealed class GmailReadOnlyServiceTests
         Assert.IsTrue(GmailReadOnlyService.IsSupportedTextAttachment("table.csv", "text/csv"));
         Assert.IsTrue(GmailReadOnlyService.IsSupportedTextAttachment("page.html", "text/html"));
         Assert.IsFalse(GmailReadOnlyService.IsSupportedTextAttachment("payload.exe", "application/octet-stream"));
+        Assert.IsFalse(GmailReadOnlyService.IsSupportedTextAttachment("payload.exe", "text/plain"),
+            "A sender-controlled MIME type must not override a non-text filename extension.");
         Assert.IsFalse(GmailReadOnlyService.IsSupportedTextAttachment("archive.zip", "application/zip"));
+        Assert.IsTrue(GmailReadOnlyService.IsSupportedTextAttachment(string.Empty, "text/plain"),
+            "An extensionless attachment may be previewed only when its MIME type is an approved text type.");
 
         var safe = GmailReadOnlyService.SanitizeAttachmentFileName(@"C:\\private\\..\\report.txt");
         Assert.IsFalse(safe.Contains('\\'));
