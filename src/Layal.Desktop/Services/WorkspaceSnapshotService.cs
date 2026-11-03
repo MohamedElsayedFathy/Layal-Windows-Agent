@@ -399,8 +399,12 @@ public sealed class WorkspaceSnapshotService
 
                 EnsureNoReparsePointsInExistingPath(parent);
                 using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    // Register the file immediately after CreateNew succeeds so a failed write
+                    // or timestamp update can still remove the partial file during rollback.
+                    createdFiles.Add(target);
                     output.Write(bytes, 0, bytes.Length);
-                createdFiles.Add(target);
+                }
                 File.SetLastWriteTimeUtc(target, entry.LastWriteTimeUtc.UtcDateTime);
                 restored++;
             }
