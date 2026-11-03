@@ -309,6 +309,19 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("TitleText was not found.");
         var copyChatButton = window.FindName("CopyChatButton") as Button
             ?? throw new InvalidOperationException("CopyChatButton was not found.");
+        var performanceMetricsButton = window.FindName("PerformanceMetricsButton") as Button
+            ?? throw new InvalidOperationException("PerformanceMetricsButton was not found.");
+        var performanceMetricsStatus = window.FindName("PerformanceMetricsStatus") as TextBlock
+            ?? throw new InvalidOperationException("PerformanceMetricsStatus was not found.");
+        Assert.IsTrue(performanceMetricsButton.IsEnabled,
+            "The local performance sampler must be available without a network/provider connection.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(performanceMetricsButton)),
+            "The performance sampler must explain its local-only scope and GPU limitation.");
+        Assert.IsTrue(AutomationProperties.GetHelpText(performanceMetricsButton)
+                .Contains("GPU", StringComparison.OrdinalIgnoreCase),
+            "The UI must not imply that the current-process sampler measures GPU.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(performanceMetricsStatus)),
+            "The result area must expose a screen-reader name.");
         var newConversationButton = window.FindName("NewConversationButton") as Button
             ?? throw new InvalidOperationException("NewConversationButton was not found.");
         var clearHistoryButton = window.FindName("ClearSavedChatHistoryButton") as Button
@@ -347,6 +360,9 @@ public sealed class MainWindowVisualSmokeTests
             AppRuntime.Settings.Language = language;
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
+            Assert.AreEqual(language == "ar" ? "قياس أداء ليال الآن" : "Measure Layal performance",
+                performanceMetricsButton.Content as string);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(performanceMetricsButton)));
             window.UpdateLayout();
             AssertLanguageLayoutContracts(window, language);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
