@@ -63,7 +63,7 @@ public static class AudioDeviceService
             try
             {
                 var capabilities = WaveOut.GetCapabilities(index);
-                AddDevice(devices, usedIds, capabilities.ProductGuid, capabilities.ProductName, index,
+                AddDevice(devices, usedIds, capabilities.ProductGuid, capabilities.ManufacturerGuid, capabilities.NameGuid, capabilities.ProductName, index,
                     isArabic ? "مخرج صوت" : "Audio output");
             }
             catch
