@@ -188,7 +188,7 @@ public sealed class WorkspaceHubWindow : Window
         {
             entries.Add(new WorkspaceEntry("memory", note.Id, note.Title,
                 _isArabic ? "ملاحظة" : "Memory", note.UpdatedAt,
-                note.Title + "\n" + note.Content, note.Content, null, note, null));
+                note.Category + "\n" + note.Title + "\n" + note.Content, note.Content, null, note, null));
         }
         entries.AddRange(IndexWorkspaceFiles());
         _all = entries.OrderByDescending(entry => entry.UpdatedAt).ToList();
