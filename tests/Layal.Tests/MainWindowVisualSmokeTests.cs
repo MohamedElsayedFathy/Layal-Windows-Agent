@@ -131,6 +131,8 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("Pending speech discard state was not found.");
         var speechCancellationField = typeof(MainWindow).GetField("_speechCancellation", flags)
             ?? throw new InvalidOperationException("Speech cancellation field was not found.");
+        var stopCapturesForPrivacy = typeof(MainWindow).GetMethod("StopCaptureSourcesForPrivacyShield", flags)
+            ?? throw new InvalidOperationException("Privacy shield capture-stop method was not found.");
         var keyHandler = typeof(MainWindow).GetMethod("MainWindow_PreviewKeyDown", flags)
             ?? throw new InvalidOperationException("Main window keyboard handler was not found.");
 
@@ -163,6 +165,11 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsTrue((bool)discardSpeechField.GetValue(window)!,
                 "Escape during StopRecordingAsync finalization must mark its audio for discard before transcription or upload.");
             Assert.IsTrue(speechEscape.Handled, "Escape should be handled while speech audio is being finalized.");
+
+            discardSpeechField.SetValue(window, false);
+            stopCapturesForPrivacy.Invoke(window, null);
+            Assert.IsTrue((bool)discardSpeechField.GetValue(window)!,
+                "Enabling the privacy shield during StopRecordingAsync finalization must mark its audio for discard.");
         }
         finally
         {
