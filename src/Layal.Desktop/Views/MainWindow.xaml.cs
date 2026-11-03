@@ -5662,6 +5662,7 @@ public partial class MainWindow : Window
             return;
 
         var now = DateTimeOffset.Now;
+        var scheduleChanged = false;
         try
         {
             foreach (var due in AppRuntime.ReminderService.GetDue(now))
@@ -5671,6 +5672,7 @@ public partial class MainWindow : Window
                 var delivered = AppRuntime.ReminderService.MarkDelivered(due.Id, due.DueAt, now);
                 if (delivered is null)
                     continue;
+                scheduleChanged = true;
 
                 if (AppRuntime.Tray is { } tray)
                 {
@@ -5692,6 +5694,20 @@ public partial class MainWindow : Window
                 "Could not check reminders; the timer was stopped to protect the saved history",
                 ex,
                 IsArabic));
+            return;
+        }
+
+        if (scheduleChanged && AppRuntime.ReminderTaskSchedulerService is { } scheduler)
+        {
+            try { scheduler.Synchronize(AppRuntime.ReminderService.GetAll()); }
+            catch (Exception ex)
+            {
+                SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError(
+                    "تعذر تحديث جدولة التذكيرات في Windows",
+                    "Windows reminder scheduling could not be updated",
+                    ex,
+                    IsArabic));
+            }
         }
     }
 
