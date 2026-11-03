@@ -105,7 +105,7 @@ public partial class App : Application
 
         try
         {
-            AppRuntime.ReminderTaskSchedulerService?.Synchronize(AppRuntime.ReminderService.GetAll());
+            AppRuntime.SynchronizeLocalNotifications();
         }
         catch (Exception ex)
         {
