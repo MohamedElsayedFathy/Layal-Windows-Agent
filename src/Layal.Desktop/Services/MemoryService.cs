@@ -63,6 +63,37 @@ public sealed class MemoryService
     /// Merges validated notes from a backup. Existing IDs are left unchanged; no existing note is
     /// deleted or overwritten, and imported content is checked for credential-like secrets.
     /// </summary>
+    public void ValidateImportMany(IEnumerable<MemoryNote> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+        var candidates = imported.Take(MaxSavedNotes + 1).ToList();
+        if (candidates.Count > MaxSavedNotes)
+            throw new InvalidOperationException($"A memory backup may contain at most {MaxSavedNotes} notes.");
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var note in candidates)
+        {
+            if (note is null ||
+                !Guid.TryParseExact(note.Id, "N", out _) ||
+                string.IsNullOrWhiteSpace(note.Title) || note.Title.Length > 120 ||
+                string.IsNullOrWhiteSpace(note.Content) || note.Content.Length > 12_000)
+                throw new InvalidOperationException("The memory backup contains an invalid note.");
+            _ = NormalizeCategory(note.Category);
+            if (LooksLikeSecret(note.Title.Trim() + "\n" + note.Content.Trim()))
+                throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
+            ids.Add(note.Id);
+        }
+
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var existingIds = notes.Select(note => note.Id).ToHashSet(StringComparer.Ordinal);
+            var additions = ids.Count(id => !existingIds.Contains(id));
+            if (notes.Count + additions > MaxSavedNotes)
+                throw new InvalidOperationException("There is not enough memory capacity to merge this backup. Existing notes were not changed.");
+        }
+    }
+
     public int ImportMany(IEnumerable<MemoryNote> imported)
     {
         ArgumentNullException.ThrowIfNull(imported);
