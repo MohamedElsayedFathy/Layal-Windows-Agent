@@ -19,6 +19,64 @@ public sealed class BrowserAutomationServiceTests
     }
 
     [TestMethod]
+    public void BrowserDownloadValidationAllowsOnlySameOriginHttpsDocumentsAndImages()
+    {
+        var page = "https://docs.example.com/articles/guide";
+        var valid = SafeBrowserDownloadService.ValidateDownloadTarget(
+            page,
+            "https://docs.example.com/files/guide.pdf?version=2");
+        Assert.AreEqual("https", valid.Scheme);
+        Assert.AreEqual("docs.example.com", valid.Host);
+        Assert.AreEqual(".pdf", Path.GetExtension(valid.AbsolutePath));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "https://cdn.example.com/guide.pdf"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "http://docs.example.com/guide.pdf"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "https://docs.example.com/setup.exe"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SafeBrowserDownloadService.ValidateDownloadTarget(page, "https://user:pass@docs.example.com/guide.pdf"));
+    }
+
+    [TestMethod]
+    public void BrowserDownloadPublicIpFilterRejectsLocalPrivateAndSpecialRanges()
+    {
+        foreach (var blocked in new[]
+        {
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.0.1",
+            "192.168.1.10",
+            "169.254.10.20",
+            "100.64.1.2",
+            "198.18.0.1",
+            "203.0.113.10",
+            "::1",
+            "fc00::1",
+            "fe80::1",
+            "2001:db8::1",
+            "::ffff:192.168.1.1"
+        })
+        {
+            Assert.IsFalse(
+                SafeBrowserDownloadService.IsPublicAddress(System.Net.IPAddress.Parse(blocked)),
+                $"{blocked} must be blocked.");
+        }
+
+        Assert.IsTrue(SafeBrowserDownloadService.IsPublicAddress(System.Net.IPAddress.Parse("8.8.8.8")));
+        Assert.IsTrue(SafeBrowserDownloadService.IsPublicAddress(System.Net.IPAddress.Parse("2001:4860:4860::8888")));
+    }
+
+    [TestMethod]
+    public void BrowserDownloadFilenameSanitizationRemovesTraversalAndReservedDeviceNames()
+    {
+        Assert.AreEqual("guide.pdf", SafeBrowserDownloadService.SanitizeFileName("../../guide.pdf", ".pdf"));
+        Assert.AreEqual("download.txt", SafeBrowserDownloadService.SanitizeFileName(@"C:\temp\CON.txt", ".txt"));
+        Assert.AreEqual("download.pdf", SafeBrowserDownloadService.SanitizeFileName("payload.exe", ".pdf"));
+    }
+
+    [TestMethod]
     public void CssSelectorValidationRejectsEmptyControlCharactersAndExcessiveLength()
     {
         Assert.AreEqual("form#login input[name=email]", BrowserAutomationService.ValidateCssSelector(" form#login input[name=email] "));
