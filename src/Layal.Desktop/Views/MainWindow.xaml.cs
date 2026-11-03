@@ -5563,15 +5563,15 @@ public partial class MainWindow : Window
             ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
             : (IsArabic ? "وضع الألعاب" : "Game mode");
         GameModeButton.ToolTip = active
-            ? (IsArabic ? "إغلاق HUD واستئناف التذكيرات." : "Close the HUD and resume reminders.")
-            : (IsArabic ? "تشغيل HUD يدوي صغير؛ لا يوجد اكتشاف ألعاب أو مراقبة عمليات أو حقن."
-                        : "Open a compact manual HUD; no game detection, process monitoring, or injection.");
+            ? (IsArabic ? "إغلاق HUD واستئناف تذكيرات المتابعة." : "Close the HUD and resume local check-ins.")
+            : (IsArabic ? "تشغيل HUD يدوي. الكشف التلقائي خيار منفصل ومغلق افتراضيًا."
+                        : "Open the HUD manually. Automatic detection is separate and off by default.");
         AutomationProperties.SetName(GameModeButton, active
             ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
             : (IsArabic ? "تفعيل وضع الألعاب اليدوي" : "Enable manual game mode"));
         AutomationProperties.SetHelpText(GameModeButton, IsArabic
-            ? "يفتح HUD فوق النوافذ ويوقف إشعارات المتابعة والتذكيرات أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها."
-            : "Shows an always-on-top HUD and pauses Layal reminder notifications while open. It does not inspect game data or control games.");
+            ? "يفتح HUD يدويًا ويوقف الإشعارات المحلية أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها. يمكن ضبط الكشف التلقائي بقائمة سماح منفصلة."
+            : "Opens the HUD manually and pauses local notifications while open. It does not inspect or control game data. Optional automatic detection has a separate allowlist setting.");
     }
 
     private void WorkspaceHubButton_Click(object sender, RoutedEventArgs e)
