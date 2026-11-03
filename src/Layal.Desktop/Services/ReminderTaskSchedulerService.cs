@@ -38,21 +38,29 @@ public sealed class ReminderTaskSchedulerService
     /// Creates or replaces the single dispatch task for the earliest active reminder.
     /// With no active reminders, the old Layal dispatch task is removed.
     /// </summary>
-    public void Synchronize(System.Collections.Generic.IEnumerable<ReminderRecord> reminders)
+    public void Synchronize(
+        System.Collections.Generic.IEnumerable<ReminderRecord> reminders,
+        DateTimeOffset? proactiveCheckInDueAt = null)
     {
         ArgumentNullException.ThrowIfNull(reminders);
-        var next = reminders
+        var nextReminderDueAt = reminders
             .Where(item => item is not null && item.IsActive && item.DueAt != default)
-            .OrderBy(item => item.DueAt)
+            .Select(item => (DateTimeOffset?)item.DueAt)
+            .OrderBy(value => value)
             .FirstOrDefault();
 
-        if (next is null)
+        var dueAtValue = nextReminderDueAt;
+        if (proactiveCheckInDueAt is not null &&
+            (dueAtValue is null || proactiveCheckInDueAt.Value < dueAtValue.Value))
+            dueAtValue = proactiveCheckInDueAt;
+
+        if (dueAtValue is null)
         {
             DeleteTaskIfPresent();
             return;
         }
 
-        var dueAt = next.DueAt.ToLocalTime().DateTime;
+        var dueAt = dueAtValue.Value.ToLocalTime().DateTime;
         var now = DateTime.Now;
         if (dueAt <= now)
             dueAt = now.AddMinutes(1);
