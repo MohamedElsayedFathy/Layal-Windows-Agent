@@ -814,11 +814,40 @@ public sealed class AgentToolExecutor
     {
         if (_browser is null)
             throw new InvalidOperationException("The dedicated browser service is not initialized.");
-        if (!await confirm("Read browser page", "Read the current page from Layal's dedicated Edge session and share its title, URL, visible text (up to 20,000 characters), and bounded link/button/field metadata with the configured AI provider? Page content may contain personal or confidential information. Navigate in Layal's browser first.", token))
+
+        // Show only the target identity in the consent prompt; no visible page text or DOM values
+        // are extracted until the user explicitly approves sharing the page.
+        var preview = await _browser.GetCurrentPageIdentityAsync(token);
+        var warning =
+            "Read the current page from Layal's dedicated Edge session and share its title, URL, visible text (up to 20,000 characters), and bounded link/button/field metadata with the configured AI provider? Page content may contain personal or confidential information.\n\n" +
+            "Title: " + Truncate(preview.Title, 180) +
+            "\nURL: " + preview.Url +
+            "\nReady state: " + preview.ReadyState;
+        if (!await confirm("Read browser page", warning, token))
             return "User declined to share the browser page. No page content was read for the AI provider.";
+
+        token.ThrowIfCancellationRequested();
+        var approved = await _browser.GetCurrentPageIdentityAsync(token);
+        if (!string.Equals(preview.PageTargetId, approved.PageTargetId, StringComparison.Ordinal) ||
+            !string.Equals(preview.Url, approved.Url, StringComparison.Ordinal) ||
+            !string.Equals(preview.Title, approved.Title, StringComparison.Ordinal))
+            throw new InvalidOperationException("The active browser tab or page changed while awaiting approval. No page content was shared; review the new page and approve again.");
+
         token.ThrowIfCancellationRequested();
         var result = await _browser.ReadCurrentPageAsync(token);
-        report("The current Layal browser page metadata/text was read and returned to the AI provider.");
+        using var document = JsonDocument.Parse(result);
+        var root = document.RootElement;
+        var returnedUrl = root.TryGetProperty("url", out var urlValue) ? urlValue.GetString() ?? string.Empty : string.Empty;
+        var returnedTitle = root.TryGetProperty("title", out var titleValue) ? titleValue.GetString() ?? string.Empty : string.Empty;
+        var after = await _browser.GetCurrentPageIdentityAsync(token);
+        if (!string.Equals(preview.PageTargetId, after.PageTargetId, StringComparison.Ordinal) ||
+            !string.Equals(preview.Url, returnedUrl, StringComparison.Ordinal) ||
+            !string.Equals(preview.Title, returnedTitle, StringComparison.Ordinal) ||
+            !string.Equals(preview.Url, after.Url, StringComparison.Ordinal) ||
+            !string.Equals(preview.Title, after.Title, StringComparison.Ordinal))
+            throw new InvalidOperationException("The browser page changed while its content was being read. The snapshot was discarded and was not shared with the AI provider.");
+
+        report("The explicitly approved Layal browser page identity was revalidated before and after extracting bounded visible text and DOM metadata.");
         return result;
     }
 
