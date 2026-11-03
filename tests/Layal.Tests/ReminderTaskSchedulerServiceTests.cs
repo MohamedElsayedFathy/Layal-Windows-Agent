@@ -22,6 +22,8 @@ public sealed class ReminderTaskSchedulerServiceTests
         Assert.AreEqual("1.4", document.Root!.Attribute("version")!.Value);
         Assert.AreEqual(executable, document.Root.Element(ns + "Actions")!
             .Element(ns + "Exec")!.Element(ns + "Command")!.Value);
+        Assert.AreEqual(Path.GetDirectoryName(executable), document.Root.Element(ns + "Actions")!
+            .Element(ns + "Exec")!.Element(ns + "WorkingDirectory")!.Value);
         Assert.AreEqual("InteractiveToken", document.Root.Element(ns + "Principals")!
             .Element(ns + "Principal")!.Element(ns + "LogonType")!.Value);
         Assert.AreEqual("LeastPrivilege", document.Root.Element(ns + "Principals")!
