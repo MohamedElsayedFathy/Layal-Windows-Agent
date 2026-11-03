@@ -1177,7 +1177,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(GameModeSettingsButton, ar ? "إعداد الكشف التلقائي للألعاب" : "Configure automatic game detection");
         AutomationProperties.SetHelpText(GameModeSettingsButton, ar
             ? "يقرأ اسم عملية النافذة الأمامية فقط. لا يقرأ العنوان أو سطر الأوامر أو ذاكرة اللعبة ولا يحقن مدخلات."
-            : "Reads only the foreground process name. No window title, command line, game memory, or input injection.";
+            : "Reads only the foreground process name. No window title, command line, game memory, or input injection.");
         WorkspaceHubButton.Content = ar ? "مساحة العمل" : "Workspace hub";
         WorkspaceHubButton.ToolTip = ar
             ? "بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
@@ -5554,7 +5554,7 @@ public partial class MainWindow : Window
                 : "Manual game mode is active. Games or processes outside your allowlist are not inspected."));
     }
 
-        private void UpdateGameModeButtonUi()
+    private void UpdateGameModeButtonUi()
     {
         if (GameModeButton is null)
             return;
