@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
 using System.Linq;
 using System.Security.Cryptography;
 
@@ -87,6 +90,8 @@ public sealed class SafeBrowserUploadService
         {
             hashedLength = stream.Length;
             lastWriteUtc = File.GetLastWriteTimeUtc(current);
+            ValidateContent(stream, extension);
+            stream.Position = 0;
             digest = Convert.ToHexString(SHA256.HashData(stream));
         }
 
@@ -114,6 +119,110 @@ public sealed class SafeBrowserUploadService
             current.LastWriteTimeUtc != approved.LastWriteTimeUtc)
             throw new IOException("The selected file changed while awaiting approval. No browser upload was started; inspect and approve the current file again.");
         return current;
+    }
+
+    /// <summary>
+    /// Checks a file's actual format, not only its extension. This keeps executable or active
+    /// content disguised as a document out of the upload allowlist.
+    /// </summary>
+    private static void ValidateContent(FileStream stream, string extension)
+    {
+        Span<byte> header = stackalloc byte[16];
+        var read = stream.Read(header);
+        stream.Position = 0;
+
+        var valid = extension.ToLowerInvariant() switch
+        {
+            ".pdf" => read >= 5 && Encoding.ASCII.GetString(header[..5]) == "%PDF-",
+            ".png" => read >= 8 && header[..8].SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
+            ".jpg" or ".jpeg" => read >= 3 && header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF,
+            ".webp" => read >= 12 && Encoding.ASCII.GetString(header.Slice(0, 4)) == "RIFF" &&
+                       Encoding.ASCII.GetString(header.Slice(8, 4)) == "WEBP",
+            ".docx" => ValidateOfficeArchive(stream, "word/document.xml"),
+            ".xlsx" => ValidateOfficeArchive(stream, "xl/workbook.xml"),
+            ".json" => ValidateJsonText(stream),
+            ".txt" or ".md" or ".csv" => ValidateUtf8Text(stream),
+            _ => false
+        };
+
+        if (!valid)
+            throw new InvalidDataException("The selected file's contents do not match its allowed document/image type. No upload was started.");
+    }
+
+    private static bool ValidateOfficeArchive(FileStream stream, string requiredDocumentEntry)
+    {
+        try
+        {
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+            if (archive.Entries.Count is 0 or > 2048 ||
+                !archive.Entries.Any(entry => string.Equals(entry.FullName, "[Content_Types].xml", StringComparison.OrdinalIgnoreCase)) ||
+                !archive.Entries.Any(entry => string.Equals(entry.FullName, requiredDocumentEntry, StringComparison.OrdinalIgnoreCase)) ||
+                archive.Entries.Any(entry => entry.FullName.EndsWith("vbaProject.bin", StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            long expandedBytes = 0;
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.Length < 0 || entry.Length > 32L * 1024 * 1024)
+                    return false;
+                expandedBytes += entry.Length;
+                if (expandedBytes > 80L * 1024 * 1024)
+                    return false;
+                if (entry.Length > 1_048_576 && entry.Length / Math.Max(1L, entry.CompressedLength) > 500)
+                    return false;
+            }
+            return true;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+        finally
+        {
+            stream.Position = 0;
+        }
+    }
+
+    private static bool ValidateJsonText(FileStream stream)
+    {
+        try
+        {
+            using var reader = new StreamReader(stream, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+            var json = reader.ReadToEnd();
+            stream.Position = 0;
+            using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 32 });
+            return true;
+        }
+        catch (Exception ex) when (ex is DecoderFallbackException or JsonException)
+        {
+            stream.Position = 0;
+            return false;
+        }
+    }
+
+    private static bool ValidateUtf8Text(FileStream stream)
+    {
+        try
+        {
+            using var reader = new StreamReader(stream, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+            var buffer = new char[4096];
+            int read;
+            while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                if (Array.IndexOf(buffer, '\\0', 0, read) >= 0)
+                {
+                    stream.Position = 0;
+                    return false;
+                }
+            }
+            stream.Position = 0;
+            return true;
+        }
+        catch (DecoderFallbackException)
+        {
+            stream.Position = 0;
+            return false;
+        }
     }
 
     private void EnsureWorkspacePathIsRegular()
