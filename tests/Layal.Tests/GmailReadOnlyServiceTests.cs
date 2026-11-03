@@ -102,6 +102,7 @@ public sealed class GmailReadOnlyServiceTests
 
         var inlineText = "Inline attachment text";
         var remoteText = "Remote markdown attachment";
+        var longPreview = new string('p', GmailReadOnlyService.MaximumAttachmentPreviewCharacters / 3);
         var html = "<html><body><p>HTML only body</p><script>bad()</script><style>.x{}</style></body></html>";
         var message = JsonSerializer.Serialize(new
         {
@@ -139,6 +140,24 @@ public sealed class GmailReadOnlyServiceTests
                     },
                     new
                     {
+                        mimeType = "text/plain",
+                        filename = "one.txt",
+                        body = new { size = longPreview.Length, data = Base64Url(longPreview) }
+                    },
+                    new
+                    {
+                        mimeType = "text/plain",
+                        filename = "two.txt",
+                        body = new { size = longPreview.Length, data = Base64Url(longPreview) }
+                    },
+                    new
+                    {
+                        mimeType = "text/plain",
+                        filename = "three.txt",
+                        body = new { size = longPreview.Length, data = Base64Url(longPreview) }
+                    },
+                    new
+                    {
                         mimeType = "application/octet-stream",
                         filename = "payload.exe",
                         body = new { size = 32, attachmentId = "must-not-download" }
@@ -162,12 +181,17 @@ public sealed class GmailReadOnlyServiceTests
         StringAssert.Contains(detail.PlainTextBody, "HTML only body");
         Assert.IsFalse(detail.PlainTextBody.Contains("bad()", StringComparison.Ordinal));
         Assert.IsFalse(detail.PlainTextBody.Contains(".x{", StringComparison.Ordinal));
-        Assert.AreEqual(4, detail.Attachments!.Count);
+        Assert.AreEqual(7, detail.Attachments!.Count);
         Assert.AreEqual(inlineText, detail.Attachments[0].PreviewText);
         Assert.AreEqual(remoteText, detail.Attachments[1].PreviewText);
         StringAssert.Contains(detail.Attachments[0].Status, "available");
         StringAssert.Contains(detail.Attachments[2].Status, "Not previewed");
         StringAssert.Contains(detail.Attachments[3].Status, "Not previewed");
+        Assert.IsTrue(detail.Attachments.Sum(item => item.PreviewText.Length) <=
+            GmailReadOnlyService.MaximumAttachmentPreviewCharacters,
+            "Total text previews across all message attachments must stay within the aggregate budget.");
+        Assert.IsTrue(detail.Attachments.Take(5).All(item =>
+            item.PreviewText.Length <= GmailReadOnlyService.MaximumAttachmentPreviewCharacters));
         Assert.AreEqual(1, handler.AttachmentRequests);
         Assert.IsFalse(handler.RequestedPaths.Any(path => path.Contains("must-not-download", StringComparison.Ordinal)));
         Assert.IsFalse(handler.RequestedPaths.Any(path => path.Contains("too-large", StringComparison.Ordinal)));
