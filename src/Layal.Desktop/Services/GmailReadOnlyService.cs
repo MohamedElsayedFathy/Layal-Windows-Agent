@@ -27,6 +27,8 @@ public sealed class GmailReadOnlyService
     public const int MaximumAttachmentCount = 20;
     public const int MaximumAttachmentBytes = 1 * 1024 * 1024;
     public const int MaximumAttachmentPreviewCharacters = 10_000;
+    public const int MaximumMessageResponseBytes = 25 * 1024 * 1024;
+    private const int MaximumAttachmentResponseBytes = 2 * 1024 * 1024;
     private const int MaximumSingleAttachmentPreviewCharacters = 3_000;
     private const string GmailReadOnlyScope = "https://www.googleapis.com/auth/gmail.readonly";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
@@ -210,7 +212,7 @@ public sealed class GmailReadOnlyService
             throw new InvalidOperationException(
                 "Google could not exchange the authorization code. Check the Desktop OAuth client configuration and try again.");
 
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        using var json = await ReadBoundedJsonAsync(response.Content, 1024 * 1024, cancellationToken);
         var root = json.RootElement;
         var refreshToken = GetJsonString(root, "refresh_token");
         if (string.IsNullOrWhiteSpace(refreshToken))
@@ -254,7 +256,7 @@ public sealed class GmailReadOnlyService
         using var response = await SendGmailRequestAsync(HttpMethod.Get, url, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw await CreateGmailApiExceptionAsync(response, "Could not list Gmail messages");
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        using var json = await ReadBoundedJsonAsync(response.Content, MaximumMessageResponseBytes, cancellationToken);
         if (!json.RootElement.TryGetProperty("messages", out var messages) ||
             messages.ValueKind != JsonValueKind.Array)
             return Array.Empty<GmailMessageSummary>();
@@ -328,6 +330,31 @@ public sealed class GmailReadOnlyService
             ParseInternalDate(GetJsonString(root, "internalDate")),
             text,
             attachments);
+    }
+
+    private static async Task<JsonDocument> ReadBoundedJsonAsync(
+        HttpContent content,
+        int maximumBytes,
+        CancellationToken cancellationToken)
+    {
+        if (content.Headers.ContentLength is long declaredLength && declaredLength > maximumBytes)
+            throw new InvalidDataException("The Gmail response exceeded the local preview size limit.");
+
+        await using var source = await content.ReadAsStreamAsync(cancellationToken);
+        using var buffer = new MemoryStream(Math.Min(maximumBytes, 64 * 1024));
+        var chunk = new byte[16 * 1024];
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var read = await source.ReadAsync(chunk.AsMemory(), cancellationToken);
+            if (read == 0) break;
+            if (buffer.Length + read > maximumBytes)
+                throw new InvalidDataException("The Gmail response exceeded the local preview size limit.");
+            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
+        }
+
+        buffer.Position = 0;
+        return await JsonDocument.ParseAsync(buffer, cancellationToken: cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendGmailRequestAsync(
@@ -544,11 +571,15 @@ public sealed class GmailReadOnlyService
             var safeName = SanitizeAttachmentFileName(fileName);
             var mimeType = Truncate(GetJsonString(part, "mimeType"), 120);
             var size = 0L;
+            var hasReportedSize = false;
             var attachmentId = string.Empty;
             if (part.TryGetProperty("body", out var attachmentBody) && attachmentBody.ValueKind == JsonValueKind.Object)
             {
                 if (attachmentBody.TryGetProperty("size", out var sizeElement) && sizeElement.TryGetInt64(out var parsedSize))
+                {
                     size = Math.Max(0, parsedSize);
+                    hasReportedSize = true;
+                }
                 attachmentId = GetJsonString(attachmentBody, "attachmentId");
             }
 
@@ -558,7 +589,7 @@ public sealed class GmailReadOnlyService
             {
                 try
                 {
-                    var bytes = await ReadAttachmentBytesAsync(messageId, part, attachmentId, size, cancellationToken);
+                    var bytes = await ReadAttachmentBytesAsync(messageId, part, attachmentId, size, hasReportedSize, cancellationToken);
                     if (bytes is not null && bytes.Length <= MaximumAttachmentBytes)
                     {
                         try
@@ -612,6 +643,7 @@ public sealed class GmailReadOnlyService
         JsonElement part,
         string attachmentId,
         long reportedSize,
+        bool hasReportedSize,
         CancellationToken cancellationToken)
     {
         if (!part.TryGetProperty("body", out var body) || body.ValueKind != JsonValueKind.Object)
@@ -627,7 +659,7 @@ public sealed class GmailReadOnlyService
         }
 
         if (string.IsNullOrWhiteSpace(attachmentId) || attachmentId.Length > 200 ||
-            reportedSize > MaximumAttachmentBytes)
+            !hasReportedSize || reportedSize > MaximumAttachmentBytes)
             return null;
 
         var url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/" +
@@ -635,7 +667,7 @@ public sealed class GmailReadOnlyService
         using var response = await SendGmailRequestAsync(HttpMethod.Get, url, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw await CreateGmailApiExceptionAsync(response, "Could not read a text attachment");
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        using var json = await ReadBoundedJsonAsync(response.Content, MaximumAttachmentResponseBytes, cancellationToken);
         var data = GetJsonString(json.RootElement, "data");
         if (data.Length == 0 || data.Length > MaximumAttachmentBytes * 2)
             return null;
