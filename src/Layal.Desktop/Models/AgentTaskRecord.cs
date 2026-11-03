@@ -9,4 +9,6 @@ public sealed class AgentTaskRecord
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
     public string Result { get; set; } = string.Empty;
     public List<string> Events { get; set; } = new();
+    /// <summary>Workspace-relative files created or updated by this task.</summary>
+    public List<string> Artifacts { get; set; } = new();
 }
