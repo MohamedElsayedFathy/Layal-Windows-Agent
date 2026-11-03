@@ -419,6 +419,7 @@ public partial class MainWindow : Window
         if (enable)
             StopCaptureSourcesForPrivacyShield();
 
+        TrySynchronizeLocalNotificationSchedule();
         UpdatePrivacyShieldUi();
         SetChatActivityStatus(enable
             ? (IsArabic
@@ -5545,6 +5546,7 @@ public partial class MainWindow : Window
                 _proactiveCheckInTimer.Start();
             else
                 _proactiveCheckInTimer.Stop();
+            TrySynchronizeLocalNotificationSchedule();
 
             SetChatActivityStatus(AppRuntime.Settings.ProactiveCheckInEnabled
                 ? (IsArabic
@@ -5572,11 +5574,28 @@ public partial class MainWindow : Window
         try
         {
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            TrySynchronizeLocalNotificationSchedule();
         }
         catch (Exception ex)
         {
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
                 "تعذر حفظ الفاصل الزمني", "Could not save the check-in interval", ex, IsArabic));
+        }
+    }
+
+    private void TrySynchronizeLocalNotificationSchedule()
+    {
+        try
+        {
+            AppRuntime.SynchronizeLocalNotifications();
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر تحديث جدولة التذكيرات في Windows",
+                "Windows local notification scheduling could not be updated",
+                ex,
+                IsArabic));
         }
     }
 
@@ -5589,7 +5608,11 @@ public partial class MainWindow : Window
             if (AppRuntime.IsExiting || !AppRuntime.Settings.ProactiveCheckInEnabled)
                 return;
             AppRuntime.Settings.LastProactiveCheckInAt = now;
-            try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
+            try
+            {
+                AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+                TrySynchronizeLocalNotificationSchedule();
+            }
             catch { _proactiveCheckInTimer.Stop(); }
             return;
         }
@@ -5619,6 +5642,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        TrySynchronizeLocalNotificationSchedule();
         var recentTask = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         var message = recentTask is null
             ? (IsArabic ? "موعد مراجعة قصيرة. افتح ليال وحدد ما تريد التركيز عليه الآن." : "Time for a quick check-in. Open Layal and choose what to focus on now.")
