@@ -12,12 +12,18 @@ public sealed class MemoryService
 
     public MemoryService(string path) => _store = new ProtectedJsonStore<List<MemoryNote>>(path);
 
-    public IReadOnlyList<MemoryNote> GetAll()
+    public IReadOnlyList<MemoryNote> GetAll(bool includeArchived = false)
     {
-        lock (_sync) return LoadBoundedNotes().OrderByDescending(n => n.UpdatedAt).ToList();
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            if (!includeArchived)
+                notes = notes.Where(note => !note.IsArchived).ToList();
+            return notes.OrderByDescending(note => note.UpdatedAt).ToList();
+        }
     }
 
-    public MemoryNote Save(string title, string content, string? id = null)
+    public MemoryNote Save(string title, string content, string? id = null, string? category = null)
     {
         title = (title ?? string.Empty).Trim();
         content = (content ?? string.Empty).Trim();
@@ -30,15 +36,19 @@ public sealed class MemoryService
         {
             var notes = LoadBoundedNotes();
             var existing = id is null ? null : notes.FirstOrDefault(n => n.Id == id);
+            var normalizedCategory = category is null
+                ? NormalizeCategory(existing?.Category ?? "General")
+                : NormalizeCategory(category);
             if (existing is null)
             {
-                existing = new MemoryNote { Title = title, Content = content };
+                existing = new MemoryNote { Title = title, Content = content, Category = normalizedCategory };
                 notes.Add(existing);
             }
             else
             {
                 existing.Title = title;
                 existing.Content = content;
+                existing.Category = normalizedCategory;
                 existing.UpdatedAt = DateTimeOffset.Now;
             }
 
@@ -46,6 +56,32 @@ public sealed class MemoryService
             _store.Save(KeepNewest(notes, existing.Id));
             return existing;
         }
+    }
+
+    /// <summary>Archives or restores a note without deleting its contents.</summary>
+    public bool SetArchived(string id, bool isArchived)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return false;
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var note = notes.FirstOrDefault(item => string.Equals(item.Id, id, StringComparison.Ordinal));
+            if (note is null) return false;
+            if (note.IsArchived == isArchived) return true;
+            note.IsArchived = isArchived;
+            note.UpdatedAt = DateTimeOffset.Now;
+            _store.Save(notes);
+            return true;
+        }
+    }
+
+    public static string NormalizeCategory(string? category)
+    {
+        var value = (category ?? string.Empty).Trim();
+        if (value.Length == 0) return "General";
+        if (value.Length > 40 || value.Any(char.IsControl))
+            throw new InvalidOperationException("Memory categories must be 1–40 printable characters.");
+        return value;
     }
 
     public bool Delete(string id)
@@ -64,13 +100,16 @@ public sealed class MemoryService
         query = (query ?? string.Empty).Trim();
         if (query.Length == 0) return Array.Empty<MemoryNote>();
         return GetAll()
-            .Where(n => n.Title.Contains(query, StringComparison.OrdinalIgnoreCase) || n.Content.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Where(n => n.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        n.Content.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        n.Category.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(Math.Clamp(maxResults, 1, 20)).ToList();
     }
 
     public string ExportJson()
     {
-        var notes = GetAll();
+        // Export includes archived notes so a backup preserves the complete user-managed memory set.
+        var notes = GetAll(includeArchived: true);
         return JsonSerializer.Serialize(notes, new JsonSerializerOptions { WriteIndented = true });
     }
 
