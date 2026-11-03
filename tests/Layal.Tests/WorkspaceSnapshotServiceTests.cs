@@ -116,12 +116,11 @@ public sealed class WorkspaceSnapshotServiceTests
         var sourceTasks = new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi"));
         var sourceMemories = new MemoryService(Path.Combine(temp.Path, "source-memories.dpapi"));
         var taskId = Guid.NewGuid().ToString("N");
-        var noteId = Guid.NewGuid().ToString("N");
         sourceTasks.Upsert(new AgentTaskRecord
         {
             Id = taskId, Goal = "Backup goal", Status = "Completed", Result = "Backup result"
         });
-        _ = sourceMemories.Save("Backup title", "Backup content.", noteId, "Backup");
+        var sourceNote = sourceMemories.Save("Backup title", "Backup content.", category: "Backup");
 
         var backup = new WorkspaceSnapshotService(sourceTasks, sourceMemories, workspace).ExportJson();
         var targetTasks = new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi"));
@@ -130,7 +129,8 @@ public sealed class WorkspaceSnapshotServiceTests
         {
             Id = taskId, Goal = "Local goal", Status = "Running", Result = "Keep local result"
         });
-        _ = targetMemories.Save("Local title", "Keep local content.", noteId, "Local");
+        _ = targetMemories.ImportMany(new[] { sourceNote });
+        _ = targetMemories.Save("Local title", "Keep local content.", sourceNote.Id, "Local");
 
         var result = new WorkspaceSnapshotService(targetTasks, targetMemories, workspace).ImportJson(backup);
 
