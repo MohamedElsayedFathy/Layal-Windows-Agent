@@ -8,39 +8,16 @@ namespace Layal.Services;
 /// <summary>
 /// Persists scheduled reminders in a DPAPI-protected store. It has no network or AI-provider dependency.
 /// </summary>
-public interface IReminderTaskScheduler
-{
-    void Schedule(ReminderRecord reminder);
-    void Remove(string reminderId);
-    void Reconcile(IReadOnlyCollection<ReminderRecord> reminders);
-}
-
-/// <summary>
-/// Persists scheduled reminders in a DPAPI-protected store. Optional platform scheduling
-/// provides delivery while Layal's main window is closed; the in-app timer remains a fallback.
-/// </summary>
 public sealed class ReminderService
 {
     public const int MaximumReminders = 200;
     public const int MaximumTitleCharacters = 200;
     private static readonly string[] AllowedRecurrences = { "None", "Daily", "Weekly" };
     private readonly ProtectedJsonStore<List<ReminderRecord>> _store;
-    private readonly IReminderTaskScheduler? _taskScheduler;
     private readonly object _sync = new();
 
-    public ReminderService(string path, IReminderTaskScheduler? taskScheduler = null)
-    {
+    public ReminderService(string path) =>
         _store = new ProtectedJsonStore<List<ReminderRecord>>(path);
-        _taskScheduler = taskScheduler;
-    }
-
-    /// <summary>Recreates only Layal-owned OS tasks from the current encrypted reminder records.</summary>
-    public void ReconcileScheduledTasks()
-    {
-        if (_taskScheduler is null)
-            return;
-        _taskScheduler.Reconcile(GetAll());
-    }
 
     public IReadOnlyList<ReminderRecord> GetAll()
     {
@@ -80,8 +57,6 @@ public sealed class ReminderService
             };
             items.Add(record);
             _store.Save(items);
-            // Persist first so that a task launched immediately can always resolve its reminder.
-            _taskScheduler?.Schedule(record.Clone());
             return record.Clone();
         }
     }
@@ -112,7 +87,6 @@ public sealed class ReminderService
             item.IsActive = true;
             item.LastDeliveredAt = null;
             _store.Save(items);
-            _taskScheduler?.Schedule(item.Clone());
             return item.Clone();
         }
     }
@@ -127,12 +101,7 @@ public sealed class ReminderService
             var items = LoadAndNormalize();
             var removed = items.RemoveAll(item => string.Equals(item.Id, id, StringComparison.Ordinal)) > 0;
             if (removed)
-            {
                 _store.Save(items);
-                try { _taskScheduler?.Remove(id); }
-                catch (InvalidOperationException) { /* A stale OS task is harmless: its ID no longer exists in the store. */ }
-                catch (System.ComponentModel.Win32Exception) { /* The next app launch reconciles owned tasks. */ }
-            }
             return removed;
         }
     }
