@@ -278,11 +278,13 @@ public sealed class BrowserAutomationService
             else if (action == "upload")
                 ValidateBrowserUploadTarget(elementTag, elementType);
 
-            var snapshot = await ReadPageSnapshotAsync(page, token);
+            // Element previews need only target identity and one element's metadata. Avoid
+            // collecting the page's visible text or unrelated DOM when preparing an action.
+            var previewUrl = ValidateHttpUrl(await EvaluateAsync(page, "location.href", token) ?? string.Empty).AbsoluteUri;
             return new BrowserElementPreview(
                 action,
                 page.Id,
-                snapshot.Url,
+                previewUrl,
                 selector,
                 root.GetProperty("fingerprint").GetString() ?? string.Empty,
                 elementTag,
