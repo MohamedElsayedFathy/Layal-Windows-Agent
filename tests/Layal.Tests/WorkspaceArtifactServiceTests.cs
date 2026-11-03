@@ -47,6 +47,32 @@ public sealed class WorkspaceArtifactServiceTests
     }
 
     [TestMethod]
+    public void RejectsWorkspaceRootReachedThroughAReparsePointAncestor()
+    {
+        using var temp = new TestTempDirectory();
+        var realParent = Path.Combine(temp.Path, "real-parent");
+        var workspace = Path.Combine(realParent, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "file.txt"), "content");
+        var linkedParent = Path.Combine(temp.Path, "linked-parent");
+
+        try
+        {
+            Directory.CreateSymbolicLink(linkedParent, realParent);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive("The test environment does not permit creation of a directory symbolic link.");
+        }
+
+        var service = new WorkspaceArtifactService(Path.Combine(linkedParent, "workspace"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            service.ResolveExistingSafeFilePath("file.txt"));
+        Assert.IsTrue(File.Exists(Path.Combine(workspace, "file.txt")),
+            "Rejecting a workspace reached through a reparse point must not modify the original file.");
+    }
+
+    [TestMethod]
     public void RejectsReparsePointComponentsWhenTheOperatingSystemAllowsCreatingThem()
     {
         using var temp = new TestTempDirectory();
