@@ -44,6 +44,40 @@ public sealed class TaskHistoryService
     /// Merges validated backup records without overwriting or deleting existing task history.
     /// File paths remain bounded relative metadata and are never opened during import.
     /// </summary>
+    public void ValidateImportMany(IEnumerable<AgentTaskRecord> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+        var candidates = imported.Take(101).ToList();
+        if (candidates.Count > 100)
+            throw new InvalidOperationException("A task backup may contain at most 100 records.");
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var record in candidates)
+        {
+            if (record is null ||
+                !Guid.TryParseExact(record.Id, "N", out _) ||
+                string.IsNullOrWhiteSpace(record.Goal) || record.Goal.Length > 10_000 ||
+                string.IsNullOrWhiteSpace(record.Status) || record.Status.Length > 40 ||
+                record.Result is null || record.Result.Length > 120_000)
+                throw new InvalidOperationException("The task backup contains an invalid task record.");
+            if (!ids.Add(record.Id)) continue;
+
+            var events = record.Events ?? new List<string>();
+            if (events.Count > 300 || events.Any(item => item is null || item.Length > 4_000))
+                throw new InvalidOperationException("A task backup contains too many or oversized event entries.");
+            _ = NormalizeStoredArtifactsForImport(record.Artifacts);
+        }
+
+        lock (_sync)
+        {
+            var items = _store.Load(new List<AgentTaskRecord>());
+            var existingIds = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+            var additions = ids.Count(id => !existingIds.Contains(id));
+            if (items.Count + additions > 100)
+                throw new InvalidOperationException("There is not enough task-history capacity to merge this backup. Existing tasks were not changed.");
+        }
+    }
+
     public int ImportMany(IEnumerable<AgentTaskRecord> imported)
     {
         ArgumentNullException.ThrowIfNull(imported);
