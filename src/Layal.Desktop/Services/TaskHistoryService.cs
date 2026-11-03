@@ -188,6 +188,36 @@ public sealed class TaskHistoryService
         }
     }
 
+    /// <summary>Removes one artifact reference from a task after its file has been moved to the Recycle Bin.</summary>
+    public bool RemoveArtifact(string taskId, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(taskId))
+            return false;
+        var normalizedPath = NormalizeArtifactPath(relativePath);
+
+        lock (_sync)
+        {
+            var items = _store.Load(new List<AgentTaskRecord>());
+            var task = items.FirstOrDefault(item => string.Equals(item.Id, taskId, StringComparison.Ordinal));
+            if (task is null)
+                return false;
+
+            task.Artifacts ??= new List<string>();
+            var removed = task.Artifacts.RemoveAll(path =>
+                string.Equals(path, normalizedPath, StringComparison.OrdinalIgnoreCase)) > 0;
+            if (!removed)
+                return false;
+
+            task.Events ??= new List<string>();
+            task.Events.Add("Workspace artifact moved to the Windows Recycle Bin and unlinked: " + normalizedPath);
+            if (task.Events.Count > 300)
+                task.Events.RemoveRange(0, task.Events.Count - 300);
+            task.UpdatedAt = DateTimeOffset.Now;
+            _store.Save(items);
+            return true;
+        }
+    }
+
     /// <summary>Canonicalizes a safe, relative workspace path for storage and display.</summary>
     public static string NormalizeArtifactPath(string relativePath)
     {
