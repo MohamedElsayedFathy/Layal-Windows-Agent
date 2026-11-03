@@ -269,15 +269,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_chatCancellation is not null || _voiceConversationCancellation is not null ||
-            _speechCancellation is not null || _voiceTestCancellation is not null ||
+        if (_chatCancellation is not null || _agentTaskCancellation is not null ||
+            _voiceConversationCancellation is not null || _speechCancellation is not null || _voiceTestCancellation is not null ||
             _localAiSetupCancellation is not null || _localVoiceRecordingActive ||
             _speechToText.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
-                ? "أوقف الرد أو التسجيل النشط وأغلق نافذة السؤال السريع أو الكاميرا قبل إنهاء المحادثة الخاصة."
-                : "Stop active chat/audio work and close Quick Ask or the camera before exiting private chat.");
+                ? "أوقف المحادثة والمهمة والتسجيلات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل إنهاء المحادثة الخاصة."
+                : "Stop active chat, agent-task, and audio work and close Quick Ask or the camera before exiting private chat.");
             return;
         }
 
