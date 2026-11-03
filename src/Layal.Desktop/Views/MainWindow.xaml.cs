@@ -5763,7 +5763,8 @@ public partial class MainWindow : Window
                         ? "تم فتح الملاحظة من خريطة الذاكرة المحلية."
                         : "Note opened from the local memory web.");
                 MemoryTitleInput.Focus();
-            })
+            },
+            note => AppRuntime.MemoryService.Delete(note.Id))
             {
                 Owner = this
             };
