@@ -24,6 +24,10 @@ public sealed class GmailReadOnlyService
 {
     public const int MaximumListedMessages = 25;
     public const int MaximumBodyCharacters = 15_000;
+    public const int MaximumAttachmentCount = 20;
+    public const int MaximumAttachmentBytes = 1 * 1024 * 1024;
+    public const int MaximumAttachmentPreviewCharacters = 10_000;
+    private const int MaximumSingleAttachmentPreviewCharacters = 3_000;
     private const string GmailReadOnlyScope = "https://www.googleapis.com/auth/gmail.readonly";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     private const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -301,11 +305,18 @@ public sealed class GmailReadOnlyService
         var root = json.RootElement;
         var headers = GetHeaders(root);
         var body = new StringBuilder();
+        var attachments = new List<GmailAttachmentPreview>();
         if (root.TryGetProperty("payload", out var payload))
+        {
             AppendPlainTextParts(payload, body);
+            if (body.Length == 0)
+                AppendHtmlTextParts(payload, body);
+            await CollectAttachmentPreviewsAsync(messageId, payload, attachments, cancellationToken);
+        }
+
         var text = Truncate(body.ToString().Trim(), MaximumBodyCharacters);
         if (text.Length == 0)
-            text = "(No plain-text body was available. HTML-only content and attachments are not rendered.)";
+            text = "(No readable message body was available. Check the listed attachments for supported text previews.)";
 
         return new GmailMessageDetail(
             messageId,
@@ -315,7 +326,8 @@ public sealed class GmailReadOnlyService
             HeaderValue(headers, "Subject"),
             Truncate(GetJsonString(root, "snippet"), 500),
             ParseInternalDate(GetJsonString(root, "internalDate")),
-            text);
+            text,
+            attachments);
     }
 
     private async Task<HttpResponseMessage> SendGmailRequestAsync(
@@ -419,6 +431,217 @@ public sealed class GmailReadOnlyService
 
     private static string HeaderValue(IReadOnlyDictionary<string, string> headers, string key) =>
         headers.TryGetValue(key, out var value) ? value : string.Empty;
+
+    /// <summary>
+    /// Converts an HTML fragment to bounded plain text. No HTML, script, style, form, image,
+    /// iframe, or external resource is rendered or executed.
+    /// </summary>
+    public static string ConvertHtmlToPlainText(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return string.Empty;
+
+        var value = System.Text.RegularExpressions.Regex.Replace(
+            html,
+            @"(?is)<(script|style|noscript|iframe|object|embed|svg|form|head)\\b[^>]*>.*?(?:</\\1\\s*>|$)",
+            " ");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"(?is)<!--.*?-->", " ");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"(?i)<\\s*br\\s*/?\\s*>", "\\n");
+        value = System.Text.RegularExpressions.Regex.Replace(
+            value,
+            @"(?i)</\\s*(p|div|tr|li|h[1-6]|table|section|article|blockquote|pre)\\s*>",
+            "\\n");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"(?is)<[^>]+>", " ");
+        value = WebUtility.HtmlDecode(value);
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"[ \\t\\f\\v]+", " ");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @" *\\n *", "\\n");
+        value = System.Text.RegularExpressions.Regex.Replace(value, @"\\n{3,}", "\\n\\n");
+        return Truncate(value.Trim(), MaximumBodyCharacters);
+    }
+
+    public static string SanitizeAttachmentFileName(string fileName)
+    {
+        var value = (fileName ?? string.Empty)
+            .Replace('\\\\', '_')
+            .Replace('/', '_');
+        var builder = new StringBuilder(Math.Min(value.Length, 120));
+        foreach (var character in value)
+        {
+            if (builder.Length >= 120) break;
+            if (!char.IsControl(character) && character is not ':' and not '*' and not '?' and not '"' and not '<' and not '>' and not '|')
+                builder.Append(character);
+        }
+        var safe = builder.ToString().Trim().Trim('.');
+        return string.IsNullOrWhiteSpace(safe) ? "unnamed-attachment.txt" : safe;
+    }
+
+    public static bool IsSupportedTextAttachment(string fileName, string mimeType)
+    {
+        var extension = Path.GetExtension(fileName ?? string.Empty);
+        return extension.Equals(".txt", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".md", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".csv", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".json", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".xml", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".html", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "text/plain", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "text/csv", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "text/markdown", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "application/json", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "application/xml", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "text/html", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AppendHtmlTextParts(JsonElement part, StringBuilder builder)
+    {
+        if (builder.Length >= MaximumBodyCharacters)
+            return;
+
+        var filename = GetJsonString(part, "filename");
+        var mimeType = GetJsonString(part, "mimeType");
+        if (filename.Length == 0 && string.Equals(mimeType, "text/html", StringComparison.OrdinalIgnoreCase) &&
+            part.TryGetProperty("body", out var body) && body.ValueKind == JsonValueKind.Object)
+        {
+            var data = GetJsonString(body, "data");
+            if (data.Length > 0 && data.Length <= MaximumBodyCharacters * 4)
+            {
+                try
+                {
+                    var decoded = Encoding.UTF8.GetString(FromBase64Url(data));
+                    var plainText = ConvertHtmlToPlainText(decoded);
+                    if (plainText.Length > 0)
+                    {
+                        if (builder.Length > 0) builder.AppendLine().AppendLine("---");
+                        builder.Append(plainText.AsSpan(0, Math.Min(plainText.Length, MaximumBodyCharacters - builder.Length)));
+                    }
+                }
+                catch (FormatException) { /* Ignore malformed MIME data. */ }
+            }
+        }
+
+        if (part.TryGetProperty("parts", out var children) && children.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var child in children.EnumerateArray())
+            {
+                if (builder.Length >= MaximumBodyCharacters) break;
+                AppendHtmlTextParts(child, builder);
+            }
+        }
+    }
+
+    private async Task CollectAttachmentPreviewsAsync(
+        string messageId,
+        JsonElement part,
+        List<GmailAttachmentPreview> output,
+        CancellationToken cancellationToken)
+    {
+        if (output.Count >= MaximumAttachmentCount)
+            return;
+
+        var fileName = GetJsonString(part, "filename");
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            var safeName = SanitizeAttachmentFileName(fileName);
+            var mimeType = Truncate(GetJsonString(part, "mimeType"), 120);
+            var size = 0L;
+            var attachmentId = string.Empty;
+            if (part.TryGetProperty("body", out var attachmentBody) && attachmentBody.ValueKind == JsonValueKind.Object)
+            {
+                if (attachmentBody.TryGetProperty("size", out var sizeElement) && sizeElement.TryGetInt64(out var parsedSize))
+                    size = Math.Max(0, parsedSize);
+                attachmentId = GetJsonString(attachmentBody, "attachmentId");
+            }
+
+            var preview = string.Empty;
+            var status = "Not previewed: unsupported type or attachment exceeds the 1 MB text-preview limit.";
+            if (IsSupportedTextAttachment(safeName, mimeType) && size <= MaximumAttachmentBytes)
+            {
+                try
+                {
+                    var bytes = await ReadAttachmentBytesAsync(messageId, part, attachmentId, size, cancellationToken);
+                    if (bytes is not null && bytes.Length <= MaximumAttachmentBytes)
+                    {
+                        try
+                        {
+                            var decoded = new UTF8Encoding(false, true).GetString(bytes);
+                            preview = Path.GetExtension(safeName).Equals(".html", StringComparison.OrdinalIgnoreCase) ||
+                                      string.Equals(mimeType, "text/html", StringComparison.OrdinalIgnoreCase)
+                                ? ConvertHtmlToPlainText(decoded)
+                                : Truncate(decoded, MaximumSingleAttachmentPreviewCharacters);
+                            preview = Truncate(preview, MaximumSingleAttachmentPreviewCharacters);
+                            status = preview.Length > 0 ? "Text preview available." : "No readable UTF-8 text was found.";
+                        }
+                        catch (DecoderFallbackException)
+                        {
+                            status = "Not previewed: the attachment is not valid UTF-8 text.";
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException)
+                {
+                    status = "Preview unavailable: the read-only attachment request failed.";
+                }
+            }
+
+            var usedPreviewCharacters = output.Sum(item => item.PreviewText.Length);
+            if (usedPreviewCharacters >= MaximumAttachmentPreviewCharacters)
+            {
+                preview = string.Empty;
+                status = "Not previewed: the message attachment preview budget has been reached.";
+            }
+            else if (preview.Length > MaximumAttachmentPreviewCharacters - usedPreviewCharacters)
+            {
+                preview = preview[..(MaximumAttachmentPreviewCharacters - usedPreviewCharacters)] + "…";
+            }
+
+            output.Add(new GmailAttachmentPreview(safeName, mimeType, size, preview, status));
+        }
+
+        if (part.TryGetProperty("parts", out var children) && children.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var child in children.EnumerateArray())
+            {
+                if (output.Count >= MaximumAttachmentCount) break;
+                await CollectAttachmentPreviewsAsync(messageId, child, output, cancellationToken);
+            }
+        }
+    }
+
+    private async Task<byte[]?> ReadAttachmentBytesAsync(
+        string messageId,
+        JsonElement part,
+        string attachmentId,
+        long reportedSize,
+        CancellationToken cancellationToken)
+    {
+        if (!part.TryGetProperty("body", out var body) || body.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var inlineData = GetJsonString(body, "data");
+        if (inlineData.Length > 0)
+        {
+            if (inlineData.Length > MaximumAttachmentBytes * 2)
+                return null;
+            var bytes = FromBase64Url(inlineData);
+            return bytes.Length <= MaximumAttachmentBytes ? bytes : null;
+        }
+
+        if (string.IsNullOrWhiteSpace(attachmentId) || attachmentId.Length > 200 ||
+            reportedSize > MaximumAttachmentBytes)
+            return null;
+
+        var url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/" +
+            Uri.EscapeDataString(messageId) + "/attachments/" + Uri.EscapeDataString(attachmentId);
+        using var response = await SendGmailRequestAsync(HttpMethod.Get, url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw await CreateGmailApiExceptionAsync(response, "Could not read a text attachment");
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var data = GetJsonString(json.RootElement, "data");
+        if (data.Length == 0 || data.Length > MaximumAttachmentBytes * 2)
+            return null;
+        var result = FromBase64Url(data);
+        return result.Length <= MaximumAttachmentBytes ? result : null;
+    }
 
     private static void AppendPlainTextParts(JsonElement part, StringBuilder builder)
     {
