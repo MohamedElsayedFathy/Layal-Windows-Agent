@@ -64,6 +64,17 @@ public sealed class MemoryServiceTests
 
 
     [TestMethod]
+    public void LegacyMemoryJsonDefaultsToGeneralAndActive()
+    {
+        const string legacyJson = """{"Id":"legacy-note","Title":"Legacy","Content":"Old note"}""";
+        var note = System.Text.Json.JsonSerializer.Deserialize<MemoryNote>(legacyJson);
+
+        Assert.IsNotNull(note);
+        Assert.AreEqual("General", note.Category);
+        Assert.IsFalse(note.IsArchived);
+    }
+
+    [TestMethod]
     public void CategoryIsTrimmedBoundedAndDefaultsToGeneral()
     {
         Assert.AreEqual("General", MemoryService.NormalizeCategory(null));
@@ -91,6 +102,9 @@ public sealed class MemoryServiceTests
 
         Assert.AreEqual("Engineering", saved.Category);
         Assert.AreEqual(note.Id, reloaded.Search("engineering").Single().Id);
+
+        var updatedWithoutCategory = reloaded.Save("Architecture review", "Revised boundaries.", note.Id);
+        Assert.AreEqual("Engineering", updatedWithoutCategory.Category);
     }
 
     [TestMethod]
