@@ -53,7 +53,31 @@ public sealed class WorkspaceSnapshotService
         return json;
     }
 
+    public WorkspaceSnapshotImportPreview PreviewImportJson(string json)
+    {
+        var document = ParseAndValidate(json);
+        return new WorkspaceSnapshotImportPreview(
+            document.Tasks.Count,
+            document.Memories.Count,
+            document.Files.Count,
+            document.ExportedAt);
+    }
+
     public WorkspaceSnapshotImportResult ImportJson(string json)
+    {
+        var document = ParseAndValidate(json);
+
+        // Preflight both DPAPI stores before either is changed. Each store repeats validation
+        // while holding its own lock when the merge is committed.
+        _taskHistory.ValidateImportMany(document.Tasks);
+        _memory.ValidateImportMany(document.Memories);
+
+        var tasksImported = _taskHistory.ImportMany(document.Tasks);
+        var memoriesImported = _memory.ImportMany(document.Memories);
+        return new WorkspaceSnapshotImportResult(tasksImported, memoriesImported, document.Files.Count);
+    }
+
+    private WorkspaceSnapshotDocument ParseAndValidate(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
             throw new InvalidOperationException("The selected workspace backup is empty.");
@@ -82,15 +106,9 @@ public sealed class WorkspaceSnapshotService
             throw new InvalidOperationException("The workspace backup exceeds one or more record-count limits.");
 
         ValidateFileManifest(document.Files);
-
-        // Preflight both DPAPI stores before either is changed. Each store repeats validation
-        // while holding its own lock when the merge is committed.
         _taskHistory.ValidateImportMany(document.Tasks);
         _memory.ValidateImportMany(document.Memories);
-
-        var tasksImported = _taskHistory.ImportMany(document.Tasks);
-        var memoriesImported = _memory.ImportMany(document.Memories);
-        return new WorkspaceSnapshotImportResult(tasksImported, memoriesImported, document.Files.Count);
+        return document;
     }
 
     private static void ValidateFileManifest(IEnumerable<WorkspaceFileManifestEntry> manifest)
