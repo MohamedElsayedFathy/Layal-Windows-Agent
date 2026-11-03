@@ -37,14 +37,19 @@ public sealed class GmailReadOnlyService
 
     private readonly ProtectedJsonStore<GmailOAuthCredential> _credentialStore;
     private readonly HttpClient _http;
+    private readonly DocumentTextExtractionService _documentTextExtractionService;
     private readonly SemaphoreSlim _tokenGate = new(1, 1);
     private string? _cachedAccessToken;
     private DateTimeOffset _accessTokenExpiresAt;
 
-    public GmailReadOnlyService(string credentialPath, HttpClient? httpClient = null)
+    public GmailReadOnlyService(
+        string credentialPath,
+        HttpClient? httpClient = null,
+        DocumentTextExtractionService? documentTextExtractionService = null)
     {
         _credentialStore = new ProtectedJsonStore<GmailOAuthCredential>(credentialPath);
         _http = httpClient ?? SharedHttpClient;
+        _documentTextExtractionService = documentTextExtractionService ?? new DocumentTextExtractionService();
     }
 
     public bool IsConnected
@@ -502,6 +507,15 @@ public sealed class GmailReadOnlyService
         return string.IsNullOrWhiteSpace(safe) ? "unnamed-attachment.txt" : safe;
     }
 
+    public static bool IsSupportedDocumentAttachment(string fileName, string mimeType)
+    {
+        // Filename extension is the allow-list boundary; MIME metadata is sender-controlled.
+        var extension = Path.GetExtension(fileName ?? string.Empty);
+        return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".docx", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool IsSupportedTextAttachment(string fileName, string mimeType)
     {
         var extension = Path.GetExtension(fileName ?? string.Empty);
@@ -597,8 +611,10 @@ public sealed class GmailReadOnlyService
             var status = remainingPreviewCharacters == 0
                 ? "Not previewed: the message attachment preview budget has been reached."
                 : "Not previewed: unsupported type or attachment exceeds the 1 MB text-preview limit.";
+            var isTextAttachment = IsSupportedTextAttachment(safeName, mimeType);
+            var isDocumentAttachment = IsSupportedDocumentAttachment(safeName, mimeType);
             if (remainingPreviewCharacters > 0 &&
-                IsSupportedTextAttachment(safeName, mimeType) && size <= MaximumAttachmentBytes)
+                (isTextAttachment || isDocumentAttachment) && size <= MaximumAttachmentBytes)
             {
                 try
                 {
@@ -607,21 +623,35 @@ public sealed class GmailReadOnlyService
                     {
                         try
                         {
-                            var decoded = new UTF8Encoding(false, true).GetString(bytes);
-                            preview = Path.GetExtension(safeName).Equals(".html", StringComparison.OrdinalIgnoreCase) ||
-                                      string.Equals(mimeType, "text/html", StringComparison.OrdinalIgnoreCase)
-                                ? ConvertHtmlToPlainText(decoded)
-                                : Truncate(decoded, MaximumSingleAttachmentPreviewCharacters);
-                            preview = Truncate(preview, MaximumSingleAttachmentPreviewCharacters);
-                            status = preview.Length > 0 ? "Text preview available." : "No readable UTF-8 text was found.";
+                            if (isDocumentAttachment)
+                            {
+                                preview = await ExtractDocumentAttachmentTextAsync(safeName, bytes, cancellationToken);
+                                status = preview.Length > 0
+                                    ? "Local document text preview available; review extracted content for errors."
+                                    : "The document contained no extractable text.";
+                            }
+                            else
+                            {
+                                var decoded = new UTF8Encoding(false, true).GetString(bytes);
+                                preview = Path.GetExtension(safeName).Equals(".html", StringComparison.OrdinalIgnoreCase) ||
+                                          string.Equals(mimeType, "text/html", StringComparison.OrdinalIgnoreCase)
+                                    ? ConvertHtmlToPlainText(decoded)
+                                    : Truncate(decoded, MaximumSingleAttachmentPreviewCharacters);
+                                preview = Truncate(preview, MaximumSingleAttachmentPreviewCharacters);
+                                status = preview.Length > 0 ? "Text preview available." : "No readable UTF-8 text was found.";
+                            }
                         }
                         catch (DecoderFallbackException)
                         {
                             status = "Not previewed: the attachment is not valid UTF-8 text.";
                         }
                     }
+                    finally
+                    {
+                        CryptographicOperations.ZeroMemory(bytes);
+                    }
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException)
+                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException)
                 {
                     status = "Preview unavailable: the read-only attachment request failed.";
                 }
@@ -647,6 +677,45 @@ public sealed class GmailReadOnlyService
                 if (output.Count >= MaximumAttachmentCount) break;
                 await CollectAttachmentPreviewsAsync(messageId, child, output, cancellationToken);
             }
+        }
+    }
+
+    /// <summary>
+    /// Extracts supported PDF/Word/Excel attachments into a private temporary file because the
+    /// existing local parser requires a path. The file is never exposed to the UI, and both the
+    /// temporary file and in-memory attachment bytes are removed immediately after extraction.
+    /// </summary>
+    private async Task<string> ExtractDocumentAttachmentTextAsync(
+        string safeFileName,
+        byte[] bytes,
+        CancellationToken cancellationToken)
+    {
+        var extension = Path.GetExtension(safeFileName).ToLowerInvariant();
+        if (extension is not ".pdf" and not ".docx" and not ".xlsx")
+            throw new NotSupportedException("This Gmail attachment type is not supported for local document preview.");
+
+        var temporaryPath = Path.Combine(
+            Path.GetTempPath(),
+            "layal-gmail-preview-" + Guid.NewGuid().ToString("N") + extension);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using (var output = new FileStream(
+                       temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       bufferSize: 16 * 1024, useAsync: true))
+            {
+                await output.WriteAsync(bytes.AsMemory(), cancellationToken);
+                await output.FlushAsync(cancellationToken);
+            }
+
+            var result = await _documentTextExtractionService.ExtractFileAsync(temporaryPath, cancellationToken);
+            return Truncate(result.Text, MaximumSingleAttachmentPreviewCharacters);
+        }
+        finally
+        {
+            try { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 
