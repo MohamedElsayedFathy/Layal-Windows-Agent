@@ -5533,7 +5533,37 @@ public partial class MainWindow : Window
         var message = recentTask is null
             ? (IsArabic ? "موعد مراجعة قصيرة. افتح ليال وحدد ما تريد التركيز عليه الآن." : "Time for a quick check-in. Open Layal and choose what to focus on now.")
             : (IsArabic ? "موعد مراجعة المهمة. افتح ليال لمراجعة التقدم أو تحديث الهدف." : "Time to check in on your task. Open Layal to review progress or update the goal.");
-        AppRuntime.Tray?.ShowReminderNotification(message, IsArabic);
+        var taskId = recentTask?.Id;
+        AppRuntime.Tray?.ShowReminderNotification(
+            message,
+            IsArabic,
+            taskId is null ? null : () => OpenTaskFromNotification(taskId));
+    }
+
+    private void OpenTaskFromNotification(string taskId)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (AppRuntime.IsExiting)
+                return;
+
+            ShowFromTray();
+            MainTabs.SelectedItem = TasksTab;
+            RefreshRecentTasks(taskId);
+            if (RecentTasksList.SelectedItem is null)
+            {
+                SetAccessibleStatusText(TaskResult,
+                    IsArabic
+                        ? "المهمة المرتبطة بالإشعار لم تعد موجودة في السجل."
+                        : "The task associated with this notification is no longer in history.");
+                return;
+            }
+
+            RecentTasksList.Focus();
+            SetChatActivityStatus(IsArabic
+                ? "تم فتح المهمة المرتبطة بإشعار المتابعة؛ لم يتم تشغيل أي إجراء."
+                : "Opened the task associated with the check-in; no action was executed.");
+        }));
     }
 
     private void ReminderTimer_Tick(object? sender, EventArgs e)
