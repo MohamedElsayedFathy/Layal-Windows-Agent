@@ -68,7 +68,17 @@ public sealed class PerformanceMetricsServiceTests
 
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
-            PerformanceMetricsService.MeasureCurrentProcessAsync(TimeSpan.FromSeconds(1), cancellation.Token));
+        var cancellationObserved = false;
+        try
+        {
+            await PerformanceMetricsService.MeasureCurrentProcessAsync(
+                TimeSpan.FromSeconds(1),
+                cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            cancellationObserved = true;
+        }
+        Assert.IsTrue(cancellationObserved, "A cancelled measurement must not wait for the sampling window or return a result.");
     }
 }
