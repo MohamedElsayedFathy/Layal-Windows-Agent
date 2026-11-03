@@ -96,6 +96,7 @@ public partial class MainWindow : Window
     private string _lastCameraObservation = string.Empty;
     private CancellationTokenSource? _agentTaskCancellation;
     private string? _selectedMemoryId;
+    private bool _selectedMemoryIsArchived;
     private bool _providerTestPassed;
     private string? _testedBaseUrl;
     private string? _testedModelId;
@@ -1352,7 +1353,9 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(MemoryTitleInput, MemoryTitleLabel.Text);
         System.Windows.Automation.AutomationProperties.SetName(MemoryContentInput, MemoryContentLabel.Text);
         SaveMemoryButton.Content = ar ? "حفظ الملاحظة" : "Save note";
-        ArchiveMemoryButton.Content = ar ? "أرشفة" : "Archive";
+        ArchiveMemoryButton.Content = _selectedMemoryIsArchived
+            ? (ar ? "استعادة" : "Restore")
+            : (ar ? "أرشفة" : "Archive");
         DeleteMemoryButton.Content = ar ? "حذف الملاحظة" : "Delete note";
         ExportMemoryButton.Content = ar ? "تصدير JSON" : "Export JSON";
         MemoryPrivacyNote.Text = ar ? "لا تحفظ مفاتيح API أو كلمات المرور في الذاكرة. ملف JSON المُصدَّر غير مشفّر." : "Do not store API keys or passwords in memory. Exported JSON is unencrypted.";
@@ -5830,6 +5833,7 @@ public partial class MainWindow : Window
                 MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(note =>
                     string.Equals(note.Id, selectedNote.Id, StringComparison.Ordinal));
                 _selectedMemoryId = selectedNote.Id;
+                _selectedMemoryIsArchived = selectedNote.IsArchived;
                 MemoryCategoryInput.Text = selectedNote.Category;
                 MemoryTitleInput.Text = selectedNote.Title;
                 MemoryContentInput.Text = selectedNote.Content;
@@ -5859,6 +5863,7 @@ public partial class MainWindow : Window
     private void NewMemoryButton_Click(object sender, RoutedEventArgs e)
     {
         _selectedMemoryId = null;
+        _selectedMemoryIsArchived = false;
         MemoryList.SelectedItem = null;
         MemoryCategoryInput.Text = "General";
         MemoryTitleInput.Clear();
@@ -5871,6 +5876,7 @@ public partial class MainWindow : Window
     {
         if (MemoryList.SelectedItem is not MemoryNote note) return;
         _selectedMemoryId = note.Id;
+        _selectedMemoryIsArchived = note.IsArchived;
         MemoryCategoryInput.Text = note.Category;
         MemoryTitleInput.Text = note.Title;
         MemoryContentInput.Text = note.Content;
@@ -5892,6 +5898,7 @@ public partial class MainWindow : Window
             if (answer != MessageBoxResult.Yes) return;
             var note = AppRuntime.MemoryService.Save(title, content, _selectedMemoryId, MemoryCategoryInput.Text);
             _selectedMemoryId = note.Id;
+            _selectedMemoryIsArchived = note.IsArchived;
             RefreshMemoryNotes(MemorySearchInput.Text);
             MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(n => n.Id == note.Id);
             SetAccessibleStatusText(MemoryResult, IsArabic ? "تم حفظ الملاحظة محليًا بصورة مشفرة." : "Note saved locally with encryption.");
@@ -5943,6 +5950,7 @@ public partial class MainWindow : Window
         }
 
         note.IsArchived = shouldArchive;
+        _selectedMemoryIsArchived = shouldArchive;
         MemorySearchInput.Clear();
         RefreshMemoryNotes();
         MemoryList.SelectedItem = shouldArchive
@@ -5973,6 +5981,7 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         AppRuntime.MemoryService.Delete(_selectedMemoryId);
         _selectedMemoryId = null;
+        _selectedMemoryIsArchived = false;
         MemoryCategoryInput.Text = "General";
         MemoryTitleInput.Clear();
         MemoryContentInput.Clear();
