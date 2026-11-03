@@ -191,8 +191,9 @@ public sealed class GmailReadOnlyServiceTests
         Assert.AreEqual(inlineText, detail.Attachments[0].PreviewText);
         Assert.AreEqual(remoteText, detail.Attachments[1].PreviewText);
         StringAssert.Contains(detail.Attachments[0].Status, "available");
-        StringAssert.Contains(detail.Attachments[2].Status, "Not previewed");
-        StringAssert.Contains(detail.Attachments[3].Status, "Not previewed");
+        StringAssert.Contains(detail.Attachments[5].Status, "preview budget");
+        StringAssert.Contains(detail.Attachments[6].Status, "Not previewed");
+        StringAssert.Contains(detail.Attachments[7].Status, "Not previewed");
         Assert.IsTrue(detail.Attachments.Sum(item => item.PreviewText.Length) <=
             GmailReadOnlyService.MaximumAttachmentPreviewCharacters,
             "Total text previews across all message attachments must stay within the aggregate budget.");
