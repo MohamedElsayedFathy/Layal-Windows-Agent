@@ -14,4 +14,10 @@ public static class PrivacyShieldPolicy
         bool applicationExiting,
         bool cancellationRequested) =>
         privacyShieldEnabled || !windowVisible || applicationExiting || cancellationRequested;
+
+    /// <summary>
+    /// Fail-closed policy for an agent task that may still invoke a screen, window, clipboard,
+    /// or camera inspection tool after the master privacy shield is enabled.
+    /// </summary>
+    public static bool ShouldCancelAgentTask(bool privacyShieldEnabled) => privacyShieldEnabled;
 }
