@@ -204,6 +204,43 @@ public sealed class WorkspaceSnapshotServiceTests
         Assert.AreEqual(0, targetMemory.GetAll(includeArchived: true).Count);
     }
 
+
+    [TestMethod]
+    public void ManifestRejectsWindowsDeviceNamesAlternateStreamsAndProtectedDirectories()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "ordinary.txt"), "safe");
+        var sourceTasks = new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi"));
+        sourceTasks.Upsert(new AgentTaskRecord
+        {
+            Id = Guid.NewGuid().ToString("N"), Goal = "Must not import", Status = "Completed"
+        });
+        var sourceMemory = new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi"));
+        var backup = new WorkspaceSnapshotService(sourceTasks, sourceMemory, workspace)
+            .ExportJson(includeWorkspaceFileContents: true);
+
+        var targetTasks = new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi"));
+        var targetMemory = new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi"));
+        var target = new WorkspaceSnapshotService(targetTasks, targetMemory, workspace);
+
+        foreach (var unsafePath in new[] { "CON.txt", "report.txt:secret", ".git/config", "folder./file.txt", "NUL" })
+        {
+            var node = JsonNode.Parse(backup) ?? throw new AssertFailedException("Backup JSON was empty.");
+            node["Files"]![0]![nameof(WorkspaceFileManifestEntry.RelativePath)] = unsafePath;
+            Assert.ThrowsExactly<InvalidOperationException>(
+                () => target.ImportJson(node.ToJsonString(), restoreWorkspaceFiles: true),
+                "Unsafe path should be rejected: " + unsafePath);
+        }
+
+        Assert.AreEqual(0, targetTasks.GetRecent(10).Count,
+            "No task record should be imported when any restored file path is unsafe.");
+    }
+
     [TestMethod]
     public void UnsupportedVersionAndOversizedBackupAreRejected()
     {
