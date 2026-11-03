@@ -250,6 +250,54 @@ public sealed class SettingsStoreTests
     }
 
     [TestMethod]
+    public void GameModeDetectionRequiresAValidExplicitProcessAllowlist()
+    {
+        using var temp = new TestTempDirectory();
+        var store = new SettingsStore(temp.Path);
+        store.Save(new UserSettings
+        {
+            GameModeAutoDetectionEnabled = true,
+            GameModeAllowedProcessNames = new() { "Cyberpunk2077.exe", "cs2", "../unsafe", "Cyberpunk2077" }
+        });
+
+        var loaded = store.Load();
+
+        Assert.IsTrue(loaded.GameModeAutoDetectionEnabled);
+        CollectionAssert.AreEqual(new[] { "Cyberpunk2077", "cs2" }, loaded.GameModeAllowedProcessNames);
+    }
+
+    [TestMethod]
+    public void GameModeDetectionIsForcedOffWhenAllowlistIsEmptyOrInvalid()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            "{\\"GameModeAutoDetectionEnabled\\":true,\\"GameModeAllowedProcessNames\\":[\\"../bad\\",\\"C:\\\\\\\\Games\\\\bad.exe\\"]}");
+        var loaded = new SettingsStore(temp.Path).Load();
+
+        Assert.IsFalse(loaded.GameModeAutoDetectionEnabled);
+        Assert.AreEqual(0, loaded.GameModeAllowedProcessNames.Count);
+    }
+
+    [TestMethod]
+    public void UserSettingsCloneAndCopyFromDeepCopyGameModeAllowlist()
+    {
+        var original = new UserSettings
+        {
+            GameModeAutoDetectionEnabled = true,
+            GameModeAllowedProcessNames = new() { "cs2", "game-win64" }
+        };
+        var clone = original.Clone();
+        clone.GameModeAllowedProcessNames.Add("another-game");
+        Assert.AreEqual(2, original.GameModeAllowedProcessNames.Count);
+
+        var target = new UserSettings();
+        target.CopyFrom(clone);
+        target.GameModeAllowedProcessNames.Clear();
+        Assert.AreEqual(3, clone.GameModeAllowedProcessNames.Count);
+        Assert.IsTrue(target.GameModeAutoDetectionEnabled);
+    }
+
+    [TestMethod]
     public void DamagedSettingsAreBackedUpBeforeSafeDefaultsAreReturned()
     {
         using var temp = new TestTempDirectory();
