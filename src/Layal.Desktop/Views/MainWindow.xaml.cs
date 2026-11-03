@@ -1162,12 +1162,12 @@ public partial class MainWindow : Window
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
         ManageRemindersButton.Content = ar ? "التذكيرات" : "Reminders";
         ManageRemindersButton.ToolTip = ar
-            ? "إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
-            : "Manage encrypted local reminders; notifications appear while Layal is running.";
+            ? "إدارة تذكيرات محلية مشفرة؛ يجدول Windows تشغيل ليال عند الموعد في جلسة المستخدم."
+            : "Manage encrypted local reminders; Windows schedules Layal to launch at the due time in your signed-in session.";
         AutomationProperties.SetName(ManageRemindersButton, ar ? "إدارة التذكيرات المحلية" : "Manage local reminders");
         AutomationProperties.SetHelpText(ManageRemindersButton, ar
-            ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."
-            : "Create one-time, daily, or weekly reminders. They are stored locally encrypted and are not sent to an AI provider.");
+            ? "أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا؛ يجدول Windows تشغيل ليال بعد تسجيل الدخول ولا يوقظ الجهاز."
+            : "Create one-time, daily, or weekly reminders. They are encrypted locally; Windows starts Layal after sign-in and does not wake the computer.");
         ManageRoutinesButton.Content = ar ? "الروتينات" : "Routines";
         UpdateGameModeButtonUi();
         GameModeSettingsButton.Content = ar ? "إعداد اكتشاف الألعاب" : "Game detection settings";
@@ -1220,8 +1220,8 @@ public partial class MainWindow : Window
             checkInIntervals[i].Content = intervalLabels[i];
         AutomationProperties.SetName(ProactiveCheckInIntervalSelector, ar ? "الفاصل الزمني لتذكير المتابعة" : "Check-in reminder interval");
         AutomationProperties.SetHelpText(ProactiveCheckInIntervalSelector, ar
-            ? "إشعارات محلية كل 15 أو 30 أو 60 أو 120 دقيقة. يتطلب تشغيل ليال."
-            : "Local notifications every 15, 30, 60, or 120 minutes. Requires Layal to be running.");
+            ? "إشعارات متابعة محلية كل 15 أو 30 أو 60 أو 120 دقيقة. يجدول Windows تشغيل ليال في جلسة المستخدم عند الموعد."
+            : "Local check-in notifications every 15, 30, 60, or 120 minutes. Windows schedules Layal to launch in your signed-in session.");
         ProactiveCheckInPrivacyNote.Text = ar
             ? "الوضع الاستباقي هنا إشعار محلي فقط: لا يفحص النوافذ أو الشاشة أو الملفات ولا يستدعي نموذج AI."
             : "Proactive mode here is a local reminder only: no window, screen, or file inspection, and no AI model calls.";
