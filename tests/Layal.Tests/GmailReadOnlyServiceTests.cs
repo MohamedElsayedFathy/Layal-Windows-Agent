@@ -287,6 +287,9 @@ public sealed class GmailReadOnlyServiceTests
         Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
+    private static string Base64Url(byte[] value) =>
+        Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
 
     private sealed class GmailInlineAttachmentHandler(string messageJson) : HttpMessageHandler
     {
