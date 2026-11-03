@@ -23,11 +23,69 @@ public sealed class AgentToolExecutorTests
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "web_search"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "fact_check_claim"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "browser_download"));
+        Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "browser_upload_file"));
 
         Assert.AreEqual(names.Count, names.Distinct(StringComparer.Ordinal).Count());
         Assert.IsFalse(names.Any(string.IsNullOrWhiteSpace));
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as JsonObject);
+    }
+
+    [TestMethod]
+    public async Task InvalidBrowserUploadPathIsRejectedBeforeConsentOrBrowserStartup()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        var dataRoot = System.IO.Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            workspace,
+            new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "browser_upload_file",
+            "{\\"selector\\":\\"input[type=file]\\",\\"path\\":\\"../outside.pdf\\"}",
+            (_, _, _) =>
+            {
+                approvalCalled = true;
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled, "An invalid local path must be rejected before asking to upload it.");
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(dataRoot, "BrowserProfile")),
+            "Rejecting an invalid upload path must not start Edge or create its profile.");
+    }
+
+    [TestMethod]
+    public async Task UnsupportedBrowserUploadTypeIsRejectedBeforeConsent()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(System.IO.Path.Combine(workspace, "payload.ps1"), "Write-Host unsafe");
+        var executor = new AgentToolExecutor(
+            workspace,
+            new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(System.IO.Path.Combine(temp.Path, "app-data")));
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "browser_upload_file",
+            "{\\"selector\\":\\"input[type=file]\\",\\"path\\":\\"payload.ps1\\"}",
+            (_, _, _) =>
+            {
+                approvalCalled = true;
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled);
     }
 
     [TestMethod]
