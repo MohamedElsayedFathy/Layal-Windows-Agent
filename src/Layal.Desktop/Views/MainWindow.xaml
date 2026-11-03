@@ -370,6 +370,10 @@
                                     ToolTip="تشغيل HUD يدوي صغير؛ لا يوجد اكتشاف ألعاب أو مراقبة عمليات أو حقن."
                                     AutomationProperties.Name="تفعيل وضع الألعاب اليدوي"
                                     AutomationProperties.HelpText="يفتح HUD فوق النوافذ ويوقف إشعارات المتابعة والتذكيرات أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها."/>
+                            <Button x:Name="GameModeSettingsButton" Content="إعداد اكتشاف الألعاب" Click="ConfigureGameModeDetectionButton_Click" MinWidth="145"
+                                    ToolTip="اختياري ومغلق افتراضيًا؛ يطابق اسم عملية النافذة الأمامية مع قائمة سماح تحددها."
+                                    AutomationProperties.Name="إعداد الكشف التلقائي للألعاب"
+                                    AutomationProperties.HelpText="لا يقرأ عناوين النوافذ أو سطر الأوامر أو ذاكرة اللعبة ولا يحقن مدخلات. يتطلب قائمة سماح صريحة."/>
                         </WrapPanel>
                         <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,6,4,0"/>
                         <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
