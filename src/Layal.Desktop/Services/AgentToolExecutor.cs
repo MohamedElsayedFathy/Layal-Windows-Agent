@@ -36,6 +36,7 @@ public sealed class AgentToolExecutor
     private readonly ApiConnectionService? _apiConnections;
     private readonly BrowserAutomationService? _browser;
     private readonly SafeBrowserDownloadService _browserDownloads;
+    private readonly SafeBrowserUploadService _browserUploads;
 
     public AgentToolExecutor(string workspaceRoot, MemoryService memory, ApiConnectionService? apiConnections = null, BrowserAutomationService? browser = null)
     {
@@ -44,6 +45,7 @@ public sealed class AgentToolExecutor
         _apiConnections = apiConnections;
         _browser = browser;
         _browserDownloads = new SafeBrowserDownloadService(_workspaceRoot);
+        _browserUploads = new SafeBrowserUploadService(_workspaceRoot);
         Directory.CreateDirectory(_workspaceRoot);
     }
 
@@ -67,6 +69,7 @@ public sealed class AgentToolExecutor
         Definition("browser_click", "Click one visible standalone link/button outside HTML forms in Layal's dedicated browser using a CSS selector. Submit/reset controls and form-associated elements are blocked. Inspect the target locally, show its details, require fresh approval, and revalidate the exact page and element before dispatching a DOM click. Approved page handlers can still navigate or modify remote data. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one intended visible link or button"}},"required":["selector"],"additionalProperties":false}"""),
         Definition("browser_fill", "Fill a visible editable text/email/search/telephone/URL/number input, textarea, or contenteditable element in Layal's dedicated browser using a CSS selector. Password, file, hidden, and button fields are deliberately unsupported. Show the text preview, require fresh approval, and revalidate the page and element. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector for a single visible supported text field"},"text":{"type":"string","description":"Text to enter; max 10,000 characters"}},"required":["selector","text"],"additionalProperties":false}"""),
         Definition("browser_download", "Download one visible direct HTTPS file link from the current page into LayalWorkspace/Downloads. Only same-origin public links and PDF/TXT/MD/CSV/JSON/DOCX/XLSX/PNG/JPG/WEBP files are supported; no browser cookies, sign-in session, uploads, executable files, scripts, cross-origin/CDN URLs, or automatic opening. Preview the exact link, require approval, revalidate the page and link, enforce a 20 MB limit and public-IP checks, then report the saved path.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one visible anchor whose URL points to an allowed same-origin file"}},"required":["selector"],"additionalProperties":false}"""),
+        Definition("browser_upload_file", "Select one local file from LayalWorkspace in a visible file input on the current page. Only PDF/TXT/MD/CSV/JSON/DOCX/XLSX/PNG/JPG/WEBP files up to 20 MiB are allowed. Requires a fresh local approval showing the destination page and local path; the file is revalidated after approval. The site may upload immediately on file selection; Layal never clicks submit or submits the form. No browser cookies are copied.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one visible input[type=file]"},"path":{"type":"string","description":"Canonical workspace-relative path to one allowed document or image file"}},"required":["selector","path"],"additionalProperties":false}"""),
         Definition("get_open_window_titles", "Call this tool when the user asks to list visible windows. Disabled unless the user opts in; Layal itself will display a local consent prompt before titles are shared with the AI provider. Do not ask for separate permission in chat instead of calling this tool.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("activate_window", "Bring a visible window with an exact title to the foreground. Requires user approval.", """{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}"""),
         Definition("inspect_window_controls", "Call this tool directly when the user asks to inspect UI elements in a known visible external window. Supply its exact title. Read-only; Layal itself displays a local consent prompt before sharing labels and identifiers with the AI provider, so do not ask a separate natural-language permission question first. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
@@ -111,6 +114,7 @@ public sealed class AgentToolExecutor
             "browser_click" => await BrowserClickAsync(GetString(args, "selector"), confirm, report, cancellationToken),
             "browser_fill" => await BrowserFillAsync(GetString(args, "selector"), GetString(args, "text"), confirm, report, cancellationToken),
             "browser_download" => await BrowserDownloadAsync(GetString(args, "selector"), confirm, report, cancellationToken),
+            "browser_upload_file" => await BrowserUploadAsync(GetString(args, "selector"), GetString(args, "path"), confirm, report, cancellationToken),
             "get_open_window_titles" => await GetWindowTitlesAsync(confirm, cancellationToken),
             "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
             "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
@@ -904,6 +908,46 @@ public sealed class AgentToolExecutor
             (string.IsNullOrWhiteSpace(result.ContentType) ? "not provided by server" : result.ContentType) +
             "\nSource: " + result.FinalUrl +
             "\nThe file was not opened. Treat it as untrusted, scan it with Windows Security, and inspect it before use.";
+    }
+
+    private async Task<string> BrowserUploadAsync(
+        string selector,
+        string relativePath,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+
+        // Resolve and hash locally before showing approval. The file bytes are not disclosed by this step.
+        var candidate = _browserUploads.PrepareUpload(relativePath);
+        token.ThrowIfCancellationRequested();
+        var preview = await _browser.PreviewElementAsync(selector, "upload", token);
+        BrowserAutomationService.ValidateBrowserUploadTarget(preview.Tag, preview.Type);
+
+        var origin = new Uri(preview.PageUrl).GetLeftPart(UriPartial.Authority);
+        var warning =
+            "Select this local file in the current website's file-upload control? The website may transmit the file immediately when the selection event fires, even though Layal will not click Submit or send the form. Only approve if you trust this destination and the file contains no information you do not intend to share. The file must remain unchanged while you approve. Layal sends it from its dedicated Edge profile and does not copy cookies from your normal browser.\n\n" +
+            "Destination: " + origin +
+            "\nPage: " + preview.PageUrl +
+            "\nFile input: " + preview.Selector +
+            "\nInput name: " + Truncate(preview.Name, 120) +
+            "\nAccepted types declared by page: " + (string.IsNullOrWhiteSpace(preview.Accept) ? "not specified" : Truncate(preview.Accept, 180)) +
+            "\nMultiple selection: " + (preview.Multiple ? "yes" : "no") +
+            "\nLocal file: " + candidate.RelativePath +
+            "\nFile name: " + candidate.FileName +
+            "\nType: " + candidate.Extension +
+            "\nSize: " + candidate.LengthBytes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " bytes (maximum 20 MiB)";
+
+        if (!await confirm("Upload local file to website", warning, token))
+            return "User declined the browser upload. No file was selected in the browser and no file was sent.";
+
+        token.ThrowIfCancellationRequested();
+        var unchanged = _browserUploads.RevalidateUnchanged(candidate);
+        var result = await _browser.UploadFileAsync(preview, unchanged.FullPath, token);
+        report("One explicitly approved workspace file was selected in one browser file input. The website may upload it automatically; Layal did not submit the form.");
+        return result;
     }
 
     private async Task<string> BrowserClickAsync(
