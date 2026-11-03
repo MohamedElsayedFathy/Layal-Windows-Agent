@@ -29,7 +29,7 @@ public sealed class MemoryService
         content = (content ?? string.Empty).Trim();
         if (title.Length is < 1 or > 120) throw new InvalidOperationException("Memory title must be between 1 and 120 characters.");
         if (content.Length is < 1 or > 12000) throw new InvalidOperationException("Memory content must be between 1 and 12,000 characters.");
-        if (LooksLikeSecret(title + "\n" + content))
+            if (LooksLikeSecret(title + "\n" + content))
             throw new InvalidOperationException("This note resembles an API key, token, password, or private key. Store credentials in the secure credential setting, not in memory.");
 
         lock (_sync)
