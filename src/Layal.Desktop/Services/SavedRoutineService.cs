@@ -11,6 +11,9 @@ public sealed class SavedRoutineService
     public const int MaximumRoutines = 50;
     public const int MaximumNameCharacters = 80;
     public const int MaximumGoalCharacters = 2_000;
+    public const int MaximumSteps = 20;
+    public const int MaximumStepCharacters = 250;
+    public const int MaximumTotalStepCharacters = 4_000;
     private readonly ProtectedJsonStore<List<SavedRoutineRecord>> _store;
     private readonly object _sync = new();
 
@@ -27,7 +30,7 @@ public sealed class SavedRoutineService
         }
     }
 
-    public SavedRoutineRecord Create(string name, string goal)
+    public SavedRoutineRecord Create(string name, string goal, IEnumerable<string>? steps = null)
     {
         var safeName = (name ?? string.Empty).Trim();
         var safeGoal = (goal ?? string.Empty).Trim();
@@ -35,6 +38,7 @@ public sealed class SavedRoutineService
             throw new ArgumentException($"Routine names must contain 1–{MaximumNameCharacters} characters.", nameof(name));
         if (safeGoal.Length is < 1 or > MaximumGoalCharacters)
             throw new ArgumentException($"Routine prompts must contain 1–{MaximumGoalCharacters} characters.", nameof(goal));
+        var safeSteps = NormalizeSteps(steps);
 
         lock (_sync)
         {
@@ -50,6 +54,7 @@ public sealed class SavedRoutineService
                 Id = Guid.NewGuid().ToString("N"),
                 Name = safeName,
                 Goal = safeGoal,
+                Steps = safeSteps,
                 CreatedAt = now,
                 UpdatedAt = now
             };
@@ -59,7 +64,7 @@ public sealed class SavedRoutineService
         }
     }
 
-    public SavedRoutineRecord? Update(string id, string name, string goal)
+    public SavedRoutineRecord? Update(string id, string name, string goal, IEnumerable<string>? steps = null)
     {
         if (string.IsNullOrWhiteSpace(id))
             return null;
@@ -70,6 +75,7 @@ public sealed class SavedRoutineService
             throw new ArgumentException($"Routine names must contain 1–{MaximumNameCharacters} characters.", nameof(name));
         if (safeGoal.Length is < 1 or > MaximumGoalCharacters)
             throw new ArgumentException($"Routine prompts must contain 1–{MaximumGoalCharacters} characters.", nameof(goal));
+        var safeSteps = steps is null ? null : NormalizeSteps(steps);
 
         lock (_sync)
         {
@@ -87,10 +93,43 @@ public sealed class SavedRoutineService
 
             existing.Name = safeName;
             existing.Goal = safeGoal;
+            if (safeSteps is not null)
+                existing.Steps = safeSteps;
             existing.UpdatedAt = DateTimeOffset.Now;
             _store.Save(routines);
             return existing.Clone();
         }
+    }
+
+    public static List<string> NormalizeSteps(IEnumerable<string>? steps)
+    {
+        var normalized = (steps ?? Array.Empty<string>())
+            .Select(step => (step ?? string.Empty).Trim())
+            .Where(step => step.Length > 0)
+            .ToList();
+        if (normalized.Count > MaximumSteps)
+            throw new ArgumentException($"A routine can contain at most {MaximumSteps} steps.", nameof(steps));
+        if (normalized.Any(step => step.Length > MaximumStepCharacters || step.Any(char.IsControl)))
+            throw new ArgumentException($"Each routine step must contain 1–{MaximumStepCharacters} printable characters.", nameof(steps));
+        if (normalized.Sum(step => step.Length) > MaximumTotalStepCharacters)
+            throw new ArgumentException($"Routine steps cannot exceed {MaximumTotalStepCharacters} characters in total.", nameof(steps));
+        return normalized;
+    }
+
+    /// <summary>Formats a routine as a user-reviewed task draft; it never starts execution.</summary>
+    public static string BuildReviewPrompt(SavedRoutineRecord routine, bool isArabic = false)
+    {
+        ArgumentNullException.ThrowIfNull(routine);
+        var steps = NormalizeSteps(routine.Steps);
+        if (steps.Count == 0)
+            return routine.Goal;
+
+        var heading = isArabic
+            ? "خطوات مقترحة للمراجعة (لم يبدأ التنفيذ):"
+            : "Proposed steps to review (no execution has started):";
+        return routine.Goal + Environment.NewLine + Environment.NewLine +
+            heading + Environment.NewLine +
+            string.Join(Environment.NewLine, steps.Select((step, index) => $"{index + 1}. {step}"));
     }
 
     public bool Delete(string id)
@@ -115,6 +154,8 @@ public sealed class SavedRoutineService
             routine.Id = string.IsNullOrWhiteSpace(routine.Id) ? Guid.NewGuid().ToString("N") : routine.Id;
             routine.Name = (routine.Name ?? string.Empty).Trim();
             routine.Goal = (routine.Goal ?? string.Empty).Trim();
+            try { routine.Steps = NormalizeSteps(routine.Steps); }
+            catch (ArgumentException) { routine.Steps = new List<string>(); }
             if (routine.Name.Length is < 1 or > MaximumNameCharacters ||
                 routine.Goal.Length is < 1 or > MaximumGoalCharacters)
             {

@@ -25,6 +25,7 @@ public sealed class WorkspaceHubWindow : Window
     private const int MaximumFolderDepth = 4;
     private readonly TaskHistoryService _taskHistory;
     private readonly MemoryService _memoryService;
+    private readonly WorkspaceArtifactService _artifactService;
     private readonly string _workspaceRoot;
     private readonly bool _isArabic;
     private readonly Action<string> _openTask;
@@ -36,6 +37,10 @@ public sealed class WorkspaceHubWindow : Window
     private readonly TextBlock _status;
     private readonly Button _openButton;
     private readonly Button _exportButton;
+    private readonly Button _backupButton;
+    private readonly Button _restoreButton;
+    private readonly ListBox _artifactList;
+    private readonly Button _deleteArtifactButton;
     private readonly ObservableCollection<WorkspaceEntry> _visible = new();
     private IReadOnlyList<WorkspaceEntry> _all = Array.Empty<WorkspaceEntry>();
 
@@ -50,6 +55,7 @@ public sealed class WorkspaceHubWindow : Window
         _taskHistory = taskHistory ?? throw new ArgumentNullException(nameof(taskHistory));
         _memoryService = memoryService ?? throw new ArgumentNullException(nameof(memoryService));
         _workspaceRoot = Path.GetFullPath(workspaceRoot ?? throw new ArgumentNullException(nameof(workspaceRoot)));
+        _artifactService = new WorkspaceArtifactService(_workspaceRoot);
         _isArabic = isArabic;
         _openTask = openTask ?? throw new ArgumentNullException(nameof(openTask));
         _openMemory = openMemory ?? throw new ArgumentNullException(nameof(openMemory));
@@ -131,6 +137,7 @@ public sealed class WorkspaceHubWindow : Window
 
         var right = new Grid { Margin = new Thickness(12, 0, 0, 0) };
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _details = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
@@ -140,17 +147,59 @@ public sealed class WorkspaceHubWindow : Window
             : "Local-only preview. Files show metadata; their contents are not read automatically.");
         Grid.SetRow(_details, 0); right.Children.Add(_details);
 
+        var artifactsPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+        artifactsPanel.Children.Add(new TextBlock
+        {
+            Text = isArabic ? "ملفات ناتجة عن المهمة المحددة" : "Files produced by the selected task",
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+        _artifactList = new ListBox
+        {
+            MinHeight = 58,
+            MaxHeight = 92,
+            Padding = new Thickness(4),
+            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
+            Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black,
+            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray
+        };
+        AutomationProperties.SetName(_artifactList, isArabic ? "ملفات المهمة المرتبطة" : "Task-linked workspace files");
+        AutomationProperties.SetHelpText(_artifactList, isArabic
+            ? "حدد ملفًا واحدًا ثم انقله إلى سلة محذوفات Windows. لن يُحذف شيء قبل التأكيد."
+            : "Select one file to move it to the Windows Recycle Bin. Nothing is deleted before confirmation.");
+        _artifactList.SelectionChanged += (_, _) =>
+            _deleteArtifactButton.IsEnabled = _items.SelectedItem is WorkspaceEntry { Kind: "task" } &&
+                _artifactList.SelectedItem is string;
+        artifactsPanel.Children.Add(_artifactList);
+
+        _deleteArtifactButton = new Button
+        {
+            Content = isArabic ? "نقل الملف المحدد إلى سلة المحذوفات" : "Move selected file to Recycle Bin",
+            MinHeight = 32,
+            MinWidth = 220,
+            Margin = new Thickness(0, 5, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            IsEnabled = false
+        };
+        AutomationProperties.SetName(_deleteArtifactButton, isArabic ? "حذف ملف المهمة المحدد إلى سلة محذوفات Windows" : "Move the selected task file to the Windows Recycle Bin");
+        AutomationProperties.SetHelpText(_deleteArtifactButton, isArabic
+            ? "يتحقق من بقاء الملف داخل LayalWorkspace ومن عدم مروره عبر رابط رمزي، ويطلب تأكيدًا قبل الحذف."
+            : "Verifies that the file remains inside LayalWorkspace and is not reached through a reparse point, then asks for confirmation.");
+        _deleteArtifactButton.Click += DeleteArtifactButton_Click;
+        artifactsPanel.Children.Add(_deleteArtifactButton);
+        Grid.SetRow(artifactsPanel, 1); right.Children.Add(artifactsPanel);
+
         var note = new TextBlock
         {
-            Text = isArabic
-                ? "مهم: فهرسة الملفات لا تفتحها ولا تشغّلها. تصدير مهمة أو ملاحظة ينشئ ملف نصي غير مشفّر في المسار الذي تختاره."
-                : "Important: file indexing does not open or execute files. Exporting a task or memory creates an unencrypted text file at the path you choose.",
+            Text = _isArabic
+                ? "مهم: النسخة الاحتياطية ملف JSON غير مشفّر وقد يحتوي على نص المهام والملاحظات؛ احفظه في مكان موثوق. فهرس الملفات وصفي فقط ولا تُنسخ ملفات العمل أو تُشغّل."
+                : "Important: the workspace backup is an unencrypted JSON file and may contain task and memory text; store it securely. The file manifest is metadata only; workspace files are not copied or executed.",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
         };
-        Grid.SetRow(note, 1); right.Children.Add(note);
+        Grid.SetRow(note, 2); right.Children.Add(note);
 
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
         _openButton = new Button { Content = isArabic ? "فتح / عرض" : "Open / show", MinHeight = 34, MinWidth = 110, Margin = new Thickness(0, 0, 8, 0), IsEnabled = false };
         AutomationProperties.SetName(_openButton, isArabic ? "فتح العنصر المحدد أو عرضه" : "Open or show selected item");
         _openButton.Click += OpenButton_Click;
@@ -160,7 +209,36 @@ public sealed class WorkspaceHubWindow : Window
         AutomationProperties.SetHelpText(_exportButton, isArabic ? "ينشئ ملفًا نصيًا غير مشفّر بعد اختيار المسار." : "Creates an unencrypted text file after you choose the path.");
         _exportButton.Click += ExportButton_Click;
         actions.Children.Add(_exportButton);
-        Grid.SetRow(actions, 2); right.Children.Add(actions);
+
+        _backupButton = new Button
+        {
+            Content = isArabic ? "نسخة احتياطية…" : "Backup…",
+            MinHeight = 34,
+            MinWidth = 125,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        AutomationProperties.SetName(_backupButton, isArabic ? "تصدير نسخة احتياطية كاملة لمساحة العمل" : "Export a full workspace backup");
+        AutomationProperties.SetHelpText(_backupButton, isArabic
+            ? "ينشئ ملف JSON غير مشفّر للمهام والذاكرة النشطة والمؤرشفة وبيانات الملفات الوصفية فقط."
+            : "Creates an unencrypted JSON backup of tasks, active and archived memory, and file metadata only.");
+        _backupButton.Click += BackupButton_Click;
+        actions.Children.Add(_backupButton);
+
+        _restoreButton = new Button
+        {
+            Content = isArabic ? "استعادة نسخة…" : "Restore backup…",
+            MinHeight = 34,
+            MinWidth = 135,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        AutomationProperties.SetName(_restoreButton, isArabic ? "دمج نسخة مساحة عمل احتياطية" : "Merge a workspace backup");
+        AutomationProperties.SetHelpText(_restoreButton, isArabic
+            ? "يفحص ملف JSON ثم يدمج السجلات الجديدة فقط. لا يستبدل أو يحذف سجلات موجودة ولا يستعيد ملفات مساحة العمل."
+            : "Validates a JSON backup and merges only new records. Existing records are not overwritten or deleted, and workspace files are not restored.");
+        _restoreButton.Click += RestoreButton_Click;
+        actions.Children.Add(_restoreButton);
+
+        Grid.SetRow(actions, 3); right.Children.Add(actions);
 
         Grid.SetColumn(right, 1); content.Children.Add(right);
         Grid.SetRow(content, 2); root.Children.Add(content);
@@ -179,7 +257,8 @@ public sealed class WorkspaceHubWindow : Window
         var entries = new List<WorkspaceEntry>();
         foreach (var task in _taskHistory.GetRecent(100))
         {
-            var searchable = task.Goal + "\n" + task.Status + "\n" + task.Result;
+            var artifactText = string.Join("\n", task.Artifacts ?? new List<string>());
+            var searchable = task.Goal + "\n" + task.Status + "\n" + task.Result + "\n" + artifactText;
             entries.Add(new WorkspaceEntry("task", task.Id, task.Goal, task.Status,
                 task.UpdatedAt, searchable, task.Result, task, null, null));
         }
@@ -187,7 +266,7 @@ public sealed class WorkspaceHubWindow : Window
         {
             entries.Add(new WorkspaceEntry("memory", note.Id, note.Title,
                 _isArabic ? "ملاحظة" : "Memory", note.UpdatedAt,
-                note.Title + "\n" + note.Content, note.Content, null, note, null));
+                note.Category + "\n" + note.Title + "\n" + note.Content, note.Content, null, note, null));
         }
         entries.AddRange(IndexWorkspaceFiles());
         _all = entries.OrderByDescending(entry => entry.UpdatedAt).ToList();
@@ -289,6 +368,8 @@ public sealed class WorkspaceHubWindow : Window
 
     private void Items_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        _artifactList.Items.Clear();
+        _deleteArtifactButton.IsEnabled = false;
         if (_items.SelectedItem is not WorkspaceEntry entry)
         {
             _details.Text = string.Empty;
@@ -296,11 +377,19 @@ public sealed class WorkspaceHubWindow : Window
             _exportButton.IsEnabled = false;
             return;
         }
+        if (entry.Kind == "task" && entry.Task?.Artifacts is { Count: > 0 } taskArtifactPaths)
+        {
+            foreach (var artifact in taskArtifactPaths)
+                _artifactList.Items.Add(artifact);
+        }
         _details.Text = entry.Kind switch
         {
             "task" => (_isArabic ? "مهمة\n" : "Task\n") + entry.Title +
                 "\n" + (_isArabic ? "الحالة: " : "Status: ") + entry.Subtitle +
                 "\n" + (_isArabic ? "آخر تحديث: " : "Updated: ") + entry.UpdatedAt.ToLocalTime().ToString("g") +
+                (entry.Task?.Artifacts is { Count: > 0 } artifacts
+                    ? "\n\n" + (_isArabic ? "الملفات المرتبطة بالمهمة:" : "Task artifacts:") + "\n• " + string.Join("\n• ", artifacts)
+                    : string.Empty) +
                 "\n\n" + Truncate(entry.Content, 8000),
             "memory" => (_isArabic ? "ملاحظة\n" : "Memory\n") + entry.Title +
                 "\n" + (_isArabic ? "آخر تحديث: " : "Updated: ") + entry.UpdatedAt.ToLocalTime().ToString("g") +
@@ -381,6 +470,148 @@ public sealed class WorkspaceHubWindow : Window
         catch (Exception ex)
         {
             _status.Text = (_isArabic ? "تعذر التصدير: " : "Export failed: ") + ex.Message;
+        }
+    }
+
+    private void DeleteArtifactButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_items.SelectedItem is not WorkspaceEntry { Kind: "task" } entry ||
+            _artifactList.SelectedItem is not string relativePath)
+            return;
+
+        var question = _isArabic
+            ? "سيُنقل الملف المحدد فقط من مساحة LayalWorkspace إلى سلة محذوفات Windows، وسيُزال رابطه من سجل المهمة. لن تُحذف المهمة أو بقية ملفاتها. هل تريد المتابعة؟\\n\\n" + relativePath
+            : "Only this file will be moved from LayalWorkspace to the Windows Recycle Bin, and its task-history reference will be removed. The task and its other files will remain. Continue?\\n\\n" + relativePath;
+        if (MessageBox.Show(this, question,
+            _isArabic ? "تأكيد حذف مخرج المهمة" : "Confirm task artifact removal",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _artifactService.SendToRecycleBin(relativePath);
+            if (!_taskHistory.RemoveArtifact(entry.Id, relativePath))
+            {
+                _status.Text = _isArabic
+                    ? "نُقل الملف إلى سلة المحذوفات، لكن تعذر تحديث رابط سجل المهمة. حدّث مساحة العمل للتحقق."
+                    : "The file was moved to the Recycle Bin, but its task-history link could not be updated. Refresh the workspace to verify.";
+                RefreshIndex();
+                return;
+            }
+
+            RefreshIndex();
+            _status.Text = _isArabic
+                ? "تم نقل الملف المحدد إلى سلة محذوفات Windows وإزالة رابطه من المهمة."
+                : "The selected file was moved to the Windows Recycle Bin and unlinked from the task.";
+        }
+        catch (Exception ex)
+        {
+            _status.Text = (_isArabic ? "تعذر حذف مخرج المهمة: " : "Could not remove task artifact: ") + ex.Message;
+        }
+    }
+
+    private void BackupButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = _isArabic ? "إنشاء نسخة مساحة عمل احتياطية" : "Create workspace backup",
+            FileName = "layal-workspace-backup.json",
+            DefaultExt = ".json",
+            Filter = _isArabic ? "نسخة ليال الاحتياطية (*.json)|*.json" : "Layal workspace backup (*.json)|*.json",
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        var warning = _isArabic
+            ? "سيُنشأ ملف JSON غير مشفّر يحتوي على سجل المهام ونصوص الذاكرة النشطة والمؤرشفة ومراجع الملفات وبياناتها الوصفية. لا تُصدّر النسخة إلى مجلد مشترك أو سحابي غير موثوق. لن تُنسخ محتويات ملفات مساحة العمل. هل تريد المتابعة؟"
+            : "This creates an unencrypted JSON file containing task history, active and archived memory text, artifact references, and file metadata. Do not export it to an untrusted shared or cloud folder. Workspace file contents are not copied. Continue?";
+        if (MessageBox.Show(this, warning,
+            _isArabic ? "تنبيه خصوصية للنسخة الاحتياطية" : "Workspace backup privacy warning",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
+            var json = service.ExportJson();
+            var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(json);
+            if (bytes.Length > WorkspaceSnapshotService.MaximumJsonBytes)
+                throw new InvalidOperationException("The workspace backup exceeds the configured size limit.");
+            File.WriteAllBytes(dialog.FileName, bytes);
+            _status.Text = _isArabic
+                ? $"تم إنشاء النسخة الاحتياطية غير المشفّرة: {dialog.FileName}"
+                : $"Unencrypted workspace backup created: {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            _status.Text = (_isArabic ? "تعذر إنشاء النسخة الاحتياطية: " : "Workspace backup failed: ") + ex.Message;
+        }
+    }
+
+    private void RestoreButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = _isArabic ? "اختيار نسخة مساحة عمل احتياطية" : "Select a workspace backup",
+            Filter = _isArabic ? "نسخة ليال الاحتياطية (*.json)|*.json" : "Layal workspace backup (*.json)|*.json",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var json = ReadBoundedBackupFile(dialog.FileName, WorkspaceSnapshotService.MaximumJsonBytes);
+            var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
+            var preview = service.PreviewImportJson(json);
+            var summary = _isArabic
+                ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد وصفي\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. سجلات الملفات بيانات وصفية فقط ولن تُنسخ ملفات أو تُفتح أو تُشغّل. قد يتضمن JSON نصوصًا خاصة غير مشفّرة. هل تريد المتابعة؟"
+                : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder metadata entries\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. File entries are metadata only; no files are copied, opened, or executed. The JSON may contain sensitive plaintext. Continue?";
+            if (MessageBox.Show(this, summary,
+                _isArabic ? "مراجعة واستعادة النسخة الاحتياطية" : "Review and restore workspace backup",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+                return;
+
+            var result = service.ImportJson(json);
+            RefreshIndex();
+            _status.Text = _isArabic
+                ? $"اكتمل الدمج: {result.TasksImported} مهمة جديدة و{result.MemoriesImported} ملاحظة جديدة. لم تُستعد ملفات مساحة العمل ({result.FileManifestEntries} سجل وصفي فقط)."
+                : $"Merge complete: {result.TasksImported} new tasks and {result.MemoriesImported} new memories. Workspace files were not restored ({result.FileManifestEntries} metadata entries only).";
+        }
+        catch (Exception ex)
+        {
+            _status.Text = (_isArabic ? "تعذرت استعادة النسخة الاحتياطية: " : "Workspace backup restore failed: ") + ex.Message;
+        }
+    }
+
+    private static string ReadBoundedBackupFile(string path, int maximumBytes)
+    {
+        using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (source.Length > maximumBytes)
+            throw new InvalidOperationException($"The selected backup exceeds the {maximumBytes / (1024 * 1024)} MB limit.");
+
+        using var buffer = new MemoryStream((int)Math.Min(source.Length, maximumBytes));
+        var chunk = new byte[16 * 1024];
+        while (true)
+        {
+            var read = source.Read(chunk, 0, chunk.Length);
+            if (read == 0) break;
+            if (buffer.Length + read > maximumBytes)
+                throw new InvalidOperationException("The selected backup grew beyond the configured size limit while it was being read.");
+            buffer.Write(chunk, 0, read);
+        }
+
+        try
+        {
+            return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true)
+                .GetString(buffer.ToArray());
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new InvalidOperationException("The selected backup is not valid UTF-8 JSON.", ex);
         }
     }
 

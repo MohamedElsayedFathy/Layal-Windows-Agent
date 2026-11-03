@@ -13,6 +13,7 @@ public sealed class TrayService : IDisposable
     private readonly Forms.ToolStripMenuItem _mascotItem;
     private readonly Forms.ToolStripMenuItem _exitItem;
     private readonly Drawing.Icon? _ownedIcon;
+    private readonly NotificationActionSlot _reminderClickAction = new();
 
     public TrayService(Action showMain, Action showMascot, Action exit, string language)
     {
@@ -57,10 +58,18 @@ public sealed class TrayService : IDisposable
             Visible = true
         };
         _icon.DoubleClick += (_, _) => showMain();
+        _icon.BalloonTipClicked += (_, _) =>
+        {
+            try { _reminderClickAction.Take(DateTimeOffset.UtcNow)?.Invoke(); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning("Reminder notification action failed: {0}", ex.Message);
+            }
+        };
         SetLanguage(language);
     }
 
-    public void ShowReminderNotification(string reminderTitle, bool isArabic)
+    public void ShowReminderNotification(string reminderTitle, bool isArabic, Action? onClick = null)
     {
         if (_disposed || !_icon.Visible)
             return;
@@ -74,6 +83,7 @@ public sealed class TrayService : IDisposable
         if (string.IsNullOrWhiteSpace(safeTitle))
             safeTitle = isArabic ? "تذكير محلي" : "Local reminder";
 
+        _reminderClickAction.Arm(onClick, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(7));
         _icon.ShowBalloonTip(
             6000,
             isArabic ? "حان موعد التذكير" : "Reminder is due",

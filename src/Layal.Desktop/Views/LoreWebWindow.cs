@@ -8,18 +8,20 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using Layal.Models;
+using Layal.Services;
 
 namespace Layal.Views;
 
 /// <summary>
-/// A local-only 3D map of encrypted memory notes. Links use title-term overlap and chronological
-/// adjacency; they are visual navigation hints, not AI-generated facts or semantic guarantees.
+/// A local-only 3D map of encrypted memory notes. Links use user-defined category, title-term overlap,
+/// and chronological adjacency; they are navigation hints, not AI-generated facts or semantic guarantees.
 /// </summary>
 public sealed class LoreWebWindow : Window
 {
     private readonly bool _isArabic;
     private readonly Action<MemoryNote> _openNote;
     private readonly Func<MemoryNote, bool> _deleteNote;
+    private readonly Func<MemoryNote, bool> _toggleArchiveNote;
     private readonly List<MemoryNote> _notes;
     private readonly Viewport3D _viewport;
     private readonly ListBox _noteList;
@@ -28,6 +30,7 @@ public sealed class LoreWebWindow : Window
     private readonly TextBlock _status;
     private readonly Button _openButton;
     private readonly Button _deleteButton;
+    private readonly Button _archiveButton;
     private readonly PerspectiveCamera _camera;
     private readonly Dictionary<ModelVisual3D, MemoryNote> _visualNotes = new();
     private readonly Dictionary<string, ModelVisual3D> _noteVisuals = new(StringComparer.Ordinal);
@@ -46,11 +49,13 @@ public sealed class LoreWebWindow : Window
         IReadOnlyList<MemoryNote> notes,
         bool isArabic,
         Action<MemoryNote> openNote,
-        Func<MemoryNote, bool> deleteNote)
+        Func<MemoryNote, bool> deleteNote,
+        Func<MemoryNote, bool> toggleArchiveNote)
     {
         ArgumentNullException.ThrowIfNull(notes);
         _openNote = openNote ?? throw new ArgumentNullException(nameof(openNote));
         _deleteNote = deleteNote ?? throw new ArgumentNullException(nameof(deleteNote));
+        _toggleArchiveNote = toggleArchiveNote ?? throw new ArgumentNullException(nameof(toggleArchiveNote));
         _isArabic = isArabic;
         _notes = notes.Take(100).OrderBy(note => note.CreatedAt).ToList();
 
@@ -65,8 +70,8 @@ public sealed class LoreWebWindow : Window
         Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
-            ? "خريطة محلية للملاحظات المحفوظة. الروابط تقريبية حسب كلمات العنوان والترتيب الزمني. لا يُرسل أي محتوى إلى الذكاء الاصطناعي."
-            : "A local map of saved notes. Links are approximate, based on title terms and chronology. No content is sent to AI.");
+            ? "خريطة محلية للملاحظات النشطة والمؤرشفة. التصنيفات تحددها أنت، والروابط مبنية على التصنيف وكلمات العنوان والترتيب الزمني؛ لا يُرسل المحتوى إلى AI."
+            : "A local map of active and archived notes. Categories are user-defined; links use category, shared title terms and chronology. No content is sent to AI.");
 
         var root = new Grid { Margin = new Thickness(14) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -83,8 +88,8 @@ public sealed class LoreWebWindow : Window
         var privacy = new TextBlock
         {
             Text = isArabic
-                ? "اسحب بالماوس لتدوير المشهد، واستخدم عجلة الفأرة للتقريب. اختر نقطة من الرسم أو القائمة لعرض ملاحظة. الروابط تقريبية فقط."
-                : "Drag to rotate and use the mouse wheel to zoom. Select a node or list item to inspect a note. Links are approximate only.",
+                ? "اسحب لتدوير المشهد واستخدم عجلة الفأرة للتقريب. تعرض القائمة التصنيف وحالة الأرشفة. يمكنك أرشفة الملاحظة أو استعادتها دون حذفها."
+                : "Drag to rotate and use the mouse wheel to zoom. The list shows category and archive state. You can archive or restore a note without deleting it.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0),
             Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
@@ -147,7 +152,8 @@ public sealed class LoreWebWindow : Window
             Padding = new Thickness(5),
             Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
             Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black,
-            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray
+            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray,
+            DisplayMemberPath = nameof(NoteListEntry.Description)
         };
         _noteList.ItemsSource = _entries;
         AutomationProperties.SetName(_noteList, isArabic ? "قائمة عقد الذاكرة" : "Memory note nodes");
@@ -214,8 +220,22 @@ public sealed class LoreWebWindow : Window
             ? "يحذف الملاحظة المحددة نهائيًا من مخزن الذاكرة المحلي بعد تأكيد منفصل. لا يحذف نسخًا موجودة في المحادثات."
             : "Permanently deletes the selected note from local memory after a separate confirmation. Copies in chat conversations are not deleted.");
         _deleteButton.Click += DeleteButton_Click;
-        var actionButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        _archiveButton = new Button
+        {
+            Content = isArabic ? "أرشفة" : "Archive",
+            MinHeight = 34,
+            MinWidth = 100,
+            Margin = new Thickness(8, 8, 0, 0),
+            IsEnabled = false
+        };
+        AutomationProperties.SetName(_archiveButton, isArabic ? "أرشفة الملاحظة أو استعادتها" : "Archive or restore selected note");
+        AutomationProperties.SetHelpText(_archiveButton, isArabic
+            ? "ينقل الملاحظة إلى الأرشيف أو يستعيدها دون حذف محتواها."
+            : "Archives or restores the note without deleting its content.");
+        _archiveButton.Click += ArchiveButton_Click;
+        var actionButtons = new WrapPanel { Orientation = Orientation.Horizontal };
         actionButtons.Children.Add(_openButton);
+        actionButtons.Children.Add(_archiveButton);
         actionButtons.Children.Add(_deleteButton);
         Grid.SetRow(actionButtons, 4);
         side.Children.Add(actionButtons);
@@ -259,18 +279,22 @@ public sealed class LoreWebWindow : Window
             var position = PositionOnSphere(index, _notes.Count, 58);
             _positions[note.Id] = position;
             var radius = 2.5 + Math.Min(2.0, note.Title.Length / 55.0 + note.Content.Length / 6000.0);
+            var nodeColor = note.IsArchived
+                ? Color.FromRgb(125, 132, 145)
+                : Color.FromRgb(55, 164, 181);
             var model = new GeometryModel3D
             {
                 Geometry = CreateSphere(position, radius, 12, 9),
-                Material = CreateMaterial(Color.FromRgb(55, 164, 181)),
-                BackMaterial = CreateMaterial(Color.FromRgb(55, 164, 181))
+                Material = CreateMaterial(nodeColor),
+                BackMaterial = CreateMaterial(nodeColor)
             };
             var visual = new ModelVisual3D { Content = model };
             _viewport.Children.Add(visual);
             _visualNotes[visual] = note;
             _noteVisuals[note.Id] = visual;
             _noteModels[note.Id] = model;
-            _entries.Add(new NoteListEntry(note, $"{note.Title} — {note.UpdatedAt.LocalDateTime:g}"));
+            var archiveLabel = note.IsArchived ? (_isArabic ? "مؤرشفة" : "Archived") : (_isArabic ? "نشطة" : "Active");
+            _entries.Add(new NoteListEntry(note, $"{note.Title} · {note.Category} · {archiveLabel}"));
         }
 
         foreach (var edge in BuildEdges(_notes))
@@ -308,6 +332,17 @@ public sealed class LoreWebWindow : Window
         var edges = new HashSet<(string FromId, string ToId)>();
         for (var index = 0; index < notes.Count - 1; index++)
             AddEdge(edges, notes[index].Id, notes[index + 1].Id);
+
+        // User-defined categories provide an explicit, local grouping signal. Connect only
+        // adjacent notes per category to keep the graph sparse when a category contains many notes.
+        foreach (var categoryGroup in notes
+                     .Select((note, index) => (Note: note, Index: index))
+                     .GroupBy(item => MemoryService.NormalizeCategory(item.Note.Category), StringComparer.OrdinalIgnoreCase))
+        {
+            var categoryNotes = categoryGroup.OrderBy(item => item.Index).Select(item => item.Note).ToArray();
+            for (var index = 0; index < categoryNotes.Length - 1; index++)
+                AddEdge(edges, categoryNotes[index].Id, categoryNotes[index + 1].Id);
+        }
 
         var titleTokens = notes.ToDictionary(note => note.Id, note => Tokenize(note.Title), StringComparer.Ordinal);
         for (var first = 0; first < notes.Count; first++)
@@ -520,7 +555,7 @@ public sealed class LoreWebWindow : Window
                 continue;
             var color = string.Equals(item.Id, note.Id, StringComparison.Ordinal)
                 ? Color.FromRgb(244, 177, 72)
-                : Color.FromRgb(55, 164, 181);
+                : item.IsArchived ? Color.FromRgb(125, 132, 145) : Color.FromRgb(55, 164, 181);
             model.Material = CreateMaterial(color);
             model.BackMaterial = CreateMaterial(color);
         }
@@ -531,13 +566,59 @@ public sealed class LoreWebWindow : Window
             _noteList.SelectedItem = _entries.FirstOrDefault(entry => string.Equals(entry.Note.Id, note.Id, StringComparison.Ordinal));
         }
 
-        _selectedTitle.Text = note.Title;
+        _selectedTitle.Text = $"{note.Title} · {note.Category}" + (note.IsArchived ? (_isArabic ? " (مؤرشفة)" : " (Archived)") : string.Empty);
         _selectedContent.Text = note.Content;
         _openButton.IsEnabled = true;
+        _archiveButton.IsEnabled = true;
+        _archiveButton.Content = note.IsArchived ? (_isArabic ? "استعادة" : "Restore") : (_isArabic ? "أرشفة" : "Archive");
         _deleteButton.IsEnabled = true;
         _status.Text = _isArabic
             ? $"الملاحظة المحددة: {note.Title}. لم يتم إرسال المحتوى."
             : $"Selected note: {note.Title}. No content was sent.";
+    }
+
+    private void ArchiveButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_noteList.SelectedItem is not NoteListEntry entry)
+            return;
+
+        var shouldArchive = !entry.Note.IsArchived;
+        var prompt = shouldArchive
+            ? (_isArabic
+                ? $"سيتم نقل «{entry.Note.Title}» إلى الأرشيف. لن تُحذف ويمكن استعادتها لاحقًا. هل تريد المتابعة؟"
+                : $"Move “{entry.Note.Title}” to the archive? It will not be deleted and can be restored later.")
+            : (_isArabic
+                ? $"ستتم استعادة «{entry.Note.Title}» إلى الملاحظات النشطة. هل تريد المتابعة؟"
+                : $"Restore “{entry.Note.Title}” to active memory? Continue?");
+        var confirm = MessageBox.Show(this, prompt,
+            shouldArchive
+                ? (_isArabic ? "تأكيد الأرشفة" : "Confirm archive")
+                : (_isArabic ? "تأكيد الاستعادة" : "Confirm restore"),
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            if (!_toggleArchiveNote(entry.Note))
+            {
+                _status.Text = _isArabic
+                    ? "لم يتم تحديث حالة الأرشفة؛ قد تكون الملاحظة حُذفت بالفعل."
+                    : "Archive state was not updated; the note may already have been deleted.";
+                return;
+            }
+
+            entry.Note.IsArchived = shouldArchive;
+            RebuildGraph();
+            SelectNote(entry.Note);
+            _status.Text = shouldArchive
+                ? (_isArabic ? "تمت أرشفة الملاحظة دون حذفها." : "The note was archived without deleting it.")
+                : (_isArabic ? "تمت استعادة الملاحظة إلى الذاكرة النشطة." : "The note was restored to active memory.");
+        }
+        catch (Exception ex)
+        {
+            _status.Text = (_isArabic ? "تعذرت الأرشفة أو الاستعادة: " : "Could not archive or restore note: ") + ex.Message;
+        }
     }
 
     private void DeleteButton_Click(object sender, RoutedEventArgs e)
@@ -575,6 +656,7 @@ public sealed class LoreWebWindow : Window
             _selectedContent.Text = string.Empty;
             _openButton.IsEnabled = false;
             _deleteButton.IsEnabled = false;
+            _archiveButton.IsEnabled = false;
             if (_entries.Count > 0)
             {
                 _noteList.SelectedItem = _entries[0];

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Threading;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -22,11 +23,69 @@ public sealed class AgentToolExecutorTests
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "web_search"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "fact_check_claim"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "browser_download"));
+        Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "browser_upload_file"));
 
         Assert.AreEqual(names.Count, names.Distinct(StringComparer.Ordinal).Count());
         Assert.IsFalse(names.Any(string.IsNullOrWhiteSpace));
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as JsonObject);
+    }
+
+    [TestMethod]
+    public async Task InvalidBrowserUploadPathIsRejectedBeforeConsentOrBrowserStartup()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        var dataRoot = System.IO.Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            workspace,
+            new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "browser_upload_file",
+            """{"selector":"input[type=file]","path":"../outside.pdf"}""",
+            (_, _, _) =>
+            {
+                approvalCalled = true;
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled, "An invalid local path must be rejected before asking to upload it.");
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(dataRoot, "BrowserProfile")),
+            "Rejecting an invalid upload path must not start Edge or create its profile.");
+    }
+
+    [TestMethod]
+    public async Task UnsupportedBrowserUploadTypeIsRejectedBeforeConsent()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(System.IO.Path.Combine(workspace, "payload.ps1"), "Write-Host unsafe");
+        var executor = new AgentToolExecutor(
+            workspace,
+            new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(System.IO.Path.Combine(temp.Path, "app-data")));
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "browser_upload_file",
+            """{"selector":"input[type=file]","path":"payload.ps1"}""",
+            (_, _, _) =>
+            {
+                approvalCalled = true;
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled);
     }
 
     [TestMethod]
@@ -134,6 +193,55 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task CancellingAfterMemoryDisclosureApprovalPreventsToolOutput()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var memory = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        _ = memory.Save("Private note", "Do not disclose this after cancellation.");
+        var executor = new AgentToolExecutor(temp.Path, memory);
+        using var cancellation = new CancellationTokenSource();
+        var approvalCount = 0;
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => executor.ExecuteAsync(
+            "search_memory",
+            "{\"query\":\"Private note\"}",
+            (_, _, _) =>
+            {
+                approvalCount++;
+                cancellation.Cancel();
+                return Task.FromResult(true);
+            },
+            _ => { },
+            cancellation.Token));
+
+        Assert.AreEqual(1, approvalCount);
+    }
+
+    [TestMethod]
+    public async Task DotnetOperationRevalidatesProjectFileAfterApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var projectPath = System.IO.Path.Combine(temp.Path, "TrustedProject.csproj");
+        File.WriteAllText(projectPath, "<Project />");
+        var executor = CreateExecutor(temp.Path);
+
+        await Assert.ThrowsExactlyAsync<FileNotFoundException>(() => executor.ExecuteAsync(
+            "run_dotnet_build",
+            "{\"project_file\":\"TrustedProject.csproj\",\"configuration\":\"Debug\"}",
+            (_, _, _) =>
+            {
+                File.Delete(projectPath);
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+        Assert.IsFalse(File.Exists(projectPath));
+    }
+
+    [TestMethod]
     public async Task NativeTextEntryRequiresWindowInspectionOptInBeforeLookingForAWindow()
     {
         var previousSettings = Layal.AppRuntime.Settings;
@@ -224,6 +332,26 @@ public sealed class AgentToolExecutorTests
 
         Assert.IsFalse(string.IsNullOrWhiteSpace(result));
         Assert.IsFalse(approvalCalled);
+    }
+
+    [TestMethod]
+    public void WorkspaceArtifactLookupAcceptsOnlyExistingFilesInsideWorkspace()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = System.IO.Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(System.IO.Path.Combine(workspace, "reports"));
+        var artifact = System.IO.Path.Combine(workspace, "reports", "report.txt");
+        var outside = System.IO.Path.Combine(temp.Path, "outside.txt");
+        File.WriteAllText(artifact, "report");
+        File.WriteAllText(outside, "outside");
+
+        var executor = CreateExecutor(workspace);
+
+        Assert.IsTrue(executor.TryGetWorkspaceArtifactPath("reports/report.txt", out var normalized));
+        Assert.AreEqual("reports/report.txt", normalized);
+        Assert.IsFalse(executor.TryGetWorkspaceArtifactPath("../outside.txt", out _));
+        Assert.IsFalse(executor.TryGetWorkspaceArtifactPath(outside, out _));
+        Assert.IsFalse(executor.TryGetWorkspaceArtifactPath("reports/missing.txt", out _));
     }
 
     [TestMethod]

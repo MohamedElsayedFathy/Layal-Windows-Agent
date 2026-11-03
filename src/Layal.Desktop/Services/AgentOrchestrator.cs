@@ -125,6 +125,22 @@ public sealed class AgentOrchestrator
                     if (output.StartsWith("User declined", StringComparison.OrdinalIgnoreCase))
                         hadToolErrorsOrDeclinedActions = true;
 
+                    var artifactCandidate = GetArtifactCandidate(call.Name, output);
+                    if (artifactCandidate is not null &&
+                        _tools.TryGetWorkspaceArtifactPath(artifactCandidate, out var safeArtifactPath))
+                    {
+                        try
+                        {
+                            if (_history.AttachArtifact(task, safeArtifactPath))
+                                Log("Linked workspace artifact to this task: " + safeArtifactPath);
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            hadToolErrorsOrDeclinedActions = true;
+                            Log("The workspace artifact was created, but its task link could not be saved: " + ex.Message);
+                        }
+                    }
+
                     output = output.Length <= MaxToolResultChars ? output : output[..MaxToolResultChars] + "\n[tool output truncated by Layal]";
                     messages.Add(new JsonObject
                     {
@@ -158,6 +174,30 @@ public sealed class AgentOrchestrator
             _history.Upsert(task);
             return task;
         }
+    }
+
+    private static string? GetArtifactCandidate(string toolName, string output)
+    {
+        if (toolName is "create_text_file" or "replace_text_in_file")
+        {
+            var prefix = toolName == "create_text_file" ? "File created: " : "Updated file: ";
+            if (output.StartsWith(prefix, StringComparison.Ordinal))
+                return output[prefix.Length..].Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+            return null;
+        }
+
+        if (toolName == "browser_download")
+        {
+            const string marker = "Relative path: ";
+            var index = output.IndexOf(marker, StringComparison.Ordinal);
+            if (index < 0)
+                return null;
+            return output[(index + marker.Length)..]
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault()?.Trim();
+        }
+
+        return null;
     }
 
     private string BuildUserTask(string goal, IReadOnlyList<SkillRecord> selectedSkills)

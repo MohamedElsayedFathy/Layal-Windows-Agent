@@ -204,24 +204,31 @@ public sealed class DocumentTextExtractionService
             throw new InvalidDataException($"The selected image exceeds the {MaximumFileBytes / (1024 * 1024)} MB limit.");
 
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        var engine = CreateLocalOcrEngine();
-        using var stream = new InMemoryRandomAccessStream();
-        await WriteBytesToStreamAsync(stream, bytes, cancellationToken);
-        var text = await RecognizeStreamAsync(stream, engine, cancellationToken);
-        if (string.IsNullOrWhiteSpace(text))
-            throw new InvalidDataException("Windows OCR did not detect readable text in this image.");
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var engine = CreateLocalOcrEngine();
+            using var stream = new InMemoryRandomAccessStream();
+            await WriteBytesToStreamAsync(stream, bytes, cancellationToken);
+            var text = await RecognizeStreamAsync(stream, engine, cancellationToken);
+            if (string.IsNullOrWhiteSpace(text))
+                throw new InvalidDataException("Windows OCR did not detect readable text in this image.");
 
-        var truncated = text.Length > MaximumTextCharacters;
-        if (truncated)
-            text = text[..MaximumTextCharacters];
+            var truncated = text.Length > MaximumTextCharacters;
+            if (truncated)
+                text = text[..MaximumTextCharacters];
 
-        var notice = "Image text was recognized locally by Windows OCR. Accuracy depends on image quality and installed language packs; review names, numbers, dates, and right-to-left text before relying on it. Nothing is sent until you attach the preview and press Send.";
-        if (truncated)
-            notice += $" Output truncated at {MaximumTextCharacters:N0} characters.";
+            var notice = "Image text was recognized locally by Windows OCR. Accuracy depends on image quality and installed language packs; review names, numbers, dates, and right-to-left text before relying on it. Nothing is sent until you attach the preview and press Send.";
+            if (truncated)
+                notice += $" Output truncated at {MaximumTextCharacters:N0} characters.";
 
-        return new DocumentTextExtractionResult(
-            Path.GetFileName(path), Path.GetExtension(path).ToLowerInvariant(), text, 1, truncated, notice);
+            return new DocumentTextExtractionResult(
+                Path.GetFileName(path), Path.GetExtension(path).ToLowerInvariant(), text, 1, truncated, notice);
+        }
+        finally
+        {
+            Array.Clear(bytes, 0, bytes.Length);
+        }
     }
 
     private async Task<DocumentTextExtractionResult> SupplementImageOnlyPdfPagesWithOcrAsync(

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 
 namespace Layal.Models;
@@ -18,6 +19,13 @@ public sealed record GmailMessageSummary(
     string Snippet,
     DateTimeOffset? ReceivedAt);
 
+public sealed record GmailAttachmentPreview(
+    string FileName,
+    string MimeType,
+    long SizeBytes,
+    string PreviewText,
+    string Status);
+
 public sealed record GmailMessageDetail(
     string Id,
     string ThreadId,
@@ -26,4 +34,5 @@ public sealed record GmailMessageDetail(
     string Subject,
     string Snippet,
     DateTimeOffset? ReceivedAt,
-    string PlainTextBody);
+    string PlainTextBody,
+    IReadOnlyList<GmailAttachmentPreview>? Attachments = null);

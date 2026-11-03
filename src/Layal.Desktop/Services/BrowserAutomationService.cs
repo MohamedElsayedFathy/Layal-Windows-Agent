@@ -12,7 +12,7 @@ namespace Layal.Services;
 /// <summary>
 /// Controls a dedicated Microsoft Edge profile through its loopback-only Chromium DevTools Protocol.
 /// It never attaches to the user's normal browser profile. Every navigation, page disclosure, click,
-/// and text-entry operation must be gated by the calling agent's local approval callback.
+/// text-entry, and local file-selection operation must be gated by the calling agent's local approval callback.
 /// </summary>
 public sealed class BrowserAutomationService
 {
@@ -148,6 +148,14 @@ public sealed class BrowserAutomationService
             throw new InvalidOperationException("Only a visible HTTP/HTTPS link, standalone button, role=button, input type=button, or summary can be clicked.");
     }
 
+    /// <summary>Allows choosing a file only through one visible, enabled HTML file input.</summary>
+    public static void ValidateBrowserUploadTarget(string tag, string type)
+    {
+        if (!string.Equals((tag ?? string.Empty).Trim(), "input", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals((type ?? string.Empty).Trim(), "file", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("browser_upload_file requires one visible input[type=file] target. It never clicks or submits the form.");
+    }
+
     public async Task<string> NavigateAsync(string url, CancellationToken token = default)
     {
         var targetUrl = ValidateHttpUrl(url);
@@ -187,6 +195,31 @@ public sealed class BrowserAutomationService
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// Reads only the active tab identity (target id, URL, title and ready state) for a consent
+    /// preview. It does not extract visible page text or DOM element content.
+    /// </summary>
+    public async Task<BrowserPageIdentity> GetCurrentPageIdentityAsync(CancellationToken token = default)
+    {
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
+        await _gate.WaitAsync(token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var page = await GetPageTargetAsync(token);
+            var urlText = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var title = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var readyState = await EvaluateAsync(page, "document.readyState", token) ?? string.Empty;
+            var url = ValidateHttpUrl(urlText).AbsoluteUri;
+            return new BrowserPageIdentity(page.Id, url, title, readyState);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<string> ReadCurrentPageAsync(CancellationToken token = default)
     {
         using var operationCancellation = CreateOperationToken(token);
@@ -216,8 +249,8 @@ public sealed class BrowserAutomationService
     public async Task<BrowserElementPreview> PreviewElementAsync(string selector, string action, CancellationToken token = default)
     {
         selector = ValidateCssSelector(selector);
-        if (action is not ("click" or "fill"))
-            throw new InvalidOperationException("Supported browser element actions are click and fill.");
+        if (action is not ("click" or "fill" or "upload"))
+            throw new InvalidOperationException("Supported browser element actions are click, fill, and upload.");
 
         using var operationCancellation = CreateOperationToken(token);
         token = operationCancellation.Token;
@@ -242,12 +275,16 @@ public sealed class BrowserAutomationService
             var formAssociated = root.TryGetProperty("formAssociated", out var formOwner) && formOwner.GetBoolean();
             if (action == "click")
                 ValidateBrowserClickTarget(elementTag, elementType, elementRole, formAssociated);
+            else if (action == "upload")
+                ValidateBrowserUploadTarget(elementTag, elementType);
 
-            var snapshot = await ReadPageSnapshotAsync(page, token);
+            // Element previews need only target identity and one element's metadata. Avoid
+            // collecting the page's visible text or unrelated DOM when preparing an action.
+            var previewUrl = ValidateHttpUrl(await EvaluateAsync(page, "location.href", token) ?? string.Empty).AbsoluteUri;
             return new BrowserElementPreview(
                 action,
                 page.Id,
-                snapshot.Url,
+                previewUrl,
                 selector,
                 root.GetProperty("fingerprint").GetString() ?? string.Empty,
                 elementTag,
@@ -258,7 +295,9 @@ public sealed class BrowserAutomationService
                 root.TryGetProperty("text", out var text) ? text.GetString() ?? string.Empty : string.Empty,
                 root.TryGetProperty("href", out var href) ? href.GetString() ?? string.Empty : string.Empty,
                 root.TryGetProperty("disabled", out var disabled) && disabled.GetBoolean(),
-                root.TryGetProperty("readOnly", out var readOnly) && readOnly.GetBoolean());
+                root.TryGetProperty("readOnly", out var readOnly) && readOnly.GetBoolean(),
+                root.TryGetProperty("accept", out var accept) ? accept.GetString() ?? string.Empty : string.Empty,
+                root.TryGetProperty("multiple", out var multiple) && multiple.GetBoolean());
         }
         finally { _gate.Release(); }
     }
@@ -305,6 +344,76 @@ public sealed class BrowserAutomationService
             var result = await EvaluateAsync(page, expression, token);
             EnsureActionSucceeded(result, "fill");
             return $"Text-entry events were dispatched to the approved field. Entered character count: {value.Length}. The field's current value was not read back or included in this result.";
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Selects one previously approved local file in one previously approved file input.
+    /// The page may react to the file-selection event and upload immediately; Layal never clicks
+    /// submit or otherwise submits the surrounding form.
+    /// </summary>
+    public async Task<string> UploadFileAsync(BrowserElementPreview preview, string absoluteFilePath, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+        if (preview.Action != "upload")
+            throw new InvalidOperationException("The preview was not created for a browser upload.");
+        if (string.IsNullOrWhiteSpace(absoluteFilePath) || !Path.IsPathFullyQualified(absoluteFilePath))
+            throw new InvalidOperationException("Browser upload requires a validated absolute workspace file path.");
+        if (!File.Exists(absoluteFilePath))
+            throw new FileNotFoundException("The approved upload file no longer exists.", absoluteFilePath);
+        if ((File.GetAttributes(absoluteFilePath) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("Browser uploads are blocked for symbolic links and other reparse points.");
+
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
+        await _gate.WaitAsync(token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var page = await GetPageTargetAsync(token);
+            if (!string.Equals(page.Id, preview.PageTargetId, StringComparison.Ordinal))
+                throw new InvalidOperationException("The active browser tab changed while awaiting upload approval. Inspect and approve the intended file input again.");
+            var currentUrl = ValidateHttpUrl(await EvaluateAsync(page, "location.href", token) ?? string.Empty).AbsoluteUri;
+            if (!string.Equals(currentUrl, preview.PageUrl, StringComparison.Ordinal))
+                throw new InvalidOperationException("The browser page URL changed while awaiting upload approval. No file was selected.");
+
+            EnsureActionSucceeded(await EvaluateAsync(page, BuildActionExpression(preview, "upload", string.Empty), token), "upload");
+            token.ThrowIfCancellationRequested();
+
+            var document = await SendCommandAsync(page, "DOM.getDocument", new JsonObject
+            {
+                ["depth"] = 1,
+                ["pierce"] = true
+            }, token);
+            var rootNodeId = document["result"]?["root"]?["nodeId"]?.GetValue<int>() ?? 0;
+            if (rootNodeId <= 0)
+                throw new InvalidOperationException("The browser did not expose a document root for the approved file input.");
+
+            var query = await SendCommandAsync(page, "DOM.querySelector", new JsonObject
+            {
+                ["nodeId"] = rootNodeId,
+                ["selector"] = preview.Selector
+            }, token);
+            var nodeId = query["result"]?["nodeId"]?.GetValue<int>() ?? 0;
+            if (nodeId <= 0)
+                throw new InvalidOperationException("The approved file input is no longer present. No file was selected.");
+
+            // Re-check the exact page and element immediately before the local file path is passed to CDP.
+            var latest = await GetPageTargetAsync(token);
+            if (!string.Equals(latest.Id, preview.PageTargetId, StringComparison.Ordinal))
+                throw new InvalidOperationException("The active browser tab changed before file selection. No upload was started.");
+            EnsureActionSucceeded(await EvaluateAsync(latest, BuildActionExpression(preview, "upload", string.Empty), token), "upload");
+            token.ThrowIfCancellationRequested();
+
+            await SendCommandAsync(page, "DOM.setFileInputFiles", new JsonObject
+            {
+                ["nodeId"] = nodeId,
+                ["files"] = new JsonArray(JsonValue.Create(absoluteFilePath))
+            }, token);
+
+            var fileName = Path.GetFileName(absoluteFilePath);
+            return $"Selected {fileName} in the approved browser file input. The website may upload it immediately in response to the file-selection event. Layal did not click a submit button or submit the surrounding form; verify the site's status before continuing.";
         }
         finally { _gate.Release(); }
     }
@@ -603,14 +712,16 @@ public sealed class BrowserAutomationService
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
-            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form);" +
-            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated});" +
+            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=tag==='input'?(e.getAttribute('accept')||''):'',multiple=tag==='input'&&e.multiple===true;" +
+            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
+            "if(action==='upload'){const rect=e.getBoundingClientRect(),style=getComputedStyle(e);if(Number(style.opacity)<=0.01||rect.width<=0||rect.height<=0||e.getAttribute('aria-hidden')==='true')return JSON.stringify({found:false,error:'Hidden or visually transparent file inputs are not supported; use a visible file input.'});}" +
             "if(disabled)return JSON.stringify({found:false,error:'The selected element is disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});" +
             "if(tag==='a'&&(!e.href||!/^https?:/i.test(e.href)))return JSON.stringify({found:false,error:'Only anchors with HTTP/HTTPS destinations are allowed for browser clicks.'});}" +
             "if(action==='fill'){const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;if(!allowed||readOnly)return JSON.stringify({found:false,error:'Selector must match an editable visible text/email/search/tel/url/number input, textarea, or contenteditable field. Password/file/hidden fields are not supported.'});}" +
-            "return JSON.stringify({found:true,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',role,formAssociated,disabled,readOnly,fingerprint:fp});})()";
+            "if(action==='upload'&&(tag!=='input'||type!=='file'))return JSON.stringify({found:false,error:'Uploads require a visible input[type=file].'});" +
+            "return JSON.stringify({found:true,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',role,formAssociated,disabled,readOnly,accept,multiple,fingerprint:fp});})()";
     }
 
     private static string BuildActionExpression(BrowserElementPreview preview, string action, string value)
@@ -626,13 +737,14 @@ public sealed class BrowserAutomationService
             "const matches=document.querySelectorAll(q);if(matches.length!==1)return JSON.stringify({ok:false,error:'The selector no longer matches exactly one element.'});" +
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase();" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
-            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form);" +
+            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=tag==='input'?(e.getAttribute('accept')||''):'',multiple=tag==='input'&&e.multiple===true;" +
             "if(action==='click'&&((['button','input'].includes(tag)&&['submit','reset'].includes(type))||formAssociated))return JSON.stringify({ok:false,error:'Form-associated controls and submit/reset actions are blocked by browser_click.'});" +
-            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated});" +
+            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
             "if(fp!==expectedFp)return JSON.stringify({ok:false,error:'The selected element changed while awaiting approval. Inspect the page again.'});" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
             "if(!visible||e.disabled===true)return JSON.stringify({ok:false,error:'The selected element is hidden or disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({ok:false,error:'The element is no longer an allowed click target.'});e.click();return JSON.stringify({ok:true,action:'click',tag,text});}" +
+            "if(action==='upload'){if(tag!=='input'||type!=='file'||(e.files&&e.files.length>0))return JSON.stringify({ok:false,error:'The approved target is no longer an empty file input.'});return JSON.stringify({ok:true,action:'upload',accept,multiple});}" +
             "const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;" +
             "if(!allowed||e.readOnly===true)return JSON.stringify({ok:false,error:'The element is no longer an allowed editable field.'});" +
             "if(e.isContentEditable)e.innerText=value;else {const proto=tag==='textarea'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;const setter=Object.getOwnPropertyDescriptor(proto,'value')?.set;if(!setter)return JSON.stringify({ok:false,error:'The field value setter is unavailable.'});setter.call(e,value);}" +
@@ -664,7 +776,9 @@ public sealed record BrowserElementPreview(
     string Text,
     string Href,
     bool Disabled,
-    bool ReadOnly);
+    bool ReadOnly,
+    string Accept = "",
+    bool Multiple = false);
 
 public sealed record BrowserPageSnapshot(
     string Title,
@@ -677,3 +791,9 @@ public sealed record BrowserPageSnapshot(
     int FormCount);
 
 internal sealed record CdpPageTarget(string Id, string Title, string Url, string WebSocketUrl);
+
+public sealed record BrowserPageIdentity(
+    string PageTargetId,
+    string Url,
+    string Title,
+    string ReadyState);

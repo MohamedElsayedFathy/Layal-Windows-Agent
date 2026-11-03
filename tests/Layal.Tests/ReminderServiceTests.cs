@@ -80,6 +80,71 @@ public sealed class ReminderServiceTests
     }
 
     [TestMethod]
+    public void DailyReminderMovesForwardAcrossSpringDaylightSavingGap()
+    {
+        var zone = CreateDaylightSavingTestZone();
+        var previousDue = new DateTimeOffset(2026, 3, 7, 2, 30, 0, TimeSpan.FromHours(-5));
+        var deliveredAt = new DateTimeOffset(2026, 3, 7, 2, 35, 0, TimeSpan.FromHours(-5));
+
+        var next = ReminderService.GetNextRecurringDueTime(previousDue, deliveredAt, daily: true, zone);
+        var local = TimeZoneInfo.ConvertTime(next, zone);
+
+        Assert.AreEqual(new DateTime(2026, 3, 8, 3, 30, 0), local.DateTime);
+        Assert.AreEqual(TimeSpan.FromHours(-4), local.Offset);
+        Assert.IsTrue(next > deliveredAt);
+    }
+
+    [TestMethod]
+    public void DailyReminderChoosesSecondFallBackOccurrenceWhenFirstHasPassed()
+    {
+        var zone = CreateDaylightSavingTestZone();
+        var previousDue = new DateTimeOffset(2026, 10, 31, 1, 30, 0, TimeSpan.FromHours(-4));
+        var deliveredAt = new DateTimeOffset(2026, 11, 1, 1, 40, 0, TimeSpan.FromHours(-4));
+
+        var next = ReminderService.GetNextRecurringDueTime(previousDue, deliveredAt, daily: true, zone);
+        var local = TimeZoneInfo.ConvertTime(next, zone);
+
+        Assert.AreEqual(new DateTime(2026, 11, 1, 1, 30, 0), local.DateTime);
+        Assert.AreEqual(TimeSpan.FromHours(-5), local.Offset);
+        Assert.IsTrue(next > deliveredAt);
+    }
+
+    [TestMethod]
+    public void WeeklyReminderPreservesLocalTimeAcrossTimeZoneOffsetChange()
+    {
+        var zone = CreateDaylightSavingTestZone();
+        var previousDue = new DateTimeOffset(2026, 10, 25, 9, 15, 0, TimeSpan.FromHours(-4));
+        var deliveredAt = new DateTimeOffset(2026, 10, 25, 9, 20, 0, TimeSpan.FromHours(-4));
+
+        var next = ReminderService.GetNextRecurringDueTime(previousDue, deliveredAt, daily: false, zone);
+        var local = TimeZoneInfo.ConvertTime(next, zone);
+
+        Assert.AreEqual(new DateTime(2026, 11, 1, 9, 15, 0), local.DateTime);
+        Assert.AreEqual(TimeSpan.FromHours(-5), local.Offset);
+    }
+
+    private static TimeZoneInfo CreateDaylightSavingTestZone()
+    {
+        var daylightStart = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
+            new DateTime(1, 1, 1, 2, 0, 0), 3, 2, DayOfWeek.Sunday);
+        var daylightEnd = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
+            new DateTime(1, 1, 1, 2, 0, 0), 11, 1, DayOfWeek.Sunday);
+        var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(
+            new DateTime(2026, 1, 1),
+            new DateTime(2026, 12, 31),
+            TimeSpan.FromHours(1),
+            daylightStart,
+            daylightEnd);
+        return TimeZoneInfo.CreateCustomTimeZone(
+            "Layal-Test-Daylight",
+            TimeSpan.FromHours(-5),
+            "Layal test daylight zone",
+            "Layal standard time",
+            "Layal daylight time",
+            new[] { rule });
+    }
+
+    [TestMethod]
     public void UpdatingDeliveredReminderChangesScheduleAndReactivatesIt()
     {
         if (!OperatingSystem.IsWindows())

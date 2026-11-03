@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -17,6 +19,7 @@ public sealed class SavedRoutineManagerWindow : Window
     private readonly Action<string> _onUse;
     private readonly TextBox _nameInput;
     private readonly TextBox _goalInput;
+    private readonly TextBox _stepsInput;
     private readonly ListBox _list;
     private readonly TextBlock _status;
     private readonly ObservableCollection<RoutineListEntry> _entries = new();
@@ -99,6 +102,29 @@ public sealed class SavedRoutineManagerWindow : Window
             ? "اكتب الهدف فقط. لن تُنفذ أوامر أو سكربتات مخزنة."
             : "Store a goal only. No stored commands or scripts are executed.");
         goalPanel.Children.Add(_goalInput);
+        goalPanel.Children.Add(new TextBlock
+        {
+            Text = isArabic
+                ? "خطوات اختيارية (سطر لكل خطوة، حتى 20 خطوة/250 حرفًا لكل خطوة). تُعرض في مسودة المهمة للمراجعة فقط."
+                : "Optional steps (one per line, up to 20 steps/250 characters each). They are added to the task draft for review only.",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 0)
+        });
+        _stepsInput = new TextBox
+        {
+            MinHeight = 90,
+            MaxHeight = 150,
+            MaxLength = SavedRoutineService.MaximumTotalStepCharacters,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Margin = new Thickness(0, 3, 0, 8)
+        };
+        AutomationProperties.SetName(_stepsInput, isArabic ? "خطوات الروتين الاختيارية" : "Optional routine steps");
+        AutomationProperties.SetHelpText(_stepsInput, isArabic
+            ? "أدخل خطوة واحدة في كل سطر. تُحفظ محليًا مشفرة ولا تُنفذ تلقائيًا."
+            : "Enter one step per line. Steps are stored encrypted locally and never run automatically.");
+        goalPanel.Children.Add(_stepsInput);
         var saveButton = new Button
         {
             Content = isArabic ? "حفظ كقالب جديد" : "Save as new template",
@@ -207,13 +233,23 @@ public sealed class SavedRoutineManagerWindow : Window
         RefreshList();
     }
 
+    private List<string> ParseSteps()
+    {
+        return _stepsInput.Text
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(step => step.Trim())
+            .Where(step => step.Length > 0)
+            .ToList();
+    }
+
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var record = _service.Create(_nameInput.Text, _goalInput.Text);
+            var record = _service.Create(_nameInput.Text, _goalInput.Text, ParseSteps());
             _nameInput.Clear();
             _goalInput.Clear();
+            _stepsInput.Clear();
             RefreshList(record.Id);
             _status.Text = _isArabic
                 ? "تم حفظ الروتين محليًا بتشفير DPAPI. لم يتم تشغيله."
@@ -235,7 +271,7 @@ public sealed class SavedRoutineManagerWindow : Window
 
         try
         {
-            var updated = _service.Update(_selectedRoutineId, _nameInput.Text, _goalInput.Text);
+            var updated = _service.Update(_selectedRoutineId, _nameInput.Text, _goalInput.Text, ParseSteps());
             if (updated is null)
             {
                 _status.Text = _isArabic ? "لم يعد القالب موجودًا؛ حدّث القائمة." : "The template no longer exists; refresh the list.";
@@ -262,7 +298,7 @@ public sealed class SavedRoutineManagerWindow : Window
             return;
         }
 
-        _onUse(selected.Record.Goal);
+        _onUse(SavedRoutineService.BuildReviewPrompt(selected.Record, _isArabic));
         DialogResult = true;
         Close();
     }
@@ -280,6 +316,7 @@ public sealed class SavedRoutineManagerWindow : Window
             _selectedRoutineId = null;
             _nameInput.Clear();
             _goalInput.Clear();
+            _stepsInput.Clear();
             _status.Text = _isArabic ? "تم حذف الروتين المحدد." : "Selected routine deleted.";
         }
         else
@@ -300,6 +337,7 @@ public sealed class SavedRoutineManagerWindow : Window
         _selectedRoutineId = selected.Record.Id;
         _nameInput.Text = selected.Record.Name;
         _goalInput.Text = selected.Record.Goal;
+        _stepsInput.Text = string.Join(Environment.NewLine, selected.Record.Steps ?? new System.Collections.Generic.List<string>());
         _status.Text = (_isArabic ? "معاينة الهدف: " : "Goal preview: ") + selected.Record.Goal;
     }
 

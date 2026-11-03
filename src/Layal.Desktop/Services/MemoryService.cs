@@ -12,33 +12,43 @@ public sealed class MemoryService
 
     public MemoryService(string path) => _store = new ProtectedJsonStore<List<MemoryNote>>(path);
 
-    public IReadOnlyList<MemoryNote> GetAll()
+    public IReadOnlyList<MemoryNote> GetAll(bool includeArchived = false)
     {
-        lock (_sync) return LoadBoundedNotes().OrderByDescending(n => n.UpdatedAt).ToList();
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            if (!includeArchived)
+                notes = notes.Where(note => !note.IsArchived).ToList();
+            return notes.OrderByDescending(note => note.UpdatedAt).ToList();
+        }
     }
 
-    public MemoryNote Save(string title, string content, string? id = null)
+    public MemoryNote Save(string title, string content, string? id = null, string? category = null)
     {
         title = (title ?? string.Empty).Trim();
         content = (content ?? string.Empty).Trim();
         if (title.Length is < 1 or > 120) throw new InvalidOperationException("Memory title must be between 1 and 120 characters.");
         if (content.Length is < 1 or > 12000) throw new InvalidOperationException("Memory content must be between 1 and 12,000 characters.");
-        if (LooksLikeSecret(title + "\n" + content))
+            if (LooksLikeSecret(title + "\n" + content))
             throw new InvalidOperationException("This note resembles an API key, token, password, or private key. Store credentials in the secure credential setting, not in memory.");
 
         lock (_sync)
         {
             var notes = LoadBoundedNotes();
             var existing = id is null ? null : notes.FirstOrDefault(n => n.Id == id);
+            var normalizedCategory = category is null
+                ? NormalizeCategory(existing?.Category ?? "General")
+                : NormalizeCategory(category);
             if (existing is null)
             {
-                existing = new MemoryNote { Title = title, Content = content };
+                existing = new MemoryNote { Title = title, Content = content, Category = normalizedCategory };
                 notes.Add(existing);
             }
             else
             {
                 existing.Title = title;
                 existing.Content = content;
+                existing.Category = normalizedCategory;
                 existing.UpdatedAt = DateTimeOffset.Now;
             }
 
@@ -46,6 +56,120 @@ public sealed class MemoryService
             _store.Save(KeepNewest(notes, existing.Id));
             return existing;
         }
+    }
+
+    /// <summary>Archives or restores a note without deleting its contents.</summary>
+    /// <summary>
+    /// Merges validated notes from a backup. Existing IDs are left unchanged; no existing note is
+    /// deleted or overwritten, and imported content is checked for credential-like secrets.
+    /// </summary>
+    public void ValidateImportMany(IEnumerable<MemoryNote> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+        var candidates = imported.Take(MaxSavedNotes + 1).ToList();
+        if (candidates.Count > MaxSavedNotes)
+            throw new InvalidOperationException($"A memory backup may contain at most {MaxSavedNotes} notes.");
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var note in candidates)
+        {
+            if (note is null ||
+                !Guid.TryParseExact(note.Id, "N", out _) ||
+                string.IsNullOrWhiteSpace(note.Title) || note.Title.Length > 120 ||
+                string.IsNullOrWhiteSpace(note.Content) || note.Content.Length > 12_000)
+                throw new InvalidOperationException("The memory backup contains an invalid note.");
+            _ = NormalizeCategory(note.Category);
+            if (LooksLikeSecret(note.Title.Trim() + "\n" + note.Content.Trim()))
+                throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
+            ids.Add(note.Id);
+        }
+
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var existingIds = notes.Select(note => note.Id).ToHashSet(StringComparer.Ordinal);
+            var additions = ids.Count(id => !existingIds.Contains(id));
+            if (notes.Count + additions > MaxSavedNotes)
+                throw new InvalidOperationException("There is not enough memory capacity to merge this backup. Existing notes were not changed.");
+        }
+    }
+
+    public int ImportMany(IEnumerable<MemoryNote> imported)
+    {
+        ArgumentNullException.ThrowIfNull(imported);
+        var candidates = imported.Take(MaxSavedNotes + 1).ToList();
+        if (candidates.Count > MaxSavedNotes)
+            throw new InvalidOperationException($"A memory backup may contain at most {MaxSavedNotes} notes.");
+
+        var normalized = new List<MemoryNote>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var note in candidates)
+        {
+            if (note is null ||
+                !Guid.TryParseExact(note.Id, "N", out _) ||
+                string.IsNullOrWhiteSpace(note.Title) || note.Title.Length > 120 ||
+                string.IsNullOrWhiteSpace(note.Content) || note.Content.Length > 12_000)
+                throw new InvalidOperationException("The memory backup contains an invalid note.");
+
+            var title = note.Title.Trim();
+            var content = note.Content.Trim();
+            if (LooksLikeSecret(title + "\\n" + content))
+                throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
+            if (!seenIds.Add(note.Id))
+                continue;
+
+            normalized.Add(new MemoryNote
+            {
+                Id = note.Id,
+                Title = title,
+                Content = content,
+                Category = NormalizeCategory(note.Category),
+                IsArchived = note.IsArchived,
+                CreatedAt = note.CreatedAt,
+                UpdatedAt = note.UpdatedAt
+            });
+        }
+
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var existingIds = notes.Select(note => note.Id).ToHashSet(StringComparer.Ordinal);
+            var toAdd = normalized.Where(note => !existingIds.Contains(note.Id)).ToList();
+            if (notes.Count + toAdd.Count > MaxSavedNotes)
+                throw new InvalidOperationException("There is not enough memory capacity to merge this backup. Existing notes were not changed.");
+
+            if (toAdd.Count > 0)
+            {
+                notes.AddRange(toAdd);
+                _store.Save(notes);
+            }
+            return toAdd.Count;
+        }
+    }
+
+    public bool SetArchived(string id, bool isArchived)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return false;
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var note = notes.FirstOrDefault(item => string.Equals(item.Id, id, StringComparison.Ordinal));
+            if (note is null) return false;
+            if (note.IsArchived == isArchived) return true;
+            note.IsArchived = isArchived;
+            note.UpdatedAt = DateTimeOffset.Now;
+            _store.Save(notes);
+            return true;
+        }
+    }
+
+    public static string NormalizeCategory(string? category)
+    {
+        var value = (category ?? string.Empty).Trim();
+        if (value.Length == 0) return "General";
+        if (value.Length > 40 || value.Any(char.IsControl))
+            throw new InvalidOperationException("Memory categories must be 1–40 printable characters.");
+        return value;
     }
 
     public bool Delete(string id)
@@ -64,23 +188,44 @@ public sealed class MemoryService
         query = (query ?? string.Empty).Trim();
         if (query.Length == 0) return Array.Empty<MemoryNote>();
         return GetAll()
-            .Where(n => n.Title.Contains(query, StringComparison.OrdinalIgnoreCase) || n.Content.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Where(n => n.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        n.Content.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        n.Category.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(Math.Clamp(maxResults, 1, 20)).ToList();
     }
 
     public string ExportJson()
     {
-        var notes = GetAll();
+        // Export includes archived notes so a backup preserves the complete user-managed memory set.
+        var notes = GetAll(includeArchived: true);
         return JsonSerializer.Serialize(notes, new JsonSerializerOptions { WriteIndented = true });
     }
 
     private List<MemoryNote> LoadBoundedNotes()
     {
         var notes = _store.Load(new List<MemoryNote>());
-        if (notes.Count <= MaxSavedNotes) return notes;
+        var metadataChanged = false;
+        foreach (var note in notes)
+        {
+            string normalized;
+            try { normalized = NormalizeCategory(note.Category); }
+            catch (InvalidOperationException) { normalized = "General"; }
+            if (!string.Equals(note.Category, normalized, StringComparison.Ordinal))
+            {
+                note.Category = normalized;
+                metadataChanged = true;
+            }
+        }
+
+        if (notes.Count <= MaxSavedNotes)
+        {
+            if (metadataChanged)
+                _store.Save(notes);
+            return notes;
+        }
 
         var bounded = KeepNewest(notes);
-        // Apply retention to legacy/existing files on the first normal access.
+        // Apply retention and category migration to legacy/existing files on normal access.
         _store.Save(bounded);
         return bounded;
     }

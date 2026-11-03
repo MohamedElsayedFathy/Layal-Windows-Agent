@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -42,6 +44,79 @@ public sealed class MainWindowVisualSmokeTests
             Assert.Fail("WPF visual smoke thread did not finish within three minutes.");
         if (failure is not null)
             Assert.Fail("WPF visual smoke failed: " + failure);
+    }
+
+    private static void AssertPrivacyShieldClearsUnsubmittedClipboardAttachments(MainWindow window)
+    {
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var imageBytesField = typeof(MainWindow).GetField("_pendingVisionImageBytes", flags)
+            ?? throw new InvalidOperationException("Pending image bytes field was not found.");
+        var imageNameField = typeof(MainWindow).GetField("_pendingVisionFileName", flags)
+            ?? throw new InvalidOperationException("Pending image filename field was not found.");
+        var imageTypeField = typeof(MainWindow).GetField("_pendingVisionContentType", flags)
+            ?? throw new InvalidOperationException("Pending image content-type field was not found.");
+        var documentTextField = typeof(MainWindow).GetField("_pendingDocumentText", flags)
+            ?? throw new InvalidOperationException("Pending document text field was not found.");
+        var documentNameField = typeof(MainWindow).GetField("_pendingDocumentFileName", flags)
+            ?? throw new InvalidOperationException("Pending document filename field was not found.");
+        var documentNoticeField = typeof(MainWindow).GetField("_pendingDocumentNotice", flags)
+            ?? throw new InvalidOperationException("Pending document notice field was not found.");
+        var stopCaptures = typeof(MainWindow).GetMethod("StopCaptureSourcesForPrivacyShield", flags)
+            ?? throw new InvalidOperationException("Privacy shield stop method was not found.");
+
+        var previousShield = AppRuntime.Settings.PrivacyShieldEnabled;
+        var previousImageBytes = imageBytesField.GetValue(window);
+        var previousImageName = imageNameField.GetValue(window);
+        var previousImageType = imageTypeField.GetValue(window);
+        var previousDocumentText = documentTextField.GetValue(window);
+        var previousDocumentName = documentNameField.GetValue(window);
+        var previousDocumentNotice = documentNoticeField.GetValue(window);
+        var clipboardImageBytes = new byte[] { 0xA1, 0xB2, 0xC3 };
+
+        try
+        {
+            AppRuntime.Settings.PrivacyShieldEnabled = true;
+            imageBytesField.SetValue(window, clipboardImageBytes);
+            imageNameField.SetValue(window, "clipboard-image-20x20.png");
+            imageTypeField.SetValue(window, "image/png");
+            documentTextField.SetValue(window, "private clipboard text sentinel");
+            documentNameField.SetValue(window, "Clipboard text");
+            documentNoticeField.SetValue(window, "Local preview only.");
+
+            stopCaptures.Invoke(window, null);
+
+            Assert.IsNull(imageBytesField.GetValue(window),
+                "Enabling the privacy shield must discard an unsubmitted clipboard image.");
+            Assert.IsTrue(clipboardImageBytes.All(value => value == 0),
+                "The unsubmitted clipboard image byte buffer must be cleared.");
+            Assert.IsNull(imageNameField.GetValue(window));
+            Assert.IsNull(imageTypeField.GetValue(window));
+            Assert.IsNull(documentTextField.GetValue(window),
+                "Enabling the privacy shield must detach an unsubmitted clipboard text preview.");
+            Assert.IsNull(documentNameField.GetValue(window));
+            Assert.IsNull(documentNoticeField.GetValue(window));
+
+            documentTextField.SetValue(window, "user-selected document text sentinel");
+            documentNameField.SetValue(window, "selected-notes.txt");
+            documentNoticeField.SetValue(window, "User selected local file.");
+            stopCaptures.Invoke(window, null);
+
+            Assert.AreEqual("user-selected document text sentinel", documentTextField.GetValue(window),
+                "The privacy shield should not silently remove a file the user explicitly selected.");
+            Assert.AreEqual("selected-notes.txt", documentNameField.GetValue(window));
+        }
+        finally
+        {
+            AppRuntime.Settings.PrivacyShieldEnabled = previousShield;
+            imageBytesField.SetValue(window, previousImageBytes);
+            imageNameField.SetValue(window, previousImageName);
+            imageTypeField.SetValue(window, previousImageType);
+            documentTextField.SetValue(window, previousDocumentText);
+            documentNameField.SetValue(window, previousDocumentName);
+            documentNoticeField.SetValue(window, previousDocumentNotice);
+            typeof(MainWindow).GetMethod("UpdateVisionAttachmentControls", flags)?.Invoke(window, null);
+            typeof(MainWindow).GetMethod("UpdateDocumentAttachmentUi", flags)?.Invoke(window, null);
+        }
     }
 
     private static void AssertAttachmentControlMutualExclusion(MainWindow window)
@@ -220,6 +295,25 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
         Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
 
+        var agentTaskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
+            ?? throw new InvalidOperationException("Agent-task cancellation field was not found.");
+        var privateModeField = typeof(MainWindow).GetField("_incognitoMode", flags)
+            ?? throw new InvalidOperationException("Private-chat state field was not found.");
+        var privateToggleHandler = typeof(MainWindow).GetMethod("IncognitoModeButton_Click", flags)
+            ?? throw new InvalidOperationException("Private-chat toggle handler was not found.");
+        using (var activeAgentTask = new CancellationTokenSource())
+        {
+            agentTaskField.SetValue(window, activeAgentTask);
+            privateToggleHandler.Invoke(window, new object[] { window, new RoutedEventArgs() });
+            Assert.IsTrue((bool)privateModeField.GetValue(window)!,
+                "Private chat must remain active until an agent task has stopped.");
+            Assert.IsFalse(activeAgentTask.IsCancellationRequested,
+                "Attempting to exit private chat must not silently cancel or corrupt an active task.");
+            Assert.AreEqual(1, window.ChatMessages.Count,
+                "A blocked exit must leave the unsaved private transcript intact.");
+            agentTaskField.SetValue(window, null);
+        }
+
         exitPrivate.Invoke(window, null);
         Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
         Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
@@ -309,6 +403,19 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("TitleText was not found.");
         var copyChatButton = window.FindName("CopyChatButton") as Button
             ?? throw new InvalidOperationException("CopyChatButton was not found.");
+        var performanceMetricsButton = window.FindName("PerformanceMetricsButton") as Button
+            ?? throw new InvalidOperationException("PerformanceMetricsButton was not found.");
+        var performanceMetricsStatus = window.FindName("PerformanceMetricsStatus") as TextBlock
+            ?? throw new InvalidOperationException("PerformanceMetricsStatus was not found.");
+        Assert.IsTrue(performanceMetricsButton.IsEnabled,
+            "The local performance sampler must be available without a network/provider connection.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(performanceMetricsButton)),
+            "The performance sampler must explain its local-only scope and GPU limitation.");
+        Assert.IsTrue(AutomationProperties.GetHelpText(performanceMetricsButton)
+                .Contains("GPU", StringComparison.OrdinalIgnoreCase),
+            "The UI must not imply that the current-process sampler measures GPU.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(performanceMetricsStatus)),
+            "The result area must expose a screen-reader name.");
         var newConversationButton = window.FindName("NewConversationButton") as Button
             ?? throw new InvalidOperationException("NewConversationButton was not found.");
         var clearHistoryButton = window.FindName("ClearSavedChatHistoryButton") as Button
@@ -347,6 +454,9 @@ public sealed class MainWindowVisualSmokeTests
             AppRuntime.Settings.Language = language;
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
+            Assert.AreEqual(language == "ar" ? "قياس أداء ليال الآن" : "Measure Layal performance",
+                performanceMetricsButton.Content as string);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(performanceMetricsButton)));
             window.UpdateLayout();
             AssertLanguageLayoutContracts(window, language);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
@@ -514,6 +624,7 @@ public sealed class MainWindowVisualSmokeTests
 
         AssertEscapeCancelsActiveChatAndAgentOperations(window);
         AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window);
+        AssertPrivacyShieldClearsUnsubmittedClipboardAttachments(window);
         lines.Add("AYO safety regression: Escape cancellation and non-persistent private-chat history passed.");
         AssertAttachmentControlMutualExclusion(window);
         lines.Add("Attachment regression: image and document inputs stay mutually exclusive and respect privacy/preview state.");

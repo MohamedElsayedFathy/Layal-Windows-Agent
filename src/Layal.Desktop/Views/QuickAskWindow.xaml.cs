@@ -14,6 +14,7 @@ public partial class QuickAskWindow : Window
     private readonly Action _cancelRequest;
     private readonly string _shortcutDisplay;
     private bool _isSubmitting;
+    private bool _isCancellationRequested;
     private bool _isDisposed;
 
     public QuickAskWindow(bool isArabic, Func<string, Task<string>> askAsync, Action cancelRequest, string shortcutDisplay = "Alt+Shift+S")
@@ -69,6 +70,7 @@ public partial class QuickAskWindow : Window
         }
 
         _isSubmitting = true;
+        _isCancellationRequested = false;
         SubmitButton.IsEnabled = false;
         QuestionInput.IsEnabled = false;
         CancelButton.Content = _isArabic ? "إيقاف الطلب" : "Stop request";
@@ -103,6 +105,7 @@ public partial class QuickAskWindow : Window
                 SubmitButton.IsEnabled = true;
                 QuestionInput.IsEnabled = true;
                 CancelButton.Content = _isArabic ? "إغلاق" : "Close";
+                CancelButton.IsEnabled = true;
             }
         }
     }
@@ -111,7 +114,7 @@ public partial class QuickAskWindow : Window
     {
         if (_isSubmitting)
         {
-            _cancelRequest();
+            RequestCancellation();
             StatusText.Text = _isArabic
                 ? "طلب الإيقاف أُرسل. جارٍ انتظار توقف العملية الحالية..."
                 : "Stop requested. Waiting for the current operation to cancel...";
@@ -135,10 +138,20 @@ public partial class QuickAskWindow : Window
             if (result != MessageBoxResult.Yes)
                 return;
 
-            _cancelRequest();
+            RequestCancellation();
         }
 
         Close();
+    }
+
+    private void RequestCancellation()
+    {
+        if (!_isSubmitting || _isCancellationRequested)
+            return;
+
+        _isCancellationRequested = true;
+        _cancelRequest();
+        CancelButton.IsEnabled = false;
     }
 
     private void QuickAskWindow_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -148,7 +161,7 @@ public partial class QuickAskWindow : Window
             e.Handled = true;
             if (_isSubmitting)
             {
-                _cancelRequest();
+                RequestCancellation();
                 StatusText.Text = _isArabic
                     ? "طلب الإيقاف أُرسل. جارٍ انتظار توقف العملية الحالية..."
                     : "Stop requested. Waiting for the current operation to cancel...";

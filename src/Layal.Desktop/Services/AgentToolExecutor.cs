@@ -36,6 +36,7 @@ public sealed class AgentToolExecutor
     private readonly ApiConnectionService? _apiConnections;
     private readonly BrowserAutomationService? _browser;
     private readonly SafeBrowserDownloadService _browserDownloads;
+    private readonly SafeBrowserUploadService _browserUploads;
 
     public AgentToolExecutor(string workspaceRoot, MemoryService memory, ApiConnectionService? apiConnections = null, BrowserAutomationService? browser = null)
     {
@@ -44,6 +45,7 @@ public sealed class AgentToolExecutor
         _apiConnections = apiConnections;
         _browser = browser;
         _browserDownloads = new SafeBrowserDownloadService(_workspaceRoot);
+        _browserUploads = new SafeBrowserUploadService(_workspaceRoot);
         Directory.CreateDirectory(_workspaceRoot);
     }
 
@@ -67,6 +69,7 @@ public sealed class AgentToolExecutor
         Definition("browser_click", "Click one visible standalone link/button outside HTML forms in Layal's dedicated browser using a CSS selector. Submit/reset controls and form-associated elements are blocked. Inspect the target locally, show its details, require fresh approval, and revalidate the exact page and element before dispatching a DOM click. Approved page handlers can still navigate or modify remote data. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one intended visible link or button"}},"required":["selector"],"additionalProperties":false}"""),
         Definition("browser_fill", "Fill a visible editable text/email/search/telephone/URL/number input, textarea, or contenteditable element in Layal's dedicated browser using a CSS selector. Password, file, hidden, and button fields are deliberately unsupported. Show the text preview, require fresh approval, and revalidate the page and element. Navigate and inspect the page first.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector for a single visible supported text field"},"text":{"type":"string","description":"Text to enter; max 10,000 characters"}},"required":["selector","text"],"additionalProperties":false}"""),
         Definition("browser_download", "Download one visible direct HTTPS file link from the current page into LayalWorkspace/Downloads. Only same-origin public links and PDF/TXT/MD/CSV/JSON/DOCX/XLSX/PNG/JPG/WEBP files are supported; no browser cookies, sign-in session, uploads, executable files, scripts, cross-origin/CDN URLs, or automatic opening. Preview the exact link, require approval, revalidate the page and link, enforce a 20 MB limit and public-IP checks, then report the saved path.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one visible anchor whose URL points to an allowed same-origin file"}},"required":["selector"],"additionalProperties":false}"""),
+        Definition("browser_upload_file", "Select one local file from LayalWorkspace in a visible file input on the current page. Only PDF/TXT/MD/CSV/JSON/DOCX/XLSX/PNG/JPG/WEBP files up to 20 MiB are allowed. Requires a fresh local approval showing the destination page and local path; the file is revalidated after approval. The site may upload immediately on file selection; Layal never clicks submit or submits the form. No browser cookies are copied.", """{"type":"object","properties":{"selector":{"type":"string","description":"CSS selector matching exactly one visible input[type=file]"},"path":{"type":"string","description":"Canonical workspace-relative path to one allowed document or image file"}},"required":["selector","path"],"additionalProperties":false}"""),
         Definition("get_open_window_titles", "Call this tool when the user asks to list visible windows. Disabled unless the user opts in; Layal itself will display a local consent prompt before titles are shared with the AI provider. Do not ask for separate permission in chat instead of calling this tool.", "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}"),
         Definition("activate_window", "Bring a visible window with an exact title to the foreground. Requires user approval.", """{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}"""),
         Definition("inspect_window_controls", "Call this tool directly when the user asks to inspect UI elements in a known visible external window. Supply its exact title. Read-only; Layal itself displays a local consent prompt before sharing labels and identifiers with the AI provider, so do not ask a separate natural-language permission question first. It never reads editable field values or clicks/types.", """{"type":"object","properties":{"window_title":{"type":"string","description":"Exact title of a visible external window; first use get_open_window_titles if needed"}},"required":["window_title"],"additionalProperties":false}"""),
@@ -111,6 +114,7 @@ public sealed class AgentToolExecutor
             "browser_click" => await BrowserClickAsync(GetString(args, "selector"), confirm, report, cancellationToken),
             "browser_fill" => await BrowserFillAsync(GetString(args, "selector"), GetString(args, "text"), confirm, report, cancellationToken),
             "browser_download" => await BrowserDownloadAsync(GetString(args, "selector"), confirm, report, cancellationToken),
+            "browser_upload_file" => await BrowserUploadAsync(GetString(args, "selector"), GetString(args, "path"), confirm, report, cancellationToken),
             "get_open_window_titles" => await GetWindowTitlesAsync(confirm, cancellationToken),
             "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
             "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
@@ -406,6 +410,7 @@ public sealed class AgentToolExecutor
         var content = string.Join(Environment.NewLine, titles.Take(60).Select(x => $"{x.Title} (PID {x.ProcessId})"));
         if (!await confirm("Share open-window titles", "The following window titles and process IDs will be sent to the configured AI provider. They may reveal private information. Continue?\n\n" + content, token))
             return "User declined to share open-window titles.";
+        token.ThrowIfCancellationRequested();
         return content;
     }
 
@@ -440,7 +445,16 @@ public sealed class AgentToolExecutor
             return "User declined UI inspection. No controls were read or shared.";
 
         token.ThrowIfCancellationRequested();
-        var controls = await WindowsUiAutomationService.ReadControlsAsync(target, maxControls: 60, cancellationToken: token);
+        // The target may have closed or been replaced while the user reviewed the disclosure prompt.
+        // Do not read or share controls from a different window that happens to reuse the same title.
+        var confirmedTarget = WindowsUiAutomationService.FindVisibleWindowByExactTitle(title);
+        if (confirmedTarget is null ||
+            confirmedTarget.Handle != target.Handle ||
+            confirmedTarget.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The selected window changed while awaiting approval. No controls were read or shared; inspect the target again.");
+
+        token.ThrowIfCancellationRequested();
+        var controls = await WindowsUiAutomationService.ReadControlsAsync(confirmedTarget, maxControls: 60, cancellationToken: token);
         report($"Read-only UI inspection completed for an external window (PID {target.ProcessId}); {controls.Count} eligible controls returned.");
         return WindowsUiAutomationService.FormatReport(target.Title, target.ProcessId, controls);
     }
@@ -804,11 +818,50 @@ public sealed class AgentToolExecutor
     {
         if (_browser is null)
             throw new InvalidOperationException("The dedicated browser service is not initialized.");
-        if (!await confirm("Read browser page", "Read the current page from Layal's dedicated Edge session and share its title, URL, visible text (up to 20,000 characters), and bounded link/button/field metadata with the configured AI provider? Page content may contain personal or confidential information. Navigate in Layal's browser first.", token))
+
+        // First obtain explicit permission to inspect only the active tab identity locally.
+        // This lets the user decline without touching the browser session or creating a profile.
+        if (!await confirm(
+                "Preview browser tab",
+                "Layal will inspect only the active tab's title, URL, and ready state locally so it can show you the exact page before asking whether to share page contents. No visible page text or DOM data will be read or sent at this stage. Continue?",
+                token))
+            return "User declined the local browser-tab preview. No browser tab identity or page content was read.";
+
+        token.ThrowIfCancellationRequested();
+
+        // Show only the target identity in the second consent prompt; no visible page text or DOM values
+        // are extracted until the user explicitly approves sharing the page.
+        var preview = await _browser.GetCurrentPageIdentityAsync(token);
+        var warning =
+            "Read the current page from Layal's dedicated Edge session and share its title, URL, visible text (up to 20,000 characters), and bounded link/button/field metadata with the configured AI provider? Page content may contain personal or confidential information.\n\n" +
+            "Title: " + Truncate(preview.Title, 180) +
+            "\nURL: " + preview.Url +
+            "\nReady state: " + preview.ReadyState;
+        if (!await confirm("Read browser page", warning, token))
             return "User declined to share the browser page. No page content was read for the AI provider.";
+
+        token.ThrowIfCancellationRequested();
+        var approved = await _browser.GetCurrentPageIdentityAsync(token);
+        if (!string.Equals(preview.PageTargetId, approved.PageTargetId, StringComparison.Ordinal) ||
+            !string.Equals(preview.Url, approved.Url, StringComparison.Ordinal) ||
+            !string.Equals(preview.Title, approved.Title, StringComparison.Ordinal))
+            throw new InvalidOperationException("The active browser tab or page changed while awaiting approval. No page content was shared; review the new page and approve again.");
+
         token.ThrowIfCancellationRequested();
         var result = await _browser.ReadCurrentPageAsync(token);
-        report("The current Layal browser page metadata/text was read and returned to the AI provider.");
+        using var document = JsonDocument.Parse(result);
+        var root = document.RootElement;
+        var returnedUrl = root.TryGetProperty("url", out var urlValue) ? urlValue.GetString() ?? string.Empty : string.Empty;
+        var returnedTitle = root.TryGetProperty("title", out var titleValue) ? titleValue.GetString() ?? string.Empty : string.Empty;
+        var after = await _browser.GetCurrentPageIdentityAsync(token);
+        if (!string.Equals(preview.PageTargetId, after.PageTargetId, StringComparison.Ordinal) ||
+            !string.Equals(preview.Url, returnedUrl, StringComparison.Ordinal) ||
+            !string.Equals(preview.Title, returnedTitle, StringComparison.Ordinal) ||
+            !string.Equals(preview.Url, after.Url, StringComparison.Ordinal) ||
+            !string.Equals(preview.Title, after.Title, StringComparison.Ordinal))
+            throw new InvalidOperationException("The browser page changed while its content was being read. The snapshot was discarded and was not shared with the AI provider.");
+
+        report("The explicitly approved Layal browser page identity was revalidated before and after extracting bounded visible text and DOM metadata.");
         return result;
     }
 
@@ -855,6 +908,46 @@ public sealed class AgentToolExecutor
             (string.IsNullOrWhiteSpace(result.ContentType) ? "not provided by server" : result.ContentType) +
             "\nSource: " + result.FinalUrl +
             "\nThe file was not opened. Treat it as untrusted, scan it with Windows Security, and inspect it before use.";
+    }
+
+    private async Task<string> BrowserUploadAsync(
+        string selector,
+        string relativePath,
+        Func<string, string, CancellationToken, Task<bool>> confirm,
+        Action<string> report,
+        CancellationToken token)
+    {
+        if (_browser is null)
+            throw new InvalidOperationException("The dedicated browser service is not initialized.");
+
+        // Resolve and hash locally before showing approval. The file bytes are not disclosed by this step.
+        var candidate = _browserUploads.PrepareUpload(relativePath);
+        token.ThrowIfCancellationRequested();
+        var preview = await _browser.PreviewElementAsync(selector, "upload", token);
+        BrowserAutomationService.ValidateBrowserUploadTarget(preview.Tag, preview.Type);
+
+        var origin = new Uri(preview.PageUrl).GetLeftPart(UriPartial.Authority);
+        var warning =
+            "Select this local file in the current website's file-upload control? The website may transmit the file immediately when the selection event fires, even though Layal will not click Submit or send the form. Only approve if you trust this destination and the file contains no information you do not intend to share. The file must remain unchanged while you approve. Layal sends it from its dedicated Edge profile and does not copy cookies from your normal browser.\n\n" +
+            "Destination: " + origin +
+            "\nPage: " + preview.PageUrl +
+            "\nFile input: " + preview.Selector +
+            "\nInput name: " + Truncate(preview.Name, 120) +
+            "\nAccepted types declared by page: " + (string.IsNullOrWhiteSpace(preview.Accept) ? "not specified" : Truncate(preview.Accept, 180)) +
+            "\nMultiple selection: " + (preview.Multiple ? "yes" : "no") +
+            "\nLocal file: " + candidate.RelativePath +
+            "\nFile name: " + candidate.FileName +
+            "\nType: " + candidate.Extension +
+            "\nSize: " + candidate.LengthBytes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " bytes (maximum 20 MiB)";
+
+        if (!await confirm("Upload local file to website", warning, token))
+            return "User declined the browser upload. No file was selected in the browser and no file was sent.";
+
+        token.ThrowIfCancellationRequested();
+        var unchanged = _browserUploads.RevalidateUnchanged(candidate);
+        var result = await _browser.UploadFileAsync(preview, unchanged.FullPath, token);
+        report("One explicitly approved workspace file was selected in one browser file input. The website may upload it automatically; Layal did not submit the form.");
+        return result;
     }
 
     private async Task<string> BrowserClickAsync(
@@ -947,6 +1040,10 @@ public sealed class AgentToolExecutor
         EnsureNoReparsePoints(projectPath);
         if (!await confirm($"Run dotnet {verb}", $"Run `dotnet {verb}` on '{Path.GetRelativePath(_workspaceRoot, projectPath)}' using {configuration}? Build/test targets may execute code in this project and may restore packages from the internet. Only continue if you trust the project.", token))
             return "User declined the build/test operation.";
+        token.ThrowIfCancellationRequested();
+        if (!File.Exists(projectPath))
+            throw new FileNotFoundException("The approved project file no longer exists. No process was started.", relativeProjectFile);
+        EnsureNoReparsePoints(projectPath);
 
         var workingDirectory = Path.GetDirectoryName(projectPath)!;
         var start = new ProcessStartInfo("dotnet")
@@ -993,6 +1090,7 @@ public sealed class AgentToolExecutor
         var result = string.Join("\n\n", found.Select(n => $"Title: {n.Title}\nUpdated: {n.UpdatedAt:O}\nContent: {n.Content}"));
         if (!await confirm("Share memory with AI", "Matching memory notes will be sent to the configured AI provider. Review and approve this disclosure?\n\n" + Truncate(result, 1400), token))
             return "User declined to share memory notes with the AI provider.";
+        token.ThrowIfCancellationRequested();
         return result;
     }
 
@@ -1003,6 +1101,28 @@ public sealed class AgentToolExecutor
         token.ThrowIfCancellationRequested();
         var note = _memory.Save(title, content);
         return $"Saved memory note '{note.Title}' locally using Windows DPAPI for the current user.";
+    }
+
+    /// <summary>Returns a canonical relative path only when an existing regular workspace file is safe to reference.</summary>
+    public bool TryGetWorkspaceArtifactPath(string relativePath, out string normalizedRelativePath)
+    {
+        normalizedRelativePath = string.Empty;
+        try
+        {
+            var path = ResolvePath(relativePath);
+            if (!File.Exists(path))
+                return false;
+
+            EnsureNoReparsePoints(path);
+            var relative = Path.GetRelativePath(_workspaceRoot, path).Replace('\\', '/');
+            normalizedRelativePath = TaskHistoryService.NormalizeArtifactPath(relative);
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or
+            UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private string ResolvePath(string relativePath, bool allowEmpty = false)

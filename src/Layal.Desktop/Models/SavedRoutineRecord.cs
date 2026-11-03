@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Layal.Models;
 
@@ -8,6 +10,7 @@ public sealed class SavedRoutineRecord
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = string.Empty;
     public string Goal { get; set; } = string.Empty;
+    public List<string> Steps { get; set; } = new();
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
 
@@ -16,6 +19,7 @@ public sealed class SavedRoutineRecord
         Id = Id,
         Name = Name,
         Goal = Goal,
+        Steps = Steps?.ToList() ?? new List<string>(),
         CreatedAt = CreatedAt,
         UpdatedAt = UpdatedAt
     };

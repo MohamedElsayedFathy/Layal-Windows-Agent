@@ -96,6 +96,7 @@ public partial class MainWindow : Window
     private string _lastCameraObservation = string.Empty;
     private CancellationTokenSource? _agentTaskCancellation;
     private string? _selectedMemoryId;
+    private bool _selectedMemoryIsArchived;
     private bool _providerTestPassed;
     private string? _testedBaseUrl;
     private string? _testedModelId;
@@ -268,15 +269,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_chatCancellation is not null || _voiceConversationCancellation is not null ||
-            _speechCancellation is not null || _voiceTestCancellation is not null ||
+        if (_chatCancellation is not null || _agentTaskCancellation is not null ||
+            _voiceConversationCancellation is not null || _speechCancellation is not null || _voiceTestCancellation is not null ||
             _localAiSetupCancellation is not null || _localVoiceRecordingActive ||
             _speechToText.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
-                ? "أوقف الرد أو التسجيل النشط وأغلق نافذة السؤال السريع أو الكاميرا قبل إنهاء المحادثة الخاصة."
-                : "Stop active chat/audio work and close Quick Ask or the camera before exiting private chat.");
+                ? "أوقف المحادثة والمهمة والتسجيلات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل إنهاء المحادثة الخاصة."
+                : "Stop active chat, agent-task, and audio work and close Quick Ask or the camera before exiting private chat.");
             return;
         }
 
@@ -301,6 +302,7 @@ public partial class MainWindow : Window
         _pendingDocumentText = null;
         _pendingDocumentFileName = null;
         _pendingDocumentNotice = null;
+        _lastCameraObservation = string.Empty;
         ChatConversations.Clear();
         ChatHistorySelector.SelectedItem = null;
         UpdateVisionAttachmentControls();
@@ -451,6 +453,10 @@ public partial class MainWindow : Window
         _voiceConversationCancellation?.Cancel();
         // Also cancel a still-image analysis request that may be processing a captured camera frame.
         _chatCancellation?.Cancel();
+        // Agent tasks may be between model turns and about to invoke UI/screen/clipboard
+        // inspection tools. Cancel the entire task before another tool call can begin.
+        if (PrivacyShieldPolicy.ShouldCancelAgentTask(AppRuntime.Settings.PrivacyShieldEnabled))
+            _agentTaskCancellation?.Cancel();
 
         if (_cameraVisionWindow is { } camera)
         {
@@ -459,12 +465,31 @@ public partial class MainWindow : Window
             _cameraVisionWindow = null;
         }
 
-        if (_pendingVisionFileName?.StartsWith("screen-region-", StringComparison.OrdinalIgnoreCase) == true)
+        var visionAttachmentIsCapture = _pendingVisionFileName?.StartsWith(
+            "screen-region-", StringComparison.OrdinalIgnoreCase) == true;
+        var visionAttachmentIsClipboard = _pendingVisionFileName?.StartsWith(
+            "clipboard-image-", StringComparison.OrdinalIgnoreCase) == true;
+        if ((visionAttachmentIsCapture || visionAttachmentIsClipboard) &&
+            _pendingVisionImageBytes is { } pendingImageBytes)
         {
+            Array.Clear(pendingImageBytes, 0, pendingImageBytes.Length);
             _pendingVisionImageBytes = null;
             _pendingVisionContentType = null;
             _pendingVisionFileName = null;
             UpdateVisionAttachmentControls();
+        }
+
+        var documentAttachmentIsClipboard =
+            string.Equals(_pendingDocumentFileName, "Clipboard text", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(_pendingDocumentFileName, "نص الحافظة", StringComparison.Ordinal);
+        if (documentAttachmentIsClipboard && _pendingDocumentText is not null)
+        {
+            // Strings are immutable; dropping all UI/service references is the strongest
+            // cleanup available for already-created clipboard text in managed memory.
+            _pendingDocumentText = null;
+            _pendingDocumentFileName = null;
+            _pendingDocumentNotice = null;
+            UpdateDocumentAttachmentUi();
         }
 
         _lastCameraObservation = string.Empty;
@@ -490,10 +515,21 @@ public partial class MainWindow : Window
         ChatHistorySelector.IsEnabled = !_incognitoMode;
         NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
+        QuickAskButton.IsEnabled = !_incognitoMode;
+        QuickAskButton.ToolTip = _incognitoMode
+            ? (ar ? "السؤال السريع متوقف أثناء المحادثة الخاصة." : "Quick Ask is disabled during private chat.")
+            : (ar ? "افتح نافذة سؤال سريع مستقلة." : "Open a separate Quick Ask window.");
     }
 
     private void OpenQuickAskWindow()
     {
+        if (_incognitoMode)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "السؤال السريع غير متاح أثناء المحادثة الخاصة؛ استخدم نافذة المحادثة المؤقتة فقط."
+                : "Quick Ask is unavailable during private chat; use the temporary main chat only.");
+            return;
+        }
         if (AppRuntime.IsExiting || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
             return;
 
@@ -532,6 +568,10 @@ public partial class MainWindow : Window
 
     private async Task<string> SubmitQuickAskAsync(string question)
     {
+        if (_incognitoMode)
+            return IsArabic
+                ? "السؤال السريع غير متاح أثناء المحادثة الخاصة."
+                : "Quick Ask is unavailable during private chat.";
         if (_chatCancellation is not null || _voiceConversationCancellation is not null)
             return IsArabic
                 ? "هناك طلب أو جلسة صوتية قيد التشغيل. أوقفها أولًا ثم أعد السؤال."
@@ -1304,6 +1344,12 @@ public partial class MainWindow : Window
         AlwaysOnTopCheckbox.Content = ar ? "إبقاء الشخصية فوق النوافذ الأخرى" : "Keep mascot above other windows";
         AnimationsCheckbox.Content = ar ? "تفعيل حركة الشخصية والرمش" : "Enable mascot movement and blinking";
         PerformanceModeCheckbox.Content = ar ? "وضع الأداء (حركة أقل واستهلاك أقل)" : "Performance mode (less animation and CPU use)";
+        PerformanceMetricsButton.Content = ar ? "قياس أداء ليال الآن" : "Measure Layal performance";
+        AutomationProperties.SetName(PerformanceMetricsButton, ar ? "قياس موارد عملية ليال" : "Measure Layal process resources");
+        AutomationProperties.SetHelpText(PerformanceMetricsButton, ar
+            ? "عينة محلية لمدة ثانية واحدة لوقت CPU والذاكرة وعدد الخيوط وعدادات GC. لا تجمع بيانات عن تطبيقات أخرى ولا تقيس GPU."
+            : "One-second local sample of process CPU time, memory, thread count, and GC counters. Does not inspect other applications or measure GPU.");
+        AutomationProperties.SetName(PerformanceMetricsStatus, ar ? "نتيجة آخر قياس أداء" : "Latest performance measurement");
         PerformanceModeCheckbox.ToolTip = ar
             ? "يقلل معدل فحص النقرات ويوقف مؤقتات الحركة والرمش ومعاينة GLB الثقيلة دون تغيير تفضيل الحركة المحفوظ."
             : "Reduces hit-test polling and pauses animation/blink timers and heavy GLB preview without changing your saved animation preference.";
@@ -1329,9 +1375,9 @@ public partial class MainWindow : Window
             : "View notes and approximate links locally; nothing is sent to AI.";
         AutomationProperties.SetName(LoreWebButton, ar ? "فتح خريطة الذاكرة ثلاثية الأبعاد" : "Open 3D memory web");
         AutomationProperties.SetHelpText(LoreWebButton, ar
-            ? "خريطة محلية تفاعلية؛ الروابط مبنية على كلمات عنوان مشتركة والترتيب الزمني فقط، وليست استنتاجات مضمونة."
-            : "Interactive local map; connections use shared title terms and chronology only, not guaranteed semantic inferences.");
-        MemoryDescription.Text = ar ? "ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes encrypted with Windows DPAPI. Sharing search results with AI requires approval.";
+            ? "خريطة محلية للملاحظات النشطة والمؤرشفة؛ تعرض التصنيف وتتيح الأرشفة والاستعادة. الروابط تقريبية بحسب التصنيف وكلمات العنوان والترتيب الزمني."
+            : "Local map of active and archived notes; shows categories and supports archive/restore. Links are approximate, based on category, title terms and chronology.");
+        MemoryDescription.Text = ar ? "ملاحظات وتصنيفات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ الأرشفة لا تحذف الملاحظة، واستعادة الملاحظات متاحة من المحرر والخريطة. مشاركة نتائج البحث مع AI تتطلب موافقة." : "User-managed notes and categories encrypted with Windows DPAPI. Archiving does not delete a note; restore is available from the editor and memory map. Sharing search results with AI requires approval.";
         MemoryEmptyStateText.Text = ar
             ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء."
             : "No saved notes. Create a note to get started.";
@@ -1341,11 +1387,16 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory notes");
         MemorySearchButton.Content = ar ? "بحث" : "Search";
         NewMemoryButton.Content = ar ? "ملاحظة جديدة" : "New note";
+        MemoryCategoryLabel.Text = ar ? "التصنيف" : "Category";
+        System.Windows.Automation.AutomationProperties.SetName(MemoryCategoryInput, MemoryCategoryLabel.Text);
         MemoryTitleLabel.Text = ar ? "العنوان" : "Title";
         MemoryContentLabel.Text = ar ? "المحتوى" : "Content";
         System.Windows.Automation.AutomationProperties.SetName(MemoryTitleInput, MemoryTitleLabel.Text);
         System.Windows.Automation.AutomationProperties.SetName(MemoryContentInput, MemoryContentLabel.Text);
         SaveMemoryButton.Content = ar ? "حفظ الملاحظة" : "Save note";
+        ArchiveMemoryButton.Content = _selectedMemoryIsArchived
+            ? (ar ? "استعادة" : "Restore")
+            : (ar ? "أرشفة" : "Archive");
         DeleteMemoryButton.Content = ar ? "حذف الملاحظة" : "Delete note";
         ExportMemoryButton.Content = ar ? "تصدير JSON" : "Export JSON";
         MemoryPrivacyNote.Text = ar ? "لا تحفظ مفاتيح API أو كلمات المرور في الذاكرة. ملف JSON المُصدَّر غير مشفّر." : "Do not store API keys or passwords in memory. Exported JSON is unencrypted.";
@@ -3019,6 +3070,41 @@ public partial class MainWindow : Window
         ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         RefreshProviderStatus();
     }
+
+    private async void PerformanceMetricsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (PerformanceMetricsButton is null || PerformanceMetricsStatus is null)
+            return;
+
+        PerformanceMetricsButton.IsEnabled = false;
+        PerformanceMetricsStatus.Text = IsArabic
+            ? "جارٍ قياس موارد عملية ليال محليًا لمدة ثانية..."
+            : "Measuring Layal process resources locally for one second...";
+
+        try
+        {
+            var sample = await PerformanceMetricsService.MeasureCurrentProcessAsync(
+                TimeSpan.FromSeconds(1),
+                CancellationToken.None);
+            var workingSet = FormatMetricBytes(sample.WorkingSetBytes);
+            var privateBytes = FormatMetricBytes(sample.PrivateBytes);
+            var managedHeap = FormatMetricBytes(sample.ManagedHeapBytes);
+            PerformanceMetricsStatus.Text = IsArabic
+                ? $"CPU للعملية: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% خلال {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} ث | الذاكرة الفعلية: {workingSet} | الذاكرة الخاصة: {privateBytes} | .NET Heap: {managedHeap} | الخيوط: {sample.ThreadCount} | GC Gen 0/1/2: {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. قياس للعملية الحالية فقط، وليس GPU أو بقية التطبيقات."
+                : $"Process CPU: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% over {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} s | Working set: {workingSet} | Private memory: {privateBytes} | .NET heap: {managedHeap} | Threads: {sample.ThreadCount} | GC Gen 0/1/2: {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. Current process only; no GPU or other applications.";
+        }
+        catch (Exception ex)
+        {
+            PerformanceMetricsStatus.Text = (IsArabic ? "تعذر قياس الأداء: " : "Performance measurement failed: ") + ex.Message;
+        }
+        finally
+        {
+            PerformanceMetricsButton.IsEnabled = true;
+        }
+    }
+
+    private static string FormatMetricBytes(long bytes) =>
+        (bytes / (1024d * 1024d)).ToString("F1", CultureInfo.InvariantCulture) + " MB";
 
     private void MascotSettingChanged(object sender, RoutedEventArgs e)
     {
@@ -5496,23 +5582,30 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.IsExiting || AppRuntime.IsGameModeActive || !AppRuntime.Settings.ProactiveCheckInEnabled)
-            return;
-
         var now = DateTimeOffset.Now;
         var last = AppRuntime.Settings.LastProactiveCheckInAt;
         if (last is null)
         {
+            if (AppRuntime.IsExiting || !AppRuntime.Settings.ProactiveCheckInEnabled)
+                return;
             AppRuntime.Settings.LastProactiveCheckInAt = now;
             try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
             catch { _proactiveCheckInTimer.Stop(); }
             return;
         }
 
-        if (now - last.Value < TimeSpan.FromMinutes(AppRuntime.Settings.ProactiveCheckInIntervalMinutes))
+        if (!ProactiveCheckInPolicy.ShouldNotify(
+                enabled: AppRuntime.Settings.ProactiveCheckInEnabled,
+                privacyShieldEnabled: AppRuntime.Settings.PrivacyShieldEnabled,
+                gameModeActive: AppRuntime.IsGameModeActive,
+                applicationExiting: AppRuntime.IsExiting,
+                lastNotifiedAt: last,
+                now: now,
+                intervalMinutes: AppRuntime.Settings.ProactiveCheckInIntervalMinutes))
             return;
 
-        // Advance the schedule before notifying, so repeated timer ticks cannot create a storm.
+        // Persist the next time before notifying. If the machine wakes after several missed
+        // intervals, only one notification is issued; overlapping ticks cannot create a storm.
         AppRuntime.Settings.LastProactiveCheckInAt = now;
         try
         {
@@ -5526,14 +5619,41 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (AppRuntime.Settings.PrivacyShieldEnabled)
-            return;
-
         var recentTask = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
         var message = recentTask is null
             ? (IsArabic ? "موعد مراجعة قصيرة. افتح ليال وحدد ما تريد التركيز عليه الآن." : "Time for a quick check-in. Open Layal and choose what to focus on now.")
             : (IsArabic ? "موعد مراجعة المهمة. افتح ليال لمراجعة التقدم أو تحديث الهدف." : "Time to check in on your task. Open Layal to review progress or update the goal.");
-        AppRuntime.Tray?.ShowReminderNotification(message, IsArabic);
+        var taskId = recentTask?.Id;
+        AppRuntime.Tray?.ShowReminderNotification(
+            message,
+            IsArabic,
+            taskId is null ? null : () => OpenTaskFromNotification(taskId));
+    }
+
+    private void OpenTaskFromNotification(string taskId)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (AppRuntime.IsExiting)
+                return;
+
+            ShowFromTray();
+            MainTabs.SelectedItem = TasksTab;
+            RefreshRecentTasks(taskId);
+            if (RecentTasksList.SelectedItem is null)
+            {
+                SetAccessibleStatusText(TaskResult,
+                    IsArabic
+                        ? "المهمة المرتبطة بالإشعار لم تعد موجودة في السجل."
+                        : "The task associated with this notification is no longer in history.");
+                return;
+            }
+
+            RecentTasksList.Focus();
+            SetChatActivityStatus(IsArabic
+                ? "تم فتح المهمة المرتبطة بإشعار المتابعة؛ لم يتم تشغيل أي إجراء."
+                : "Opened the task associated with the check-in; no action was executed.");
+        }));
     }
 
     private void ReminderTimer_Tick(object? sender, EventArgs e)
@@ -5784,7 +5904,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var notes = AppRuntime.MemoryService.GetAll();
+            var notes = AppRuntime.MemoryService.GetAll(includeArchived: true);
             var window = new LoreWebWindow(notes, IsArabic, selectedNote =>
             {
                 MainTabs.SelectedItem = MemoryTab;
@@ -5793,15 +5913,21 @@ public partial class MainWindow : Window
                 MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(note =>
                     string.Equals(note.Id, selectedNote.Id, StringComparison.Ordinal));
                 _selectedMemoryId = selectedNote.Id;
+                _selectedMemoryIsArchived = selectedNote.IsArchived;
+                MemoryCategoryInput.Text = selectedNote.Category;
                 MemoryTitleInput.Text = selectedNote.Title;
                 MemoryContentInput.Text = selectedNote.Content;
+                ArchiveMemoryButton.Content = selectedNote.IsArchived
+                    ? (IsArabic ? "استعادة" : "Restore")
+                    : (IsArabic ? "أرشفة" : "Archive");
                 SetAccessibleStatusText(MemoryResult,
                     IsArabic
                         ? "تم فتح الملاحظة من خريطة الذاكرة المحلية."
                         : "Note opened from the local memory web.");
                 MemoryTitleInput.Focus();
             },
-            note => AppRuntime.MemoryService.Delete(note.Id))
+            note => AppRuntime.MemoryService.Delete(note.Id),
+            note => AppRuntime.MemoryService.SetArchived(note.Id, !note.IsArchived))
             {
                 Owner = this
             };
@@ -5817,7 +5943,9 @@ public partial class MainWindow : Window
     private void NewMemoryButton_Click(object sender, RoutedEventArgs e)
     {
         _selectedMemoryId = null;
+        _selectedMemoryIsArchived = false;
         MemoryList.SelectedItem = null;
+        MemoryCategoryInput.Text = "General";
         MemoryTitleInput.Clear();
         MemoryContentInput.Clear();
         SetAccessibleStatusText(MemoryResult, IsArabic ? "اكتب ملاحظة جديدة ثم اضغط حفظ." : "Write a new note and select Save.");
@@ -5828,8 +5956,13 @@ public partial class MainWindow : Window
     {
         if (MemoryList.SelectedItem is not MemoryNote note) return;
         _selectedMemoryId = note.Id;
+        _selectedMemoryIsArchived = note.IsArchived;
+        MemoryCategoryInput.Text = note.Category;
         MemoryTitleInput.Text = note.Title;
         MemoryContentInput.Text = note.Content;
+        ArchiveMemoryButton.Content = note.IsArchived
+            ? (IsArabic ? "استعادة" : "Restore")
+            : (IsArabic ? "أرشفة" : "Archive");
         SetAccessibleStatusText(MemoryResult, UiLocalization.FormatDateTime(note.UpdatedAt.LocalDateTime, IsArabic));
     }
 
@@ -5843,8 +5976,9 @@ public partial class MainWindow : Window
                 IsArabic ? "سيتم حفظ هذه الملاحظة محليًا مشفرة باستخدام DPAPI لحساب Windows الحالي. لا تحفظ أسرارًا أو كلمات مرور. هل تريد المتابعة؟" : "This note will be saved locally encrypted with DPAPI for the current Windows user. Do not store secrets or passwords. Continue?",
                 IsArabic ? "تأكيد حفظ الذاكرة" : "Confirm memory save", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
             if (answer != MessageBoxResult.Yes) return;
-            var note = AppRuntime.MemoryService.Save(title, content, _selectedMemoryId);
+            var note = AppRuntime.MemoryService.Save(title, content, _selectedMemoryId, MemoryCategoryInput.Text);
             _selectedMemoryId = note.Id;
+            _selectedMemoryIsArchived = note.IsArchived;
             RefreshMemoryNotes(MemorySearchInput.Text);
             MemoryList.SelectedItem = MemoryNotes.FirstOrDefault(n => n.Id == note.Id);
             SetAccessibleStatusText(MemoryResult, IsArabic ? "تم حفظ الملاحظة محليًا بصورة مشفرة." : "Note saved locally with encryption.");
@@ -5855,6 +5989,64 @@ public partial class MainWindow : Window
             SetAccessibleStatusText(MemoryResult, UiLocalization.FormatTechnicalError("تعذر حفظ الملاحظة", "Could not save the note", ex, IsArabic));
             MemoryResult.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
+    }
+
+    private void ArchiveMemoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedMemoryId))
+        {
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "حدد ملاحظة لأرشفتها أو استعادتها." : "Select a note to archive or restore.");
+            return;
+        }
+
+        var note = AppRuntime.MemoryService.GetAll(includeArchived: true).FirstOrDefault(item =>
+            string.Equals(item.Id, _selectedMemoryId, StringComparison.Ordinal));
+        if (note is null)
+        {
+            SetAccessibleStatusText(MemoryResult, IsArabic ? "الملاحظة غير موجودة." : "The note no longer exists.");
+            return;
+        }
+
+        var shouldArchive = !note.IsArchived;
+        var answer = MessageBox.Show(this,
+            shouldArchive
+                ? (IsArabic
+                    ? $"سيتم نقل «{note.Title}» إلى الأرشيف. لن تُحذف ويمكن استعادتها لاحقًا. هل تريد المتابعة؟"
+                    : $"“{note.Title}” will be moved to the archive. It will not be deleted and can be restored later. Continue?")
+                : (IsArabic
+                    ? $"ستتم استعادة «{note.Title}» إلى قائمة الملاحظات النشطة. هل تريد المتابعة؟"
+                    : $"“{note.Title}” will be restored to active memory. Continue?"),
+            shouldArchive
+                ? (IsArabic ? "تأكيد الأرشفة" : "Confirm archive")
+                : (IsArabic ? "تأكيد الاستعادة" : "Confirm restore"),
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+
+        if (!AppRuntime.MemoryService.SetArchived(note.Id, shouldArchive))
+        {
+            SetAccessibleStatusText(MemoryResult,
+                IsArabic ? "تعذر تحديث حالة الأرشفة." : "Could not update the archive state.");
+            return;
+        }
+
+        note.IsArchived = shouldArchive;
+        _selectedMemoryIsArchived = shouldArchive;
+        MemorySearchInput.Clear();
+        RefreshMemoryNotes();
+        MemoryList.SelectedItem = shouldArchive
+            ? null
+            : MemoryNotes.FirstOrDefault(item => string.Equals(item.Id, note.Id, StringComparison.Ordinal));
+        _selectedMemoryId = note.Id;
+        MemoryCategoryInput.Text = note.Category;
+        MemoryTitleInput.Text = note.Title;
+        MemoryContentInput.Text = note.Content;
+        ArchiveMemoryButton.Content = shouldArchive
+            ? (IsArabic ? "استعادة" : "Restore")
+            : (IsArabic ? "أرشفة" : "Archive");
+        SetAccessibleStatusText(MemoryResult, shouldArchive
+            ? (IsArabic ? "تمت أرشفة الملاحظة دون حذفها؛ يمكنك استعادتها من هنا أو من خريطة الذاكرة." : "Note archived without deletion. You can restore it here or from the memory map.")
+            : (IsArabic ? "تمت استعادة الملاحظة إلى قائمة الذاكرة النشطة." : "Note restored to the active memory list."));
+        MemoryResult.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
     }
 
     private void DeleteMemoryButton_Click(object sender, RoutedEventArgs e)
@@ -5869,6 +6061,8 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         AppRuntime.MemoryService.Delete(_selectedMemoryId);
         _selectedMemoryId = null;
+        _selectedMemoryIsArchived = false;
+        MemoryCategoryInput.Text = "General";
         MemoryTitleInput.Clear();
         MemoryContentInput.Clear();
         RefreshMemoryNotes(MemorySearchInput.Text);
