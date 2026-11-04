@@ -184,7 +184,7 @@ public sealed class DocumentTextExtractionService
             case ".bmp":
             case ".tif":
             case ".tiff":
-                throw new NotSupportedException("Image OCR uses Windows Runtime and must be called asynchronously. Use ExtractFileAsync for image files.");
+                throw new NotSupportedException("Image OCR uses the bundled local Tesseract engine and must be called asynchronously. Use ExtractFileAsync for image files.");
 
             default:
                 throw new NotSupportedException($"The {extension} format is not supported.");
@@ -572,13 +572,14 @@ public sealed class DocumentTextExtractionService
         return $"Extracted text from {pagesProcessed} of {count} PDF pages locally. Page layout may differ from the original document.";
     }
 
-    private static string ExtractWord(string path, StringBuilder output, ref int paragraphsProcessed, ref bool truncated)
+    private static string ExtractWord(string path, StringBuilder output, ref int unitsProcessed, ref bool truncated)
     {
         using var document = WordprocessingDocument.Open(path, isEditable: false);
         var body = document.MainDocumentPart?.Document?.Body
             ?? throw new InvalidDataException("The DOCX file has no readable main document body.");
 
-        foreach (var paragraph in body.Descendants<Paragraph>())
+        var tableIndex = 0;
+        foreach (var block in body.ChildElements)
         {
             if (output.Length >= MaximumTextCharacters)
             {
@@ -586,18 +587,71 @@ public sealed class DocumentTextExtractionService
                 break;
             }
 
-            var paragraphText = string.Concat(paragraph.Descendants<DocumentFormat.OpenXml.Wordprocessing.Text>().Select(item => item.Text));
-            if (string.IsNullOrWhiteSpace(paragraphText))
+            if (block is Paragraph paragraph)
+            {
+                var paragraphText = GetWordParagraphText(paragraph);
+                if (string.IsNullOrWhiteSpace(paragraphText))
+                    continue;
+
+                AppendLimited(output, paragraphText + Environment.NewLine, ref truncated);
+                unitsProcessed++;
+                continue;
+            }
+
+            if (block is not Table table)
                 continue;
 
-            AppendLimited(output, paragraphText + Environment.NewLine, ref truncated);
-            paragraphsProcessed++;
+            tableIndex++;
+            AppendLimited(output, $"[Word table {tableIndex}]\n", ref truncated);
+            var rowNumber = 0;
+            foreach (var row in table.Elements<TableRow>())
+            {
+                if (output.Length >= MaximumTextCharacters)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                rowNumber++;
+                // Keep empty cells in place so column boundaries remain meaningful.
+                var cells = row.Elements<TableCell>()
+                    .Select(cell => string.Join(" ", cell.Descendants<Paragraph>()
+                        .Select(GetWordParagraphText)
+                        .Where(value => !string.IsNullOrWhiteSpace(value))))
+                    .Select(value => value.Replace("\r", " ").Replace("\n", " ").Trim())
+                    .ToList();
+                if (cells.Count == 0 || cells.All(string.IsNullOrWhiteSpace))
+                    continue;
+
+                AppendLimited(output,
+                    $"Row {rowNumber}: {string.Join(" | ", cells)}{Environment.NewLine}",
+                    ref truncated);
+                unitsProcessed++;
+            }
+
+            AppendLimited(output, Environment.NewLine, ref truncated);
         }
 
-        if (paragraphsProcessed == 0)
-            throw new InvalidDataException("No readable paragraph text was found in the DOCX file.");
+        if (unitsProcessed == 0)
+            throw new InvalidDataException("No readable paragraph or table text was found in the DOCX file.");
 
-        return $"Extracted {paragraphsProcessed} Word paragraphs locally. Headers, footers, text boxes, comments and embedded objects may not be included.";
+        return $"Extracted {unitsProcessed} Word paragraphs and table rows locally. DOCX table row and cell boundaries are preserved. Headers, footers, text boxes, comments and embedded objects may not be included.";
+    }
+
+    private static string GetWordParagraphText(Paragraph paragraph)
+    {
+        var text = new StringBuilder();
+        foreach (var element in paragraph.Descendants<OpenXmlElement>())
+        {
+            if (element is DocumentFormat.OpenXml.Wordprocessing.Text runText)
+                text.Append(runText.Text);
+            else if (element is Break)
+                text.AppendLine();
+            else if (element is TabChar)
+                text.Append('\t');
+        }
+
+        return text.ToString();
     }
 
     private static string ExtractSpreadsheet(string path, StringBuilder output, ref int worksheetsProcessed, ref bool truncated)

@@ -238,6 +238,34 @@ public sealed class DocumentTextExtractionServiceTests
     }
 
     [TestMethod]
+    public void WordTablesPreserveRowAndColumnBoundaries()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "table.docx");
+        using (var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            main.Document = new W.Document(new W.Body(
+                new W.Table(
+                    new W.TableRow(
+                        new W.TableCell(new W.Paragraph(new W.Run(new W.Text("Name")))),
+                        new W.TableCell(new W.Paragraph(new W.Run(new W.Text("Score"))))),
+                    new W.TableRow(
+                        new W.TableCell(new W.Paragraph(new W.Run(new W.Text("Mona")))),
+                        new W.TableCell(new W.Paragraph(new W.Run(new W.Text("95"))))))));
+            main.Document.Save();
+        }
+
+        var result = _service.ExtractFile(path);
+
+        Assert.IsTrue(result.Text.Contains("[Word table 1]", StringComparison.Ordinal));
+        Assert.IsTrue(result.Text.Contains("Row 1: Name | Score", StringComparison.Ordinal));
+        Assert.IsTrue(result.Text.Contains("Row 2: Mona | 95", StringComparison.Ordinal));
+        Assert.AreEqual(2, result.UnitsProcessed);
+        StringAssert.Contains(result.Notice, "row and cell boundaries are preserved");
+    }
+
+    [TestMethod]
     public void SpreadsheetExtractionReadsCellValuesAndSheetNames()
     {
         using var temp = new TestTempDirectory();
@@ -261,14 +289,38 @@ public sealed class DocumentTextExtractionServiceTests
                         DataType = S.CellValues.Number,
                         CellValue = new S.CellValue("27")
                     })));
+
+            var forecastWorksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+            forecastWorksheetPart.Worksheet = new S.Worksheet(new S.SheetData(
+                new S.Row(
+                    new S.Cell
+                    {
+                        CellReference = "A1",
+                        DataType = S.CellValues.InlineString,
+                        InlineString = new S.InlineString(new S.Text("Forecast"))
+                    },
+                    new S.Cell
+                    {
+                        CellReference = "B1",
+                        DataType = S.CellValues.Number,
+                        CellValue = new S.CellValue("2027")
+                    })));
+
             workbookPart.Workbook.AppendChild(new S.Sheets(
                 new S.Sheet
                 {
                     Id = workbookPart.GetIdOfPart(worksheetPart),
                     SheetId = 1U,
                     Name = "Summary"
+                },
+                new S.Sheet
+                {
+                    Id = workbookPart.GetIdOfPart(forecastWorksheetPart),
+                    SheetId = 2U,
+                    Name = "Forecast"
                 }));
             worksheetPart.Worksheet.Save();
+            forecastWorksheetPart.Worksheet.Save();
             workbookPart.Workbook.Save();
         }
 
@@ -277,7 +329,10 @@ public sealed class DocumentTextExtractionServiceTests
         Assert.IsTrue(result.Text.Contains("Summary", StringComparison.Ordinal));
         Assert.IsTrue(result.Text.Contains("A1: Revenue", StringComparison.Ordinal));
         Assert.IsTrue(result.Text.Contains("B1: 27", StringComparison.Ordinal));
-        Assert.AreEqual(1, result.UnitsProcessed);
+        Assert.IsTrue(result.Text.Contains("[Worksheet: Forecast]", StringComparison.Ordinal));
+        Assert.IsTrue(result.Text.Contains("A1: Forecast", StringComparison.Ordinal));
+        Assert.IsTrue(result.Text.Contains("B1: 2027", StringComparison.Ordinal));
+        Assert.AreEqual(2, result.UnitsProcessed);
     }
 
     [TestMethod]
