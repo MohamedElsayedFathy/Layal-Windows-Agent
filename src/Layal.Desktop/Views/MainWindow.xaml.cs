@@ -408,8 +408,8 @@ public partial class MainWindow : Window
 
             var confirm = MessageBox.Show(this,
                 IsArabic
-                    ? "سيبدأ سياق دردشة مؤقت فارغ، ولن تُحفظ رسائله الجديدة في سجل المحادثات المحلي. إذا أرسلت رسالة، فستظل تُرسل إلى مزود الذكاء الاصطناعي حسب إعداداتك. هذا الوضع لا يعطّل سجل المهام أو الذاكرة أو سجلات المزود الخارجية. هل تريد المتابعة؟"
-                    : "This starts a blank temporary chat and does not save its new messages in local chat history. Messages you send may still go to the configured AI provider. This mode does not disable task history, memory, or provider-side logs. Continue?",
+                    ? "سيبدأ سياق دردشة مؤقت فارغ ولن تُحفظ رسائله الجديدة في سجل المحادثات المحلي. أثناء الوضع الخاص سيتم تعطيل تبويبي المهام والذاكرة ومنع بدء مهام وكيل جديدة أو الوصول للذاكرة الشخصية؛ البيانات المحفوظة سابقًا لن تُحذف وستعود بعد الخروج. قد تظل الرسائل التي ترسلها تصل إلى مزود الذكاء الاصطناعي وتخضع لسجلاته وسياسة احتفاظه. هل تريد المتابعة؟"
+                    : "This starts a blank temporary chat and does not save its new messages in local chat history. While private mode is active, Tasks and Memory are disabled; new agent tasks and personal-memory access are blocked. Previously saved tasks and notes are preserved and become available again after exit. Messages may still be sent to the configured AI provider and remain subject to its own logging and retention policies. Continue?",
                 IsArabic ? "بدء محادثة خاصة" : "Start private chat",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
             if (confirm != MessageBoxResult.Yes)
@@ -433,8 +433,8 @@ public partial class MainWindow : Window
 
         var exit = MessageBox.Show(this,
             IsArabic
-                ? "سيتم التخلص من رسائل المحادثة الخاصة غير المحفوظة واستعادة آخر محادثة محفوظة. لن يتم حذف المحادثات المحفوظة أو الذاكرة. هل تريد المتابعة؟"
-                : "Unsaved private-chat messages will be discarded and the last saved conversation will be restored. Saved conversations and memory will not be deleted. Continue?",
+                ? "سيتم التخلص من رسائل المحادثة الخاصة غير المحفوظة واستعادة آخر محادثة محفوظة. المهام والملاحظات المحفوظة لم تُحذف وستصبح متاحة مجددًا. لا يمكن استرجاع ما أُرسل بالفعل إلى مزود خارجي. هل تريد المتابعة؟"
+                : "Unsaved private-chat messages will be discarded and the last saved conversation will be restored. Saved tasks and memory were preserved and will become available again. Data already sent to an external provider cannot be recalled. Continue?",
             IsArabic ? "إنهاء المحادثة الخاصة" : "Exit private chat",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (exit == MessageBoxResult.Yes)
@@ -444,6 +444,24 @@ public partial class MainWindow : Window
     private void EnterPrivateChatMode()
     {
         _incognitoMode = true;
+        MainTabs.SelectedItem = ChatTab;
+
+        // Clear personal/task content from visible controls for this temporary session.
+        // DPAPI-backed task history and memory stores are deliberately preserved.
+        MemoryNotes.Clear();
+        MemoryList.SelectedItem = null;
+        _selectedMemoryId = null;
+        _selectedMemoryIsArchived = false;
+        MemorySearchInput.Clear();
+        MemoryCategoryInput.Text = "General";
+        MemoryTitleInput.Clear();
+        MemoryContentInput.Clear();
+        RecentTasks.Clear();
+        TaskEvents.Clear();
+        _rawTaskEvents.Clear();
+        TaskInput.Clear();
+        TaskResult.Text = string.Empty;
+
         ChatMessages.Clear();
         ChatInput.Clear();
         _pendingVisionImageBytes = null;
@@ -459,8 +477,8 @@ public partial class MainWindow : Window
         UpdateDocumentAttachmentUi();
         UpdatePrivateChatModeUi();
         SetChatActivityStatus(IsArabic
-            ? "المحادثة الخاصة نشطة: لن تُحفظ رسائلها محليًا. لا يزال الإرسال للمزود ممكنًا حسب إعداداتك."
-            : "Private chat is active: messages will not be saved locally. Provider transmission still follows your settings.");
+            ? "المحادثة الخاصة نشطة: الرسائل لا تُحفظ محليًا، وتبويبا المهام والذاكرة معطلان. قد يستقبل المزود الخارجي الرسائل وفق إعداداتك."
+            : "Private chat is active: messages are not saved locally, and Tasks/Memory are disabled. The external provider may still receive messages according to your settings.");
     }
 
     private void ExitPrivateChatMode()
@@ -495,6 +513,8 @@ public partial class MainWindow : Window
         ChatMessagesList.Items.Refresh();
         AppRuntime.ChatSessionService.SetDefaultTitle(IsArabic ? "محادثة جديدة" : "New conversation");
         RefreshChatSessions(_currentConversationId);
+        RefreshRecentTasks();
+        RefreshMemoryNotes();
         UpdatePrivateChatModeUi();
         RefreshProviderStatus();
         SetChatActivityStatus(IsArabic
@@ -667,8 +687,10 @@ public partial class MainWindow : Window
             ? (ar ? "إنهاء المحادثة الخاصة" : "Exit private chat")
             : (ar ? "بدء محادثة خاصة" : "Start private chat"));
         AutomationProperties.SetHelpText(IncognitoModeButton, ar
-            ? "يمنع حفظ رسائل هذه الجلسة في سجل الدردشة المحلي ويخفي قائمة المحادثات. لا يعطّل حفظ سجلات المهام أو الذاكرة أو سجلات المزود."
-            : "Prevents this session's messages from being saved in local chat history and hides the conversation list. Task history, memory, and provider logs are not disabled.");
+            ? "لا يحفظ رسائل الجلسة في سجل الدردشة المحلي. أثناء الوضع الخاص تُعطّل تبويبات المهام والذاكرة وتُمنع المهام الجديدة وعمليات الذاكرة؛ تبقى البيانات السابقة محفوظة. قد يحتفظ مزود AI بما يصله."
+            : "Does not save this session's messages in local chat history. Tasks and Memory tabs are disabled, new agent tasks and memory operations are blocked, and existing saved data is preserved. The AI provider may retain data it receives.");
+        TasksTab.IsEnabled = PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode);
+        MemoryTab.IsEnabled = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
         ChatHistorySelector.IsEnabled = !_incognitoMode;
         NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
@@ -6055,6 +6077,13 @@ public partial class MainWindow : Window
         {
             if (AppRuntime.IsExiting)
                 return;
+            if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "افتح الوضع الخاص أولًا قبل الرجوع إلى المهمة المرتبطة بالإشعار."
+                    : "Exit private chat before opening the task linked to this notification.");
+                return;
+            }
 
             ShowFromTray();
             MainTabs.SelectedItem = TasksTab;
@@ -6138,6 +6167,14 @@ public partial class MainWindow : Window
 
     private async void RunAgentTaskButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!PrivateChatModePolicy.CanStartAgentTask(_incognitoMode))
+        {
+            SetAccessibleStatusText(TaskResult, IsArabic
+                ? "تنفيذ مهام الوكيل متوقف أثناء المحادثة الخاصة."
+                : "Agent tasks are unavailable during private chat.");
+            return;
+        }
+
         var goal = TaskInput.Text.Trim();
         if (goal.Length == 0)
         {
@@ -6304,6 +6341,12 @@ public partial class MainWindow : Window
 
     private void RefreshRecentTasks(string? selectTaskId = null)
     {
+        if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
+        {
+            RecentTasks.Clear();
+            return;
+        }
+
         var previouslySelectedId = (RecentTasksList.SelectedItem as TaskHistoryListItem)?.Id;
         var idToSelect = string.IsNullOrWhiteSpace(selectTaskId) ? previouslySelectedId : selectTaskId;
         _refreshingRecentTasks = true;
@@ -6339,17 +6382,39 @@ public partial class MainWindow : Window
         });
     }
 
+    private bool IsPrivateMemoryAccessBlocked()
+    {
+        if (PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode))
+            return false;
+
+        SetChatActivityStatus(IsArabic
+            ? "الوصول إلى الذاكرة الشخصية متوقف أثناء المحادثة الخاصة."
+            : "Personal memory is unavailable during private chat.");
+        return true;
+    }
+
     private void RefreshMemoryNotes(string? query = null)
     {
+        if (IsPrivateMemoryAccessBlocked())
+        {
+            MemoryNotes.Clear();
+            return;
+        }
+
         MemoryNotes.Clear();
         var notes = string.IsNullOrWhiteSpace(query) ? AppRuntime.MemoryService.GetAll() : AppRuntime.MemoryService.Search(query);
         foreach (var note in notes) MemoryNotes.Add(note);
     }
 
-    private void MemorySearchButton_Click(object sender, RoutedEventArgs e) => RefreshMemoryNotes(MemorySearchInput.Text);
+    private void MemorySearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsPrivateMemoryAccessBlocked()) return;
+        RefreshMemoryNotes(MemorySearchInput.Text);
+    }
 
     private void LoreWebButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         try
         {
             var notes = AppRuntime.MemoryService.GetAll(includeArchived: true);
@@ -6390,6 +6455,7 @@ public partial class MainWindow : Window
 
     private void NewMemoryButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         _selectedMemoryId = null;
         _selectedMemoryIsArchived = false;
         MemoryList.SelectedItem = null;
@@ -6402,6 +6468,7 @@ public partial class MainWindow : Window
 
     private void MemoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         if (MemoryList.SelectedItem is not MemoryNote note) return;
         _selectedMemoryId = note.Id;
         _selectedMemoryIsArchived = note.IsArchived;
@@ -6416,6 +6483,7 @@ public partial class MainWindow : Window
 
     private void SaveMemoryButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         try
         {
             var title = MemoryTitleInput.Text.Trim();
@@ -6441,6 +6509,7 @@ public partial class MainWindow : Window
 
     private void ArchiveMemoryButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         if (string.IsNullOrWhiteSpace(_selectedMemoryId))
         {
             SetAccessibleStatusText(MemoryResult, IsArabic ? "حدد ملاحظة لأرشفتها أو استعادتها." : "Select a note to archive or restore.");
@@ -6499,6 +6568,7 @@ public partial class MainWindow : Window
 
     private void DeleteMemoryButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         if (string.IsNullOrWhiteSpace(_selectedMemoryId))
         {
             SetAccessibleStatusText(MemoryResult, IsArabic ? "حدد ملاحظة لحذفها." : "Select a note to delete.");
@@ -6519,6 +6589,7 @@ public partial class MainWindow : Window
 
     private async void ExportMemoryButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         var dialog = new SaveFileDialog
         {
             Title = IsArabic ? "تصدير الذاكرة إلى JSON غير مشفر" : "Export memory to unencrypted JSON",
