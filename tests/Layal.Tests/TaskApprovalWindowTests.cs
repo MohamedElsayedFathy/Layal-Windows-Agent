@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Layal.Views;
@@ -55,9 +56,20 @@ public sealed class TaskApprovalWindowTests
             try
             {
                 dialog = new TaskApprovalWindow(false, "Create file", "Review the file content.", cancellation.Cancel);
-                dialog.Loaded += (_, _) => cancellation.Cancel();
+                var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                dialog.ContentRendered += (_, _) => rendered.TrySetResult();
+
+                // Cancel from a worker only after the modal dialog has actually rendered.
+                // This exercises cross-thread cancellation without depending on Window.Loaded timing.
+                var externalCancellation = Task.Run(async () =>
+                {
+                    await rendered.Task.ConfigureAwait(false);
+                    await Task.Delay(50).ConfigureAwait(false);
+                    cancellation.Cancel();
+                });
 
                 Assert.ThrowsExactly<OperationCanceledException>(() => dialog.ShowForApproval(cancellation.Token));
+                externalCancellation.GetAwaiter().GetResult();
                 Assert.IsTrue(cancellation.IsCancellationRequested, "The external cancellation source must remain signaled.");
                 Assert.IsFalse(dialog.IsVisible, "A cancelled approval prompt must close.");
             }
