@@ -60,11 +60,10 @@ public sealed class ScreenRegionCaptureService
         {
             // The preview is a modal WinForms dialog on the UI thread. BeginInvoke keeps
             // cancellation safe when it is requested from another dispatcher callback.
-            if (dialog.IsDisposed || !dialog.IsHandleCreated)
-                return;
-
             try
             {
+                // If cancellation races native-handle creation, BeginInvoke may fail;
+                // the Shown handler below observes the token and closes the dialog.
                 dialog.BeginInvoke((Action)(() =>
                 {
                     if (dialog.IsDisposed)
