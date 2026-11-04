@@ -73,7 +73,7 @@ public sealed class ScreenRegionCaptureServiceTests
         var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
             ScreenRegionCaptureService.ValidateDisplayBounds(bounds, isArabic: false));
 
-        StringAssert.Contains(exception.Message, "safe capture memory limit");
+        Assert.IsTrue(exception.Message.Contains("safe capture memory limit", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -94,7 +94,7 @@ public sealed class ScreenRegionCaptureServiceTests
         Assert.ThrowsExactly<OperationCanceledException>(() =>
             new ScreenRegionCaptureService().CaptureRegionUnderCursor(
                 isArabic: false,
-                cancellation.Token));
+                cancellationToken: cancellation.Token));
     }
 
 }
