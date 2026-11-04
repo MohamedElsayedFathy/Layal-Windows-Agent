@@ -13,6 +13,8 @@ public static class AppRuntime
     public static SkillPackageService SkillPackageService { get; set; } = null!;
     public static MemoryService MemoryService { get; set; } = null!;
     public static TaskHistoryService TaskHistoryService { get; set; } = null!;
+    /// <summary>Transient callback for a user-clicked reminder linked to a task; never persisted.</summary>
+    public static Action<string>? OpenTaskNotification { get; set; }
     public static ReminderService ReminderService { get; set; } = null!;
     public static ReminderTaskSchedulerService? ReminderTaskSchedulerService { get; set; }
     public static SavedRoutineService SavedRoutineService { get; set; } = null!;

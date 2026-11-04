@@ -24,6 +24,7 @@ public sealed class SavedRoutineManagerWindow : Window
     private readonly TextBlock _status;
     private readonly ObservableCollection<RoutineListEntry> _entries = new();
     private string? _selectedRoutineId;
+    public string? RunPrompt { get; private set; }
 
     public SavedRoutineManagerWindow(SavedRoutineService service, bool isArabic, Action<string> onUse)
     {
@@ -206,6 +207,15 @@ public sealed class SavedRoutineManagerWindow : Window
             : "Fills only the task description; it does not start execution or bypass approvals.");
         useButton.Click += UseButton_Click;
 
+        var runButton = new Button
+        {
+            Content = isArabic ? "تشغيل الروتين بموافقات" : "Run routine with approvals",
+            MinWidth = 205, MinHeight = 34, Margin = new Thickness(0, 0, 8, 0)
+        };
+        AutomationProperties.SetName(runButton, isArabic ? "تشغيل الروتين بعد التأكيد" : "Run routine after confirmation");
+        AutomationProperties.SetHelpText(runButton, isArabic ? "يبدأ مهمة واحدة بعد تأكيد إضافي، مع موافقة مستقلة لكل أداة." : "Starts one task after extra confirmation; each tool still requires separate approval.");
+        runButton.Click += RunButton_Click;
+
         var deleteButton = new Button
         {
             Content = isArabic ? "حذف المحدد" : "Delete selected",
@@ -224,6 +234,7 @@ public sealed class SavedRoutineManagerWindow : Window
             IsCancel = true
         };
         footer.Children.Add(useButton);
+        footer.Children.Add(runButton);
         footer.Children.Add(deleteButton);
         footer.Children.Add(closeButton);
         Grid.SetRow(footer, 4);
@@ -299,6 +310,29 @@ public sealed class SavedRoutineManagerWindow : Window
         }
 
         _onUse(SavedRoutineService.BuildReviewPrompt(selected.Record, _isArabic));
+        DialogResult = true;
+        Close();
+    }
+
+    private void RunButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_list.SelectedItem is not RoutineListEntry selected)
+        {
+            _status.Text = _isArabic ? "اختر روتينًا أولًا." : "Select a routine first.";
+            return;
+        }
+        var prompt = SavedRoutineService.BuildExecutionPrompt(selected.Record, _isArabic);
+        var preview = prompt.Length <= 1_600 ? prompt : prompt[..1_600] + Environment.NewLine + "[…]";
+        var accepted = MessageBox.Show(this,
+            (_isArabic ? "سيبدأ هذا الروتين مهمة وكيل واحدة. قد تُطلب موافقة منفصلة قبل كل قراءة أو تعديل أو إجراء خارجي. لن يتجاوز الروتين أي موافقة.\n\n" : "This starts one agent task. Separate approval is required before every tool or external action. The routine cannot bypass approvals.\n\n") + preview,
+            _isArabic ? "تأكيد تشغيل الروتين" : "Confirm routine execution",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (accepted != MessageBoxResult.Yes)
+        {
+            _status.Text = _isArabic ? "لم يتم تشغيل الروتين." : "The routine was not started.";
+            return;
+        }
+        RunPrompt = prompt;
         DialogResult = true;
         Close();
     }

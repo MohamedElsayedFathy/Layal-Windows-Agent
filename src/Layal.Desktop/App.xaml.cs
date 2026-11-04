@@ -126,7 +126,15 @@ public partial class App : Application
         }
 
         foreach (var reminder in deliveredAtStartup)
-            AppRuntime.Tray?.ShowReminderNotification(reminder.Title, AppRuntime.Settings.Language == "ar");
+        {
+            var linkedTaskId = reminder.RelatedTaskId;
+            AppRuntime.Tray?.ShowReminderNotification(
+                reminder.Title,
+                AppRuntime.Settings.Language == "ar",
+                string.IsNullOrWhiteSpace(linkedTaskId)
+                    ? null
+                    : () => AppRuntime.OpenTaskNotification?.Invoke(linkedTaskId));
+        }
     }
 
     /// <summary>Waits for another launch to request activation of this instance's main window.</summary>

@@ -119,6 +119,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AppRuntime.OpenTaskNotification = OpenTaskFromNotification;
         if (!Layal.App.SuppressStartupForTests)
             _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow, AppRuntime.Settings.QuickAskHotkeyPreset);
         SourceInitialized += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateQuickAskHotkeyStatus));
@@ -995,6 +996,7 @@ public partial class MainWindow : Window
             AppRuntime.IsGameModeActive = false;
             hud.Close();
         }
+        AppRuntime.OpenTaskNotification = null;
         Closed -= MainWindow_Closed;
     }
 
@@ -5694,7 +5696,7 @@ public partial class MainWindow : Window
 
     private void ManageRemindersButton_Click(object sender, RoutedEventArgs e)
     {
-        var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic, AppRuntime.ReminderTaskSchedulerService)
+        var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic, AppRuntime.ReminderTaskSchedulerService, AppRuntime.TaskHistoryService)
         {
             Owner = this
         };
@@ -5917,6 +5919,12 @@ public partial class MainWindow : Window
             Owner = this
         };
         window.ShowDialog();
+        if (!string.IsNullOrWhiteSpace(window.RunPrompt))
+        {
+            TaskInput.Text = window.RunPrompt;
+            MainTabs.SelectedItem = TasksTab;
+            RunAgentTaskButton_Click(RunAgentTaskButton, new RoutedEventArgs(Button.ClickEvent, RunAgentTaskButton));
+        }
     }
 
     private void ProactiveCheckInEnabledCheckBox_Click(object sender, RoutedEventArgs e)
@@ -6087,7 +6095,13 @@ public partial class MainWindow : Window
 
                 if (AppRuntime.Tray is { } tray)
                 {
-                    tray.ShowReminderNotification(delivered.Title, IsArabic);
+                    var linkedTaskId = delivered.RelatedTaskId;
+                    tray.ShowReminderNotification(
+                        delivered.Title,
+                        IsArabic,
+                        string.IsNullOrWhiteSpace(linkedTaskId)
+                            ? null
+                            : () => OpenTaskFromNotification(linkedTaskId));
                 }
                 else
                 {

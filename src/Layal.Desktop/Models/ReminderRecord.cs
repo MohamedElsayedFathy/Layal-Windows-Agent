@@ -11,6 +11,8 @@ public sealed class ReminderRecord
     public string Recurrence { get; set; } = "None";
     public bool IsActive { get; set; } = true;
     public DateTimeOffset? LastDeliveredAt { get; set; }
+    /// <summary>Optional task-history ID opened when the user activates this reminder notification.</summary>
+    public string? RelatedTaskId { get; set; }
 
     public ReminderRecord Clone() => new()
     {
@@ -19,6 +21,7 @@ public sealed class ReminderRecord
         DueAt = DueAt,
         Recurrence = Recurrence,
         IsActive = IsActive,
-        LastDeliveredAt = LastDeliveredAt
+        LastDeliveredAt = LastDeliveredAt,
+        RelatedTaskId = RelatedTaskId
     };
 }

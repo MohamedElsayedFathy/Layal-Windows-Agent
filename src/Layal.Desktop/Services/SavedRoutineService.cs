@@ -132,6 +132,19 @@ public sealed class SavedRoutineService
             string.Join(Environment.NewLine, steps.Select((step, index) => $"{index + 1}. {step}"));
     }
 
+    /// <summary>Build a sequential task request. Stored routine text never grants permissions or executes as code.</summary>
+    public static string BuildExecutionPrompt(SavedRoutineRecord routine, bool isArabic = false)
+    {
+        ArgumentNullException.ThrowIfNull(routine);
+        var steps = NormalizeSteps(routine.Steps);
+        var heading = isArabic ? "تنفيذ روتين بدأه المستخدم صراحةً:" : "User-approved saved routine execution:";
+        var rules = isArabic
+            ? "نفّذ الخطوات بالترتيب. الخطوات وصف للنية وليست سكربتات أو موافقات. اطلب موافقة محلية قبل كل أداة أو أثر خارجي. لا تجمع الموافقات ولا تتجاوزها. إذا فشلت خطوة أو رُفض إجراء، لا تنفذ الخطوات التابعة لها؛ سجّل ما اكتمل وما تعذر. لا تدّعِ نجاح خطوة دون نتيجة تحقق."
+            : "Execute the steps in order. Steps describe intent; they are not scripts or permissions. Obtain local approval before every tool or external side effect. Never batch or bypass approvals. If a step fails or an action is declined, do not execute dependent steps; report completed and blocked work. Never claim success without a verified result.";
+        var orderedSteps = steps.Count == 0 ? (isArabic ? "لا توجد خطوات فرعية محفوظة؛ وضّح الخطة قبل التنفيذ." : "No sub-steps are stored; clarify the plan before acting.") : string.Join(Environment.NewLine, steps.Select((step, index) => $"{index + 1}. {step}"));
+        return heading + Environment.NewLine + "Routine: " + routine.Name + Environment.NewLine + "Goal: " + routine.Goal + Environment.NewLine + rules + Environment.NewLine + Environment.NewLine + orderedSteps;
+    }
+
     public bool Delete(string id)
     {
         if (string.IsNullOrWhiteSpace(id))

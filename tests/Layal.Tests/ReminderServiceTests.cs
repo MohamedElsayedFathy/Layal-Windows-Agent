@@ -187,6 +187,54 @@ public sealed class ReminderServiceTests
     }
 
     [TestMethod]
+    public void ReminderCanBeLinkedToATaskAndKeepsTheLinkAcrossDeliveryAndReload()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The reminder store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "reminders.dpapi");
+        var service = new ReminderService(path);
+        var dueAt = DateTimeOffset.Now.AddMinutes(2);
+        var created = service.Create("Review deployment", dueAt, relatedTaskId: "task-123");
+        Assert.AreEqual("task-123", created.RelatedTaskId);
+
+        var delivered = service.MarkDelivered(created.Id, dueAt, dueAt.AddSeconds(1));
+        Assert.IsNotNull(delivered);
+        Assert.AreEqual("task-123", delivered!.RelatedTaskId);
+        Assert.AreEqual("task-123", new ReminderService(path).GetAll().Single().RelatedTaskId);
+    }
+
+    [TestMethod]
+    public void UpdatingReminderCanChangeOrClearItsLinkedTask()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The reminder store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var service = new ReminderService(Path.Combine(temp.Path, "reminders.dpapi"));
+        var created = service.Create("Review", DateTimeOffset.Now.AddHours(1), relatedTaskId: "task-before");
+        var updated = service.Update(created.Id, "Review", DateTimeOffset.Now.AddHours(2), relatedTaskId: "task-after");
+        Assert.AreEqual("task-after", updated!.RelatedTaskId);
+        var cleared = service.Update(created.Id, "Review", DateTimeOffset.Now.AddHours(3));
+        Assert.IsNull(cleared!.RelatedTaskId);
+    }
+
+    [TestMethod]
+    public void ReminderRejectsUnboundedOrControlCharacterTaskIds()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The reminder store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var service = new ReminderService(Path.Combine(temp.Path, "reminders.dpapi"));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            service.Create("Review", DateTimeOffset.Now.AddHours(1), relatedTaskId: new string('x', 65)));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            service.Create("Review", DateTimeOffset.Now.AddHours(1), relatedTaskId: "task\nunsafe"));
+    }
+
+    [TestMethod]
     public void ReminderCreationValidatesTitlesAndFutureDueTimes()
     {
         if (!OperatingSystem.IsWindows())
