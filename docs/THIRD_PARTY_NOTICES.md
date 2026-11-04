@@ -130,3 +130,21 @@ These libraries are used only for local extraction of text from user-selected PD
 - Upstream source: https://github.com/tesseract-ocr/tessdata_fast/tree/87416418657359cb625c412a48b6e1d6d41c29bd
 - License: Apache-2.0. The build downloads the files from this commit-pinned upstream repository and verifies their exact sizes and Git blob identities before use.
 - Model weights are not committed to the source tree. They are included in Windows build output, the portable ZIP, and the installer so OCR works locally after installation without fetching model data at runtime.
+
+## Microsoft.Extensions.DependencyInjection.Abstractions
+
+- Package: Microsoft.Extensions.DependencyInjection.Abstractions version 10.0.3 (transitive dependency observed in the Windows product SBOM)
+- License declared by NuGet: MIT
+- Source/license: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
+- Package metadata: https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection.Abstractions/10.0.3
+- License text: licenses/MIT-Dotnet-Extensions.txt
+
+## Microsoft.Extensions.Logging.Abstractions
+
+- Package: Microsoft.Extensions.Logging.Abstractions version 10.0.3 (transitive dependency observed in the Windows product SBOM)
+- License declared by NuGet: MIT
+- Source/license: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
+- Package metadata: https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/10.0.3
+- License text: licenses/MIT-Dotnet-Extensions.txt
+
+These packages are pulled transitively by the local OCR engine's dependency graph. Their package metadata identifies MIT licensing; project-level legal review remains pending.

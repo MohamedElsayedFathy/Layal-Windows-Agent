@@ -365,6 +365,26 @@
       "licenseTextPath": "licenses/Apache-2.0-OpenCvSharp.txt",
       "copyright": "TesseractOCR contributors; wraps Tesseract 5 and Leptonica native libraries.",
       "reviewStatus": "Upstream NuGet metadata and Apache-2.0 license recorded; native runtime and product redistribution review remain pending."
+    },
+    {
+      "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency resolved from TesseractOCR 5.5.2; version 10.0.3 observed in the CI-generated product SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection.Abstractions/10.0.3",
+      "licenseUrl": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
+      "licenseTextPath": "licenses/MIT-Dotnet-Extensions.txt",
+      "copyright": ".NET Foundation and Contributors",
+      "reviewStatus": "NuGet package metadata identifies MIT licensing; included in the product SBOM through the TesseractOCR dependency graph; human legal review remains pending."
+    },
+    {
+      "id": "Microsoft.Extensions.Logging.Abstractions",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency resolved from TesseractOCR 5.5.2; version 10.0.3 observed in the CI-generated product SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/10.0.3",
+      "licenseUrl": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
+      "licenseTextPath": "licenses/MIT-Dotnet-Extensions.txt",
+      "copyright": ".NET Foundation and Contributors",
+      "reviewStatus": "NuGet package metadata identifies MIT licensing; included in the product SBOM through the TesseractOCR dependency graph; human legal review remains pending."
     }
   ],
   "provenanceReview": {
