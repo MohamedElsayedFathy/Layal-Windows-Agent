@@ -86,7 +86,7 @@ public sealed class DocumentTextExtractionService
             }
             finally
             {
-                Array.Clear(imageBytes, 0, imageBytes.Length);
+                System.Array.Clear(imageBytes, 0, imageBytes.Length);
             }
         }
 
@@ -284,7 +284,7 @@ public sealed class DocumentTextExtractionService
             finally
             {
                 if (normalizedBytes is not null)
-                    Array.Clear(normalizedBytes, 0, normalizedBytes.Length);
+                    System.Array.Clear(normalizedBytes, 0, normalizedBytes.Length);
             }
         }
 
@@ -372,7 +372,7 @@ public sealed class DocumentTextExtractionService
                     }
                     finally
                     {
-                        Array.Clear(imageBytes, 0, imageBytes.Length);
+                        System.Array.Clear(imageBytes, 0, imageBytes.Length);
                     }
 
                     if (output.Length >= MaximumTextCharacters)
