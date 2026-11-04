@@ -121,6 +121,7 @@ public partial class QuickAskWindow : Window
                 QuestionInput.IsEnabled = true;
                 CancelButton.Content = _isArabic ? "إغلاق" : "Close";
                 CancelButton.IsEnabled = true;
+                QuestionInput.Focus();
             }
         }
     }
