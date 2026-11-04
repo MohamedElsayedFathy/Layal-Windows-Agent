@@ -121,6 +121,7 @@ public sealed class QuickAskWindowTests
                     askAsync: _ => Task.FromResult(QuickAskResult.Failure("Provider unavailable")),
                     cancelRequest: () => { });
                 window.Show();
+                window.UpdateLayout();
 
                 var input = (TextBox?)window.FindName("QuestionInput")
                     ?? throw new InvalidOperationException("Quick Ask input was not found.");
