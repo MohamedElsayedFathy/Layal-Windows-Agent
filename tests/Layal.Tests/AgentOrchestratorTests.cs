@@ -1,6 +1,11 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Layal.Views;
+using System.Windows.Input;
+using System.Windows;
+using System.Threading;
+using System.Runtime.ExceptionServices;
 using Layal.Models;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -206,6 +211,52 @@ public sealed class AgentOrchestratorTests
         Assert.AreEqual(1, handler.RequestCount);
     }
 
+
+    [TestMethod]
+    public async Task EscapeDuringFileApprovalCancelsTheTaskBeforeWritingOrStartingTheNextTool()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(Path.Combine(workspace, "reports"));
+        var destination = Path.Combine(workspace, "reports", "cancelled-by-escape.txt");
+        var toolResponse = BuildToolCallsResponse(
+            ("create_text_file", (object)new { path = "reports/cancelled-by-escape.txt", content = "must not be written" }, "call_create"),
+            ("get_current_time", (object)new { }, "call_follow_up"));
+
+        using var handler = new QueueResponseHandler(toolResponse);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(handler, disposeHandler: false));
+        var tools = new AgentToolExecutor(
+            workspace,
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+        using var cancellation = new CancellationTokenSource();
+
+        var task = await orchestrator.RunTaskAsync(
+            "Create a file, then check the current time; cancel the first approval with Escape",
+            "https://provider.example/v1",
+            "test-model",
+            "test-key",
+            Array.Empty<SkillRecord>(),
+            (_, details, token) => Task.FromResult(ShowApprovalDialogAndPressEscape(
+                "Create file", details, token, cancellation.Cancel)),
+            _ => { },
+            cancellation.Token);
+
+        Assert.AreEqual("Cancelled", task.Status, string.Join(Environment.NewLine, task.Events));
+        Assert.IsTrue(cancellation.IsCancellationRequested);
+        Assert.IsFalse(File.Exists(destination), "Escape must stop before the approved file is created.");
+        Assert.AreEqual(0, task.Artifacts.Count, "A cancelled creation must not create an artifact reference.");
+        Assert.IsFalse(task.Events.Any(line => line.Contains("Tool requested: get_current_time", StringComparison.OrdinalIgnoreCase)),
+            "No later tool may start after Escape cancels the first approval.");
+        Assert.AreEqual(1, handler.RequestCount, "The model must not be called again after task cancellation.");
+        Assert.AreEqual("Cancelled", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
+    }
+
     [TestMethod]
     public async Task MultiStepFileTaskKeepsOneArtifactReferenceAcrossCreateAndReplace()
     {
@@ -275,6 +326,75 @@ public sealed class AgentOrchestratorTests
         Assert.IsTrue(Directory.EnumerateFiles(Path.Combine(workspace, ".layal-backups")).Any(),
             "The approved replacement should keep the source backup.");
     }
+
+
+    private static bool ShowApprovalDialogAndPressEscape(
+        string title,
+        string details,
+        CancellationToken cancellationToken,
+        Action cancelTask)
+    {
+        var approved = false;
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var dialog = new TaskApprovalWindow(false, title, details, cancelTask);
+                dialog.Loaded += (_, _) =>
+                {
+                    var source = PresentationSource.FromVisual(dialog)
+                        ?? throw new InvalidOperationException("The approval dialog has no presentation source.");
+                    var escape = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Escape)
+                    {
+                        RoutedEvent = Keyboard.PreviewKeyDownEvent
+                    };
+                    dialog.RaiseEvent(escape);
+                    Assert.IsTrue(escape.Handled, "Escape must be handled by the approval dialog.");
+                };
+
+                approved = dialog.ShowForApproval(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (failure is not null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
+
+        return approved;
+    }
+
+    private static string BuildToolCallsResponse(params (string Name, object Arguments, string CallId)[] calls) =>
+        JsonSerializer.Serialize(new
+        {
+            choices = new[]
+            {
+                new
+                {
+                    message = new
+                    {
+                        role = "assistant",
+                        content = (string?)null,
+                        tool_calls = calls.Select(call => new
+                        {
+                            id = call.CallId,
+                            type = "function",
+                            function = new
+                            {
+                                name = call.Name,
+                                arguments = JsonSerializer.Serialize(call.Arguments)
+                            }
+                        }).ToArray()
+                    }
+                }
+            }
+        });
 
     private static string BuildToolCallResponse(string toolName, object arguments, string callId = "call_test_tool") =>
         JsonSerializer.Serialize(new

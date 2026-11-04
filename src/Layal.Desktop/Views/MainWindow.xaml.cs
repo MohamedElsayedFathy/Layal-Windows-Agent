@@ -6163,13 +6163,20 @@ public partial class MainWindow : Window
     private Task<bool> ConfirmToolActionAsync(string title, string details, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var heading = IsArabic ? "موافقة مطلوبة من ليال" : "Layal requires approval";
         var localizedTitle = UiLocalization.LocalizeApprovalTitle(title, IsArabic);
         var localizedDetails = UiLocalization.LocalizeApprovalDetails(details, IsArabic);
-        var text = (IsArabic ? "الإجراء التالي يحتاج موافقتك:\n\n" : "The following action requires your approval:\n\n") + localizedDetails;
-        var result = MessageBox.Show(this, text, string.IsNullOrWhiteSpace(localizedTitle) ? heading : heading + " — " + localizedTitle,
-            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
-        return Task.FromResult(result == MessageBoxResult.Yes && !cancellationToken.IsCancellationRequested);
+        var dialog = new TaskApprovalWindow(
+            IsArabic,
+            localizedTitle,
+            localizedDetails,
+            () => _agentTaskCancellation?.Cancel())
+        {
+            Owner = this
+        };
+
+        // Escape inside this modal window cancels the task token, not just this one action.
+        // The dialog also observes cancellation so other cancellation sources cannot leave it blocking the task.
+        return Task.FromResult(dialog.ShowForApproval(cancellationToken));
     }
 
     private void AddTaskEvent(string text)
