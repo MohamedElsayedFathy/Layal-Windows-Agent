@@ -120,6 +120,25 @@ public sealed class DocumentTextExtractionServiceTests
     }
 
     [TestMethod]
+    public async Task ScannedOnlyPdfWithoutDigitalTextLayerIsOcredLocally()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "scanned-only.pdf");
+        var jpegBytes = CreateOcrTestJpeg(width: 3600, height: 900, fontSize: 140);
+        using (var builder = new PdfDocumentBuilder())
+        {
+            var page = builder.AddPage(PageSize.A4);
+            page.AddJpeg(jpegBytes, new PdfRectangle(0, 0, 595, 842));
+            File.WriteAllBytes(path, builder.Build());
+        }
+
+        var result = await _service.ExtractFileAsync(path);
+
+        StringAssert.Contains(result.Text.ToUpperInvariant(), "LAYAL");
+        Assert.IsTrue(result.Notice.Contains("OCR", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
     public async Task ImageOcrHonorsCancellationBeforeDecodingOrNativeRecognition()
     {
         using var temp = new TestTempDirectory();
