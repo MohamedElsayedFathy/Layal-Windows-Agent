@@ -45,7 +45,7 @@ public sealed class WindowsUiAutomationServiceTests
     public void UiTextValidationAllowsOrdinaryAndMultilineTextWithoutReadingAnyField()
     {
         Assert.AreEqual("Layal test", WindowsUiAutomationService.ValidateUiText("Layal test"));
-        Assert.AreEqual("Arabic: مرحبًا\\nEnglish: hello", WindowsUiAutomationService.ValidateUiText("Arabic: مرحبًا\\nEnglish: hello"));
+        Assert.AreEqual("Arabic: مرحبًا\nEnglish: hello", WindowsUiAutomationService.ValidateUiText("Arabic: مرحبًا\nEnglish: hello"));
         Assert.AreEqual(string.Empty, WindowsUiAutomationService.ValidateUiText(string.Empty));
         Assert.AreEqual(10_000, WindowsUiAutomationService.ValidateUiText(new string('x', 10_000)).Length);
         Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateUiText(new string('x', 10_001)));
@@ -132,4 +132,100 @@ public sealed class WindowsUiAutomationServiceTests
         Assert.IsFalse(report.Contains("Application operation succeeded", StringComparison.Ordinal));
     }
 
+
+    [TestMethod]
+    public async Task HoverInspectionHonorsPreCancelledTokenBeforeNativeUiAutomation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var wasCancelled = false;
+        try
+        {
+            await WindowsUiAutomationService.InspectElementAtPointAsync(
+                screenX: 0,
+                screenY: 0,
+                excludedProcessId: Environment.ProcessId,
+                cancellationToken: cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            wasCancelled = true;
+        }
+
+        Assert.IsTrue(wasCancelled, "A pre-cancelled hover inspection must stop before querying Windows UI Automation.");
+    }
+
+    [TestMethod]
+    public void HoverInspectionExposesNamesOnlyForNonValueBearingActionControls()
+    {
+        Assert.IsTrue(WindowsUiAutomationService.CanExposeElementName("ControlType.Button", isPassword: false));
+        Assert.IsTrue(WindowsUiAutomationService.CanExposeElementName("Hyperlink", isPassword: false));
+        Assert.IsTrue(WindowsUiAutomationService.CanExposeElementName("ControlType.CheckBox", isPassword: false));
+        Assert.IsFalse(WindowsUiAutomationService.CanExposeElementName("ControlType.Edit", isPassword: false));
+        Assert.IsFalse(WindowsUiAutomationService.CanExposeElementName("ControlType.Text", isPassword: false));
+        Assert.IsFalse(WindowsUiAutomationService.CanExposeElementName("ControlType.Document", isPassword: false));
+        Assert.IsFalse(WindowsUiAutomationService.CanExposeElementName("ControlType.ListItem", isPassword: false));
+        Assert.IsFalse(WindowsUiAutomationService.CanExposeElementName("ControlType.Button", isPassword: true));
+        Assert.IsFalse(WindowsUiAutomationService.CanExposeElementName(" ", isPassword: false));
+    }
+
+    [TestMethod]
+    public void HoverInspectionDraftContainsOnlyBoundedMetadataAndSafeActionName()
+    {
+        var inspection = new UiElementInspection(
+            "ControlType.Button", "button", "Save", "saveButton",
+            IsEnabled: true, IsPassword: false,
+            X: -1920, Y: 40, Width: 120, Height: 32);
+
+        var report = WindowsUiAutomationService.FormatHoveredElementDraft(inspection, isArabic: false);
+
+        StringAssert.Contains(report, "Control type: button");
+        StringAssert.Contains(report, "Name: Save");
+        StringAssert.Contains(report, "AutomationId: saveButton");
+        StringAssert.Contains(report, "Enabled: yes");
+        StringAssert.Contains(report, "Screen bounds (pixels): -1920,40 120×32");
+        StringAssert.Contains(report, "no screenshot, click, or keystroke");
+        Assert.IsFalse(report.Contains("field value secret", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void HoverInspectionDraftNeverDisclosesNamesFromValueBearingControls()
+    {
+        const string privateElementName = "customer@example.com";
+        var inspection = new UiElementInspection(
+            "ControlType.Edit", "edit", privateElementName, "emailInput",
+            IsEnabled: true, IsPassword: false,
+            X: 10, Y: 20, Width: 240, Height: 36);
+
+        var report = WindowsUiAutomationService.FormatHoveredElementDraft(inspection, isArabic: false);
+
+        Assert.IsFalse(report.Contains(privateElementName, StringComparison.Ordinal));
+        StringAssert.Contains(report, "not read to protect element content");
+        StringAssert.Contains(report, "AutomationId: emailInput");
+        Assert.IsFalse(report.Contains("editable field value", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void HoverInspectionDraftSuppressesPasswordNamesAndSanitizesSafeMetadata()
+    {
+        var password = new UiElementInspection(
+            "ControlType.Button", "button", "must-not-appear", "passwordAction",
+            IsEnabled: true, IsPassword: true,
+            X: 0, Y: 0, Width: 100, Height: 30);
+        var report = WindowsUiAutomationService.FormatHoveredElementDraft(password, isArabic: true);
+
+        Assert.IsFalse(report.Contains("must-not-appear", StringComparison.Ordinal));
+        StringAssert.Contains(report, "لم يُقرأ لحماية محتوى العنصر");
+        StringAssert.Contains(report, "لا تُقرأ قيم الحقول");
+
+        var safeName = new UiElementInspection(
+            "ControlType.Button", "button", "Save\nForged line", "save\rForgedId",
+            IsEnabled: true, IsPassword: false,
+            X: 0, Y: 0, Width: 100, Height: 30);
+        var sanitized = WindowsUiAutomationService.FormatHoveredElementDraft(safeName, isArabic: false);
+        Assert.IsFalse(sanitized.Contains(Environment.NewLine + "Forged", StringComparison.Ordinal));
+        StringAssert.Contains(sanitized, "SaveForged line");
+        StringAssert.Contains(sanitized, "saveForgedId");
+    }
 }

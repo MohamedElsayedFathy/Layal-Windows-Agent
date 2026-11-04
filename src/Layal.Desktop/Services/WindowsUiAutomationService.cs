@@ -97,6 +97,20 @@ public static class WindowsUiAutomationService
             cancellationToken,
             "Windows UI Automation did not respond within 8 seconds. No UI action was performed.");
 
+    /// <summary>
+    /// Inspects only the UI Automation control under one explicitly chosen screen point.
+    /// The call is bounded, read-only, and never captures pixels or reads value-bearing names.
+    /// </summary>
+    public static Task<UiElementInspection> InspectElementAtPointAsync(
+        int screenX,
+        int screenY,
+        int excludedProcessId,
+        CancellationToken cancellationToken = default) =>
+        RunBoundedAutomationAsync(
+            () => InspectElementAtPoint(screenX, screenY, excludedProcessId, cancellationToken),
+            cancellationToken,
+            "Windows UI Automation did not identify the element under the pointer within 8 seconds. No screenshot, field value, or UI action was produced.");
+
     /// <summary>Returns a local preview of an exact supported control, without invoking it.</summary>
     public static Task<UiInvokePreview> PreviewInvokeControlAsync(
         UiWindowTarget target,
@@ -609,6 +623,159 @@ public static class WindowsUiAutomationService
             ? programmaticType["ControlType.".Length..]
             : programmaticType;
 
+    private static UiElementInspection InspectElementAtPoint(int screenX, int screenY, int excludedProcessId, CancellationToken cancellationToken)
+    {
+        EnsureWindows();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (excludedProcessId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(excludedProcessId));
+
+        var point = new System.Windows.Point(screenX, screenY);
+        try
+        {
+            var hit = AutomationElement.FromPoint(point);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (hit is null)
+                throw new InvalidOperationException("Windows UI Automation did not return an element at the pointer location.");
+
+            // Normalize text fragments and non-control children to the nearest control-view element.
+            var element = TreeWalker.ControlViewWalker.Normalize(hit) ?? hit;
+            cancellationToken.ThrowIfCancellationRequested();
+            var info = element.Current;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!info.IsControlElement)
+                throw new InvalidOperationException("The pointer is not over an accessible UI control. Point at a visible control and try again.");
+            if (info.ProcessId <= 0 || info.ProcessId == excludedProcessId || info.ProcessId == Environment.ProcessId)
+                throw new InvalidOperationException("The pointer is over Layal, the desktop, or an element without an external application process. Point at another application's control.");
+            if (info.IsPassword)
+                throw new InvalidOperationException("The pointer is over a password or protected control. No metadata was returned.");
+            if (info.IsOffscreen)
+                throw new InvalidOperationException("The selected UI element is offscreen. Point at a visible control and try again.");
+
+            var bounds = info.BoundingRectangle;
+            if (bounds.IsEmpty || bounds.Width < 1 || bounds.Height < 1 || !bounds.Contains(point))
+                throw new InvalidOperationException("The selected UI element has no reliable visible bounds at the pointer location.");
+
+            var programmaticType = info.ControlType?.ProgrammaticName ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(programmaticType))
+                throw new InvalidOperationException("Windows UI Automation did not provide a reliable control type.");
+
+            // Names on Edit/Text/Document/ListItem and other data-bearing controls can contain
+            // user content. Do not even query Current.Name for those types.
+            var safeName = CanExposeElementName(programmaticType, info.IsPassword)
+                ? ReadSafeElementName(element, cancellationToken)
+                : string.Empty;
+            var localizedType = Sanitize(info.ControlType?.LocalizedControlType, 80);
+            if (localizedType.Length == 0)
+                localizedType = DisplayControlType(programmaticType);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return new UiElementInspection(
+                programmaticType,
+                localizedType,
+                safeName,
+                Sanitize(info.AutomationId, 100),
+                info.IsEnabled,
+                info.IsPassword,
+                ToScreenPixel(bounds.Left),
+                ToScreenPixel(bounds.Top),
+                ToScreenPixel(bounds.Width),
+                ToScreenPixel(bounds.Height));
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (ElementNotAvailableException ex)
+        {
+            throw new InvalidOperationException("The UI element changed or disappeared while it was being inspected. No screenshot or UI action was performed.", ex);
+        }
+        catch (COMException ex)
+        {
+            throw new InvalidOperationException("Windows UI Automation could not safely read this element. No screenshot or UI action was performed.", ex);
+        }
+    }
+
+    private static int ToScreenPixel(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+            throw new InvalidOperationException("Windows UI Automation returned invalid screen coordinates.");
+        return (int)Math.Clamp(Math.Round(value, MidpointRounding.AwayFromZero), int.MinValue, int.MaxValue);
+    }
+
+    private static string ReadSafeElementName(AutomationElement element, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            var name = element.Current.Name;
+            cancellationToken.ThrowIfCancellationRequested();
+            return Sanitize(name, 120);
+        }
+        catch (ElementNotAvailableException ex)
+        {
+            throw new InvalidOperationException("The UI element changed while its safe action name was being read. No screenshot or UI action was performed.", ex);
+        }
+        catch (COMException ex)
+        {
+            throw new InvalidOperationException("Windows UI Automation could not safely read the action name. No screenshot or UI action was performed.", ex);
+        }
+    }
+
+    /// <summary>Only action controls with non-value-bearing labels may expose their accessible Name.</summary>
+    public static bool CanExposeElementName(string? programmaticControlType, bool isPassword)
+    {
+        if (isPassword || string.IsNullOrWhiteSpace(programmaticControlType))
+            return false;
+
+        var normalized = programmaticControlType.StartsWith("ControlType.", StringComparison.Ordinal)
+            ? programmaticControlType
+            : "ControlType." + programmaticControlType.Trim();
+        return SafeNamedControlTypes.Contains(normalized);
+    }
+
+    /// <summary>Formats a local draft using metadata only; unsafe control names are omitted again at the boundary.</summary>
+    public static string FormatHoveredElementDraft(UiElementInspection inspection, bool isArabic)
+    {
+        ArgumentNullException.ThrowIfNull(inspection);
+        var controlType = Sanitize(inspection.LocalizedControlType, 80);
+        if (controlType.Length == 0)
+            controlType = DisplayControlType(inspection.ProgrammaticControlType);
+        var safeName = CanExposeElementName(inspection.ProgrammaticControlType, inspection.IsPassword)
+            ? Sanitize(inspection.Name, 120)
+            : string.Empty;
+        var nameText = safeName.Length > 0
+            ? safeName
+            : CanExposeElementName(inspection.ProgrammaticControlType, inspection.IsPassword)
+                ? (isArabic ? "غير متاح" : "unavailable")
+                : (isArabic ? "لم يُقرأ لحماية محتوى العنصر" : "not read to protect element content");
+        var automationId = Sanitize(inspection.AutomationId, 100);
+        var bounds = string.Format(
+            System.Globalization.CultureInfo.InvariantCulture,
+            "{0},{1} {2}×{3}",
+            inspection.X, inspection.Y, inspection.Width, inspection.Height);
+
+        if (isArabic)
+        {
+            return "[عنصر واجهة تحت المؤشر]\n" +
+                   "النوع: " + controlType + "\n" +
+                   "الاسم: " + nameText + "\n" +
+                   "معرّف الواجهة: " + (automationId.Length == 0 ? "غير متاح" : automationId) + "\n" +
+                   "الحالة: " + (inspection.IsEnabled ? "مفعّل" : "معطّل") + "\n" +
+                   "الحدود على الشاشة بالبكسل: " + bounds + "\n" +
+                   "قُرئت بيانات وصفية فقط. لا تُقرأ قيم الحقول أو أسماء عناصر النص والبيانات، ولا تُلتقط صورة ولا تُنفذ نقرة أو كتابة. راجع النتيجة قبل إرسالها.";
+        }
+
+        return "[UI element under pointer]\n" +
+               "Control type: " + controlType + "\n" +
+               "Name: " + nameText + "\n" +
+               "AutomationId: " + (automationId.Length == 0 ? "unavailable" : automationId) + "\n" +
+               "Enabled: " + (inspection.IsEnabled ? "yes" : "no") + "\n" +
+               "Screen bounds (pixels): " + bounds + "\n" +
+               "Only UI metadata was read. Editable-field values and text/data-element names are not read; no screenshot, click, or keystroke was performed. Review this draft before sending.";
+    }
+
     public static IReadOnlyList<UiControlSummary> ReadControls(UiWindowTarget target, int maxControls = 60)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -858,3 +1025,15 @@ public sealed record UiTextEntryOutcome(
 
 /// <summary>Metadata-only UI control summary; intentionally has no property for a control's value.</summary>
 public sealed record UiControlSummary(string ControlType, string Name, string AutomationId, bool IsEnabled);
+
+public sealed record UiElementInspection(
+    string ProgrammaticControlType,
+    string LocalizedControlType,
+    string Name,
+    string AutomationId,
+    bool IsEnabled,
+    bool IsPassword,
+    int X,
+    int Y,
+    int Width,
+    int Height);
