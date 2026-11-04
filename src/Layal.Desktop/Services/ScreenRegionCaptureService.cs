@@ -167,13 +167,16 @@ public sealed class ScreenRegionCaptureService
                 Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(18, 20, 26),
                 Cursor = Cursors.Cross,
+                AccessibleRole = AccessibleRole.Graphic,
                 AccessibleName = isArabic ? "معاينة الشاشة وتحديد المنطقة" : "Screen preview and region selection",
                 AccessibleDescription = isArabic
-                    ? "اسحب لتحديد المنطقة، أو اضغط Space لإنشاء تحديد في الوسط. الأسهم لتحريك التحديد وShift مع الأسهم لتغيير حجمه. Enter للاختيار وEscape للإلغاء."
-                    : "Drag to select, or press Space to create a centered crop. Arrow keys move it; Shift+arrows resize it. Enter chooses, Escape cancels.",
+                    ? "اسحب لتحديد المنطقة، أو اضغط Space لإنشاء تحديد في الوسط. الأسهم لتحريك التحديد وShift مع الأسهم لتغيير حجمه. Ctrl مع الأسهم لتحريك دقيق. Enter للاختيار وEscape للإلغاء."
+                    : "Drag to select, or press Space to create a centered crop. Arrow keys move it; Shift+arrows resize it; Ctrl+arrows move one pixel. Enter chooses; Escape cancels.",
                 TabStop = true
             };
             _canvas.Paint += Canvas_Paint;
+            _canvas.GotFocus += (_, _) => _canvas.Invalidate();
+            _canvas.LostFocus += (_, _) => _canvas.Invalidate();
             _canvas.MouseDown += Canvas_MouseDown;
             _canvas.MouseMove += Canvas_MouseMove;
             _canvas.MouseUp += Canvas_MouseUp;
@@ -181,7 +184,7 @@ public sealed class ScreenRegionCaptureService
             Shown += (_, _) => _canvas.Focus();
 
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 66, Padding = new Padding(12, 8, 12, 8) };
-            _status = new Label
+            _status = new LiveRegionStatusLabel
             {
                 Dock = DockStyle.Fill,
                 Text = isArabic
@@ -189,6 +192,7 @@ public sealed class ScreenRegionCaptureService
                     : "Drag to select a region. Preview stays local; nothing is sent automatically.",
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true,
+                AccessibleRole = AccessibleRole.StaticText,
                 AccessibleName = isArabic ? "حالة تحديد الشاشة" : "Screen selection status"
             };
             var buttons = new FlowLayoutPanel
@@ -232,32 +236,12 @@ public sealed class ScreenRegionCaptureService
             CancelButton = cancel;
         }
 
-        private RectangleF ImageBounds()
-        {
-            var availableWidth = Math.Max(1, _canvas.ClientSize.Width);
-            var availableHeight = Math.Max(1, _canvas.ClientSize.Height);
-            var scale = Math.Min((float)availableWidth / _screenshot.Width, (float)availableHeight / _screenshot.Height);
-            var width = _screenshot.Width * scale;
-            var height = _screenshot.Height * scale;
-            return new RectangleF((availableWidth - width) / 2f, (availableHeight - height) / 2f, width, height);
-        }
+        private RectangleF ImageBounds() =>
+            ScreenRegionSelectionGeometry.FitImageToCanvas(_screenshot.Size, _canvas.ClientSize);
 
-        private bool TryMapPoint(Point point, bool clamp, out Point mapped)
-        {
-            var image = ImageBounds();
-            if (!clamp && !image.Contains(point))
-            {
-                mapped = Point.Empty;
-                return false;
-            }
-
-            var x = Math.Clamp((point.X - image.Left) / Math.Max(1f, image.Width) * _screenshot.Width,
-                0f, _screenshot.Width - 1f);
-            var y = Math.Clamp((point.Y - image.Top) / Math.Max(1f, image.Height) * _screenshot.Height,
-                0f, _screenshot.Height - 1f);
-            mapped = new Point((int)Math.Round(x), (int)Math.Round(y));
-            return true;
-        }
+        private bool TryMapPoint(Point point, bool clamp, out Point mapped) =>
+            ScreenRegionSelectionGeometry.TryMapPreviewPoint(
+                point, ImageBounds(), _screenshot.Size, clamp, out mapped);
 
         private void Canvas_MouseDown(object? sender, MouseEventArgs e)
         {
@@ -267,7 +251,9 @@ public sealed class ScreenRegionCaptureService
             _selection = Rectangle.Empty;
             _dragging = true;
             _useSelection.Enabled = false;
-            _status.Text = _isArabic ? "استمر بالسحب لتحديد المنطقة." : "Keep dragging to select the region.";
+            AnnounceStatus(_isArabic
+                ? "استمر بالسحب لتحديد المنطقة. المعاينة محلية ولن يحدث إرسال تلقائي."
+                : "Keep dragging to select the region. Preview stays local; nothing is sent automatically.");
             _canvas.Invalidate();
         }
 
@@ -289,21 +275,9 @@ public sealed class ScreenRegionCaptureService
 
         private void UpdateSelection(Point end)
         {
-            _selection = Rectangle.FromLTRB(
-                Math.Min(_dragStart.X, end.X),
-                Math.Min(_dragStart.Y, end.Y),
-                Math.Max(_dragStart.X, end.X) + 1,
-                Math.Max(_dragStart.Y, end.Y) + 1);
-            _useSelection.Enabled = _selection.Width >= MinimumRegionPixels &&
-                                    _selection.Height >= MinimumRegionPixels;
-            _status.Text = _useSelection.Enabled
-                ? (_isArabic
-                    ? $"التحديد: {_selection.Width} × {_selection.Height} بكسل. اضغط «استخدام التحديد» ثم أرسل يدويًا."
-                    : $"Selection: {_selection.Width} × {_selection.Height} pixels. Choose Use selection, then send manually.")
-                : (_isArabic
-                    ? $"الحد الأدنى للتحديد {MinimumRegionPixels} × {MinimumRegionPixels} بكسل."
-                    : $"The selection must be at least {MinimumRegionPixels} × {MinimumRegionPixels} pixels.");
-            _canvas.Invalidate();
+            _selection = ScreenRegionSelectionGeometry.CreateSelection(
+                _dragStart, end, _screenshot.Size);
+            UpdateSelectionStatus();
         }
 
         private void Canvas_KeyDown(object? sender, System.Windows.Forms.KeyEventArgs e)
@@ -341,54 +315,55 @@ public sealed class ScreenRegionCaptureService
 
             if (e.Shift)
             {
-                var width = _selection.Width;
-                var height = _selection.Height;
-                if (e.KeyCode == Keys.Left) width = Math.Max(MinimumRegionPixels, width - 10);
-                if (e.KeyCode == Keys.Right) width = Math.Min(_screenshot.Width - _selection.Left, width + 10);
-                if (e.KeyCode == Keys.Up) height = Math.Max(MinimumRegionPixels, height - 10);
-                if (e.KeyCode == Keys.Down) height = Math.Min(_screenshot.Height - _selection.Top, height + 10);
-                _selection = new Rectangle(_selection.Left, _selection.Top, width, height);
+                var deltaWidth = 0;
+                var deltaHeight = 0;
+                if (e.KeyCode == Keys.Left) deltaWidth = -10;
+                if (e.KeyCode == Keys.Right) deltaWidth = 10;
+                if (e.KeyCode == Keys.Up) deltaHeight = -10;
+                if (e.KeyCode == Keys.Down) deltaHeight = 10;
+                _selection = ScreenRegionSelectionGeometry.ResizeSelection(
+                    _selection, _screenshot.Size, deltaWidth, deltaHeight);
             }
             else
             {
                 var step = e.Control ? 1 : 10;
-                var left = _selection.Left;
-                var top = _selection.Top;
-                if (e.KeyCode == Keys.Left) left -= step;
-                if (e.KeyCode == Keys.Right) left += step;
-                if (e.KeyCode == Keys.Up) top -= step;
-                if (e.KeyCode == Keys.Down) top += step;
-                left = Math.Clamp(left, 0, _screenshot.Width - _selection.Width);
-                top = Math.Clamp(top, 0, _screenshot.Height - _selection.Height);
-                _selection = new Rectangle(left, top, _selection.Width, _selection.Height);
+                var deltaX = e.KeyCode == Keys.Left ? -step : e.KeyCode == Keys.Right ? step : 0;
+                var deltaY = e.KeyCode == Keys.Up ? -step : e.KeyCode == Keys.Down ? step : 0;
+                _selection = ScreenRegionSelectionGeometry.MoveSelection(
+                    _selection, _screenshot.Size, deltaX, deltaY);
             }
 
-            UpdateKeyboardSelectionStatus();
+            UpdateSelectionStatus();
             e.Handled = true;
             e.SuppressKeyPress = true;
         }
 
         private void StartCenteredKeyboardSelection()
         {
-            var width = Math.Min(_screenshot.Width, Math.Max(MinimumRegionPixels, _screenshot.Width / 3));
-            var height = Math.Min(_screenshot.Height, Math.Max(MinimumRegionPixels, _screenshot.Height / 3));
-            _selection = new Rectangle(
-                (_screenshot.Width - width) / 2,
-                (_screenshot.Height - height) / 2,
-                width,
-                height);
-            UpdateKeyboardSelectionStatus();
+            _selection = ScreenRegionSelectionGeometry.CreateCenteredSelection(_screenshot.Size);
+            UpdateSelectionStatus();
         }
 
-        private void UpdateKeyboardSelectionStatus()
+        private void UpdateSelectionStatus()
         {
             _useSelection.Enabled = _selection.Width >= MinimumRegionPixels &&
                                     _selection.Height >= MinimumRegionPixels;
-            _status.Text = _isArabic
-                ? $"التحديد: {_selection.Width} × {_selection.Height} بكسل. الأسهم للتحريك، وShift+الأسهم لتغيير الحجم، وEnter للاختيار."
-                : $"Selection: {_selection.Width} × {_selection.Height} pixels. Arrows move, Shift+arrows resize, Enter selects.";
+            var coordinates = $"X={_selection.X}, Y={_selection.Y}, W={_selection.Width}, H={_selection.Height}";
+            var message = _useSelection.Enabled
+                ? (_isArabic
+                    ? $"التحديد الحالي: الموضع ({_selection.X}, {_selection.Y}) والحجم {_selection.Width} × {_selection.Height} بكسل. الأسهم للتحريك، وShift مع الأسهم لتغيير الحجم، وCtrl مع الأسهم لتحريك بكسل واحد. Enter للاختيار وEscape للإلغاء. لن تُرسل الصورة حتى تضغط «إرسال» في ليال."
+                    : $"Current crop: position ({_selection.X}, {_selection.Y}), size {_selection.Width} × {_selection.Height} pixels. Arrows move; Shift+arrows resize; Ctrl+arrows move one pixel. Enter selects; Escape cancels. Nothing is sent until you press Send in Layal.")
+                : (_isArabic
+                    ? $"الحد الأدنى للتحديد {MinimumRegionPixels} × {MinimumRegionPixels} بكسل."
+                    : $"The selection must be at least {MinimumRegionPixels} × {MinimumRegionPixels} pixels.");
+            _canvas.AccessibleDescription = (_isArabic
+                ? "معاينة الشاشة. اسحب لتحديد المنطقة. Space لإنشاء تحديد في الوسط. الأسهم للتحريك، وShift مع الأسهم لتغيير الحجم، وCtrl مع الأسهم للتحريك الدقيق، Enter للاختيار، وEscape للإلغاء. "
+                : "Screen preview. Drag to select. Space creates a centered selection. Arrow keys move; Shift+arrows resize; Ctrl+arrows move precisely; Enter chooses; Escape cancels. ") + coordinates;
+            AnnounceStatus(message);
             _canvas.Invalidate();
         }
+
+        private void AnnounceStatus(string message) => _status.Announce(message);
 
         private void Canvas_Paint(object? sender, PaintEventArgs e)
         {
@@ -397,6 +372,8 @@ public sealed class ScreenRegionCaptureService
             e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             e.Graphics.DrawImage(_screenshot, imageBounds);
+            if (_canvas.Focused && _canvas.ClientRectangle.Width > 8 && _canvas.ClientRectangle.Height > 8)
+                ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(_canvas.ClientRectangle, -4, -4));
 
             if (_selection.Width <= 0 || _selection.Height <= 0)
                 return;
@@ -413,6 +390,16 @@ public sealed class ScreenRegionCaptureService
                 selectionOnCanvas.Width, selectionOnCanvas.Height);
         }
 
+        private sealed class LiveRegionStatusLabel : Label
+        {
+            public void Announce(string message)
+            {
+                Text = message;
+                AccessibleDescription = message;
+                AccessibilityNotifyClients(AccessibleEvents.LiveRegionChanged, -1);
+            }
+        }
+
         private sealed class SelectionCanvas : Panel
         {
             public SelectionCanvas()
@@ -421,6 +408,125 @@ public sealed class ScreenRegionCaptureService
                 ResizeRedraw = true;
             }
         }
+    }
+}
+
+/// <summary>
+/// Pure crop-selection geometry shared by mouse input, keyboard input, and deterministic tests.
+/// All coordinates and dimensions are in captured-image pixels, not Windows logical DIPs.
+/// </summary>
+public static class ScreenRegionSelectionGeometry
+{
+    public static RectangleF FitImageToCanvas(Size imageSize, Size canvasSize)
+    {
+        ValidateSize(imageSize, nameof(imageSize));
+        ValidateSize(canvasSize, nameof(canvasSize));
+        var scale = Math.Min((float)canvasSize.Width / imageSize.Width, (float)canvasSize.Height / imageSize.Height);
+        var width = imageSize.Width * scale;
+        var height = imageSize.Height * scale;
+        return new RectangleF(
+            (canvasSize.Width - width) / 2f,
+            (canvasSize.Height - height) / 2f,
+            width,
+            height);
+    }
+
+    public static bool TryMapPreviewPoint(
+        Point point,
+        RectangleF imageBounds,
+        Size imageSize,
+        bool clamp,
+        out Point mapped)
+    {
+        ValidateSize(imageSize, nameof(imageSize));
+        if (imageBounds.Width <= 0 || imageBounds.Height <= 0)
+        {
+            mapped = Point.Empty;
+            return false;
+        }
+        if (!clamp && !imageBounds.Contains(point))
+        {
+            mapped = Point.Empty;
+            return false;
+        }
+
+        var x = Math.Clamp((point.X - imageBounds.Left) / imageBounds.Width * imageSize.Width,
+            0f, imageSize.Width - 1f);
+        var y = Math.Clamp((point.Y - imageBounds.Top) / imageBounds.Height * imageSize.Height,
+            0f, imageSize.Height - 1f);
+        mapped = new Point((int)Math.Round(x), (int)Math.Round(y));
+        return true;
+    }
+
+    public static Rectangle CreateSelection(Point start, Point end, Size imageSize)
+    {
+        ValidateSize(imageSize, nameof(imageSize));
+        var left = Math.Clamp(Math.Min(start.X, end.X), 0, imageSize.Width - 1);
+        var top = Math.Clamp(Math.Min(start.Y, end.Y), 0, imageSize.Height - 1);
+        var right = Math.Clamp(Math.Max(start.X, end.X), 0, imageSize.Width - 1) + 1;
+        var bottom = Math.Clamp(Math.Max(start.Y, end.Y), 0, imageSize.Height - 1) + 1;
+        return Rectangle.FromLTRB(left, top, right, bottom);
+    }
+
+    public static Rectangle CreateCenteredSelection(Size imageSize)
+    {
+        ValidateSize(imageSize, nameof(imageSize));
+        if (imageSize.Width < ScreenRegionCaptureService.MinimumRegionPixels ||
+            imageSize.Height < ScreenRegionCaptureService.MinimumRegionPixels)
+            throw new ArgumentOutOfRangeException(nameof(imageSize), "The captured image is too small for a selectable crop.");
+
+        var width = Math.Max(ScreenRegionCaptureService.MinimumRegionPixels, imageSize.Width / 3);
+        var height = Math.Max(ScreenRegionCaptureService.MinimumRegionPixels, imageSize.Height / 3);
+        return new Rectangle(
+            (imageSize.Width - width) / 2,
+            (imageSize.Height - height) / 2,
+            width,
+            height);
+    }
+
+    public static Rectangle MoveSelection(Rectangle selection, Size imageSize, int deltaX, int deltaY)
+    {
+        ValidateSelection(selection, imageSize);
+        var left = (int)Math.Clamp((long)selection.Left + deltaX, 0L, (long)imageSize.Width - selection.Width);
+        var top = (int)Math.Clamp((long)selection.Top + deltaY, 0L, (long)imageSize.Height - selection.Height);
+        return new Rectangle(left, top, selection.Width, selection.Height);
+    }
+
+    public static Rectangle ResizeSelection(
+        Rectangle selection,
+        Size imageSize,
+        int deltaWidth,
+        int deltaHeight)
+    {
+        ValidateSelection(selection, imageSize);
+        var maxWidth = imageSize.Width - selection.Left;
+        var maxHeight = imageSize.Height - selection.Top;
+        var width = (int)Math.Clamp(
+            (long)selection.Width + deltaWidth,
+            ScreenRegionCaptureService.MinimumRegionPixels,
+            maxWidth);
+        var height = (int)Math.Clamp(
+            (long)selection.Height + deltaHeight,
+            ScreenRegionCaptureService.MinimumRegionPixels,
+            maxHeight);
+        return new Rectangle(selection.Left, selection.Top, width, height);
+    }
+
+    private static void ValidateSelection(Rectangle selection, Size imageSize)
+    {
+        ValidateSize(imageSize, nameof(imageSize));
+        if (selection.Width < ScreenRegionCaptureService.MinimumRegionPixels ||
+            selection.Height < ScreenRegionCaptureService.MinimumRegionPixels ||
+            selection.Left < 0 || selection.Top < 0 ||
+            (long)selection.Right > imageSize.Width ||
+            (long)selection.Bottom > imageSize.Height)
+            throw new ArgumentOutOfRangeException(nameof(selection), "The selection must be at least 16 by 16 pixels and remain inside the captured image.");
+    }
+
+    private static void ValidateSize(Size size, string parameterName)
+    {
+        if (size.Width <= 0 || size.Height <= 0)
+            throw new ArgumentOutOfRangeException(parameterName, "Image and canvas dimensions must be positive.");
     }
 }
 
