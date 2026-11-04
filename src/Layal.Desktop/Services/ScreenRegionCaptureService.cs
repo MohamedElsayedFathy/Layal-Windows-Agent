@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace Layal.Services;
@@ -15,19 +16,31 @@ public sealed class ScreenRegionCaptureService
 {
     public const int MinimumRegionPixels = 16;
     public const int MaximumImageBytes = 10 * 1024 * 1024;
-    private const long MaximumScreenPixels = 40_000_000;
+    public const long MaximumScreenPixels = 40_000_000;
 
-    public ScreenRegionCaptureResult? CaptureRegionUnderCursor(bool isArabic)
+    /// <summary>
+    /// Rejects invalid or excessively large display bounds before allocating a full-screen bitmap.
+    /// Exposed as a pure policy check so the memory-safety boundary can be regression-tested.
+    /// </summary>
+    public static void ValidateDisplayBounds(Rectangle bounds, bool isArabic)
     {
+        if (bounds.Width > 0 && bounds.Height > 0 &&
+            (long)bounds.Width * bounds.Height <= MaximumScreenPixels)
+            return;
+
+        throw new InvalidOperationException(isArabic
+            ? "دقة الشاشة تتجاوز الحد الآمن لالتقاط الذاكرة. استخدم أداة قص Windows ثم أرفق الصورة."
+            : "This display exceeds the safe capture memory limit. Use Windows Snipping Tool and attach the saved image.");
+    }
+
+    public ScreenRegionCaptureResult? CaptureRegionUnderCursor(
+        bool isArabic,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var screen = Screen.FromPoint(Cursor.Position);
         var bounds = screen.Bounds;
-        if (bounds.Width <= 0 || bounds.Height <= 0 ||
-            (long)bounds.Width * bounds.Height > MaximumScreenPixels)
-        {
-            throw new InvalidOperationException(isArabic
-                ? "دقة الشاشة تتجاوز الحد الآمن لالتقاط الذاكرة. استخدم أداة قص Windows ثم أرفق الصورة."
-                : "This display exceeds the safe capture memory limit. Use Windows Snipping Tool and attach the saved image.");
-        }
+        ValidateDisplayBounds(bounds, isArabic);
 
         using var screenshot = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
         using (var graphics = Graphics.FromImage(screenshot))
@@ -40,13 +53,55 @@ public sealed class ScreenRegionCaptureService
                 bounds.Size,
                 CopyPixelOperation.SourceCopy);
         }
+        cancellationToken.ThrowIfCancellationRequested();
 
         using var dialog = new RegionSelectionDialog(screenshot, isArabic, screen.WorkingArea);
-        if (dialog.ShowDialog() != DialogResult.OK)
-            return null;
+        using var cancellationRegistration = cancellationToken.Register(() =>
+        {
+            // The preview is a modal WinForms dialog on the UI thread. BeginInvoke keeps
+            // cancellation safe when it is requested from another dispatcher callback.
+            try
+            {
+                // If cancellation races native-handle creation, BeginInvoke may fail;
+                // the Shown handler below observes the token and closes the dialog.
+                dialog.BeginInvoke((Action)(() =>
+                {
+                    if (dialog.IsDisposed)
+                        return;
+                    dialog.DialogResult = DialogResult.Cancel;
+                    dialog.Close();
+                }));
+            }
+            catch (InvalidOperationException)
+            {
+                // The dialog may have closed while the cancellation callback was queued.
+            }
+        });
+        dialog.Shown += (_, _) =>
+        {
+            // Covers cancellation racing with the creation of the dialog's native handle.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                dialog.DialogResult = DialogResult.Cancel;
+                dialog.Close();
+            }
+        };
 
+        cancellationToken.ThrowIfCancellationRequested();
+        if (dialog.ShowDialog() != DialogResult.OK)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         var selected = dialog.SelectedRegion;
         var png = EncodeCropPng(screenshot, selected);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            Array.Clear(png, 0, png.Length);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return new ScreenRegionCaptureResult(png, selected.Width, selected.Height);
     }
 
