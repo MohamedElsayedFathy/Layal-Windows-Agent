@@ -261,7 +261,7 @@ public sealed class ScreenRegionCaptureService
         {
             if (!_dragging || !TryMapPoint(e.Location, clamp: true, out var point))
                 return;
-            UpdateSelection(point);
+            UpdateSelection(point, announce: false);
         }
 
         private void Canvas_MouseUp(object? sender, MouseEventArgs e)
@@ -273,11 +273,16 @@ public sealed class ScreenRegionCaptureService
                 UpdateSelection(point);
         }
 
-        private void UpdateSelection(Point end)
+        private void UpdateSelection(Point end, bool announce = true)
         {
             _selection = ScreenRegionSelectionGeometry.CreateSelection(
                 _dragStart, end, _screenshot.Size);
-            UpdateSelectionStatus();
+            _useSelection.Enabled = _selection.Width >= MinimumRegionPixels &&
+                                    _selection.Height >= MinimumRegionPixels;
+            if (announce)
+                UpdateSelectionStatus();
+            else
+                _canvas.Invalidate();
         }
 
         private void Canvas_KeyDown(object? sender, System.Windows.Forms.KeyEventArgs e)
@@ -311,7 +316,7 @@ public sealed class ScreenRegionCaptureService
                 return;
 
             if (_selection.Width < MinimumRegionPixels || _selection.Height < MinimumRegionPixels)
-                StartCenteredKeyboardSelection();
+                StartCenteredKeyboardSelection(announce: false);
 
             if (e.Shift)
             {
@@ -338,10 +343,16 @@ public sealed class ScreenRegionCaptureService
             e.SuppressKeyPress = true;
         }
 
-        private void StartCenteredKeyboardSelection()
+        private void StartCenteredKeyboardSelection(bool announce = true)
         {
             _selection = ScreenRegionSelectionGeometry.CreateCenteredSelection(_screenshot.Size);
-            UpdateSelectionStatus();
+            if (announce)
+                UpdateSelectionStatus();
+            else
+            {
+                _useSelection.Enabled = true;
+                _canvas.Invalidate();
+            }
         }
 
         private void UpdateSelectionStatus()
@@ -518,8 +529,8 @@ public static class ScreenRegionSelectionGeometry
         if (selection.Width < ScreenRegionCaptureService.MinimumRegionPixels ||
             selection.Height < ScreenRegionCaptureService.MinimumRegionPixels ||
             selection.Left < 0 || selection.Top < 0 ||
-            (long)selection.Right > imageSize.Width ||
-            (long)selection.Bottom > imageSize.Height)
+            (long)selection.Left + selection.Width > imageSize.Width ||
+            (long)selection.Top + selection.Height > imageSize.Height)
             throw new ArgumentOutOfRangeException(nameof(selection), "The selection must be at least 16 by 16 pixels and remain inside the captured image.");
     }
 
