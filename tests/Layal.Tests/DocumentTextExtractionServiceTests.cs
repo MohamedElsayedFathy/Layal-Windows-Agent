@@ -56,7 +56,7 @@ public sealed class DocumentTextExtractionServiceTests
     }
 
     [TestMethod]
-    public void ImageExtensionsUseTheAsyncWindowsOcrPath()
+    public void ImageExtensionsRequireAsyncLocalOcrPath()
     {
         using var temp = new TestTempDirectory();
         var path = Path.Combine(temp.Path, "sample.png");

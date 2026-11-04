@@ -87,7 +87,7 @@ if ($RequireCodeSigning) {
 
 # Ensure the commit-pinned Arabic and English OCR models are available before MSBuild evaluates content items.
 & (Join-Path $PSScriptRoot 'Install-LayalOcrModels.ps1')
-if ($LASTEXITCODE -ne 0) { throw 'Installing the bundled OCR models failed.' }
+# The invoked PowerShell script throws on every validation/download failure; no native exit-code check is needed.
 
 # Clear generated distribution outputs so stale SBOMs or notices cannot survive a rebuild.
 Remove-Item -LiteralPath $Distribution -Recurse -Force -ErrorAction SilentlyContinue

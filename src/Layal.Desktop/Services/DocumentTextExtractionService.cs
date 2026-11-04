@@ -54,8 +54,8 @@ public sealed class DocumentTextExtractionService
         new[] { ".txt", ".md", ".csv", ".json", ".xml", ".html", ".htm", ".pdf", ".docx", ".xlsx", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff" };
 
     /// <summary>
-    /// Extracts text locally. Text PDFs use PdfPig first; scanned PDFs and image files may use
-    /// the Windows OCR engine for languages installed on the current Windows user profile.
+    /// Extracts bounded text locally. Images and PDF-embedded scans use the bundled Tesseract
+    /// engine with Arabic and English models; no Windows package identity or OS language pack is required.
     /// </summary>
     public async Task<DocumentTextExtractionResult> ExtractFileAsync(string path, CancellationToken cancellationToken = default)
     {
