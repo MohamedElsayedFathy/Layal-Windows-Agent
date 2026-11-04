@@ -32,7 +32,7 @@ public sealed class ReminderService
         }
     }
 
-    public ReminderRecord Create(string title, DateTimeOffset dueAt, string recurrence = "None")
+    public ReminderRecord Create(string title, DateTimeOffset dueAt, string recurrence = "None", string? relatedTaskId = null)
     {
         var normalizedTitle = (title ?? string.Empty).Trim();
         if (normalizedTitle.Length is < 1 or > MaximumTitleCharacters)
@@ -40,6 +40,7 @@ public sealed class ReminderService
         if (dueAt <= DateTimeOffset.Now)
             throw new ArgumentOutOfRangeException(nameof(dueAt), "The reminder time must be in the future.");
         var normalizedRecurrence = NormalizeRecurrence(recurrence);
+        var normalizedRelatedTaskId = NormalizeRelatedTaskId(relatedTaskId);
 
         lock (_sync)
         {
@@ -53,7 +54,8 @@ public sealed class ReminderService
                 Title = normalizedTitle,
                 DueAt = dueAt,
                 Recurrence = normalizedRecurrence,
-                IsActive = true
+                IsActive = true,
+                RelatedTaskId = normalizedRelatedTaskId
             };
             items.Add(record);
             _store.Save(items);
@@ -61,7 +63,7 @@ public sealed class ReminderService
         }
     }
 
-    public ReminderRecord? Update(string id, string title, DateTimeOffset dueAt, string recurrence = "None")
+    public ReminderRecord? Update(string id, string title, DateTimeOffset dueAt, string recurrence = "None", string? relatedTaskId = null)
     {
         if (string.IsNullOrWhiteSpace(id))
             return null;
@@ -72,6 +74,7 @@ public sealed class ReminderService
         if (dueAt <= DateTimeOffset.Now)
             throw new ArgumentOutOfRangeException(nameof(dueAt), "The reminder time must be in the future.");
         var normalizedRecurrence = NormalizeRecurrence(recurrence);
+        var normalizedRelatedTaskId = NormalizeRelatedTaskId(relatedTaskId);
 
         lock (_sync)
         {
@@ -84,6 +87,7 @@ public sealed class ReminderService
             item.Title = normalizedTitle;
             item.DueAt = dueAt;
             item.Recurrence = normalizedRecurrence;
+            item.RelatedTaskId = normalizedRelatedTaskId;
             item.IsActive = true;
             item.LastDeliveredAt = null;
             _store.Save(items);
@@ -160,10 +164,21 @@ public sealed class ReminderService
             item.Id = string.IsNullOrWhiteSpace(item.Id) ? Guid.NewGuid().ToString("N") : item.Id;
             item.Title = (item.Title ?? string.Empty).Trim();
             item.Recurrence = NormalizeRecurrence(item.Recurrence);
+            try { item.RelatedTaskId = NormalizeRelatedTaskId(item.RelatedTaskId); }
+            catch (ArgumentException) { item.RelatedTaskId = null; }
             if (string.IsNullOrWhiteSpace(item.Title) || item.Title.Length > MaximumTitleCharacters)
                 item.IsActive = false;
         }
         return items;
+    }
+
+    private static string? NormalizeRelatedTaskId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var normalized = value.Trim();
+        if (normalized.Length > 64 || normalized.Any(char.IsControl) || normalized.Any(char.IsWhiteSpace))
+            throw new ArgumentException("A linked task ID must be a bounded, printable identifier.", nameof(value));
+        return normalized;
     }
 
     private static string NormalizeRecurrence(string? value) =>

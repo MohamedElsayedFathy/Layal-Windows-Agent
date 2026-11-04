@@ -15,11 +15,13 @@ public sealed class ReminderManagerWindow : Window
 {
     private readonly ReminderService _service;
     private readonly ReminderTaskSchedulerService? _scheduler;
+    private readonly TaskHistoryService? _taskHistory;
     private readonly bool _isArabic;
     private readonly TextBox _titleInput;
     private readonly DatePicker _datePicker;
     private readonly TextBox _timeInput;
     private readonly ComboBox _recurrenceSelector;
+    private readonly ComboBox _relatedTaskSelector;
     private readonly ListBox _remindersList;
     private readonly TextBlock _status;
     private readonly ObservableCollection<ReminderListEntry> _entries = new();
@@ -28,10 +30,12 @@ public sealed class ReminderManagerWindow : Window
     public ReminderManagerWindow(
         ReminderService service,
         bool isArabic,
-        ReminderTaskSchedulerService? scheduler = null)
+        ReminderTaskSchedulerService? scheduler = null,
+        TaskHistoryService? taskHistory = null)
     {
         _service = service ?? throw new ArgumentNullException(nameof(service));
         _scheduler = scheduler;
+        _taskHistory = taskHistory;
         _isArabic = isArabic;
         Title = isArabic ? "التذكيرات المحلية" : "Local reminders";
         Width = 760;
@@ -105,6 +109,18 @@ public sealed class ReminderManagerWindow : Window
         schedule.Children.Add(recurrenceStack);
 
         form.Children.Add(schedule);
+        form.Children.Add(new TextBlock { Text = isArabic ? "ربط التذكير بمهمة (اختياري)" : "Link reminder to a task (optional)", Margin = new Thickness(0, 0, 0, 3) });
+        _relatedTaskSelector = new ComboBox { MinHeight = 30, MinWidth = 220, Margin = new Thickness(0, 0, 0, 8), DisplayMemberPath = nameof(TaskLinkEntry.Description) };
+        AutomationProperties.SetName(_relatedTaskSelector, isArabic ? "المهمة المرتبطة بالتذكير" : "Task linked to this reminder");
+        _relatedTaskSelector.Items.Add(new TaskLinkEntry(null, isArabic ? "بدون مهمة مرتبطة" : "No linked task"));
+        foreach (var task in _taskHistory?.GetRecent(100) ?? Array.Empty<AgentTaskRecord>())
+        {
+            var goal = string.Join(" ", (task.Goal ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            if (goal.Length > 90) goal = goal[..90] + "…";
+            _relatedTaskSelector.Items.Add(new TaskLinkEntry(task.Id, $"{goal} — {task.Status}"));
+        }
+        _relatedTaskSelector.SelectedIndex = 0;
+        form.Children.Add(_relatedTaskSelector);
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Left };
         var addButton = new Button
         {
@@ -207,7 +223,7 @@ public sealed class ReminderManagerWindow : Window
             var dueLocal = DateTime.SpecifyKind(selectedDate.Date + time.ToTimeSpan(), DateTimeKind.Local);
             var dueAt = new DateTimeOffset(dueLocal);
             var recurrence = (_recurrenceSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "None";
-            _service.Create(title, dueAt, recurrence);
+            _service.Create(title, dueAt, recurrence, GetSelectedTaskId());
             _titleInput.Clear();
             _status.Text = _isArabic ? "تم حفظ التذكير محليًا بتشفير DPAPI." : "Reminder saved locally with DPAPI encryption.";
             AppendSchedulerStatus();
@@ -237,7 +253,7 @@ public sealed class ReminderManagerWindow : Window
             var dueLocal = DateTime.SpecifyKind(selectedDate.Date + time.ToTimeSpan(), DateTimeKind.Local);
             var dueAt = new DateTimeOffset(dueLocal);
             var recurrence = (_recurrenceSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "None";
-            var updated = _service.Update(_selectedReminderId, _titleInput.Text, dueAt, recurrence);
+            var updated = _service.Update(_selectedReminderId, _titleInput.Text, dueAt, recurrence, GetSelectedTaskId());
             if (updated is null)
             {
                 _status.Text = _isArabic ? "لم يعد التذكير موجودًا؛ حدّث القائمة." : "The reminder no longer exists; refresh the list.";
@@ -314,6 +330,13 @@ public sealed class ReminderManagerWindow : Window
         _timeInput.Text = reminder.DueAt.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
         _recurrenceSelector.SelectedItem = _recurrenceSelector.Items.OfType<ComboBoxItem>()
             .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), reminder.Recurrence, StringComparison.Ordinal));
+        var linkedTask = _relatedTaskSelector.Items.OfType<TaskLinkEntry>().FirstOrDefault(item => string.Equals(item.Id, reminder.RelatedTaskId, StringComparison.Ordinal));
+        if (reminder.RelatedTaskId is not null && linkedTask is null)
+        {
+            linkedTask = new TaskLinkEntry(reminder.RelatedTaskId, (_isArabic ? "مهمة غير موجودة في السجل: " : "Task no longer in recent history: ") + reminder.RelatedTaskId);
+            _relatedTaskSelector.Items.Add(linkedTask);
+        }
+        _relatedTaskSelector.SelectedItem = linkedTask ?? _relatedTaskSelector.Items.OfType<TaskLinkEntry>().FirstOrDefault();
         _status.Text = _isArabic
             ? "تم تحميل التذكير في الحقول. عدّلها ثم اضغط «تحديث المحدد»، أو احذف التذكير."
             : "Reminder loaded into the form. Edit the fields then choose Update selected, or delete the reminder.";
@@ -332,7 +355,8 @@ public sealed class ReminderManagerWindow : Window
             };
             var active = reminder.IsActive ? string.Empty : (_isArabic ? " — متوقف" : " — inactive");
             var due = reminder.DueAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
-            _entries.Add(new ReminderListEntry(reminder.Clone(), $"{reminder.Title} — {due} — {recurrence}{active}"));
+            var linked = reminder.RelatedTaskId is null ? string.Empty : (_isArabic ? " — مرتبط بمهمة" : " — linked to task");
+            _entries.Add(new ReminderListEntry(reminder.Clone(), $"{reminder.Title} — {due} — {recurrence}{active}{linked}"));
         }
 
         if (!string.IsNullOrWhiteSpace(selectedId))
@@ -345,5 +369,7 @@ public sealed class ReminderManagerWindow : Window
                 : "No saved reminders. Create one above.";
     }
 
+    private string? GetSelectedTaskId() => (_relatedTaskSelector.SelectedItem as TaskLinkEntry)?.Id;
+    private sealed record TaskLinkEntry(string? Id, string Description);
     private sealed record ReminderListEntry(ReminderRecord Record, string Description);
 }
