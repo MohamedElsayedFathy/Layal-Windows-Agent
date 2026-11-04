@@ -25,7 +25,7 @@ public sealed class QuickAskWindowTests
                 window = new QuickAskWindow(false, _ =>
                 {
                     askCount++;
-                    return Task.FromResult("unexpected");
+                    return Task.FromResult(QuickAskResult.Success("unexpected"));
                 }, () => { });
                 window.Show();
                 var submit = (Button?)window.FindName("SubmitButton")
@@ -52,7 +52,7 @@ public sealed class QuickAskWindowTests
     [TestMethod]
     public void StopButtonRequestsCancellationWithoutClosingTheWindowOrDuplicatingSubmission()
     {
-        var completion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<QuickAskResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var askCount = 0;
         var cancelCount = 0;
         Exception? failure = null;
@@ -97,13 +97,98 @@ public sealed class QuickAskWindowTests
             catch (Exception ex) { failure = ex; }
             finally
             {
-                completion.TrySetResult("test finished");
+                completion.TrySetResult(QuickAskResult.Success("test finished"));
                 window?.Close();
             }
         });
 
         if (failure is not null)
             Assert.Fail("Quick Ask cancellation test failed: " + failure);
+    }
+
+
+    [TestMethod]
+    public void FailedRequestIsShownAsStatusAndLeavesQuestionAvailableForRetry()
+    {
+        Exception? failure = null;
+        RunOnSta(() =>
+        {
+            QuickAskWindow? window = null;
+            try
+            {
+                window = new QuickAskWindow(
+                    isArabic: false,
+                    askAsync: _ => Task.FromResult(QuickAskResult.Failure("Provider unavailable")),
+                    cancelRequest: () => { });
+                window.Show();
+                window.UpdateLayout();
+
+                var input = (TextBox?)window.FindName("QuestionInput")
+                    ?? throw new InvalidOperationException("Quick Ask input was not found.");
+                var submit = (Button?)window.FindName("SubmitButton")
+                    ?? throw new InvalidOperationException("Quick Ask submit button was not found.");
+                var answerRegion = (ScrollViewer?)window.FindName("AnswerScrollViewer")
+                    ?? throw new InvalidOperationException("Quick Ask answer container was not found.");
+                var status = (TextBlock?)window.FindName("StatusText")
+                    ?? throw new InvalidOperationException("Quick Ask status region was not found.");
+
+                input.Text = "Keep this question for retry";
+                submit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+                Assert.AreEqual(Visibility.Collapsed, answerRegion.Visibility);
+                Assert.AreEqual("Provider unavailable", status.Text);
+                Assert.AreEqual("Keep this question for retry", input.Text);
+                Assert.IsTrue(input.IsEnabled);
+                Assert.IsTrue(submit.IsEnabled);
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { window?.Close(); }
+        });
+
+        if (failure is not null)
+            Assert.Fail("Quick Ask provider-failure test failed: " + failure);
+    }
+
+    [TestMethod]
+    public void ClosingWindowDuringSubmissionRequestsCancellationExactlyOnce()
+    {
+        var completion = new TaskCompletionSource<QuickAskResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancelCount = 0;
+        Exception? failure = null;
+
+        RunOnSta(() =>
+        {
+            QuickAskWindow? window = null;
+            try
+            {
+                window = new QuickAskWindow(
+                    isArabic: false,
+                    askAsync: _ => completion.Task,
+                    cancelRequest: () => cancelCount++);
+                window.Show();
+
+                var input = (TextBox?)window.FindName("QuestionInput")
+                    ?? throw new InvalidOperationException("Quick Ask input was not found.");
+                var submit = (Button?)window.FindName("SubmitButton")
+                    ?? throw new InvalidOperationException("Quick Ask submit button was not found.");
+                input.Text = "Cancel when the title-bar close button is used.";
+                submit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+                window.Close();
+
+                Assert.AreEqual(1, cancelCount);
+                Assert.IsFalse(window.IsVisible);
+            }
+            catch (Exception ex) { failure = ex; }
+            finally
+            {
+                completion.TrySetResult(QuickAskResult.Failure("Cancelled"));
+                window?.Close();
+            }
+        });
+
+        if (failure is not null)
+            Assert.Fail("Quick Ask close-cancellation test failed: " + failure);
     }
 
     private static void RunOnSta(Action action)
@@ -138,7 +223,7 @@ public sealed class QuickAskWindowTests
                     askAsync: question =>
                     {
                         receivedQuestion = question;
-                        return Task.FromResult("الإجابة: " + question);
+                        return Task.FromResult(QuickAskResult.Success("الإجابة: " + question));
                     },
                     cancelRequest: () => { });
 
