@@ -45,7 +45,7 @@ public sealed class WindowsUiAutomationServiceTests
     public void UiTextValidationAllowsOrdinaryAndMultilineTextWithoutReadingAnyField()
     {
         Assert.AreEqual("Layal test", WindowsUiAutomationService.ValidateUiText("Layal test"));
-        Assert.AreEqual("Arabic: مرحبًا\\nEnglish: hello", WindowsUiAutomationService.ValidateUiText("Arabic: مرحبًا\\nEnglish: hello"));
+        Assert.AreEqual("Arabic: مرحبًا\nEnglish: hello", WindowsUiAutomationService.ValidateUiText("Arabic: مرحبًا\nEnglish: hello"));
         Assert.AreEqual(string.Empty, WindowsUiAutomationService.ValidateUiText(string.Empty));
         Assert.AreEqual(10_000, WindowsUiAutomationService.ValidateUiText(new string('x', 10_000)).Length);
         Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.ValidateUiText(new string('x', 10_001)));
@@ -197,7 +197,7 @@ public sealed class WindowsUiAutomationServiceTests
         StringAssert.Contains(report, "لا تُقرأ قيم الحقول");
 
         var safeName = new UiElementInspection(
-            "ControlType.Button", "button", "Save\\nForged line", "save\\rForgedId",
+            "ControlType.Button", "button", "Save\nForged line", "save\rForgedId",
             IsEnabled: true, IsPassword: false,
             X: 0, Y: 0, Width: 100, Height: 30);
         var sanitized = WindowsUiAutomationService.FormatHoveredElementDraft(safeName, isArabic: false);

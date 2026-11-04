@@ -107,7 +107,7 @@ public static class WindowsUiAutomationService
         int excludedProcessId,
         CancellationToken cancellationToken = default) =>
         RunBoundedAutomationAsync(
-            () => InspectElementAtPoint(screenX, screenY, excludedProcessId),
+            () => InspectElementAtPoint(screenX, screenY, excludedProcessId, cancellationToken),
             cancellationToken,
             "Windows UI Automation did not identify the element under the pointer within 8 seconds. No screenshot, field value, or UI action was produced.");
 
@@ -623,9 +623,10 @@ public static class WindowsUiAutomationService
             ? programmaticType["ControlType.".Length..]
             : programmaticType;
 
-    private static UiElementInspection InspectElementAtPoint(int screenX, int screenY, int excludedProcessId)
+    private static UiElementInspection InspectElementAtPoint(int screenX, int screenY, int excludedProcessId, CancellationToken cancellationToken)
     {
         EnsureWindows();
+        cancellationToken.ThrowIfCancellationRequested();
         if (excludedProcessId <= 0)
             throw new ArgumentOutOfRangeException(nameof(excludedProcessId));
 
@@ -633,12 +634,15 @@ public static class WindowsUiAutomationService
         try
         {
             var hit = AutomationElement.FromPoint(point);
+            cancellationToken.ThrowIfCancellationRequested();
             if (hit is null)
                 throw new InvalidOperationException("Windows UI Automation did not return an element at the pointer location.");
 
             // Normalize text fragments and non-control children to the nearest control-view element.
             var element = TreeWalker.ControlViewWalker.Normalize(hit) ?? hit;
+            cancellationToken.ThrowIfCancellationRequested();
             var info = element.Current;
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!info.IsControlElement)
                 throw new InvalidOperationException("The pointer is not over an accessible UI control. Point at a visible control and try again.");
@@ -660,12 +664,13 @@ public static class WindowsUiAutomationService
             // Names on Edit/Text/Document/ListItem and other data-bearing controls can contain
             // user content. Do not even query Current.Name for those types.
             var safeName = CanExposeElementName(programmaticType, info.IsPassword)
-                ? Sanitize(info.Name, 120)
+                ? ReadSafeElementName(element, cancellationToken)
                 : string.Empty;
             var localizedType = Sanitize(info.ControlType?.LocalizedControlType, 80);
             if (localizedType.Length == 0)
                 localizedType = DisplayControlType(programmaticType);
 
+            cancellationToken.ThrowIfCancellationRequested();
             return new UiElementInspection(
                 programmaticType,
                 localizedType,
@@ -697,6 +702,25 @@ public static class WindowsUiAutomationService
         if (double.IsNaN(value) || double.IsInfinity(value))
             throw new InvalidOperationException("Windows UI Automation returned invalid screen coordinates.");
         return (int)Math.Clamp(Math.Round(value, MidpointRounding.AwayFromZero), int.MinValue, int.MaxValue);
+    }
+
+    private static string ReadSafeElementName(AutomationElement element, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            var name = element.Current.Name;
+            cancellationToken.ThrowIfCancellationRequested();
+            return Sanitize(name, 120);
+        }
+        catch (ElementNotAvailableException ex)
+        {
+            throw new InvalidOperationException("The UI element changed while its safe action name was being read. No screenshot or UI action was performed.", ex);
+        }
+        catch (COMException ex)
+        {
+            throw new InvalidOperationException("Windows UI Automation could not safely read the action name. No screenshot or UI action was performed.", ex);
+        }
     }
 
     /// <summary>Only action controls with non-value-bearing labels may expose their accessible Name.</summary>
