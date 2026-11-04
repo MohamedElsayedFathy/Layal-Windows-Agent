@@ -161,8 +161,11 @@ public sealed class BrowserAutomationService
     /// </summary>
     public static Uri BuildBingSearchUri(string query)
     {
-        var normalized = string.Join(" ", (query ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        if (normalized.Length is < 3 or > 500 || normalized.Any(char.IsControl))
+        var rawQuery = query ?? string.Empty;
+        if (rawQuery.Any(char.IsControl))
+            throw new InvalidOperationException("The search query cannot contain control characters.");
+        var normalized = string.Join(" ", rawQuery.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (normalized.Length is < 3 or > 500)
             throw new InvalidOperationException("The search query must contain 3–500 printable characters.");
 
         return new Uri("https://www.bing.com/search?q=" + Uri.EscapeDataString(normalized), UriKind.Absolute);
