@@ -226,7 +226,7 @@ public sealed class DocumentTextExtractionService
         try
         {
             // Bundled Tesseract models work in the unpackaged WPF installer; no MSIX identity or Windows OCR pack is required.
-            return new Engine(AppContext.BaseDirectory, "ara+eng", EngineMode.LstmOnly);
+            return new Engine(tessdataDirectory, "ara+eng", EngineMode.LstmOnly);
         }
         catch (Exception ex) when (
             ex is DllNotFoundException or BadImageFormatException or TypeInitializationException)

@@ -285,6 +285,6 @@ public sealed class DocumentTextExtractionServiceTests
             File.WriteAllBytes(scannedLikePath, builder.Build());
         }
         var exception = Assert.ThrowsExactly<InvalidDataException>(() => _service.ExtractFile(scannedLikePath));
-        StringAssert.Contains(exception.Message, "OCR is not performed");
+        StringAssert.Contains(exception.Message, "ExtractFileAsync");
     }
 }
