@@ -4050,18 +4050,18 @@ public partial class MainWindow : Window
 
     private async void InspectHoveredElementButton_Click(object sender, RoutedEventArgs e)
     {
-        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        if (AppRuntime.IsExiting || AppRuntime.Settings.PrivacyShieldEnabled)
         {
             SetChatActivityStatus(IsArabic
-                ? "درع الخصوصية مفعّل؛ فحص العناصر أسفل المؤشر محظور."
-                : "Privacy shield is enabled; UI element inspection is blocked.");
+                ? "درع الخصوصية مفعّل أو التطبيق يُغلق؛ فحص العناصر محظور."
+                : "The privacy shield is enabled or Layal is exiting; UI element inspection is blocked.");
             return;
         }
 
         var consent = MessageBox.Show(this,
             IsArabic
-                ? "بعد الموافقة ستختفي نافذة ليال لمدة 5 ثوانٍ. حرّك المؤشر إلى العنصر المطلوب وثبّته عليه. ستُقرأ خصائص واجهة محدودة فقط (الاسم والنوع والحدود)، دون لقطة شاشة أو قراءة قيمة حقل أو تنفيذ نقرة. ستُضاف النتيجة إلى مسودة الشات المحلية ولن تُرسل إلا بعد ضغط إرسال. لا تشر إلى عنصر يعرض كلمة مرور أو معلومات حساسة. هل تريد المتابعة؟"
-                : "After you agree, Layal will hide for 5 seconds. Move the pointer to the target element and keep it still. Only limited UI metadata (name, type, and bounds) is read—no screenshot, field value, or click. The result is added to the local chat draft and is not sent until you press Send. Do not point at an element showing a password or sensitive information. Continue?",
+                ? "بعد موافقتك ستختفي نافذة ليال والماسكوت لمدة 5 ثوانٍ. حرّك المؤشر إلى العنصر المطلوب وثبّته عليه حتى تنتهي المهلة. ستُقرأ بيانات UI Automation محدودة فقط: النوع، ومعرّف الواجهة، والحدود، والحالة؛ لا يُقرأ اسم حقول الإدخال أو النصوص أو العناصر التي قد تحمل بيانات، ولا قيمة أي حقل. عناصر كلمات المرور تُرفض. لا تُلتقط صورة ولا تُنفذ نقرة أو كتابة. ستُضاف النتيجة إلى مسودة الشات ولن تُرسل إلا بعد ضغط إرسال. هل تريد المتابعة؟"
+                : "After you agree, both Layal's main window and mascot will hide for 5 seconds. Move the pointer to the target element and keep it there until the countdown ends. Only bounded UI Automation metadata is read: control type, AutomationId, bounds, and enabled state. Names of editable/text/data elements and all field values are deliberately not read; password controls are rejected. No screenshot, click, or keystroke occurs. The result is added to the chat draft and is not sent until you press Send. Continue?",
             IsArabic ? "موافقة على فحص عنصر" : "Confirm UI element inspection",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (consent != MessageBoxResult.Yes)
@@ -4069,87 +4069,83 @@ public partial class MainWindow : Window
 
         var previousWindowState = WindowState;
         var wasVisible = IsVisible;
+        var mascotWindow = AppRuntime.MascotWindow;
+        var mascotWasVisible = mascotWindow?.IsVisible == true;
         try
         {
             SetChatActivityStatus(IsArabic
-                ? "ستختفي ليال الآن. وجّه المؤشر إلى العنصر المطلوب خلال 5 ثوانٍ."
-                : "Layal will hide now. Point at the target element within 5 seconds.");
+                ? "ستختفي ليال والماسكوت الآن. وجّه المؤشر إلى العنصر المطلوب خلال 5 ثوانٍ."
+                : "Layal and the mascot will hide now. Point at the target element within 5 seconds.");
             Hide();
+            if (mascotWasVisible)
+                mascotWindow!.Hide();
+
             await Task.Delay(TimeSpan.FromSeconds(5));
 
+            if (AppRuntime.IsExiting)
+                return;
             if (AppRuntime.Settings.PrivacyShieldEnabled)
             {
-                SetChatActivityStatus(IsArabic ? "تم إلغاء الفحص بسبب تفعيل درع الخصوصية." : "Inspection cancelled because the privacy shield was enabled.");
+                SetChatActivityStatus(IsArabic
+                    ? "تم إلغاء فحص العنصر بسبب تفعيل درع الخصوصية؛ لم تُضف بيانات إلى المسودة."
+                    : "Element inspection was cancelled because the privacy shield was enabled; nothing was added to the draft.");
                 return;
             }
 
             var cursor = System.Windows.Forms.Cursor.Position;
-            var element = AutomationElement.FromPoint(new System.Windows.Point(cursor.X, cursor.Y));
-            if (element is null)
-            {
-                SetChatActivityStatus(IsArabic ? "لم يتم العثور على عنصر واجهة تحت المؤشر." : "No UI element was found under the pointer.");
-                return;
-            }
+            var inspection = await WindowsUiAutomationService.InspectElementAtPointAsync(
+                cursor.X, cursor.Y, Environment.ProcessId, CancellationToken.None);
 
-            var info = element.Current;
-            if (info.ProcessId == Environment.ProcessId)
+            // Re-check after the asynchronous UIA call so enabling the shield during inspection
+            // cannot disclose even metadata to the local chat draft.
+            if (AppRuntime.IsExiting)
+                return;
+            if (AppRuntime.Settings.PrivacyShieldEnabled)
             {
                 SetChatActivityStatus(IsArabic
-                    ? "المؤشر فوق واجهة ليال نفسها. أعد المحاولة ووجّه المؤشر إلى التطبيق الآخر."
-                    : "The pointer is over Layal itself. Retry and point at another application.");
+                    ? "تم إلغاء فحص العنصر بسبب تفعيل درع الخصوصية؛ لم تُضف بيانات إلى المسودة."
+                    : "Element inspection was cancelled because the privacy shield was enabled; nothing was added to the draft.");
                 return;
             }
 
-            var name = NormalizeInspectedUiText(info.Name, 180);
-            var controlType = NormalizeInspectedUiText(info.ControlType?.LocalizedControlType ?? string.Empty, 80);
-            var bounds = info.BoundingRectangle;
-            var boundsText = bounds.IsEmpty
-                ? (IsArabic ? "غير متاحة" : "unavailable")
-                : string.Format(CultureInfo.InvariantCulture, "{0:0},{1:0} {2:0}×{3:0}", bounds.X, bounds.Y, bounds.Width, bounds.Height);
-
-            var details = IsArabic
-                ? "[عنصر واجهة تحت المؤشر]\nالاسم: " + (name.Length == 0 ? "غير متاح" : name) +
-                  "\nالنوع: " + (controlType.Length == 0 ? "غير متاح" : controlType) +
-                  "\nحدود العنصر: " + boundsText +
-                  "\nتمت قراءة بيانات وصفية فقط؛ لم تُقرأ قيمة حقل ولم تُلتقط صورة. راجع النص قبل الإرسال."
-                : "[UI element under pointer]\nName: " + (name.Length == 0 ? "unavailable" : name) +
-                  "\nControl type: " + (controlType.Length == 0 ? "unavailable" : controlType) +
-                  "\nBounds: " + boundsText +
-                  "\nOnly metadata was read; no field value or screenshot was captured. Review before sending.";
-
+            var details = (IsArabic
+                ? "اشرح لي وظيفة هذا العنصر وكيف أستخدمه.\n"
+                : "Explain what this element does and how I can use it.\n") +
+                WindowsUiAutomationService.FormatHoveredElementDraft(inspection, IsArabic);
             ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
                 ? details
                 : ChatInput.Text.TrimEnd() + Environment.NewLine + Environment.NewLine + details;
             ChatInput.CaretIndex = ChatInput.Text.Length;
             SetChatActivityStatus(IsArabic
-                ? "تمت إضافة بيانات العنصر إلى مسودة الشات المحلية؛ لم يتم الإرسال."
-                : "Element metadata was added to the local chat draft; nothing was sent.");
+                ? "تمت إضافة بيانات العنصر والسؤال إلى مسودة الشات المحلية؛ لم يتم الإرسال."
+                : "Element metadata and a question were added to the local chat draft; nothing was sent.");
         }
         catch (Exception ex)
         {
-            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
-                "تعذر فحص عنصر الواجهة", "Could not inspect the UI element", ex, IsArabic));
+            if (!AppRuntime.IsExiting)
+                SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                    "تعذر فحص عنصر الواجهة", "Could not inspect the UI element", ex, IsArabic));
         }
         finally
         {
-            if (wasVisible && !IsVisible)
-                Show();
-            WindowState = previousWindowState;
-            if (wasVisible)
+            // Do not resurrect hidden windows while the application is shutting down.
+            if (!AppRuntime.IsExiting && IsLoaded)
             {
-                Activate();
-                ChatInput.Focus();
+                if (wasVisible && !IsVisible)
+                    Show();
+                WindowState = previousWindowState;
+
+                if (mascotWasVisible && mascotWindow is not null &&
+                    mascotWindow.IsLoaded && !mascotWindow.IsVisible)
+                    mascotWindow.Show();
+
+                if (wasVisible)
+                {
+                    Activate();
+                    ChatInput.Focus();
+                }
             }
         }
-    }
-
-    private static string NormalizeInspectedUiText(string? value, int maximumCharacters)
-    {
-        var normalized = string.Join(" ", (value ?? string.Empty)
-            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        return normalized.Length <= maximumCharacters
-            ? normalized
-            : normalized[..maximumCharacters] + "…";
     }
 
     private async void CaptureScreenRegionButton_Click(object sender, RoutedEventArgs e)
