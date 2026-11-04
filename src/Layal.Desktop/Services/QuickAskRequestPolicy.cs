@@ -26,4 +26,7 @@ public static class QuickAskRequestPolicy
             return QuickAskBlockReason.PendingAttachment;
         return QuickAskBlockReason.None;
     }
+
+    public static bool ShouldPrepareVoiceResources(bool suppressVoiceReply, bool voiceRepliesEnabled) =>
+        !suppressVoiceReply && voiceRepliesEnabled;
 }
