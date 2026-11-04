@@ -172,9 +172,23 @@ $expectedSbom = Join-Path $SbomDirectory "Layal-$version.cdx.json"
 $distributionLicenseDirectory = Join-Path $Distribution 'licenses'
 New-Item -ItemType Directory -Force -Path $distributionLicenseDirectory | Out-Null
 Copy-Item -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_NOTICES.md') -Destination (Join-Path $distributionLicenseDirectory 'THIRD-PARTY-NOTICES.md') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/WTFPL.txt') -Destination (Join-Path $distributionLicenseDirectory 'WTFPL.txt') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/MIT-JeremyAnsel.HLSL.Targets.txt') -Destination (Join-Path $distributionLicenseDirectory 'MIT-JeremyAnsel.HLSL.Targets.txt') -Force
 Copy-Item -LiteralPath (Join-Path $Root 'licenses/PROJECT-LICENSE-STATUS.md') -Destination (Join-Path $distributionLicenseDirectory 'PROJECT-LICENSE-STATUS.md') -Force
+
+# Package every license text referenced by the curated manifest, including newly
+# introduced transitive dependencies. This keeps the installer and portable ZIP
+# notices synchronized with the same inventory used to validate the SBOM.
+$licenseManifestPath = Join-Path $Root 'docs/THIRD_PARTY_LICENSES.json'
+$licenseManifest = Get-Content -LiteralPath $licenseManifestPath -Raw | ConvertFrom-Json
+$licenseTextPaths = @(
+    $licenseManifest.packages | ForEach-Object { $_.licenseTextPath }
+) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+foreach ($relativeLicensePath in $licenseTextPaths) {
+    $sourceLicensePath = Join-Path $Root $relativeLicensePath
+    if (-not (Test-Path -LiteralPath $sourceLicensePath -PathType Leaf)) {
+        throw "A license file referenced by docs/THIRD_PARTY_LICENSES.json is missing: $relativeLicensePath"
+    }
+    Copy-Item -LiteralPath $sourceLicensePath -Destination $distributionLicenseDirectory -Force
+}
 $licenseAuditReport = Join-Path $distributionLicenseDirectory "Layal-$version-license-audit.md"
 $licenseArguments = @(
     (Join-Path $PSScriptRoot 'validate_licenses.py'),

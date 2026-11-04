@@ -113,7 +113,7 @@ Upstream notices and model terms apply to the downloaded components separately f
 - Package metadata: https://www.nuget.org/packages/DocumentFormat.OpenXml/3.5.1
 - License text: licenses/MIT-DocumentFormat-OpenXml.txt
 
-These libraries are used only for local extraction of text from user-selected PDF, DOCX and XLSX files. Their inclusion does not imply that scanned PDFs are OCRed, that macros are executed, or that the app automatically sends a selected file to an AI provider.
+PdfPig and Open XML SDK are used for local extraction from user-selected PDF, DOCX and XLSX files. Scanned PDF/image OCR is provided separately by the bundled TesseractOCR engine. Macros are not executed, and a selected file is not sent to an AI provider unless the user reviews the extracted-text preview, attaches it, and explicitly presses Send.
 
 
 ## TesseractOCR
