@@ -156,6 +156,157 @@ public sealed class BrowserAutomationService
             throw new InvalidOperationException("browser_upload_file requires one visible input[type=file] target. It never clicks or submits the form.");
     }
 
+    /// <summary>
+    /// Builds an HTTPS Bing search URL. Search text is normalized and bounded before it can be sent.
+    /// </summary>
+    public static Uri BuildBingSearchUri(string query)
+    {
+        var normalized = string.Join(" ", (query ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (normalized.Length is < 3 or > 500 || normalized.Any(char.IsControl))
+            throw new InvalidOperationException("The search query must contain 3–500 printable characters.");
+
+        return new Uri("https://www.bing.com/search?q=" + Uri.EscapeDataString(normalized), UriKind.Absolute);
+    }
+
+    public static bool IsBingDomain(Uri uri)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+        return uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
+            (uri.Host.Equals("bing.com", StringComparison.OrdinalIgnoreCase) ||
+             uri.Host.EndsWith(".bing.com", StringComparison.OrdinalIgnoreCase)) &&
+            string.IsNullOrEmpty(uri.UserInfo);
+    }
+
+    /// <summary>
+    /// Classifies common Bing challenge, consent, no-results, and unavailable states without
+    /// treating arbitrary redirected sites as a successful search.
+    /// </summary>
+    public static string ClassifyBingSearchPage(string finalUrl, string title, string visibleText)
+    {
+        if (!Uri.TryCreate(finalUrl, UriKind.Absolute, out var uri) || !IsBingDomain(uri))
+            return "unexpected_redirect";
+
+        var content = (title ?? string.Empty) + "\n" + (visibleText ?? string.Empty);
+        var blockedPhrases = new[]
+        {
+            "access denied", "your request has been blocked", "temporarily blocked",
+            "unusual traffic", "automated queries", "verify you are not a robot",
+            "verify you're not a robot", "verify that you are human", "verify you're human",
+            "solve the following challenge", "complete the security check", "captcha", "too many requests"
+        };
+        if (blockedPhrases.Any(phrase => content.Contains(phrase, StringComparison.OrdinalIgnoreCase)))
+            return "blocked_or_challenge";
+
+        var consentPhrases = new[]
+        {
+            "consent required", "before you continue", "choose your privacy settings", "privacy choices"
+        };
+        if (consentPhrases.Any(phrase => content.Contains(phrase, StringComparison.OrdinalIgnoreCase)))
+            return "consent_required";
+
+        var noResultsPhrases = new[]
+        {
+            "there are no results for", "no results found",
+            "your search did not match any documents", "we didn't find results for"
+        };
+        if (noResultsPhrases.Any(phrase => content.Contains(phrase, StringComparison.OrdinalIgnoreCase)))
+            return "no_results";
+
+        if (string.IsNullOrWhiteSpace(visibleText))
+            return "empty_page";
+
+        return "results_available";
+    }
+
+    /// <summary>
+    /// Runs one bounded Bing search in the dedicated Edge profile, then verifies that the
+    /// same browser tab still contains a Bing page before and after the visible-text snapshot.
+    /// Unexpected external redirects are never read or shared.
+    /// </summary>
+    public async Task<BrowserSearchSnapshot> SearchBingAsync(string query, CancellationToken token = default)
+    {
+        var normalizedQuery = string.Join(" ", (query ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var targetUrl = BuildBingSearchUri(normalizedQuery);
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
+        await _gate.WaitAsync(token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            await EnsureBrowserStartedAsync(token);
+            var page = await GetPageTargetAsync(token);
+            var response = await SendCommandAsync(page, "Page.navigate", new JsonObject
+            {
+                ["url"] = targetUrl.AbsoluteUri
+            }, token);
+            var errorText = response["result"]?["errorText"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(errorText))
+                throw new InvalidOperationException("Bing search navigation failed: " + errorText);
+
+            for (var attempt = 0; attempt < 12; attempt++)
+            {
+                token.ThrowIfCancellationRequested();
+                await Task.Delay(250, token);
+                try
+                {
+                    var readyState = await EvaluateAsync(page, "document.readyState", token);
+                    if (readyState is "interactive" or "complete")
+                        break;
+                }
+                catch (Exception ex) when (ex is HttpRequestException or WebSocketException or TimeoutException or InvalidOperationException)
+                {
+                    var refreshedPage = await GetPageTargetAsync(token);
+                    if (!string.Equals(refreshedPage.Id, page.Id, StringComparison.Ordinal))
+                        throw new InvalidOperationException("The active browser tab changed while Bing was loading. The search snapshot was discarded.");
+                    page = refreshedPage;
+                }
+            }
+
+            token.ThrowIfCancellationRequested();
+            var initialUrl = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var initialTitle = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var finalUri = ValidateHttpUrl(initialUrl);
+            if (!IsBingDomain(finalUri))
+            {
+                // Do not read text from a non-Bing destination reached through a redirect.
+                return new BrowserSearchSnapshot(
+                    normalizedQuery, targetUrl.AbsoluteUri, finalUri.AbsoluteUri, initialTitle,
+                    "unexpected_redirect", "The search redirected outside Bing; page content was not read or shared.",
+                    string.Empty, "[]");
+            }
+
+            var snapshot = await ReadPageSnapshotAsync(page, token);
+            token.ThrowIfCancellationRequested();
+            var currentUrl = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var currentTitle = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var activePage = await GetPageTargetAsync(token);
+            if (!string.Equals(activePage.Id, page.Id, StringComparison.Ordinal) ||
+                !string.Equals(snapshot.Url, initialUrl, StringComparison.Ordinal) ||
+                !string.Equals(snapshot.Title, initialTitle, StringComparison.Ordinal) ||
+                !string.Equals(currentUrl, initialUrl, StringComparison.Ordinal) ||
+                !string.Equals(currentTitle, initialTitle, StringComparison.Ordinal))
+                throw new InvalidOperationException("The Bing tab or page changed while search results were being read. The snapshot was discarded and not shared.");
+
+            var status = ClassifyBingSearchPage(snapshot.Url, snapshot.Title, snapshot.Text);
+            var notice = status switch
+            {
+                "blocked_or_challenge" => "Bing presented an access block or anti-automation challenge. No search results should be inferred from this page.",
+                "consent_required" => "Bing requires a privacy/consent choice in its dedicated browser. Complete it manually and run the search again.",
+                "no_results" => "Bing returned a page indicating that no matching results were found.",
+                "empty_page" => "Bing loaded a page with no readable visible text.",
+                _ => "Bing results were read from the same verified Bing tab. Result links and page text remain untrusted leads."
+            };
+
+            return new BrowserSearchSnapshot(
+                normalizedQuery, targetUrl.AbsoluteUri, snapshot.Url, snapshot.Title,
+                status, notice, snapshot.Text, snapshot.LinksJson);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<string> NavigateAsync(string url, CancellationToken token = default)
     {
         var targetUrl = ValidateHttpUrl(url);
@@ -791,6 +942,16 @@ public sealed record BrowserPageSnapshot(
     int FormCount);
 
 internal sealed record CdpPageTarget(string Id, string Title, string Url, string WebSocketUrl);
+
+public sealed record BrowserSearchSnapshot(
+    string Query,
+    string SearchUrl,
+    string FinalUrl,
+    string Title,
+    string Status,
+    string Notice,
+    string VisibleText,
+    string LinksJson);
 
 public sealed record BrowserPageIdentity(
     string PageTargetId,

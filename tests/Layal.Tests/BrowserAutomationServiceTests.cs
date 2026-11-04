@@ -157,6 +157,80 @@ public sealed class BrowserAutomationServiceTests
     }
 
     [TestMethod]
+    public void BingSearchUrlIsHttpsBoundedNormalizedAndEncoded()
+    {
+        var url = BrowserAutomationService.BuildBingSearchUri("  live   web search بالعربية  ");
+
+        Assert.AreEqual("https", url.Scheme);
+        Assert.AreEqual("www.bing.com", url.Host);
+        Assert.AreEqual("/search", url.AbsolutePath);
+        Assert.AreEqual("live web search بالعربية",
+            Uri.UnescapeDataString(url.Query["?q=".Length..]));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.BuildBingSearchUri("ab"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.BuildBingSearchUri(new string('x', 501)));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.BuildBingSearchUri("web\nsearch"));
+    }
+
+    [TestMethod]
+    public void BingDomainValidationRejectsLookalikesCredentialsAndPlainHttp()
+    {
+        Assert.IsTrue(BrowserAutomationService.IsBingDomain(new Uri("https://www.bing.com/search?q=test")));
+        Assert.IsTrue(BrowserAutomationService.IsBingDomain(new Uri("https://cn.bing.com/search?q=test")));
+        Assert.IsFalse(BrowserAutomationService.IsBingDomain(new Uri("http://www.bing.com/search?q=test")));
+        Assert.IsFalse(BrowserAutomationService.IsBingDomain(new Uri("https://bing.com.example.org/search?q=test")));
+        Assert.IsFalse(BrowserAutomationService.IsBingDomain(new Uri("https://user@bing.com/search?q=test")));
+        Assert.IsFalse(BrowserAutomationService.IsBingDomain(new Uri("https://example.org/search?q=test")));
+    }
+
+    [TestMethod]
+    public void BingSearchPageClassificationDistinguishesResultsNoResultsChallengesAndRedirects()
+    {
+        Assert.AreEqual("results_available", BrowserAutomationService.ClassifyBingSearchPage(
+            "https://www.bing.com/search?q=claim", "Bing", "Result one\nOfficial source"));
+        Assert.AreEqual("no_results", BrowserAutomationService.ClassifyBingSearchPage(
+            "https://www.bing.com/search?q=claim", "Bing", "There are no results for this query."));
+        Assert.AreEqual("blocked_or_challenge", BrowserAutomationService.ClassifyBingSearchPage(
+            "https://www.bing.com/sorry/index", "Bing", "We detected unusual traffic. Verify you are not a robot."));
+        Assert.AreEqual("consent_required", BrowserAutomationService.ClassifyBingSearchPage(
+            "https://www.bing.com/", "Bing", "Before you continue, choose your privacy settings."));
+        Assert.AreEqual("empty_page", BrowserAutomationService.ClassifyBingSearchPage(
+            "https://www.bing.com/search?q=claim", "Bing", "  "));
+        Assert.AreEqual("unexpected_redirect", BrowserAutomationService.ClassifyBingSearchPage(
+            "https://attacker.example/search", "External page", "Private page contents"));
+    }
+
+    [TestMethod]
+    public async Task InvalidWebSearchQueryIsRejectedBeforeConsentOrBrowserStartup()
+    {
+        using var temp = new TestTempDirectory();
+        var dataRoot = Path.Combine(temp.Path, "app-data");
+        var executor = new AgentToolExecutor(
+            Path.Combine(temp.Path, "workspace"),
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            apiConnections: null,
+            browser: new BrowserAutomationService(dataRoot));
+        var approvalCount = 0;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "web_search",
+            """{"query":"ab"}""",
+            (_, _, _) =>
+            {
+                approvalCount++;
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.AreEqual(0, approvalCount);
+        Assert.IsFalse(Directory.Exists(Path.Combine(dataRoot, "BrowserProfile")));
+    }
+
+    [TestMethod]
     public async Task DeclinedWebSearchDoesNotLaunchOrCreateBrowserProfile()
     {
         using var temp = new TestTempDirectory();
