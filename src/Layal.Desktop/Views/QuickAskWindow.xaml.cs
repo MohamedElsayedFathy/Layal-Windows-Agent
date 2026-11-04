@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
@@ -7,17 +8,23 @@ using System.Windows.Input;
 
 namespace Layal.Views;
 
+public sealed record QuickAskResult(bool Succeeded, string Message)
+{
+    public static QuickAskResult Success(string message) => new(true, message ?? string.Empty);
+    public static QuickAskResult Failure(string message) => new(false, message ?? string.Empty);
+}
+
 public partial class QuickAskWindow : Window
 {
     private readonly bool _isArabic;
-    private readonly Func<string, Task<string>> _askAsync;
+    private readonly Func<string, Task<QuickAskResult>> _askAsync;
     private readonly Action _cancelRequest;
     private readonly string _shortcutDisplay;
     private bool _isSubmitting;
     private bool _isCancellationRequested;
     private bool _isDisposed;
 
-    public QuickAskWindow(bool isArabic, Func<string, Task<string>> askAsync, Action cancelRequest, string shortcutDisplay = "Alt+Shift+S")
+    public QuickAskWindow(bool isArabic, Func<string, Task<QuickAskResult>> askAsync, Action cancelRequest, string shortcutDisplay = "Alt+Shift+S")
     {
         _isArabic = isArabic;
         _askAsync = askAsync ?? throw new ArgumentNullException(nameof(askAsync));
@@ -79,16 +86,24 @@ public partial class QuickAskWindow : Window
 
         try
         {
-            var answer = await _askAsync(question);
+            var result = await _askAsync(question);
             if (_isDisposed)
                 return;
 
-            AnswerText.Text = answer;
+            if (!result.Succeeded || string.IsNullOrWhiteSpace(result.Message))
+            {
+                AnswerScrollViewer.Visibility = Visibility.Collapsed;
+                StatusText.Text = string.IsNullOrWhiteSpace(result.Message)
+                    ? (_isArabic ? "لم تكتمل الإجابة. يمكنك مراجعة حالة المحادثة أو إعادة المحاولة." : "The answer did not complete. Check chat status or try again.")
+                    : result.Message;
+                return;
+            }
+
+            AnswerText.Text = result.Message;
             AnswerScrollViewer.Visibility = Visibility.Visible;
             StatusText.Text = _isArabic ? "انتهى الطلب. يمكنك كتابة سؤال متابعة." : "Request finished. You can ask a follow-up.";
             QuestionInput.Clear();
             Height = Math.Min(MaxHeight, Math.Max(Height, 390));
-            QuestionInput.Focus();
         }
         catch (Exception)
         {
@@ -178,6 +193,14 @@ public partial class QuickAskWindow : Window
             e.Handled = true;
             SubmitButton_Click(SubmitButton, new RoutedEventArgs(Button.ClickEvent));
         }
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        // The title-bar X must cancel the in-flight chat request just like Escape and Stop.
+        if (_isSubmitting)
+            RequestCancellation();
+        base.OnClosing(e);
     }
 
     protected override void OnClosed(EventArgs e)
