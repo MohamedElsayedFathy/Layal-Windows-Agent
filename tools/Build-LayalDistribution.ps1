@@ -124,13 +124,22 @@ if (-not $signingConfigured) {
     Write-Host 'NOT SIGNED: Layal.exe and Layal.dll remain unsigned for this non-release CI build.'
 }
 
-# Include license notices in the installed application payload and portable ZIP.
+# Include every manifest-referenced license in both the installed app payload and portable ZIP.
 $payloadLicenseDirectory = Join-Path $PublishDirectory 'licenses'
 New-Item -ItemType Directory -Force -Path $payloadLicenseDirectory | Out-Null
 Copy-Item -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_NOTICES.md') -Destination (Join-Path $payloadLicenseDirectory 'THIRD-PARTY-NOTICES.md') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/WTFPL.txt') -Destination (Join-Path $payloadLicenseDirectory 'WTFPL.txt') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/MIT-JeremyAnsel.HLSL.Targets.txt') -Destination (Join-Path $payloadLicenseDirectory 'MIT-JeremyAnsel.HLSL.Targets.txt') -Force
 Copy-Item -LiteralPath (Join-Path $Root 'licenses/PROJECT-LICENSE-STATUS.md') -Destination (Join-Path $payloadLicenseDirectory 'PROJECT-LICENSE-STATUS.md') -Force
+$payloadLicenseManifest = Get-Content -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_LICENSES.json') -Raw | ConvertFrom-Json
+$payloadLicenseTextPaths = @(
+    $payloadLicenseManifest.packages | ForEach-Object { $_.licenseTextPath }
+) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+foreach ($relativeLicensePath in $payloadLicenseTextPaths) {
+    $sourceLicensePath = Join-Path $Root $relativeLicensePath
+    if (-not (Test-Path -LiteralPath $sourceLicensePath -PathType Leaf)) {
+        throw "A license file referenced by docs/THIRD_PARTY_LICENSES.json is missing: $relativeLicensePath"
+    }
+    Copy-Item -LiteralPath $sourceLicensePath -Destination $payloadLicenseDirectory -Force
+}
 
 $portableZip = Join-Path $Distribution "Layal-$version-portable-win-x64.zip"
 Remove-Item -LiteralPath $portableZip -Force -ErrorAction SilentlyContinue
