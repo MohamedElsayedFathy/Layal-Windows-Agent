@@ -114,3 +114,19 @@ Upstream notices and model terms apply to the downloaded components separately f
 - License text: licenses/MIT-DocumentFormat-OpenXml.txt
 
 These libraries are used only for local extraction of text from user-selected PDF, DOCX and XLSX files. Their inclusion does not imply that scanned PDFs are OCRed, that macros are executed, or that the app automatically sends a selected file to an AI provider.
+
+
+## TesseractOCR
+
+- Package: TesseractOCR version 5.5.2 (direct dependency; Apache-2.0)
+- Project/source: https://github.com/Sicos1977/TesseractOCR
+- Package metadata: https://www.nuget.org/packages/TesseractOCR/5.5.2
+- License text: licenses/Apache-2.0-OpenCvSharp.txt
+- The package includes the Tesseract/Leptonica native OCR runtime. The x64 native runtime may require the Microsoft Visual C++ 2015-2022 x64 Redistributable on Windows installations where it is not already present.
+
+## Tesseract Arabic and English trained-data models
+
+- Models: `ara.traineddata` and `eng.traineddata` from `tesseract-ocr/tessdata_fast`.
+- Upstream source: https://github.com/tesseract-ocr/tessdata_fast/tree/87416418657359cb625c412a48b6e1d6d41c29bd
+- License: Apache-2.0. The build downloads the files from this commit-pinned upstream repository and verifies their exact sizes and Git blob identities before use.
+- Model weights are not committed to the source tree. They are included in Windows build output, the portable ZIP, and the installer so OCR works locally after installation without fetching model data at runtime.

@@ -72,6 +72,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _hoveredElementInspectionCancellation;
     private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly DocumentTextExtractionService _documentTextExtractionService = new();
+    private CancellationTokenSource? _documentExtractionCancellation;
     private string? _pendingDocumentText;
     private string? _pendingDocumentFileName;
     private string? _pendingDocumentNotice;
@@ -585,6 +586,7 @@ public partial class MainWindow : Window
         _screenCaptureCancellation?.Cancel();
         // Abort both the five-second pointer-targeting interval and any pending UIA result.
         _hoveredElementInspectionCancellation?.Cancel();
+        _documentExtractionCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         // StopRecordingAsync has no cancellation token. Mark its in-flight finalization so
         // the resulting audio is discarded before any local transcription or cloud upload.
@@ -967,6 +969,7 @@ public partial class MainWindow : Window
         _gameModeDetectionTimer.Tick -= GameModeDetectionTimer_Tick;
         _weatherCancellation?.Cancel();
         _hoveredElementInspectionCancellation?.Cancel();
+        _documentExtractionCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
         _speechCancellation?.Cancel();
@@ -4450,7 +4453,8 @@ public partial class MainWindow : Window
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
             _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
-            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
+            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true } ||
+            _documentExtractionCancellation is not null)
         {
             SetChatActivityStatus(IsArabic
                 ? "أوقف العمليات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل اختيار ملف."
@@ -4468,22 +4472,34 @@ public partial class MainWindow : Window
 
         var dialog = new OpenFileDialog
         {
-            Title = IsArabic ? "اختيار ملف لمراجعته قبل الإرفاق" : "Choose a document to review before attaching",
+            Title = IsArabic ? "اختيار صورة أو PDF أو ملف لمراجعته قبل الإرفاق" : "Choose an image, PDF, or document to review",
             Filter = IsArabic
-                ? "ملفات مدعومة (*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff)|*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|كل الملفات (*.*)|*.*"
-                : "Supported files (*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff)|*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.pdf;*.docx;*.xlsx;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff|All files (*.*)|*.*",
+                ? "صور وملفات مدعومة (*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.pdf;*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.docx;*.xlsx)|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.pdf;*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.docx;*.xlsx|كل الملفات (*.*)|*.*"
+                : "Images and documents (*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.pdf;*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.docx;*.xlsx)|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.pdf;*.txt;*.md;*.csv;*.json;*.xml;*.html;*.htm;*.docx;*.xlsx|All files (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false
         };
         if (dialog.ShowDialog(this) != true) return;
 
+        _documentExtractionCancellation = new CancellationTokenSource();
         ChooseDocumentButton.IsEnabled = false;
+        ChooseImageButton.IsEnabled = false;
+        SendButton.IsEnabled = false;
+        CancelResponseButton.IsEnabled = true;
+        AutomationProperties.SetHelpText(ChooseDocumentButton, IsArabic
+            ? "يجري استخراج النص محليًا. اضغط إيقاف لإلغاء العملية؛ لن يُرسل الملف تلقائيًا."
+            : "Text is being extracted locally. Press Stop to cancel; the file is never sent automatically.");
         SetChatActivityStatus(IsArabic
-            ? "جارٍ استخراج النص محليًا. قد يستخدم Windows OCR للصور وPDF الممسوح؛ لن يُرسل شيء."
-            : "Extracting text locally. Windows OCR may be used for images and scanned PDFs; nothing will be sent.");
+            ? "جارٍ استخراج النص محليًا بمحرك OCR المضمّن للصور وصفحات PDF الممسوحة. اضغط إيقاف للإلغاء؛ لن يُرسل شيء."
+            : "Extracting text locally with the bundled OCR engine for images and scanned PDF pages. Press Stop to cancel; nothing will be sent.");
+
         try
         {
-            var extraction = await _documentTextExtractionService.ExtractFileAsync(dialog.FileName);
+            var extraction = await _documentTextExtractionService.ExtractFileAsync(
+                dialog.FileName,
+                _documentExtractionCancellation.Token);
+            _documentExtractionCancellation.Token.ThrowIfCancellationRequested();
+
             var preview = new DocumentTextPreviewWindow(extraction, IsArabic) { Owner = this };
             if (preview.ShowDialog() != true)
             {
@@ -4496,18 +4512,29 @@ public partial class MainWindow : Window
             _pendingDocumentNotice = extraction.Notice;
             UpdateDocumentAttachmentUi();
             SetChatActivityStatus(IsArabic
-                ? $"تم إرفاق النص المستخرج محليًا من {extraction.FileName}. لم يُرسل؛ راجع السؤال واضغط إرسال."
-                : $"Locally extracted text from {extraction.FileName} is attached. It has not been sent; review the prompt and press Send.");
+                ? $"تم استخراج النص محليًا من {extraction.FileName} وإرفاقه بعد المراجعة. لم يُرسل؛ راجع السؤال واضغط إرسال."
+                : $"Text from {extraction.FileName} was extracted locally and attached after review. It has not been sent; review the prompt and press Send.");
             ChatInput.Focus();
+        }
+        catch (OperationCanceledException)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "تم إلغاء استخراج الملف؛ لم يُرفق ولم يُرسل أي محتوى."
+                : "Document extraction was cancelled; no content was attached or sent.");
         }
         catch (Exception ex)
         {
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
-                "تعذر قراءة الملف", "Could not read document", ex, IsArabic));
+                "تعذر قراءة الصورة أو الملف", "Could not read image or document", ex, IsArabic));
         }
         finally
         {
+            _documentExtractionCancellation?.Dispose();
+            _documentExtractionCancellation = null;
+            SendButton.IsEnabled = _chatCancellation is null;
+            CancelResponseButton.IsEnabled = _chatCancellation is not null;
             UpdateDocumentAttachmentUi();
+            UpdateVisionAttachmentControls();
         }
     }
 
@@ -4525,13 +4552,13 @@ public partial class MainWindow : Window
         if (DocumentAttachmentStatus is null) return;
         var hasDocument = !string.IsNullOrWhiteSpace(_pendingDocumentText);
         var hasImage = _pendingVisionImageBytes is { Length: > 0 };
-        ChooseDocumentButton.IsEnabled = _chatCancellation is null && !hasImage;
-        ChooseImageButton.IsEnabled = _chatCancellation is null && !hasDocument;
-        CaptureScreenRegionButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled && _chatCancellation is null && !hasDocument;
+        ChooseDocumentButton.IsEnabled = _chatCancellation is null && _documentExtractionCancellation is null && !hasImage;
+        ChooseImageButton.IsEnabled = _chatCancellation is null && _documentExtractionCancellation is null && !hasDocument;
+        CaptureScreenRegionButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled && _chatCancellation is null && _documentExtractionCancellation is null && !hasDocument;
         ClearDocumentButton.Visibility = hasDocument ? Visibility.Visible : Visibility.Collapsed;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
         PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
-            _chatCancellation is null && !hasDocument && !hasImage;
+            _chatCancellation is null && _documentExtractionCancellation is null && !hasDocument && !hasImage;
         DocumentAttachmentStatus.Text = hasDocument
             ? (IsArabic ? "جاهز للمراجعة والإرسال: " : "Ready for review and send: ") + (_pendingDocumentFileName ?? (IsArabic ? "ملف" : "document"))
             : (IsArabic ? "لا يوجد ملف مرفق" : "No document attached");
@@ -5565,7 +5592,15 @@ public partial class MainWindow : Window
         SetChatActivityStatus(IsArabic ? "تم تحميل المحادثة المحفوظة." : "Saved conversation loaded.");
     }
 
-    private void CancelResponseButton_Click(object sender, RoutedEventArgs e) => _chatCancellation?.Cancel();
+    private void CancelResponseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_documentExtractionCancellation is not null)
+        {
+            _documentExtractionCancellation.Cancel();
+            return;
+        }
+        _chatCancellation?.Cancel();
+    }
 
     private async void ChatInput_KeyDown(object sender, KeyEventArgs e)
     {
@@ -6523,6 +6558,7 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         _hoveredElementInspectionCancellation?.Cancel();
+        _documentExtractionCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechCancellation?.Cancel();
         _voiceTestCancellation?.Cancel();

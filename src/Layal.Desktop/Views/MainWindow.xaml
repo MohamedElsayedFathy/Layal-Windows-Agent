@@ -300,10 +300,10 @@
                                     MinWidth="140" ToolTip="قراءة صورة الحافظة بعد موافقتك وإرفاقها للمراجعة فقط."
                                     AutomationProperties.Name="إرفاق صورة الحافظة بعد الموافقة"
                                     AutomationProperties.HelpText="تُقرأ الصورة بعد تأكيدك وتُحوّل إلى PNG محليًا بحد 40 مليون بكسل و10 ميجابايت. لا تُرسل إلا عند الضغط على إرسال."/>
-                            <Button x:Name="ChooseDocumentButton" Content="إرفاق ملف نصي/PDF/Office" Click="ChooseDocumentButton_Click"
-                                    MinWidth="160" ToolTip="يُستخرج النص محليًا وتراجعه قبل الإرفاق؛ لا يُرسل إلا عند الضغط على إرسال."
-                                    AutomationProperties.Name="اختيار ملف لمراجعته وإرفاقه"
-                                    AutomationProperties.HelpText="يدعم TXT وMarkdown وCSV وJSON وXML وHTML وPDF النصي وDOCX وXLSX، بحد أقصى 20 ميجابايت."/>
+                            <Button x:Name="ChooseDocumentButton" Content="إرفاق صورة/OCR/PDF/Office" Click="ChooseDocumentButton_Click"
+                                    MinWidth="160" ToolTip="يقرأ الصور والصفحات الممسوحة محليًا بتقنية OCR، ثم يعرض معاينة قبل الإرفاق؛ لا يُرسل شيء تلقائيًا."
+                                    AutomationProperties.Name="اختيار صورة أو PDF أو ملف لمراجعته وإرفاقه"
+                                    AutomationProperties.HelpText="يدعم الصور PNG/JPG/BMP/TIFF وPDF النصي والممسوح حتى 25 صفحة مع OCR عربي/إنجليزي محلي. حد الصورة 20 ميجابايت و8 ملايين بكسل و3,000 بكسل لكل ضلع. لا إرسال تلقائي."/>
                             <Button x:Name="ClearDocumentButton" Content="إزالة الملف" Click="ClearDocumentButton_Click"
                                     Visibility="Collapsed" MinWidth="90" ToolTip="إزالة محتوى الملف المرفق قبل الإرسال."/>
                             <Button x:Name="CameraVisionButton" Content="فتح الكاميرا" Click="CameraVisionButton_Click"
