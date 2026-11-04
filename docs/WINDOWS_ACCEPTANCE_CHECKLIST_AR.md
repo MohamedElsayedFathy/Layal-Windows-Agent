@@ -180,7 +180,7 @@
 | AYO | الحالة | Git SHA | التاريخ | الدليل / رقم العيب |
 |---|---|---|---|---|
 | 01 | NOT RUN | | | |
-| 02/03 | NOT RUN | | | |
+| 02/03 | BLOCKED — انتظار قبول Windows اليدوي (الكود وCI ناجحان) | 5c519cc4d83914c6cd5047ceda5987c675e5eefc | 2026-11-04 | AYO-02: PR #84 merged at `823b8048752ec34a99caaccbdc60a2dcc098e44e`. CI: 391 tests passed, Windows Release build, desktop click-through/drag/DPI/keyboard/GLB checks, security/supply-chain and installer lifecycle passed. لم يُنفذ بعد اختبار المستخدم التفاعلي للاختصارات من تطبيقات خارجية وتعارضاتها، الحفاظ على المسودة على الجهاز، إظهار فشل المزود، الكتم الصوتي، وإجراء Incognito. AYO-03 مشمول في مجموعة هذا الصف أيضًا وينتظر قبوله اليدوي لاختصاراته. |
 | 04/12 | NOT RUN | | | |
 | 05/06 | NOT RUN | | | |
 | 07/16 | NOT RUN | | | |
