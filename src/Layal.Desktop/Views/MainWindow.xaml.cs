@@ -68,6 +68,7 @@ public partial class MainWindow : Window
     public ObservableCollection<MemoryNote> MemoryNotes { get; } = new();
 
     private readonly ScreenRegionCaptureService _screenRegionCaptureService = new();
+    private CancellationTokenSource? _screenCaptureCancellation;
     private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly DocumentTextExtractionService _documentTextExtractionService = new();
     private string? _pendingDocumentText;
@@ -578,6 +579,9 @@ public partial class MainWindow : Window
 
     private void StopCaptureSourcesForPrivacyShield()
     {
+        // A privacy-shield change must also close an in-flight local screen preview.
+        // The capture service observes this token and never returns a crop for attachment.
+        _screenCaptureCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         // StopRecordingAsync has no cancellation token. Mark its in-flight finalization so
         // the resulting audio is discarded before any local transcription or cloud upload.
@@ -4169,6 +4173,7 @@ public partial class MainWindow : Window
         if (_chatCancellation is not null || _agentTaskCancellation is not null ||
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+            _screenCaptureCancellation is not null ||
             _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
@@ -4187,19 +4192,43 @@ public partial class MainWindow : Window
         if (consent != MessageBoxResult.Yes)
             return;
 
+        // The shield may have been enabled while the consent dialog was open.
+        if (AppRuntime.Settings.PrivacyShieldEnabled)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لم يتم التقاط الشاشة."
+                : "Privacy shield is enabled; no screen image was captured.");
+            return;
+        }
+
         var previousWindowState = WindowState;
         var wasVisible = IsVisible;
+        var captureCancellation = new CancellationTokenSource();
+        _screenCaptureCancellation = captureCancellation;
         CaptureScreenRegionButton.IsEnabled = false;
         try
         {
             Hide();
             // Let Windows expose the app beneath Layal before copying pixels.
-            await Task.Delay(250);
+            await Task.Delay(250, captureCancellation.Token);
 
-            var capture = _screenRegionCaptureService.CaptureRegionUnderCursor(IsArabic);
+            var capture = _screenRegionCaptureService.CaptureRegionUnderCursor(
+                IsArabic,
+                captureCancellation.Token);
             if (capture is null)
             {
                 SetChatActivityStatus(IsArabic ? "تم إلغاء قص الشاشة؛ لم يتم إرفاق أي صورة." : "Screen crop cancelled; no image was attached.");
+                return;
+            }
+
+            // Recheck after the modal preview: the privacy shield may have cancelled capture
+            // while the user was selecting a crop. Do not leave even a pending attachment.
+            if (captureCancellation.IsCancellationRequested || AppRuntime.Settings.PrivacyShieldEnabled)
+            {
+                Array.Clear(capture.PngBytes, 0, capture.PngBytes.Length);
+                SetChatActivityStatus(IsArabic
+                    ? "أوقف درع الخصوصية التقاط الشاشة؛ لم يتم إرفاق أي صورة."
+                    : "The privacy shield stopped screen capture; no image was attached.");
                 return;
             }
 
@@ -4212,6 +4241,16 @@ public partial class MainWindow : Window
                 : $"Screen crop attached ({capture.Width} × {capture.Height} pixels) after preview. It has not been sent; ask a question and press Send.");
             ChatInput.Focus();
         }
+        catch (OperationCanceledException) when (captureCancellation.IsCancellationRequested)
+        {
+            SetChatActivityStatus(IsArabic
+                ? (AppRuntime.Settings.PrivacyShieldEnabled
+                    ? "درع الخصوصية ألغى التقاط الشاشة؛ لم يتم إرفاق أو إرسال أي صورة."
+                    : "تم إلغاء التقاط الشاشة؛ لم يتم إرفاق أو إرسال أي صورة.")
+                : (AppRuntime.Settings.PrivacyShieldEnabled
+                    ? "The privacy shield cancelled screen capture; no image was attached or sent."
+                    : "Screen capture was cancelled; no image was attached or sent."));
+        }
         catch (Exception ex)
         {
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
@@ -4219,6 +4258,10 @@ public partial class MainWindow : Window
         }
         finally
         {
+            if (ReferenceEquals(_screenCaptureCancellation, captureCancellation))
+                _screenCaptureCancellation = null;
+            captureCancellation.Dispose();
+
             if (wasVisible && !IsVisible)
                 Show();
             WindowState = previousWindowState;
