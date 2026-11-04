@@ -6055,6 +6055,13 @@ public partial class MainWindow : Window
         {
             if (AppRuntime.IsExiting)
                 return;
+            if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "افتح الوضع الخاص أولًا قبل الرجوع إلى المهمة المرتبطة بالإشعار."
+                    : "Exit private chat before opening the task linked to this notification.");
+                return;
+            }
 
             ShowFromTray();
             MainTabs.SelectedItem = TasksTab;
@@ -6304,6 +6311,12 @@ public partial class MainWindow : Window
 
     private void RefreshRecentTasks(string? selectTaskId = null)
     {
+        if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
+        {
+            RecentTasks.Clear();
+            return;
+        }
+
         var previouslySelectedId = (RecentTasksList.SelectedItem as TaskHistoryListItem)?.Id;
         var idToSelect = string.IsNullOrWhiteSpace(selectTaskId) ? previouslySelectedId : selectTaskId;
         _refreshingRecentTasks = true;
