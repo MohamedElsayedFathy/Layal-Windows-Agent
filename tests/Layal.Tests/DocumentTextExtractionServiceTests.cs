@@ -88,7 +88,7 @@ public sealed class DocumentTextExtractionServiceTests
     {
         using var temp = new TestTempDirectory();
         var path = Path.Combine(temp.Path, "mixed-scan.pdf");
-        var jpegBytes = CreateOcrTestJpeg();
+        var jpegBytes = CreateOcrTestJpeg(width: 3600, height: 900, fontSize: 140);
         using (var builder = new PdfDocumentBuilder())
         {
             var font = builder.AddStandard14Font(Standard14Font.Helvetica);
@@ -118,24 +118,24 @@ public sealed class DocumentTextExtractionServiceTests
             () => _service.ExtractFileAsync(path, cancellation.Token));
     }
 
-    private static byte[] CreateOcrTestJpeg()
+    private static byte[] CreateOcrTestJpeg(int width = 1800, int height = 420, double fontSize = 96)
     {
         var visual = new DrawingVisual();
         using (var context = visual.RenderOpen())
         {
-            context.DrawRectangle(Brushes.White, null, new Rect(0, 0, 1800, 420));
+            context.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
             var text = new FormattedText(
                 "LAYAL OCR TEST 4821",
                 CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight,
                 new Typeface("Arial"),
-                96,
+                fontSize,
                 Brushes.Black,
                 1.0);
-            context.DrawText(text, new Point(70, 80));
+            context.DrawText(text, new Point(70, Math.Max(40, (height - fontSize) / 2)));
         }
 
-        var bitmap = new RenderTargetBitmap(1800, 420, 96, 96, PixelFormats.Pbgra32);
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(visual);
         var encoder = new JpegBitmapEncoder { QualityLevel = 100 };
         encoder.Frames.Add(BitmapFrame.Create(bitmap));

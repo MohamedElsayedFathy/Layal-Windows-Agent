@@ -45,6 +45,8 @@ public sealed class DocumentTextExtractionService
 
     public const int MaximumOcrPagePixels = 8_000_000;
     public const int MaximumOcrPageSidePixels = 3_000;
+    public const int MaximumOcrSourcePixels = 16_000_000;
+    public const int MaximumOcrSourceSidePixels = 6_000;
     public const int MaximumPdfImagesPerPage = 8;
     public const int MaximumOcrImageFrames = 25;
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -342,10 +344,12 @@ public sealed class DocumentTextExtractionService
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     imageIndex++;
+                    // Accept ordinary 300-DPI A4 scans (roughly 8.7 MP) and
+                    // resample them to the smaller OCR working bitmap below.
                     if (pdfImage.WidthInSamples <= 0 || pdfImage.HeightInSamples <= 0 ||
-                        (long)pdfImage.WidthInSamples * pdfImage.HeightInSamples > MaximumOcrPagePixels ||
-                        pdfImage.WidthInSamples > MaximumOcrPageSidePixels ||
-                        pdfImage.HeightInSamples > MaximumOcrPageSidePixels)
+                        (long)pdfImage.WidthInSamples * pdfImage.HeightInSamples > MaximumOcrSourcePixels ||
+                        pdfImage.WidthInSamples > MaximumOcrSourceSidePixels ||
+                        pdfImage.HeightInSamples > MaximumOcrSourceSidePixels)
                     {
                         skippedImages++;
                         continue;
@@ -359,10 +363,16 @@ public sealed class DocumentTextExtractionService
                     }
 
                     candidateFound = true;
+                    byte[]? normalizedImageBytes = null;
                     try
                     {
+                        // Scale standard high-DPI scan images before allocating the OCR bitmap.
+                        var recognitionBytes = NormalizePdfImageForOcr(imageBytes, cancellationToken);
+                        if (!ReferenceEquals(recognitionBytes, imageBytes))
+                            normalizedImageBytes = recognitionBytes;
+
                         engine ??= CreateLocalOcrEngine();
-                        var recognizedText = RecognizeImageBytes(imageBytes, engine, cancellationToken);
+                        var recognizedText = RecognizeImageBytes(recognitionBytes, engine, cancellationToken);
                         if (string.IsNullOrWhiteSpace(recognizedText))
                             continue;
 
@@ -370,8 +380,14 @@ public sealed class DocumentTextExtractionService
                         AppendLimited(output, (output.Length > 0 ? "\n" : string.Empty) + label + recognizedText.Trim() + "\n", ref truncated);
                         recognizedImages++;
                     }
+                    catch (InvalidDataException)
+                    {
+                        skippedImages++;
+                    }
                     finally
                     {
+                        if (normalizedImageBytes is not null)
+                            System.Array.Clear(normalizedImageBytes, 0, normalizedImageBytes.Length);
                         System.Array.Clear(imageBytes, 0, imageBytes.Length);
                     }
 
@@ -423,6 +439,37 @@ public sealed class DocumentTextExtractionService
             Math.Max(textExtraction.UnitsProcessed, pagesToInspect),
             truncated,
             notice);
+    }
+
+    private static byte[] NormalizePdfImageForOcr(
+        byte[] imageBytes,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var stream = new MemoryStream(imageBytes, writable: false);
+        var decoder = BitmapDecoder.Create(
+            stream,
+            BitmapCreateOptions.PreservePixelFormat,
+            BitmapCacheOption.OnDemand);
+        if (decoder.Frames.Count == 0)
+            throw new InvalidDataException("The embedded PDF image contains no readable frame.");
+
+        var frame = decoder.Frames[0];
+        if (frame.PixelWidth <= 0 || frame.PixelHeight <= 0 ||
+            (long)frame.PixelWidth * frame.PixelHeight > MaximumOcrSourcePixels ||
+            frame.PixelWidth > MaximumOcrSourceSidePixels ||
+            frame.PixelHeight > MaximumOcrSourceSidePixels)
+        {
+            throw new InvalidDataException("The embedded PDF image exceeds the safe pre-resampling source limit.");
+        }
+
+        var scale = GetSafeOcrScale(frame.PixelWidth, frame.PixelHeight);
+        if (scale >= 0.999999)
+            return imageBytes;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var resized = new TransformedBitmap(frame, new ScaleTransform(scale, scale));
+        return EncodePng(resized);
     }
 
     private static byte[]? TryGetPdfImageBytes(IPdfImage pdfImage)
