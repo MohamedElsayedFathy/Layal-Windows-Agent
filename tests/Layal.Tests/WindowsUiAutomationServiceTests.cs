@@ -134,6 +134,29 @@ public sealed class WindowsUiAutomationServiceTests
 
 
     [TestMethod]
+    public async Task HoverInspectionHonorsPreCancelledTokenBeforeNativeUiAutomation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var wasCancelled = false;
+        try
+        {
+            await WindowsUiAutomationService.InspectElementAtPointAsync(
+                screenX: 0,
+                screenY: 0,
+                excludedProcessId: Environment.ProcessId,
+                cancellationToken: cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            wasCancelled = true;
+        }
+
+        Assert.IsTrue(wasCancelled, "A pre-cancelled hover inspection must stop before querying Windows UI Automation.");
+    }
+
+    [TestMethod]
     public void HoverInspectionExposesNamesOnlyForNonValueBearingActionControls()
     {
         Assert.IsTrue(WindowsUiAutomationService.CanExposeElementName("ControlType.Button", isPassword: false));
