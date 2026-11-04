@@ -42,8 +42,12 @@ public sealed partial class TaskApprovalWindow : Window
 
         // Cancellation may originate from Escape or another application shutdown/privacy path.
         // Close the modal prompt on its dispatcher so the orchestrator can observe the token.
+        var cancellationObserved = 0;
         using var cancellationRegistration = cancellationToken.Register(() =>
         {
+            // Record cancellation before dispatching so a close racing with ShowDialog's startup
+            // still cannot be interpreted as a normal user decline.
+            Interlocked.Exchange(ref cancellationObserved, 1);
             if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
                 return;
 
@@ -51,8 +55,9 @@ public sealed partial class TaskApprovalWindow : Window
             {
                 Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() =>
                 {
-                    if (IsVisible)
-                        Close();
+                    // Do not gate on IsVisible: WPF can raise Loaded before its visibility state
+                    // is fully propagated, and cancellation must close the pending modal either way.
+                    Close();
                 }));
             }
             catch (InvalidOperationException)
@@ -63,7 +68,8 @@ public sealed partial class TaskApprovalWindow : Window
 
         cancellationToken.ThrowIfCancellationRequested();
         var approved = ShowDialog() == true;
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested || Volatile.Read(ref cancellationObserved) != 0)
+            throw new OperationCanceledException(cancellationToken);
         return approved;
     }
 

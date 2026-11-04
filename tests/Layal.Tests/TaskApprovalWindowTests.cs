@@ -58,6 +58,7 @@ public sealed class TaskApprovalWindowTests
                 dialog.Loaded += (_, _) => cancellation.Cancel();
 
                 Assert.ThrowsExactly<OperationCanceledException>(() => dialog.ShowForApproval(cancellation.Token));
+                Assert.IsTrue(cancellation.IsCancellationRequested, "The external cancellation source must remain signaled.");
                 Assert.IsFalse(dialog.IsVisible, "A cancelled approval prompt must close.");
             }
             catch (Exception ex) { failure = ex; }
