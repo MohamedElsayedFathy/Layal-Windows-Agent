@@ -128,7 +128,7 @@ public sealed class ScreenRegionCaptureService
         private readonly Bitmap _screenshot;
         private readonly bool _isArabic;
         private readonly SelectionCanvas _canvas;
-        private readonly Label _status;
+        private readonly LiveRegionStatusLabel _status;
         private readonly Button _useSelection;
         private Point _dragStart;
         private bool _dragging;
@@ -406,8 +406,11 @@ public sealed class ScreenRegionCaptureService
             public void Announce(string message)
             {
                 Text = message;
+                AccessibleName = message;
                 AccessibleDescription = message;
-                AccessibilityNotifyClients(AccessibleEvents.LiveRegionChanged, -1);
+                // WinForms exposes NameChange (not a LiveRegionChanged enum member).
+                // Updating the accessible name makes the current selection announcement observable.
+                AccessibilityNotifyClients(AccessibleEvents.NameChange, -1);
             }
         }
 
