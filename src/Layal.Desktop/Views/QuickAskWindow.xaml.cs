@@ -115,7 +115,7 @@ public partial class QuickAskWindow : Window
         finally
         {
             _isSubmitting = false;
-            if (!_isDisposed && IsLoaded)
+            if (!_isDisposed)
             {
                 SubmitButton.IsEnabled = true;
                 QuestionInput.IsEnabled = true;
