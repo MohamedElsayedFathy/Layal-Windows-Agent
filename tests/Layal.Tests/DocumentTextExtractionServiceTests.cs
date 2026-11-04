@@ -87,14 +87,13 @@ public sealed class DocumentTextExtractionServiceTests
     public async Task ImageOcrRecognizesArabicTextWithBundledArabicAndEnglishModels()
     {
         using var temp = new TestTempDirectory();
-        var path = Path.Combine(temp.Path, "arabic-ocr-sample.jpg");
-        File.WriteAllBytes(path, CreateArabicOcrTestJpeg());
+        var path = Path.Combine(temp.Path, "arabic-ocr-sample.png");
+        var fixturePath = Path.Combine(AppContext.BaseDirectory, "TestAssets", "arabic-ocr-fixture.png");
+        File.WriteAllBytes(path, await File.ReadAllBytesAsync(fixturePath));
 
         var result = await _service.ExtractFileAsync(path);
 
-        Assert.IsTrue(
-            result.Text.Any(character => character >= '\u0600' && character <= '\u06FF'),
-            $"Expected Arabic script in OCR output, but received: {result.Text}");
+        StringAssert.Contains(result.Text, "اختبار");
         Assert.IsTrue(result.Notice.Contains("locally", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -159,33 +158,6 @@ public sealed class DocumentTextExtractionServiceTests
         return stream.ToArray();
     }
 
-    private static byte[] CreateArabicOcrTestJpeg()
-    {
-        const int width = 2200;
-        const int height = 520;
-        var visual = new DrawingVisual();
-        using (var context = visual.RenderOpen())
-        {
-            context.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
-            var text = new FormattedText(
-                "اختبار ليال",
-                new CultureInfo("ar-EG"),
-                FlowDirection.RightToLeft,
-                new Typeface("Segoe UI"),
-                144,
-                Brushes.Black,
-                1.0);
-            context.DrawText(text, new Point(100, 130));
-        }
-
-        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(visual);
-        var encoder = new JpegBitmapEncoder { QualityLevel = 100 };
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = new MemoryStream();
-        encoder.Save(stream);
-        return stream.ToArray();
-    }
 
     [TestMethod]
     public void UnsupportedAndEmptyFilesAreRejected()
