@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -51,4 +52,49 @@ public sealed class ScreenRegionCaptureServiceTests
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
             ScreenRegionCaptureService.EncodeCropPng(source, new Rectangle(100, 100, 24, 24)));
     }
+
+    [TestMethod]
+    public void DisplayAtTheExactSafePixelLimitIsAllowed()
+    {
+        var bounds = new Rectangle(-1920, 0, 8_000, 5_000);
+
+        ScreenRegionCaptureService.ValidateDisplayBounds(bounds, isArabic: false);
+
+        Assert.AreEqual(
+            ScreenRegionCaptureService.MaximumScreenPixels,
+            (long)bounds.Width * bounds.Height);
+    }
+
+    [TestMethod]
+    public void DisplayAboveTheSafePixelLimitIsRejectedBeforeBitmapAllocation()
+    {
+        var bounds = new Rectangle(0, 0, 8_001, 5_000);
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            ScreenRegionCaptureService.ValidateDisplayBounds(bounds, isArabic: false));
+
+        StringAssert.Contains(exception.Message, "safe capture memory limit");
+    }
+
+    [TestMethod]
+    public void InvalidDisplayDimensionsAreRejected()
+    {
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            ScreenRegionCaptureService.ValidateDisplayBounds(new Rectangle(0, 0, 0, 1080), isArabic: true));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            ScreenRegionCaptureService.ValidateDisplayBounds(new Rectangle(0, 0, 1920, -1), isArabic: false));
+    }
+
+    [TestMethod]
+    public void PreCancelledCaptureStopsBeforeReadingTheCursorOrDisplay()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.ThrowsExactly<OperationCanceledException>(() =>
+            new ScreenRegionCaptureService().CaptureRegionUnderCursor(
+                isArabic: false,
+                cancellation.Token));
+    }
+
 }
