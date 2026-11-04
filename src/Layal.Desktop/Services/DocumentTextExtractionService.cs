@@ -598,7 +598,7 @@ public sealed class DocumentTextExtractionService
                 continue;
             }
 
-            if (block is not Table table)
+            if (block is not DocumentFormat.OpenXml.Wordprocessing.Table table)
                 continue;
 
             tableIndex++;
@@ -645,7 +645,7 @@ public sealed class DocumentTextExtractionService
         {
             if (element is DocumentFormat.OpenXml.Wordprocessing.Text runText)
                 text.Append(runText.Text);
-            else if (element is Break)
+            else if (element is DocumentFormat.OpenXml.Wordprocessing.Break)
                 text.AppendLine();
             else if (element is TabChar)
                 text.Append('\t');
