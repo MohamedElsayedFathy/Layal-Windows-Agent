@@ -1299,8 +1299,8 @@ public partial class MainWindow : Window
             : "Text is extracted locally and reviewed before attachment; it is sent only when you press Send.";
         AutomationProperties.SetName(ChooseDocumentButton, ar ? "اختيار ملف لمراجعته وإرفاقه" : "Choose a document to review and attach");
         AutomationProperties.SetHelpText(ChooseDocumentButton, ar
-            ? "TXT وMarkdown وCSV وJSON وXML وHTML وPDF النصي وDOCX وXLSX؛ حد 20 ميجابايت. لا يُنفذ ماكرو ولا يوجد OCR."
-            : "TXT, Markdown, CSV, JSON, XML, HTML, text-based PDF, DOCX and XLSX; 20 MB limit. Macros and OCR are not run.");
+            ? "TXT وMarkdown وCSV وJSON وXML وHTML وPDF وDOCX وXLSX وصور PNG/JPG/BMP/TIFF؛ حد الملف 20 ميجابايت والنص 10,000 حرف. OCR عربي/إنجليزي محلي للصور وصفحات PDF الممسوحة. لا تُنفّذ وحدات ماكرو."
+            : "TXT, Markdown, CSV, JSON, XML, HTML, PDF, DOCX, XLSX, PNG/JPG/BMP/TIFF; 20 MB file and 10,000-character text limits. Arabic/English OCR runs locally for images and scanned PDF pages. Macros are never executed.");
         ClearDocumentButton.Content = ar ? "إزالة الملف" : "Remove document";
         ReadClipboardButton.Content = ar ? "قراءة الحافظة" : "Read clipboard";
         ReadClipboardButton.ToolTip = ar
