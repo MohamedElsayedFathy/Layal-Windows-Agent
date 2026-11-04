@@ -137,7 +137,7 @@ public sealed class SavedRoutineServiceTests
         StringAssert.Contains(prompt, "1. Inspect pending changes");
         StringAssert.Contains(prompt, "2. Run tests");
         StringAssert.Contains(prompt, "3. Summarize results");
-        StringAssert.Contains(prompt, "normal local approval before every tool");
+        StringAssert.Contains(prompt, "Obtain local approval before every tool");
         StringAssert.Contains(prompt, "not scripts or permissions");
         StringAssert.Contains(SavedRoutineService.BuildExecutionPrompt(routine, isArabic: true), "لا تجمع الموافقات");
     }
