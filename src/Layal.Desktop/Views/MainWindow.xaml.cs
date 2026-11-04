@@ -69,6 +69,7 @@ public partial class MainWindow : Window
 
     private readonly ScreenRegionCaptureService _screenRegionCaptureService = new();
     private CancellationTokenSource? _screenCaptureCancellation;
+    private CancellationTokenSource? _hoveredElementInspectionCancellation;
     private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly DocumentTextExtractionService _documentTextExtractionService = new();
     private string? _pendingDocumentText;
@@ -582,6 +583,8 @@ public partial class MainWindow : Window
         // A privacy-shield change must also close an in-flight local screen preview.
         // The capture service observes this token and never returns a crop for attachment.
         _screenCaptureCancellation?.Cancel();
+        // Abort both the five-second pointer-targeting interval and any pending UIA result.
+        _hoveredElementInspectionCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         // StopRecordingAsync has no cancellation token. Mark its in-flight finalization so
         // the resulting audio is discarded before any local transcription or cloud upload.
@@ -963,6 +966,7 @@ public partial class MainWindow : Window
         _proactiveCheckInTimer.Tick -= ProactiveCheckInTimer_Tick;
         _gameModeDetectionTimer.Tick -= GameModeDetectionTimer_Tick;
         _weatherCancellation?.Cancel();
+        _hoveredElementInspectionCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechRecordingTimer.Tick -= SpeechRecordingTimer_Tick;
         _speechCancellation?.Cancel();
@@ -4057,6 +4061,13 @@ public partial class MainWindow : Window
                 : "The privacy shield is enabled or Layal is exiting; UI element inspection is blocked.");
             return;
         }
+        if (_hoveredElementInspectionCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "فحص عنصر جارٍ بالفعل؛ انتظر اكتماله أو فعّل درع الخصوصية لإلغائه."
+                : "An element inspection is already in progress; wait for it or enable the privacy shield to cancel it.");
+            return;
+        }
 
         var consent = MessageBox.Show(this,
             IsArabic
@@ -4067,6 +4078,9 @@ public partial class MainWindow : Window
         if (consent != MessageBoxResult.Yes)
             return;
 
+        using var inspectionCancellation = new CancellationTokenSource();
+        _hoveredElementInspectionCancellation = inspectionCancellation;
+        InspectHoveredElementButton.IsEnabled = false;
         var previousWindowState = WindowState;
         var wasVisible = IsVisible;
         var mascotWindow = AppRuntime.MascotWindow;
@@ -4080,33 +4094,25 @@ public partial class MainWindow : Window
             if (mascotWasVisible)
                 mascotWindow!.Hide();
 
-            await Task.Delay(TimeSpan.FromSeconds(5));
+            await Task.Delay(TimeSpan.FromSeconds(5), inspectionCancellation.Token);
+            inspectionCancellation.Token.ThrowIfCancellationRequested();
 
             if (AppRuntime.IsExiting)
                 return;
             if (AppRuntime.Settings.PrivacyShieldEnabled)
-            {
-                SetChatActivityStatus(IsArabic
-                    ? "تم إلغاء فحص العنصر بسبب تفعيل درع الخصوصية؛ لم تُضف بيانات إلى المسودة."
-                    : "Element inspection was cancelled because the privacy shield was enabled; nothing was added to the draft.");
-                return;
-            }
+                throw new OperationCanceledException(inspectionCancellation.Token);
 
             var cursor = System.Windows.Forms.Cursor.Position;
             var inspection = await WindowsUiAutomationService.InspectElementAtPointAsync(
-                cursor.X, cursor.Y, Environment.ProcessId, CancellationToken.None);
+                cursor.X, cursor.Y, Environment.ProcessId, inspectionCancellation.Token);
+            inspectionCancellation.Token.ThrowIfCancellationRequested();
 
             // Re-check after the asynchronous UIA call so enabling the shield during inspection
             // cannot disclose even metadata to the local chat draft.
             if (AppRuntime.IsExiting)
                 return;
             if (AppRuntime.Settings.PrivacyShieldEnabled)
-            {
-                SetChatActivityStatus(IsArabic
-                    ? "تم إلغاء فحص العنصر بسبب تفعيل درع الخصوصية؛ لم تُضف بيانات إلى المسودة."
-                    : "Element inspection was cancelled because the privacy shield was enabled; nothing was added to the draft.");
-                return;
-            }
+                throw new OperationCanceledException(inspectionCancellation.Token);
 
             var details = (IsArabic
                 ? "اشرح لي وظيفة هذا العنصر وكيف أستخدمه.\n"
@@ -4120,6 +4126,13 @@ public partial class MainWindow : Window
                 ? "تمت إضافة بيانات العنصر والسؤال إلى مسودة الشات المحلية؛ لم يتم الإرسال."
                 : "Element metadata and a question were added to the local chat draft; nothing was sent.");
         }
+        catch (OperationCanceledException) when (inspectionCancellation.IsCancellationRequested)
+        {
+            if (!AppRuntime.IsExiting)
+                SetChatActivityStatus(IsArabic
+                    ? "تم إلغاء فحص العنصر؛ لم تُضف بيانات إلى المسودة."
+                    : "Element inspection was cancelled; nothing was added to the draft.");
+        }
         catch (Exception ex)
         {
             if (!AppRuntime.IsExiting)
@@ -4128,9 +4141,11 @@ public partial class MainWindow : Window
         }
         finally
         {
-            // Do not resurrect hidden windows while the application is shutting down.
+            if (ReferenceEquals(_hoveredElementInspectionCancellation, inspectionCancellation))
+                _hoveredElementInspectionCancellation = null;
             if (!AppRuntime.IsExiting && IsLoaded)
             {
+                UpdatePrivacyShieldUi();
                 if (wasVisible && !IsVisible)
                     Show();
                 WindowState = previousWindowState;
@@ -6507,6 +6522,7 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        _hoveredElementInspectionCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         _speechCancellation?.Cancel();
         _voiceTestCancellation?.Cancel();
