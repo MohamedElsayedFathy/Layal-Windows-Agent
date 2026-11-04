@@ -39,4 +39,18 @@ public sealed class QuickAskRequestPolicyTests
         Assert.AreEqual(QuickAskBlockReason.None,
             QuickAskRequestPolicy.Evaluate(false, false, false, false, false));
     }
+    
+    [TestMethod]
+    public void SilentQuickAskNeverPreparesVoiceResources()
+    {
+        Assert.IsFalse(QuickAskRequestPolicy.ShouldPrepareVoiceResources(true, true));
+        Assert.IsFalse(QuickAskRequestPolicy.ShouldPrepareVoiceResources(true, false));
+    }
+
+    [TestMethod]
+    public void OrdinaryChatOnlyPreparesVoiceResourcesWhenVoiceRepliesAreEnabled()
+    {
+        Assert.IsTrue(QuickAskRequestPolicy.ShouldPrepareVoiceResources(false, true));
+        Assert.IsFalse(QuickAskRequestPolicy.ShouldPrepareVoiceResources(false, false));
+    }
 }

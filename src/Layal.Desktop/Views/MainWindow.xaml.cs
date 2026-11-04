@@ -5062,7 +5062,8 @@ public partial class MainWindow : Window
         try
         {
             if (useLocal && !await EnsureLocalAiSetupAsync(
-                    includeVoice: AppRuntime.Settings.VoiceRepliesEnabled,
+                    includeVoice: QuickAskRequestPolicy.ShouldPrepareVoiceResources(
+                        suppressVoiceReply, AppRuntime.Settings.VoiceRepliesEnabled),
                     cancellationToken: _chatCancellation.Token))
             {
                 AddMessage("status", IsArabic
