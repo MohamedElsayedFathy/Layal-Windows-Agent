@@ -713,50 +713,63 @@ public partial class MainWindow : Window
 
     private void CancelQuickAskRequest() => _chatCancellation?.Cancel();
 
-    private async Task<string> SubmitQuickAskAsync(string question)
+    private async Task<QuickAskResult> SubmitQuickAskAsync(string question)
     {
-        if (_incognitoMode)
-            return IsArabic
-                ? "السؤال السريع غير متاح أثناء المحادثة الخاصة."
-                : "Quick Ask is unavailable during private chat.";
-        if (_chatCancellation is not null || _voiceConversationCancellation is not null)
-            return IsArabic
-                ? "هناك طلب أو جلسة صوتية قيد التشغيل. أوقفها أولًا ثم أعد السؤال."
-                : "A chat request or voice session is already running. Stop it before asking again.";
-
-        if (_pendingVisionImageBytes is { Length: > 0 })
-            return IsArabic
-                ? "هناك صورة مرفقة بالمحادثة. أزل الصورة أو أرسلها أولًا من نافذة المحادثة، ثم أعد السؤال السريع."
-                : "An image is attached to the chat. Remove or send it from the main chat before using Quick Ask.";
+        var blockReason = QuickAskRequestPolicy.Evaluate(
+            isPrivateChat: _incognitoMode,
+            chatRequestBusy: _chatCancellation is not null,
+            voiceConversationBusy: _voiceConversationCancellation is not null,
+            hasPendingDocument: !string.IsNullOrWhiteSpace(_pendingDocumentText),
+            hasPendingImage: _pendingVisionImageBytes is { Length: > 0 });
+        if (blockReason != QuickAskBlockReason.None)
+        {
+            var message = blockReason switch
+            {
+                QuickAskBlockReason.PrivateChat => IsArabic
+                    ? "السؤال السريع غير متاح أثناء المحادثة الخاصة. استخدم نافذة المحادثة المؤقتة فقط."
+                    : "Quick Ask is unavailable during private chat. Use the temporary main chat only.",
+                QuickAskBlockReason.RequestBusy => IsArabic
+                    ? "هناك طلب أو جلسة صوتية قيد التشغيل. أوقفها أولًا ثم أعد السؤال."
+                    : "A chat request or voice session is already running. Stop it before asking again.",
+                QuickAskBlockReason.PendingAttachment => IsArabic
+                    ? "هناك مستند أو صورة مرفقة بالمحادثة. Quick Ask لا يرسل المرفقات؛ أزل المرفق أو أرسله أولًا من نافذة المحادثة."
+                    : "A document or image is attached to the chat. Quick Ask never sends pending attachments; remove or send it from the main chat first.",
+                _ => IsArabic ? "تعذر بدء السؤال السريع." : "Quick Ask could not start."
+            };
+            return QuickAskResult.Failure(message);
+        }
 
         var priorDraft = ChatInput.Text;
-        var previousMessageCount = ChatMessages.Count;
+        // Use object identity, not a collection count: AddMessage may evict old entries at the chat-history limit.
+        var previousMessages = new HashSet<ChatMessage>(ChatMessages, ReferenceEqualityComparer.Instance);
         ChatInput.Text = question;
         Task sendTask;
         try
         {
-            // Run through the established chat pipeline; restore any draft already typed in the main composer.
-            sendTask = SendMessageAsync();
+            // Reuse the established chat context/provider pipeline while keeping Quick Ask silent.
+            sendTask = SendMessageAsync(suppressVoiceReply: true);
         }
         finally
         {
+            // SendMessageAsync captures and clears the question synchronously before its first await.
+            // Restore the user's unfinished main-chat draft immediately and leave it untouched.
             ChatInput.Text = priorDraft;
         }
 
         await sendTask;
-        var newMessages = ChatMessages.Skip(previousMessageCount).ToList();
+        var newMessages = ChatMessages.Where(message => !previousMessages.Contains(message)).ToList();
         var answer = newMessages.LastOrDefault(message =>
             string.Equals(message.Role, "assistant", StringComparison.Ordinal) &&
             !string.IsNullOrWhiteSpace(message.Content));
         if (answer is not null)
-            return answer.Content;
+            return QuickAskResult.Success(answer.Content);
 
         var status = newMessages.LastOrDefault(message =>
             string.Equals(message.Role, "status", StringComparison.Ordinal) &&
             !string.IsNullOrWhiteSpace(message.Content));
-        return status?.Content ?? (IsArabic
+        return QuickAskResult.Failure(status?.Content ?? (IsArabic
             ? "لم تُنتج المحادثة إجابة نصية. افتح سجل المحادثة لمعرفة الحالة."
-            : "The chat did not return a text answer. Check the main conversation for its status.");
+            : "The chat did not return a text answer. Check the main conversation for its status."));
     }
 
     private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -4967,7 +4980,7 @@ public partial class MainWindow : Window
 
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
-    private async Task SendMessageAsync()
+    private async Task SendMessageAsync(bool suppressVoiceReply = false)
     {
         if (_voiceConversationCancellation is not null)
         {
@@ -5110,7 +5123,7 @@ public partial class MainWindow : Window
             }
 
             var completionStatus = IsArabic ? "اكتمل الرد" : "Response completed";
-            if (AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
+            if (!suppressVoiceReply && AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
             {
                 if (useLocal && !_localVoiceReady)
                 {
