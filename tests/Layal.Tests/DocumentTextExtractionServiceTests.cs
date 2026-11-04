@@ -2,6 +2,10 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using S = DocumentFormat.OpenXml.Spreadsheet;
@@ -52,7 +56,7 @@ public sealed class DocumentTextExtractionServiceTests
     }
 
     [TestMethod]
-    public void ImageExtensionsUseTheAsyncWindowsOcrPath()
+    public void ImageExtensionsRequireAsyncLocalOcrPath()
     {
         using var temp = new TestTempDirectory();
         var path = Path.Combine(temp.Path, "sample.png");
@@ -63,6 +67,116 @@ public sealed class DocumentTextExtractionServiceTests
         CollectionAssert.Contains(DocumentTextExtractionService.SupportedExtensions.ToArray(), ".png");
         CollectionAssert.Contains(DocumentTextExtractionService.SupportedExtensions.ToArray(), ".tiff");
     }
+
+    [TestMethod]
+    public async Task ImageOcrRecognizesEnglishTextLocallyWithBundledModels()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "ocr-sample.jpg");
+        File.WriteAllBytes(path, CreateOcrTestJpeg());
+
+        var result = await _service.ExtractFileAsync(path);
+
+        StringAssert.Contains(result.Text.ToUpperInvariant(), "LAYAL");
+        StringAssert.Contains(result.Text.ToUpperInvariant(), "OCR");
+        Assert.IsTrue(result.Notice.Contains("locally", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(result.WasTruncated);
+    }
+
+    [TestMethod]
+    public async Task ImageOcrRecognizesArabicTextWithBundledArabicAndEnglishModels()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "arabic-ocr-sample.png");
+        var fixturePath = Path.Combine(AppContext.BaseDirectory, "TestAssets", "arabic-ocr-fixture.png");
+        File.WriteAllBytes(path, await File.ReadAllBytesAsync(fixturePath));
+
+        var result = await _service.ExtractFileAsync(path);
+
+        StringAssert.Contains(result.Text, "اختبار");
+        Assert.IsTrue(result.Notice.Contains("locally", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public async Task ScannedPdfImageIsOcredAndDigitalTextIsPreserved()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "mixed-scan.pdf");
+        var jpegBytes = CreateOcrTestJpeg(width: 3600, height: 900, fontSize: 140);
+        using (var builder = new PdfDocumentBuilder())
+        {
+            var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+            var page = builder.AddPage(PageSize.A4);
+            page.AddText("Digital layer sentinel", 12, new PdfPoint(40, 700), font);
+            page.AddJpeg(jpegBytes, new PdfRectangle(0, 0, 595, 842));
+            File.WriteAllBytes(path, builder.Build());
+        }
+
+        var result = await _service.ExtractFileAsync(path);
+
+        StringAssert.Contains(result.Text, "Digital layer sentinel");
+        StringAssert.Contains(result.Text.ToUpperInvariant(), "LAYAL");
+        Assert.IsTrue(result.Notice.Contains("OCR", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public async Task ScannedOnlyPdfWithoutDigitalTextLayerIsOcredLocally()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "scanned-only.pdf");
+        var jpegBytes = CreateOcrTestJpeg(width: 3600, height: 900, fontSize: 140);
+        using (var builder = new PdfDocumentBuilder())
+        {
+            var page = builder.AddPage(PageSize.A4);
+            page.AddJpeg(jpegBytes, new PdfRectangle(0, 0, 595, 842));
+            File.WriteAllBytes(path, builder.Build());
+        }
+
+        var result = await _service.ExtractFileAsync(path);
+
+        StringAssert.Contains(result.Text.ToUpperInvariant(), "LAYAL");
+        Assert.IsTrue(result.Notice.Contains("OCR", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public async Task ImageOcrHonorsCancellationBeforeDecodingOrNativeRecognition()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "cancelled.png");
+        File.WriteAllBytes(path, CreateOcrTestJpeg());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            () => _service.ExtractFileAsync(path, cancellation.Token));
+    }
+
+    private static byte[] CreateOcrTestJpeg(int width = 1800, int height = 420, double fontSize = 96)
+    {
+        var visual = new DrawingVisual();
+        using (var context = visual.RenderOpen())
+        {
+            context.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
+            var text = new FormattedText(
+                "LAYAL OCR TEST 4821",
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                new Typeface("Arial"),
+                fontSize,
+                Brushes.Black,
+                1.0);
+            context.DrawText(text, new Point(70, Math.Max(40, (height - fontSize) / 2)));
+        }
+
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        var encoder = new JpegBitmapEncoder { QualityLevel = 100 };
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
+    }
+
 
     [TestMethod]
     public void UnsupportedAndEmptyFilesAreRejected()
@@ -205,6 +319,6 @@ public sealed class DocumentTextExtractionServiceTests
             File.WriteAllBytes(scannedLikePath, builder.Build());
         }
         var exception = Assert.ThrowsExactly<InvalidDataException>(() => _service.ExtractFile(scannedLikePath));
-        StringAssert.Contains(exception.Message, "OCR is not performed");
+        StringAssert.Contains(exception.Message, "ExtractFileAsync");
     }
 }

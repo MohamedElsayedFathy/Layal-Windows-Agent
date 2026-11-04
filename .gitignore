@@ -18,3 +18,6 @@ __pycache__/
 # Test output and result reports
 TestResults/
 *.trx
+
+# OCR model files are pinned and fetched by tools/Install-LayalOcrModels.ps1.
+src/Layal.Desktop/tessdata/*.traineddata

@@ -113,4 +113,38 @@ Upstream notices and model terms apply to the downloaded components separately f
 - Package metadata: https://www.nuget.org/packages/DocumentFormat.OpenXml/3.5.1
 - License text: licenses/MIT-DocumentFormat-OpenXml.txt
 
-These libraries are used only for local extraction of text from user-selected PDF, DOCX and XLSX files. Their inclusion does not imply that scanned PDFs are OCRed, that macros are executed, or that the app automatically sends a selected file to an AI provider.
+PdfPig and Open XML SDK are used for local extraction from user-selected PDF, DOCX and XLSX files. Scanned PDF/image OCR is provided separately by the bundled TesseractOCR engine. Macros are not executed, and a selected file is not sent to an AI provider unless the user reviews the extracted-text preview, attaches it, and explicitly presses Send.
+
+
+## TesseractOCR
+
+- Package: TesseractOCR version 5.5.2 (direct dependency; Apache-2.0)
+- Project/source: https://github.com/Sicos1977/TesseractOCR
+- Package metadata: https://www.nuget.org/packages/TesseractOCR/5.5.2
+- License text: licenses/Apache-2.0-OpenCvSharp.txt
+- The package includes the Tesseract/Leptonica native OCR runtime. The x64 native runtime may require the Microsoft Visual C++ 2015-2022 x64 Redistributable on Windows installations where it is not already present.
+
+## Tesseract Arabic and English trained-data models
+
+- Models: `ara.traineddata` and `eng.traineddata` from `tesseract-ocr/tessdata_fast`.
+- Upstream source: https://github.com/tesseract-ocr/tessdata_fast/tree/87416418657359cb625c412a48b6e1d6d41c29bd
+- License: Apache-2.0. The build downloads the files from this commit-pinned upstream repository and verifies their exact sizes and Git blob identities before use.
+- Model weights are not committed to the source tree. They are included in Windows build output, the portable ZIP, and the installer so OCR works locally after installation without fetching model data at runtime.
+
+## Microsoft.Extensions.DependencyInjection.Abstractions
+
+- Package: Microsoft.Extensions.DependencyInjection.Abstractions version 10.0.3 (transitive dependency observed in the Windows product SBOM)
+- License declared by NuGet: MIT
+- Source/license: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
+- Package metadata: https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection.Abstractions/10.0.3
+- License text: licenses/MIT-Dotnet-Extensions.txt
+
+## Microsoft.Extensions.Logging.Abstractions
+
+- Package: Microsoft.Extensions.Logging.Abstractions version 10.0.3 (transitive dependency observed in the Windows product SBOM)
+- License declared by NuGet: MIT
+- Source/license: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
+- Package metadata: https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/10.0.3
+- License text: licenses/MIT-Dotnet-Extensions.txt
+
+These packages are pulled transitively by the local OCR engine's dependency graph. Their package metadata identifies MIT licensing; project-level legal review remains pending.

@@ -355,6 +355,36 @@
       "licenseTextPath": "licenses/MIT-DocumentFormat-OpenXml.txt",
       "copyright": "Copyright (c) .NET Foundation and Contributors",
       "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "TesseractOCR",
+      "licenseExpression": "Apache-2.0",
+      "versionPolicy": "direct dependency pinned to 5.5.2",
+      "sourceUrl": "https://www.nuget.org/packages/TesseractOCR/5.5.2",
+      "licenseUrl": "https://github.com/Sicos1977/TesseractOCR/blob/master/LICENSE",
+      "licenseTextPath": "licenses/Apache-2.0-OpenCvSharp.txt",
+      "copyright": "TesseractOCR contributors; wraps Tesseract 5 and Leptonica native libraries.",
+      "reviewStatus": "Upstream NuGet metadata and Apache-2.0 license recorded; native runtime and product redistribution review remain pending."
+    },
+    {
+      "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency resolved from TesseractOCR 5.5.2; version 10.0.3 observed in the CI-generated product SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection.Abstractions/10.0.3",
+      "licenseUrl": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
+      "licenseTextPath": "licenses/MIT-Dotnet-Extensions.txt",
+      "copyright": ".NET Foundation and Contributors",
+      "reviewStatus": "NuGet package metadata identifies MIT licensing; included in the product SBOM through the TesseractOCR dependency graph; human legal review remains pending."
+    },
+    {
+      "id": "Microsoft.Extensions.Logging.Abstractions",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency resolved from TesseractOCR 5.5.2; version 10.0.3 observed in the CI-generated product SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/10.0.3",
+      "licenseUrl": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
+      "licenseTextPath": "licenses/MIT-Dotnet-Extensions.txt",
+      "copyright": ".NET Foundation and Contributors",
+      "reviewStatus": "NuGet package metadata identifies MIT licensing; included in the product SBOM through the TesseractOCR dependency graph; human legal review remains pending."
     }
   ],
   "provenanceReview": {
@@ -412,6 +442,14 @@
       "distributionPolicy": "downloaded after user consent; not bundled by Layal",
       "integrityCheck": "exact size and SHA-256 for ONNX weights; size/config validation for JSON metadata",
       "reviewStatus": "upstream model metadata noted; legal review still required"
+    },
+    {
+      "id": "Tesseract trained-data models: Arabic and English",
+      "sourceUrl": "https://github.com/tesseract-ocr/tessdata_fast/tree/87416418657359cb625c412a48b6e1d6d41c29bd",
+      "licenseExpression": "Apache-2.0",
+      "distributionPolicy": "downloaded from a commit-pinned upstream repository during Windows build and bundled in the application/installer; model binaries are not committed to the Git source tree",
+      "integrityCheck": "exact size and pinned Git blob object identity for ara.traineddata and eng.traineddata",
+      "reviewStatus": "upstream license and pinned model identities noted; redistribution review remains pending"
     }
   ]
 }

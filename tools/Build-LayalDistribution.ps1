@@ -85,6 +85,10 @@ if ($RequireCodeSigning) {
     ) -Description 'Enforce evidence-backed manual Windows release acceptance'
 }
 
+# Ensure the commit-pinned Arabic and English OCR models are available before MSBuild evaluates content items.
+& (Join-Path $PSScriptRoot 'Install-LayalOcrModels.ps1')
+# The invoked PowerShell script throws on every validation/download failure; no native exit-code check is needed.
+
 # Clear generated distribution outputs so stale SBOMs or notices cannot survive a rebuild.
 Remove-Item -LiteralPath $Distribution -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Artifacts, $Distribution, $SbomDirectory | Out-Null
@@ -120,13 +124,22 @@ if (-not $signingConfigured) {
     Write-Host 'NOT SIGNED: Layal.exe and Layal.dll remain unsigned for this non-release CI build.'
 }
 
-# Include license notices in the installed application payload and portable ZIP.
+# Include every manifest-referenced license in both the installed app payload and portable ZIP.
 $payloadLicenseDirectory = Join-Path $PublishDirectory 'licenses'
 New-Item -ItemType Directory -Force -Path $payloadLicenseDirectory | Out-Null
 Copy-Item -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_NOTICES.md') -Destination (Join-Path $payloadLicenseDirectory 'THIRD-PARTY-NOTICES.md') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/WTFPL.txt') -Destination (Join-Path $payloadLicenseDirectory 'WTFPL.txt') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/MIT-JeremyAnsel.HLSL.Targets.txt') -Destination (Join-Path $payloadLicenseDirectory 'MIT-JeremyAnsel.HLSL.Targets.txt') -Force
 Copy-Item -LiteralPath (Join-Path $Root 'licenses/PROJECT-LICENSE-STATUS.md') -Destination (Join-Path $payloadLicenseDirectory 'PROJECT-LICENSE-STATUS.md') -Force
+$payloadLicenseManifest = Get-Content -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_LICENSES.json') -Raw | ConvertFrom-Json
+$payloadLicenseTextPaths = @(
+    $payloadLicenseManifest.packages | ForEach-Object { $_.licenseTextPath }
+) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+foreach ($relativeLicensePath in $payloadLicenseTextPaths) {
+    $sourceLicensePath = Join-Path $Root $relativeLicensePath
+    if (-not (Test-Path -LiteralPath $sourceLicensePath -PathType Leaf)) {
+        throw "A license file referenced by docs/THIRD_PARTY_LICENSES.json is missing: $relativeLicensePath"
+    }
+    Copy-Item -LiteralPath $sourceLicensePath -Destination $payloadLicenseDirectory -Force
+}
 
 $portableZip = Join-Path $Distribution "Layal-$version-portable-win-x64.zip"
 Remove-Item -LiteralPath $portableZip -Force -ErrorAction SilentlyContinue
@@ -168,9 +181,23 @@ $expectedSbom = Join-Path $SbomDirectory "Layal-$version.cdx.json"
 $distributionLicenseDirectory = Join-Path $Distribution 'licenses'
 New-Item -ItemType Directory -Force -Path $distributionLicenseDirectory | Out-Null
 Copy-Item -LiteralPath (Join-Path $Root 'docs/THIRD_PARTY_NOTICES.md') -Destination (Join-Path $distributionLicenseDirectory 'THIRD-PARTY-NOTICES.md') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/WTFPL.txt') -Destination (Join-Path $distributionLicenseDirectory 'WTFPL.txt') -Force
-Copy-Item -LiteralPath (Join-Path $Root 'licenses/MIT-JeremyAnsel.HLSL.Targets.txt') -Destination (Join-Path $distributionLicenseDirectory 'MIT-JeremyAnsel.HLSL.Targets.txt') -Force
 Copy-Item -LiteralPath (Join-Path $Root 'licenses/PROJECT-LICENSE-STATUS.md') -Destination (Join-Path $distributionLicenseDirectory 'PROJECT-LICENSE-STATUS.md') -Force
+
+# Package every license text referenced by the curated manifest, including newly
+# introduced transitive dependencies. This keeps the installer and portable ZIP
+# notices synchronized with the same inventory used to validate the SBOM.
+$licenseManifestPath = Join-Path $Root 'docs/THIRD_PARTY_LICENSES.json'
+$licenseManifest = Get-Content -LiteralPath $licenseManifestPath -Raw | ConvertFrom-Json
+$licenseTextPaths = @(
+    $licenseManifest.packages | ForEach-Object { $_.licenseTextPath }
+) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+foreach ($relativeLicensePath in $licenseTextPaths) {
+    $sourceLicensePath = Join-Path $Root $relativeLicensePath
+    if (-not (Test-Path -LiteralPath $sourceLicensePath -PathType Leaf)) {
+        throw "A license file referenced by docs/THIRD_PARTY_LICENSES.json is missing: $relativeLicensePath"
+    }
+    Copy-Item -LiteralPath $sourceLicensePath -Destination $distributionLicenseDirectory -Force
+}
 $licenseAuditReport = Join-Path $distributionLicenseDirectory "Layal-$version-license-audit.md"
 $licenseArguments = @(
     (Join-Path $PSScriptRoot 'validate_licenses.py'),
