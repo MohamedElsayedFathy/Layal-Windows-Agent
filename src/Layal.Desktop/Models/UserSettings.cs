@@ -20,6 +20,10 @@ public sealed class UserSettings
     public bool VoiceRepliesEnabled { get; set; } = true;
     public string VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini";
     public string VoiceReplyId { get; set; } = "marin";
+    /// <summary>Stable WinMM microphone selection; Windows default is used until the user chooses a device.</summary>
+    public string AudioInputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
+    /// <summary>Stable WinMM playback selection; Windows default is used until the user chooses a device.</summary>
+    public string AudioOutputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
     /// <summary>Conversational response style only; never changes safety rules, tool permissions, or confirmation requirements.</summary>
     public string AssistantPersona { get; set; } = "warm";
     /// <summary>Public Google OAuth Desktop client ID; the refresh token itself is stored in a separate DPAPI-protected file.</summary>
@@ -60,6 +64,8 @@ public sealed class UserSettings
         VoiceRepliesEnabled = VoiceRepliesEnabled,
         VoiceReplyModelId = VoiceReplyModelId,
         VoiceReplyId = VoiceReplyId,
+        AudioInputDeviceId = AudioInputDeviceId,
+        AudioOutputDeviceId = AudioOutputDeviceId,
         AssistantPersona = AssistantPersona,
         GmailOAuthClientId = GmailOAuthClientId,
         MascotAlwaysOnTop = MascotAlwaysOnTop,
@@ -95,6 +101,8 @@ public sealed class UserSettings
         VoiceRepliesEnabled = source.VoiceRepliesEnabled;
         VoiceReplyModelId = source.VoiceReplyModelId;
         VoiceReplyId = source.VoiceReplyId;
+        AudioInputDeviceId = source.AudioInputDeviceId;
+        AudioOutputDeviceId = source.AudioOutputDeviceId;
         AssistantPersona = source.AssistantPersona;
         GmailOAuthClientId = source.GmailOAuthClientId;
         MascotAlwaysOnTop = source.MascotAlwaysOnTop;

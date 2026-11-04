@@ -34,7 +34,7 @@ public sealed class SpeechToTextService : IDisposable
 
     public bool IsRecording { get { lock (_sync) return _isRecording; } }
 
-    public void StartRecording()
+    public void StartRecording(string? inputDeviceId = null)
     {
         lock (_sync)
         {
@@ -48,7 +48,7 @@ public sealed class SpeechToTextService : IDisposable
             {
                 capture = new WaveIn
                 {
-                    DeviceNumber = 0,
+                    DeviceNumber = AudioDeviceService.ResolveInputDeviceNumber(inputDeviceId),
                     WaveFormat = new WaveFormat(SampleRate, 16, 1),
                     BufferMilliseconds = 100,
                     NumberOfBuffers = 3

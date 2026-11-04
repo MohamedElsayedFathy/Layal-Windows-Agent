@@ -288,40 +288,117 @@ public sealed class LocalVoiceService
         }
     }
 
-    public async Task SpeakAsync(string text, CancellationToken cancellationToken = default)
+    public async Task SpeakAsync(string text, CancellationToken cancellationToken = default, string? outputDeviceId = null)
     {
         if (!IsReady || string.IsNullOrWhiteSpace(_piperExecutable))
             throw new InvalidOperationException("جهّز موارد الصوت المحلي أولًا من الإعدادات.");
+
         var normalized = NormalizeTextForSpeech(text);
         if (normalized.Length == 0) return;
-        var arabic = normalized.Any(c => c is >= '\u0600' and <= '\u06FF');
-        var modelPath = arabic ? ArabicModelPath : EnglishModelPath;
-        var configPath = arabic ? ArabicConfigPath : EnglishConfigPath;
-        var modelHash = arabic ? ArabicVoiceSha256 : EnglishVoiceSha256;
-        var configHash = arabic ? ArabicVoiceConfigSha256 : EnglishVoiceConfigSha256;
-        var configSize = arabic ? ArabicVoiceConfigSize : EnglishVoiceConfigSize;
+        var segments = SplitTextByLanguage(normalized);
+        if (segments.Count == 0) return;
 
-        if (!await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken) ||
-            !await MatchesExpectedFileAsync(modelPath, PiperVoiceSize, modelHash, null, cancellationToken) ||
-            !await MatchesExpectedFileAsync(configPath, configSize, configHash, null, cancellationToken))
+        if (!await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken))
         {
             Volatile.Write(ref _ready, 0);
-            throw new InvalidOperationException("اكتُشف تغيير في موارد النطق المحلية؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
+            throw new InvalidOperationException("اكتُشف تغيير في ملفات محرك النطق المحلي؛ أعد تجهيز الصوت قبل استخدامه.");
         }
 
+        // Validate every required voice before playing the first segment. This avoids speaking
+        // half a bilingual answer and then failing because the second language model is missing.
+        foreach (var isArabic in segments.Select(segment => segment.IsArabic).Distinct())
+        {
+            var modelPath = isArabic ? ArabicModelPath : EnglishModelPath;
+            var configPath = isArabic ? ArabicConfigPath : EnglishConfigPath;
+            var modelHash = isArabic ? ArabicVoiceSha256 : EnglishVoiceSha256;
+            var configHash = isArabic ? ArabicVoiceConfigSha256 : EnglishVoiceConfigSha256;
+            var configSize = isArabic ? ArabicVoiceConfigSize : EnglishVoiceConfigSize;
+            if (!await MatchesExpectedFileAsync(modelPath, PiperVoiceSize, modelHash, null, cancellationToken) ||
+                !await MatchesExpectedFileAsync(configPath, configSize, configHash, null, cancellationToken))
+            {
+                Volatile.Write(ref _ready, 0);
+                throw new InvalidOperationException("اكتُشف تغيير في موارد النطق المحلية؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
+            }
+        }
+
+        foreach (var segment in segments)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await SpeakSegmentAsync(segment.Text, segment.IsArabic, outputDeviceId, cancellationToken);
+        }
+    }
+
+    /// <summary>Splits mixed Arabic/Latin text so each language uses its matching local Piper voice.</summary>
+    public static IReadOnlyList<(string Text, bool IsArabic)> SplitTextByLanguage(string? text)
+    {
+        var normalized = NormalizeTextForSpeech(text);
+        if (normalized.Length == 0)
+            return Array.Empty<(string Text, bool IsArabic)>();
+
+        var segments = new List<(string Text, bool IsArabic)>();
+        var current = new StringBuilder();
+        var currentLanguage = (bool?)null;
+        var pending = new StringBuilder();
+
+        foreach (Match token in Regex.Matches(normalized, @"[\u0600-\u06FF]+|[A-Za-z0-9]+|[^A-Za-z0-9\u0600-\u06FF]+"))
+        {
+            var value = token.Value;
+            var isArabic = value.Any(character => character is >= '\u0600' and <= '\u06FF');
+            var isLatinOrNumber = value.Any(character =>
+                character is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9');
+
+            if (!isArabic && !isLatinOrNumber)
+            {
+                if (currentLanguage is null) pending.Append(value);
+                else current.Append(value);
+                continue;
+            }
+
+            var nextLanguage = isArabic;
+            if (currentLanguage is null)
+            {
+                currentLanguage = nextLanguage;
+                current.Append(pending);
+                pending.Clear();
+            }
+            else if (currentLanguage.Value != nextLanguage)
+            {
+                segments.Add((current.ToString().Trim(), currentLanguage.Value));
+                current.Clear();
+                currentLanguage = nextLanguage;
+            }
+            current.Append(value);
+        }
+
+        if (currentLanguage is not null && current.Length > 0)
+            segments.Add((current.ToString().Trim(), currentLanguage.Value));
+        else if (pending.Length > 0)
+            segments.Add((pending.ToString().Trim(), false));
+
+        return segments.Where(segment => segment.Text.Length > 0).ToArray();
+    }
+
+    private async Task SpeakSegmentAsync(
+        string text,
+        bool isArabic,
+        string? outputDeviceId,
+        CancellationToken cancellationToken)
+    {
+        var modelPath = isArabic ? ArabicModelPath : EnglishModelPath;
+        var configPath = isArabic ? ArabicConfigPath : EnglishConfigPath;
         Directory.CreateDirectory(TempRoot);
         CleanupStaleTemporaryArtifacts(TempRoot, DateTime.UtcNow);
         var outputPath = Path.Combine(TempRoot, Guid.NewGuid().ToString("N") + ".wav");
         try
         {
-            var start = new ProcessStartInfo(_piperExecutable)
+            var start = new ProcessStartInfo(_piperExecutable!)
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                WorkingDirectory = Path.GetDirectoryName(_piperExecutable)!
+                WorkingDirectory = Path.GetDirectoryName(_piperExecutable!)!
             };
             start.ArgumentList.Add("--model");
             start.ArgumentList.Add(modelPath);
@@ -330,13 +407,13 @@ public sealed class LocalVoiceService
             start.ArgumentList.Add("--output_file");
             start.ArgumentList.Add(outputPath);
 
-            var result = await RunProcessAsync(start, normalized, TimeSpan.FromMinutes(2), cancellationToken);
+            var result = await RunProcessAsync(start, text, TimeSpan.FromMinutes(2), cancellationToken);
             if (result.ExitCode != 0)
-                throw new InvalidOperationException("تعذر توليد النطق محليًا. " + Truncate(result.Error, 700));
+                throw new InvalidOperationException("تعذر توليد النطق المحلي. " + Truncate(result.Error, 700));
             if (!File.Exists(outputPath) || new FileInfo(outputPath).Length <= 44)
                 throw new InvalidOperationException("لم يُنشئ محرك النطق ملفًا صوتيًا صالحًا.");
 
-            await PlayWavAsync(outputPath, cancellationToken);
+            await PlayWavAsync(outputPath, cancellationToken, outputDeviceId);
         }
         finally
         {
@@ -602,11 +679,11 @@ public sealed class LocalVoiceService
         }
     }
 
-    private static async Task PlayWavAsync(string path, CancellationToken cancellationToken)
+    private static async Task PlayWavAsync(string path, CancellationToken cancellationToken, string? outputDeviceId)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var reader = new WaveFileReader(path);
-        using var output = new WaveOut();
+        using var output = new WaveOut { DeviceNumber = AudioDeviceService.ResolveOutputDeviceNumber(outputDeviceId) };
         var stopped = new TaskCompletionSource<StoppedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler<StoppedEventArgs> handler = (_, args) => stopped.TrySetResult(args);
         output.PlaybackStopped += handler;

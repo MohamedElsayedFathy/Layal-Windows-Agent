@@ -83,7 +83,8 @@ public sealed class LayalSpeechService
         string modelId,
         string voiceId,
         string text,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? outputDeviceId = null)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Save a valid API key in Settings before using Layal's voice.");
@@ -99,7 +100,7 @@ public sealed class LayalSpeechService
             var pcm = await GeneratePcmChunkAsync(endpoint, apiKey.Trim(), modelId.Trim(), voiceId.Trim(), chunk, cancellationToken);
             try
             {
-                await PlayPcmAsync(pcm, cancellationToken);
+                await PlayPcmAsync(pcm, cancellationToken, outputDeviceId);
             }
             finally
             {
@@ -274,7 +275,7 @@ public sealed class LayalSpeechService
         }
     }
 
-    private static async Task PlayPcmAsync(byte[] pcm, CancellationToken cancellationToken)
+    private static async Task PlayPcmAsync(byte[] pcm, CancellationToken cancellationToken, string? outputDeviceId)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (pcm.Length == 0 || pcm.Length % 2 != 0)
@@ -282,7 +283,7 @@ public sealed class LayalSpeechService
 
         using var stream = new MemoryStream(pcm, writable: false);
         using var source = new RawSourceWaveStream(stream, new WaveFormat(SampleRate, 16, 1));
-        using var output = new WaveOut();
+        using var output = new WaveOut { DeviceNumber = AudioDeviceService.ResolveOutputDeviceNumber(outputDeviceId) };
         var stopped = new TaskCompletionSource<StoppedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler<StoppedEventArgs> handler = (_, args) => stopped.TrySetResult(args);
         output.PlaybackStopped += handler;
