@@ -111,6 +111,15 @@ public sealed class SettingsStore
             settings.GmailOAuthClientId = string.Empty;
 
         settings.WeatherLocation = (settings.WeatherLocation ?? string.Empty).Trim();
+        if (settings.WeatherLocation.Length > 120)
+            settings.WeatherLocation = string.Empty;
+
+        // Older settings files could have UseAutomaticLocation=true as a default rather than
+        // as a recorded user choice. Require the new explicit disclosure consent before any
+        // startup/timer path may request device coordinates or send them to the weather provider.
+        if (!settings.AutomaticLocationConsentConfirmed)
+            settings.UseAutomaticLocation = false;
+
         settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();
         settings.ModelId = (settings.ModelId ?? string.Empty).Trim();
 
