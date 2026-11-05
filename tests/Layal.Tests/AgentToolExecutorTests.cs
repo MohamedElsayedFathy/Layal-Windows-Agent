@@ -559,6 +559,60 @@ public sealed class AgentToolExecutorTests
         Assert.IsFalse(result.Contains("private.example.test", StringComparison.Ordinal));
     }
 
+
+    [TestMethod]
+    public async Task DecliningMemoryDisclosureDoesNotReturnMatchedContentToTheModel()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        const string privateContent = "This private detail must not leave the local memory store.";
+        var memory = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        _ = memory.Save("Private note", privateContent);
+        var executor = new AgentToolExecutor(temp.Path, memory);
+        var approvalPreview = string.Empty;
+
+        var result = await executor.ExecuteAsync(
+            "search_memory",
+            "{\\"query\\":\\"Private note\\"}",
+            (_, preview, _) =>
+            {
+                approvalPreview = preview;
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        StringAssert.Contains(approvalPreview, privateContent);
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(result.Contains(privateContent, StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task DecliningMemorySaveDoesNotPersistTheProposedNote()
+    {
+        using var temp = new TestTempDirectory();
+        var memory = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        var executor = new AgentToolExecutor(temp.Path, memory);
+        var approvalPreview = string.Empty;
+
+        var result = await executor.ExecuteAsync(
+            "save_memory",
+            "{\\"title\\":\\"Local only\\",\\"content\\":\\"Do not save without consent.\\"}",
+            (_, preview, _) =>
+            {
+                approvalPreview = preview;
+                return Task.FromResult(false);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        StringAssert.Contains(approvalPreview, "Do not save without consent.");
+        StringAssert.Contains(result, "declined");
+        Assert.AreEqual(0, memory.GetAll(includeArchived: true).Count);
+    }
+
     [TestMethod]
     public async Task CancellingAfterMemoryDisclosureApprovalPreventsToolOutput()
     {

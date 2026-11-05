@@ -233,6 +233,66 @@ public sealed class MemoryServiceTests
         Assert.ThrowsExactly<InvalidOperationException>(() => restoreService.ValidateImportMany(new[] { malformed }));
     }
 
+
+    [TestMethod]
+    public void MemoryIsEncryptedAtRestAndSurvivesServiceRecreation()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory-notes.dpapi");
+        const string privateTitle = "Private profile marker 7F3A91";
+        const string privateContent = "Personal note marker 9C2B64 must remain encrypted on disk.";
+
+        var service = new MemoryService(path);
+        var saved = service.Save(privateTitle, privateContent);
+
+        Assert.IsTrue(File.Exists(path));
+        var protectedPayload = File.ReadAllText(path);
+        Assert.IsFalse(protectedPayload.Contains(privateTitle, StringComparison.Ordinal));
+        Assert.IsFalse(protectedPayload.Contains(privateContent, StringComparison.Ordinal));
+
+        // Recreate the service to model a full application restart under the same Windows identity.
+        var restartedService = new MemoryService(path);
+        var restored = restartedService.GetAll().Single(note => note.Id == saved.Id);
+        Assert.AreEqual(privateTitle, restored.Title);
+        Assert.AreEqual(privateContent, restored.Content);
+    }
+
+    [TestMethod]
+    public void SavingBeyondRetentionLimitKeepsNewest100AcrossActiveAndArchivedNotes()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory-notes.dpapi");
+        var now = DateTimeOffset.UtcNow;
+        var seeded = Enumerable.Range(0, MemoryService.MaxSavedNotes)
+            .Select(index => new MemoryNote
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Title = $"Seed {index:000}",
+                Content = $"Seed content {index:000}",
+                IsArchived = index < 25,
+                CreatedAt = now.AddMinutes(index - MemoryService.MaxSavedNotes),
+                UpdatedAt = now.AddMinutes(index - MemoryService.MaxSavedNotes)
+            })
+            .ToList();
+        new ProtectedJsonStore<List<MemoryNote>>(path).Save(seeded);
+
+        var service = new MemoryService(path);
+        var newest = service.Save("Newest retained note", "A new note must be retained after applying the cap.");
+        var all = new MemoryService(path).GetAll(includeArchived: true);
+
+        Assert.AreEqual(MemoryService.MaxSavedNotes, all.Count);
+        Assert.IsTrue(all.Any(note => note.Id == newest.Id));
+        Assert.IsFalse(all.Any(note => note.Id == seeded[0].Id), "The oldest note must be evicted.");
+        Assert.AreEqual(24, all.Count(note => note.IsArchived), "Retention must count archived notes too.");
+        Assert.AreEqual(76, service.GetAll().Count, "The active view must exclude the 24 retained archived notes.");
+    }
+
     [TestMethod]
     public void ExistingMemoryFileIsPrunedToNewestRetentionLimit()
     {
