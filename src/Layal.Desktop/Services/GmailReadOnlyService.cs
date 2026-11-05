@@ -150,9 +150,11 @@ public sealed class GmailReadOnlyService
         }
 
         string? code = null;
-        using (callbackClient)
-        await using (var callbackStream = callbackClient.GetStream())
+        try
         {
+            using (callbackClient)
+            {
+                await using var callbackStream = callbackClient.GetStream();
             listener.Stop();
             if (callbackClient.Client.RemoteEndPoint is not IPEndPoint remote ||
                 !IPAddress.IsLoopback(remote.Address))
@@ -217,6 +219,11 @@ public sealed class GmailReadOnlyService
             await WriteCallbackResponseAsync(callbackStream,
                 "Gmail connection confirmed for Layal. You may close this tab and return to Layal.",
                 HttpStatusCode.OK, timeout.Token);
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("Google sign-in timed out after three minutes. Try connecting again.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
