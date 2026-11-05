@@ -398,7 +398,7 @@ public sealed class BrowserAutomationServiceTests
         var definitions = executor.GetToolDefinitions();
         var names = definitions.Select(x => x?["function"]?["name"]?.GetValue<string>()).ToArray();
 
-        foreach (var expected in new[] { "browser_navigate", "browser_read_page", "browser_click", "browser_fill" })
+        foreach (var expected in new[] { "browser_navigate", "browser_read_page", "browser_click", "browser_fill", "browser_download", "browser_upload_file" })
             Assert.IsTrue(names.Contains(expected), $"Missing browser tool {expected}.");
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as System.Text.Json.Nodes.JsonObject);
