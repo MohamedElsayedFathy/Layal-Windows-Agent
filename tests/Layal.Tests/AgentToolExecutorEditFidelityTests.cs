@@ -134,7 +134,7 @@ public sealed class AgentToolExecutorEditFidelityTests
         using var temp = new TestTempDirectory();
         var path = System.IO.Path.Combine(temp.Path, "concurrent.txt");
         const string original = "before after";
-        const string changed = "before xxxx";
+        const string changed = "before xxxxx";
         Assert.AreEqual(original.Length, changed.Length);
         File.WriteAllText(path, original, new UTF8Encoding(false));
         var timestamp = File.GetLastWriteTimeUtc(path);
