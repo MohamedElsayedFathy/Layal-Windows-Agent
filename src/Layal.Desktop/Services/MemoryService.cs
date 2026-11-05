@@ -107,7 +107,15 @@ public sealed class MemoryService
         }
     }
 
-    public int ImportMany(IEnumerable<MemoryNote> imported)
+    public int ImportMany(IEnumerable<MemoryNote> imported) =>
+        ImportManyWithIds(imported).Count;
+
+    /// <summary>
+    /// Merges validated memory notes and returns exactly the IDs newly added by this call.
+    /// The workspace snapshot coordinator uses these IDs for compensating rollback if a
+    /// subsequent protected-store or file operation fails.
+    /// </summary>
+    public IReadOnlyList<string> ImportManyWithIds(IEnumerable<MemoryNote> imported)
     {
         ArgumentNullException.ThrowIfNull(imported);
         var candidates = imported.Take(MaxSavedNotes + 1).ToList();
@@ -153,13 +161,37 @@ public sealed class MemoryService
             if (notes.Count + toAdd.Count > MaxSavedNotes)
                 throw new InvalidOperationException("There is not enough memory capacity to merge this backup. Existing notes were not changed.");
 
-            if (toAdd.Count > 0)
+            if (toAdd.Count == 0)
+                return Array.Empty<string>();
+
+            var addedIds = toAdd.Select(note => note.Id).ToArray();
+            notes.AddRange(toAdd);
+            NormalizeRelationships(notes);
+            _store.Save(notes);
+            return addedIds;
+        }
+    }
+
+    /// <summary>Compensates a multi-store import by removing only records added by ImportManyWithIds.</summary>
+    public int RollbackImportedMany(IEnumerable<string> importedIds)
+    {
+        ArgumentNullException.ThrowIfNull(importedIds);
+        var ids = importedIds
+            .Where(id => Guid.TryParseExact(id, "N", out _))
+            .ToHashSet(StringComparer.Ordinal);
+        if (ids.Count == 0)
+            return 0;
+
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var removed = notes.RemoveAll(note => ids.Contains(note.Id));
+            if (removed > 0)
             {
-                notes.AddRange(toAdd);
                 NormalizeRelationships(notes);
                 _store.Save(notes);
             }
-            return toAdd.Count;
+            return removed;
         }
     }
 
