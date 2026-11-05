@@ -123,6 +123,44 @@ public sealed class ReminderServiceTests
         Assert.AreEqual(TimeSpan.FromHours(-5), local.Offset);
     }
 
+    [TestMethod]
+    public void LocalReminderCreationRejectsNonexistentSpringForwardWallClockTime()
+    {
+        var zone = CreateDaylightSavingTestZone();
+        var nonexistent = new DateTime(2026, 3, 8, 2, 30, 0, DateTimeKind.Unspecified);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            ReminderService.CreateLocalDueAt(nonexistent, zone));
+    }
+
+    [TestMethod]
+    public void LocalReminderCreationSelectsFirstOccurrenceForFallBackOverlap()
+    {
+        var zone = CreateDaylightSavingTestZone();
+        var repeated = new DateTime(2026, 11, 1, 1, 30, 0, DateTimeKind.Unspecified);
+
+        var dueAt = ReminderService.CreateLocalDueAt(repeated, zone);
+        var local = TimeZoneInfo.ConvertTime(dueAt, zone);
+
+        Assert.AreEqual(new DateTime(2026, 11, 1, 1, 30, 0), local.DateTime);
+        Assert.AreEqual(TimeSpan.FromHours(-4), local.Offset,
+            "The first occurrence uses the daylight offset and resolves to the earlier UTC instant.");
+        Assert.AreEqual(new DateTimeOffset(2026, 11, 1, 5, 30, 0, TimeSpan.Zero), dueAt);
+    }
+
+    [TestMethod]
+    public void LocalReminderCreationUsesTheSelectedTimeZonesOffsetForOrdinaryTimes()
+    {
+        var zone = CreateDaylightSavingTestZone();
+        var ordinary = new DateTime(2026, 3, 9, 9, 15, 0, DateTimeKind.Unspecified);
+
+        var dueAt = ReminderService.CreateLocalDueAt(ordinary, zone);
+        var local = TimeZoneInfo.ConvertTime(dueAt, zone);
+
+        Assert.AreEqual(new DateTime(2026, 3, 9, 9, 15, 0), local.DateTime);
+        Assert.AreEqual(TimeSpan.FromHours(-4), local.Offset);
+    }
+
     private static TimeZoneInfo CreateDaylightSavingTestZone()
     {
         var daylightStart = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
