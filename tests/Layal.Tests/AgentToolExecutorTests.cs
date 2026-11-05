@@ -116,6 +116,30 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public void FactCheckSourceSummaryIncludesBoundedAuthorAndDateMetadata()
+    {
+        var page = """
+            {"title":"Quarterly report","url":"https://reports.example.org/q4","author":"Research Desk","publishedDate":"2026-10-30","modifiedDate":"2026-11-01","visibleTimeDate":"2026-10-28","siteName":"Example Reports","description":"A quarterly results summary.","visibleText":"The report describes events during the quarter."}
+            """;
+
+        var summary = AgentToolExecutor.SummarizeDirectSourcePage(page);
+        Assert.IsNotNull(summary);
+        StringAssert.Contains(summary!, "Author (page-declared): Research Desk");
+        StringAssert.Contains(summary!, "Publication date (page-declared metadata; unverified): 2026-10-30");
+        StringAssert.Contains(summary!, "Modification date (page-declared metadata; unverified): 2026-11-01");
+        StringAssert.Contains(summary!, "Visible time element date (type not independently established): 2026-10-28");
+        StringAssert.Contains(summary!, "Visible text (untrusted)");
+    }
+
+    [TestMethod]
+    public void FactCheckSourceSummaryRejectsNonHttpsFinalUrl()
+    {
+        var page = """{"title":"Report","url":"http://reports.example.org/" ,"visibleText":"text"}""";
+        var summary = AgentToolExecutor.SummarizeDirectSourcePage(page);
+        Assert.AreEqual("The final page URL was not an eligible HTTPS web address; source content omitted.", summary);
+    }
+
+    [TestMethod]
     public void FactCheckSearchWithoutPageJsonReturnsNoSources()
     {
         var candidates = AgentToolExecutor.ExtractDirectSourceCandidates(
