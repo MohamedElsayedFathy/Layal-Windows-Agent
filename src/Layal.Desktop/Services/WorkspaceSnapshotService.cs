@@ -181,11 +181,11 @@ public sealed class WorkspaceSnapshotService
                 filesRestored = RestoreWorkspaceFiles(document.Files, createdFiles, createdDirectories, out filesSkipped);
 
             taskImportAttempted = true;
-            var tasksImported = _taskHistory.ImportMany(document.Tasks);
+            var importedTaskIds = _taskHistory.ImportManyWithIds(document.Tasks);
             memoryImportAttempted = true;
-            var memoriesImported = _memory.ImportMany(document.Memories);
+            var importedMemoryIds = _memory.ImportManyWithIds(document.Memories);
             return new WorkspaceSnapshotImportResult(
-                tasksImported, memoriesImported, document.Files.Count, filesRestored, filesSkipped);
+                importedTaskIds.Count, importedMemoryIds.Count, document.Files.Count, filesRestored, filesSkipped);
         }
         catch (Exception importFailure)
         {
