@@ -300,6 +300,7 @@ public sealed class WorkspaceHubWindow : Window
         try
         {
             _artifactService.ValidateWorkspaceRoot();
+            _workspaceIndexWarning = string.Empty;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -692,7 +693,7 @@ public sealed class WorkspaceHubWindow : Window
         IEnumerable<WorkspaceSnapshotFilePreview> entries,
         bool isArabic,
         bool includeOmissionReason = false,
-        int maximumVisible = 20)
+        int maximumVisible = 100)
     {
         var values = entries.Take(maximumVisible + 1).ToArray();
         if (values.Length == 0)
