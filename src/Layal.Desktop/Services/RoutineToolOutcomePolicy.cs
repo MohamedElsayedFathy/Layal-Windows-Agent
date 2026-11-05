@@ -15,6 +15,8 @@ public static class RoutineToolOutcomePolicy
         "User declined",
         "WEB SEARCH NOT SHARED",
         "The claim search was completed, but the separate contrary-evidence search was declined.",
+        "The claim search was completed, but the separate contrary-evidence search could not be completed or shared.",
+        "Fact-check could not retrieve the required contrary source.",
         "No direct source opened:",
         "No eligible direct HTTPS source candidate",
         "The approved source page was opened, but its bounded evidence snapshot could not be parsed;"
