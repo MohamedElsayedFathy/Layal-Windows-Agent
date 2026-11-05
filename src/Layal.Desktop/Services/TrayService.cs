@@ -91,6 +91,17 @@ public sealed class TrayService : IDisposable
             Forms.ToolTipIcon.Info);
     }
 
+    /// <summary>Shows one actionable digest when several reminders become due together.</summary>
+    public void ShowReminderSummary(int reminderCount, bool isArabic, Action? onClick = null)
+    {
+        if (reminderCount <= 0)
+            return;
+        var summary = isArabic
+            ? $"لديك {reminderCount} تذكيرات مستحقة. افتح ليال لمراجعتها."
+            : $"You have {reminderCount} reminders due. Open Layal to review them.";
+        ShowReminderNotification(summary, isArabic, onClick);
+    }
+
     public void SetLanguage(string language)
     {
         var ar = language == "ar";
