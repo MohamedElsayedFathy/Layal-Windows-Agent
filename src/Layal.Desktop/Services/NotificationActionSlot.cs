@@ -27,7 +27,7 @@ public sealed class NotificationActionSlot
     {
         lock (_sync)
         {
-            if (_action is null || now > _expiresAt)
+            if (_action is null || now >= _expiresAt)
             {
                 _action = null;
                 _expiresAt = default;
@@ -38,6 +38,16 @@ public sealed class NotificationActionSlot
             _action = null;
             _expiresAt = default;
             return action;
+        }
+    }
+
+    /// <summary>Clears the active action when its matching tray notification closes.</summary>
+    public void Clear()
+    {
+        lock (_sync)
+        {
+            _action = null;
+            _expiresAt = default;
         }
     }
 }
