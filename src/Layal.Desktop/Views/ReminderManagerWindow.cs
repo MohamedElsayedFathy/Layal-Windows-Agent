@@ -208,6 +208,7 @@ public sealed class ReminderManagerWindow : Window
 
         Content = root;
         RefreshList();
+        AppendSchedulerStatus();
     }
 
     private void AddButton_Click(object sender, RoutedEventArgs e)
@@ -281,6 +282,18 @@ public sealed class ReminderManagerWindow : Window
             return;
         }
 
+        var confirmation = MessageBox.Show(
+            this,
+            _isArabic
+                ? $"سيتم حذف التذكير «{selected.Record.Title}» نهائيًا من قائمة التذكيرات المحلية. هل تريد المتابعة؟"
+                : $"The reminder “{selected.Record.Title}” will be permanently removed from the local reminder list. Continue?",
+            _isArabic ? "تأكيد حذف التذكير" : "Confirm reminder deletion",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+            return;
+
         try
         {
             var removed = _service.Delete(selected.Record.Id);
@@ -301,7 +314,12 @@ public sealed class ReminderManagerWindow : Window
     private void AppendSchedulerStatus()
     {
         if (_scheduler is null)
+        {
+            _status.Text += _isArabic
+                ? Environment.NewLine + "تحذير: جدولة Windows غير متاحة حاليًا. ستُفحص التذكيرات أثناء تشغيل ليال وعند فتحه مجددًا، لكن لن يصل إشعار في موعده إذا كان التطبيق مغلقًا."
+                : Environment.NewLine + "Warning: Windows scheduling is unavailable. Reminders will be checked while Layal is open and on the next launch, but on-time notifications cannot be delivered while the app is closed.";
             return;
+        }
 
         try
         {
