@@ -1042,7 +1042,7 @@ public sealed class MainWindowVisualSmokeTests
             isArabic ? "لا توجد مهارات مثبتة. استورد ملف ZIP أو مجلدًا من GitHub للبدء." : "No skills installed. Import a ZIP or GitHub folder to get started.",
             isArabic ? "حالة قائمة المهارات الفارغة" : "Skills empty state");
         AssertEmptyState(window, "MemoryEmptyStateText", window.MemoryNotes.Count,
-            isArabic ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء." : "No saved notes. Create a note to get started.",
+            isArabic ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء." : "No saved notes yet. Create a note to get started.",
             isArabic ? "حالة الذاكرة الفارغة" : "Memory empty state");
         AssertMemoryManagementControls(window, isArabic);
     }
