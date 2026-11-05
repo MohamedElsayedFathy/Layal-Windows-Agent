@@ -81,8 +81,8 @@ public sealed class LoreWebWindow : Window
         MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        Background = Application.Current.TryFindResource("Layal.Background") as Brush ?? Brushes.White;
-        Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
+        Background = GetThemeBrush("Layal.Background", Brushes.White);
+        Foreground = GetThemeBrush("Layal.Text", Brushes.Black);
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
             ? "خريطة محلية للملاحظات النشطة والمؤرشفة. التصنيفات تحددها أنت، والروابط مبنية على التصنيف وكلمات العنوان والترتيب الزمني؛ لا يُرسل المحتوى إلى AI."
@@ -107,7 +107,7 @@ public sealed class LoreWebWindow : Window
                 : "Drag to rotate and use the mouse wheel to zoom. The list shows category and archive state. You can archive or restore a note without deleting it.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0),
-            Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
+            Foreground = GetThemeBrush("Layal.Muted", Brushes.DimGray)
         };
         AutomationProperties.SetName(privacy, isArabic ? "شرح التنقل وخصوصية خريطة الذاكرة" : "Memory map navigation and privacy");
         header.Children.Add(privacy);
@@ -175,8 +175,8 @@ public sealed class LoreWebWindow : Window
         _viewport.MouseWheel += Viewport_MouseWheel;
         var viewportFrame = new Border
         {
-            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
-            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray,
+            Background = GetThemeBrush("Layal.Panel", Brushes.White),
+            BorderBrush = GetThemeBrush("Layal.Border", Brushes.Gray),
             BorderThickness = new Thickness(1),
             Child = _viewport
         };
@@ -201,9 +201,9 @@ public sealed class LoreWebWindow : Window
         {
             Margin = new Thickness(0, 0, 0, 10),
             Padding = new Thickness(5),
-            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
-            Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black,
-            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray,
+            Background = GetThemeBrush("Layal.Panel", Brushes.White),
+            Foreground = GetThemeBrush("Layal.Text", Brushes.Black),
+            BorderBrush = GetThemeBrush("Layal.Border", Brushes.Gray),
             DisplayMemberPath = nameof(NoteListEntry.Description)
         };
         _noteList.ItemsSource = _entries;
@@ -341,7 +341,7 @@ public sealed class LoreWebWindow : Window
         {
             Margin = new Thickness(0, 10, 0, 0),
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
+            Foreground = GetThemeBrush("Layal.Muted", Brushes.DimGray)
         };
         AutomationProperties.SetName(_status, isArabic ? "حالة خريطة الذاكرة" : "Memory web status");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
@@ -406,6 +406,17 @@ public sealed class LoreWebWindow : Window
             _viewport.Children.Add(edgeVisual);
             _edgeVisuals[edgeVisual] = (edge.FromId, edge.ToId);
         }
+    }
+
+    private static Brush GetThemeBrush(string resourceKey, Brush fallback)
+    {
+        // Lore Web can be constructed by isolated WPF tests without creating a second
+        // Application instance. Only read application resources from their owning dispatcher.
+        var application = Application.Current;
+        if (application is null || !application.Dispatcher.CheckAccess())
+            return fallback;
+
+        return application.TryFindResource(resourceKey) as Brush ?? fallback;
     }
 
     private static Point3D PositionOnSphere(int index, int count, double radius)
