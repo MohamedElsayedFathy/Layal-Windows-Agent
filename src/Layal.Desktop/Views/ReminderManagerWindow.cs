@@ -92,7 +92,9 @@ public sealed class ReminderManagerWindow : Window
         timeStack.Children.Add(new TextBlock { Text = isArabic ? "الوقت (24 ساعة)" : "Time (24-hour)" });
         _timeInput = new TextBox { Text = DateTime.Now.AddHours(1).ToString("HH:mm", CultureInfo.InvariantCulture), MinHeight = 28 };
         AutomationProperties.SetName(_timeInput, isArabic ? "وقت التذكير بصيغة ساعة ودقيقة" : "Reminder time in hours and minutes");
-        AutomationProperties.SetHelpText(_timeInput, "HH:mm");
+        AutomationProperties.SetHelpText(_timeInput, isArabic
+            ? "صيغة HH:mm بنظام 24 ساعة. إذا تكرر الوقت عند انتهاء التوقيت الصيفي فسيُختار الظهور الأول؛ الوقت غير الموجود عند بدء التوقيت الصيفي مرفوض."
+            : "24-hour HH:mm. During a daylight-saving fall-back overlap, the first occurrence is selected; nonexistent spring-forward times are rejected.");
         timeStack.Children.Add(_timeInput);
         Grid.SetColumn(timeStack, 1);
         schedule.Children.Add(timeStack);
@@ -221,8 +223,8 @@ public sealed class ReminderManagerWindow : Window
             if (!TimeOnly.TryParseExact(_timeInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
                 throw new ArgumentException(_isArabic ? "اكتب الوقت بصيغة 24 ساعة مثل 09:30." : "Enter a 24-hour time such as 09:30.");
 
-            var dueLocal = DateTime.SpecifyKind(selectedDate.Date + time.ToTimeSpan(), DateTimeKind.Local);
-            var dueAt = new DateTimeOffset(dueLocal);
+            var dueLocal = selectedDate.Date + time.ToTimeSpan();
+            var dueAt = ReminderService.CreateLocalDueAt(dueLocal, TimeZoneInfo.Local);
             var recurrence = (_recurrenceSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "None";
             _service.Create(title, dueAt, recurrence, GetSelectedTaskId());
             _titleInput.Clear();
@@ -251,8 +253,8 @@ public sealed class ReminderManagerWindow : Window
             if (!TimeOnly.TryParseExact(_timeInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
                 throw new ArgumentException(_isArabic ? "اكتب الوقت بصيغة 24 ساعة مثل 09:30." : "Enter a 24-hour time such as 09:30.");
 
-            var dueLocal = DateTime.SpecifyKind(selectedDate.Date + time.ToTimeSpan(), DateTimeKind.Local);
-            var dueAt = new DateTimeOffset(dueLocal);
+            var dueLocal = selectedDate.Date + time.ToTimeSpan();
+            var dueAt = ReminderService.CreateLocalDueAt(dueLocal, TimeZoneInfo.Local);
             var recurrence = (_recurrenceSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "None";
             var updated = _service.Update(_selectedReminderId, _titleInput.Text, dueAt, recurrence, GetSelectedTaskId());
             if (updated is null)
