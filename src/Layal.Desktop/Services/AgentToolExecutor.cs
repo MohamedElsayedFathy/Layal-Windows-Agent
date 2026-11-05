@@ -1160,9 +1160,9 @@ public sealed class AgentToolExecutor
         if (!await confirm("Navigate Layal browser", warning, token))
             return "User declined browser navigation. No navigation was performed.";
         token.ThrowIfCancellationRequested();
-        var result = await _browser.NavigateAsync(target.AbsoluteUri, token);
-        report("Layal browser navigation was requested for " + target.AbsoluteUri + "; the site's intended outcome has not been verified.");
-        return result;
+        var identity = await _browser.NavigateAsync(target.AbsoluteUri, token);
+        report("Layal browser navigation was requested for " + target.AbsoluteUri + "; only page identity was returned, not page content.");
+        return identity.ToConsentSafeNavigationReceipt();
     }
 
     private async Task<string> BrowserReadPageAsync(

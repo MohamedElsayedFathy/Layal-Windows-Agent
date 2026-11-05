@@ -111,6 +111,27 @@ public sealed class BrowserAutomationServiceTests
         Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(5));
     }
 
+
+    [TestMethod]
+    public void BrowserNavigationReceiptDoesNotDiscloseLocallyInspectedPageIdentityOrContent()
+    {
+        var identity = new BrowserPageIdentity(
+            "page-target",
+            "https://private.example/account?token=secret",
+            "Private account title",
+            "complete");
+
+        var receipt = identity.ToConsentSafeNavigationReceipt();
+
+        StringAssert.Contains(receipt, "Navigation was requested");
+        StringAssert.Contains(receipt, "Page identity and content remain local");
+        StringAssert.Contains(receipt, "browser_read_page");
+        Assert.IsFalse(receipt.Contains(identity.Url, StringComparison.Ordinal));
+        Assert.IsFalse(receipt.Contains(identity.Title, StringComparison.Ordinal));
+        Assert.IsFalse(receipt.Contains("visibleText", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(receipt.Contains("page body", StringComparison.OrdinalIgnoreCase));
+    }
+
     [TestMethod]
     public void BrowserUploadRespectsTheFileInputAcceptAttribute()
     {
