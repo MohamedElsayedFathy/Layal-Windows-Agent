@@ -280,7 +280,7 @@ public sealed class BrowserAutomationServiceTests
             (title, preview, token) =>
             {
                 approvalCount++;
-                StringAssert.Contains(title, "Fact-check: search claim");
+                StringAssert.Contains(title, "Fact-check: search the claim");
                 StringAssert.Contains(preview, "The release was published in 2025");
                 return Task.FromResult(false);
             },
@@ -376,4 +376,45 @@ public sealed class BrowserAutomationServiceTests
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as System.Text.Json.Nodes.JsonObject);
     }
+
+    [TestMethod]
+    public void FactCheckSourceUrlRequiresPublicHttpsOnTheStandardPort()
+    {
+        Assert.AreEqual("https://news.example.org/report", 
+            BrowserAutomationService.ValidateFactCheckSourceUrl("https://news.example.org/report").AbsoluteUri);
+
+        foreach (var blocked in new[]
+        {
+            "http://news.example.org/report",
+            "https://news.example.org:8443/report",
+            "https://127.0.0.1/private",
+            "https://localhost/private",
+            "https://printer.local/status",
+            "https://metadata.internal/source",
+            "https://claim.example.test/article",
+            "https://user:password@news.example.org/report"
+        })
+        {
+            Assert.ThrowsExactly<InvalidOperationException>(
+                () => BrowserAutomationService.ValidateFactCheckSourceUrl(blocked),
+                $"'{blocked}' must not be accepted as a direct fact-check source.");
+        }
+    }
+
+    [TestMethod]
+    public void FactCheckPublisherGroupingTreatsSubdomainsAsOnePublisherCandidate()
+    {
+        Assert.AreEqual("example.com", BrowserAutomationService.GetRegistrableDomain("www.example.com"));
+        Assert.AreEqual("example.com", BrowserAutomationService.GetRegistrableDomain("opinion.example.com"));
+        Assert.IsTrue(BrowserAutomationService.AreSameRegistrableDomain("news.example.com", "opinion.example.com"));
+        Assert.IsFalse(BrowserAutomationService.AreSameRegistrableDomain("example.com", "example.net"));
+
+        Assert.AreEqual("bbc.co.uk", BrowserAutomationService.GetRegistrableDomain("www.bbc.co.uk"));
+        Assert.AreEqual("bbc.co.uk", BrowserAutomationService.GetRegistrableDomain("news.bbc.co.uk"));
+        Assert.IsTrue(BrowserAutomationService.AreSameRegistrableDomain("news.bbc.co.uk", "www.bbc.co.uk"));
+
+        Assert.AreEqual("portal.gov.eg", BrowserAutomationService.GetRegistrableDomain("portal.gov.eg"));
+        Assert.AreEqual("portal.gov.eg", BrowserAutomationService.GetRegistrableDomain("research.portal.gov.eg"));
+    }
+
 }
