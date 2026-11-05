@@ -1168,7 +1168,7 @@ public partial class MainWindow : Window
         HomeDescription.Text = ar
             ? "هذه النسخة هي أساس Windows الأصلي. اربط نموذجًا متوافقًا من الإعدادات لتفعيل المحادثة الحقيقية."
             : "This is the native Windows foundation. Configure a compatible model provider to enable real AI chat.";
-        ClockSectionTitle.Text = ar ? "الوقت والتاريخ حسب موقعك" : "Time & date at your location";
+        ClockSectionTitle.Text = ar ? "الوقت والتاريخ" : "Time & date";
         WeatherSectionTitle.Text = ar ? "الطقس" : "Weather";
         RefreshWeatherButton.Content = ar ? "تحديث الطقس" : "Refresh weather";
         WeatherSettingsTitle.Text = ar ? "حالة الطقس في الرئيسية" : "Weather on Home";
@@ -1176,13 +1176,13 @@ public partial class MainWindow : Window
         UseMyLocationButton.Content = ar ? "اكتشاف موقعي واستخدامه تلقائيًا" : "Detect my location and use it automatically";
         SaveWeatherLocationButton.Content = ar ? "استخدام المدينة يدويًا" : "Use city manually";
         WeatherPrivacyNote.Text = ar
-            ? "عند تفعيل الموقع، يطلب التطبيق الإذن من Windows ويرسل الإحداثيات إلى Open-Meteo لحساب الطقس والمنطقة الزمنية. لا يحفظ التطبيق الإحداثيات؛ ويمكن استخدام مدينة يدويًا بدلًا من ذلك."
-            : "When location is enabled, Windows permission is requested and coordinates are sent to Open-Meteo for weather and time-zone data. Coordinates are not saved; you can use a city manually instead.";
+            ? "لا يطلب التطبيق موقع الجهاز عند بدء التشغيل. لا يبدأ الطلب إلا بعد ضغط «اكتشاف موقعي» وتأكيد الإفصاح، ثم موافقة Windows. تُرسل إحداثيات تقريبية إلى Open-Meteo لحساب الطقس والمنطقة الزمنية، ولا تُحفظ في الإعدادات. يمكنك رفض الطلب أو استخدام مدينة يدويًا."
+            : "Layal does not request device location at startup. It asks only after you select Detect my location and confirm this disclosure, followed by Windows permission. Approximate coordinates are sent to Open-Meteo for weather and time-zone data and are not saved in settings. You can decline or use a city manually.";
         WeatherLocationInput.ToolTip = ar ? "مدينة بديلة، مثل القاهرة، مصر أو Cairo, Egypt" : "Fallback city, e.g. Cairo, Egypt";
         AutomationProperties.SetName(UseMyLocationButton, ar ? "اكتشاف الموقع الحالي" : "Detect current location");
         AutomationProperties.SetHelpText(UseMyLocationButton, ar
             ? "يطلب السماح من Windows لقراءة موقع تقريبي واستخدامه للوقت والتاريخ والطقس."
-            : "Requests Windows permission to read an approximate location for time, date, and weather.");
+            : "After explicit consent, requests Windows permission for approximate location; coordinates are sent to Open-Meteo for weather and time-zone data.";
         AutomationProperties.SetName(WeatherLocationInput, ar ? "مدينة الطقس البديلة" : "Fallback weather city");
         AutomationProperties.SetHelpText(WeatherLocationInput, ar
             ? "اختياري: اكتب مدينة لاستخدامها يدويًا بدلًا من تحديد موقع الجهاز."
