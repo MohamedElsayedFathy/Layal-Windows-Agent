@@ -136,42 +136,21 @@ function New-ReminderDispatcherTaskSentinel {
         throw 'Refusing to replace an existing per-user Layal reminder task in the installer test profile.'
     }
 
-    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-    $exe = [Security.SecurityElement]::Escape((Join-Path $env:SystemRoot 'System32\cmd.exe'))
-    $working = [Security.SecurityElement]::Escape((Join-Path $env:SystemRoot 'System32'))
-    $start = [DateTimeOffset]::UtcNow.AddDays(1)
-    $end = $start.AddYears(10)
-    $startText = $start.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
-    $endText = $end.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
-    $xml = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo><Author>Layal installer lifecycle test</Author><Description>Disposable test task. No user reminder data.</Description></RegistrationInfo>
-  <Triggers><TimeTrigger><StartBoundary>$startText</StartBoundary><EndBoundary>$endText</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers>
-  <Principals><Principal id="LayalUser"><UserId>$sid</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
-  <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><StartWhenAvailable>true</StartWhenAvailable><Enabled>true</Enabled><Hidden>true</Hidden><ExecutionTimeLimit>PT2M</ExecutionTimeLimit><Priority>7</Priority></Settings>
-  <Actions Context="LayalUser"><Exec><Command>$exe</Command><Arguments>/c exit 0</Arguments><WorkingDirectory>$working</WorkingDirectory></Exec></Actions>
-</Task>
-"@
-    $xmlPath = Join-Path $env:TEMP ("layal-reminder-uninstall-test-" + [guid]::NewGuid().ToString('N') + '.xml')
-    try {
-        [IO.File]::WriteAllText($xmlPath, $xml, [Text.UTF8Encoding]::new($false))
-        $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
-        $output = & $schtasks /Create /TN '\LayalReminderDispatcher' /XML $xmlPath /F 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "Could not register reminder-task uninstall sentinel: $($output -join ' ')"
-        }
-        $script:createdReminderTaskSentinel = $true
-        if (-not (Get-ReminderDispatcherTaskExists)) {
-            throw 'Reminder-task uninstall sentinel was not visible after registration.'
-        }
-        Write-Host 'PASS: test profile contains the same per-user reminder task name used by Layal.'
+    # Let Windows generate a schema-valid task definition rather than maintaining a second
+    # hand-written Task Scheduler XML fixture. The test task never runs during this test.
+    $taskAction = '"' + (Join-Path $env:SystemRoot 'System32\cmd.exe') + '" /c exit 0'
+    $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+    $output = & $schtasks /Create /TN '\LayalReminderDispatcher' /TR $taskAction /SC ONLOGON /IT /RL LIMITED /F 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not register reminder-task uninstall sentinel: $($output -join ' ')"
     }
-    finally {
-        Remove-Item -LiteralPath $xmlPath -Force -ErrorAction SilentlyContinue
-    }
-}
 
+    $script:createdReminderTaskSentinel = $true
+    if (-not (Get-ReminderDispatcherTaskExists)) {
+        throw 'Reminder-task uninstall sentinel was not visible after registration.'
+    }
+    Write-Host 'PASS: test profile contains the same per-user reminder task name used by Layal.'
+}
 function Assert-ReminderDispatcherTaskRemoved {
     if (Get-ReminderDispatcherTaskExists) {
         throw 'The LayalReminderDispatcher task remains registered after uninstall.'
