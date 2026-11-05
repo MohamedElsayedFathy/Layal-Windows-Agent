@@ -70,6 +70,9 @@ public sealed class LoreWebWindowTests
                     (_, _) => true);
 
                 var viewport = GetField<Viewport3D>(window, "_viewport");
+                var root = (Grid)window.Content;
+                var header = root.Children.OfType<StackPanel>().First();
+                var legend = header.Children.OfType<TextBlock>().Last();
                 var noteList = GetField<ListBox>(window, "_noteList");
                 var selectedContent = GetField<TextBlock>(window, "_selectedContent");
                 var edgeVisuals = GetField<Dictionary<ModelVisual3D, (string FromId, string ToId)>>(window, "_edgeVisuals");
@@ -84,6 +87,7 @@ public sealed class LoreWebWindowTests
                     "الأسهم للتدوير");
 
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(noteList)));
+                StringAssert.Contains(AutomationProperties.GetName(legend), "مفتاح الألوان");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(selectedContent)));
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(GetField<ComboBox>(window, "_linkTargetSelector"))));
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(GetField<TextBox>(window, "_linkLabelInput"))));
