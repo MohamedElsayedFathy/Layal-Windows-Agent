@@ -103,6 +103,33 @@ public sealed class BrowserAutomationServiceTests
     }
 
     [TestMethod]
+    public void BrowserControlRejectsAmbiguousTabsInsteadOfChoosingOneByListOrder()
+    {
+        BrowserAutomationService.ValidateSinglePageSession(1);
+        Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(0));
+        Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(2));
+        Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(5));
+    }
+
+    [TestMethod]
+    public void BrowserUploadRespectsTheFileInputAcceptAttribute()
+    {
+        BrowserAutomationService.ValidateBrowserUploadAccept("", ".pdf");
+        BrowserAutomationService.ValidateBrowserUploadAccept(".pdf,.docx", ".pdf");
+        BrowserAutomationService.ValidateBrowserUploadAccept("application/pdf", ".pdf");
+        BrowserAutomationService.ValidateBrowserUploadAccept("image/*", ".webp");
+        BrowserAutomationService.ValidateBrowserUploadAccept("text/*", ".csv");
+        BrowserAutomationService.ValidateBrowserUploadAccept("application/*", ".xlsx");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadAccept("image/*", ".pdf"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadAccept(".png,.jpg", ".docx"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadAccept("application/pdf", ".exe"));
+    }
+
+    [TestMethod]
     public async Task DeclinedNavigationDoesNotLaunchOrCreateBrowserProfile()
     {
         using var temp = new TestTempDirectory();
