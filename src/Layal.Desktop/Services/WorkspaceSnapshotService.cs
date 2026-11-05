@@ -362,6 +362,7 @@ public sealed class WorkspaceSnapshotService
                     EnsureWithinWorkspace(fullPath);
                     var relative = TaskHistoryService.NormalizeArtifactPath(
                         Path.GetRelativePath(_workspaceRoot, fullPath).Replace('\\', '/'));
+                    ValidateSafeWorkspaceRelativePath(relative);
 
                     string? contentBase64 = null;
                     string? sha256 = null;
@@ -401,9 +402,9 @@ public sealed class WorkspaceSnapshotService
                         sha256,
                         omittedReason));
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
-                    // Skip entries that disappear or become inaccessible while building the manifest.
+                    // Skip entries that disappear, become inaccessible, or cannot be safely restored.
                 }
             }
 
@@ -420,13 +421,14 @@ public sealed class WorkspaceSnapshotService
                     EnsureWithinWorkspace(fullPath);
                     var relative = TaskHistoryService.NormalizeArtifactPath(
                         Path.GetRelativePath(_workspaceRoot, fullPath).Replace('\\', '/'));
+                    ValidateSafeWorkspaceRelativePath(relative);
                     pending.Push((fullPath, depth + 1));
                     output.Add(new WorkspaceFileManifestEntry(
                         relative, 0, new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero), IsDirectory: true));
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
-                    // Skip entries that disappear or become inaccessible while traversing.
+                    // Skip entries that disappear, become inaccessible, or cannot be safely restored.
                 }
             }
         }
