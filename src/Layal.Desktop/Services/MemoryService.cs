@@ -6,6 +6,8 @@ namespace Layal.Services;
 public sealed class MemoryService
 {
     public const int MaxSavedNotes = 100;
+    public const int MaxRelationshipsPerNote = 12;
+    public const int MaxRelationshipLabelCharacters = 60;
 
     private readonly ProtectedJsonStore<List<MemoryNote>> _store;
     private readonly object _sync = new();
@@ -53,7 +55,9 @@ public sealed class MemoryService
             }
 
             // Keep the note being saved even when several notes share the same timestamp.
-            _store.Save(KeepNewest(notes, existing.Id));
+            var bounded = KeepNewest(notes, existing.Id);
+            NormalizeRelationships(bounded);
+            _store.Save(bounded);
             return existing;
         }
     }
@@ -79,6 +83,7 @@ public sealed class MemoryService
                 string.IsNullOrWhiteSpace(note.Content) || note.Content.Length > 12_000)
                 throw new InvalidOperationException("The memory backup contains an invalid note.");
             _ = NormalizeCategory(note.Category);
+            ValidateRelationships(note);
             if (LooksLikeSecret(note.Title.Trim() + "\n" + note.Content.Trim()))
                 throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
             ids.Add(note.Id);
@@ -113,6 +118,8 @@ public sealed class MemoryService
 
             var title = note.Title.Trim();
             var content = note.Content.Trim();
+            _ = NormalizeCategory(note.Category);
+            ValidateRelationships(note);
             if (LooksLikeSecret(title + "\\n" + content))
                 throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
             if (!seenIds.Add(note.Id))
@@ -126,7 +133,10 @@ public sealed class MemoryService
                 Category = NormalizeCategory(note.Category),
                 IsArchived = note.IsArchived,
                 CreatedAt = note.CreatedAt,
-                UpdatedAt = note.UpdatedAt
+                UpdatedAt = note.UpdatedAt,
+                Relationships = (note.Relationships ?? new List<MemoryNoteRelationship>())
+                    .Select(link => new MemoryNoteRelationship { TargetNoteId = link.TargetNoteId, Label = link.Label })
+                    .ToList()
             });
         }
 
@@ -141,9 +151,85 @@ public sealed class MemoryService
             if (toAdd.Count > 0)
             {
                 notes.AddRange(toAdd);
+                NormalizeRelationships(notes);
                 _store.Save(notes);
             }
             return toAdd.Count;
+        }
+    }
+
+    /// <summary>Creates or updates a symmetric, user-labelled relationship between two saved notes.</summary>
+    public bool LinkNotes(string sourceNoteId, string targetNoteId, string label)
+    {
+        if (!Guid.TryParseExact(sourceNoteId, "N", out _) || !Guid.TryParseExact(targetNoteId, "N", out _) ||
+            string.Equals(sourceNoteId, targetNoteId, StringComparison.Ordinal)) return false;
+        var normalizedLabel = NormalizeRelationshipLabel(label);
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var source = notes.FirstOrDefault(note => string.Equals(note.Id, sourceNoteId, StringComparison.Ordinal));
+            var target = notes.FirstOrDefault(note => string.Equals(note.Id, targetNoteId, StringComparison.Ordinal));
+            if (source is null || target is null) return false;
+            source.Relationships ??= new List<MemoryNoteRelationship>();
+            target.Relationships ??= new List<MemoryNoteRelationship>();
+            var sourceHasLink = source.Relationships.Any(link => string.Equals(link.TargetNoteId, targetNoteId, StringComparison.Ordinal));
+            var targetHasLink = target.Relationships.Any(link => string.Equals(link.TargetNoteId, sourceNoteId, StringComparison.Ordinal));
+            if ((!sourceHasLink && source.Relationships.Count >= MaxRelationshipsPerNote) ||
+                (!targetHasLink && target.Relationships.Count >= MaxRelationshipsPerNote))
+                throw new InvalidOperationException($"A note can have at most {MaxRelationshipsPerNote} explicit relationships.");
+            source.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, targetNoteId, StringComparison.Ordinal));
+            target.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, sourceNoteId, StringComparison.Ordinal));
+            source.Relationships.Add(new MemoryNoteRelationship { TargetNoteId = targetNoteId, Label = normalizedLabel });
+            target.Relationships.Add(new MemoryNoteRelationship { TargetNoteId = sourceNoteId, Label = normalizedLabel });
+            source.UpdatedAt = target.UpdatedAt = DateTimeOffset.Now;
+            NormalizeRelationships(notes);
+            _store.Save(notes);
+            return true;
+        }
+    }
+
+    /// <summary>Removes the relationship from both notes without deleting either note.</summary>
+    public bool UnlinkNotes(string sourceNoteId, string targetNoteId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceNoteId) || string.IsNullOrWhiteSpace(targetNoteId) ||
+            string.Equals(sourceNoteId, targetNoteId, StringComparison.Ordinal)) return false;
+        lock (_sync)
+        {
+            var notes = LoadBoundedNotes();
+            var source = notes.FirstOrDefault(note => string.Equals(note.Id, sourceNoteId, StringComparison.Ordinal));
+            var target = notes.FirstOrDefault(note => string.Equals(note.Id, targetNoteId, StringComparison.Ordinal));
+            if (source is null || target is null) return false;
+            var removed = source.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, targetNoteId, StringComparison.Ordinal)) > 0;
+            removed |= target.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, sourceNoteId, StringComparison.Ordinal)) > 0;
+            if (removed)
+            {
+                source.UpdatedAt = target.UpdatedAt = DateTimeOffset.Now;
+                _store.Save(notes);
+            }
+            return removed;
+        }
+    }
+
+    public static string NormalizeRelationshipLabel(string? label)
+    {
+        var value = (label ?? string.Empty).Trim();
+        if (value.Length is < 1 or > MaxRelationshipLabelCharacters || value.Any(char.IsControl))
+            throw new InvalidOperationException($"Relationship labels must contain 1–{MaxRelationshipLabelCharacters} printable characters.");
+        return value;
+    }
+
+    private static void ValidateRelationships(MemoryNote note)
+    {
+        var links = note.Relationships ?? new List<MemoryNoteRelationship>();
+        if (links.Count > MaxRelationshipsPerNote)
+            throw new InvalidOperationException($"A memory note may contain at most {MaxRelationshipsPerNote} explicit relationships.");
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var link in links)
+        {
+            if (link is null || !Guid.TryParseExact(link.TargetNoteId, "N", out _) ||
+                string.Equals(link.TargetNoteId, note.Id, StringComparison.Ordinal) || !seen.Add(link.TargetNoteId))
+                throw new InvalidOperationException("A memory backup contains an invalid or duplicate relationship.");
+            _ = NormalizeRelationshipLabel(link.Label);
         }
     }
 
@@ -178,7 +264,11 @@ public sealed class MemoryService
         {
             var notes = LoadBoundedNotes();
             var removed = notes.RemoveAll(n => n.Id == id) > 0;
-            if (removed) _store.Save(notes);
+            if (removed)
+            {
+                NormalizeRelationships(notes);
+                _store.Save(notes);
+            }
             return removed;
         }
     }
@@ -217,17 +307,59 @@ public sealed class MemoryService
             }
         }
 
+        metadataChanged |= NormalizeRelationships(notes);
         if (notes.Count <= MaxSavedNotes)
         {
-            if (metadataChanged)
-                _store.Save(notes);
+            if (metadataChanged) _store.Save(notes);
             return notes;
         }
-
         var bounded = KeepNewest(notes);
-        // Apply retention and category migration to legacy/existing files on normal access.
+        NormalizeRelationships(bounded);
+        // Apply retention, category migration, and relationship integrity to legacy/existing files.
         _store.Save(bounded);
         return bounded;
+    }
+
+    private static bool NormalizeRelationships(List<MemoryNote> notes)
+    {
+        var byId = notes.GroupBy(note => note.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var pairs = new Dictionary<(string First, string Second), string>();
+        foreach (var note in notes)
+        foreach (var link in note.Relationships ?? new List<MemoryNoteRelationship>())
+        {
+            if (link is null || string.IsNullOrWhiteSpace(link.TargetNoteId) ||
+                string.Equals(note.Id, link.TargetNoteId, StringComparison.Ordinal) || !byId.ContainsKey(link.TargetNoteId))
+                continue;
+            string label;
+            try { label = NormalizeRelationshipLabel(link.Label); }
+            catch (InvalidOperationException) { continue; }
+            var key = string.CompareOrdinal(note.Id, link.TargetNoteId) < 0
+                ? (note.Id, link.TargetNoteId) : (link.TargetNoteId, note.Id);
+            if (!pairs.ContainsKey(key)) pairs.Add(key, label);
+        }
+
+        var rebuilt = notes.ToDictionary(note => note.Id, _ => new List<MemoryNoteRelationship>(), StringComparer.Ordinal);
+        foreach (var pair in pairs.OrderBy(item => item.Key.First, StringComparer.Ordinal).ThenBy(item => item.Key.Second, StringComparer.Ordinal))
+        {
+            var firstLinks = rebuilt[pair.Key.First];
+            var secondLinks = rebuilt[pair.Key.Second];
+            if (firstLinks.Count >= MaxRelationshipsPerNote || secondLinks.Count >= MaxRelationshipsPerNote) continue;
+            firstLinks.Add(new MemoryNoteRelationship { TargetNoteId = pair.Key.Second, Label = pair.Value });
+            secondLinks.Add(new MemoryNoteRelationship { TargetNoteId = pair.Key.First, Label = pair.Value });
+        }
+
+        var changed = false;
+        foreach (var note in notes)
+        {
+            var normalized = rebuilt[note.Id];
+            if (note.Relationships is null || note.Relationships.Count != normalized.Count ||
+                note.Relationships.Where((link, index) => index >= normalized.Count || link is null ||
+                    !string.Equals(link.TargetNoteId, normalized[index].TargetNoteId, StringComparison.Ordinal) ||
+                    !string.Equals(link.Label, normalized[index].Label, StringComparison.Ordinal)).Any()) changed = true;
+            note.Relationships = normalized;
+        }
+        return changed;
     }
 
     private static List<MemoryNote> KeepNewest(List<MemoryNote> notes, string? preserveId = null)

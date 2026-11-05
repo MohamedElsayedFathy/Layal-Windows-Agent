@@ -151,6 +151,89 @@ public sealed class MemoryServiceTests
     }
 
     [TestMethod]
+    public void ExplicitRelationshipsAreSymmetricNamedAndPersistedThroughDpapi()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory.dpapi");
+        var service = new MemoryService(path);
+        var source = service.Save("Release plan", "Plan the next release.");
+        var target = service.Save("Release validation", "Validate the installer.");
+        Assert.IsTrue(service.LinkNotes(source.Id, target.Id, "validates"));
+        var reloaded = new MemoryService(path).GetAll(includeArchived: true);
+        var savedSource = reloaded.Single(note => note.Id == source.Id);
+        var savedTarget = reloaded.Single(note => note.Id == target.Id);
+        Assert.AreEqual("validates", savedSource.Relationships.Single().Label);
+        Assert.AreEqual(source.Id, savedTarget.Relationships.Single().TargetNoteId);
+        Assert.AreEqual("validates", savedTarget.Relationships.Single().Label);
+        Assert.IsTrue(new MemoryService(path).UnlinkNotes(source.Id, target.Id));
+        var afterUnlink = new MemoryService(path).GetAll(includeArchived: true);
+        Assert.AreEqual(0, afterUnlink.Single(note => note.Id == source.Id).Relationships.Count);
+        Assert.AreEqual(0, afterUnlink.Single(note => note.Id == target.Id).Relationships.Count);
+    }
+
+    [TestMethod]
+    public void DeletingNoteRemovesRelationshipsFromRemainingNotes()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory.dpapi");
+        var service = new MemoryService(path);
+        var first = service.Save("First", "First note.");
+        var second = service.Save("Second", "Second note.");
+        Assert.IsTrue(service.LinkNotes(first.Id, second.Id, "depends on"));
+        Assert.IsTrue(service.Delete(second.Id));
+        var remaining = new MemoryService(path).GetAll(includeArchived: true).Single();
+        Assert.AreEqual(first.Id, remaining.Id);
+        Assert.AreEqual(0, remaining.Relationships.Count);
+    }
+
+    [TestMethod]
+    public void RelationshipValidationRejectsInvalidLabelsAndSelfLinks()
+    {
+        using var temp = new TestTempDirectory();
+        Assert.ThrowsExactly<InvalidOperationException>(() => MemoryService.NormalizeRelationshipLabel("bad\nlabel"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => MemoryService.NormalizeRelationshipLabel(new string('x', MemoryService.MaxRelationshipLabelCharacters + 1)));
+        Assert.AreEqual("supports", MemoryService.NormalizeRelationshipLabel("  supports  "));
+        var service = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        var note = new MemoryNote();
+        Assert.IsFalse(service.LinkNotes(note.Id, note.Id, "self"));
+    }
+
+    [TestMethod]
+    public void ExplicitRelationshipLimitIsEnforcedForEachNote()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var service = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        var source = service.Save("Source", "Root note.");
+        var targets = Enumerable.Range(0, MemoryService.MaxRelationshipsPerNote + 1)
+            .Select(index => service.Save("Target " + index, "Related note " + index + "."))
+            .ToArray();
+        for (var index = 0; index < MemoryService.MaxRelationshipsPerNote; index++)
+            Assert.IsTrue(service.LinkNotes(source.Id, targets[index].Id, "related"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.LinkNotes(source.Id, targets[^1].Id, "related"));
+    }
+
+    [TestMethod]
+    public void MemoryBackupPreservesExplicitRelationshipsAndRejectsMalformedOnes()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var sourceService = new MemoryService(System.IO.Path.Combine(temp.Path, "source.dpapi"));
+        var first = sourceService.Save("Research", "Research note.");
+        var second = sourceService.Save("Findings", "Findings note.");
+        Assert.IsTrue(sourceService.LinkNotes(first.Id, second.Id, "informs"));
+        var exported = sourceService.GetAll(includeArchived: true);
+        var restoreService = new MemoryService(System.IO.Path.Combine(temp.Path, "restored.dpapi"));
+        restoreService.ValidateImportMany(exported);
+        Assert.AreEqual(2, restoreService.ImportMany(exported));
+        Assert.AreEqual("informs", restoreService.GetAll(includeArchived: true).Single(note => note.Id == first.Id).Relationships.Single().Label);
+        var malformed = new MemoryNote { Relationships = new() { new MemoryNoteRelationship { TargetNoteId = "not-a-guid", Label = "invalid" } } };
+        Assert.ThrowsExactly<InvalidOperationException>(() => restoreService.ValidateImportMany(new[] { malformed }));
+    }
+
+    [TestMethod]
     public void ExistingMemoryFileIsPrunedToNewestRetentionLimit()
     {
         if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");

@@ -22,6 +22,8 @@ public sealed class LoreWebWindow : Window
     private readonly Action<MemoryNote> _openNote;
     private readonly Func<MemoryNote, bool> _deleteNote;
     private readonly Func<MemoryNote, bool> _toggleArchiveNote;
+    private readonly Func<string, string, string, bool> _linkNotes;
+    private readonly Func<string, string, bool> _unlinkNotes;
     private readonly List<MemoryNote> _notes;
     private readonly Viewport3D _viewport;
     private readonly ListBox _noteList;
@@ -31,6 +33,11 @@ public sealed class LoreWebWindow : Window
     private readonly Button _openButton;
     private readonly Button _deleteButton;
     private readonly Button _archiveButton;
+    private readonly ComboBox _linkTargetSelector;
+    private readonly TextBox _linkLabelInput;
+    private readonly Button _linkButton;
+    private readonly Button _unlinkButton;
+    private MemoryNote? _selectedNote;
     private readonly PerspectiveCamera _camera;
     private readonly Dictionary<ModelVisual3D, MemoryNote> _visualNotes = new();
     private readonly Dictionary<string, ModelVisual3D> _noteVisuals = new(StringComparer.Ordinal);
@@ -50,12 +57,16 @@ public sealed class LoreWebWindow : Window
         bool isArabic,
         Action<MemoryNote> openNote,
         Func<MemoryNote, bool> deleteNote,
-        Func<MemoryNote, bool> toggleArchiveNote)
+        Func<MemoryNote, bool> toggleArchiveNote,
+        Func<string, string, string, bool> linkNotes,
+        Func<string, string, bool> unlinkNotes)
     {
         ArgumentNullException.ThrowIfNull(notes);
         _openNote = openNote ?? throw new ArgumentNullException(nameof(openNote));
         _deleteNote = deleteNote ?? throw new ArgumentNullException(nameof(deleteNote));
         _toggleArchiveNote = toggleArchiveNote ?? throw new ArgumentNullException(nameof(toggleArchiveNote));
+        _linkNotes = linkNotes ?? throw new ArgumentNullException(nameof(linkNotes));
+        _unlinkNotes = unlinkNotes ?? throw new ArgumentNullException(nameof(unlinkNotes));
         _isArabic = isArabic;
         _notes = notes.Take(100).OrderBy(note => note.CreatedAt).ToList();
 
@@ -139,6 +150,7 @@ public sealed class LoreWebWindow : Window
         side.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         side.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1.1, GridUnitType.Star) });
         side.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        side.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         side.Children.Add(new TextBlock
         {
@@ -193,6 +205,47 @@ public sealed class LoreWebWindow : Window
         Grid.SetRow(contentScroll, 3);
         side.Children.Add(contentScroll);
 
+        var relationshipPanel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        var relationshipHeading = new TextBlock
+        {
+            Text = isArabic ? "علاقات صريحة بين الملاحظات" : "Explicit note relationships",
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        AutomationProperties.SetName(relationshipHeading, isArabic ? "إدارة العلاقات الصريحة" : "Manage explicit relationships");
+        relationshipPanel.Children.Add(relationshipHeading);
+        var relationshipInputs = new WrapPanel { Orientation = Orientation.Horizontal };
+        _linkTargetSelector = new ComboBox
+        {
+            MinWidth = 125, MaxWidth = 210, MinHeight = 30,
+            Margin = new Thickness(0, 0, 5, 5),
+            DisplayMemberPath = nameof(RelationshipTargetEntry.Description)
+        };
+        AutomationProperties.SetName(_linkTargetSelector, isArabic ? "الملاحظة المرتبطة" : "Related note target");
+        _linkTargetSelector.SelectionChanged += LinkTargetSelector_SelectionChanged;
+        _linkLabelInput = new TextBox
+        {
+            MinWidth = 90, MaxWidth = 150, MinHeight = 30,
+            MaxLength = MemoryService.MaxRelationshipLabelCharacters,
+            Margin = new Thickness(0, 0, 5, 5),
+            Text = isArabic ? "مرتبط بـ" : "related to",
+            FlowDirection = isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight
+        };
+        AutomationProperties.SetName(_linkLabelInput, isArabic ? "اسم العلاقة" : "Relationship label");
+        _linkButton = new Button { Content = isArabic ? "ربط" : "Link", MinWidth = 60, MinHeight = 30, Margin = new Thickness(0, 0, 5, 5), IsEnabled = false };
+        AutomationProperties.SetName(_linkButton, isArabic ? "إنشاء علاقة بين الملاحظتين" : "Create relationship between notes");
+        _linkButton.Click += LinkButton_Click;
+        _unlinkButton = new Button { Content = isArabic ? "إزالة العلاقة" : "Unlink", MinWidth = 82, MinHeight = 30, Margin = new Thickness(0, 0, 0, 5), IsEnabled = false };
+        AutomationProperties.SetName(_unlinkButton, isArabic ? "إزالة العلاقة المحددة" : "Remove selected relationship");
+        _unlinkButton.Click += UnlinkButton_Click;
+        relationshipInputs.Children.Add(_linkTargetSelector);
+        relationshipInputs.Children.Add(_linkLabelInput);
+        relationshipInputs.Children.Add(_linkButton);
+        relationshipInputs.Children.Add(_unlinkButton);
+        relationshipPanel.Children.Add(relationshipInputs);
+        Grid.SetRow(relationshipPanel, 4);
+        side.Children.Add(relationshipPanel);
+
         _openButton = new Button
         {
             Content = isArabic ? "فتح الملاحظة في المحرر" : "Open note in editor",
@@ -237,7 +290,7 @@ public sealed class LoreWebWindow : Window
         actionButtons.Children.Add(_openButton);
         actionButtons.Children.Add(_archiveButton);
         actionButtons.Children.Add(_deleteButton);
-        Grid.SetRow(actionButtons, 4);
+        Grid.SetRow(actionButtons, 5);
         side.Children.Add(actionButtons);
 
         Grid.SetColumn(side, 1);
@@ -294,7 +347,8 @@ public sealed class LoreWebWindow : Window
             _noteVisuals[note.Id] = visual;
             _noteModels[note.Id] = model;
             var archiveLabel = note.IsArchived ? (_isArabic ? "مؤرشفة" : "Archived") : (_isArabic ? "نشطة" : "Active");
-            _entries.Add(new NoteListEntry(note, $"{note.Title} · {note.Category} · {archiveLabel}"));
+            var relationshipCount = note.Relationships?.Count ?? 0;
+            _entries.Add(new NoteListEntry(note, $"{note.Title} · {note.Category} · {archiveLabel} · {relationshipCount} " + (_isArabic ? "علاقات" : "links")));
         }
 
         foreach (var edge in BuildEdges(_notes))
@@ -302,8 +356,10 @@ public sealed class LoreWebWindow : Window
             if (!_positions.TryGetValue(edge.FromId, out var start) ||
                 !_positions.TryGetValue(edge.ToId, out var end))
                 continue;
-            var geometry = CreateCylinder(start, end, 0.28, 7);
-            var material = CreateMaterial(Color.FromArgb(135, 95, 145, 165));
+            var geometry = CreateCylinder(start, end, 0.32, 7);
+            var isExplicit = _notes.FirstOrDefault(note => string.Equals(note.Id, edge.FromId, StringComparison.Ordinal))?.Relationships?
+                .Any(link => string.Equals(link.TargetNoteId, edge.ToId, StringComparison.Ordinal)) == true;
+            var material = CreateMaterial(isExplicit ? Color.FromArgb(225, 228, 157, 73) : Color.FromArgb(115, 95, 145, 165));
             var edgeVisual = new ModelVisual3D
             {
                 Content = new GeometryModel3D { Geometry = geometry, Material = material, BackMaterial = material }
@@ -330,6 +386,9 @@ public sealed class LoreWebWindow : Window
     private static IReadOnlyList<(string FromId, string ToId)> BuildEdges(IReadOnlyList<MemoryNote> notes)
     {
         var edges = new HashSet<(string FromId, string ToId)>();
+        foreach (var note in notes)
+            foreach (var relationship in note.Relationships ?? new List<MemoryNoteRelationship>())
+                AddEdge(edges, note.Id, relationship.TargetNoteId);
         for (var index = 0; index < notes.Count - 1; index++)
             AddEdge(edges, notes[index].Id, notes[index + 1].Id);
 
@@ -549,6 +608,8 @@ public sealed class LoreWebWindow : Window
 
     private void SelectNote(MemoryNote note)
     {
+        _selectedNote = note;
+        RefreshRelationshipTargets(note);
         foreach (var item in _notes)
         {
             if (!_noteModels.TryGetValue(item.Id, out var model))
@@ -567,7 +628,18 @@ public sealed class LoreWebWindow : Window
         }
 
         _selectedTitle.Text = $"{note.Title} · {note.Category}" + (note.IsArchived ? (_isArabic ? " (مؤرشفة)" : " (Archived)") : string.Empty);
-        _selectedContent.Text = note.Content;
+        var relationshipLines = (note.Relationships ?? new List<MemoryNoteRelationship>())
+            .Select(link =>
+            {
+                var targetTitle = _notes.FirstOrDefault(item => string.Equals(item.Id, link.TargetNoteId, StringComparison.Ordinal))?.Title
+                    ?? (_isArabic ? "ملاحظة غير متاحة" : "Unavailable note");
+                return $"{link.Label}: {targetTitle}";
+            }).ToArray();
+        _selectedContent.Text = relationshipLines.Length == 0
+            ? note.Content
+            : note.Content + Environment.NewLine + Environment.NewLine +
+              (_isArabic ? "العلاقات التي حددتها:" : "User-defined relationships:") + Environment.NewLine +
+              string.Join(Environment.NewLine, relationshipLines);
         _openButton.IsEnabled = true;
         _archiveButton.IsEnabled = true;
         _archiveButton.Content = note.IsArchived ? (_isArabic ? "استعادة" : "Restore") : (_isArabic ? "أرشفة" : "Archive");
@@ -576,6 +648,91 @@ public sealed class LoreWebWindow : Window
             ? $"الملاحظة المحددة: {note.Title}. لم يتم إرسال المحتوى."
             : $"Selected note: {note.Title}. No content was sent.";
     }
+
+    private void RefreshRelationshipTargets(MemoryNote note)
+    {
+        _linkTargetSelector.Items.Clear();
+        foreach (var target in _notes.Where(item => !string.Equals(item.Id, note.Id, StringComparison.Ordinal)))
+        {
+            var description = $"{target.Title} · {target.Category}" + (target.IsArchived ? (_isArabic ? " (مؤرشفة)" : " (Archived)") : string.Empty);
+            _linkTargetSelector.Items.Add(new RelationshipTargetEntry(target.Id, description));
+        }
+        var existing = note.Relationships?.FirstOrDefault();
+        var preferred = existing is null ? null : _linkTargetSelector.Items.OfType<RelationshipTargetEntry>()
+            .FirstOrDefault(item => string.Equals(item.Id, existing.TargetNoteId, StringComparison.Ordinal));
+        _linkTargetSelector.SelectedItem = preferred ?? _linkTargetSelector.Items.OfType<RelationshipTargetEntry>().FirstOrDefault();
+        _linkLabelInput.Text = existing?.Label ?? (_isArabic ? "مرتبط بـ" : "related to");
+        _linkButton.IsEnabled = _linkTargetSelector.SelectedItem is RelationshipTargetEntry;
+        _unlinkButton.IsEnabled = existing is not null && preferred is not null;
+    }
+
+    private void LinkTargetSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_selectedNote is null || _linkTargetSelector.SelectedItem is not RelationshipTargetEntry target)
+        {
+            _linkButton.IsEnabled = false;
+            _unlinkButton.IsEnabled = false;
+            return;
+        }
+        var existing = _selectedNote.Relationships?.FirstOrDefault(link => string.Equals(link.TargetNoteId, target.Id, StringComparison.Ordinal));
+        _linkLabelInput.Text = existing?.Label ?? (_isArabic ? "مرتبط بـ" : "related to");
+        _linkButton.IsEnabled = true;
+        _unlinkButton.IsEnabled = existing is not null;
+    }
+
+    private void LinkButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedNote is null || _linkTargetSelector.SelectedItem is not RelationshipTargetEntry target) return;
+        try
+        {
+            var label = MemoryService.NormalizeRelationshipLabel(_linkLabelInput.Text);
+            if (!_linkNotes(_selectedNote.Id, target.Id, label))
+            {
+                _status.Text = _isArabic ? "تعذر إنشاء العلاقة؛ تحقق من وجود الملاحظتين." : "Could not create the relationship; verify both notes still exist.";
+                return;
+            }
+            var source = _notes.First(note => string.Equals(note.Id, _selectedNote.Id, StringComparison.Ordinal));
+            var destination = _notes.First(note => string.Equals(note.Id, target.Id, StringComparison.Ordinal));
+            source.Relationships ??= new List<MemoryNoteRelationship>();
+            destination.Relationships ??= new List<MemoryNoteRelationship>();
+            source.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, destination.Id, StringComparison.Ordinal));
+            destination.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, source.Id, StringComparison.Ordinal));
+            source.Relationships.Add(new MemoryNoteRelationship { TargetNoteId = destination.Id, Label = label });
+            destination.Relationships.Add(new MemoryNoteRelationship { TargetNoteId = source.Id, Label = label });
+            RebuildGraph();
+            SelectNote(source);
+            _status.Text = _isArabic ? "تم حفظ العلاقة بين الملاحظتين محليًا." : "The relationship was saved locally.";
+        }
+        catch (Exception ex) { _status.Text = (_isArabic ? "تعذر حفظ العلاقة: " : "Could not save relationship: ") + ex.Message; }
+    }
+
+    private void UnlinkButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedNote is null || _linkTargetSelector.SelectedItem is not RelationshipTargetEntry target) return;
+        var confirm = MessageBox.Show(this,
+            _isArabic ? "إزالة العلاقة بين الملاحظتين؟ لن تُحذف أي ملاحظة." : "Remove the relationship between these notes? Neither note will be deleted.",
+            _isArabic ? "إزالة العلاقة" : "Remove relationship",
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes) return;
+        try
+        {
+            if (!_unlinkNotes(_selectedNote.Id, target.Id))
+            {
+                _status.Text = _isArabic ? "لم يتم العثور على العلاقة لإزالتها." : "The relationship was not found.";
+                return;
+            }
+            var source = _notes.First(note => string.Equals(note.Id, _selectedNote.Id, StringComparison.Ordinal));
+            var destination = _notes.First(note => string.Equals(note.Id, target.Id, StringComparison.Ordinal));
+            source.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, destination.Id, StringComparison.Ordinal));
+            destination.Relationships.RemoveAll(link => string.Equals(link.TargetNoteId, source.Id, StringComparison.Ordinal));
+            RebuildGraph();
+            SelectNote(source);
+            _status.Text = _isArabic ? "تمت إزالة العلاقة دون حذف الملاحظتين." : "The relationship was removed without deleting either note.";
+        }
+        catch (Exception ex) { _status.Text = (_isArabic ? "تعذرت إزالة العلاقة: " : "Could not remove relationship: ") + ex.Message; }
+    }
+
+    private sealed record RelationshipTargetEntry(string Id, string Description);
 
     private void ArchiveButton_Click(object sender, RoutedEventArgs e)
     {
@@ -649,11 +806,17 @@ public sealed class LoreWebWindow : Window
 
             var deletedId = entry.Note.Id;
             _notes.RemoveAll(note => string.Equals(note.Id, deletedId, StringComparison.Ordinal));
+            foreach (var note in _notes) note.Relationships?.RemoveAll(link => string.Equals(link.TargetNoteId, deletedId, StringComparison.Ordinal));
+            _selectedNote = null;
             _noteList.SelectedItem = null;
             RebuildGraph();
 
             _selectedTitle.Text = string.Empty;
             _selectedContent.Text = string.Empty;
+            _linkTargetSelector.Items.Clear();
+            _linkLabelInput.Clear();
+            _linkButton.IsEnabled = false;
+            _unlinkButton.IsEnabled = false;
             _openButton.IsEnabled = false;
             _deleteButton.IsEnabled = false;
             _archiveButton.IsEnabled = false;

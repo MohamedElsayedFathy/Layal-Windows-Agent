@@ -6440,7 +6440,9 @@ public partial class MainWindow : Window
                 MemoryTitleInput.Focus();
             },
             note => AppRuntime.MemoryService.Delete(note.Id),
-            note => AppRuntime.MemoryService.SetArchived(note.Id, !note.IsArchived))
+            note => AppRuntime.MemoryService.SetArchived(note.Id, !note.IsArchived),
+            (sourceId, targetId, label) => AppRuntime.MemoryService.LinkNotes(sourceId, targetId, label),
+            (sourceId, targetId) => AppRuntime.MemoryService.UnlinkNotes(sourceId, targetId))
             {
                 Owner = this
             };
