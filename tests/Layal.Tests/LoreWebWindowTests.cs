@@ -130,6 +130,40 @@ public sealed class LoreWebWindowTests
                 Assert.AreEqual(TextTrimming.None, selectedContent.TextTrimming,
                     "Long note content must remain available through the scroll viewer rather than being trimmed.");
 
+                var interactionNotes = new[]
+                {
+                    new MemoryNote { Title = "Source note", Category = "Work", Content = "Source body." },
+                    new MemoryNote { Title = "Target note", Category = "Work", Content = "Target body." }
+                };
+                string? callbackLabel = null;
+                var interactionWindow = new LoreWebWindow(
+                    interactionNotes,
+                    isArabic: false,
+                    _ => { },
+                    _ => true,
+                    _ => true,
+                    (_, _, label) => { callbackLabel = label; return true; },
+                    (_, _) => true);
+                GetField<ListBox>(interactionWindow, "_noteList").SelectedIndex = 0;
+                var targetSelector = GetField<ComboBox>(interactionWindow, "_linkTargetSelector");
+                var labelInput = GetField<TextBox>(interactionWindow, "_linkLabelInput");
+                var linkButton = GetField<Button>(interactionWindow, "_linkButton");
+                Assert.IsNotNull(targetSelector.SelectedItem);
+                labelInput.Text = "supports";
+                linkButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, linkButton));
+                Assert.AreEqual("supports", callbackLabel);
+                Assert.AreEqual("supports", interactionNotes[0].Relationships.Single().Label);
+                Assert.AreEqual(interactionNotes[0].Id, interactionNotes[1].Relationships.Single().TargetNoteId);
+                Assert.IsTrue(GetField<TextBlock>(interactionWindow, "_selectedContent").Text.Contains("supports", StringComparison.Ordinal));
+
+                // Updating an existing relationship must replace its label rather than adding a duplicate.
+                labelInput.Text = "blocks";
+                linkButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, linkButton));
+                Assert.AreEqual("blocks", callbackLabel);
+                Assert.AreEqual("blocks", interactionNotes[0].Relationships.Single().Label);
+                Assert.AreEqual(1, interactionNotes[0].Relationships.Count);
+                Assert.AreEqual("blocks", interactionNotes[1].Relationships.Single().Label);
+
                 var emptyWindow = new LoreWebWindow(
                     Array.Empty<MemoryNote>(),
                     isArabic: false,
