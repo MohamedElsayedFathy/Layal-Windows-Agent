@@ -21,6 +21,10 @@ public sealed class GameModeHudWindow : Window
     private readonly TextBlock _clock;
     private readonly TextBlock _activity;
     private bool _exitRaised;
+    private bool _closingProgrammatically;
+
+    /// <summary>True when the user dismissed the HUD with its button or window chrome.</summary>
+    public bool WasDismissedByUser { get; private set; }
 
     public event EventHandler? ExitRequested;
 
@@ -100,7 +104,7 @@ public sealed class GameModeHudWindow : Window
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var shortcut = new TextBlock
         {
-            Text = _shortcutDisplay + " · Esc",
+            Text = _shortcutDisplay + " · " + (_isArabic ? "Esc داخل ليال" : "Esc in Layal"),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
             Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
@@ -117,11 +121,7 @@ public sealed class GameModeHudWindow : Window
         AutomationProperties.SetHelpText(exit, isArabic
             ? "يغلق HUD ويعيد التذكيرات إلى العمل وفق إعداداتها."
             : "Closes the HUD and restores reminders according to their settings.");
-        exit.Click += (_, _) =>
-        {
-            RaiseExitRequested();
-            Close();
-        };
+        exit.Click += (_, _) => CloseByUser();
         footer.Children.Add(exit);
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
@@ -143,10 +143,33 @@ public sealed class GameModeHudWindow : Window
         var activity = _getActivity();
         _activity.Text = string.IsNullOrWhiteSpace(activity)
             ? (_isArabic
-                ? $"لا توجد مهمة نشطة.\nسؤال سريع: {_shortcutDisplay}\nإلغاء العملية الحالية: Esc"
-                : $"No active task.\nQuick Ask: {_shortcutDisplay}\nCancel current operation: Esc")
+                ? $"لا توجد مهمة نشطة.\nسؤال سريع: {_shortcutDisplay}\nالإلغاء من نافذة ليال: Esc"
+                : $"No active task.\nQuick Ask: {_shortcutDisplay}\nCancel inside Layal: Esc")
             : activity + Environment.NewLine +
-              (_isArabic ? $"سؤال سريع: {_shortcutDisplay} · إلغاء: Esc" : $"Quick Ask: {_shortcutDisplay} · Cancel: Esc");
+              (_isArabic ? $"سؤال سريع: {_shortcutDisplay} · الإلغاء داخل ليال: Esc" : $"Quick Ask: {_shortcutDisplay} · Cancel in Layal: Esc");
+    }
+
+    /// <summary>Close after the user explicitly chooses to dismiss the HUD.</summary>
+    public void CloseByUser()
+    {
+        if (!IsVisible) return;
+        WasDismissedByUser = true;
+        Close();
+    }
+
+    /// <summary>Close because detection ended, settings changed, or Layal is shutting down.</summary>
+    public void CloseFromDetection()
+    {
+        if (!IsVisible) return;
+        _closingProgrammatically = true;
+        Close();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_closingProgrammatically)
+            WasDismissedByUser = true;
+        base.OnClosing(e);
     }
 
     private void RaiseExitRequested()
