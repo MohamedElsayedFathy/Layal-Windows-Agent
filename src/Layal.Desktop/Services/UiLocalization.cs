@@ -27,6 +27,7 @@ public static class UiLocalization
         "Running" or "قيد التنفيذ" => isArabic ? "قيد التنفيذ" : "Running",
         "Completed" or "مكتملة" => isArabic ? "مكتملة" : "Completed",
         "CompletedWithWarnings" or "مكتملة مع تحذيرات" => isArabic ? "مكتملة مع تحذيرات" : "Completed with warnings",
+        "Stopped" or "أُوقفت بعد إجراء غير مكتمل" => isArabic ? "أُوقفت بعد إجراء غير مكتمل" : "Stopped after an incomplete action",
         "Failed" or "فشلت" => isArabic ? "فشلت" : "Failed",
         "Cancelled" or "أُلغيت" => isArabic ? "أُلغيت" : "Cancelled",
         _ => status
@@ -43,8 +44,8 @@ public static class UiLocalization
 
         var status = value[..newline];
         var result = value[(newline + Environment.NewLine.Length)..];
-        var knownStatus = status is "Pending" or "Running" or "Completed" or "CompletedWithWarnings" or "Failed" or "Cancelled"
-            or "قيد الانتظار" or "قيد التنفيذ" or "مكتملة" or "مكتملة مع تحذيرات" or "فشلت" or "أُلغيت";
+        var knownStatus = status is "Pending" or "Running" or "Completed" or "CompletedWithWarnings" or "Stopped" or "Failed" or "Cancelled"
+            or "قيد الانتظار" or "قيد التنفيذ" or "مكتملة" or "مكتملة مع تحذيرات" or "أُوقفت بعد إجراء غير مكتمل" or "فشلت" or "أُلغيت";
         return knownStatus
             ? $"{FormatTaskStatus(status, isArabic)}{Environment.NewLine}{FormatKnownTaskResult(result, isArabic)}"
             : TranslateKnownFeedback(value, isArabic);
