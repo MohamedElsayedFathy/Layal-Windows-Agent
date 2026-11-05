@@ -6,12 +6,13 @@ using System.Text;
 using System.Text.Json;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Xml;
 
 namespace Layal.Services;
 
 /// <summary>
-/// Validates one user-approved browser upload. Only regular files within LayalWorkspace
-/// and an explicit passive-document/image allowlist are eligible; content is never executed.
+/// Validates one user-approved browser upload. Only regular, bounded files within LayalWorkspace
+/// and an explicit document/image format allowlist are eligible. Uploaded content remains untrusted.
 /// </summary>
 public sealed class SafeBrowserUploadService
 {
@@ -108,6 +109,59 @@ public sealed class SafeBrowserUploadService
             digest);
     }
 
+    /// <summary>
+    /// Opens a verified read lease for the upload and keeps the file open with read-only sharing
+    /// until the caller finishes assigning it to the approved browser input. On Windows this
+    /// prevents concurrent writers and replacement/deletion during the CDP file-selection window.
+    /// </summary>
+    public FileStream OpenVerifiedReadLease(SafeBrowserUploadFile approved)
+    {
+        ArgumentNullException.ThrowIfNull(approved);
+        var current = PrepareUpload(approved.RelativePath);
+        if (!string.Equals(current.FullPath, approved.FullPath, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(current.Sha256, approved.Sha256, StringComparison.Ordinal) ||
+            current.LengthBytes != approved.LengthBytes ||
+            current.LastWriteTimeUtc != approved.LastWriteTimeUtc)
+            throw new IOException("The selected file changed while awaiting approval. No browser upload was started; inspect and approve the current file again.");
+
+        EnsureWorkspacePathIsRegular();
+        var stream = new FileStream(
+            current.FullPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            64 * 1024,
+            FileOptions.SequentialScan);
+        try
+        {
+            var attributes = File.GetAttributes(current.FullPath);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Browser uploads are blocked for symbolic links and other reparse points.");
+
+            var length = stream.Length;
+            var lastWrite = File.GetLastWriteTimeUtc(current.FullPath);
+            if (length != approved.LengthBytes || lastWrite != approved.LastWriteTimeUtc)
+                throw new IOException("The selected upload changed before its read lease was acquired.");
+
+            ValidateContent(stream, current.Extension);
+            stream.Position = 0;
+            var digest = Convert.ToHexString(SHA256.HashData(stream));
+            stream.Position = 0;
+
+            if (stream.Length != approved.LengthBytes ||
+                File.GetLastWriteTimeUtc(current.FullPath) != approved.LastWriteTimeUtc ||
+                !string.Equals(digest, approved.Sha256, StringComparison.Ordinal))
+                throw new IOException("The selected upload changed while its read lease was being verified.");
+
+            return stream;
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
+    }
+
     /// <summary>Re-hashes the file after user approval and rejects any path or content change.</summary>
     public SafeBrowserUploadFile RevalidateUnchanged(SafeBrowserUploadFile approved)
     {
@@ -122,8 +176,8 @@ public sealed class SafeBrowserUploadService
     }
 
     /// <summary>
-    /// Checks a file's actual format, not only its extension. This keeps executable or active
-    /// content disguised as a document out of the upload allowlist.
+    /// Checks that the file bytes match the declared document/image format. Format checks do not
+    /// establish that a document is harmless; the destination server and all content remain untrusted.
     /// </summary>
     private static void ValidateContent(FileStream stream, string extension)
     {
@@ -154,15 +208,28 @@ public sealed class SafeBrowserUploadService
         try
         {
             using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
-            if (archive.Entries.Count is 0 or > 2048 ||
-                !archive.Entries.Any(entry => string.Equals(entry.FullName, "[Content_Types].xml", StringComparison.OrdinalIgnoreCase)) ||
-                !archive.Entries.Any(entry => string.Equals(entry.FullName, requiredDocumentEntry, StringComparison.OrdinalIgnoreCase)) ||
-                archive.Entries.Any(entry => entry.FullName.EndsWith("vbaProject.bin", StringComparison.OrdinalIgnoreCase)))
+            if (archive.Entries.Count is 0 or > 2048)
                 return false;
 
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            ZipArchiveEntry? contentTypes = null;
+            ZipArchiveEntry? mainDocument = null;
             long expandedBytes = 0;
             foreach (var entry in archive.Entries)
             {
+                var name = entry.FullName;
+                if (!IsSafeOfficeEntryName(name) || !names.Add(name))
+                    return false;
+
+                var normalized = name.TrimEnd('/');
+                if (ContainsActiveOfficePart(normalized))
+                    return false;
+
+                if (string.Equals(name, "[Content_Types].xml", StringComparison.OrdinalIgnoreCase))
+                    contentTypes = entry;
+                if (string.Equals(name, requiredDocumentEntry, StringComparison.OrdinalIgnoreCase))
+                    mainDocument = entry;
+
                 if (entry.Length < 0 || entry.Length > 32L * 1024 * 1024)
                     return false;
                 expandedBytes += entry.Length;
@@ -170,10 +237,20 @@ public sealed class SafeBrowserUploadService
                     return false;
                 if (entry.Length > 1_048_576 && entry.Length / Math.Max(1L, entry.CompressedLength) > 500)
                     return false;
+
+                if (name.EndsWith(".rels", StringComparison.OrdinalIgnoreCase) &&
+                    !HasSafeRelationships(entry))
+                    return false;
             }
+
+            if (contentTypes is null || mainDocument is null ||
+                !IsWellFormedOfficeXml(contentTypes, rejectMacroContentTypes: true) ||
+                !IsWellFormedOfficeXml(mainDocument, rejectMacroContentTypes: false))
+                return false;
+
             return true;
         }
-        catch (InvalidDataException)
+        catch (Exception ex) when (ex is InvalidDataException or XmlException or IOException or ArgumentException)
         {
             return false;
         }
@@ -181,6 +258,83 @@ public sealed class SafeBrowserUploadService
         {
             stream.Position = 0;
         }
+    }
+
+    private static bool IsSafeOfficeEntryName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) ||
+            name.StartsWith("/", StringComparison.Ordinal) ||
+            name.Contains('\\') ||
+            name.Contains(':') ||
+            name.Any(char.IsControl))
+            return false;
+
+        return name.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .All(segment => segment is not ("." or ".."));
+    }
+
+    private static bool ContainsActiveOfficePart(string name)
+    {
+        var value = "/" + name.Trim('/').ToLowerInvariant() + "/";
+        return value.Contains("/vbaproject.bin/", StringComparison.Ordinal) ||
+               value.Contains("/activex/", StringComparison.Ordinal) ||
+               value.Contains("/embeddings/", StringComparison.Ordinal) ||
+               value.Contains("/externallinks/", StringComparison.Ordinal) ||
+               value.Contains("/customui/", StringComparison.Ordinal) ||
+               value.Contains("/webextensions/", StringComparison.Ordinal) ||
+               value.Contains("/querytables/", StringComparison.Ordinal) ||
+               value.EndsWith("/connections.xml/", StringComparison.Ordinal) ||
+               value.Contains("/ctrlprops/", StringComparison.Ordinal);
+    }
+
+    private static bool IsWellFormedOfficeXml(ZipArchiveEntry entry, bool rejectMacroContentTypes)
+    {
+        var settings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = 1_000_000,
+            IgnoreComments = true,
+            IgnoreWhitespace = true
+        };
+        using var stream = entry.Open();
+        using var reader = XmlReader.Create(stream, settings);
+        while (reader.Read())
+        {
+            if (!rejectMacroContentTypes || reader.NodeType != XmlNodeType.Element)
+                continue;
+            foreach (var attribute in new[] { "ContentType", "Extension" })
+            {
+                var value = reader.GetAttribute(attribute);
+                if (!string.IsNullOrWhiteSpace(value) &&
+                    (value.Contains("macroEnabled", StringComparison.OrdinalIgnoreCase) ||
+                     value.Contains("vbaProject", StringComparison.OrdinalIgnoreCase)))
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    private static bool HasSafeRelationships(ZipArchiveEntry entry)
+    {
+        var settings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = 1_000_000,
+            IgnoreComments = true,
+            IgnoreWhitespace = true
+        };
+        using var stream = entry.Open();
+        using var reader = XmlReader.Create(stream, settings);
+        while (reader.Read())
+        {
+            if (reader.NodeType == XmlNodeType.Element &&
+                reader.LocalName.Equals("Relationship", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(reader.GetAttribute("TargetMode"), "External", StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        return true;
     }
 
     private static bool ValidateJsonText(FileStream stream)
