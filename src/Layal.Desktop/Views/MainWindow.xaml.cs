@@ -6592,17 +6592,6 @@ public partial class MainWindow : Window
             : (hasSelection ? "Review the selected note before permanent deletion." : "Select a note first."));
     }
 
-    private bool IsPrivateMemoryAccessBlocked()
-    {
-        if (PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode))
-            return false;
-
-        SetChatActivityStatus(IsArabic
-            ? "الوصول إلى الذاكرة الشخصية متوقف أثناء المحادثة الخاصة."
-            : "Personal memory is unavailable during private chat.");
-        return true;
-    }
-
     private void RefreshMemoryCategoryFilter(IReadOnlyList<MemoryNote> allNotes)
     {
         var selectedCategory = (MemoryCategoryFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? string.Empty;
