@@ -373,7 +373,7 @@
                             <Button x:Name="GameModeButton" Content="وضع الألعاب" Click="GameModeButton_Click" MinWidth="110"
                                     ToolTip="يفتح HUD يدويًا؛ الكشف التلقائي اختياري ويعتمد على اسم عملية النافذة الأمامية في قائمة سماح تحددها."
                                     AutomationProperties.Name="تفعيل وضع الألعاب اليدوي"
-                                    AutomationProperties.HelpText="يفتح HUD فوق النوافذ ويوقف إشعارات المتابعة والتذكيرات أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها."/>
+                                    AutomationProperties.HelpText="يفتح HUD فوق سطح المكتب ويوقف المتابعة الاستباقية فقط. التذكيرات التي أنشأتها تستمر كالمعتاد؛ لا يقرأ بيانات اللعبة ولا يتحكم بها."/>
                             <Button x:Name="GameModeSettingsButton" Content="إعداد اكتشاف الألعاب" Click="ConfigureGameModeDetectionButton_Click" MinWidth="145"
                                     ToolTip="اختياري ومغلق افتراضيًا؛ يطابق اسم عملية النافذة الأمامية مع قائمة سماح تحددها."
                                     AutomationProperties.Name="إعداد الكشف التلقائي للألعاب"
