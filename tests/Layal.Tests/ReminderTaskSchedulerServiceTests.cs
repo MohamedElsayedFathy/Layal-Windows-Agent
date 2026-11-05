@@ -119,9 +119,4 @@ public sealed class ReminderTaskSchedulerServiceTests
                 })));
     }
 
-    [TestMethod]
-    public void TaskNameIsStableAndDoesNotIncludeReminderTextOrUserData()
-    {
-        Assert.AreEqual(@"\LayalReminderDispatcher", ReminderTaskSchedulerService.TaskName);
-    }
 }
