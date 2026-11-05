@@ -547,16 +547,18 @@ public sealed class BrowserAutomationService
                 ["url"] = snapshot.Url,
                 ["readyState"] = snapshot.ReadyState,
                 ["visibleText"] = snapshot.Text,
-                ["links"] = JsonNode.Parse(snapshot.LinksJson),
-                ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson),
-                ["fields"] = JsonNode.Parse(snapshot.FieldsJson),
+                ["links"] = JsonNode.Parse(snapshot.LinksJson) ?? new JsonArray(),
+                ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson) ?? new JsonArray(),
+                ["fields"] = JsonNode.Parse(snapshot.FieldsJson) ?? new JsonArray(),
                 ["formCount"] = snapshot.FormCount,
                 ["author"] = snapshot.Author,
                 ["publishedDate"] = snapshot.PublishedDate,
                 ["modifiedDate"] = snapshot.ModifiedDate,
                 ["visibleTimeDate"] = snapshot.VisibleTimeDate,
+                ["visibleTimes"] = JsonNode.Parse(snapshot.VisibleTimesJson) ?? new JsonArray(),
                 ["siteName"] = snapshot.SiteName,
-                ["description"] = snapshot.Description
+                ["description"] = snapshot.Description,
+                ["capturedAtUtc"] = DateTimeOffset.UtcNow.ToString("O")
             };
             return output.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         }
@@ -920,15 +922,90 @@ public sealed class BrowserAutomationService
 
     private async Task<BrowserPageSnapshot> ReadPageSnapshotAsync(CdpPageTarget page, CancellationToken token)
     {
-        var expression = "(() => JSON.stringify({title:document.title||'',url:location.href,readyState:document.readyState," +
-            "metadata:(()=>{const meta=k=>Array.from(document.querySelectorAll('meta')).find(m=>m.name===k||m.getAttribute('property')===k||m.getAttribute('itemprop')===k)?.content||'';" +
-            "const ld=(()=>{for(const script of Array.from(document.querySelectorAll('script[type=\\\"application/ld+json\\\"]')).slice(0,5)){const raw=script.textContent||'';if(raw.length>100000)continue;try{const value=JSON.parse(raw),roots=Array.isArray(value)?value:[value];for(const root of roots){const nodes=[root,...(Array.isArray(root?.['@graph'])?root['@graph']:[])];for(const node of nodes){if(node&&typeof node==='object'&&(node.datePublished||node.dateModified||node.author)){const a=node.author;return {publishedDate:String(node.datePublished||''),modifiedDate:String(node.dateModified||''),author:typeof a==='string'?a:Array.isArray(a)?a.map(x=>x?.name||'').filter(Boolean).join(', '):a?.name||''};}}}}catch{}}return {};})();" +
-            "return {author:(meta('author')||meta('article:author')||ld.author||'').slice(0,180),publishedDate:(meta('article:published_time')||meta('datePublished')||meta('pubdate')||ld.publishedDate||'').slice(0,80),modifiedDate:(meta('article:modified_time')||meta('dateModified')||ld.modifiedDate||'').slice(0,80),visibleTimeDate:(document.querySelector('time[datetime]')?.getAttribute('datetime')||'').slice(0,80),siteName:(meta('og:site_name')||'').slice(0,180),description:(meta('description')||meta('og:description')||'').slice(0,500)};})()," +
-            "text:(document.body?.innerText||'').slice(0,20000)," +
-            "links:Array.from(document.querySelectorAll('a[href]')).slice(0,50).map(a=>({text:(a.innerText||a.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160),href:a.href}))," +
-            "buttons:Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0,40).map(e=>({text:(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,120),id:e.id||'',type:e.tagName.toLowerCase()}))," +
-            "fields:Array.from(document.querySelectorAll('input:not([type=password]):not([type=file]):not([type=hidden]),textarea,[contenteditable=true]')).slice(0,40).map(e=>({tag:e.tagName.toLowerCase(),type:e.type||'',name:e.name||'',id:e.id||'',placeholder:e.placeholder||'',label:e.getAttribute('aria-label')||'',disabled:e.disabled===true}))," +
-            "formCount:document.forms.length}))()";
+        var expression = """
+            (() => JSON.stringify({
+              title: document.title || '',
+              url: location.href,
+              readyState: document.readyState,
+              metadata: (() => {
+                const allMeta = Array.from(document.querySelectorAll('meta'));
+                const meta = (...names) => {
+                  for (const name of names) {
+                    const found = allMeta.find(m =>
+                      (m.name || '').toLowerCase() === name.toLowerCase() ||
+                      (m.getAttribute('property') || '').toLowerCase() === name.toLowerCase() ||
+                      (m.getAttribute('itemprop') || '').toLowerCase() === name.toLowerCase());
+                    if (found?.content) return String(found.content).slice(0, 500);
+                  }
+                  return '';
+                };
+                const jsonLd = (() => {
+                  const result = {};
+                  let visited = 0;
+                  const authorName = value => {
+                    if (typeof value === 'string') return value;
+                    if (Array.isArray(value)) return value.map(authorName).filter(Boolean).join(', ');
+                    if (value && typeof value === 'object') return String(value.name || value.alternateName || '');
+                    return '';
+                  };
+                  const visit = (value, depth) => {
+                    if (!value || depth > 10 || visited++ > 1500) return;
+                    if (Array.isArray(value)) {
+                      for (const item of value.slice(0, 100)) visit(item, depth + 1);
+                      return;
+                    }
+                    if (typeof value !== 'object') return;
+                    if (!result.publishedDate && typeof value.datePublished === 'string') result.publishedDate = value.datePublished;
+                    if (!result.modifiedDate && typeof value.dateModified === 'string') result.modifiedDate = value.dateModified;
+                    if (!result.author && value.author) result.author = authorName(value.author);
+                    for (const key of ['@graph', 'mainEntity', 'mainEntityOfPage', 'hasPart', 'itemListElement']) {
+                      if (value[key]) visit(value[key], depth + 1);
+                    }
+                  };
+                  for (const script of Array.from(document.querySelectorAll('script[type="application/ld+json"]')).slice(0, 10)) {
+                    const raw = script.textContent || '';
+                    if (!raw || raw.length > 100000) continue;
+                    try { visit(JSON.parse(raw), 0); } catch { /* Invalid JSON-LD is untrusted and ignored. */ }
+                  }
+                  return result;
+                })();
+                const times = Array.from(document.querySelectorAll('time[datetime]')).slice(0, 8).map(element => ({
+                  datetime: String(element.getAttribute('datetime') || '').slice(0, 80),
+                  context: String(element.getAttribute('aria-label') || element.title || element.parentElement?.innerText || element.innerText || '')
+                    .replace(/\\s+/g, ' ').trim().slice(0, 180)
+                })).filter(item => item.datetime.length > 0);
+                return {
+                  author: (meta('author', 'article:author', 'dc.creator', 'dcterms.creator') || jsonLd.author || '').slice(0, 180),
+                  publishedDate: (meta('article:published_time', 'datepublished', 'pubdate', 'parsely-pub-date', 'dcterms.date', 'dc.date') || jsonLd.publishedDate || '').slice(0, 80),
+                  modifiedDate: (meta('article:modified_time', 'datemodified', 'last-modified', 'dcterms.modified') || jsonLd.modifiedDate || '').slice(0, 80),
+                  visibleTimeDate: (times[0]?.datetime || '').slice(0, 80),
+                  visibleTimes: times,
+                  siteName: meta('og:site_name').slice(0, 180),
+                  description: meta('description', 'og:description', 'twitter:description').slice(0, 500)
+                };
+              })(),
+              text: (document.body?.innerText || '').slice(0, 20000),
+              links: Array.from(document.querySelectorAll('a[href]')).slice(0, 50).map(a => ({
+                text: (a.innerText || a.getAttribute('aria-label') || '').trim().replace(/\\s+/g, ' ').slice(0, 160),
+                href: a.href
+              })),
+              buttons: Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0, 40).map(e => ({
+                text: (e.innerText || e.value || e.getAttribute('aria-label') || '').trim().replace(/\\s+/g, ' ').slice(0, 120),
+                id: e.id || '',
+                type: e.tagName.toLowerCase()
+              })),
+              fields: Array.from(document.querySelectorAll('input:not([type=password]):not([type=file]):not([type=hidden]),textarea,[contenteditable=true]')).slice(0, 40).map(e => ({
+                tag: e.tagName.toLowerCase(),
+                type: e.type || '',
+                name: e.name || '',
+                id: e.id || '',
+                placeholder: e.placeholder || '',
+                label: e.getAttribute('aria-label') || '',
+                disabled: e.disabled === true
+              })),
+              formCount: document.forms.length
+            }))()
+            """;
         var json = await EvaluateAsync(page, expression, token);
         if (string.IsNullOrWhiteSpace(json)) throw new InvalidOperationException("The browser returned no page metadata.");
         using var doc = JsonDocument.Parse(json);
@@ -937,17 +1014,22 @@ public sealed class BrowserAutomationService
         _ = ValidateHttpUrl(pageUrl);
         var metadata = root.TryGetProperty("metadata", out var metadataElement) ? metadataElement : default;
         string Meta(string name) => metadata.ValueKind == JsonValueKind.Object &&
-            metadata.TryGetProperty(name, out var item) ? item.GetString() ?? string.Empty : string.Empty;
+            metadata.TryGetProperty(name, out var item) && item.ValueKind == JsonValueKind.String
+                ? item.GetString() ?? string.Empty : string.Empty;
+        var visibleTimesJson = metadata.ValueKind == JsonValueKind.Object &&
+            metadata.TryGetProperty("visibleTimes", out var times) && times.ValueKind == JsonValueKind.Array
+                ? times.GetRawText() : "[]";
         return new BrowserPageSnapshot(
-            root.TryGetProperty("title", out var title) ? title.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String ? title.GetString() ?? string.Empty : string.Empty,
             pageUrl,
-            root.TryGetProperty("readyState", out var ready) ? ready.GetString() ?? string.Empty : string.Empty,
-            root.TryGetProperty("text", out var text) ? text.GetString() ?? string.Empty : string.Empty,
-            root.TryGetProperty("links", out var links) ? links.GetRawText() : "[]",
-            root.TryGetProperty("buttons", out var buttons) ? buttons.GetRawText() : "[]",
-            root.TryGetProperty("fields", out var fields) ? fields.GetRawText() : "[]",
-            root.TryGetProperty("formCount", out var forms) ? forms.GetInt32() : 0,
-            Meta("author"), Meta("publishedDate"), Meta("modifiedDate"), Meta("visibleTimeDate"), Meta("siteName"), Meta("description"));
+            root.TryGetProperty("readyState", out var ready) && ready.ValueKind == JsonValueKind.String ? ready.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("links", out var links) && links.ValueKind == JsonValueKind.Array ? links.GetRawText() : "[]",
+            root.TryGetProperty("buttons", out var buttons) && buttons.ValueKind == JsonValueKind.Array ? buttons.GetRawText() : "[]",
+            root.TryGetProperty("fields", out var fields) && fields.ValueKind == JsonValueKind.Array ? fields.GetRawText() : "[]",
+            root.TryGetProperty("formCount", out var forms) && forms.TryGetInt32(out var formCount) ? formCount : 0,
+            Meta("author"), Meta("publishedDate"), Meta("modifiedDate"), Meta("visibleTimeDate"),
+            Meta("siteName"), Meta("description"), visibleTimesJson);
     }
 
     private async Task<string?> EvaluateAsync(CdpPageTarget page, string expression, CancellationToken token)
@@ -1118,7 +1200,8 @@ public sealed record BrowserPageSnapshot(
     string ModifiedDate = "",
     string VisibleTimeDate = "",
     string SiteName = "",
-    string Description = "");
+    string Description = "",
+    string VisibleTimesJson = "[]");
 
 internal sealed record CdpPageTarget(string Id, string Title, string Url, string WebSocketUrl);
 
