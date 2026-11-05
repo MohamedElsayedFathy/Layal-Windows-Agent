@@ -5990,6 +5990,14 @@ public partial class MainWindow : Window
         window.ShowDialog();
         if (!string.IsNullOrWhiteSpace(window.RunPrompt))
         {
+            if (_agentTaskCancellation is not null)
+            {
+                SetAccessibleStatusText(TaskResult, IsArabic
+                    ? "هناك مهمة قيد التنفيذ بالفعل؛ لم يبدأ هذا الروتين. أوقف المهمة الحالية أو انتظر انتهائها ثم حاول مجددًا."
+                    : "A task is already running; this routine was not started. Cancel or finish the current task, then try again.");
+                return;
+            }
+
             _stopAgentTaskAfterToolFailure = true;
             TaskInput.Text = window.RunPrompt;
             MainTabs.SelectedItem = TasksTab;
