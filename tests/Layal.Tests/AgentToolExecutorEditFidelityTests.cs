@@ -129,6 +129,141 @@ public sealed class AgentToolExecutorEditFidelityTests
     }
 
     [TestMethod]
+    public async Task ReplaceRejectsSameLengthContentChangeEvenWhenTimestampIsRestoredDuringApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "concurrent.txt");
+        const string original = "before after";
+        const string changed = "before xxxxx";
+        Assert.AreEqual(original.Length, changed.Length);
+        File.WriteAllText(path, original, new UTF8Encoding(false));
+        var timestamp = File.GetLastWriteTimeUtc(path);
+        var executor = CreateExecutor(temp.Path);
+
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => executor.ExecuteAsync(
+            "replace_text_in_file",
+            new JsonObject { ["path"] = "concurrent.txt", ["old_text"] = "after", ["new_text"] = "updated" }.ToJsonString(),
+            (_, _, _) =>
+            {
+                File.WriteAllText(path, changed, new UTF8Encoding(false));
+                File.SetLastWriteTimeUtc(path, timestamp);
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        StringAssert.Contains(error.Message, "changed while awaiting approval");
+        Assert.AreEqual(changed, File.ReadAllText(path));
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(temp.Path, ".layal-backups")),
+            "A changed target must be rejected before creating a backup.");
+    }
+
+    [TestMethod]
+    public async Task ReplaceRejectsArabicReplacementOverByteLimitBeforeApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "small.txt");
+        File.WriteAllText(path, "replace me");
+        var executor = CreateExecutor(temp.Path);
+        var approvalCalled = false;
+        var newText = new string('\u0645', 51 * 1024);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "replace_text_in_file",
+            new JsonObject { ["path"] = "small.txt", ["old_text"] = "replace me", ["new_text"] = newText }.ToJsonString(),
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled, "The encoded replacement byte limit must be enforced before approval.");
+        Assert.AreEqual("replace me", File.ReadAllText(path));
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(temp.Path, ".layal-backups")));
+    }
+
+    [TestMethod]
+    public async Task ReplaceRejectsMissingOrAmbiguousMatchBeforeApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "ambiguous.txt");
+        File.WriteAllText(path, "same phrase and same phrase");
+        var executor = CreateExecutor(temp.Path);
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "replace_text_in_file",
+            new JsonObject { ["path"] = "ambiguous.txt", ["old_text"] = "same phrase", ["new_text"] = "changed" }.ToJsonString(),
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled);
+        Assert.AreEqual("same phrase and same phrase", File.ReadAllText(path));
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(temp.Path, ".layal-backups")));
+    }
+
+    [TestMethod]
+    public async Task CancellingReplacementAfterApprovalLeavesOriginalAndNoBackupOrTemporaryFile()
+    {
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "cancel.txt");
+        const string original = "before after";
+        File.WriteAllText(path, original);
+        var executor = CreateExecutor(temp.Path);
+        using var cancellation = new CancellationTokenSource();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => executor.ExecuteAsync(
+            "replace_text_in_file",
+            new JsonObject { ["path"] = "cancel.txt", ["old_text"] = "after", ["new_text"] = "updated" }.ToJsonString(),
+            (_, _, _) =>
+            {
+                cancellation.Cancel();
+                return Task.FromResult(true);
+            },
+            _ => { },
+            cancellation.Token));
+
+        Assert.AreEqual(original, File.ReadAllText(path));
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(temp.Path, ".layal-backups")));
+        Assert.AreEqual(0, Directory.GetFiles(temp.Path, "*.layal-tmp-*").Length);
+    }
+
+    [TestMethod]
+    public async Task AtomicReplaceFailureLeavesTargetUntouchedAndDoesNotCreateBackup()
+    {
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "locked.txt");
+        const string original = "before after";
+        File.WriteAllText(path, original);
+        var executor = CreateExecutor(temp.Path);
+        FileStream? heldOpen = null;
+
+        try
+        {
+            await Assert.ThrowsExactlyAsync<IOException>(() => executor.ExecuteAsync(
+                "replace_text_in_file",
+                new JsonObject { ["path"] = "locked.txt", ["old_text"] = "after", ["new_text"] = "updated" }.ToJsonString(),
+                (_, _, _) =>
+                {
+                    // Permit the snapshot reader but deliberately deny delete/replace sharing.
+                    heldOpen = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    return Task.FromResult(true);
+                },
+                _ => { },
+                CancellationToken.None));
+
+            Assert.AreEqual(original, File.ReadAllText(path));
+            var backupRoot = System.IO.Path.Combine(temp.Path, ".layal-backups");
+            Assert.IsTrue(!Directory.Exists(backupRoot) || Directory.GetFiles(backupRoot, "*.bak").Length == 0,
+                "An atomic replace that failed must not leave a backup file.");
+            Assert.AreEqual(0, Directory.GetFiles(temp.Path, "*.layal-tmp-*").Length);
+        }
+        finally
+        {
+            heldOpen?.Dispose();
+        }
+    }
+
+    [TestMethod]
     public async Task OldBackupsArePrunedToTheRetentionLimit()
     {
         using var temp = new TestTempDirectory();
