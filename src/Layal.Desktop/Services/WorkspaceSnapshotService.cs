@@ -72,7 +72,13 @@ public sealed class WorkspaceSnapshotService
             document.Memories.Count,
             document.Files.Count,
             document.ExportedAt,
-            document.Files.Count(entry => entry.ContentBase64 is not null));
+            document.Files.Count(entry => entry.ContentBase64 is not null),
+            document.Files.Select(entry => new WorkspaceSnapshotFilePreview(
+                entry.RelativePath,
+                entry.SizeBytes,
+                entry.IsDirectory,
+                entry.ContentBase64 is not null,
+                entry.ContentOmittedReason)).ToArray());
     }
 
     /// <summary>
