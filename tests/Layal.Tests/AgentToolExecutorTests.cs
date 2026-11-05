@@ -610,7 +610,7 @@ public sealed class AgentToolExecutorTests
         StringAssert.Contains(result, "UNTRUSTED WORKSPACE FILE DATA");
         StringAssert.Contains(result, "Next start_character: none");
         StringAssert.Contains(result, content);
-        Assert.IsTrue(reports.Any(line => line.Contains("Read approved text file", StringComparison.Ordinal)));
+        Assert.IsTrue(reports.Any(line => line.Contains("Read approved text slice", StringComparison.Ordinal)));
     }
 
     [TestMethod]
