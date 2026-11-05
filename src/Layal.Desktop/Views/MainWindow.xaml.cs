@@ -5149,6 +5149,13 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ChatInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        // Clearing the whole draft discards any pending Gmail one-turn marker.
+        if (string.IsNullOrWhiteSpace(ChatInput.Text))
+            _pendingGmailDraft = false;
+    }
+
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
     private async Task SendMessageAsync(bool suppressVoiceReply = false)
