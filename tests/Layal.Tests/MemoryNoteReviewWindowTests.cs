@@ -4,7 +4,6 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
-using Layal;
 using Layal.Models;
 using Layal.Views;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -24,10 +23,6 @@ public sealed class MemoryNoteReviewWindowTests
         Exception? failure = null;
         var thread = new Thread(() =>
         {
-            App.SuppressStartupForTests = true;
-            var app = new App();
-            app.InitializeComponent();
-            app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             try
             {
                 var content = "محتوى عربي مع English text — " + nameof(SaveAndDeleteReviewsShowTheCompleteNoteInAReadOnlyAccessiblePreview) + "\n" +
@@ -65,17 +60,11 @@ public sealed class MemoryNoteReviewWindowTests
                         confirm.Content);
                     Assert.AreEqual(action != MemoryNoteReviewAction.Delete, confirm.IsDefault,
                         "Delete must not be the implicit default button; Save may be confirmed with Enter.");
-                    window.Close();
                 }
             }
             catch (Exception exception)
             {
                 failure = exception;
-            }
-            finally
-            {
-                try { app.Shutdown(); } catch { }
-                App.SuppressStartupForTests = false;
             }
         });
         thread.SetApartmentState(ApartmentState.STA);
