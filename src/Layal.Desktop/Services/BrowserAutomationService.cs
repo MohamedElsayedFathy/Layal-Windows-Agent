@@ -748,37 +748,16 @@ public sealed class BrowserAutomationService
             var page = await GetPageTargetAsync(token);
             if (!string.Equals(page.Id, preview.PageTargetId, StringComparison.Ordinal))
                 throw new InvalidOperationException("The active browser tab changed while awaiting upload approval. Inspect and approve the intended file input again.");
-            var currentUrl = ValidateHttpUrl(await EvaluateAsync(page, "location.href", token) ?? string.Empty).AbsoluteUri;
-            if (!string.Equals(currentUrl, preview.PageUrl, StringComparison.Ordinal))
-                throw new InvalidOperationException("The browser page URL changed while awaiting upload approval. No file was selected.");
+            _ = ValidateHttpUrl(preview.PageUrl);
+            ValidateBrowserUploadAccept(preview.Accept, Path.GetExtension(absoluteFilePath));
 
-            EnsureActionSucceeded(await EvaluateAsync(page, BuildActionExpression(preview, "upload", string.Empty), token), "upload");
+            var nodeId = await ResolveApprovedUploadNodeIdAsync(page, preview, token);
             token.ThrowIfCancellationRequested();
 
-            var document = await SendCommandAsync(page, "DOM.getDocument", new JsonObject
-            {
-                ["depth"] = 1,
-                ["pierce"] = true
-            }, token);
-            var rootNodeId = document["result"]?["root"]?["nodeId"]?.GetValue<int>() ?? 0;
-            if (rootNodeId <= 0)
-                throw new InvalidOperationException("The browser did not expose a document root for the approved file input.");
-
-            var query = await SendCommandAsync(page, "DOM.querySelector", new JsonObject
-            {
-                ["nodeId"] = rootNodeId,
-                ["selector"] = preview.Selector
-            }, token);
-            var nodeId = query["result"]?["nodeId"]?.GetValue<int>() ?? 0;
-            if (nodeId <= 0)
-                throw new InvalidOperationException("The approved file input is no longer present. No file was selected.");
-
-            // Re-check the exact page and element immediately before the local file path is passed to CDP.
+            // Refuse a new popup/tab that appeared during the consent or node-resolution window.
             var latest = await GetPageTargetAsync(token);
             if (!string.Equals(latest.Id, preview.PageTargetId, StringComparison.Ordinal))
                 throw new InvalidOperationException("The active browser tab changed before file selection. No upload was started.");
-            EnsureActionSucceeded(await EvaluateAsync(latest, BuildActionExpression(preview, "upload", string.Empty), token), "upload");
-            token.ThrowIfCancellationRequested();
 
             await SendCommandAsync(page, "DOM.setFileInputFiles", new JsonObject
             {
@@ -1186,6 +1165,63 @@ public sealed class BrowserAutomationService
             "if(action==='fill'){const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;if(!allowed||readOnly)return JSON.stringify({found:false,error:'Selector must match an editable visible text/email/search/tel/url/number input, textarea, or contenteditable field. Password/file/hidden fields are not supported.'});}" +
             "if(action==='upload'&&(tag!=='input'||type!=='file'))return JSON.stringify({found:false,error:'Uploads require a visible input[type=file].'});" +
             "return JSON.stringify({found:true,url:location.href,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',role,formAssociated,disabled,readOnly,accept,multiple,fingerprint:fp});})()";
+    }
+
+    private async Task<int> ResolveApprovedUploadNodeIdAsync(
+        CdpPageTarget page,
+        BrowserElementPreview preview,
+        CancellationToken token)
+    {
+        // Hold a live DOM object from the same synchronous check that revalidates the consent
+        // fingerprint. If the page replaces this node afterward, CDP sees a detached node rather
+        // than a new element that happens to reuse the CSS selector.
+        var selector = JsonSerializer.Serialize(preview.Selector);
+        var expectedUrl = JsonSerializer.Serialize(preview.PageUrl);
+        var expectedFingerprint = JsonSerializer.Serialize(preview.Fingerprint);
+        var expression =
+            "(() => {const q=" + selector + ",expectedUrl=" + expectedUrl + ",expectedFp=" + expectedFingerprint + ";" +
+            "if(location.href!==expectedUrl)throw new Error('The page URL changed while awaiting upload approval.');" +
+            "const matches=document.querySelectorAll(q);if(matches.length!==1)throw new Error('The approved file input is no longer unique.');" +
+            "const e=matches[0],tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase();" +
+            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().split(/\\s+/).join(' ').slice(0,160);" +
+            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=e.getAttribute('accept')||'',multiple=e.multiple===true;" +
+            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
+            "if(fp!==expectedFp||tag!=='input'||type!=='file')throw new Error('The approved file input changed while awaiting upload approval.');" +
+            "const style=getComputedStyle(e),rect=e.getBoundingClientRect();" +
+            "if(e.disabled===true||(e.files&&e.files.length>0)||!e.getClientRects().length||style.visibility==='hidden'||style.display==='none'||Number(style.opacity)<=0.01||style.pointerEvents==='none'||e.closest('[aria-hidden=true]')||rect.width<=0||rect.height<=0||rect.bottom<=0||rect.right<=0||rect.top>=innerHeight||rect.left>=innerWidth)throw new Error('The approved file input is no longer visible, enabled, and empty.');" +
+            "return e;})()";
+
+        _ = await SendCommandAsync(page, "DOM.getDocument", new JsonObject
+        {
+            ["depth"] = 1,
+            ["pierce"] = true
+        }, token);
+
+        var evaluation = await SendCommandAsync(page, "Runtime.evaluate", new JsonObject
+        {
+            ["expression"] = expression,
+            ["returnByValue"] = false,
+            ["awaitPromise"] = false
+        }, token);
+        if (evaluation["result"]?["exceptionDetails"] is JsonObject exception)
+        {
+            var message = exception["exception"]?["description"]?.GetValue<string>() ??
+                exception["text"]?.GetValue<string>() ?? "The approved file input changed.";
+            throw new InvalidOperationException("No file was selected: " + message);
+        }
+
+        var objectId = evaluation["result"]?["result"]?["objectId"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(objectId))
+            throw new InvalidOperationException("The browser did not return a live reference to the approved file input.");
+
+        var request = await SendCommandAsync(page, "DOM.requestNode", new JsonObject
+        {
+            ["objectId"] = objectId
+        }, token);
+        var nodeId = request["result"]?["nodeId"]?.GetValue<int>() ?? 0;
+        if (nodeId <= 0)
+            throw new InvalidOperationException("The approved file input was detached before local file selection.");
+        return nodeId;
     }
 
     private static string BuildActionExpression(BrowserElementPreview preview, string action, string value)
