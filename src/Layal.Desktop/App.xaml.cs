@@ -125,8 +125,9 @@ public partial class App : Application
             WriteCrashLog("Schedule reminders", ex);
         }
 
-        foreach (var reminder in deliveredAtStartup)
+        if (deliveredAtStartup.Count == 1)
         {
+            var reminder = deliveredAtStartup[0];
             var linkedTaskId = reminder.RelatedTaskId;
             AppRuntime.Tray?.ShowReminderNotification(
                 reminder.Title,
@@ -134,6 +135,13 @@ public partial class App : Application
                 string.IsNullOrWhiteSpace(linkedTaskId)
                     ? null
                     : () => AppRuntime.OpenTaskNotification?.Invoke(linkedTaskId));
+        }
+        else if (deliveredAtStartup.Count > 1)
+        {
+            AppRuntime.Tray?.ShowReminderSummary(
+                deliveredAtStartup.Count,
+                AppRuntime.Settings.Language == "ar",
+                () => AppRuntime.MainWindow?.ShowFromTray());
         }
     }
 
