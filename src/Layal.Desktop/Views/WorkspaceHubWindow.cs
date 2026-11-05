@@ -282,6 +282,18 @@ public sealed class WorkspaceHubWindow : Window
         if (!Directory.Exists(_workspaceRoot))
             return output;
 
+        try
+        {
+            EnsureNoReparsePointsInExistingPath(_workspaceRoot);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _status.Text = _isArabic
+                ? "توقف فهرس الملفات لأن مسار LayalWorkspace أو أحد مجلداته الأب يحتوي على رابط رمزي أو مسار غير آمن."
+                : "File indexing stopped because LayalWorkspace or one of its parent directories is a symbolic link or unsafe path.";
+            return output;
+        }
+
         var pending = new Stack<(string Path, int Depth)>();
         pending.Push((_workspaceRoot, 0));
         var rootPrefix = Path.TrimEndingDirectorySeparator(_workspaceRoot) + Path.DirectorySeparatorChar;
@@ -330,7 +342,12 @@ public sealed class WorkspaceHubWindow : Window
                 {
                     var info = new DirectoryInfo(path);
                     if ((info.Attributes & FileAttributes.ReparsePoint) != 0) continue;
-                    if (info.Name is ".git" or ".vs" or "bin" or "obj" or "node_modules" or ".cache")
+                    if (info.Name.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals(".vs", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals("node_modules", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals(".cache", StringComparison.OrdinalIgnoreCase))
                         continue;
                     var fullPath = Path.GetFullPath(path);
                     if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)) continue;
@@ -346,6 +363,26 @@ public sealed class WorkspaceHubWindow : Window
             }
         }
         return output;
+    }
+
+    private static void EnsureNoReparsePointsInExistingPath(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath)
+            ?? throw new InvalidOperationException("The workspace path has no filesystem root.");
+        var current = root;
+        foreach (var segment in fullPath[root.Length..].Split(
+                     new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if (!Directory.Exists(current))
+                throw new DirectoryNotFoundException("A workspace directory does not exist.");
+            var attributes = File.GetAttributes(current);
+            if ((attributes & FileAttributes.ReparsePoint) != 0 ||
+                (attributes & FileAttributes.Directory) == 0)
+                throw new InvalidOperationException("The workspace path contains a symbolic link, reparse point, or non-directory parent.");
+        }
     }
 
     private void ApplyFilter()
