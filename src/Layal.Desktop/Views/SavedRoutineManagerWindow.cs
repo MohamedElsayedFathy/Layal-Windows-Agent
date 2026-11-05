@@ -338,6 +338,96 @@ public sealed class SavedRoutineManagerWindow : Window
         Close();
     }
 
+    private bool ConfirmRun(string prompt)
+    {
+        var confirmation = new Window
+        {
+            Title = _isArabic ? "مراجعة خطة الروتين والتأكيد" : "Review routine plan and confirm",
+            Owner = this,
+            Width = 760,
+            Height = 640,
+            MinWidth = 560,
+            MinHeight = 420,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.CanResize,
+            ShowInTaskbar = false,
+            Background = Background,
+            Foreground = Foreground
+        };
+        AutomationProperties.SetName(confirmation, confirmation.Title);
+        AutomationProperties.SetHelpText(confirmation, _isArabic
+            ? "اقرأ الخطة كاملة قبل بدء مهمة واحدة. زر الإلغاء هو الخيار الافتراضي."
+            : "Review the complete plan before starting one task. Cancel is the default.");
+
+        var root = new Grid { Margin = new Thickness(16) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var notice = new TextBlock
+        {
+            Text = _isArabic
+                ? "سيُرسل نص الروتين إلى مزود الذكاء الاصطناعي المُعدّ لبدء مهمة واحدة. الروتين لا يمنح أي صلاحيات؛ ستظهر موافقة محلية منفصلة قبل كل أداة أو إجراء. لا يمكن التراجع تلقائيًا عن الآثار التي تمت."
+                : "The routine text is sent to the configured AI provider for one task. It grants no permissions; a separate local approval appears before each tool or action. Completed effects are not automatically undone.",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        Grid.SetRow(notice, 0);
+        root.Children.Add(notice);
+
+        var plan = new TextBox
+        {
+            Text = prompt,
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MinHeight = 280,
+            Padding = new Thickness(10),
+            IsTabStop = true
+        };
+        AutomationProperties.SetName(plan, _isArabic ? "الخطة الكاملة للروتين" : "Complete routine execution plan");
+        AutomationProperties.SetHelpText(plan, _isArabic
+            ? "الخطة كاملة للقراءة والتمرير والنسخ؛ هذه المعاينة لا تشغّلها."
+            : "The complete read-only plan; scroll or copy it. This preview does not run it.");
+        Grid.SetRow(plan, 1);
+        root.Children.Add(plan);
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+        var cancelButton = new Button
+        {
+            Content = _isArabic ? "إلغاء" : "Cancel",
+            MinWidth = 110,
+            MinHeight = 36,
+            IsCancel = true,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        AutomationProperties.SetName(cancelButton, _isArabic ? "إلغاء تشغيل الروتين" : "Cancel routine execution");
+        var confirmButton = new Button
+        {
+            Content = _isArabic ? "تأكيد وبدء مهمة واحدة" : "Confirm and start one task",
+            MinWidth = 205,
+            MinHeight = 36,
+            IsDefault = false
+        };
+        AutomationProperties.SetName(confirmButton, _isArabic ? "تأكيد خطة الروتين وبدء التنفيذ" : "Confirm routine plan and start execution");
+        confirmButton.Click += (_, _) => confirmation.DialogResult = true;
+        actions.Children.Add(cancelButton);
+        actions.Children.Add(confirmButton);
+        Grid.SetRow(actions, 2);
+        root.Children.Add(actions);
+
+        confirmation.Content = root;
+        confirmation.Loaded += (_, _) => cancelButton.Focus();
+        return confirmation.ShowDialog() == true;
+    }
+
     private void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
         if (_list.SelectedItem is not RoutineListEntry selected)
