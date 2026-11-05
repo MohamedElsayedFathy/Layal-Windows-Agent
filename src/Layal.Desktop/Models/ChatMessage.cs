@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 using System.Windows;
 
 namespace Layal.Models;
@@ -36,6 +37,13 @@ public sealed class ChatMessage : INotifyPropertyChanged
     }
 
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.Now;
+
+    /// <summary>
+    /// Marks a one-turn Gmail-derived message. It is kept in the live UI only and must never
+    /// be serialized or included in later chat context.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsGmailEphemeralData { get; init; }
 
     public FlowDirection Direction
     {
