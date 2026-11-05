@@ -347,9 +347,9 @@ public sealed class AgentOrchestratorTests
 
         Assert.AreEqual("Completed", task.Status, string.Join(Environment.NewLine, task.Events));
         Assert.AreEqual(3, approvals.Count, "Each tool action must receive its own local approval.");
-        StringAssert.Contains(approvals[0], "reports/step-1.txt");
-        StringAssert.Contains(approvals[1], "reports/step-2.txt");
-        StringAssert.Contains(approvals[2], "reports/step-3.txt");
+        StringAssert.Contains(approvals[0].Replace('\\', '/'), "reports/step-1.txt");
+        StringAssert.Contains(approvals[1].Replace('\\', '/'), "reports/step-2.txt");
+        StringAssert.Contains(approvals[2].Replace('\\', '/'), "reports/step-3.txt");
         CollectionAssert.AreEqual(
             new[] { "reports/step-1.txt", "reports/step-2.txt", "reports/step-3.txt" },
             task.Artifacts);
