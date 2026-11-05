@@ -29,8 +29,6 @@ public sealed class LoreWebWindowTests
         {
             try
             {
-                _ = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-
                 var notes = Enumerable.Range(0, 100)
                     .Select(index => new MemoryNote
                     {
