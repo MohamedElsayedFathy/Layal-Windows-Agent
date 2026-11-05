@@ -86,25 +86,22 @@ public sealed class TaskApprovalWindowTests
             try
             {
                 dialog = new TaskApprovalWindow(false, "Delete record", "Review the exact record and effect.", cancellation.Cancel);
-                dialog.Loaded += (_, _) =>
-                {
-                    var handler = typeof(TaskApprovalWindow).GetMethod(
-                        "TryHandleTaskCancellationShortcut",
-                        BindingFlags.Instance | BindingFlags.NonPublic)
-                        ?? throw new InvalidOperationException("The approval Escape shortcut handler was not found.");
+                var handler = typeof(TaskApprovalWindow).GetMethod(
+                    "TryHandleTaskCancellationShortcut",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?? throw new InvalidOperationException("The approval Escape shortcut handler was not found.");
 
-                    Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.A, ModifierKeys.None })!,
-                        "A non-Escape key must not cancel the task.");
-                    Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.Control })!,
-                        "Modified Escape must not cancel the task.");
-                    Assert.IsTrue((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.None })!,
-                        "Unmodified Escape must request full-task cancellation.");
-                };
+                Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.A, ModifierKeys.None })!,
+                    "A non-Escape key must not cancel the task.");
+                Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.Control })!,
+                    "Modified Escape must not cancel the task.");
+                Assert.IsTrue((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.None })!,
+                    "Unmodified Escape must request full-task cancellation.");
 
-                Assert.ThrowsExactly<OperationCanceledException>(() => dialog.ShowForApproval(cancellation.Token));
                 Assert.IsTrue(cancellation.IsCancellationRequested,
                     "Escape must cancel the whole task, not just decline the current action.");
-                Assert.IsFalse(dialog.IsVisible, "The pending approval must close after Escape cancels the task.");
+                Assert.ThrowsExactly<OperationCanceledException>(() => dialog.ShowForApproval(cancellation.Token));
+                Assert.IsFalse(dialog.IsVisible, "A cancelled task must not show or approve the pending action.");
             }
             catch (Exception ex) { failure = ex; }
             finally { dialog?.Close(); }
