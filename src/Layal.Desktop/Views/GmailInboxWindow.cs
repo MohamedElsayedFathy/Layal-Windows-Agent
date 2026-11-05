@@ -58,8 +58,8 @@ public sealed class GmailInboxWindow : Window
         Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
-            ? "صلاحية Gmail للقراءة فقط. الرسائل تبقى محلية ولا تُرسل إلى AI تلقائيًا."
-            : "Read-only Gmail access. Messages stay local and are never automatically sent to AI.");
+            ? "قراءة فقط. لا ترسل ليال أو تحذف أو تعدّل البريد. لا تُشارك الرسائل مع AI إلا بعد موافقتك وإرسال المسودة يدويًا."
+            : "Read-only. Layal cannot send, delete, or modify mail. Messages are not shared with AI unless you consent and manually send the chat draft.");
 
         var root = new Grid { Margin = new Thickness(14) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -73,8 +73,8 @@ public sealed class GmailInboxWindow : Window
         heading.Children.Add(new TextBlock
         {
             Text = isArabic
-                ? "يتطلب Google OAuth Desktop Client. تطلب ليال gmail.readonly فقط؛ لا إرسال أو حذف أو تعديل. لا تتم مشاركة محتوى البريد مع AI إلا إذا اخترت إضافته إلى مسودة الشات ثم ضغطت إرسال."
-                : "Requires a Google OAuth Desktop client. Layal requests gmail.readonly only; it cannot send, delete, or modify mail. Email content is not shared with AI unless you copy it into the chat draft and press Send.",
+                ? "صلاحية Gmail للقراءة فقط. تستخدم ليال بيانات Gmail لتقديم ميزة البريد والإنتاجية التي طلبتها فقط؛ لا تبيعها ولا تستخدمها للإعلانات أو لتدريب نماذج AI عامة داخل ليال. تظل الرسائل محلية ما لم تختر إضافتها إلى مسودة الشات ثم تضغط «إرسال». عند الإرسال ينتقل النص ومعاينات المرفقات إلى مزود AI المحدد لديك وتخضع لسياسة معالجته واحتفاظه؛ راجعها وتأكد من توافقها مع قيود بيانات Google قبل الإرسال. لا إرسال أو حذف أو تعديل للبريد عبر Gmail."
+                : "Read-only Gmail access. Layal uses Gmail data only for the email and productivity feature you requested; Layal does not sell it, use it for advertising, or train general AI models with it. Messages stay local unless you add them to the chat draft and press Send. Sending transfers the text and attachment previews to your configured AI provider under its processing and retention terms; review those terms and confirm they comply with Google's data-use restrictions before sending. Gmail messages cannot be sent, deleted, or modified here.",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
         });
@@ -146,8 +146,8 @@ public sealed class GmailInboxWindow : Window
             Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black };
         AutomationProperties.SetName(_body, isArabic ? "معاينة نص البريد" : "Email text preview");
         AutomationProperties.SetHelpText(_body, isArabic
-            ? "نص البريد أو HTML بعد تحويله إلى نص آمن، مع معاينات محدودة للمرفقات النصية فقط. لا يتم تشغيل HTML أو فتح المرفقات الثنائية."
-            : "Local text/plain body, capped at 15,000 characters; attachments and HTML-only content are not rendered.");
+            ? "معاينة محلية لنص البريد وHTML بعد تحويله إلى نص، ومرفقات UTF-8 النصية وPDF وDOCX وXLSX والصور المدعومة عبر OCR عربي/إنجليزي. حد المرفق 1 ميجابايت وحد المعاينات مجتمعة 10,000 حرف. لا يتم تشغيل HTML أو الماكرو أو حفظ المرفقات في مساحة العمل."
+            : "Local preview of the message body and HTML converted to text, UTF-8 text attachments, PDF/DOCX/XLSX, and supported images through Arabic/English OCR. Attachments are limited to 1 MiB each and previews to 10,000 combined characters. HTML and macros are never executed and attachments are not saved to the workspace.");
         Grid.SetRow(_body, 2); preview.Children.Add(_body);
         Grid.SetColumn(preview, 1); split.Children.Add(preview);
         Grid.SetRow(split, 3); root.Children.Add(split);
@@ -355,11 +355,11 @@ public sealed class GmailInboxWindow : Window
 
         var prompt = prepareSummary
             ? (_isArabic
-                ? "سيُضاف بريد مع طلب تلخيص إلى مسودة الشات فقط. لن يُستدعى AI ولن تُرسل الرسالة حتى تضغط إرسال بنفسك. راجع المستلم والمحتوى؛ المتابعة تتضمن مشاركة البريد المحدد مع مزود AI. هل تريد المتابعة؟"
-                : "An email plus a summary request will be added to the chat draft only. No AI call occurs and nothing is sent until you press Send. Review the recipient and content; continuing will share this email with your AI provider. Continue?")
+                ? "سيُضاف البريد ومعاينات مرفقاته وطلب التلخيص إلى مسودة الشات فقط. لن يُستدعى AI الآن ولن يُرسل شيء حتى تضغط «إرسال» بنفسك. عند الإرسال سينتقل المحتوى إلى مزود AI المحدد في إعدادات ليال، ويخضع لمعالجته واحتفاظه؛ لا تُرسل إلا بعد مراجعة سياسة المزود والتأكد من توافقها مع قيود بيانات Google. هل تريد المتابعة؟"
+                : "The email, attachment previews, and summary request will be added to the chat draft only. No AI call occurs until you press Send. Sending transfers the content to your configured AI provider under its processing and retention terms; send only after reviewing the provider's policy and confirming it complies with Google's data-use restrictions. Continue?")
             : (_isArabic
-                ? "سيُنسخ البريد إلى مسودة الشات فقط. لن يُرسل حتى تضغط زر الإرسال بنفسك؛ راجع المحتوى قبل الإرسال. هل تريد الإضافة؟"
-                : "The email will be copied into the chat draft only. It will not be sent until you press Send; review it before sending. Add it?");
+                ? "سيُنسخ نص البريد ومعاينات مرفقاته إلى مسودة الشات فقط. لن يُرسل شيء حتى تضغط «إرسال» بنفسك؛ عندها يصل المحتوى إلى مزود AI المحدد لديك ويخضع لسياسة معالجته واحتفاظه. راجع سياسة المزود وتأكد من توافقها مع قيود بيانات Google قبل الإرسال. هل تريد الإضافة؟"
+                : "The email text and attachment previews will be copied into the chat draft only. Nothing is sent until you press Send; then the content goes to your configured AI provider under its processing and retention terms. Review the provider's policy and confirm it complies with Google's data-use restrictions before sending. Add it?");
         var answer = MessageBox.Show(this, prompt,
             prepareSummary
                 ? (_isArabic ? "تأكيد تجهيز طلب التلخيص" : "Confirm summary request draft")
