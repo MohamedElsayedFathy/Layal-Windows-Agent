@@ -11,6 +11,71 @@ namespace Layal.Tests;
 public sealed class TaskHistoryArtifactTests
 {
     [TestMethod]
+    public void SelectedReminderTaskIsIncludedWhenOlderThanTheRecentDisplayWindow()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi"));
+        var olderTaskId = Guid.NewGuid().ToString("N");
+        var now = DateTimeOffset.Now;
+        var records = new[]
+        {
+            new AgentTaskRecord
+            {
+                Id = olderTaskId,
+                Goal = "The task explicitly linked by the reminder",
+                Status = "Completed",
+                CreatedAt = now.AddDays(-2),
+                UpdatedAt = now.AddDays(-2)
+            }
+        }.Concat(Enumerable.Range(0, 35).Select(index => new AgentTaskRecord
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Goal = $"Newer task {index}",
+            Status = "Completed",
+            CreatedAt = now.AddMinutes(index),
+            UpdatedAt = now.AddMinutes(index)
+        })).ToArray();
+
+        history.ImportManyWithIds(records);
+
+        Assert.IsFalse(history.GetRecent(30).Any(item => item.Id == olderTaskId));
+        var withLinkedTask = history.GetRecentWithSelectedTask(olderTaskId, 30);
+        Assert.AreEqual(31, withLinkedTask.Count);
+        Assert.AreEqual(1, withLinkedTask.Count(item => item.Id == olderTaskId));
+        Assert.AreEqual(olderTaskId, withLinkedTask[^1].Id);
+        Assert.AreEqual("The task explicitly linked by the reminder", withLinkedTask[^1].Goal);
+    }
+
+    [TestMethod]
+    public void MissingOrPrunedLinkedTaskDoesNotSelectAReplacementTask()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi"));
+        var removedTaskId = Guid.NewGuid().ToString("N");
+        var now = DateTimeOffset.Now;
+        var records = Enumerable.Range(0, 101).Select(index => new AgentTaskRecord
+        {
+            Id = index == 0 ? removedTaskId : Guid.NewGuid().ToString("N"),
+            Goal = $"Retained task {index}",
+            Status = "Completed",
+            CreatedAt = now.AddMinutes(index),
+            UpdatedAt = now.AddMinutes(index)
+        }).ToArray();
+
+        history.ImportManyWithIds(records.Skip(1));
+
+        var withMissingLink = history.GetRecentWithSelectedTask(removedTaskId, 30);
+        Assert.AreEqual(30, withMissingLink.Count);
+        Assert.IsFalse(withMissingLink.Any(item => item.Id == removedTaskId));
+    }
+
+    [TestMethod]
     public void ArtifactPathNormalizationAcceptsRelativePathsAndUsesForwardSlashes()
     {
         Assert.AreEqual("reports/final.txt",
