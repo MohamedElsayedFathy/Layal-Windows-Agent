@@ -440,7 +440,8 @@ public sealed class AgentToolExecutor
             // A final guard handles an external writer that changed the target in the tiny
             // interval between the approved snapshot and the atomic replace. Restore exactly
             // what File.Replace captured and report the conflict instead of silently editing it.
-            var backupSnapshot = await ReadTextSnapshotAsync(backupPath, MaxEditBytes, token);
+            // Once the atomic commit succeeds, finish verification even if the user cancels the outer task.
+            var backupSnapshot = await ReadTextSnapshotAsync(backupPath, MaxEditBytes, CancellationToken.None);
             if (!string.Equals(backupSnapshot.Sha256, originalSnapshot.Sha256, StringComparison.Ordinal))
             {
                 try
