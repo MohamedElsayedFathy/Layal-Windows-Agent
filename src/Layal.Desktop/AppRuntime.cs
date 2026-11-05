@@ -42,16 +42,13 @@ public static class AppRuntime
         if (scheduler is null || ReminderService is null)
             return;
 
-        DateTimeOffset? proactiveDueAt = null;
-        var interval = Settings.ProactiveCheckInIntervalMinutes;
-        if (Settings.ProactiveCheckInEnabled &&
-            !Settings.PrivacyShieldEnabled &&
-            !IsGameModeActive &&
-            Settings.LastProactiveCheckInAt is DateTimeOffset lastNotifiedAt &&
-            interval is 15 or 30 or 60 or 120)
-        {
-            proactiveDueAt = lastNotifiedAt.AddMinutes(interval);
-        }
+        var proactiveDueAt = ProactiveCheckInPolicy.GetNextDueAt(
+            enabled: Settings.ProactiveCheckInEnabled,
+            privacyShieldEnabled: Settings.PrivacyShieldEnabled,
+            gameModeActive: IsGameModeActive,
+            applicationExiting: IsExiting,
+            lastNotifiedAt: Settings.LastProactiveCheckInAt,
+            intervalMinutes: Settings.ProactiveCheckInIntervalMinutes);
 
         scheduler.Synchronize(ReminderService.GetAll(), proactiveDueAt);
     }
