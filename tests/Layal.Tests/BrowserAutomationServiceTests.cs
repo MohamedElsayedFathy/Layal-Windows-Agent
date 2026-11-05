@@ -111,6 +111,26 @@ public sealed class BrowserAutomationServiceTests
         Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(5));
     }
 
+
+    [TestMethod]
+    public void BrowserNavigationSummaryContainsOnlyBoundedPageIdentityAndRequiresSeparateReadApproval()
+    {
+        var identity = new BrowserPageIdentity(
+            "page-target",
+            "https://example.com/account",
+            "Example account page\\r\\nUntrusted extra line",
+            "complete");
+
+        var summary = identity.ToNavigationSummary();
+
+        StringAssert.Contains(summary, "https://example.com/account");
+        StringAssert.Contains(summary, "Example account page Untrusted extra line");
+        StringAssert.Contains(summary, "Page content was not read or shared");
+        StringAssert.Contains(summary, "browser_read_page");
+        Assert.IsFalse(summary.Contains("visibleText", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(summary.Contains("page body", StringComparison.OrdinalIgnoreCase));
+    }
+
     [TestMethod]
     public void BrowserUploadRespectsTheFileInputAcceptAttribute()
     {
