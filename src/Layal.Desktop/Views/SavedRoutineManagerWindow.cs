@@ -327,16 +327,12 @@ public sealed class SavedRoutineManagerWindow : Window
             return;
         }
         var prompt = SavedRoutineService.BuildExecutionPrompt(selected.Record, _isArabic);
-        var preview = prompt.Length <= 1_600 ? prompt : prompt[..1_600] + Environment.NewLine + "[…]";
-        var accepted = MessageBox.Show(this,
-            (_isArabic ? "سيبدأ هذا الروتين مهمة وكيل واحدة. قد تُطلب موافقة منفصلة قبل كل قراءة أو تعديل أو إجراء خارجي. لن يتجاوز الروتين أي موافقة.\n\n" : "This starts one agent task. Separate approval is required before every tool or external action. The routine cannot bypass approvals.\n\n") + preview,
-            _isArabic ? "تأكيد تشغيل الروتين" : "Confirm routine execution",
-            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
-        if (accepted != MessageBoxResult.Yes)
+        if (!ConfirmRun(prompt))
         {
-            _status.Text = _isArabic ? "لم يتم تشغيل الروتين." : "The routine was not started.";
+            _status.Text = _isArabic ? "لم يتم تشغيل الروتين؛ لم يبدأ أي إجراء." : "The routine was not started; no action was performed.";
             return;
         }
+
         RunPrompt = prompt;
         DialogResult = true;
         Close();
