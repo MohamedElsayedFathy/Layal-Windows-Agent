@@ -114,12 +114,20 @@ public sealed class ReminderManagerWindow : Window
         form.Children.Add(new TextBlock { Text = isArabic ? "ربط التذكير بمهمة (اختياري)" : "Link reminder to a task (optional)", Margin = new Thickness(0, 0, 0, 3) });
         _relatedTaskSelector = new ComboBox { MinHeight = 30, MinWidth = 220, Margin = new Thickness(0, 0, 0, 8), DisplayMemberPath = nameof(TaskLinkEntry.Description) };
         AutomationProperties.SetName(_relatedTaskSelector, isArabic ? "المهمة المرتبطة بالتذكير" : "Task linked to this reminder");
+        AutomationProperties.SetHelpText(_relatedTaskSelector, isArabic
+            ? "يعرض كل اختيار حالة المهمة ووقت آخر تحديث وبادئة قصيرة من معرّفها لتمييز المهام المتشابهة."
+            : "Each choice shows the task status, last-updated time, and a short stable ID prefix to distinguish similar tasks.");
         _relatedTaskSelector.Items.Add(new TaskLinkEntry(null, isArabic ? "بدون مهمة مرتبطة" : "No linked task"));
         foreach (var task in _taskHistory?.GetRecent(100) ?? Array.Empty<AgentTaskRecord>())
         {
+            if (string.IsNullOrWhiteSpace(task.Id))
+                continue;
+
             var goal = string.Join(" ", (task.Goal ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
             if (goal.Length > 90) goal = goal[..90] + "…";
-            _relatedTaskSelector.Items.Add(new TaskLinkEntry(task.Id, $"{goal} — {task.Status}"));
+            var updatedAt = task.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+            var shortId = task.Id.Length > 8 ? task.Id[..8] : task.Id;
+            _relatedTaskSelector.Items.Add(new TaskLinkEntry(task.Id, $"{goal} — {task.Status} — {updatedAt} — {shortId}"));
         }
         _relatedTaskSelector.SelectedIndex = 0;
         form.Children.Add(_relatedTaskSelector);

@@ -6185,6 +6185,9 @@ public partial class MainWindow : Window
 
     private void OpenTaskFromNotification(string taskId)
     {
+        if (string.IsNullOrWhiteSpace(taskId))
+            return;
+
         Dispatcher.BeginInvoke(new Action(() =>
         {
             if (AppRuntime.IsExiting)
@@ -6202,10 +6205,13 @@ public partial class MainWindow : Window
             RefreshRecentTasks(taskId);
             if (RecentTasksList.SelectedItem is null)
             {
+                TaskEvents.Clear();
+                _rawTaskEvents.Clear();
                 SetAccessibleStatusText(TaskResult,
                     IsArabic
-                        ? "المهمة المرتبطة بالإشعار لم تعد موجودة في السجل."
-                        : "The task associated with this notification is no longer in history.");
+                        ? "المهمة المرتبطة بالإشعار لم تعد موجودة في السجل؛ لم يتم اختيار مهمة بديلة."
+                        : "The task linked to this notification is no longer in history; no replacement task was selected.");
+                TaskResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
                 return;
             }
 
@@ -6264,10 +6270,13 @@ public partial class MainWindow : Window
             }
             else if (deliveredReminders.Count > 1 && AppRuntime.Tray is { } digestTray)
             {
+                var uniqueTaskId = ReminderTaskLinkPolicy.GetUniqueLinkedTaskId(deliveredReminders);
                 digestTray.ShowReminderSummary(
                     deliveredReminders.Count,
                     IsArabic,
-                    () => ShowFromTray());
+                    uniqueTaskId is null
+                        ? () => ShowFromTray()
+                        : () => OpenTaskFromNotification(uniqueTaskId));
             }
             else if (deliveredReminders.Count == 1)
             {
@@ -6564,18 +6573,30 @@ public partial class MainWindow : Window
         try
         {
             RecentTasks.Clear();
-            foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30))
+            // A reminder may target any retained task, not only the 30 most recent rows.
+            // Pin that exact ID into the list when necessary; never fall back to a different task.
+            foreach (var task in AppRuntime.TaskHistoryService.GetRecentWithSelectedTask(idToSelect, 30))
                 RecentTasks.Add(new TaskHistoryListItem(task, IsArabic));
             if (!string.IsNullOrWhiteSpace(idToSelect))
                 RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == idToSelect);
         }
         finally { _refreshingRecentTasks = false; }
+
+        // Programmatic selection is intentionally suppressed while rebuilding the list;
+        // explicitly refresh the detail pane afterward so notification deep-links show
+        // the selected task's result instead of leaving stale details from another task.
+        if (RecentTasksList.SelectedItem is TaskHistoryListItem selectedTask)
+            DisplayTaskHistoryRecord(selectedTask.Record);
     }
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_refreshingRecentTasks || RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
-        var task = selectedTask.Record;
+        DisplayTaskHistoryRecord(selectedTask.Record);
+    }
+
+    private void DisplayTaskHistoryRecord(AgentTaskRecord task)
+    {
         TaskEvents.Clear();
         _rawTaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);

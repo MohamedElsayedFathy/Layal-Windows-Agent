@@ -138,10 +138,14 @@ public partial class App : Application
         }
         else if (deliveredAtStartup.Count > 1)
         {
+            var uniqueTaskId = ReminderTaskLinkPolicy.GetUniqueLinkedTaskId(deliveredAtStartup);
+            Action openAction = uniqueTaskId is null
+                ? () => AppRuntime.MainWindow?.ShowFromTray()
+                : () => AppRuntime.OpenTaskNotification?.Invoke(uniqueTaskId);
             AppRuntime.Tray?.ShowReminderSummary(
                 deliveredAtStartup.Count,
                 AppRuntime.Settings.Language == "ar",
-                () => AppRuntime.MainWindow?.ShowFromTray());
+                openAction);
         }
     }
 

@@ -37,6 +37,31 @@ public sealed class NotificationActionSlotTests
     }
 
     [TestMethod]
+    public void ActionExpiresAtTheExactLifetimeBoundary()
+    {
+        var slot = new NotificationActionSlot();
+        var now = DateTimeOffset.UtcNow;
+        var invoked = false;
+        slot.Arm(() => invoked = true, now, TimeSpan.FromSeconds(7));
+
+        Assert.IsNull(slot.Take(now.AddSeconds(7)));
+        Assert.IsFalse(invoked);
+    }
+
+    [TestMethod]
+    public void ClearDiscardsTheActiveNotificationAction()
+    {
+        var slot = new NotificationActionSlot();
+        var invoked = false;
+        slot.Arm(() => invoked = true, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(7));
+
+        slot.Clear();
+
+        Assert.IsNull(slot.Take(DateTimeOffset.UtcNow));
+        Assert.IsFalse(invoked);
+    }
+
+    [TestMethod]
     public void NewNotificationWithoutActionClearsPreviousCallback()
     {
         var slot = new NotificationActionSlot();

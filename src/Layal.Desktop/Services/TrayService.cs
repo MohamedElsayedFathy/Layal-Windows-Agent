@@ -14,6 +14,7 @@ public sealed class TrayService : IDisposable
     private readonly Forms.ToolStripMenuItem _exitItem;
     private readonly Drawing.Icon? _ownedIcon;
     private readonly NotificationActionSlot _reminderClickAction = new();
+    private readonly ReminderNotificationQueue _reminderNotificationQueue = new();
 
     public TrayService(Action showMain, Action showMascot, Action exit, string language)
     {
@@ -58,14 +59,8 @@ public sealed class TrayService : IDisposable
             Visible = true
         };
         _icon.DoubleClick += (_, _) => showMain();
-        _icon.BalloonTipClicked += (_, _) =>
-        {
-            try { _reminderClickAction.Take(DateTimeOffset.UtcNow)?.Invoke(); }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.TraceWarning("Reminder notification action failed: {0}", ex.Message);
-            }
-        };
+        _icon.BalloonTipClicked += ReminderBalloonTipClicked;
+        _icon.BalloonTipClosed += ReminderBalloonTipClosed;
         SetLanguage(language);
     }
 
@@ -83,12 +78,13 @@ public sealed class TrayService : IDisposable
         if (string.IsNullOrWhiteSpace(safeTitle))
             safeTitle = isArabic ? "تذكير محلي" : "Local reminder";
 
-        _reminderClickAction.Arm(onClick, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(7));
-        _icon.ShowBalloonTip(
-            6000,
-            isArabic ? "حان موعد التذكير" : "Reminder is due",
-            safeTitle,
-            Forms.ToolTipIcon.Info);
+        if (!_reminderNotificationQueue.Enqueue(new ReminderNotification(safeTitle, isArabic, onClick)))
+        {
+            System.Diagnostics.Trace.TraceWarning("The Layal reminder notification queue is full; the new notification was not displayed.");
+            return;
+        }
+
+        ShowNextReminderNotification();
     }
 
     /// <summary>Shows one actionable digest when several reminders become due together.</summary>
@@ -100,6 +96,59 @@ public sealed class TrayService : IDisposable
             ? $"لديك {reminderCount} تذكيرات مستحقة. افتح ليال لمراجعتها."
             : $"You have {reminderCount} reminders due. Open Layal to review them.";
         ShowReminderNotification(summary, isArabic, onClick);
+    }
+
+    private void ShowNextReminderNotification()
+    {
+        while (!_disposed && _icon.Visible &&
+               _reminderNotificationQueue.TryBeginNext(out var notification))
+        {
+            var pending = notification!;
+            _reminderClickAction.Arm(pending.OnClick, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(7));
+            try
+            {
+                _icon.ShowBalloonTip(
+                    6000,
+                    pending.IsArabic ? "حان موعد التذكير" : "Reminder is due",
+                    pending.Title,
+                    Forms.ToolTipIcon.Info);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _reminderClickAction.Clear();
+                _reminderNotificationQueue.CompleteActive();
+                System.Diagnostics.Trace.TraceWarning("Reminder notification could not be displayed: {0}", ex.Message);
+            }
+        }
+    }
+
+    private void ReminderBalloonTipClicked(object? sender, EventArgs e)
+    {
+        try { _reminderClickAction.Take(DateTimeOffset.UtcNow)?.Invoke(); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning("Reminder notification action failed: {0}", ex.Message);
+        }
+        finally
+        {
+            // A shell click dismisses the balloon through NIN_BALLOONUSERCLICK; it does not
+            // guarantee a separate BalloonTipClosed/NIN_BALLOONHIDE event.
+            CompleteActiveReminderNotification();
+        }
+    }
+
+    private void ReminderBalloonTipClosed(object? sender, EventArgs e) =>
+        CompleteActiveReminderNotification();
+
+    private void CompleteActiveReminderNotification()
+    {
+        if (_disposed)
+            return;
+
+        _reminderClickAction.Clear();
+        if (_reminderNotificationQueue.CompleteActive())
+            ShowNextReminderNotification();
     }
 
     public void SetLanguage(string language)
@@ -114,6 +163,10 @@ public sealed class TrayService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _reminderNotificationQueue.Clear();
+        _reminderClickAction.Clear();
+        _icon.BalloonTipClicked -= ReminderBalloonTipClicked;
+        _icon.BalloonTipClosed -= ReminderBalloonTipClosed;
         _icon.Visible = false;
         _icon.Dispose();
         _menu.Dispose();

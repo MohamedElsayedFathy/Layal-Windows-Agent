@@ -12,15 +12,33 @@ public sealed class TaskHistoryService
 
     public TaskHistoryService(string path) => _store = new ProtectedJsonStore<List<AgentTaskRecord>>(path);
 
-    public IReadOnlyList<AgentTaskRecord> GetRecent(int count = 30)
+    public IReadOnlyList<AgentTaskRecord> GetRecent(int count = 30) =>
+        GetRecentWithSelectedTask(null, count);
+
+    /// <summary>
+    /// Returns the normal recent window and, when it is still retained, appends the exact
+    /// selected task if it falls outside that window. This lets reminder links resolve a
+    /// task from the retained 100-record history without substituting a newer task.
+    /// </summary>
+    public IReadOnlyList<AgentTaskRecord> GetRecentWithSelectedTask(string? selectedTaskId, int count = 30)
     {
         lock (_sync)
         {
-            return _store.Load(new List<AgentTaskRecord>())
+            var ordered = _store.Load(new List<AgentTaskRecord>())
                 .OrderByDescending(t => t.UpdatedAt)
-                .Take(Math.Clamp(count, 1, 100))
-                .Select(Clone)
                 .ToList();
+            var visible = ordered.Take(Math.Clamp(count, 1, 100)).ToList();
+
+            if (!string.IsNullOrWhiteSpace(selectedTaskId) &&
+                visible.All(task => !string.Equals(task.Id, selectedTaskId, StringComparison.Ordinal)))
+            {
+                var exactTask = ordered.FirstOrDefault(task =>
+                    string.Equals(task.Id, selectedTaskId, StringComparison.Ordinal));
+                if (exactTask is not null)
+                    visible.Add(exactTask);
+            }
+
+            return visible.Select(Clone).ToList();
         }
     }
 
