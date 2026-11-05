@@ -176,7 +176,8 @@ public sealed class SafeBrowserUploadServiceTests
         CreateOfficePackage(
             Path.Combine(workspace, "macro.docx"),
             "word/document.xml",
-            "[Content_Types].xml",
+            null,
+            null,
             """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.ms-word.document.macroEnabled.main+xml"/></Types>""");
 
         Assert.AreEqual(".docx", service.PrepareUpload("safe.docx").Extension);
@@ -211,24 +212,19 @@ public sealed class SafeBrowserUploadServiceTests
         string path,
         string mainDocumentName,
         string? extraEntryName,
-        string? extraEntryContent)
+        string? extraEntryContent,
+        string? contentTypesXml = null)
     {
         using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
         WriteEntry(archive, "[Content_Types].xml",
-            """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>""");
+            contentTypesXml ?? """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>""");
         var mainXml = mainDocumentName.StartsWith("word/", StringComparison.Ordinal)
             ? """<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>"""
             : """<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>""";
         WriteEntry(archive, mainDocumentName, mainXml);
-        if (extraEntryName is not null && !string.Equals(extraEntryName, "[Content_Types].xml", StringComparison.Ordinal))
+        if (extraEntryName is not null)
             WriteEntry(archive, extraEntryName, extraEntryContent ?? string.Empty);
-        else if (string.Equals(extraEntryName, "[Content_Types].xml", StringComparison.Ordinal))
-        {
-            // Recreate the second content-type entry with the supplied macro-enabled content.
-            WriteEntry(archive, "word/_rels/document.xml.rels",
-                """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>""");
-        }
     }
 
     private static void WriteEntry(ZipArchive archive, string name, string content)
