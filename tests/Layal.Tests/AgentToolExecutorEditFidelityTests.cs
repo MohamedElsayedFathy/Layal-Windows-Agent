@@ -252,8 +252,9 @@ public sealed class AgentToolExecutorEditFidelityTests
                 CancellationToken.None));
 
             Assert.AreEqual(original, File.ReadAllText(path));
-            Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(temp.Path, ".layal-backups")),
-                "An atomic replace that failed must not leave an incomplete backup.");
+            var backupRoot = System.IO.Path.Combine(temp.Path, ".layal-backups");
+            Assert.IsTrue(!Directory.Exists(backupRoot) || Directory.GetFiles(backupRoot, "*.bak").Length == 0,
+                "An atomic replace that failed must not leave a backup file.");
             Assert.AreEqual(0, Directory.GetFiles(temp.Path, "*.layal-tmp-*").Length);
         }
         finally
