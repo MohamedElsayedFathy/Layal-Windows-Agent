@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -32,6 +33,8 @@ public sealed class WeatherLocationNotFoundException : Exception
 /// </summary>
 public sealed class WeatherService
 {
+    public const int MaximumResponseBytes = 1024 * 1024;
+
     private static readonly HttpClient SharedHttpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(10)
@@ -176,8 +179,27 @@ public sealed class WeatherService
         using var response = await _httpClient.GetAsync(
             uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
+        if (response.Content.Headers.ContentLength is long declaredLength &&
+            declaredLength > MaximumResponseBytes)
+            throw new InvalidDataException("The weather service response exceeded the local size limit.");
+
+        // Geocoding and current-condition payloads should be small. Bound the decoded stream
+        // as well as Content-Length so chunked/compressed responses cannot consume unbounded RAM.
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        using var buffer = new MemoryStream(Math.Min(MaximumResponseBytes, 16 * 1024));
+        var chunk = new byte[16 * 1024];
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var read = await stream.ReadAsync(chunk.AsMemory(), cancellationToken);
+            if (read == 0)
+                break;
+            if (buffer.Length + read > MaximumResponseBytes)
+                throw new InvalidDataException("The weather service response exceeded the local size limit.");
+            buffer.Write(chunk, 0, read);
+        }
+
+        return JsonDocument.Parse(buffer.ToArray());
     }
 
     private static string? GetString(JsonElement element, string propertyName) =>

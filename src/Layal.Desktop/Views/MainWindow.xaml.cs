@@ -974,9 +974,11 @@ public partial class MainWindow : Window
         _weatherRefreshTimer.Start();
         UpdateWeatherDisplay();
         _ = RefreshLocalAiStatusAsync();
-        if (AppRuntime.Settings.UseAutomaticLocation)
+        if (AppRuntime.Settings.UseAutomaticLocation &&
+            AppRuntime.Settings.AutomaticLocationConsentConfirmed)
             _ = RefreshLocationWeatherAsync();
-        else if (!string.IsNullOrWhiteSpace(AppRuntime.Settings.WeatherLocation))
+        else if (!AppRuntime.Settings.UseAutomaticLocation &&
+                 !string.IsNullOrWhiteSpace(AppRuntime.Settings.WeatherLocation))
             _ = RefreshWeatherAsync();
 
         // Keep the initial window inside a usable work area on small/high-DPI displays.
@@ -1166,7 +1168,7 @@ public partial class MainWindow : Window
         HomeDescription.Text = ar
             ? "هذه النسخة هي أساس Windows الأصلي. اربط نموذجًا متوافقًا من الإعدادات لتفعيل المحادثة الحقيقية."
             : "This is the native Windows foundation. Configure a compatible model provider to enable real AI chat.";
-        ClockSectionTitle.Text = ar ? "الوقت والتاريخ حسب موقعك" : "Time & date at your location";
+        ClockSectionTitle.Text = ar ? "الوقت والتاريخ" : "Time & date";
         WeatherSectionTitle.Text = ar ? "الطقس" : "Weather";
         RefreshWeatherButton.Content = ar ? "تحديث الطقس" : "Refresh weather";
         WeatherSettingsTitle.Text = ar ? "حالة الطقس في الرئيسية" : "Weather on Home";
@@ -1174,13 +1176,13 @@ public partial class MainWindow : Window
         UseMyLocationButton.Content = ar ? "اكتشاف موقعي واستخدامه تلقائيًا" : "Detect my location and use it automatically";
         SaveWeatherLocationButton.Content = ar ? "استخدام المدينة يدويًا" : "Use city manually";
         WeatherPrivacyNote.Text = ar
-            ? "عند تفعيل الموقع، يطلب التطبيق الإذن من Windows ويرسل الإحداثيات إلى Open-Meteo لحساب الطقس والمنطقة الزمنية. لا يحفظ التطبيق الإحداثيات؛ ويمكن استخدام مدينة يدويًا بدلًا من ذلك."
-            : "When location is enabled, Windows permission is requested and coordinates are sent to Open-Meteo for weather and time-zone data. Coordinates are not saved; you can use a city manually instead.";
+            ? "لا يطلب التطبيق موقع الجهاز عند بدء التشغيل. لا يبدأ الطلب إلا بعد ضغط «اكتشاف موقعي» وتأكيد الإفصاح، ثم موافقة Windows. تُرسل إحداثيات تقريبية إلى Open-Meteo لحساب الطقس والمنطقة الزمنية، ولا تُحفظ في الإعدادات. يمكنك رفض الطلب أو استخدام مدينة يدويًا."
+            : "Layal does not request device location at startup. It asks only after you select Detect my location and confirm this disclosure, followed by Windows permission. Approximate coordinates are sent to Open-Meteo for weather and time-zone data and are not saved in settings. You can decline or use a city manually.";
         WeatherLocationInput.ToolTip = ar ? "مدينة بديلة، مثل القاهرة، مصر أو Cairo, Egypt" : "Fallback city, e.g. Cairo, Egypt";
         AutomationProperties.SetName(UseMyLocationButton, ar ? "اكتشاف الموقع الحالي" : "Detect current location");
         AutomationProperties.SetHelpText(UseMyLocationButton, ar
-            ? "يطلب السماح من Windows لقراءة موقع تقريبي واستخدامه للوقت والتاريخ والطقس."
-            : "Requests Windows permission to read an approximate location for time, date, and weather.");
+            ? "بعد تأكيد الإفصاح، يطلب Windows إذنًا لقراءة موقع تقريبي وإرسال إحداثياته إلى Open-Meteo للطقس والمنطقة الزمنية."
+            : "After explicit consent, requests Windows permission for approximate location; coordinates are sent to Open-Meteo for weather and time-zone data.");
         AutomationProperties.SetName(WeatherLocationInput, ar ? "مدينة الطقس البديلة" : "Fallback weather city");
         AutomationProperties.SetHelpText(WeatherLocationInput, ar
             ? "اختياري: اكتب مدينة لاستخدامها يدويًا بدلًا من تحديد موقع الجهاز."
@@ -2751,8 +2753,11 @@ public partial class MainWindow : Window
 
     private async void WeatherRefreshTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.Settings.UseAutomaticLocation) await RefreshLocationWeatherAsync();
-        else await RefreshWeatherAsync();
+        if (AppRuntime.Settings.UseAutomaticLocation &&
+            AppRuntime.Settings.AutomaticLocationConsentConfirmed)
+            await RefreshLocationWeatherAsync();
+        else if (!AppRuntime.Settings.UseAutomaticLocation)
+            await RefreshWeatherAsync();
     }
 
     private static DateTimeOffset ConvertToWeatherTime(DateTimeOffset instant, CurrentWeatherReport report)
@@ -2777,19 +2782,21 @@ public partial class MainWindow : Window
     {
         var ar = IsArabic;
         var requestedLocation = AppRuntime.Settings.WeatherLocation?.Trim() ?? string.Empty;
+        var automaticLocationEnabled = AppRuntime.Settings.UseAutomaticLocation &&
+            AppRuntime.Settings.AutomaticLocationConsentConfirmed;
         if (_currentWeatherReport is null)
         {
-            WeatherIconText.Text = AppRuntime.Settings.UseAutomaticLocation ? "📍" :
+            WeatherIconText.Text = automaticLocationEnabled ? "📍" :
                 (string.IsNullOrWhiteSpace(requestedLocation) ? "🌍" : "🌡");
             WeatherTemperatureText.Text = "—°C";
-            WeatherLocationText.Text = AppRuntime.Settings.UseAutomaticLocation
+            WeatherLocationText.Text = automaticLocationEnabled
                 ? (ar ? "بانتظار تحديد الموقع" : "Waiting for location")
                 : (string.IsNullOrWhiteSpace(requestedLocation)
                     ? (ar ? "لم تُحدّد مدينة بديلة" : "No fallback city selected") : requestedLocation);
-            WeatherSummaryText.Text = AppRuntime.Settings.UseAutomaticLocation
-                ? (ar ? "سيتم تحديد موقعك تلقائيًا عند السماح بذلك." : "Your location will be detected automatically when allowed.")
+            WeatherSummaryText.Text = automaticLocationEnabled
+                ? (ar ? "سيتم تحديث الطقس بعد السماح الصريح باستخدام موقع الجهاز." : "Weather will update after you explicitly opt in to device location.")
                 : (string.IsNullOrWhiteSpace(requestedLocation)
-                    ? (ar ? "اضغط «اكتشاف موقعي» أو أدخل مدينة يدويًا." : "Select Detect my location or enter a city manually.")
+                    ? (ar ? "اضغط «اكتشاف موقعي» للموافقة على مشاركة الإحداثيات التقريبية، أو أدخل مدينة يدويًا." : "Select Detect my location to consent to sharing approximate coordinates, or enter a city manually.")
                     : (ar ? "لم يتم تحميل الطقس بعد." : "Weather has not loaded yet."));
             WeatherDetailsText.Text = string.Empty;
             WeatherUpdatedText.Text = string.Empty;
@@ -2813,14 +2820,19 @@ public partial class MainWindow : Window
 
     private void RefreshWeatherButton_Click(object sender, RoutedEventArgs e)
     {
-        if (AppRuntime.Settings.UseAutomaticLocation) { _ = RefreshLocationWeatherAsync(); return; }
+        if (AppRuntime.Settings.UseAutomaticLocation &&
+            AppRuntime.Settings.AutomaticLocationConsentConfirmed)
+        {
+            _ = RefreshLocationWeatherAsync();
+            return;
+        }
         if (string.IsNullOrWhiteSpace(AppRuntime.Settings.WeatherLocation))
         {
             MainTabs.SelectedItem = SettingsTab;
             WeatherLocationInput.Focus();
             WeatherSettingsStatus.Text = IsArabic
-                ? "اضغط «اكتشاف موقعي» أو اكتب مدينة بديلة واحفظها."
-                : "Select Detect my location or enter and save a fallback city.";
+                ? "اختر «اكتشاف موقعي» ووافق على مشاركة الإحداثيات التقريبية، أو أدخل مدينة يدويًا."
+                : "Select Detect my location and consent to approximate-coordinate sharing, or enter a city manually.";
             return;
         }
         _ = RefreshWeatherAsync();
@@ -2828,7 +2840,11 @@ public partial class MainWindow : Window
 
     private async Task RefreshLocationWeatherAsync()
     {
-        if (_weatherRequestInProgress || !IsLoaded) return;
+        // Defense in depth: no caller (startup, timer, or header refresh) may request
+        // device coordinates unless the user explicitly confirmed the disclosure.
+        if (!AppRuntime.Settings.UseAutomaticLocation ||
+            !AppRuntime.Settings.AutomaticLocationConsentConfirmed ||
+            _weatherRequestInProgress || !IsLoaded) return;
         _weatherRequestInProgress = true;
         RefreshWeatherButton.IsEnabled = false;
         UseMyLocationButton.IsEnabled = false;
@@ -2857,6 +2873,7 @@ public partial class MainWindow : Window
         {
             if (cancellation.IsCancellationRequested) return;
             AppRuntime.Settings.UseAutomaticLocation = false;
+            AppRuntime.Settings.AutomaticLocationConsentConfirmed = false;
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
             _currentWeatherReport = null;
             UpdateClockDisplay();
@@ -2963,6 +2980,19 @@ public partial class MainWindow : Window
 
     private async void UseMyLocationButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!AppRuntime.Settings.AutomaticLocationConsentConfirmed)
+        {
+            var consent = MessageBox.Show(this,
+                IsArabic
+                    ? "لإظهار الطقس والوقت المحلي، سيطلب Windows إذن الوصول إلى موقع تقريبي (دقة مستهدفة نحو كيلومتر واحد). عند الموافقة، ستُرسل الإحداثيات إلى Open-Meteo لجلب الطقس والمنطقة الزمنية. لا تحفظ ليال الإحداثيات في الإعدادات ولا ترسلها إلى مزود AI. يمكنك الرفض أو استخدام مدينة يدويًا بدلًا من ذلك. هل تريد المتابعة إلى طلب إذن Windows؟"
+                    : "To show local weather and time, Windows will ask to access an approximate device location (target accuracy about 1 km). If allowed, coordinates are sent to Open-Meteo for weather and time-zone data. Layal does not save the coordinates in settings or send them to an AI provider. You can decline or use a city manually instead. Continue to the Windows permission request?",
+                IsArabic ? "موافقة مشاركة الموقع للطقس" : "Consent to use location for weather",
+                MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
+            if (consent != MessageBoxResult.Yes)
+                return;
+            AppRuntime.Settings.AutomaticLocationConsentConfirmed = true;
+        }
+
         AppRuntime.Settings.UseAutomaticLocation = true;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         _currentWeatherReport = null;
@@ -2988,6 +3018,8 @@ public partial class MainWindow : Window
         }
         AppRuntime.Settings.WeatherLocation = location;
         AppRuntime.Settings.UseAutomaticLocation = false;
+        // Choosing a manual city also revokes Layal's saved opt-in for future device-location reads.
+        AppRuntime.Settings.AutomaticLocationConsentConfirmed = false;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         _currentWeatherReport = null;
         UpdateClockDisplay();

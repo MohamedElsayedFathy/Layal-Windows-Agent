@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -101,6 +102,50 @@ public sealed class WeatherServiceTests
             () => service.GetCurrentWeatherAsync("  ", isArabic: true));
 
         Assert.AreEqual(0, handler.RequestedUris.Count);
+    }
+
+    [TestMethod]
+    public async Task GetCurrentWeatherAsyncRejectsCityLongerThan120CharactersWithoutNetworkRequest()
+    {
+        using var handler = new QueueResponseHandler();
+        using var client = new HttpClient(handler);
+        var service = new WeatherService(client);
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(
+            () => service.GetCurrentWeatherAsync(new string('x', 121), isArabic: true));
+
+        Assert.AreEqual(0, handler.RequestedUris.Count);
+    }
+
+    [TestMethod]
+    public async Task GetCurrentWeatherAsyncRejectsOversizedProviderResponse()
+    {
+        using var handler = new QueueResponseHandler(new string(' ', WeatherService.MaximumResponseBytes + 1));
+        using var client = new HttpClient(handler);
+        var service = new WeatherService(client);
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(
+            () => service.GetCurrentWeatherAsync("Cairo", isArabic: true));
+
+        Assert.AreEqual(1, handler.RequestedUris.Count);
+        StringAssert.Contains(handler.RequestedUris[0].Host, "geocoding-api.open-meteo.com");
+    }
+
+    [TestMethod]
+    public async Task GetCurrentWeatherAtCoordinatesAsyncNeverUsesGeocodingOrIPLookup()
+    {
+        using var handler = new QueueResponseHandler(
+            """{"timezone":"Africa/Cairo","utc_offset_seconds":7200,"current":{"temperature_2m":24.0,"apparent_temperature":24.0,"relative_humidity_2m":50,"weather_code":0,"wind_speed_10m":4.0}}""");
+        using var client = new HttpClient(handler);
+        var service = new WeatherService(client);
+
+        await service.GetCurrentWeatherAtCoordinatesAsync(30.0444, 31.2357, isArabic: false);
+
+        Assert.AreEqual(1, handler.RequestedUris.Count);
+        Assert.AreEqual("api.open-meteo.com", handler.RequestedUris[0].Host);
+        Assert.IsFalse(handler.RequestedUris[0].AbsoluteUri.Contains("geocoding", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "latitude=30.0444");
+        StringAssert.Contains(handler.RequestedUris[0].AbsoluteUri, "longitude=31.2357");
     }
 
     [TestMethod]
