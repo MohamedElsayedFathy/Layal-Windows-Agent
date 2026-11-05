@@ -130,16 +130,25 @@ public sealed class TrayService : IDisposable
         {
             System.Diagnostics.Trace.TraceWarning("Reminder notification action failed: {0}", ex.Message);
         }
+        finally
+        {
+            // A shell click dismisses the balloon through NIN_BALLOONUSERCLICK; it does not
+            // guarantee a separate BalloonTipClosed/NIN_BALLOONHIDE event.
+            CompleteActiveReminderNotification();
+        }
     }
 
-    private void ReminderBalloonTipClosed(object? sender, EventArgs e)
+    private void ReminderBalloonTipClosed(object? sender, EventArgs e) =>
+        CompleteActiveReminderNotification();
+
+    private void CompleteActiveReminderNotification()
     {
         if (_disposed)
             return;
 
         _reminderClickAction.Clear();
-        _reminderNotificationQueue.CompleteActive();
-        ShowNextReminderNotification();
+        if (_reminderNotificationQueue.CompleteActive())
+            ShowNextReminderNotification();
     }
 
     public void SetLanguage(string language)
