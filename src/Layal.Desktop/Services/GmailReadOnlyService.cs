@@ -666,7 +666,7 @@ public sealed class GmailReadOnlyService
                         }
                     }
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException)
+                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException or DllNotFoundException or BadImageFormatException or TypeInitializationException)
                 {
                     status = "Preview unavailable: the read-only attachment request failed.";
                 }
