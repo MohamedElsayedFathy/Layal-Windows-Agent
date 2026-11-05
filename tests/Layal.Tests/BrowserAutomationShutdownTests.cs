@@ -121,6 +121,11 @@ public sealed class BrowserAutomationShutdownTests
             browser.FillElementAsync(new BrowserElementPreview(
                 "fill", "page", "https://example.com/", "input[name=q]", "fingerprint",
                 "input", "text", "", "q", "Search", "", "", false, false), "value"));
+        await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() =>
+            browser.UploadFileAsync(new BrowserElementPreview(
+                "upload", "page", "https://example.com/", "input[type=file]", "fingerprint",
+                "input", "file", "", "file", "Upload", "", "", false, false, ".pdf"), 
+                Path.GetFullPath(Path.Combine(temp.Path, "missing.pdf"))));
 
         Assert.IsFalse(Directory.Exists(Path.Combine(temp.Path, "app-data", "BrowserProfile")));
     }
