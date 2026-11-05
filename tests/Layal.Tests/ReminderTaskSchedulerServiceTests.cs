@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 using System.Xml.Linq;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -42,6 +43,19 @@ public sealed class ReminderTaskSchedulerServiceTests
             .Element(ns + "Principal")!.Element(ns + "RunLevel")!.Value);
         Assert.AreEqual("true", document.Root.Element(ns + "Settings")!
             .Element(ns + "StartWhenAvailable")!.Value);
+        var trigger = document.Root.Element(ns + "Triggers")!.Element(ns + "TimeTrigger")!;
+        var startBoundaryText = trigger.Element(ns + "StartBoundary")!.Value;
+        var endBoundaryText = trigger.Element(ns + "EndBoundary")!.Value;
+        Assert.IsTrue(startBoundaryText.EndsWith("Z", StringComparison.Ordinal),
+            "A stored absolute due instant must not be reinterpreted in a different local time zone.");
+        Assert.IsTrue(endBoundaryText.EndsWith("Z", StringComparison.Ordinal));
+        var parsedStart = DateTimeOffset.Parse(startBoundaryText, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        var parsedEnd = DateTimeOffset.Parse(endBoundaryText, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        Assert.AreEqual(dueAt.UtcDateTime, parsedStart.UtcDateTime);
+        Assert.IsTrue(parsedEnd > parsedStart,
+            "A one-shot trigger needs a future EndBoundary for StartWhenAvailable to recover a missed launch.");
+        Assert.IsTrue(parsedEnd > parsedStart.AddYears(5),
+            "The recovery window must remain available for a device that was offline for an extended period.");
         Assert.AreEqual("IgnoreNew", document.Root.Element(ns + "Settings")!
             .Element(ns + "MultipleInstancesPolicy")!.Value);
         Assert.AreEqual("PT2M", document.Root.Element(ns + "Settings")!
@@ -57,10 +71,57 @@ public sealed class ReminderTaskSchedulerServiceTests
     }
 
     [TestMethod]
+    public void SchedulerStoresAnAbsoluteInstantIndependentOfTheComputerTimeZone()
+    {
+        var first = new DateTimeOffset(2026, 11, 10, 18, 45, 0, TimeSpan.FromHours(2));
+        var sameInstantInAnotherZone = new DateTimeOffset(2026, 11, 10, 17, 45, 0, TimeSpan.FromHours(1));
+        Assert.AreEqual(first.UtcDateTime, sameInstantInAnotherZone.UtcDateTime);
+
+        var firstXml = XDocument.Parse(ReminderTaskSchedulerService.BuildTaskXml(
+            first, Path.Combine(Path.GetTempPath(), "Layal.exe"), "S-1-5-21-1000"));
+        var secondXml = XDocument.Parse(ReminderTaskSchedulerService.BuildTaskXml(
+            sameInstantInAnotherZone, Path.Combine(Path.GetTempPath(), "Layal.exe"), "S-1-5-21-1000"));
+        XNamespace ns = "http://schemas.microsoft.com/windows/2004/02/mit/task";
+
+        Assert.AreEqual(
+            firstXml.Root!.Element(ns + "Triggers")!.Element(ns + "TimeTrigger")!.Element(ns + "StartBoundary")!.Value,
+            secondXml.Root!.Element(ns + "Triggers")!.Element(ns + "TimeTrigger")!.Element(ns + "StartBoundary")!.Value);
+    }
+
+    [TestMethod]
+    public void SchedulerChoosesOnlyTheEarliestActiveReminderOrEarlierCheckIn()
+    {
+        var now = new DateTimeOffset(2026, 11, 5, 8, 0, 0, TimeSpan.FromHours(2));
+        var reminders = new[]
+        {
+            new Layal.Models.ReminderRecord { Id = "later", DueAt = now.AddHours(4), IsActive = true },
+            new Layal.Models.ReminderRecord { Id = "inactive", DueAt = now.AddMinutes(1), IsActive = false },
+            new Layal.Models.ReminderRecord { Id = "earliest", DueAt = now.AddHours(2), IsActive = true }
+        };
+
+        Assert.AreEqual(
+            now.AddHours(2),
+            ReminderTaskSchedulerService.GetNextDispatchDueAt(reminders));
+        Assert.AreEqual(
+            now.AddHours(1),
+            ReminderTaskSchedulerService.GetNextDispatchDueAt(reminders, now.AddHours(1)));
+        Assert.AreEqual<DateTimeOffset?>(
+            null,
+            ReminderTaskSchedulerService.GetNextDispatchDueAt(Array.Empty<Layal.Models.ReminderRecord>()));
+        Assert.AreEqual<DateTimeOffset?>(
+            null,
+            ReminderTaskSchedulerService.GetNextDispatchDueAt(
+                reminders.Select(reminder => new Layal.Models.ReminderRecord
+                {
+                    Id = reminder.Id,
+                    DueAt = reminder.DueAt,
+                    IsActive = false
+                })));
+    }
+
+    [TestMethod]
     public void TaskNameIsStableAndDoesNotIncludeReminderTextOrUserData()
     {
         Assert.AreEqual(@"\LayalReminderDispatcher", ReminderTaskSchedulerService.TaskName);
-        Assert.IsFalse(ReminderTaskSchedulerService.TaskName.Contains("password", StringComparison.OrdinalIgnoreCase));
-        Assert.IsFalse(ReminderTaskSchedulerService.TaskName.Contains("title", StringComparison.OrdinalIgnoreCase));
     }
 }

@@ -172,6 +172,29 @@ public sealed class ReminderService
         return items;
     }
 
+    /// <summary>
+    /// Converts a user-entered local wall-clock time to an unambiguous instant.
+    /// Nonexistent spring-forward times are rejected; repeated fall-back times select
+    /// the first occurrence (the larger UTC offset) consistently.
+    /// </summary>
+    public static DateTimeOffset CreateLocalDueAt(DateTime localDateTime, TimeZoneInfo timeZone)
+    {
+        ArgumentNullException.ThrowIfNull(timeZone);
+        var local = DateTime.SpecifyKind(localDateTime, DateTimeKind.Unspecified);
+        if (timeZone.IsInvalidTime(local))
+            throw new ArgumentOutOfRangeException(
+                nameof(localDateTime),
+                "The selected local reminder time does not exist because the clock moves forward for daylight saving time. Choose another time.");
+
+        if (timeZone.IsAmbiguousTime(local))
+        {
+            var firstOccurrenceOffset = timeZone.GetAmbiguousTimeOffsets(local).Max();
+            return new DateTimeOffset(local, firstOccurrenceOffset);
+        }
+
+        return new DateTimeOffset(local, timeZone.GetUtcOffset(local));
+    }
+
     private static string? NormalizeRelatedTaskId(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;

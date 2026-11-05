@@ -92,7 +92,9 @@ public sealed class ReminderManagerWindow : Window
         timeStack.Children.Add(new TextBlock { Text = isArabic ? "الوقت (24 ساعة)" : "Time (24-hour)" });
         _timeInput = new TextBox { Text = DateTime.Now.AddHours(1).ToString("HH:mm", CultureInfo.InvariantCulture), MinHeight = 28 };
         AutomationProperties.SetName(_timeInput, isArabic ? "وقت التذكير بصيغة ساعة ودقيقة" : "Reminder time in hours and minutes");
-        AutomationProperties.SetHelpText(_timeInput, "HH:mm");
+        AutomationProperties.SetHelpText(_timeInput, isArabic
+            ? "صيغة HH:mm بنظام 24 ساعة. إذا تكرر الوقت عند انتهاء التوقيت الصيفي فسيُختار الظهور الأول؛ الوقت غير الموجود عند بدء التوقيت الصيفي مرفوض."
+            : "24-hour HH:mm. During a daylight-saving fall-back overlap, the first occurrence is selected; nonexistent spring-forward times are rejected.");
         timeStack.Children.Add(_timeInput);
         Grid.SetColumn(timeStack, 1);
         schedule.Children.Add(timeStack);
@@ -208,6 +210,7 @@ public sealed class ReminderManagerWindow : Window
 
         Content = root;
         RefreshList();
+        AppendSchedulerStatus();
     }
 
     private void AddButton_Click(object sender, RoutedEventArgs e)
@@ -220,8 +223,8 @@ public sealed class ReminderManagerWindow : Window
             if (!TimeOnly.TryParseExact(_timeInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
                 throw new ArgumentException(_isArabic ? "اكتب الوقت بصيغة 24 ساعة مثل 09:30." : "Enter a 24-hour time such as 09:30.");
 
-            var dueLocal = DateTime.SpecifyKind(selectedDate.Date + time.ToTimeSpan(), DateTimeKind.Local);
-            var dueAt = new DateTimeOffset(dueLocal);
+            var dueLocal = selectedDate.Date + time.ToTimeSpan();
+            var dueAt = ReminderService.CreateLocalDueAt(dueLocal, TimeZoneInfo.Local);
             var recurrence = (_recurrenceSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "None";
             _service.Create(title, dueAt, recurrence, GetSelectedTaskId());
             _titleInput.Clear();
@@ -250,8 +253,8 @@ public sealed class ReminderManagerWindow : Window
             if (!TimeOnly.TryParseExact(_timeInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
                 throw new ArgumentException(_isArabic ? "اكتب الوقت بصيغة 24 ساعة مثل 09:30." : "Enter a 24-hour time such as 09:30.");
 
-            var dueLocal = DateTime.SpecifyKind(selectedDate.Date + time.ToTimeSpan(), DateTimeKind.Local);
-            var dueAt = new DateTimeOffset(dueLocal);
+            var dueLocal = selectedDate.Date + time.ToTimeSpan();
+            var dueAt = ReminderService.CreateLocalDueAt(dueLocal, TimeZoneInfo.Local);
             var recurrence = (_recurrenceSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "None";
             var updated = _service.Update(_selectedReminderId, _titleInput.Text, dueAt, recurrence, GetSelectedTaskId());
             if (updated is null)
@@ -281,6 +284,18 @@ public sealed class ReminderManagerWindow : Window
             return;
         }
 
+        var confirmation = MessageBox.Show(
+            this,
+            _isArabic
+                ? $"سيتم حذف التذكير «{selected.Record.Title}» نهائيًا من قائمة التذكيرات المحلية. هل تريد المتابعة؟"
+                : $"The reminder “{selected.Record.Title}” will be permanently removed from the local reminder list. Continue?",
+            _isArabic ? "تأكيد حذف التذكير" : "Confirm reminder deletion",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+            return;
+
         try
         {
             var removed = _service.Delete(selected.Record.Id);
@@ -289,8 +304,8 @@ public sealed class ReminderManagerWindow : Window
             _status.Text = removed
                 ? (_isArabic ? "تم حذف التذكير المحدد." : "Selected reminder deleted.")
                 : (_isArabic ? "لم يعد التذكير موجودًا." : "The reminder no longer exists.");
-            AppendSchedulerStatus();
             RefreshList();
+            AppendSchedulerStatus();
         }
         catch (Exception ex)
         {
@@ -301,7 +316,12 @@ public sealed class ReminderManagerWindow : Window
     private void AppendSchedulerStatus()
     {
         if (_scheduler is null)
+        {
+            _status.Text += _isArabic
+                ? Environment.NewLine + "تحذير: جدولة Windows غير متاحة حاليًا. ستُفحص التذكيرات أثناء تشغيل ليال وعند فتحه مجددًا، لكن لن يصل إشعار في موعده إذا كان التطبيق مغلقًا."
+                : Environment.NewLine + "Warning: Windows scheduling is unavailable. Reminders will be checked while Layal is open and on the next launch, but on-time notifications cannot be delivered while the app is closed.";
             return;
+        }
 
         try
         {

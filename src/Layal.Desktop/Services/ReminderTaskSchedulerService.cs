@@ -44,16 +44,7 @@ public sealed class ReminderTaskSchedulerService
         DateTimeOffset? proactiveCheckInDueAt = null)
     {
         ArgumentNullException.ThrowIfNull(reminders);
-        var nextReminderDueAt = reminders
-            .Where(item => item is not null && item.IsActive && item.DueAt != default)
-            .Select(item => (DateTimeOffset?)item.DueAt)
-            .OrderBy(value => value)
-            .FirstOrDefault();
-
-        var dueAtValue = nextReminderDueAt;
-        if (proactiveCheckInDueAt is not null &&
-            (dueAtValue is null || proactiveCheckInDueAt.Value < dueAtValue.Value))
-            dueAtValue = proactiveCheckInDueAt;
+        var dueAtValue = GetNextDispatchDueAt(reminders, proactiveCheckInDueAt);
 
         if (dueAtValue is null)
         {
@@ -81,6 +72,28 @@ public sealed class ReminderTaskSchedulerService
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
+    }
+
+    /// <summary>
+    /// Selects the earliest active user reminder or optional proactive check-in without
+    /// persisting reminder titles or other personal data in Windows Task Scheduler.
+    /// </summary>
+    public static DateTimeOffset? GetNextDispatchDueAt(
+        System.Collections.Generic.IEnumerable<ReminderRecord> reminders,
+        DateTimeOffset? proactiveCheckInDueAt = null)
+    {
+        ArgumentNullException.ThrowIfNull(reminders);
+        var nextReminderDueAt = reminders
+            .Where(item => item is not null && item.IsActive && item.DueAt != default)
+            .Select(item => (DateTimeOffset?)item.DueAt)
+            .OrderBy(value => value)
+            .FirstOrDefault();
+
+        if (proactiveCheckInDueAt is not null &&
+            (nextReminderDueAt is null || proactiveCheckInDueAt.Value < nextReminderDueAt.Value))
+            return proactiveCheckInDueAt;
+
+        return nextReminderDueAt;
     }
 
     /// <summary>Deletes only Layal's fixed dispatch task; a missing task is already the desired state.</summary>
@@ -113,7 +126,11 @@ public sealed class ReminderTaskSchedulerService
                 new XElement(ns + "Description", "Dispatches the next encrypted Layal local reminder. Runs only in the current interactive user session.")),
             new XElement(ns + "Triggers",
                 new XElement(ns + "TimeTrigger",
-                    new XElement(ns + "StartBoundary", dueAt.ToLocalTime().ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture)),
+                    new XElement(ns + "StartBoundary", FormatUtcBoundary(dueAt)),
+                    // StartWhenAvailable is honored for one-shot time triggers when they have an
+                    // end boundary. Keep that window open well beyond the due instant so a device
+                    // that was asleep/offline can dispatch the reminder after it becomes available.
+                    new XElement(ns + "EndBoundary", FormatUtcBoundary(AddYearsSaturated(dueAt.ToUniversalTime(), 10))),
                     new XElement(ns + "Enabled", "true"))),
             new XElement(ns + "Principals",
                 new XElement(ns + "Principal",
@@ -140,6 +157,15 @@ public sealed class ReminderTaskSchedulerService
                     new XElement(ns + "WorkingDirectory", Environment.GetFolderPath(Environment.SpecialFolder.System)))));
         return new XDocument(new XDeclaration("1.0", "UTF-8", null), root)
             .ToString(SaveOptions.DisableFormatting);
+    }
+
+    private static string FormatUtcBoundary(DateTimeOffset value) =>
+        value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+
+    private static DateTimeOffset AddYearsSaturated(DateTimeOffset value, int years)
+    {
+        try { return value.AddYears(years); }
+        catch (ArgumentOutOfRangeException) { return DateTimeOffset.MaxValue; }
     }
 
     private static string BuildDetachedLaunchArguments(string executablePath)

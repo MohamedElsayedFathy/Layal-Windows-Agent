@@ -27,6 +27,7 @@ $sentinelPath = Join-Path $userDataDirectory "release-readiness-$testId.txt"
 $sentinelContents = "Layal installer data-preservation test $testId"
 $appProcess = $null
 $testOwnsInstall = $false
+$script:createdReminderTaskSentinel = $false
 if ($env:GITHUB_ACTIONS -ne 'true' -and $env:LAYAL_ALLOW_INSTALLER_TESTS -ne '1') {
     throw 'Refusing to run destructive installer tests outside CI unless LAYAL_ALLOW_INSTALLER_TESTS=1 is explicitly set in a disposable VM.'
 }
@@ -124,6 +125,40 @@ function Assert-InstalledVersion {
     Write-Host "PASS: install/upgrade registry reports Layal $ExpectedVersion."
 }
 
+function Get-ReminderDispatcherTaskExists {
+    $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+    $null = & $schtasks /Query /TN '\LayalReminderDispatcher' 2>&1
+    return ($LASTEXITCODE -eq 0)
+}
+
+function New-ReminderDispatcherTaskSentinel {
+    if (Get-ReminderDispatcherTaskExists) {
+        throw 'Refusing to replace an existing per-user Layal reminder task in the installer test profile.'
+    }
+
+    # Let Windows generate a schema-valid task definition rather than maintaining a second
+    # hand-written Task Scheduler XML fixture. The test task never runs during this test.
+    $taskAction = '"' + (Join-Path $env:SystemRoot 'System32\cmd.exe') + '" /c exit 0'
+    $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+    $output = & $schtasks /Create /TN '\LayalReminderDispatcher' /TR $taskAction /SC ONLOGON /IT /RL LIMITED /F 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not register reminder-task uninstall sentinel: $($output -join ' ')"
+    }
+
+    $script:createdReminderTaskSentinel = $true
+    if (-not (Get-ReminderDispatcherTaskExists)) {
+        throw 'Reminder-task uninstall sentinel was not visible after registration.'
+    }
+    Write-Host 'PASS: test profile contains the same per-user reminder task name used by Layal.'
+}
+function Assert-ReminderDispatcherTaskRemoved {
+    if (Get-ReminderDispatcherTaskExists) {
+        throw 'The LayalReminderDispatcher task remains registered after uninstall.'
+    }
+    $script:createdReminderTaskSentinel = $false
+    Write-Host 'PASS: uninstall removed the per-user Layal reminder dispatcher task.'
+}
+
 function Assert-Uninstalled {
     if (Test-Path -LiteralPath (Join-Path $installDirectory 'Layal.exe') -PathType Leaf) {
         throw 'Layal.exe remains in the installation directory after uninstall.'
@@ -146,7 +181,8 @@ function Assert-Uninstalled {
             throw "Installation directory still contains $($remainingFiles.Count) item(s) after uninstall."
         }
     }
-    Write-Host 'PASS: uninstall removed app files, shortcut, and Add/Remove Programs registration.'
+    Assert-ReminderDispatcherTaskRemoved
+    Write-Host 'PASS: uninstall removed app files, shortcut, Add/Remove Programs registration, and scheduled reminder task.'
 }
 
 function Test-AppStartup {
@@ -182,6 +218,9 @@ try {
     if ($existingLayalEntries.Count -ne 0) {
         throw "Refusing installer lifecycle tests because this user already has $($existingLayalEntries.Count) Layal uninstall registration(s). Use a clean disposable Windows profile."
     }
+    if (Get-ReminderDispatcherTaskExists) {
+        throw 'Refusing installer lifecycle tests because this user already has a Layal reminder dispatcher task. Use a clean disposable Windows profile.'
+    }
     if (Test-Path -LiteralPath $installDirectory) {
         throw "Refusing to overwrite a pre-existing default install folder: $installDirectory"
     }
@@ -214,15 +253,29 @@ try {
     Assert-UserDataSentinel -Stage 'rollback' -ExpectedContents $sentinelContents
 
     Write-Host '--- Uninstall ---'
+    # Mimic a real saved reminder by registering the product's fixed task name after all app
+    # startup smoke checks (startup intentionally removes stale tasks when no reminders exist).
+    New-ReminderDispatcherTaskSentinel
     $uninstaller = Join-Path $installDirectory 'unins000.exe'
     if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         throw 'Inno Setup uninstaller was not installed.'
     }
-    $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+    $uninstallLogPath = Join-Path $env:TEMP "layal-uninstall-$testId.log"
+    $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$uninstallLogPath") -Wait -PassThru
     if ($uninstall.ExitCode -ne 0) {
+        if (Test-Path -LiteralPath $uninstallLogPath) {
+            Get-Content -LiteralPath $uninstallLogPath | Write-Host
+        }
         throw "Uninstaller failed with exit code $($uninstall.ExitCode)."
     }
+    if (Get-ReminderDispatcherTaskExists -eq $true) {
+        if (Test-Path -LiteralPath $uninstallLogPath) {
+            Get-Content -LiteralPath $uninstallLogPath | Write-Host
+        }
+        throw "Uninstaller returned success but the LayalReminderDispatcher task remains registered. Uninstaller log: $uninstallLogPath"
+    }
     Assert-Uninstalled
+    Remove-Item -LiteralPath $uninstallLogPath -Force -ErrorAction SilentlyContinue
     $testOwnsInstall = $false
     Assert-UserDataSentinel -Stage 'uninstall' -ExpectedContents $sentinelContents
 
@@ -237,6 +290,15 @@ finally {
     Remove-Item -LiteralPath $sentinelPath -Force -ErrorAction SilentlyContinue
 
     # Best-effort cleanup if a test failed before uninstall completed.
+    if ($script:createdReminderTaskSentinel -and (Get-ReminderDispatcherTaskExists)) {
+        try {
+            $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+            $null = & $schtasks /Delete /TN '\LayalReminderDispatcher' /F 2>&1
+            $script:createdReminderTaskSentinel = $false
+        } catch {
+            Write-Warning "Could not clean up the reminder-task test sentinel: $($_.Exception.Message)"
+        }
+    }
     $uninstaller = Join-Path $installDirectory 'unins000.exe'
     if ($testOwnsInstall -and (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         try {
@@ -247,3 +309,8 @@ finally {
         }
     }
 }
+
+# The final expected "task not found" assertion invokes schtasks.exe and leaves
+# LASTEXITCODE=1. Reaching the end means all lifecycle assertions passed; reset the
+# process exit code so the calling distribution script does not misreport success.
+$global:LASTEXITCODE = 0
