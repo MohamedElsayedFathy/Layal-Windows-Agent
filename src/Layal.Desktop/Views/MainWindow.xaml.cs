@@ -6010,6 +6010,8 @@ public partial class MainWindow : Window
         if (!IsLoaded)
             return;
 
+        var previousEnabled = AppRuntime.Settings.ProactiveCheckInEnabled;
+        var previousLastNotifiedAt = AppRuntime.Settings.LastProactiveCheckInAt;
         AppRuntime.Settings.ProactiveCheckInEnabled = ProactiveCheckInEnabledCheckBox.IsChecked == true;
         AppRuntime.Settings.LastProactiveCheckInAt = DateTimeOffset.Now;
         try
@@ -6029,8 +6031,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            AppRuntime.Settings.ProactiveCheckInEnabled = !AppRuntime.Settings.ProactiveCheckInEnabled;
-            ProactiveCheckInEnabledCheckBox.IsChecked = AppRuntime.Settings.ProactiveCheckInEnabled;
+            AppRuntime.Settings.ProactiveCheckInEnabled = previousEnabled;
+            AppRuntime.Settings.LastProactiveCheckInAt = previousLastNotifiedAt;
+            ProactiveCheckInEnabledCheckBox.IsChecked = previousEnabled;
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
                 "تعذر حفظ تذكيرات المتابعة", "Could not save check-in reminder settings", ex, IsArabic));
         }
@@ -6042,6 +6045,8 @@ public partial class MainWindow : Window
             !int.TryParse(item.Tag?.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutes))
             return;
 
+        var previousInterval = AppRuntime.Settings.ProactiveCheckInIntervalMinutes;
+        var previousLastNotifiedAt = AppRuntime.Settings.LastProactiveCheckInAt;
         AppRuntime.Settings.ProactiveCheckInIntervalMinutes = minutes;
         AppRuntime.Settings.LastProactiveCheckInAt = DateTimeOffset.Now;
         try
@@ -6051,6 +6056,11 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppRuntime.Settings.ProactiveCheckInIntervalMinutes = previousInterval;
+            AppRuntime.Settings.LastProactiveCheckInAt = previousLastNotifiedAt;
+            ProactiveCheckInIntervalSelector.SelectedItem =
+                ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
+                    string.Equals(candidate.Tag?.ToString(), previousInterval.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
                 "تعذر حفظ الفاصل الزمني", "Could not save the check-in interval", ex, IsArabic));
         }
@@ -6116,15 +6126,51 @@ public partial class MainWindow : Window
         }
 
         TrySynchronizeLocalNotificationSchedule();
-        var recentTask = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
-        var message = recentTask is null
-            ? (IsArabic ? "موعد مراجعة قصيرة. افتح ليال وحدد ما تريد التركيز عليه الآن." : "Time for a quick check-in. Open Layal and choose what to focus on now.")
-            : (IsArabic ? "موعد مراجعة المهمة. افتح ليال لمراجعة التقدم أو تحديث الهدف." : "Time to check in on your task. Open Layal to review progress or update the goal.");
-        var taskId = recentTask?.Id;
-        AppRuntime.Tray?.ShowReminderNotification(
-            message,
-            IsArabic,
-            taskId is null ? null : () => OpenTaskFromNotification(taskId));
+
+        // The check-in is useful even if task history cannot be read. Keep the notification
+        // generic on storage failure rather than losing the due check-in or escaping the timer.
+        var message = IsArabic
+            ? "موعد مراجعة قصيرة. افتح ليال وحدد ما تريد التركيز عليه الآن."
+            : "Time for a quick check-in. Open Layal and choose what to focus on now.";
+        string? taskId = null;
+        try
+        {
+            var recentTask = AppRuntime.TaskHistoryService.GetRecent(1).FirstOrDefault();
+            if (recentTask is not null)
+            {
+                message = IsArabic
+                    ? "موعد مراجعة المهمة. افتح ليال لمراجعة التقدم أو تحديث الهدف."
+                    : "Time to check in on your task. Open Layal to review progress or update the goal.";
+                taskId = recentTask.Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر قراءة سجل المهام؛ سيظهر تذكير متابعة عام",
+                "Task history could not be read; a generic check-in will be shown",
+                ex,
+                IsArabic));
+        }
+
+        try
+        {
+            if (AppRuntime.Tray is { } tray)
+                tray.ShowReminderNotification(
+                    message,
+                    IsArabic,
+                    taskId is null ? null : () => OpenTaskFromNotification(taskId));
+            else
+                SetChatActivityStatus(message);
+        }
+        catch (Exception ex)
+        {
+            SetChatActivityStatus(UiLocalization.FormatTechnicalError(
+                "تعذر عرض إشعار المتابعة",
+                "The check-in notification could not be displayed",
+                ex,
+                IsArabic));
+        }
     }
 
     private void OpenTaskFromNotification(string taskId)
