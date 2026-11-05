@@ -1119,7 +1119,7 @@ public sealed class BrowserAutomationService
             "if(matches.length!==1)return JSON.stringify({found:false,error:'The selector matched multiple elements. Use a more specific selector; ambiguous actions are blocked.'});" +
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
             "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
-            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\s+/g,' ').slice(0,160);" +
+            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=tag==='input'?(e.getAttribute('accept')||''):'',multiple=tag==='input'&&e.multiple===true;" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
@@ -1144,7 +1144,7 @@ public sealed class BrowserAutomationService
             "if(location.href!==expectedUrl)return JSON.stringify({ok:false,error:'The page URL changed while awaiting approval.'});" +
             "const matches=document.querySelectorAll(q);if(matches.length!==1)return JSON.stringify({ok:false,error:'The selector no longer matches exactly one element.'});" +
             "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase();" +
-            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\s+/g,' ').slice(0,160);" +
+            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=tag==='input'?(e.getAttribute('accept')||''):'',multiple=tag==='input'&&e.multiple===true;" +
             "if(action==='click'&&((['button','input'].includes(tag)&&['submit','reset'].includes(type))||formAssociated))return JSON.stringify({ok:false,error:'Form-associated controls and submit/reset actions are blocked by browser_click.'});" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
