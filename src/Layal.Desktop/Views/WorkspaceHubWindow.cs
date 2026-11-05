@@ -543,10 +543,40 @@ public sealed class WorkspaceHubWindow : Window
             var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
             var json = service.ExportJson(includeFileContents);
             var preview = service.PreviewImportJson(json);
+
+            if (includeFileContents)
+            {
+                var entries = preview.FileEntries ?? Array.Empty<WorkspaceSnapshotFilePreview>();
+                var embedded = entries.Where(entry => entry.HasContent).ToArray();
+                var omitted = entries.Where(entry => !entry.IsDirectory && !entry.HasContent &&
+                    !string.IsNullOrWhiteSpace(entry.ContentOmittedReason)).ToArray();
+                var review = _isArabic
+                    ? $"سيتم تضمين محتوى {embedded.Length} ملف فعليًا داخل JSON غير المشفّر. راجع المسارات والأحجام قبل الكتابة:\n\n" +
+                      FormatFilePreviewList(embedded, isArabic: true) +
+                      (omitted.Length > 0 ? "\n\nملفات لم يُضمّن محتواها (ستظل بيانات وصفية فقط):\n" + FormatFilePreviewList(omitted, isArabic: true, includeOmissionReason: true) : string.Empty) +
+                      "\n\nهل تريد حفظ النسخة بهذه الملفات؟"
+                    : $"Exactly {embedded.Length} file(s) will have their contents embedded in the unencrypted JSON. Review paths and sizes before writing:\n\n" +
+                      FormatFilePreviewList(embedded, isArabic: false) +
+                      (omitted.Length > 0 ? "\n\nFiles whose content was omitted (metadata only):\n" + FormatFilePreviewList(omitted, isArabic: false, includeOmissionReason: true) : string.Empty) +
+                      "\n\nSave the backup with these files?";
+                if (MessageBox.Show(this, review,
+                    _isArabic ? "مراجعة محتويات النسخة" : "Review embedded backup files",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+                    return;
+            }
+
             var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(json);
-            if (bytes.Length > WorkspaceSnapshotService.MaximumJsonBytes)
-                throw new InvalidOperationException("The workspace backup exceeds the configured size limit.");
-            File.WriteAllBytes(dialog.FileName, bytes);
+            try
+            {
+                if (bytes.Length > WorkspaceSnapshotService.MaximumJsonBytes)
+                    throw new InvalidOperationException("The workspace backup exceeds the configured size limit.");
+                WriteBackupAtomically(dialog.FileName, bytes);
+            }
+            finally
+            {
+                Array.Clear(bytes, 0, bytes.Length);
+            }
+
             _status.Text = _isArabic
                 ? $"تم إنشاء النسخة غير المشفّرة: {dialog.FileName} — محتوى {preview.FilesWithContent} ملف مضمّن."
                 : $"Unencrypted backup created: {dialog.FileName} — embedded contents for {preview.FilesWithContent} file(s).";
@@ -574,9 +604,12 @@ public sealed class WorkspaceHubWindow : Window
             var json = ReadBoundedBackupFile(dialog.FileName, WorkspaceSnapshotService.MaximumJsonBytes);
             var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
             var preview = service.PreviewImportJson(json);
+            var embeddedPreview = FormatFilePreviewList(
+                (preview.FileEntries ?? Array.Empty<WorkspaceSnapshotFilePreview>()).Where(entry => entry.HasContent),
+                _isArabic);
             var summary = _isArabic
-                ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد، منها {preview.FilesWithContent} ملفًا يحتوي النسخ الاحتياطي على محتواه\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. لن تُستعاد الملفات في هذه الخطوة. قد يتضمن JSON نصوصًا ومحتوى ملفات خاصة غير مشفّرة. هل تريد دمج السجلات؟"
-                : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder entries, including {preview.FilesWithContent} with embedded file contents\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. No files will be restored in this step. The JSON may contain sensitive plaintext and file contents. Merge records?";
+                ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد، منها {preview.FilesWithContent} ملفًا يحتوي النسخ الاحتياطي على محتواه\n\nالملفات ذات المحتوى المضمّن (لن تُكتب قبل موافقة منفصلة):\n{embeddedPreview}\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. لن تُستعاد الملفات في هذه الخطوة. قد يتضمن JSON نصوصًا ومحتوى ملفات خاصة غير مشفّرة. هل تريد دمج السجلات؟"
+                : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder entries, including {preview.FilesWithContent} with embedded file contents\n\nFiles with embedded contents (nothing is written before separate consent):\n{embeddedPreview}\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. No files will be restored in this step. The JSON may contain sensitive plaintext and file contents. Merge records?";
             if (MessageBox.Show(this, summary,
                 _isArabic ? "مراجعة واستعادة النسخة الاحتياطية" : "Review and restore workspace backup",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
@@ -630,6 +663,74 @@ public sealed class WorkspaceHubWindow : Window
         catch (DecoderFallbackException ex)
         {
             throw new InvalidOperationException("The selected backup is not valid UTF-8 JSON.", ex);
+        }
+    }
+
+    private static string FormatFilePreviewList(
+        IEnumerable<WorkspaceSnapshotFilePreview> entries,
+        bool isArabic,
+        bool includeOmissionReason = false,
+        int maximumVisible = 20)
+    {
+        var values = entries.Take(maximumVisible + 1).ToArray();
+        if (values.Length == 0)
+            return isArabic ? "لا توجد ملفات." : "No files.";
+
+        var lines = values.Take(maximumVisible).Select(entry =>
+        {
+            var kind = entry.IsDirectory ? (isArabic ? "مجلد" : "folder") : (isArabic ? "ملف" : "file");
+            var line = $"• {entry.RelativePath} — {entry.SizeBytes:N0} bytes ({kind})";
+            if (includeOmissionReason && !string.IsNullOrWhiteSpace(entry.ContentOmittedReason))
+                line += $" — {entry.ContentOmittedReason}";
+            return line;
+        }).ToList();
+
+        if (values.Length > maximumVisible)
+        {
+            var remaining = entries.Count() - maximumVisible;
+            lines.Add(isArabic ? $"… و{remaining} عنصرًا آخر." : $"… and {remaining} more item(s).");
+        }
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static void WriteBackupAtomically(string destinationPath, byte[] bytes)
+    {
+        var fullPath = Path.GetFullPath(destinationPath);
+        var directory = Path.GetDirectoryName(fullPath)
+            ?? throw new InvalidOperationException("The selected backup path has no parent directory.");
+        if (!Directory.Exists(directory))
+            throw new DirectoryNotFoundException("The selected backup directory no longer exists.");
+
+        var temporaryPath = Path.Combine(
+            directory,
+            $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var output = new FileStream(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None,
+                       bufferSize: 64 * 1024,
+                       options: FileOptions.WriteThrough))
+            {
+                output.Write(bytes, 0, bytes.Length);
+                output.Flush(flushToDisk: true);
+            }
+
+            // The temporary file is on the same volume, so a failed write never truncates
+            // an existing backup. The final move replaces only after the full payload is flushed.
+            File.Move(temporaryPath, fullPath, overwrite: true);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temporaryPath))
+                    File.Delete(temporaryPath);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 
