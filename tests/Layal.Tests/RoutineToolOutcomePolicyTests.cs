@@ -10,6 +10,8 @@ public sealed class RoutineToolOutcomePolicyTests
     [DataRow("User declined file creation. No file was created.")]
     [DataRow("WEB SEARCH NOT SHARED\nStatus: unexpected_redirect")]
     [DataRow("The claim search was completed, but the separate contrary-evidence search was declined. No verification conclusion is possible.")]
+    [DataRow("The claim search was completed, but the separate contrary-evidence search could not be completed or shared. No verification conclusion is possible.")]
+    [DataRow("Fact-check could not retrieve the required contrary source. No verification conclusion is possible.")]
     [DataRow("No direct source opened: the dedicated browser is unavailable.")]
     [DataRow("No eligible direct HTTPS source candidate on a new registrable domain was found.")]
     [DataRow("The approved source page was opened, but its bounded evidence snapshot could not be parsed; no evidence from it was shared.")]
