@@ -459,6 +459,8 @@ public partial class MainWindow : Window
         // DPAPI-backed task history and memory stores are deliberately preserved.
         MemoryNotes.Clear();
         MemoryList.SelectedItem = null;
+        MemoryCountText.Text = string.Empty;
+        MemoryFilterNotice.Text = string.Empty;
         _selectedMemoryId = null;
         _selectedMemoryIsArchived = false;
         _selectedMemoryUpdatedAt = null;
@@ -1647,7 +1649,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(MemoryList, ar ? "قائمة ملاحظات الذاكرة" : "Memory notes list");
         AutomationProperties.SetHelpText(MemoryList, ar ? "اختر ملاحظة للعرض والتحرير. قد تخفي عوامل التصفية الملاحظة المفتوحة في المحرر." : "Select a note to view and edit. Filters may hide the note currently open in the editor.");
         MemoryPrivacyNote.Text = ar
-            ? "لا تحفظ مفاتيح API أو كلمات المرور. تصدير JSON غير مشفّر ويشمل المؤرشف والنشط؛ الاستيراد يدمج السجلات الجديدة ولا يستبدل الموجود. لا تُرسل أي ملاحظة إلى AI إلا بعد عرض النص الكامل وموافقتك.";
+            ? "لا تحفظ مفاتيح API أو كلمات المرور. تصدير JSON غير مشفّر ويشمل المؤرشف والنشط؛ الاستيراد يدمج السجلات الجديدة ولا يستبدل الموجود. لا تُرسل أي ملاحظة إلى AI إلا بعد عرض النص الكامل وموافقتك."
             : "Do not store API keys or passwords. JSON exports are unencrypted and include active and archived notes; imports merge new records without replacing existing ones. Notes are shared with AI only after the full text is shown and you approve.";
         UpdateMemoryEditorButtons();
         UpdateMemoryCountDisplay();
@@ -6506,7 +6508,7 @@ public partial class MainWindow : Window
         !string.Equals(MemoryContentInput.Text, _memoryEditorBaselineContent, StringComparison.Ordinal) ||
         !string.Equals(MemoryCategoryInput.Text, _memoryEditorBaselineCategory, StringComparison.Ordinal);
 
-    private bool ConfirmDiscardMemoryDraft()
+    private bool ConfirmDiscardMemoryDraft(bool clearDraft = false)
     {
         if (!MemoryEditorHasUnsavedChanges) return true;
         var answer = MessageBox.Show(this,
@@ -6515,7 +6517,18 @@ public partial class MainWindow : Window
                 : "The memory editor contains unsaved changes. Discard them and continue?",
             IsArabic ? "تغييرات غير محفوظة" : "Unsaved memory changes",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
-        return answer == MessageBoxResult.Yes;
+        if (answer != MessageBoxResult.Yes) return false;
+
+        if (clearDraft)
+        {
+            var saved = _selectedMemoryId is null
+                ? null
+                : AppRuntime.MemoryService.GetAll(includeArchived: true)
+                    .FirstOrDefault(note => string.Equals(note.Id, _selectedMemoryId, StringComparison.Ordinal));
+            if (saved is null) ResetMemoryEditor();
+            else LoadMemoryEditor(saved);
+        }
+        return true;
     }
 
     private void SetMemoryEditorBaseline(MemoryNote? note)
@@ -6608,6 +6621,33 @@ public partial class MainWindow : Window
                 ?? allItem;
         }
         finally { _refreshingMemoryCategoryFilter = false; }
+    }
+
+    private void UpdateMemoryCountDisplay()
+    {
+        if (_incognitoMode)
+        {
+            MemoryCountText.Text = string.Empty;
+            MemoryFilterNotice.Text = string.Empty;
+            return;
+        }
+
+        try
+        {
+            var allNotes = AppRuntime.MemoryService.GetAll(includeArchived: true);
+            var activeCount = allNotes.Count(note => !note.IsArchived);
+            var archivedCount = allNotes.Count - activeCount;
+            MemoryCountText.Text = IsArabic
+                ? $"{MemoryNotes.Count} معروضة • نشطة {activeCount} • مؤرشفة {archivedCount}"
+                : $"{MemoryNotes.Count} shown • active {activeCount} • archived {archivedCount}";
+            AutomationProperties.SetName(MemoryCountText, IsArabic
+                ? $"عدد الملاحظات المعروضة {MemoryNotes.Count}، النشطة {activeCount}، المؤرشفة {archivedCount}"
+                : $"{MemoryNotes.Count} notes shown, {activeCount} active, {archivedCount} archived");
+        }
+        catch (Exception)
+        {
+            MemoryCountText.Text = IsArabic ? "تعذر قراءة عدد الملاحظات." : "Could not read note count.";
+        }
     }
 
     private void RefreshMemoryNotes(string? query = null)
@@ -7029,7 +7069,7 @@ public partial class MainWindow : Window
                 IsArabic ? "مراجعة دمج الذاكرة" : "Review memory merge",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
             if (confirm != MessageBoxResult.Yes) return;
-            if (!ConfirmDiscardMemoryDraft()) return;
+            if (!ConfirmDiscardMemoryDraft(clearDraft: true)) return;
 
             var added = AppRuntime.MemoryService.ImportMany(imported);
             MemorySearchInput.Clear();
