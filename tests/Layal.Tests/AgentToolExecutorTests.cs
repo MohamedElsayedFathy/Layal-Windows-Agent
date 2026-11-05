@@ -59,6 +59,14 @@ public sealed class AgentToolExecutorTests
             CancellationToken.None));
 
         Assert.IsFalse(approvalCalled, "Unknown executable names and paths must be rejected before approval.");
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "run_shell_command",
+            """{"command":"whoami"}""",
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+        Assert.IsFalse(approvalCalled, "No generic shell-command tool may be exposed.");
     }
 
     [TestMethod]
@@ -167,7 +175,11 @@ public sealed class AgentToolExecutorTests
         var hostLine = (approvalDetails ?? string.Empty).Split(Environment.NewLine)
             .FirstOrDefault(line => line.Contains("dotnet.exe", StringComparison.OrdinalIgnoreCase));
         Assert.IsNotNull(hostLine, "The approval must show the exact fixed .NET host executable.");
-        var hostPath = hostLine![(hostLine.IndexOf('\\' ) >= 0 ? hostLine.IndexOf('\\') : 0)..].Trim(' ', '\\'', '"');
+        const string marker = "at '";
+        var pathStart = hostLine!.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
+        var pathEnd = hostLine.IndexOf("' with", pathStart, StringComparison.Ordinal);
+        Assert.IsTrue(pathStart >= marker.Length && pathEnd > pathStart, "The approved host path must be delimited in the consent preview.");
+        var hostPath = hostLine[pathStart..pathEnd];
         Assert.IsTrue(Path.IsPathFullyQualified(hostPath), "dotnet must be invoked using an absolute executable path.");
         Assert.IsTrue(hostPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(result, "declined");
