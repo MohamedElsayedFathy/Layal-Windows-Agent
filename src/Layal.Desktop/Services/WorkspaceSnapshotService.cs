@@ -153,26 +153,10 @@ public sealed class WorkspaceSnapshotService
         var embeddedCount = document.Files.Count(entry => entry.ContentBase64 is not null);
         var filesSkipped = restoreWorkspaceFiles ? 0 : embeddedCount;
 
-        // Capture only IDs that were absent before this import. If either DPAPI store fails
-        // after the other one has committed, these IDs let us compensate without touching
-        // any pre-existing local task or memory record.
-        var existingTaskIds = _taskHistory.GetRecent(100)
-            .Select(task => task.Id)
-            .ToHashSet(StringComparer.Ordinal);
-        var existingMemoryIds = _memory.GetAll(includeArchived: true)
-            .Select(note => note.Id)
-            .ToHashSet(StringComparer.Ordinal);
-        var taskRollbackIds = document.Tasks
-            .Select(task => task.Id)
-            .Where(id => !existingTaskIds.Contains(id))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var memoryRollbackIds = document.Memories
-            .Select(note => note.Id)
-            .Where(id => !existingMemoryIds.Contains(id))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-
+        // Roll back only the IDs that each import call confirms it actually added.
+        // This avoids deleting records another concurrent import may have inserted after preflight.
+        IReadOnlyList<string> taskRollbackIds = Array.Empty<string>();
+        IReadOnlyList<string> memoryRollbackIds = Array.Empty<string>();
         var taskImportAttempted = false;
         var memoryImportAttempted = false;
         try
@@ -181,11 +165,11 @@ public sealed class WorkspaceSnapshotService
                 filesRestored = RestoreWorkspaceFiles(document.Files, createdFiles, createdDirectories, out filesSkipped);
 
             taskImportAttempted = true;
-            var importedTaskIds = _taskHistory.ImportManyWithIds(document.Tasks);
+            taskRollbackIds = _taskHistory.ImportManyWithIds(document.Tasks);
             memoryImportAttempted = true;
-            var importedMemoryIds = _memory.ImportManyWithIds(document.Memories);
+            memoryRollbackIds = _memory.ImportManyWithIds(document.Memories);
             return new WorkspaceSnapshotImportResult(
-                importedTaskIds.Count, importedMemoryIds.Count, document.Files.Count, filesRestored, filesSkipped);
+                taskRollbackIds.Count, memoryRollbackIds.Count, document.Files.Count, filesRestored, filesSkipped);
         }
         catch (Exception importFailure)
         {
