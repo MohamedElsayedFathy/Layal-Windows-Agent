@@ -42,8 +42,8 @@ public sealed class SavedRoutineManagerWindow : Window
         Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
-            ? "الروتين قالب نصي فقط، وليس سكربتًا. اختياره يملأ مسودة المهمة للمراجعة ولا يشغّلها تلقائيًا."
-            : "A routine is a text template, not a script. Choosing one fills the task draft for review and never runs it automatically.");
+            ? "احفظ قوالب أهداف وخطوات مشفرة محليًا. يمكنك إدراجها في مسودة دون تشغيل، أو بدء مهمة واحدة بعد مراجعة الخطة والتأكيد الإضافي. تظل الموافقة مطلوبة لكل أداة."
+            : "Save locally encrypted goal-and-step templates. You can place one in a draft without running it, or start one task after reviewing the full plan and confirming. Every tool still requires separate approval.");
 
         var root = new Grid { Margin = new Thickness(16) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
