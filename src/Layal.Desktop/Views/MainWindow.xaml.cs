@@ -37,6 +37,10 @@ public partial class MainWindow : Window
     private bool _refreshingRecentTasks;
     private GameModeHudWindow? _gameModeHudWindow;
     private bool _gameModeHudAutoLaunched;
+    private string? _gameModeAutoLaunchedProcessName;
+    private string? _lastAllowedForegroundProcessName;
+    private bool _automaticGameModeSessionActive;
+    private readonly GameModeAutoDismissalPolicy _gameModeAutoDismissalPolicy = new();
     private readonly ForegroundGameDetectionService _foregroundGameDetectionService = new();
     private readonly DispatcherTimer _gameModeDetectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private bool _cameraAutomaticObservationRequest;
@@ -613,6 +617,9 @@ public partial class MainWindow : Window
         if (enable)
             StopCaptureSourcesForPrivacyShield();
 
+        // Re-evaluate immediately: an automatic HUD must not remain over a game after
+        // the privacy shield is enabled. A manually opened HUD remains user-controlled.
+        GameModeDetectionTimer_Tick(this, EventArgs.Empty);
         TrySynchronizeLocalNotificationSchedule();
         UpdatePrivacyShieldUi();
         SetChatActivityStatus(enable
@@ -1048,8 +1055,12 @@ public partial class MainWindow : Window
             var hud = _gameModeHudWindow;
             _gameModeHudWindow = null;
             _gameModeHudAutoLaunched = false;
+            _gameModeAutoLaunchedProcessName = null;
+            _automaticGameModeSessionActive = false;
+            _lastAllowedForegroundProcessName = null;
+            _gameModeAutoDismissalPolicy.Reset();
             AppRuntime.IsGameModeActive = false;
-            hud.Close();
+            hud.CloseFromDetection();
         }
         AppRuntime.OpenTaskNotification = null;
         Closed -= MainWindow_Closed;
@@ -5820,7 +5831,7 @@ public partial class MainWindow : Window
     {
         if (_gameModeHudWindow is { IsVisible: true })
         {
-            _gameModeHudWindow.Close();
+            _gameModeHudWindow.CloseByUser();
             return;
         }
 
@@ -5853,19 +5864,23 @@ public partial class MainWindow : Window
 
         var enabled = AppRuntime.Settings.GameModeAutoDetectionEnabled &&
             AppRuntime.Settings.GameModeAllowedProcessNames.Count > 0;
+        _gameModeAutoDismissalPolicy.Reset();
+        _lastAllowedForegroundProcessName = null;
+        _automaticGameModeSessionActive = false;
         if (enabled)
         {
             _gameModeDetectionTimer.Start();
+            GameModeDetectionTimer_Tick(this, EventArgs.Empty);
             SetChatActivityStatus(IsArabic
-                ? "تم تفعيل اكتشاف الألعاب بقائمة السماح التي حددتها. يقرأ Layal اسم عملية النافذة الأمامية فقط."
-                : "Allowlisted game detection is enabled. Layal reads only the foreground process name.");
+                ? "تم تفعيل اكتشاف الألعاب بقائمة السماح. يفحص ليال اسم عملية النافذة الأمامية فقط كل 3 ثوانٍ."
+                : "Allowlisted game detection is enabled. Layal checks only the foreground process name every 3 seconds.");
         }
         else
         {
             _gameModeDetectionTimer.Stop();
             if (_gameModeHudAutoLaunched)
-                _gameModeHudWindow?.Close();
-            TrySynchronizeLocalNotificationSchedule();
+                _gameModeHudWindow?.CloseFromDetection();
+            UpdateGameModeActivityState();
             SetChatActivityStatus(IsArabic
                 ? "تم إيقاف اكتشاف الألعاب التلقائي؛ يظل وضع الألعاب اليدوي متاحًا."
                 : "Automatic game detection is disabled; manual game mode remains available.");
@@ -5874,42 +5889,73 @@ public partial class MainWindow : Window
 
     private void GameModeDetectionTimer_Tick(object? sender, EventArgs e)
     {
+        var allowlist = AppRuntime.Settings.GameModeAllowedProcessNames;
         if (!AppRuntime.Settings.GameModeAutoDetectionEnabled ||
-            AppRuntime.Settings.GameModeAllowedProcessNames.Count == 0 ||
+            allowlist.Count == 0 ||
             AppRuntime.Settings.PrivacyShieldEnabled ||
             AppRuntime.IsExiting)
         {
+            _gameModeAutoDismissalPolicy.Reset();
+            _lastAllowedForegroundProcessName = null;
+            _automaticGameModeSessionActive = false;
             if (_gameModeHudAutoLaunched)
-                _gameModeHudWindow?.Close();
+                _gameModeHudWindow?.CloseFromDetection();
+            UpdateGameModeActivityState();
             return;
         }
 
-        // A manual HUD always wins over automatic detection and remains open until the user closes it.
+        // Read one foreground process name only. No process list, title, arguments, memory,
+        // input, hooks, or game telemetry are queried by this timer.
+        var foregroundProcessName = _foregroundGameDetectionService.GetForegroundProcessName();
+        var isAllowedForeground = _gameModeAutoDismissalPolicy.IsAllowedForeground(
+            foregroundProcessName,
+            allowlist);
+        _automaticGameModeSessionActive = isAllowedForeground;
+        _lastAllowedForegroundProcessName = isAllowedForeground ? foregroundProcessName : null;
+
+        // Manual HUD ownership wins over automatic display, but an allowed foreground game
+        // still suppresses proactive check-ins until focus leaves that game.
         if (_gameModeHudWindow is { IsVisible: true } && !_gameModeHudAutoLaunched)
+        {
+            UpdateGameModeActivityState();
             return;
+        }
 
-        var isAllowedForeground = _foregroundGameDetectionService.IsAllowedForeground(
-            AppRuntime.Settings.GameModeAllowedProcessNames);
-
-        if (isAllowedForeground)
+        var shouldShowAutomaticHud = isAllowedForeground &&
+            !_gameModeAutoDismissalPolicy.IsDismissedFor(foregroundProcessName);
+        if (shouldShowAutomaticHud)
         {
             if (_gameModeHudWindow is not { IsVisible: true })
-                OpenGameModeHud(automaticallyLaunched: true);
+                OpenGameModeHud(automaticallyLaunched: true, foregroundProcessName);
         }
         else if (_gameModeHudAutoLaunched)
         {
-            _gameModeHudWindow?.Close();
+            _gameModeHudWindow?.CloseFromDetection();
         }
+
+        UpdateGameModeActivityState();
     }
 
-    private void OpenGameModeHud(bool automaticallyLaunched)
+    private void UpdateGameModeActivityState()
+    {
+        // A dismissed automatic HUD does not end the detected game session. This keeps
+        // proactive check-ins paused until the foreground process leaves the allowlist.
+        var active = _automaticGameModeSessionActive || _gameModeHudWindow is { IsVisible: true };
+        if (AppRuntime.IsGameModeActive != active)
+        {
+            AppRuntime.IsGameModeActive = active;
+            TrySynchronizeLocalNotificationSchedule();
+        }
+        UpdateGameModeButtonUi();
+    }
+
+    private void OpenGameModeHud(bool automaticallyLaunched, string? foregroundProcessName = null)
     {
         if (_gameModeHudWindow is { IsVisible: true })
             return;
 
-        AppRuntime.IsGameModeActive = true;
         _gameModeHudAutoLaunched = automaticallyLaunched;
-        TrySynchronizeLocalNotificationSchedule();
+        _gameModeAutoLaunchedProcessName = automaticallyLaunched ? foregroundProcessName : null;
         var hud = new GameModeHudWindow(IsArabic, () =>
         {
             if (_agentTaskCancellation is not null)
@@ -5917,53 +5963,75 @@ public partial class MainWindow : Window
             if (_chatCancellation is not null)
                 return IsArabic ? "جارٍ تجهيز رد." : "A chat response is active.";
             return IsArabic ? "ليال جاهزة عند الطلب." : "Layal is available on demand.";
-        }, automaticallyLaunched: automaticallyLaunched)
-        {
-            Owner = this
-        };
+        }, automaticallyLaunched: automaticallyLaunched);
+        // Keep the HUD independent from the main window so minimizing Layal does not
+        // automatically minimize the overlay. It is explicitly closed during shutdown.
         _gameModeHudWindow = hud;
         hud.ExitRequested += (_, _) =>
         {
             if (!ReferenceEquals(_gameModeHudWindow, hud))
                 return;
+
+            var processToDismiss = _gameModeHudAutoLaunched
+                ? _gameModeAutoLaunchedProcessName
+                : _lastAllowedForegroundProcessName;
+            if (hud.WasDismissedByUser && processToDismiss is not null)
+                _gameModeAutoDismissalPolicy.DismissCurrentForeground(processToDismiss);
+
             _gameModeHudWindow = null;
             _gameModeHudAutoLaunched = false;
-            AppRuntime.IsGameModeActive = false;
-            TrySynchronizeLocalNotificationSchedule();
-            UpdateGameModeButtonUi();
-            SetChatActivityStatus(IsArabic
-                ? "تم إيقاف وضع الألعاب؛ عادت التذكيرات للعمل وفق إعداداتها."
-                : "Game mode ended; reminders resumed according to their settings.");
+            _gameModeAutoLaunchedProcessName = null;
+            UpdateGameModeActivityState();
+            SetChatActivityStatus(_automaticGameModeSessionActive
+                ? (IsArabic
+                    ? "تم إخفاء HUD. ما زالت اللعبة المسموح بها في المقدمة؛ تظل المتابعة الاستباقية متوقفة حتى مغادرة اللعبة."
+                    : "HUD hidden. The allowlisted game remains in front; proactive check-ins stay paused until focus leaves it.")
+                : (IsArabic
+                    ? "انتهى وضع الألعاب؛ استؤنفت المتابعة الاستباقية وفق إعداداتها."
+                    : "Game mode ended; proactive check-ins resumed according to settings."));
         };
-        UpdateGameModeButtonUi();
         hud.Show();
+        UpdateGameModeActivityState();
         SetChatActivityStatus(automaticallyLaunched
             ? (IsArabic
-                ? "تم فتح HUD تلقائيًا للتطبيق الموجود في قائمة السماح. لا يجري فحص عناوين النوافذ أو محتوى اللعبة."
-                : "The HUD opened automatically for an allowlisted foreground app. Window titles and game contents are not inspected.")
+                ? "تم فتح HUD تلقائيًا لتطبيق في قائمة السماح. لا تُقرأ عناوين النوافذ أو محتويات اللعبة."
+                : "The HUD opened for an allowlisted foreground app. Window titles and game contents are not inspected.")
             : (IsArabic
-                ? "وضع الألعاب اليدوي نشط. لا يجري فحص الألعاب أو العمليات غير الموجودة في قائمة السماح."
-                : "Manual game mode is active. Games or processes outside your allowlist are not inspected."));
+                ? "وضع الألعاب اليدوي نشط. لا تُفحص الألعاب أو العمليات خارج قائمة السماح."
+                : "Manual game mode is active. Games and processes outside the allowlist are not inspected."));
     }
 
     private void UpdateGameModeButtonUi()
     {
         if (GameModeButton is null)
             return;
-        var active = AppRuntime.IsGameModeActive;
-        GameModeButton.Content = active
-            ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
-            : (IsArabic ? "وضع الألعاب" : "Game mode");
-        GameModeButton.ToolTip = active
-            ? (IsArabic ? "إغلاق HUD واستئناف تذكيرات المتابعة." : "Close the HUD and resume local check-ins.")
-            : (IsArabic ? "تشغيل HUD يدوي. الكشف التلقائي خيار منفصل ومغلق افتراضيًا."
-                        : "Open the HUD manually. Automatic detection is separate and off by default.");
-        AutomationProperties.SetName(GameModeButton, active
-            ? (IsArabic ? "إنهاء وضع الألعاب" : "Exit game mode")
-            : (IsArabic ? "تفعيل وضع الألعاب اليدوي" : "Enable manual game mode"));
+
+        var hudVisible = _gameModeHudWindow is { IsVisible: true };
+        var autoGameActiveWithoutHud = _automaticGameModeSessionActive && !hudVisible;
+        GameModeButton.Content = hudVisible
+            ? (IsArabic ? "إنهاء وضع الألعاب" : "Hide game HUD")
+            : autoGameActiveWithoutHud
+                ? (IsArabic ? "إظهار HUD" : "Show HUD")
+                : (IsArabic ? "وضع الألعاب" : "Game mode");
+        GameModeButton.ToolTip = hudVisible
+            ? (IsArabic
+                ? "إخفاء HUD. إذا كانت اللعبة المسموح بها ما زالت في المقدمة، تظل المتابعة الاستباقية متوقفة. التذكيرات التي أنشأتها تستمر كالمعتاد."
+                : "Hide the HUD. If the allowlisted game remains in front, proactive check-ins stay paused. Your saved reminders continue normally.")
+            : autoGameActiveWithoutHud
+                ? (IsArabic
+                    ? "تم التعرف على لعبة مسموح بها. اضغط لإظهار HUD؛ تظل المتابعة الاستباقية متوقفة حتى مغادرة اللعبة."
+                    : "An allowlisted game is active. Show the HUD; proactive check-ins remain paused until focus leaves the game.")
+                : (IsArabic
+                    ? "تشغيل HUD يدوي. الكشف التلقائي خيار منفصل ومغلق افتراضيًا."
+                    : "Open the HUD manually. Automatic detection is separate and off by default.");
+        AutomationProperties.SetName(GameModeButton, hudVisible
+            ? (IsArabic ? "إخفاء HUD وإنهاء العرض" : "Hide game HUD")
+            : autoGameActiveWithoutHud
+                ? (IsArabic ? "إظهار HUD للعبة المكتشفة" : "Show HUD for detected game")
+                : (IsArabic ? "تفعيل وضع الألعاب اليدوي" : "Enable manual game mode"));
         AutomationProperties.SetHelpText(GameModeButton, IsArabic
-            ? "يفتح HUD يدويًا ويوقف الإشعارات المحلية أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها. يمكن ضبط الكشف التلقائي بقائمة سماح منفصلة."
-            : "Opens the HUD manually and pauses local notifications while open. It does not inspect or control game data. Optional automatic detection has a separate allowlist setting.");
+            ? "HUD يعرض الوقت وحالة ليال والاختصار العام للسؤال السريع. لا يقرأ بيانات اللعبة ولا يحقن إدخالًا. الكشف التلقائي اختياري بقائمة سماح. الإخفاء لا يستأنف المتابعة الاستباقية ما دامت اللعبة المسموح بها في المقدمة."
+            : "The HUD shows the clock, Layal status, and Quick Ask hotkey. It does not inspect game data or inject input. Automatic detection is optional and allowlist-only. Hiding the HUD does not resume proactive check-ins while the allowed game remains in front.");
     }
 
     private void WorkspaceHubButton_Click(object sender, RoutedEventArgs e)
@@ -6271,7 +6339,7 @@ public partial class MainWindow : Window
 
     private void ReminderTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.IsExiting || AppRuntime.IsGameModeActive)
+        if (AppRuntime.IsExiting)
             return;
 
         var now = DateTimeOffset.Now;
