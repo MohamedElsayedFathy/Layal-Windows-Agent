@@ -102,19 +102,12 @@ public sealed class GmailReadOnlyService
         var challenge = CreatePkceChallenge(verifier);
         var state = Base64Url(RandomNumberGenerator.GetBytes(32));
 
-        // Reserve an ephemeral IPv4 loopback port, then bind an HTTP listener only to 127.0.0.1.
-        // Google supports dynamic loopback ports for installed desktop applications.
-        int port;
-        using (var reservation = new TcpListener(IPAddress.Loopback, 0))
-        {
-            reservation.Start();
-            port = ((IPEndPoint)reservation.LocalEndpoint).Port;
-        }
-
-        var redirectUri = $"http://127.0.0.1:{port}/";
-        using var listener = new HttpListener();
-        listener.Prefixes.Add(redirectUri);
+        // Keep an ephemeral TcpListener bound to IPv4 loopback for the full OAuth round trip.
+        // Using TcpListener avoids HTTP.sys URL-ACL requirements for arbitrary user-selected ports.
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var redirectUri = $"http://127.0.0.1:{port}/";
 
         var query = new Dictionary<string, string>
         {
@@ -146,10 +139,10 @@ public sealed class GmailReadOnlyService
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(3));
-        HttpListenerContext context;
+        TcpClient callbackClient;
         try
         {
-            context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+            callbackClient = await listener.AcceptTcpClientAsync(timeout.Token);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -157,47 +150,73 @@ public sealed class GmailReadOnlyService
         }
 
         string? code = null;
-        try
+        using (callbackClient)
+        await using (var callbackStream = callbackClient.GetStream())
         {
-            if (context.Request.RemoteEndPoint?.Address is not { } remote ||
-                !IPAddress.IsLoopback(remote) ||
-                context.Request.HttpMethod != "GET" ||
-                context.Request.Url?.AbsolutePath != "/")
+            listener.Stop();
+            if (callbackClient.Client.RemoteEndPoint is not IPEndPoint remote ||
+                !IPAddress.IsLoopback(remote.Address))
             {
-                context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                await WriteCallbackResponseAsync(context, "This local callback was rejected.", cancellationToken);
+                await WriteCallbackResponseAsync(callbackStream, "This local callback was rejected.", HttpStatusCode.Forbidden, timeout.Token);
                 throw new InvalidOperationException("The Gmail OAuth callback did not originate from a valid loopback request.");
             }
 
-            var returnedState = context.Request.QueryString["state"] ?? string.Empty;
+            var requestLine = await ReadBoundedLineAsync(callbackStream, 8192, timeout.Token);
+            var requestParts = (requestLine ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (requestParts.Length != 3 ||
+                !string.Equals(requestParts[0], "GET", StringComparison.Ordinal) ||
+                !requestParts[1].StartsWith("/", StringComparison.Ordinal) ||
+                !requestParts[2].StartsWith("HTTP/1.", StringComparison.Ordinal))
+            {
+                await WriteCallbackResponseAsync(callbackStream, "This local callback was rejected.", HttpStatusCode.Forbidden, timeout.Token);
+                throw new InvalidOperationException("The Gmail OAuth callback must be a local HTTP GET request.");
+            }
+
+            var headerCharacters = 0;
+            while (true)
+            {
+                var headerLine = await ReadBoundedLineAsync(callbackStream, 4096, timeout.Token);
+                if (headerLine is null)
+                    throw new InvalidOperationException("The Gmail OAuth callback ended before its HTTP headers were complete.");
+                headerCharacters += headerLine.Length + 2;
+                if (headerCharacters > 16 * 1024)
+                    throw new InvalidDataException("The Gmail OAuth callback headers exceeded the local size limit.");
+                if (headerLine.Length == 0)
+                    break;
+            }
+
+            if (!Uri.TryCreate(redirectUri.TrimEnd('/') + requestParts[1], UriKind.Absolute, out var callbackUri) ||
+                !string.Equals(callbackUri.AbsolutePath, "/", StringComparison.Ordinal))
+            {
+                await WriteCallbackResponseAsync(callbackStream, "This local callback was rejected.", HttpStatusCode.Forbidden, timeout.Token);
+                throw new InvalidOperationException("The Gmail OAuth callback path is invalid.");
+            }
+
+            var callbackQuery = ParseCallbackQuery(callbackUri.Query);
+            var returnedState = callbackQuery.TryGetValue("state", out var stateValue) ? stateValue : string.Empty;
             if (!FixedTimeEquals(state, returnedState))
             {
-                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                await WriteCallbackResponseAsync(context, "The sign-in state check failed. You can close this tab.", cancellationToken);
+                await WriteCallbackResponseAsync(callbackStream, "The sign-in state check failed. You can close this tab.", HttpStatusCode.BadRequest, timeout.Token);
                 throw new InvalidOperationException("Google sign-in state validation failed. No Gmail token was saved.");
             }
 
-            var providerError = context.Request.QueryString["error"];
+            var providerError = callbackQuery.TryGetValue("error", out var errorValue) ? errorValue : string.Empty;
             if (!string.IsNullOrWhiteSpace(providerError))
             {
-                await WriteCallbackResponseAsync(context, "Google sign-in was not completed. You can close this tab.", cancellationToken);
+                await WriteCallbackResponseAsync(callbackStream, "Google sign-in was not completed. You can close this tab.", HttpStatusCode.BadRequest, timeout.Token);
                 throw new InvalidOperationException("Google sign-in was declined or cancelled (" + Truncate(providerError, 80) + ").");
             }
 
-            code = context.Request.QueryString["code"];
+            code = callbackQuery.TryGetValue("code", out var codeValue) ? codeValue : string.Empty;
             if (string.IsNullOrWhiteSpace(code) || code.Length > 4096)
             {
-                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                await WriteCallbackResponseAsync(context, "No valid sign-in code was returned. You can close this tab.", cancellationToken);
+                await WriteCallbackResponseAsync(callbackStream, "No valid sign-in code was returned. You can close this tab.", HttpStatusCode.BadRequest, timeout.Token);
                 throw new InvalidOperationException("Google did not return a valid authorization code.");
             }
 
-            await WriteCallbackResponseAsync(context,
-                "Gmail connection confirmed for Layal. You may close this tab and return to Layal.", cancellationToken);
-        }
-        finally
-        {
-            listener.Stop();
+            await WriteCallbackResponseAsync(callbackStream,
+                "Gmail connection confirmed for Layal. You may close this tab and return to Layal.",
+                HttpStatusCode.OK, timeout.Token);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -847,27 +866,78 @@ public sealed class GmailReadOnlyService
         return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
     }
 
+    private static async Task<string?> ReadBoundedLineAsync(
+        Stream stream,
+        int maximumCharacters,
+        CancellationToken cancellationToken)
+    {
+        var builder = new StringBuilder(Math.Min(maximumCharacters, 256));
+        var singleByte = new byte[1];
+        while (true)
+        {
+            var read = await stream.ReadAsync(singleByte.AsMemory(), cancellationToken);
+            if (read == 0)
+                return builder.Length == 0 ? null : builder.ToString().TrimEnd('\r');
+            if (singleByte[0] == (byte)'\n')
+                return builder.ToString().TrimEnd('\r');
+            if (builder.Length >= maximumCharacters)
+                throw new InvalidDataException("The Gmail OAuth callback line exceeded the local size limit.");
+            builder.Append((char)singleByte[0]);
+        }
+    }
+
+    private static Dictionary<string, string> ParseCallbackQuery(string query)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var segment in (query ?? string.Empty).TrimStart('?')
+                     .Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = segment.IndexOf('=');
+            var key = WebUtility.UrlDecode(separator < 0 ? segment : segment[..separator]) ?? string.Empty;
+            var value = WebUtility.UrlDecode(separator < 0 ? string.Empty : segment[(separator + 1)..]) ?? string.Empty;
+            if (key is "state" or "code" or "error")
+            {
+                if (!values.TryAdd(key, value))
+                    throw new InvalidOperationException("The Gmail OAuth callback contains a duplicate security parameter.");
+            }
+            else if (!values.ContainsKey(key))
+            {
+                values.Add(key, value);
+            }
+        }
+        return values;
+    }
+
     private static async Task WriteCallbackResponseAsync(
-        HttpListenerContext context,
+        Stream stream,
         string message,
+        HttpStatusCode statusCode,
         CancellationToken token)
     {
+        var reason = statusCode switch
+        {
+            HttpStatusCode.OK => "OK",
+            HttpStatusCode.BadRequest => "Bad Request",
+            HttpStatusCode.Forbidden => "Forbidden",
+            _ => "Error"
+        };
         var html = "<!doctype html><html><head><meta charset=\"utf-8\"><title>Layal Gmail</title></head>" +
             "<body style=\"font-family:Segoe UI,sans-serif;max-width:40rem;margin:4rem auto;line-height:1.5\"><h2>" +
             WebUtility.HtmlEncode(message) + "</h2></body></html>";
-        var bytes = Encoding.UTF8.GetBytes(html);
-        context.Response.ContentType = "text/html; charset=utf-8";
-        context.Response.ContentLength64 = bytes.Length;
-        context.Response.Headers["Cache-Control"] = "no-store";
-        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-        try
-        {
-            await context.Response.OutputStream.WriteAsync(bytes, token);
-        }
-        finally
-        {
-            context.Response.Close();
-        }
+        var body = Encoding.UTF8.GetBytes(html);
+        var headers = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 " + (int)statusCode + " " + reason + "\r\n" +
+            "Content-Type: text/html; charset=utf-8\r\n" +
+            "Content-Length: " + body.Length.ToString(CultureInfo.InvariantCulture) + "\r\n" +
+            "Cache-Control: no-store\r\n" +
+            "Pragma: no-cache\r\n" +
+            "Referrer-Policy: no-referrer\r\n" +
+            "X-Content-Type-Options: nosniff\r\n" +
+            "Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'\r\n" +
+            "Connection: close\r\n\r\n");
+        await stream.WriteAsync(headers.AsMemory(), token);
+        await stream.WriteAsync(body.AsMemory(), token);
+        await stream.FlushAsync(token);
     }
 
     private static string Truncate(string value, int maximum)
