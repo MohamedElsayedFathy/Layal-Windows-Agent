@@ -695,14 +695,24 @@ public sealed class BrowserAutomationService
             await Task.Delay(250, token);
             // Read the original tab directly: an approved link may intentionally open a new tab.
             // The next Layal action will pause if multiple page tabs exist, rather than guessing.
-            var current = await ReadPageSnapshotAsync(page, token);
+            // Return only the post-click URL/title; do not read page body or DOM metadata as a
+            // side effect of a click. An approved link may open a new page target.
+            var after = await EvaluateAsync(page,
+                "JSON.stringify({url:location.href,title:document.title||''})",
+                token) ?? string.Empty;
+            using var afterDocument = JsonDocument.Parse(after);
+            var currentUrl = afterDocument.RootElement.GetProperty("url").GetString() ?? string.Empty;
+            var currentTitle = afterDocument.RootElement.GetProperty("title").GetString() ?? string.Empty;
+            try { currentUrl = ValidateHttpUrl(currentUrl).AbsoluteUri; }
+            catch (InvalidOperationException) { currentUrl = "(non-HTTP page)"; }
+
             var extraTabNotice = string.Empty;
             try { _ = await GetPageTargetAsync(token); }
             catch (InvalidOperationException ex) when (ex.Message.Contains("multiple page tabs", StringComparison.OrdinalIgnoreCase))
             {
                 extraTabNotice = "\nAdditional tab(s) or popup(s) opened. Layal will pause browser actions until only one page tab remains.";
             }
-            return $"The click event was dispatched to the approved browser element.\nPage after action: {current.Url}\nTitle: {current.Title}{extraTabNotice}\nThis confirms that a DOM click was issued, not that the site's requested outcome succeeded.";
+            return $"The click event was dispatched to the approved browser element.\nPage after action: {currentUrl}\nTitle: {currentTitle}{extraTabNotice}\nThis confirms that a DOM click was issued, not that the site's requested outcome succeeded.";
         }
         finally { _gate.Release(); }
     }
@@ -1159,7 +1169,7 @@ public sealed class BrowserAutomationService
         return "(() => {const q=" + q + ",action=" + requested + ";" +
             "const matches=document.querySelectorAll(q);if(matches.length===0)return JSON.stringify({found:false,error:'No element matched the selector.'});" +
             "if(matches.length!==1)return JSON.stringify({found:false,error:'The selector matched multiple elements. Use a more specific selector; ambiguous actions are blocked.'});" +
-            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
+            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase(),disabled=e.disabled===true||e.getAttribute('aria-disabled')==='true',readOnly=e.readOnly===true;" +
             "const style=getComputedStyle(e),rect=e.getBoundingClientRect();" +
             "const visible=!!(e.getClientRects().length&&style.visibility!=='hidden'&&style.display!=='none'&&Number(style.opacity)>0.01&&style.pointerEvents!=='none'&&!e.closest('[aria-hidden=true]')&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.right>0&&rect.top<innerHeight&&rect.left<innerWidth);" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
@@ -1195,7 +1205,7 @@ public sealed class BrowserAutomationService
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
             "if(fp!==expectedFp||tag!=='input'||type!=='file')throw new Error('The approved file input changed while awaiting upload approval.');" +
             "const style=getComputedStyle(e),rect=e.getBoundingClientRect();" +
-            "if(e.disabled===true||(e.files&&e.files.length>0)||!e.getClientRects().length||style.visibility==='hidden'||style.display==='none'||Number(style.opacity)<=0.01||style.pointerEvents==='none'||e.closest('[aria-hidden=true]')||rect.width<=0||rect.height<=0||rect.bottom<=0||rect.right<=0||rect.top>=innerHeight||rect.left>=innerWidth)throw new Error('The approved file input is no longer visible, enabled, and empty.');" +
+            "if(e.disabled===true||e.getAttribute('aria-disabled')==='true'||(e.files&&e.files.length>0)||!e.getClientRects().length||style.visibility==='hidden'||style.display==='none'||Number(style.opacity)<=0.01||style.pointerEvents==='none'||e.closest('[aria-hidden=true]')||rect.width<=0||rect.height<=0||rect.bottom<=0||rect.right<=0||rect.top>=innerHeight||rect.left>=innerWidth)throw new Error('The approved file input is no longer visible, enabled, and empty.');" +
             "return e;})()";
 
         _ = await SendCommandAsync(page, "DOM.getDocument", new JsonObject
@@ -1250,7 +1260,7 @@ public sealed class BrowserAutomationService
             "if(fp!==expectedFp)return JSON.stringify({ok:false,error:'The selected element changed while awaiting approval. Inspect the page again.'});" +
             "const style=getComputedStyle(e),rect=e.getBoundingClientRect();" +
             "const visible=!!(e.getClientRects().length&&style.visibility!=='hidden'&&style.display!=='none'&&Number(style.opacity)>0.01&&style.pointerEvents!=='none'&&!e.closest('[aria-hidden=true]')&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.right>0&&rect.top<innerHeight&&rect.left<innerWidth);" +
-            "if(!visible||e.disabled===true)return JSON.stringify({ok:false,error:'The selected element is hidden, outside the viewport, or disabled.'});" +
+            "if(!visible||e.disabled===true||e.getAttribute('aria-disabled')==='true')return JSON.stringify({ok:false,error:'The selected element is hidden, outside the viewport, or disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({ok:false,error:'The element is no longer an allowed click target.'});e.click();return JSON.stringify({ok:true,action:'click',tag,text});}" +
             "if(action==='upload'){if(tag!=='input'||type!=='file'||(e.files&&e.files.length>0))return JSON.stringify({ok:false,error:'The approved target is no longer an empty file input.'});return JSON.stringify({ok:true,action:'upload',accept,multiple});}" +
             "const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;" +
