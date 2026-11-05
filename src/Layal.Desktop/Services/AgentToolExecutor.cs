@@ -1162,7 +1162,7 @@ public sealed class AgentToolExecutor
         token.ThrowIfCancellationRequested();
         var identity = await _browser.NavigateAsync(target.AbsoluteUri, token);
         report("Layal browser navigation was requested for " + target.AbsoluteUri + "; only page identity was returned, not page content.");
-        return identity.ToNavigationSummary();
+        return identity.ToConsentSafeNavigationReceipt();
     }
 
     private async Task<string> BrowserReadPageAsync(
