@@ -606,8 +606,9 @@ public sealed class AgentToolExecutorTests
         Assert.IsNotNull(approvalDetails);
         StringAssert.Contains(approvalDetails!, "SHA-256:");
         StringAssert.Contains(approvalDetails!, "Size:");
-        StringAssert.Contains(result, "UNTRUSTED WORKSPACE FILE CONTENT");
-        StringAssert.Contains(result, "<untrusted-file-content>");
+        StringAssert.Contains(result, "\"type\":\"untrusted_workspace_file\"");
+        StringAssert.Contains(result, "\"warning\":");
+        StringAssert.Contains(result, "\"content\":");
         StringAssert.Contains(result, content);
         Assert.IsTrue(reports.Any(line => line.Contains("Read approved text file", StringComparison.Ordinal)));
     }
