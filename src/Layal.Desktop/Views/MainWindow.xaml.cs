@@ -459,6 +459,7 @@ public partial class MainWindow : Window
         // DPAPI-backed task history and memory stores are deliberately preserved.
         MemoryNotes.Clear();
         MemoryList.SelectedItem = null;
+        MemoryCategoryFilter.Items.Clear();
         MemoryCountText.Text = string.Empty;
         MemoryFilterNotice.Text = string.Empty;
         _selectedMemoryId = null;
@@ -1622,15 +1623,22 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(MemorySearchInput, ar ? "البحث في الذاكرة" : "Search memory");
         AutomationProperties.SetHelpText(MemorySearchInput, ar ? "اكتب عبارة واضغط Enter أو زر بحث. البحث محلي." : "Enter a phrase and press Enter or Search. Search is local.");
         MemorySearchButton.Content = ar ? "بحث" : "Search";
+        AutomationProperties.SetName(MemorySearchButton, ar ? "بحث في الملاحظات المحلية" : "Search local notes");
         NewMemoryButton.Content = ar ? "ملاحظة جديدة" : "New note";
+        AutomationProperties.SetName(NewMemoryButton, ar ? "إنشاء ملاحظة جديدة" : "Create a new note");
         ImportMemoryButton.Content = ar ? "استيراد JSON" : "Import JSON";
+        AutomationProperties.SetName(ImportMemoryButton, ar ? "استيراد نسخة ذاكرة JSON" : "Import memory JSON backup");
+        AutomationProperties.SetHelpText(ImportMemoryButton, ar ? "استيراد دمجي محدود الحجم؛ يتخطى معرّفات الملاحظات الموجودة ولا يستبدلها." : "Size-limited merge import; existing note IDs are skipped, never replaced.");
         ExportMemoryButton.Content = ar ? "تصدير JSON" : "Export JSON";
+        AutomationProperties.SetName(ExportMemoryButton, ar ? "تصدير كل الملاحظات إلى JSON غير مشفر" : "Export all notes as unencrypted JSON");
         MemoryShowArchivedCheckBox.Content = ar ? "عرض المؤرشفة" : "Include archived";
         AutomationProperties.SetName(MemoryShowArchivedCheckBox, ar ? "عرض الملاحظات المؤرشفة" : "Include archived notes");
         AutomationProperties.SetHelpText(MemoryShowArchivedCheckBox, ar ? "أظهر الملاحظات المؤرشفة لعرضها أو استعادتها." : "Show archived notes so they can be viewed or restored.");
         MemoryCategoryFilterLabel.Text = ar ? "تصفية التصنيف" : "Category filter";
+        AutomationProperties.SetName(MemoryCategoryFilterLabel, MemoryCategoryFilterLabel.Text);
         MemoryCategoryFilter.ToolTip = ar ? "اعرض ملاحظات تصنيف محدد" : "Show notes in a selected category";
         AutomationProperties.SetName(MemoryCategoryFilter, ar ? "تصفية حسب التصنيف" : "Filter by category");
+        AutomationProperties.SetHelpText(MemoryCategoryFilter, ar ? "اختر تصنيفًا أو كل التصنيفات. تبقى البيانات محلية." : "Choose one category or All categories. Data remains local.");
         ClearMemoryFiltersButton.Content = ar ? "مسح عوامل التصفية" : "Clear filters";
         AutomationProperties.SetName(ClearMemoryFiltersButton, ar ? "مسح بحث وتصفيات الذاكرة" : "Clear memory search and filters");
         if (MemoryCategoryFilter.Items.Count > 0 && MemoryCategoryFilter.Items[0] is ComboBoxItem allCategories)
@@ -6659,6 +6667,9 @@ public partial class MainWindow : Window
             {
                 MemoryNotes.Clear();
                 MemoryList.SelectedItem = null;
+                MemoryCategoryFilter.Items.Clear();
+                MemoryCountText.Text = string.Empty;
+                MemoryFilterNotice.Text = string.Empty;
             }
             finally { _refreshingMemoryCollection = false; }
             ResetMemoryEditor();
@@ -7030,11 +7041,21 @@ public partial class MainWindow : Window
 
         try
         {
-            var bytes = await File.ReadAllBytesAsync(dialog.FileName);
-            if (bytes.Length is < 1 or > MaxMemoryBackupBytes)
-                throw new InvalidOperationException(IsArabic
-                    ? "حجم النسخة الاحتياطية يجب أن يكون بين 1 بايت و2 MiB."
-                    : "The memory backup must be between 1 byte and 2 MiB.");
+            byte[] bytes;
+            await using (var input = new FileStream(dialog.FileName, FileMode.Open, FileAccess.Read, FileShare.Read,
+                             81920, FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                if (input.Length is < 1 or > MaxMemoryBackupBytes)
+                    throw new InvalidOperationException(IsArabic
+                        ? "حجم النسخة الاحتياطية يجب أن يكون بين 1 بايت و2 MiB."
+                        : "The memory backup must be between 1 byte and 2 MiB.");
+                bytes = new byte[checked((int)input.Length)];
+                await input.ReadExactlyAsync(bytes.AsMemory());
+                if (input.Length != bytes.Length)
+                    throw new IOException(IsArabic
+                        ? "تغير حجم ملف النسخة الاحتياطية أثناء القراءة."
+                        : "The backup file changed size while being read.");
+            }
             var offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
             var json = new UTF8Encoding(false, true).GetString(bytes, offset, bytes.Length - offset);
             var imported = JsonSerializer.Deserialize<List<MemoryNote>>(json, new JsonSerializerOptions
