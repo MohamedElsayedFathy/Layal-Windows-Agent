@@ -26,7 +26,7 @@ public static class ChatContextBuilder
 
         var eligible = conversation
             .Where(message =>
-                message.Role is "user" or "assistant" &&
+                (message.Role is "user" or "assistant") &&
                 (includeEphemeralGmailData || !message.IsGmailEphemeralData))
             .ToList();
         var selectedNewestFirst = new List<ChatMessage>();
