@@ -365,6 +365,14 @@ public partial class MainWindow : Window
 
     private void GmailInboxButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_incognitoMode)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "تكامل Gmail غير متاح أثناء وضع Incognito. اخرج من الوضع الخاص أولًا."
+                : "Gmail integration is unavailable while Incognito is active. Exit private mode first.");
+            return;
+        }
+
         try
         {
             var window = new GmailInboxWindow(
