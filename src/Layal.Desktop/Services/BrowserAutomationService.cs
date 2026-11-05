@@ -474,6 +474,7 @@ public sealed class BrowserAutomationService
             var finalUrl = ValidateFactCheckSourceUrl(initialUrlText);
             if (!AreSameRegistrableDomain(targetUrl.IdnHost, finalUrl.IdnHost))
                 throw new InvalidOperationException("The approved source redirected to a different publisher domain. The redirected page was not read or shared.");
+            await ValidatePublicHostResolutionAsync(finalUrl.IdnHost, token);
 
             var snapshot = await ReadPageSnapshotAsync(page, token);
             token.ThrowIfCancellationRequested();
