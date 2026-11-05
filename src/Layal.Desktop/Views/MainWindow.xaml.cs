@@ -1181,8 +1181,8 @@ public partial class MainWindow : Window
         WeatherLocationInput.ToolTip = ar ? "مدينة بديلة، مثل القاهرة، مصر أو Cairo, Egypt" : "Fallback city, e.g. Cairo, Egypt";
         AutomationProperties.SetName(UseMyLocationButton, ar ? "اكتشاف الموقع الحالي" : "Detect current location");
         AutomationProperties.SetHelpText(UseMyLocationButton, ar
-            ? "يطلب السماح من Windows لقراءة موقع تقريبي واستخدامه للوقت والتاريخ والطقس."
-            : "After explicit consent, requests Windows permission for approximate location; coordinates are sent to Open-Meteo for weather and time-zone data.";
+            ? "بعد تأكيد الإفصاح، يطلب Windows إذنًا لقراءة موقع تقريبي وإرسال إحداثياته إلى Open-Meteo للطقس والمنطقة الزمنية."
+            : "After explicit consent, requests Windows permission for approximate location; coordinates are sent to Open-Meteo for weather and time-zone data.");
         AutomationProperties.SetName(WeatherLocationInput, ar ? "مدينة الطقس البديلة" : "Fallback weather city");
         AutomationProperties.SetHelpText(WeatherLocationInput, ar
             ? "اختياري: اكتب مدينة لاستخدامها يدويًا بدلًا من تحديد موقع الجهاز."
