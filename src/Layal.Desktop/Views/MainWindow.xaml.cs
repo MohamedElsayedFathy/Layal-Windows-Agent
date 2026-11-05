@@ -119,6 +119,7 @@ public partial class MainWindow : Window
     private string? _testedModelId;
     private string _currentConversationId = string.Empty;
     private bool _refreshingChatSessions;
+    private bool _pendingGmailDraft;
     private ICollectionView? _apiConnectionsView;
     private string? _editingApiConnectionName;
     private GlobalHotkeyService? _globalHotkeyService;
@@ -390,10 +391,11 @@ public partial class MainWindow : Window
                     ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
                         ? emailText
                         : ChatInput.Text.TrimEnd() + Environment.NewLine + Environment.NewLine + emailText;
+                    _pendingGmailDraft = true;
                     ChatInput.CaretIndex = ChatInput.Text.Length;
                     SetChatActivityStatus(IsArabic
-                        ? "تمت إضافة البريد إلى مسودة الشات فقط؛ لم يُرسل بعد."
-                        : "Email was added to the chat draft only; it has not been sent.");
+                        ? "تمت إضافة البريد إلى مسودة مؤقتة لطلب واحد. لن يُحفظ محتوى البريد أو الرد في سجل المحادثات."
+                        : "Email added to a one-turn temporary draft. The email and its reply will not be saved in chat history.");
                     ChatInput.Focus();
                 })
             {
@@ -778,6 +780,11 @@ public partial class MainWindow : Window
 
     private async Task<QuickAskResult> SubmitQuickAskAsync(string question)
     {
+        if (_pendingGmailDraft)
+            return QuickAskResult.Failure(IsArabic
+                ? "هناك مسودة Gmail مؤقتة. أرسلها من الشات أو امسح حقل الرسالة أولًا قبل استخدام السؤال السريع."
+                : "A temporary Gmail draft is pending. Send it from chat or clear the message field before using Quick Ask.");
+
         var blockReason = QuickAskRequestPolicy.Evaluate(
             isPrivateChat: _incognitoMode,
             chatRequestBusy: _chatCancellation is not null,
@@ -5156,6 +5163,14 @@ public partial class MainWindow : Window
 
         var text = ChatInput.Text.Trim();
         if (_chatCancellation is not null) return;
+        var isGmailRequest = _pendingGmailDraft;
+        if (isGmailRequest && _pendingVisionImageBytes is { Length: > 0 })
+        {
+            SetChatActivityStatus(IsArabic
+                ? "لا يمكن دمج مسودة Gmail المؤقتة مع صورة في الطلب نفسه. أزل الصورة أو أرسل البريد وحده أولًا."
+                : "A temporary Gmail request cannot be combined with an image in the same turn. Remove the image or send the email by itself first.");
+            return;
+        }
         var useLocal = AppRuntime.Settings.UseLocalAi;
         var documentTextToSend = _pendingDocumentText;
         if (documentTextToSend is { Length: > 0 })
@@ -5207,7 +5222,8 @@ public partial class MainWindow : Window
         }
 
         ChatInput.Clear();
-        AddMessage("user", text);
+        _pendingGmailDraft = false;
+        var userMessage = AddMessage("user", text, isGmailEphemeralData: isGmailRequest);
         if (documentTextToSend is { Length: > 0 })
         {
             _pendingDocumentText = null;
@@ -5236,8 +5252,16 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Keep the most recent chat context bounded; archive history remains saved locally.
-            var history = ChatContextBuilder.Build(LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language, AppRuntime.Settings.AssistantPersona), ChatMessages);
+            // Gmail-derived turns are included in this request only. Older Gmail turns remain
+            // visible in the live window but never enter later prompts or persisted chat history.
+            var requestConversation = isGmailRequest
+                ? ChatMessages.Where(message =>
+                    !message.IsGmailEphemeralData || ReferenceEquals(message, userMessage)).ToList()
+                : ChatMessages;
+            var history = ChatContextBuilder.Build(
+                LayalIdentity.ForInterfaceLanguage(AppRuntime.Settings.Language, AppRuntime.Settings.AssistantPersona),
+                requestConversation,
+                includeEphemeralGmailData: isGmailRequest);
             var streamedChunks = 0;
             void HandleDelta(string delta)
             {
@@ -5245,7 +5269,7 @@ public partial class MainWindow : Window
                 {
                     AppRuntime.MascotWindow?.SetMood("responding");
                     SetChatActivityStatus(IsArabic ? "ليال بتكتب..." : "Layal is responding...");
-                    liveAssistantMessage = AddMessage("assistant", delta);
+                    liveAssistantMessage = AddMessage("assistant", delta, isGmailEphemeralData: isGmailRequest);
                 }
                 else
                 {
@@ -5276,7 +5300,7 @@ public partial class MainWindow : Window
 
             responseStreamCompleted = true;
             if (liveAssistantMessage is null)
-                AddMessage("assistant", response);
+                AddMessage("assistant", response, isGmailEphemeralData: isGmailRequest);
             else
             {
                 if (!string.Equals(liveAssistantMessage.Content, response, StringComparison.Ordinal))
@@ -5288,7 +5312,13 @@ public partial class MainWindow : Window
             }
 
             var completionStatus = IsArabic ? "اكتمل الرد" : "Response completed";
-            if (!suppressVoiceReply && AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
+            if (isGmailRequest && AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
+            {
+                completionStatus = IsArabic
+                    ? "اكتمل الرد النصي المؤقت. تم تخطي الرد الصوتي حتى لا يُنقل محتوى مشتق من Gmail إلى مزود صوت منفصل."
+                    : "The temporary text reply completed. Voice playback was skipped so Gmail-derived content is not sent to a separate speech provider.";
+            }
+            else if (!suppressVoiceReply && AppRuntime.Settings.VoiceRepliesEnabled && !string.IsNullOrWhiteSpace(response))
             {
                 if (useLocal && !_localVoiceReady)
                 {
@@ -5361,7 +5391,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private ChatMessage AddMessage(string role, string content)
+    private ChatMessage AddMessage(string role, string content, bool isGmailEphemeralData = false)
     {
         var ar = IsArabic;
         var display = role switch
@@ -5371,7 +5401,15 @@ public partial class MainWindow : Window
             _ => ar ? "حالة النظام" : "System status"
         };
         var direction = ContainsArabic(content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        var message = new ChatMessage { Role = role, Content = content, DisplayRole = display, CreatedAt = DateTimeOffset.Now, Direction = direction };
+        var message = new ChatMessage
+        {
+            Role = role,
+            Content = content,
+            DisplayRole = display,
+            CreatedAt = DateTimeOffset.Now,
+            Direction = direction,
+            IsGmailEphemeralData = isGmailEphemeralData
+        };
         ChatMessages.Add(message);
         while (ChatMessages.Count > ChatSessionService.MaxMessagesPerConversation) ChatMessages.RemoveAt(0);
         SaveCurrentChatMessages();
@@ -5386,7 +5424,8 @@ public partial class MainWindow : Window
 
         try
         {
-            AppRuntime.ChatSessionService.SaveCurrentMessages(ChatMessages.ToList());
+            AppRuntime.ChatSessionService.SaveCurrentMessages(
+                ChatMessages.Where(message => !message.IsGmailEphemeralData).ToList());
             RefreshChatSessions(_currentConversationId);
         }
         catch { /* A history save failure must not block the current conversation. */ }
