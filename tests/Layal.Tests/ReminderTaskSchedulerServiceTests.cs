@@ -123,7 +123,5 @@ public sealed class ReminderTaskSchedulerServiceTests
     public void TaskNameIsStableAndDoesNotIncludeReminderTextOrUserData()
     {
         Assert.AreEqual(@"\LayalReminderDispatcher", ReminderTaskSchedulerService.TaskName);
-        Assert.IsFalse(ReminderTaskSchedulerService.TaskName.Contains("password", StringComparison.OrdinalIgnoreCase));
-        Assert.IsFalse(ReminderTaskSchedulerService.TaskName.Contains("title", StringComparison.OrdinalIgnoreCase));
     }
 }
