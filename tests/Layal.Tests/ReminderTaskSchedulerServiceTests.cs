@@ -105,6 +105,10 @@ public sealed class ReminderTaskSchedulerServiceTests
         Assert.AreEqual(
             now.AddHours(1),
             ReminderTaskSchedulerService.GetNextDispatchDueAt(reminders, now.AddHours(1)));
+        Assert.AreEqual(
+            now.AddHours(2),
+            ReminderTaskSchedulerService.GetNextDispatchDueAt(reminders, now.AddHours(5)),
+            "A later check-in must not delay an earlier user-created reminder.");
         Assert.AreEqual<DateTimeOffset?>(
             null,
             ReminderTaskSchedulerService.GetNextDispatchDueAt(Array.Empty<Layal.Models.ReminderRecord>()));

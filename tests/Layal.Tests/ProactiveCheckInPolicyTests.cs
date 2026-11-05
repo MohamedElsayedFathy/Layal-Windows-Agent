@@ -10,6 +10,51 @@ public sealed class ProactiveCheckInPolicyTests
     private static readonly DateTimeOffset Last = new(2026, 11, 3, 8, 0, 0, TimeSpan.FromHours(2));
 
     [TestMethod]
+    public void NextDueUsesTheSelectedElapsedInterval()
+    {
+        foreach (var interval in new[] { 15, 30, 60, 120 })
+        {
+            Assert.AreEqual(
+                Last.AddMinutes(interval),
+                ProactiveCheckInPolicy.GetNextDueAt(
+                    enabled: true,
+                    privacyShieldEnabled: false,
+                    gameModeActive: false,
+                    applicationExiting: false,
+                    lastNotifiedAt: Last,
+                    intervalMinutes: interval));
+        }
+    }
+
+    [TestMethod]
+    public void NextDueFailsClosedWhenAnySuppressionGateIsActive()
+    {
+        Assert.IsNull(ProactiveCheckInPolicy.GetNextDueAt(
+            false, false, false, false, Last, 60));
+        Assert.IsNull(ProactiveCheckInPolicy.GetNextDueAt(
+            true, true, false, false, Last, 60));
+        Assert.IsNull(ProactiveCheckInPolicy.GetNextDueAt(
+            true, false, true, false, Last, 60));
+        Assert.IsNull(ProactiveCheckInPolicy.GetNextDueAt(
+            true, false, false, true, Last, 60));
+        Assert.IsNull(ProactiveCheckInPolicy.GetNextDueAt(
+            true, false, false, false, null, 60));
+    }
+
+    [TestMethod]
+    public void NextDueRejectsUnsupportedIntervalsAndUnrepresentableTimestamps()
+    {
+        foreach (var interval in new[] { 0, 1, 14, 16, 180, 1440 })
+        {
+            Assert.IsNull(ProactiveCheckInPolicy.GetNextDueAt(
+                true, false, false, false, Last, interval));
+        }
+
+        Assert.IsNull(ProactiveCheckInPolicy.GetNextDueAt(
+            true, false, false, false, DateTimeOffset.MaxValue, 15));
+    }
+
+    [TestMethod]
     public void CheckInBecomesDueAtTheSelectedElapsedIntervalAndAfterSleep()
     {
         Assert.IsFalse(ProactiveCheckInPolicy.ShouldNotify(

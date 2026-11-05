@@ -8,6 +8,32 @@ namespace Layal.Services;
 /// </summary>
 public static class ProactiveCheckInPolicy
 {
+    /// <summary>
+    /// Returns the next local check-in instant only when the feature is enabled and every
+    /// suppression gate is clear. Invalid intervals and unrepresentable timestamps fail closed.
+    /// </summary>
+    public static DateTimeOffset? GetNextDueAt(
+        bool enabled,
+        bool privacyShieldEnabled,
+        bool gameModeActive,
+        bool applicationExiting,
+        DateTimeOffset? lastNotifiedAt,
+        int intervalMinutes)
+    {
+        if (!enabled || privacyShieldEnabled || gameModeActive || applicationExiting ||
+            lastNotifiedAt is null || intervalMinutes is not (15 or 30 or 60 or 120))
+            return null;
+
+        try
+        {
+            return lastNotifiedAt.Value.AddMinutes(intervalMinutes);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
     public static bool ShouldNotify(
         bool enabled,
         bool privacyShieldEnabled,
