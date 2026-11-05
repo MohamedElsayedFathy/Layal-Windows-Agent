@@ -32,6 +32,7 @@ public sealed class SavedRoutineManagerWindow : Window
         _onUse = onUse ?? throw new ArgumentNullException(nameof(onUse));
         _isArabic = isArabic;
         Title = isArabic ? "الروتينات المحفوظة" : "Saved routines";
+        FlowDirection = isArabic ? System.Windows.FlowDirection.RightToLeft : System.Windows.FlowDirection.LeftToRight;
         Width = 820;
         Height = 710;
         MinWidth = 600;
@@ -343,6 +344,7 @@ public sealed class SavedRoutineManagerWindow : Window
         var confirmation = new Window
         {
             Title = _isArabic ? "مراجعة خطة الروتين والتأكيد" : "Review routine plan and confirm",
+            FlowDirection = _isArabic ? System.Windows.FlowDirection.RightToLeft : System.Windows.FlowDirection.LeftToRight,
             Owner = this,
             Width = 760,
             Height = 640,
