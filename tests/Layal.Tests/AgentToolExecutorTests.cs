@@ -160,7 +160,7 @@ public sealed class AgentToolExecutorTests
         StringAssert.Contains(summary!, "Event took place on February 1");
         StringAssert.Contains(summary!, "Article published on February 5");
         StringAssert.Contains(summary!, "Last updated March 1");
-        StringAssert.Contains(summary!, "A <time> value is not automatically an event date");
+        StringAssert.Contains(summary!, "A visible <time> value is not automatically an event date or a publication date.");
     }
 
     [TestMethod]
