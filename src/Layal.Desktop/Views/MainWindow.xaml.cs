@@ -6205,10 +6205,13 @@ public partial class MainWindow : Window
             RefreshRecentTasks(taskId);
             if (RecentTasksList.SelectedItem is null)
             {
+                TaskEvents.Clear();
+                _rawTaskEvents.Clear();
                 SetAccessibleStatusText(TaskResult,
                     IsArabic
-                        ? "المهمة المرتبطة بالإشعار لم تعد موجودة في السجل."
-                        : "The task associated with this notification is no longer in history.");
+                        ? "المهمة المرتبطة بالإشعار لم تعد موجودة في السجل؛ لم يتم اختيار مهمة بديلة."
+                        : "The task linked to this notification is no longer in history; no replacement task was selected.");
+                TaskResult.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
                 return;
             }
 
