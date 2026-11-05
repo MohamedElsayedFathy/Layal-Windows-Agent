@@ -575,7 +575,7 @@ public sealed class AgentToolExecutorTests
 
         var result = await executor.ExecuteAsync(
             "search_memory",
-            "{\\"query\\":\\"Private note\\"}",
+            """{"query":"Private note"}""",
             (_, preview, _) =>
             {
                 approvalPreview = preview;
@@ -599,7 +599,7 @@ public sealed class AgentToolExecutorTests
 
         var result = await executor.ExecuteAsync(
             "save_memory",
-            "{\\"title\\":\\"Local only\\",\\"content\\":\\"Do not save without consent.\\"}",
+            """{"title":"Local only","content":"Do not save without consent."}""",
             (_, preview, _) =>
             {
                 approvalPreview = preview;
