@@ -1042,8 +1042,45 @@ public sealed class MainWindowVisualSmokeTests
             isArabic ? "لا توجد مهارات مثبتة. استورد ملف ZIP أو مجلدًا من GitHub للبدء." : "No skills installed. Import a ZIP or GitHub folder to get started.",
             isArabic ? "حالة قائمة المهارات الفارغة" : "Skills empty state");
         AssertEmptyState(window, "MemoryEmptyStateText", window.MemoryNotes.Count,
-            isArabic ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء." : "No saved notes. Create a note to get started.",
+            isArabic ? "لا توجد ملاحظات محفوظة. أنشئ ملاحظة جديدة للبدء." : "No saved notes yet. Create a note to get started.",
             isArabic ? "حالة الذاكرة الفارغة" : "Memory empty state");
+        AssertMemoryManagementControls(window, isArabic);
+    }
+
+
+    private static void AssertMemoryManagementControls(MainWindow window, bool isArabic)
+    {
+        var archived = window.FindName("MemoryShowArchivedCheckBox") as CheckBox
+            ?? throw new InvalidOperationException("MemoryShowArchivedCheckBox was not found.");
+        var categoryFilter = window.FindName("MemoryCategoryFilter") as ComboBox
+            ?? throw new InvalidOperationException("MemoryCategoryFilter was not found.");
+        var import = window.FindName("ImportMemoryButton") as Button
+            ?? throw new InvalidOperationException("ImportMemoryButton was not found.");
+        var export = window.FindName("ExportMemoryButton") as Button
+            ?? throw new InvalidOperationException("ExportMemoryButton was not found.");
+        var clear = window.FindName("ClearMemoryFiltersButton") as Button
+            ?? throw new InvalidOperationException("ClearMemoryFiltersButton was not found.");
+        var count = window.FindName("MemoryCountText") as TextBlock
+            ?? throw new InvalidOperationException("MemoryCountText was not found.");
+        var archiveAction = window.FindName("ArchiveMemoryButton") as Button
+            ?? throw new InvalidOperationException("ArchiveMemoryButton was not found.");
+        var deleteAction = window.FindName("DeleteMemoryButton") as Button
+            ?? throw new InvalidOperationException("DeleteMemoryButton was not found.");
+
+        Assert.AreEqual(isArabic ? "عرض المؤرشفة" : "Include archived", BidiTextNormalizer.StripDirectionalControls(archived.Content as string));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(archived)));
+        Assert.IsTrue(categoryFilter.Items.Count >= 1, "The category filter must always include All categories.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(categoryFilter)));
+        Assert.AreEqual(isArabic ? "استيراد JSON" : "Import JSON", BidiTextNormalizer.StripDirectionalControls(import.Content as string));
+        Assert.AreEqual(isArabic ? "تصدير JSON" : "Export JSON", BidiTextNormalizer.StripDirectionalControls(export.Content as string));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(import)));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(export)));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(clear)));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(count)));
+        Assert.IsFalse(archiveAction.IsEnabled, "Archive must be disabled until a note is selected.");
+        Assert.IsFalse(deleteAction.IsEnabled, "Delete must be disabled until a note is selected.");
+        Assert.AreEqual(120, ((TextBox)window.FindName("MemoryTitleInput")!).MaxLength);
+        Assert.AreEqual(12000, ((TextBox)window.FindName("MemoryContentInput")!).MaxLength);
     }
 
     private static void AssertEmptyState(

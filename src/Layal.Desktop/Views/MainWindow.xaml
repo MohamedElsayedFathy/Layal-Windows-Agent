@@ -523,16 +523,45 @@
                         <TextBlock x:Name="MemoryHeading" Text="الذاكرة الشخصية" FontSize="22" FontWeight="SemiBold"/>
                         <TextBlock x:Name="MemoryDescription" Text="ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ البحث الذي يشارك النتائج مع AI يتطلب موافقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>
-                    <Grid Grid.Row="1" Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="32" ToolTip="بحث في الذاكرة" AutomationProperties.Name="البحث في الذاكرة / Search memory notes" AutomationProperties.HelpText="أدخل كلمات البحث ثم استخدم زر بحث / Enter search terms and use Search."/>
-                        <Button x:Name="MemorySearchButton" Grid.Column="1" Content="بحث" Click="MemorySearchButton_Click"/>
-                        <Button x:Name="NewMemoryButton" Grid.Column="2" Content="ملاحظة جديدة" Click="NewMemoryButton_Click"/>
-                        <Button x:Name="LoreWebButton" Grid.Column="3" Content="خريطة الذاكرة 3D" Click="LoreWebButton_Click" MinWidth="135"
-                                ToolTip="عرض الملاحظات وروابطها التقريبية محليًا؛ لا تُرسل إلى AI."
-                                AutomationProperties.Name="فتح خريطة الذاكرة ثلاثية الأبعاد"
-                                AutomationProperties.HelpText="خريطة محلية تفاعلية؛ الروابط مبنية على كلمات عنوان مشتركة والترتيب الزمني فقط، وليست استنتاجات مضمونة."/>
-                    </Grid>
+                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="34" ToolTip="بحث في الذاكرة"
+                                     KeyDown="MemorySearchInput_KeyDown"
+                                     AutomationProperties.Name="البحث في الذاكرة / Search memory notes"
+                                     AutomationProperties.HelpText="ابحث في العناوين والمحتوى والتصنيفات. اضغط Enter لتنفيذ البحث."/>
+                            <Button x:Name="MemorySearchButton" Grid.Column="1" Content="بحث" Click="MemorySearchButton_Click" MinWidth="76"/>
+                        </Grid>
+                        <WrapPanel Margin="0,0,0,6">
+                            <Button x:Name="NewMemoryButton" Content="ملاحظة جديدة" Click="NewMemoryButton_Click"/>
+                            <Button x:Name="ImportMemoryButton" Content="استيراد JSON" Click="ImportMemoryButton_Click"/>
+                            <Button x:Name="ExportMemoryButton" Content="تصدير JSON" Click="ExportMemoryButton_Click"/>
+                            <Button x:Name="LoreWebButton" Content="خريطة الذاكرة 3D" Click="LoreWebButton_Click" MinWidth="135"
+                                    ToolTip="عرض الملاحظات وروابطها التقريبية محليًا؛ لا تُرسل إلى AI."
+                                    AutomationProperties.Name="فتح خريطة الذاكرة ثلاثية الأبعاد"
+                                    AutomationProperties.HelpText="خريطة محلية تفاعلية؛ الروابط مبنية على كلمات عنوان مشتركة والترتيب الزمني فقط، وليست استنتاجات مضمونة."/>
+                        </WrapPanel>
+                        <WrapPanel VerticalAlignment="Center">
+                            <CheckBox x:Name="MemoryShowArchivedCheckBox" Content="عرض المؤرشفة"
+                                      VerticalAlignment="Center" Margin="4,0,12,0"
+                                      Checked="MemoryShowArchivedCheckBox_Changed"
+                                      Unchecked="MemoryShowArchivedCheckBox_Changed"
+                                      AutomationProperties.Name="عرض الملاحظات المؤرشفة / Include archived notes"
+                                      AutomationProperties.HelpText="أظهر الملاحظات المؤرشفة لعرضها واستعادتها."/>
+                            <TextBlock x:Name="MemoryCategoryFilterLabel" Text="تصفية التصنيف" VerticalAlignment="Center" Margin="4,0,6,0"/>
+                            <ComboBox x:Name="MemoryCategoryFilter" MinWidth="150" MinHeight="30"
+                                      SelectionChanged="MemoryCategoryFilter_SelectionChanged"
+                                      AutomationProperties.Name="تصفية الذاكرة حسب التصنيف / Filter memory by category"/>
+                            <Button x:Name="ClearMemoryFiltersButton" Content="مسح عوامل التصفية" Click="ClearMemoryFiltersButton_Click"/>
+                            <TextBlock x:Name="MemoryCountText" Margin="10,6,4,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Layal.Muted}"
+                                       AutomationProperties.Name="عدد ملاحظات الذاكرة / Memory note count"
+                                       AutomationProperties.LiveSetting="Polite"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="MemoryFilterNotice" Text="" Margin="4,4,4,0"
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                   AutomationProperties.LiveSetting="Polite"/>
+                    </StackPanel>
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
                         <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" AutomationProperties.Name="ملاحظات الذاكرة" AutomationProperties.HelpText="اختر ملاحظة لعرضها أو تعديلها." SelectionChanged="MemoryList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
@@ -543,8 +572,26 @@
                                                    FlowDirection="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
                                                    TextAlignment="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
                                                    TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" />
-                                        <TextBlock Text="{Binding Category}" FontSize="11"
-                                                   Foreground="{DynamicResource Layal.Muted}" Margin="0,2,0,0" />
+                                        <WrapPanel Margin="0,3,0,0">
+                                            <TextBlock Text="{Binding Category}" FontSize="11"
+                                                       Foreground="{DynamicResource Layal.Muted}"/>
+                                            <TextBlock Text="  ·  " FontSize="11" Foreground="{DynamicResource Layal.Muted}"/>
+                                            <TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:g}}" FontSize="11"
+                                                       Foreground="{DynamicResource Layal.Muted}"/>
+                                            <TextBlock Text="  ·  مؤرشفة / Archived" FontSize="11"
+                                                       Foreground="{DynamicResource Layal.Warning}" Visibility="Collapsed">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="{x:Type TextBlock}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </WrapPanel>
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -570,20 +617,21 @@
                                          AutomationProperties.LabeledBy="{Binding ElementName=MemoryCategoryLabel}"
                                          ToolTip="General, Work, Project..."/>
                                 <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,10,0,4"/>
-                                <TextBox x:Name="MemoryTitleInput" MinHeight="32" AutomationProperties.Name="عنوان الملاحظة / Memory note title" AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"/>
+                                <TextBox x:Name="MemoryTitleInput" MinHeight="32" MaxLength="120" AutomationProperties.Name="عنوان الملاحظة / Memory note title" AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"/>
                                 <TextBlock x:Name="MemoryContentLabel" Text="المحتوى" Margin="0,10,0,4"/>
-                                <TextBox x:Name="MemoryContentInput" MinHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="محتوى الملاحظة / Memory note content" AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"/>
+                                <TextBox x:Name="MemoryContentInput" MinHeight="160" MaxLength="12000" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="محتوى الملاحظة / Memory note content" AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"/>
                                 <WrapPanel Margin="0,10,0,0">
                                     <Button x:Name="SaveMemoryButton" Content="حفظ الملاحظة" Click="SaveMemoryButton_Click"/>
-                                    <Button x:Name="ArchiveMemoryButton" Content="أرشفة" Click="ArchiveMemoryButton_Click"/>
-                                    <Button x:Name="DeleteMemoryButton" Content="حذف" Click="DeleteMemoryButton_Click"/>
-                                    <Button x:Name="ExportMemoryButton" Content="تصدير JSON" Click="ExportMemoryButton_Click"/>
+                                    <Button x:Name="ArchiveMemoryButton" Content="أرشفة" Click="ArchiveMemoryButton_Click" IsEnabled="False"/>
+                                    <Button x:Name="DeleteMemoryButton" Content="حذف" Click="DeleteMemoryButton_Click" IsEnabled="False"/>
                                 </WrapPanel>
                                 <TextBlock x:Name="MemoryResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0" AutomationProperties.LiveSetting="Polite"/>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
-                    <TextBlock x:Name="MemoryPrivacyNote" Grid.Row="3" Text="لا تحفظ مفاتيح API أو كلمات المرور في الذاكرة. تصدير JSON غير مشفر." Foreground="{DynamicResource Layal.Warning}" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                    <TextBlock x:Name="MemoryPrivacyNote" Grid.Row="3"
+                               Text="لا تحفظ مفاتيح API أو كلمات المرور. تصدير JSON غير مشفر؛ الاستيراد يدمج الملاحظات الجديدة ولا يستبدل الموجود. مشاركة أي نتيجة مع AI تتطلب عرض النص الكامل وموافقتك."
+                               Foreground="{DynamicResource Layal.Warning}" TextWrapping="Wrap" Margin="4,10,4,0"/>
                 </Grid>
             </TabItem>
 

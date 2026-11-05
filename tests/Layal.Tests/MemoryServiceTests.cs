@@ -293,6 +293,88 @@ public sealed class MemoryServiceTests
         Assert.AreEqual(76, service.GetAll().Count, "The active view must exclude the 24 retained archived notes.");
     }
 
+
+    [TestMethod]
+    public void SearchCanIncludeArchivedNotesWithoutChangingTheDefaultActiveOnlyBehavior()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var service = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        var note = service.Save("Archived reference", "A note available only from the archive.");
+        Assert.IsTrue(service.SetArchived(note.Id, true));
+
+        Assert.AreEqual(0, service.Search("Archived reference").Count);
+        Assert.AreEqual(note.Id, service.Search("Archived reference", includeArchived: true).Single().Id);
+    }
+
+    [TestMethod]
+    public void StaleMemoryEditsAndDeletesAreRejectedWithoutCreatingOrDeletingNotes()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var path = System.IO.Path.Combine(temp.Path, "memory.dpapi");
+        var service = new MemoryService(path);
+        var original = service.Save("Original title", "Original content.");
+        var staleTimestamp = original.UpdatedAt.AddSeconds(-1);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            service.Save("Overwritten title", "Stale content.", original.Id, expectedUpdatedAt: staleTimestamp));
+        Assert.IsFalse(service.Delete(original.Id, staleTimestamp));
+        Assert.AreEqual("Original title", new MemoryService(path).GetAll().Single().Title);
+
+        Assert.IsTrue(service.Delete(original.Id, original.UpdatedAt));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            service.Save("Accidental replacement", "This must not resurrect the deleted ID.", original.Id));
+        Assert.AreEqual(0, new MemoryService(path).GetAll(includeArchived: true).Count);
+    }
+
+    [TestMethod]
+    public void MemoryTitlesAndContentRejectControlCharactersOutsideSupportedTextFormatting()
+    {
+        Assert.AreEqual("A title", MemoryService.NormalizeTitle(" A title "));
+        Assert.ThrowsExactly<InvalidOperationException>(() => MemoryService.NormalizeTitle("bad\ntitle"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => MemoryService.NormalizeTitle(" "));
+        Assert.AreEqual("first line\nsecond line\tindented", MemoryService.NormalizeContent(" first line\nsecond line\tindented "));
+        Assert.ThrowsExactly<InvalidOperationException>(() => MemoryService.NormalizeContent("bad\0content"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => MemoryService.NormalizeContent(new string('x', 12_001)));
+    }
+
+    [TestMethod]
+    public void MemoryImportSkipsExistingIdsWithoutOverwritingAndRejectsDuplicateIds()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var service = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        var existing = service.Save("User version", "Keep this exact content.");
+        var replacement = new MemoryNote
+        {
+            Id = existing.Id,
+            Title = "Backup replacement",
+            Content = "This must not overwrite the user's current note."
+        };
+        var addition = new MemoryNote
+        {
+            Title = "Imported note",
+            Content = "This new note can be merged."
+        };
+
+        Assert.AreEqual(1, service.ImportMany(new[] { replacement, addition }));
+        Assert.AreEqual("Keep this exact content.", service.GetAll(includeArchived: true).Single(note => note.Id == existing.Id).Content);
+        Assert.IsTrue(service.GetAll(includeArchived: true).Any(note => note.Id == addition.Id));
+
+        var duplicateA = new MemoryNote { Id = Guid.NewGuid().ToString("N"), Title = "A", Content = "One." };
+        var duplicateB = new MemoryNote { Id = duplicateA.Id, Title = "B", Content = "Two." };
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ValidateImportMany(new[] { duplicateA, duplicateB }));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportMany(new[] { duplicateA, duplicateB }));
+        Assert.AreEqual(2, service.GetAll(includeArchived: true).Count);
+    }
+
     [TestMethod]
     public void ExistingMemoryFileIsPrunedToNewestRetentionLimit()
     {

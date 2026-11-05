@@ -26,19 +26,26 @@ public sealed class MemoryService
         }
     }
 
-    public MemoryNote Save(string title, string content, string? id = null, string? category = null)
+    public MemoryNote Save(
+        string title,
+        string content,
+        string? id = null,
+        string? category = null,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
-        title = (title ?? string.Empty).Trim();
-        content = (content ?? string.Empty).Trim();
-        if (title.Length is < 1 or > 120) throw new InvalidOperationException("Memory title must be between 1 and 120 characters.");
-        if (content.Length is < 1 or > 12000) throw new InvalidOperationException("Memory content must be between 1 and 12,000 characters.");
-            if (LooksLikeSecret(title + "\n" + content))
+        title = NormalizeTitle(title);
+        content = NormalizeContent(content);
+        if (LooksLikeSecret(title + "\n" + content))
             throw new InvalidOperationException("This note resembles an API key, token, password, or private key. Store credentials in the secure credential setting, not in memory.");
 
         lock (_sync)
         {
             var notes = LoadBoundedNotes();
             var existing = id is null ? null : notes.FirstOrDefault(n => n.Id == id);
+            if (id is not null && existing is null)
+                throw new InvalidOperationException("This memory note no longer exists. Refresh the list before saving; no new note was created.");
+            if (existing is not null && expectedUpdatedAt.HasValue && existing.UpdatedAt != expectedUpdatedAt.Value)
+                throw new InvalidOperationException("This memory note changed after it was opened. Reload it before saving to avoid overwriting newer content.");
             var normalizedCategory = category is null
                 ? NormalizeCategory(existing?.Category ?? "General")
                 : NormalizeCategory(category);
@@ -78,16 +85,16 @@ public sealed class MemoryService
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var note in candidates)
         {
-            if (note is null ||
-                !Guid.TryParseExact(note.Id, "N", out _) ||
-                string.IsNullOrWhiteSpace(note.Title) || note.Title.Length > 120 ||
-                string.IsNullOrWhiteSpace(note.Content) || note.Content.Length > 12_000)
-                throw new InvalidOperationException("The memory backup contains an invalid note.");
+            if (note is null || !Guid.TryParseExact(note.Id, "N", out _))
+                throw new InvalidOperationException("The memory backup contains an invalid note identifier.");
+            var title = NormalizeTitle(note.Title);
+            var content = NormalizeContent(note.Content);
             _ = NormalizeCategory(note.Category);
             ValidateRelationships(note);
-            if (LooksLikeSecret(note.Title.Trim() + "\n" + note.Content.Trim()))
+            if (LooksLikeSecret(title + "\n" + content))
                 throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
-            ids.Add(note.Id);
+            if (!ids.Add(note.Id))
+                throw new InvalidOperationException("The memory backup contains a duplicate note identifier. No notes were imported.");
         }
 
         lock (_sync)
@@ -111,20 +118,17 @@ public sealed class MemoryService
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var note in candidates)
         {
-            if (note is null ||
-                !Guid.TryParseExact(note.Id, "N", out _) ||
-                string.IsNullOrWhiteSpace(note.Title) || note.Title.Length > 120 ||
-                string.IsNullOrWhiteSpace(note.Content) || note.Content.Length > 12_000)
-                throw new InvalidOperationException("The memory backup contains an invalid note.");
+            if (note is null || !Guid.TryParseExact(note.Id, "N", out _))
+                throw new InvalidOperationException("The memory backup contains an invalid note identifier.");
 
-            var title = note.Title.Trim();
-            var content = note.Content.Trim();
+            var title = NormalizeTitle(note.Title);
+            var content = NormalizeContent(note.Content);
             _ = NormalizeCategory(note.Category);
             ValidateRelationships(note);
-            if (LooksLikeSecret(title + "\\n" + content))
+            if (LooksLikeSecret(title + "\n" + content))
                 throw new InvalidOperationException("The memory backup contains credential-like content. No notes were imported.");
             if (!seenIds.Add(note.Id))
-                continue;
+                throw new InvalidOperationException("The memory backup contains a duplicate note identifier. No notes were imported.");
 
             normalized.Add(new MemoryNote
             {
@@ -250,6 +254,23 @@ public sealed class MemoryService
         }
     }
 
+    public static string NormalizeTitle(string? title)
+    {
+        var value = (title ?? string.Empty).Trim();
+        if (value.Length is < 1 or > 120 || value.Any(char.IsControl))
+            throw new InvalidOperationException("Memory titles must contain 1–120 printable characters.");
+        return value;
+    }
+
+    public static string NormalizeContent(string? content)
+    {
+        var value = (content ?? string.Empty).Trim();
+        if (value.Length is < 1 or > 12_000 ||
+            value.Any(character => char.IsControl(character) && character is not ('\r' or '\n' or '\t')))
+            throw new InvalidOperationException("Memory content must contain 1–12,000 characters and no unsupported control characters.");
+        return value;
+    }
+
     public static string NormalizeCategory(string? category)
     {
         var value = (category ?? string.Empty).Trim();
@@ -259,26 +280,27 @@ public sealed class MemoryService
         return value;
     }
 
-    public bool Delete(string id)
+    public bool Delete(string id, DateTimeOffset? expectedUpdatedAt = null)
     {
+        if (string.IsNullOrWhiteSpace(id)) return false;
         lock (_sync)
         {
             var notes = LoadBoundedNotes();
-            var removed = notes.RemoveAll(n => n.Id == id) > 0;
-            if (removed)
-            {
-                NormalizeRelationships(notes);
-                _store.Save(notes);
-            }
-            return removed;
+            var existing = notes.FirstOrDefault(note => string.Equals(note.Id, id, StringComparison.Ordinal));
+            if (existing is null || (expectedUpdatedAt.HasValue && existing.UpdatedAt != expectedUpdatedAt.Value))
+                return false;
+            notes.Remove(existing);
+            NormalizeRelationships(notes);
+            _store.Save(notes);
+            return true;
         }
     }
 
-    public IReadOnlyList<MemoryNote> Search(string query, int maxResults = 8)
+    public IReadOnlyList<MemoryNote> Search(string query, int maxResults = 8, bool includeArchived = false)
     {
         query = (query ?? string.Empty).Trim();
         if (query.Length == 0) return Array.Empty<MemoryNote>();
-        return GetAll()
+        return GetAll(includeArchived)
             .Where(n => n.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                         n.Content.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                         n.Category.Contains(query, StringComparison.OrdinalIgnoreCase))
