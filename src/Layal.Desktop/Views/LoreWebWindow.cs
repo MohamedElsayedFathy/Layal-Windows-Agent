@@ -665,6 +665,7 @@ public sealed class LoreWebWindow : Window
 
     private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        _viewport.Focus();
         _dragStart = e.GetPosition(_viewport);
         _dragging = true;
         _dragMoved = false;
