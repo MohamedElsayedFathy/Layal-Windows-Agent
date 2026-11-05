@@ -393,7 +393,13 @@ public sealed class BrowserAutomationService
                 ["links"] = JsonNode.Parse(snapshot.LinksJson),
                 ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson),
                 ["fields"] = JsonNode.Parse(snapshot.FieldsJson),
-                ["formCount"] = snapshot.FormCount
+                ["formCount"] = snapshot.FormCount,
+                ["author"] = snapshot.Author,
+                ["publishedDate"] = snapshot.PublishedDate,
+                ["modifiedDate"] = snapshot.ModifiedDate,
+                ["visibleTimeDate"] = snapshot.VisibleTimeDate,
+                ["siteName"] = snapshot.SiteName,
+                ["description"] = snapshot.Description
             };
             return output.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         }
@@ -758,6 +764,9 @@ public sealed class BrowserAutomationService
     private async Task<BrowserPageSnapshot> ReadPageSnapshotAsync(CdpPageTarget page, CancellationToken token)
     {
         var expression = "(() => JSON.stringify({title:document.title||'',url:location.href,readyState:document.readyState," +
+            "metadata:(()=>{const meta=k=>Array.from(document.querySelectorAll('meta')).find(m=>m.name===k||m.getAttribute('property')===k||m.getAttribute('itemprop')===k)?.content||'';" +
+            "const ld=(()=>{for(const script of Array.from(document.querySelectorAll('script[type=\\\"application/ld+json\\\"]')).slice(0,5)){const raw=script.textContent||'';if(raw.length>100000)continue;try{const value=JSON.parse(raw),roots=Array.isArray(value)?value:[value];for(const root of roots){const nodes=[root,...(Array.isArray(root?.['@graph'])?root['@graph']:[])];for(const node of nodes){if(node&&typeof node==='object'&&(node.datePublished||node.dateModified||node.author)){const a=node.author;return {publishedDate:String(node.datePublished||''),modifiedDate:String(node.dateModified||''),author:typeof a==='string'?a:Array.isArray(a)?a.map(x=>x?.name||'').filter(Boolean).join(', '):a?.name||''};}}}}catch{}}return {};})();" +
+            "return {author:(meta('author')||meta('article:author')||ld.author||'').slice(0,180),publishedDate:(meta('article:published_time')||meta('datePublished')||meta('pubdate')||ld.publishedDate||'').slice(0,80),modifiedDate:(meta('article:modified_time')||meta('dateModified')||ld.modifiedDate||'').slice(0,80),visibleTimeDate:(document.querySelector('time[datetime]')?.getAttribute('datetime')||'').slice(0,80),siteName:(meta('og:site_name')||'').slice(0,180),description:(meta('description')||meta('og:description')||'').slice(0,500)};})()," +
             "text:(document.body?.innerText||'').slice(0,20000)," +
             "links:Array.from(document.querySelectorAll('a[href]')).slice(0,50).map(a=>({text:(a.innerText||a.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160),href:a.href}))," +
             "buttons:Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0,40).map(e=>({text:(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,120),id:e.id||'',type:e.tagName.toLowerCase()}))," +
@@ -769,6 +778,9 @@ public sealed class BrowserAutomationService
         var root = doc.RootElement;
         var pageUrl = root.TryGetProperty("url", out var url) ? url.GetString() ?? string.Empty : string.Empty;
         _ = ValidateHttpUrl(pageUrl);
+        var metadata = root.TryGetProperty("metadata", out var metadataElement) ? metadataElement : default;
+        string Meta(string name) => metadata.ValueKind == JsonValueKind.Object &&
+            metadata.TryGetProperty(name, out var item) ? item.GetString() ?? string.Empty : string.Empty;
         return new BrowserPageSnapshot(
             root.TryGetProperty("title", out var title) ? title.GetString() ?? string.Empty : string.Empty,
             pageUrl,
@@ -777,7 +789,8 @@ public sealed class BrowserAutomationService
             root.TryGetProperty("links", out var links) ? links.GetRawText() : "[]",
             root.TryGetProperty("buttons", out var buttons) ? buttons.GetRawText() : "[]",
             root.TryGetProperty("fields", out var fields) ? fields.GetRawText() : "[]",
-            root.TryGetProperty("formCount", out var forms) ? forms.GetInt32() : 0);
+            root.TryGetProperty("formCount", out var forms) ? forms.GetInt32() : 0,
+            Meta("author"), Meta("publishedDate"), Meta("modifiedDate"), Meta("visibleTimeDate"), Meta("siteName"), Meta("description"));
     }
 
     private async Task<string?> EvaluateAsync(CdpPageTarget page, string expression, CancellationToken token)
@@ -942,7 +955,13 @@ public sealed record BrowserPageSnapshot(
     string LinksJson,
     string ButtonsJson,
     string FieldsJson,
-    int FormCount);
+    int FormCount,
+    string Author = "",
+    string PublishedDate = "",
+    string ModifiedDate = "",
+    string VisibleTimeDate = "",
+    string SiteName = "",
+    string Description = "");
 
 internal sealed record CdpPageTarget(string Id, string Title, string Url, string WebSocketUrl);
 

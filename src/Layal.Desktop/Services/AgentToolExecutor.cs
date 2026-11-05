@@ -793,7 +793,7 @@ public sealed class AgentToolExecutor
         }
     }
 
-    private static string? SummarizeDirectSourcePage(string pageJson)
+    public static string? SummarizeDirectSourcePage(string pageJson)
     {
         try
         {
@@ -802,6 +802,13 @@ public sealed class AgentToolExecutor
             var title = root.TryGetProperty("title", out var titleElement) ? titleElement.GetString() ?? string.Empty : string.Empty;
             var url = root.TryGetProperty("url", out var urlElement) ? urlElement.GetString() ?? string.Empty : string.Empty;
             var visibleText = root.TryGetProperty("visibleText", out var textElement) ? textElement.GetString() ?? string.Empty : string.Empty;
+            string Metadata(string name) => root.TryGetProperty(name, out var value) ? value.GetString() ?? string.Empty : string.Empty;
+            var author = Truncate(Metadata("author"), 180);
+            var publishedDate = Truncate(Metadata("publishedDate"), 80);
+            var modifiedDate = Truncate(Metadata("modifiedDate"), 80);
+            var visibleTimeDate = Truncate(Metadata("visibleTimeDate"), 80);
+            var siteName = Truncate(Metadata("siteName"), 180);
+            var description = Truncate(Metadata("description"), 500);
             if (!Uri.TryCreate(url, UriKind.Absolute, out var finalUri) ||
                 !finalUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
                 !string.IsNullOrEmpty(finalUri.UserInfo) ||
@@ -814,7 +821,15 @@ public sealed class AgentToolExecutor
             if (visibleText.Length > 12_000)
                 visibleText = visibleText[..12_000] + "\n[visible text truncated at 12,000 characters]";
 
-            return "Title: " + Truncate(title, 240) + "\nFinal URL: " + finalUri.AbsoluteUri + "\nVisible text:\n" + visibleText;
+            return "Title: " + Truncate(title, 240) +
+                "\nFinal URL: " + finalUri.AbsoluteUri +
+                "\nSite name (page-declared): " + (siteName.Length == 0 ? "not provided" : siteName) +
+                "\nAuthor (page-declared): " + (author.Length == 0 ? "not provided" : author) +
+                "\nPublication date (page-declared metadata; unverified): " + (publishedDate.Length == 0 ? "not provided" : publishedDate) +
+                "\nModification date (page-declared metadata; unverified): " + (modifiedDate.Length == 0 ? "not provided" : modifiedDate) +
+                "\nVisible time element date (type not independently established): " + (visibleTimeDate.Length == 0 ? "not provided" : visibleTimeDate) +
+                "\nDescription (page-declared): " + description +
+                "\nVisible text (untrusted):\n" + visibleText;
         }
         catch (JsonException)
         {
