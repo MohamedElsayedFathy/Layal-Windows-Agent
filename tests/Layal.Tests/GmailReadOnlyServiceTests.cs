@@ -409,6 +409,111 @@ public sealed class GmailReadOnlyServiceTests
 
 
     [TestMethod]
+    public async Task ReadMessageAsyncExtractsPdfAndXlsxAttachmentsLocallyAndDeletesTemporaryFiles()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The Gmail credential store uses Windows DPAPI and document preview uses Windows APIs.");
+
+        using var temp = new TestTempDirectory();
+        var credentialPath = Path.Combine(temp.Path, "gmail.dpapi");
+        new ProtectedJsonStore<GmailOAuthCredential>(credentialPath).Save(new GmailOAuthCredential
+        {
+            ClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
+            RefreshToken = "test-refresh-token"
+        });
+
+        byte[] pdfBytes;
+        using (var builder = new UglyToad.PdfPig.Writer.PdfDocumentBuilder())
+        {
+            var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+            var page = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+            page.AddText("Gmail PDF preview sentinel", 12, new UglyToad.PdfPig.Core.PdfPoint(40, 700), font);
+            pdfBytes = builder.Build();
+        }
+
+        byte[] xlsxBytes;
+        using (var package = new MemoryStream())
+        {
+            using (var workbook = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Create(
+                       package,
+                       DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook,
+                       true))
+            {
+                var workbookPart = workbook.AddWorkbookPart();
+                workbookPart.Workbook = new DocumentFormat.OpenXml.Spreadsheet.Workbook();
+                var worksheetPart = workbookPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorksheetPart>();
+                worksheetPart.Worksheet = new DocumentFormat.OpenXml.Spreadsheet.Worksheet(
+                    new DocumentFormat.OpenXml.Spreadsheet.SheetData(
+                        new DocumentFormat.OpenXml.Spreadsheet.Row(
+                            new DocumentFormat.OpenXml.Spreadsheet.Cell
+                            {
+                                CellReference = "A1",
+                                DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.InlineString,
+                                InlineString = new DocumentFormat.OpenXml.Spreadsheet.InlineString(
+                                    new DocumentFormat.OpenXml.Spreadsheet.Text("Gmail XLSX preview sentinel"))
+                            })));
+                workbookPart.Workbook.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Sheets(
+                    new DocumentFormat.OpenXml.Spreadsheet.Sheet
+                    {
+                        Id = workbookPart.GetIdOfPart(worksheetPart),
+                        SheetId = 1U,
+                        Name = "Gmail"
+                    }));
+                worksheetPart.Worksheet.Save();
+                workbookPart.Workbook.Save();
+            }
+            xlsxBytes = package.ToArray();
+        }
+
+        var messageJson = JsonSerializer.Serialize(new
+        {
+            id = "message-pdf-xlsx",
+            threadId = "thread-pdf-xlsx",
+            snippet = "PDF and workbook attachments",
+            internalDate = "1790000000000",
+            payload = new
+            {
+                headers = new[]
+                {
+                    new { name = "From", value = "sender@example.com" },
+                    new { name = "Subject", value = "PDF and workbook" }
+                },
+                parts = new[]
+                {
+                    new
+                    {
+                        filename = "report.pdf",
+                        mimeType = "application/pdf",
+                        body = new { size = pdfBytes.Length, data = Base64Url(pdfBytes) }
+                    },
+                    new
+                    {
+                        filename = "report.xlsx",
+                        mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        body = new { size = xlsxBytes.Length, data = Base64Url(xlsxBytes) }
+                    }
+                }
+            }
+        });
+
+        var previousPreviews = Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        using var client = new HttpClient(new GmailInlineAttachmentHandler(messageJson, "message-pdf-xlsx"));
+        var service = new GmailReadOnlyService(credentialPath, client);
+
+        var detail = await service.ReadMessageAsync("message-pdf-xlsx");
+
+        Assert.AreEqual(2, detail.Attachments!.Count);
+        StringAssert.Contains(detail.Attachments[0].Status, "Local document text preview available");
+        StringAssert.Contains(detail.Attachments[0].PreviewText, "Gmail PDF preview sentinel");
+        StringAssert.Contains(detail.Attachments[1].Status, "Local document text preview available");
+        StringAssert.Contains(detail.Attachments[1].PreviewText, "Gmail XLSX preview sentinel");
+        Assert.AreEqual(0, Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .Count(path => !previousPreviews.Contains(path)),
+            "PDF and workbook temporary files must be removed immediately after local extraction.");
+    }
+
+    [TestMethod]
     public async Task ReadMessageAsyncOcrsSmallImageAttachmentsLocallyAndDeletesTemporaryFile()
     {
         if (!OperatingSystem.IsWindows())
