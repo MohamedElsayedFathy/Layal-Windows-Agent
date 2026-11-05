@@ -53,6 +53,9 @@ public static class AppRuntime
         scheduler.Synchronize(ReminderService.GetAll(), proactiveDueAt);
     }
 
-    /// <summary>Manual, user-invoked game mode. It pauses local reminder notifications and performs no game/process inspection.</summary>
+    /// <summary>
+    /// True while the manual HUD is visible or an allowlisted foreground process is active.
+    /// It suppresses proactive check-ins only; explicit user-created reminders remain scheduled.
+    /// </summary>
     public static bool IsGameModeActive { get; set; }
 }
