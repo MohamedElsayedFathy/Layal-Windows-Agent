@@ -578,6 +578,139 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task ApprovedFileReadShowsOnlyMetadataBeforeConsentAndReturnsUntrustedContent()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var path = Path.Combine(workspace, "notes.txt");
+        const string content = "private note content";
+        File.WriteAllText(path, content, new System.Text.UTF8Encoding(false));
+        var executor = CreateExecutor(workspace);
+        string? approvalDetails = null;
+        var reports = new List<string>();
+
+        var result = await executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "notes.txt" }.ToJsonString(),
+            (_, details, _) =>
+            {
+                approvalDetails = details;
+                Assert.IsFalse(details.Contains(content, StringComparison.Ordinal),
+                    "The user must approve before file content is shared or displayed in the prompt.");
+                return Task.FromResult(true);
+            },
+            reports.Add,
+            CancellationToken.None);
+
+        Assert.IsNotNull(approvalDetails);
+        StringAssert.Contains(approvalDetails!, "SHA-256:");
+        StringAssert.Contains(approvalDetails!, "Size:");
+        StringAssert.Contains(result, "UNTRUSTED WORKSPACE FILE CONTENT");
+        StringAssert.Contains(result, "<untrusted-file-content>");
+        StringAssert.Contains(result, content);
+        Assert.IsTrue(reports.Any(line => line.Contains("Read approved text file", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ReadFileRejectsSameLengthContentChangeEvenWhenTimestampIsRestoredDuringApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var path = Path.Combine(workspace, "notes.txt");
+        const string original = "first content";
+        const string changed = "other content";
+        Assert.AreEqual(original.Length, changed.Length);
+        File.WriteAllText(path, original, new System.Text.UTF8Encoding(false));
+        var originalTimestamp = File.GetLastWriteTimeUtc(path);
+        var executor = CreateExecutor(workspace);
+
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "notes.txt" }.ToJsonString(),
+            (_, _, _) =>
+            {
+                File.WriteAllText(path, changed, new System.Text.UTF8Encoding(false));
+                File.SetLastWriteTimeUtc(path, originalTimestamp);
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        StringAssert.Contains(error.Message, "changed while awaiting approval");
+        Assert.AreEqual(changed, File.ReadAllText(path));
+    }
+
+    [TestMethod]
+    public async Task ReadFileEnforcesByteLimitBeforeApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var path = Path.Combine(workspace, "oversized.txt");
+        File.WriteAllBytes(path, new byte[(256 * 1024) + 1]);
+        var executor = CreateExecutor(workspace);
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "oversized.txt" }.ToJsonString(),
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled, "Oversized files must be rejected before showing a disclosure approval.");
+    }
+
+    [TestMethod]
+    public async Task ReadFileRechecksByteLimitAfterApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var path = Path.Combine(workspace, "growing.txt");
+        File.WriteAllText(path, "small file");
+        var executor = CreateExecutor(workspace);
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "growing.txt" }.ToJsonString(),
+            (_, _, _) =>
+            {
+                approvalCalled = true;
+                File.WriteAllBytes(path, new byte[(256 * 1024) + 1]);
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsTrue(approvalCalled);
+        Assert.AreEqual((256 * 1024) + 1, new FileInfo(path).Length);
+    }
+
+    [TestMethod]
+    public async Task DeclinedFileReadReturnsNoContent()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "notes.txt"), "secret payload");
+        var executor = CreateExecutor(workspace);
+
+        var result = await executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "notes.txt" }.ToJsonString(),
+            (_, _, _) => Task.FromResult(false),
+            _ => { },
+            CancellationToken.None);
+
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(result.Contains("secret payload", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task DeclinedFileCreationHasNoSideEffect()
     {
         using var temp = new TestTempDirectory();
@@ -591,6 +724,77 @@ public sealed class AgentToolExecutorTests
 
         StringAssert.Contains(result, "declined");
         Assert.IsFalse(File.Exists(destination));
+    }
+
+    [TestMethod]
+    public async Task CreateRejectsOversizedUtf8BytePayloadBeforeApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var executor = CreateExecutor(workspace);
+        var approvalCalled = false;
+        var content = new string('\u0645', 51 * 1024); // two UTF-8 bytes per Arabic character
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "create_text_file",
+            new JsonObject { ["path"] = "large.txt", ["content"] = content }.ToJsonString(),
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled, "The encoded byte limit must be checked before approval.");
+        Assert.IsFalse(File.Exists(Path.Combine(workspace, "large.txt")));
+    }
+
+    [TestMethod]
+    public async Task CancellingFileCreationAfterApprovalLeavesNoPartialFileOrTemporaryFile()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var executor = CreateExecutor(workspace);
+        using var cancellation = new CancellationTokenSource();
+        var destination = Path.Combine(workspace, "cancelled.txt");
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => executor.ExecuteAsync(
+            "create_text_file",
+            new JsonObject { ["path"] = "cancelled.txt", ["content"] = new string('x', 80_000) }.ToJsonString(),
+            (_, _, _) =>
+            {
+                cancellation.Cancel();
+                return Task.FromResult(true);
+            },
+            _ => { },
+            cancellation.Token));
+
+        Assert.IsFalse(File.Exists(destination));
+        Assert.AreEqual(0, Directory.GetFiles(workspace, "*.layal-create-*.tmp").Length);
+        Assert.AreEqual(0, Directory.GetFiles(workspace, ".*.layal-create-*.tmp").Length);
+    }
+
+    [TestMethod]
+    public async Task CreateRejectsDestinationThatAppearsDuringApprovalWithoutOverwritingIt()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var destination = Path.Combine(workspace, "race.txt");
+        var executor = CreateExecutor(workspace);
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => executor.ExecuteAsync(
+            "create_text_file",
+            new JsonObject { ["path"] = "race.txt", ["content"] = "agent content" }.ToJsonString(),
+            (_, _, _) =>
+            {
+                File.WriteAllText(destination, "user content");
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.AreEqual("user content", File.ReadAllText(destination));
+        Assert.AreEqual(0, Directory.GetFiles(workspace, "*.layal-create-*.tmp").Length);
     }
 
     [TestMethod]
