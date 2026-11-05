@@ -5912,6 +5912,8 @@ public partial class MainWindow : Window
             allowlist);
         _automaticGameModeSessionActive = isAllowedForeground;
         _lastAllowedForegroundProcessName = isAllowedForeground ? foregroundProcessName : null;
+        if (_gameModeHudAutoLaunched && isAllowedForeground)
+            _gameModeAutoLaunchedProcessName = foregroundProcessName;
 
         // Manual HUD ownership wins over automatic display, but an allowed foreground game
         // still suppresses proactive check-ins until focus leaves that game.
