@@ -40,9 +40,18 @@ public sealed class AgentToolExecutor
     private readonly BrowserAutomationService? _browser;
     private readonly SafeBrowserDownloadService _browserDownloads;
     private readonly SafeBrowserUploadService _browserUploads;
+    private readonly TimeSpan _processTimeout;
 
-    public AgentToolExecutor(string workspaceRoot, MemoryService memory, ApiConnectionService? apiConnections = null, BrowserAutomationService? browser = null)
+    public AgentToolExecutor(
+        string workspaceRoot,
+        MemoryService memory,
+        ApiConnectionService? apiConnections = null,
+        BrowserAutomationService? browser = null,
+        TimeSpan? processTimeout = null)
     {
+        _processTimeout = processTimeout ?? TimeSpan.FromSeconds(120);
+        if (_processTimeout < TimeSpan.FromMilliseconds(1) || _processTimeout > TimeSpan.FromMinutes(10))
+            throw new ArgumentOutOfRangeException(nameof(processTimeout), "Process timeout must be between 1 millisecond and 10 minutes.");
         _workspaceRoot = Path.GetFullPath(workspaceRoot);
         _memory = memory;
         _apiConnections = apiConnections;
@@ -1183,7 +1192,7 @@ public sealed class AgentToolExecutor
         report($"Starting dotnet {verb} for {Path.GetRelativePath(_workspaceRoot, projectPath)}.");
         if (!process.Start()) throw new InvalidOperationException("Failed to start the dotnet process.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(120));
+        timeout.CancelAfter(_processTimeout);
         var stdoutTask = ReadBoundedAsync(process.StandardOutput, MaxProcessOutputChars / 2, timeout.Token);
         var stderrTask = ReadBoundedAsync(process.StandardError, MaxProcessOutputChars / 2, timeout.Token);
         try { await process.WaitForExitAsync(timeout.Token); }
@@ -1194,7 +1203,7 @@ public sealed class AgentToolExecutor
             // cancellation is not reported later as an unobserved task exception.
             try { await Task.WhenAll(stdoutTask, stderrTask); } catch { }
             token.ThrowIfCancellationRequested();
-            throw new TimeoutException($"dotnet {verb} timed out after 120 seconds; process termination was requested.");
+            throw new TimeoutException($"dotnet {verb} timed out after {_processTimeout.TotalSeconds:0.###} seconds; process-tree termination was requested.");
         }
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
