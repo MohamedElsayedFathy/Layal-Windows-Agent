@@ -124,7 +124,7 @@ public sealed class ApiToolApprovalTests
             method = "POST",
             path = "notes",
             query_json = "",
-            body_json = "{\\"text\\":\\"approved note\\"}"
+            body_json = JsonSerializer.Serialize(new { text = "approved note" })
         });
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
