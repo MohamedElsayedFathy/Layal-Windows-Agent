@@ -1165,7 +1165,6 @@ public sealed class BrowserAutomationService
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=tag==='input'?(e.getAttribute('accept')||''):'',multiple=tag==='input'&&e.multiple===true;" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
-            "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
             "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible, is outside the viewport, or is hidden from assistive technology.'});" +
             "if(disabled)return JSON.stringify({found:false,error:'The selected element is disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});" +
