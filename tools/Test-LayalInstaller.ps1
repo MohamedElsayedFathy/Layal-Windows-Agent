@@ -260,11 +260,22 @@ try {
     if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         throw 'Inno Setup uninstaller was not installed.'
     }
-    $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+    $uninstallLogPath = Join-Path $env:TEMP "layal-uninstall-$testId.log"
+    $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$uninstallLogPath") -Wait -PassThru
     if ($uninstall.ExitCode -ne 0) {
+        if (Test-Path -LiteralPath $uninstallLogPath) {
+            Get-Content -LiteralPath $uninstallLogPath | Write-Host
+        }
         throw "Uninstaller failed with exit code $($uninstall.ExitCode)."
     }
+    if (Get-ReminderDispatcherTaskExists -eq $true) {
+        if (Test-Path -LiteralPath $uninstallLogPath) {
+            Get-Content -LiteralPath $uninstallLogPath | Write-Host
+        }
+        throw "Uninstaller returned success but the LayalReminderDispatcher task remains registered. Uninstaller log: $uninstallLogPath"
+    }
     Assert-Uninstalled
+    Remove-Item -LiteralPath $uninstallLogPath -Force -ErrorAction SilentlyContinue
     $testOwnsInstall = $false
     Assert-UserDataSentinel -Stage 'uninstall' -ExpectedContents $sentinelContents
 
