@@ -43,6 +43,58 @@ public sealed class ChatSessionServiceTests
 
 
     [TestMethod]
+    public void GmailDerivedTurnsAreRemovedFromLegacyMigrationAndNeverSavedAgain()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted session persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var legacyPath = System.IO.Path.Combine(temp.Path, "legacy-chat.dpapi");
+        var sessionsPath = System.IO.Path.Combine(temp.Path, "chat-sessions.dpapi");
+        var legacy = new ProtectedJsonStore<List<ChatMessage>>(legacyPath);
+        legacy.Save(new List<ChatMessage>
+        {
+            new() { Role = "user", Content = "Summarize this email\n\n[Gmail email for review]\nsecret-gmail-body" },
+            new() { Role = "assistant", Content = "secret-gmail-derived-summary" },
+            new() { Role = "user", Content = "Keep this ordinary question" },
+            new() { Role = "assistant", Content = "Keep this ordinary answer" }
+        });
+
+        var service = new ChatSessionService(sessionsPath, legacy, "New conversation");
+
+        Assert.AreEqual(2, service.GetCurrent().Messages.Count);
+        Assert.AreEqual("Keep this ordinary question", service.GetCurrent().Messages[0].Content);
+        Assert.AreEqual("Keep this ordinary question", service.GetCurrent().Title);
+        Assert.IsFalse(service.GetCurrent().Messages.Any(message =>
+            message.Content.Contains("secret-gmail", StringComparison.Ordinal)));
+        Assert.AreEqual(0, legacy.Load(new List<ChatMessage>()).Count,
+            "The old single-history file must be deleted only after the sanitized migration has been saved.");
+
+        var normalUser = new ChatMessage { Role = "user", Content = "A later ordinary question" };
+        var transientEmail = new ChatMessage
+        {
+            Role = "user",
+            Content = "[Gmail email for review]\nnew-secret-gmail-body",
+            IsGmailEphemeralData = true
+        };
+        var transientAnswer = new ChatMessage
+        {
+            Role = "assistant",
+            Content = "new-secret-gmail-derived-answer",
+            IsGmailEphemeralData = true
+        };
+        var normalAnswer = new ChatMessage { Role = "assistant", Content = "Ordinary answer" };
+
+        service.SaveCurrentMessages(new[] { normalUser, transientEmail, transientAnswer, normalAnswer });
+
+        var reloaded = new ChatSessionService(sessionsPath, legacy, "New conversation");
+        var savedMessages = reloaded.GetCurrent().Messages;
+        Assert.AreEqual(2, savedMessages.Count);
+        Assert.AreEqual("A later ordinary question", savedMessages[0].Content);
+        Assert.AreEqual("Ordinary answer", savedMessages[1].Content);
+        Assert.IsFalse(savedMessages.Any(message =>
+            message.Content.Contains("gmail", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [TestMethod]
     public void SavingMessagesBoundsMessageCountAndKeepsNewestEntries()
     {
         if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted session persistence uses Windows DPAPI.");
