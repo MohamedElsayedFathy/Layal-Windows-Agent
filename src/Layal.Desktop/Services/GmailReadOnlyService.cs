@@ -706,9 +706,9 @@ public sealed class GmailReadOnlyService
         CancellationToken cancellationToken)
     {
         var extension = Path.GetExtension(safeFileName).ToLowerInvariant();
-        if (extension is not ".pdf" and not ".docx" and not ".xlsx" and
-            extension is not ".png" and not ".jpg" and not ".jpeg" and
-            extension is not ".bmp" and not ".tif" and not ".tiff")
+        if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx" &&
+            extension != ".png" && extension != ".jpg" && extension != ".jpeg" &&
+            extension != ".bmp" && extension != ".tif" && extension != ".tiff")
             throw new NotSupportedException("This Gmail attachment type is not supported for local document or image preview.");
 
         var temporaryPath = Path.Combine(
