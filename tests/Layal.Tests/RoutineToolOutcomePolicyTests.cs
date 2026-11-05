@@ -6,7 +6,7 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class RoutineToolOutcomePolicyTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("User declined file creation. No file was created.")]
     [DataRow("WEB SEARCH NOT SHARED\nStatus: unexpected_redirect")]
     [DataRow("The claim search was completed, but the separate contrary-evidence search was declined. No verification conclusion is possible.")]
@@ -27,7 +27,7 @@ public sealed class RoutineToolOutcomePolicyTests
         Assert.IsTrue(RoutineToolOutcomePolicy.ShouldStopRoutine("  "));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("A web page quotes the words: User declined file creation.")]
     [DataRow("The document says that no direct source opened in the previous example.")]
     [DataRow("The operation completed and returned a verified file path.")]
