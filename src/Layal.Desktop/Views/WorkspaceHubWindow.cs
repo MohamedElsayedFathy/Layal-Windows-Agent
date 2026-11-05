@@ -41,6 +41,7 @@ public sealed class WorkspaceHubWindow : Window
     private readonly Button _restoreButton;
     private readonly ListBox _artifactList;
     private readonly Button _deleteArtifactButton;
+    private string _workspaceIndexWarning = string.Empty;
     private readonly ObservableCollection<WorkspaceEntry> _visible = new();
     private IReadOnlyList<WorkspaceEntry> _all = Array.Empty<WorkspaceEntry>();
 
@@ -143,9 +144,17 @@ public sealed class WorkspaceHubWindow : Window
         _details = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
         AutomationProperties.SetName(_details, isArabic ? "معاينة العنصر المحدد" : "Selected item preview");
         AutomationProperties.SetHelpText(_details, isArabic
-            ? "معاينة محلية فقط. الملفات تعرض بياناتها الوصفية ولا تُقرأ محتوياتها تلقائيًا."
-            : "Local-only preview. Files show metadata; their contents are not read automatically.");
-        Grid.SetRow(_details, 0); right.Children.Add(_details);
+            ? "المعاينة كاملة وقابلة للتمرير. الملفات تعرض بياناتها الوصفية فقط ولا تُقرأ محتوياتها تلقائيًا."
+            : "The full preview is scrollable. Files show metadata only; their contents are not read automatically.");
+        var detailsScroll = new ScrollViewer
+        {
+            Content = _details,
+            MaxHeight = 230,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+        AutomationProperties.SetName(detailsScroll, isArabic ? "منطقة تمرير معاينة مساحة العمل" : "Workspace preview scroll area");
+        Grid.SetRow(detailsScroll, 0); right.Children.Add(detailsScroll);
 
         var artifactsPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         artifactsPanel.Children.Add(new TextBlock
@@ -262,18 +271,24 @@ public sealed class WorkspaceHubWindow : Window
             entries.Add(new WorkspaceEntry("task", task.Id, task.Goal, task.Status,
                 task.UpdatedAt, searchable, task.Result, task, null, null));
         }
-        foreach (var note in _memoryService.GetAll())
+        foreach (var note in _memoryService.GetAll(includeArchived: true))
         {
+            var noteState = note.IsArchived
+                ? (_isArabic ? "مؤرشفة" : "Archived")
+                : (_isArabic ? "نشطة" : "Active");
             entries.Add(new WorkspaceEntry("memory", note.Id, note.Title,
-                _isArabic ? "ملاحظة" : "Memory", note.UpdatedAt,
+                $"{note.Category} · {noteState}", note.UpdatedAt,
                 note.Category + "\n" + note.Title + "\n" + note.Content, note.Content, null, note, null));
         }
         entries.AddRange(IndexWorkspaceFiles());
         _all = entries.OrderByDescending(entry => entry.UpdatedAt).ToList();
         ApplyFilter();
-        _status.Text = _isArabic
-            ? $"الفهرس محلي: {_all.Count(entry => entry.Kind == "task")} مهمة، {_all.Count(entry => entry.Kind == "memory")} ملاحظة، {_all.Count(entry => entry.Kind == "file")} ملف/مجلد. حد الملفات {MaximumWorkspaceFiles}."
-            : $"Local index: {_all.Count(entry => entry.Kind == "task")} tasks, {_all.Count(entry => entry.Kind == "memory")} memories, {_all.Count(entry => entry.Kind == "file")} files/folders. File cap: {MaximumWorkspaceFiles}.";
+        var indexSummary = _isArabic
+            ? $"الفهرس محلي: {_all.Count(entry => entry.Kind == "task")} مهمة، {_all.Count(entry => entry.Kind == "memory")} ملاحظة (بما فيها المؤرشفة)، {_all.Count(entry => entry.Kind == "file")} ملف/مجلد. حد الملفات {MaximumWorkspaceFiles}."
+            : $"Local index: {_all.Count(entry => entry.Kind == "task")} tasks, {_all.Count(entry => entry.Kind == "memory")} memories (including archived), {_all.Count(entry => entry.Kind == "file")} files/folders. File cap: {MaximumWorkspaceFiles}.";
+        _status.Text = string.IsNullOrWhiteSpace(_workspaceIndexWarning)
+            ? indexSummary
+            : indexSummary + Environment.NewLine + _workspaceIndexWarning;
     }
 
     private IEnumerable<WorkspaceEntry> IndexWorkspaceFiles()
@@ -288,7 +303,7 @@ public sealed class WorkspaceHubWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            _status.Text = _isArabic
+            _workspaceIndexWarning = _isArabic
                 ? "توقف فهرس الملفات لأن مسار LayalWorkspace أو أحد مجلداته الأب يحتوي على رابط رمزي أو مسار غير آمن."
                 : "File indexing stopped because LayalWorkspace or one of its parent directories is a symbolic link or unsafe path.";
             return output;
@@ -407,10 +422,10 @@ public sealed class WorkspaceHubWindow : Window
                 (entry.Task?.Artifacts is { Count: > 0 } artifacts
                     ? "\n\n" + (_isArabic ? "الملفات المرتبطة بالمهمة:" : "Task artifacts:") + "\n• " + string.Join("\n• ", artifacts)
                     : string.Empty) +
-                "\n\n" + Truncate(entry.Content, 8000),
+                "\n\n" + entry.Content,
             "memory" => (_isArabic ? "ملاحظة\n" : "Memory\n") + entry.Title +
                 "\n" + (_isArabic ? "آخر تحديث: " : "Updated: ") + entry.UpdatedAt.ToLocalTime().ToString("g") +
-                "\n\n" + Truncate(entry.Content, 8000),
+                "\n\n" + entry.Content,
             _ => (_isArabic ? "عنصر مساحة عمل\n" : "Workspace item\n") + entry.Title +
                 "\n" + entry.Path +
                 "\n" + entry.Subtitle +
