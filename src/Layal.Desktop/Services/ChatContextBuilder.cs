@@ -16,14 +16,19 @@ public static class ChatContextBuilder
         string systemPrompt,
         IEnumerable<ChatMessage> conversation,
         int maxMessages = DefaultMaxMessages,
-        int maxCharacters = DefaultMaxCharacters)
+        int maxCharacters = DefaultMaxCharacters,
+        bool includeEphemeralGmailData = false)
     {
         ArgumentNullException.ThrowIfNull(systemPrompt);
         ArgumentNullException.ThrowIfNull(conversation);
         if (maxMessages < 1) throw new ArgumentOutOfRangeException(nameof(maxMessages));
         if (maxCharacters < 1) throw new ArgumentOutOfRangeException(nameof(maxCharacters));
 
-        var eligible = conversation.Where(message => message.Role is "user" or "assistant").ToList();
+        var eligible = conversation
+            .Where(message =>
+                message.Role is "user" or "assistant" &&
+                (includeEphemeralGmailData || !message.IsGmailEphemeralData))
+            .ToList();
         var selectedNewestFirst = new List<ChatMessage>();
         var characters = 0;
         for (var i = eligible.Count - 1; i >= 0 && selectedNewestFirst.Count < maxMessages; i--)
@@ -71,6 +76,7 @@ public static class ChatContextBuilder
         Content = content,
         DisplayRole = message.DisplayRole,
         CreatedAt = message.CreatedAt,
-        Direction = message.Direction
+        Direction = message.Direction,
+        IsGmailEphemeralData = message.IsGmailEphemeralData
     };
 }
