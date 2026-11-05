@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -115,6 +116,71 @@ public sealed class BrowserAutomationService
             uri.Host.Length == 0)
             throw new InvalidOperationException("Browser navigation only supports absolute HTTP/HTTPS URLs without embedded credentials.");
         return uri;
+    }
+
+    /// <summary>Fact-check source URLs are HTTPS-only, port 443, and never IP literals or local names.</summary>
+    public static Uri ValidateFactCheckSourceUrl(string value)
+    {
+        var uri = ValidateHttpUrl(value);
+        var host = uri.IdnHost.TrimEnd('.').ToLowerInvariant();
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            uri.Port != 443 || string.IsNullOrWhiteSpace(host) || uri.IsLoopback ||
+            IPAddress.TryParse(host, out _) ||
+            host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".local", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".internal", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".test", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".example", StringComparison.OrdinalIgnoreCase) ||
+            uri.AbsolutePath.Length > 2048 || uri.Query.Length > 2048)
+            throw new InvalidOperationException("Fact-check sources must be public HTTPS URLs on the standard port, without local/IP hosts or reserved test domains.");
+        return uri;
+    }
+
+    /// <summary>
+    /// Conservative registrable-domain approximation for common public suffixes. It is used only
+    /// to avoid treating subdomains of the same publisher as independent sources.
+    /// </summary>
+    public static string GetRegistrableDomain(string host)
+    {
+        var normalized = (host ?? string.Empty).Trim().TrimEnd('.').ToLowerInvariant();
+        if (normalized.Length == 0 || IPAddress.TryParse(normalized, out _)) return normalized;
+        var labels = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (labels.Length <= 2) return normalized;
+        var twoLabelSuffixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ac.uk", "co.uk", "gov.uk", "org.uk", "sch.uk",
+            "com.au", "net.au", "org.au", "edu.au", "gov.au",
+            "co.nz", "org.nz", "govt.nz", "ac.nz",
+            "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp",
+            "com.br", "net.br", "org.br", "gov.br",
+            "com.cn", "net.cn", "org.cn", "gov.cn",
+            "com.sg", "com.my", "com.tr", "com.mx", "com.ar",
+            "co.in", "firm.in", "net.in", "org.in", "gen.in", "ind.in"
+        };
+        var suffix = labels[^2] + "." + labels[^1];
+        return string.Join(".", labels[^(twoLabelSuffixes.Contains(suffix) ? 3 : 2)..]);
+    }
+
+    public static bool AreSameRegistrableDomain(string firstHost, string secondHost)
+    {
+        var first = GetRegistrableDomain(firstHost);
+        var second = GetRegistrableDomain(secondHost);
+        return first.Length > 0 && second.Length > 0 &&
+            string.Equals(first, second, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task ValidatePublicHostResolutionAsync(string host, CancellationToken token)
+    {
+        IPAddress[] addresses;
+        try { addresses = await Dns.GetHostAddressesAsync(host, token); }
+        catch (SocketException ex)
+        {
+            throw new InvalidOperationException("The approved source host could not be resolved to a public address.", ex);
+        }
+        if (addresses.Length == 0 || addresses.Any(address => !SafeBrowserDownloadService.IsPublicAddress(address)))
+            throw new InvalidOperationException("The approved source host resolves to a private, local, reserved, or otherwise non-public IP address. No navigation was performed.");
     }
 
     public static string ValidateCssSelector(string value)
@@ -353,6 +419,97 @@ public sealed class BrowserAutomationService
     /// Reads only the active tab identity (target id, URL, title and ready state) for a consent
     /// preview. It does not extract visible page text or DOM element content.
     /// </summary>
+    /// <summary>
+    /// Opens one user-approved direct source and captures its page in a single browser-gated
+    /// operation. The final page must remain HTTPS on the same registrable domain, resolve only
+    /// to public IP addresses, and remain the same tab/URL/title throughout the snapshot.
+    /// </summary>
+    public async Task<string> NavigateAndReadEvidencePageAsync(string url, string expectedHost, CancellationToken token = default)
+    {
+        var targetUrl = ValidateFactCheckSourceUrl(url);
+        var expectedDomain = GetRegistrableDomain(expectedHost);
+        if (!string.Equals(GetRegistrableDomain(targetUrl.IdnHost), expectedDomain, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The approved source URL does not match its expected publisher domain.");
+
+        await ValidatePublicHostResolutionAsync(targetUrl.IdnHost, token);
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
+        await _gate.WaitAsync(token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            await EnsureBrowserStartedAsync(token);
+            var page = await GetPageTargetAsync(token);
+            var response = await SendCommandAsync(page, "Page.navigate", new JsonObject { ["url"] = targetUrl.AbsoluteUri }, token);
+            var errorText = response["result"]?["errorText"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(errorText))
+                throw new InvalidOperationException("Fact-check source navigation failed: " + errorText);
+
+            var loaded = false;
+            for (var attempt = 0; attempt < 12; attempt++)
+            {
+                token.ThrowIfCancellationRequested();
+                await Task.Delay(250, token);
+                try
+                {
+                    var readyState = await EvaluateAsync(page, "document.readyState", token);
+                    if (readyState is "interactive" or "complete") { loaded = true; break; }
+                }
+                catch (Exception ex) when (ex is HttpRequestException or WebSocketException or TimeoutException or InvalidOperationException)
+                {
+                    var refreshed = await GetPageTargetAsync(token);
+                    if (!string.Equals(refreshed.Id, page.Id, StringComparison.Ordinal))
+                        throw new InvalidOperationException("The dedicated browser tab changed while the approved source was loading. No page content was shared.");
+                    page = refreshed;
+                }
+            }
+
+            token.ThrowIfCancellationRequested();
+            if (!loaded)
+                throw new TimeoutException("The approved source page did not reach an interactive or complete document state.");
+
+            var initialUrlText = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var initialTitle = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var finalUrl = ValidateFactCheckSourceUrl(initialUrlText);
+            if (!AreSameRegistrableDomain(targetUrl.IdnHost, finalUrl.IdnHost))
+                throw new InvalidOperationException("The approved source redirected to a different publisher domain. The redirected page was not read or shared.");
+
+            var snapshot = await ReadPageSnapshotAsync(page, token);
+            token.ThrowIfCancellationRequested();
+            var currentUrl = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var currentTitle = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var activePage = await GetPageTargetAsync(token);
+            if (!string.Equals(activePage.Id, page.Id, StringComparison.Ordinal) ||
+                !string.Equals(snapshot.Url, initialUrlText, StringComparison.Ordinal) ||
+                !string.Equals(snapshot.Title, initialTitle, StringComparison.Ordinal) ||
+                !string.Equals(currentUrl, initialUrlText, StringComparison.Ordinal) ||
+                !string.Equals(currentTitle, initialTitle, StringComparison.Ordinal))
+                throw new InvalidOperationException("The source tab or page changed while its evidence was being read. The snapshot was discarded.");
+
+            var output = new JsonObject
+            {
+                ["title"] = snapshot.Title,
+                ["url"] = finalUrl.AbsoluteUri,
+                ["readyState"] = snapshot.ReadyState,
+                ["visibleText"] = snapshot.Text,
+                ["links"] = JsonNode.Parse(snapshot.LinksJson) ?? new JsonArray(),
+                ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson) ?? new JsonArray(),
+                ["fields"] = JsonNode.Parse(snapshot.FieldsJson) ?? new JsonArray(),
+                ["formCount"] = snapshot.FormCount,
+                ["author"] = snapshot.Author,
+                ["publishedDate"] = snapshot.PublishedDate,
+                ["modifiedDate"] = snapshot.ModifiedDate,
+                ["visibleTimeDate"] = snapshot.VisibleTimeDate,
+                ["visibleTimes"] = JsonNode.Parse(snapshot.VisibleTimesJson) ?? new JsonArray(),
+                ["siteName"] = snapshot.SiteName,
+                ["description"] = snapshot.Description,
+                ["capturedAtUtc"] = DateTimeOffset.UtcNow.ToString("O")
+            };
+            return output.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task<BrowserPageIdentity> GetCurrentPageIdentityAsync(CancellationToken token = default)
     {
         using var operationCancellation = CreateOperationToken(token);
