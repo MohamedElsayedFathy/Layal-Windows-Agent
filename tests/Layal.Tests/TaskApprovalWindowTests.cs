@@ -43,6 +43,34 @@ public sealed class TaskApprovalWindowTests
             ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
+
+    [TestMethod]
+    public void ClosingApprovalDialogThroughWindowChromeDeclinesOnlyTheAction()
+    {
+        using var cancellation = new CancellationTokenSource();
+        Exception? failure = null;
+
+        RunOnSta(() =>
+        {
+            TaskApprovalWindow? dialog = null;
+            try
+            {
+                dialog = new TaskApprovalWindow(false, "Delete record", "Review the exact record and effect.", cancellation.Cancel);
+                dialog.Loaded += (_, _) => dialog.Close();
+
+                Assert.IsFalse(dialog.ShowForApproval(cancellation.Token),
+                    "Closing the approval window must be treated as a decline.");
+                Assert.IsFalse(cancellation.IsCancellationRequested,
+                    "Closing one approval must not cancel the whole agent task.");
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { dialog?.Close(); }
+        });
+
+        if (failure is not null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
     [TestMethod]
     public void PreCancelledTokenRejectsApprovalBeforeShowingDialog()
     {

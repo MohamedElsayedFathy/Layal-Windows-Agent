@@ -609,6 +609,26 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task DotnetOperationRejectsProjectChangedWhileApprovalIsOpen()
+    {
+        using var temp = new TestTempDirectory();
+        var projectPath = Path.Combine(temp.Path, "TrustedProject.csproj");
+        File.WriteAllText(projectPath, "<Project />");
+        var executor = CreateExecutor(temp.Path);
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => executor.ExecuteAsync(
+            "run_dotnet_build",
+            """{"project_file":"TrustedProject.csproj","configuration":"Debug"}""",
+            (_, _, _) =>
+            {
+                File.WriteAllText(projectPath, """<Project><Target Name="Changed" /></Project>""");
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+    }
+
+    [TestMethod]
     public async Task NativeTextEntryRequiresWindowInspectionOptInBeforeLookingForAWindow()
     {
         var previousSettings = Layal.AppRuntime.Settings;

@@ -125,11 +125,10 @@ public static class WindowsUiAutomationService
     /// <summary>Invokes one exact control and performs a bounded, metadata-only follow-up observation.</summary>
     public static Task<UiInvokeOutcome> InvokeControlAsync(
         UiWindowTarget target,
-        string controlType,
-        string automationId,
+        UiInvokePreview approvedPreview,
         CancellationToken cancellationToken = default) =>
         RunBoundedAutomationAsync(
-            () => InvokeControl(target, controlType, automationId),
+            () => InvokeControl(target, approvedPreview),
             cancellationToken,
             "Waiting for the UI action exceeded 8 seconds. The action may have been delivered; inspect the target application before retrying. Layal will not queue a second UI Automation operation until the original operation exits.");
 
@@ -450,24 +449,56 @@ public static class WindowsUiAutomationService
         if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern) || pattern is not InvokePattern)
             throw new InvalidOperationException("The selected control does not expose the UI Automation InvokePattern. No action was performed.");
 
+        var safeName = SafeNamedControlTypesForActions.Contains(programmaticType) ? Sanitize(info.Name, 100) : string.Empty;
+        var runtimeId = GetRuntimeId(element);
+        if (string.IsNullOrWhiteSpace(runtimeId))
+            throw new InvalidOperationException("Windows UI Automation did not provide a stable runtime identifier for the selected control. No action was performed.");
+
         return new UiInvokePreview(
             target.Title,
             target.ProcessId,
             DisplayControlType(programmaticType),
-            SafeNamedControlTypesForActions.Contains(programmaticType) ? Sanitize(info.Name, 100) : string.Empty,
+            safeName,
             automationId,
-            info.IsEnabled);
+            info.IsEnabled,
+            runtimeId);
     }
 
-    private static UiInvokeOutcome InvokeControl(UiWindowTarget target, string controlType, string automationId)
+    public static bool MatchesApprovedInvokeTarget(
+        UiInvokePreview approval,
+        UiWindowTarget target,
+        string currentRuntimeId,
+        string currentName,
+        bool isEnabled)
     {
-        var preview = PreviewInvokeControl(target, controlType, automationId);
-        var programmaticType = NormalizeInvokeControlType(controlType);
+        ArgumentNullException.ThrowIfNull(approval);
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Handle != IntPtr.Zero &&
+               string.Equals(approval.WindowTitle, target.Title, StringComparison.Ordinal) &&
+               approval.ProcessId == target.ProcessId &&
+               approval.IsEnabled && isEnabled &&
+               !string.IsNullOrWhiteSpace(approval.RuntimeId) &&
+               string.Equals(approval.RuntimeId, currentRuntimeId, StringComparison.Ordinal) &&
+               string.Equals(approval.Name, currentName, StringComparison.Ordinal);
+    }
+
+    private static UiInvokeOutcome InvokeControl(UiWindowTarget target, UiInvokePreview preview)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+        if (!string.Equals(preview.WindowTitle, target.Title, StringComparison.Ordinal) ||
+            preview.ProcessId != target.ProcessId)
+            throw new InvalidOperationException("The approved control belongs to a different window. No action was performed.");
+
+        var programmaticType = NormalizeInvokeControlType(preview.ControlType);
         var element = FindUniqueActionControl(target, programmaticType, preview.AutomationId);
         var info = element.Current;
+        var currentName = SafeNamedControlTypesForActions.Contains(programmaticType) ? Sanitize(info.Name, 100) : string.Empty;
+        var currentRuntimeId = GetRuntimeId(element);
 
-        if (!info.IsEnabled || info.IsOffscreen || info.IsPassword)
-            throw new InvalidOperationException("The selected control became disabled, offscreen, or protected before invocation. No action was performed.");
+        if (!MatchesApprovedInvokeTarget(preview, target, currentRuntimeId, currentName, info.IsEnabled))
+            throw new InvalidOperationException("The approved UI control changed while awaiting confirmation. No action was performed; inspect it again and approve the new target.");
+        if (info.IsOffscreen || info.IsPassword)
+            throw new InvalidOperationException("The selected control became offscreen or protected before invocation. No action was performed.");
         if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern) || pattern is not InvokePattern invokePattern)
             throw new InvalidOperationException("The selected control no longer exposes InvokePattern. No action was performed.");
 
@@ -509,6 +540,9 @@ public static class WindowsUiAutomationService
             controlStillPresent,
             controlStillEnabled);
     }
+
+    private static string GetRuntimeId(AutomationElement element) =>
+        string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
     private static AutomationElement FindUniqueActionControl(
         UiWindowTarget target,
@@ -982,7 +1016,8 @@ public sealed record UiInvokePreview(
     string ControlType,
     string Name,
     string AutomationId,
-    bool IsEnabled);
+    bool IsEnabled,
+    string RuntimeId);
 
 public sealed record UiInvokeOutcome(
     string WindowTitle,
