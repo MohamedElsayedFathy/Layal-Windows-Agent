@@ -365,6 +365,14 @@ public partial class MainWindow : Window
 
     private void GmailInboxButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_incognitoMode)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "تكامل Gmail غير متاح أثناء وضع Incognito. اخرج من الوضع الخاص أولًا."
+                : "Gmail integration is unavailable while Incognito is active. Exit private mode first.");
+            return;
+        }
+
         try
         {
             var window = new GmailInboxWindow(
@@ -714,6 +722,13 @@ public partial class MainWindow : Window
         QuickAskButton.ToolTip = _incognitoMode
             ? (ar ? "السؤال السريع متوقف أثناء المحادثة الخاصة." : "Quick Ask is disabled during private chat.")
             : (ar ? "افتح نافذة سؤال سريع مستقلة." : "Open a separate Quick Ask window.");
+        GmailInboxButton.IsEnabled = !_incognitoMode;
+        GmailInboxButton.ToolTip = _incognitoMode
+            ? (ar ? "تكامل Gmail متوقف أثناء المحادثة الخاصة." : "Gmail is disabled during private chat.")
+            : (ar ? "عرض بريد Gmail محليًا بصلاحية قراءة فقط؛ لا تتم مشاركته تلقائيًا." : "Preview Gmail locally with read-only access; messages are not shared automatically.");
+        AutomationProperties.SetHelpText(GmailInboxButton, _incognitoMode
+            ? (ar ? "غير متاح أثناء Incognito. اخرج من المحادثة الخاصة أولًا." : "Unavailable during Incognito. Exit private chat first.")
+            : (ar ? "قراءة فقط. إضافة المحتوى إلى مسودة الشات تتطلب تأكيدًا، والإرسال إلى مزود AI يتطلب ضغط Send يدويًا." : "Read-only. Adding content to chat draft requires confirmation, and sending to the AI provider requires an explicit manual Send."));
     }
 
     private void OpenQuickAskWindow()
