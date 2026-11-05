@@ -666,9 +666,15 @@ public sealed class GmailReadOnlyService
                         }
                     }
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException or DllNotFoundException or BadImageFormatException or TypeInitializationException)
+                catch (Exception ex) when (
+                    ex is not OperationCanceledException &&
+                    ex is not OutOfMemoryException &&
+                    ex is not StackOverflowException &&
+                    ex is not AccessViolationException)
                 {
-                    status = "Preview unavailable: the read-only attachment request failed.";
+                    // A malformed or unsupported attachment must not prevent the user from
+                    // reading the message or the remaining attachments. Cancellation still propagates.
+                    status = "Preview unavailable: the attachment could not be safely parsed locally.";
                 }
             }
 
@@ -753,7 +759,12 @@ public sealed class GmailReadOnlyService
             if (inlineData.Length > MaximumAttachmentBytes * 2)
                 return null;
             var bytes = FromBase64Url(inlineData);
-            return bytes.Length <= MaximumAttachmentBytes ? bytes : null;
+            if (bytes.Length <= MaximumAttachmentBytes)
+                return bytes;
+
+            // Decoded content is untrusted and may exceed the sender-reported size.
+            CryptographicOperations.ZeroMemory(bytes);
+            return null;
         }
 
         if (string.IsNullOrWhiteSpace(attachmentId) || attachmentId.Length > 200 ||
@@ -770,7 +781,11 @@ public sealed class GmailReadOnlyService
         if (data.Length == 0 || data.Length > MaximumAttachmentBytes * 2)
             return null;
         var result = FromBase64Url(data);
-        return result.Length <= MaximumAttachmentBytes ? result : null;
+        if (result.Length <= MaximumAttachmentBytes)
+            return result;
+
+        CryptographicOperations.ZeroMemory(result);
+        return null;
     }
 
     private static void AppendPlainTextParts(JsonElement part, StringBuilder builder)
@@ -855,6 +870,14 @@ public sealed class GmailReadOnlyService
         }
     }
 
-    private static string Truncate(string value, int maximum) =>
-        string.IsNullOrEmpty(value) || value.Length <= maximum ? value : value[..maximum] + "…";
+    private static string Truncate(string value, int maximum)
+    {
+        if (string.IsNullOrEmpty(value) || maximum <= 0)
+            return string.Empty;
+        if (value.Length <= maximum)
+            return value;
+
+        // The ellipsis is part of the documented limit, not an extra character.
+        return maximum == 1 ? "…" : value[..(maximum - 1)] + "…";
+    }
 }
