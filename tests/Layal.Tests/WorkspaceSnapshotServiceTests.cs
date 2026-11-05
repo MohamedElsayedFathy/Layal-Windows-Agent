@@ -293,7 +293,7 @@ public sealed class WorkspaceSnapshotServiceTests
         Assert.AreEqual(1, preview.FilesWithContent);
         var embeddedPreview = preview.FileEntries!.Single();
         Assert.AreEqual("report.txt", embeddedPreview.RelativePath);
-        Assert.AreEqual("RESTORABLE_WORKSPACE_CONTENT".Length, embeddedPreview.SizeBytes);
+        Assert.AreEqual((long)"RESTORABLE_WORKSPACE_CONTENT".Length, embeddedPreview.SizeBytes);
         Assert.IsTrue(embeddedPreview.HasContent);
         Assert.IsFalse(embeddedPreview.IsDirectory);
 
