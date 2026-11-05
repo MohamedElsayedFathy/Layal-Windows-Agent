@@ -59,16 +59,22 @@ public sealed class TaskHistoryArtifactTests
         var history = new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi"));
         var removedTaskId = Guid.NewGuid().ToString("N");
         var now = DateTimeOffset.Now;
-        var records = Enumerable.Range(0, 101).Select(index => new AgentTaskRecord
+        var records = Enumerable.Range(0, 100).Select(index => new AgentTaskRecord
         {
             Id = index == 0 ? removedTaskId : Guid.NewGuid().ToString("N"),
             Goal = $"Retained task {index}",
             Status = "Completed",
-            CreatedAt = now.AddMinutes(index),
-            UpdatedAt = now.AddMinutes(index)
+            CreatedAt = index == 0 ? now.AddDays(-2) : now.AddMinutes(index),
+            UpdatedAt = index == 0 ? now.AddDays(-2) : now.AddMinutes(index)
         }).ToArray();
 
-        history.ImportManyWithIds(records.Skip(1));
+        history.ImportManyWithIds(records);
+        history.Upsert(new AgentTaskRecord
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Goal = "Newest task pushes the oldest record out of the 100-task retention window",
+            Status = "Completed"
+        });
 
         var withMissingLink = history.GetRecentWithSelectedTask(removedTaskId, 30);
         Assert.AreEqual(30, withMissingLink.Count);
