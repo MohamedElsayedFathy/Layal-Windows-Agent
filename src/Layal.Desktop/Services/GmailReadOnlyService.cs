@@ -117,7 +117,6 @@ public sealed class GmailReadOnlyService
             ["scope"] = GmailReadOnlyScope,
             ["access_type"] = "offline",
             ["prompt"] = "consent",
-            ["include_granted_scopes"] = "true",
             ["state"] = state,
             ["code_challenge"] = challenge,
             ["code_challenge_method"] = "S256"
