@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media.Media3D;
 using Layal.Models;
 using Layal.Views;
