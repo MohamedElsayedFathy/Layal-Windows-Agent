@@ -170,8 +170,8 @@ public sealed class SavedRoutineManagerWindow : Window
         };
         AutomationProperties.SetName(_list, isArabic ? "قائمة الروتينات المحفوظة" : "Saved routines list");
         AutomationProperties.SetHelpText(_list, isArabic
-            ? "حدد قالبًا ثم أدرجه في مسودة المهمة أو احذفه."
-            : "Select a template to load into the task draft or delete it.");
+            ? "حدد روتينًا لمراجعة بياناته، أو إدراجه في مسودة، أو تشغيله بعد تأكيد الخطة. الحذف يتطلب تأكيدًا."
+            : "Select a routine to review its details, load it into a draft, or run it after plan confirmation. Deletion requires confirmation.");
         _list.SelectionChanged += (_, _) => UpdateSelectedPreview();
         Grid.SetRow(_list, 2);
         root.Children.Add(_list);
