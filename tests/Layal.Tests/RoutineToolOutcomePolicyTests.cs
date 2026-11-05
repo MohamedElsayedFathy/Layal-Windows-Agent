@@ -8,6 +8,7 @@ public sealed class RoutineToolOutcomePolicyTests
 {
     [DataTestMethod]
     [DataRow("User declined file creation. No file was created.")]
+    [DataRow("WEB SEARCH NOT SHARED\nStatus: unexpected_redirect")]
     [DataRow("The claim search was completed, but the separate contrary-evidence search was declined. No verification conclusion is possible.")]
     [DataRow("No direct source opened: the dedicated browser is unavailable.")]
     [DataRow("No eligible direct HTTPS source candidate on a new registrable domain was found.")]
