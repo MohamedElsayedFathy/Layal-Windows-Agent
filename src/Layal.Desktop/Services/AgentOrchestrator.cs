@@ -63,6 +63,7 @@ public sealed class AgentOrchestrator
         };
         var toolDefinitions = _tools.GetToolDefinitions();
         var toolCount = 0;
+        var completedToolCalls = 0;
         var hadToolErrorsOrDeclinedActions = false;
 
         try
@@ -94,6 +95,8 @@ public sealed class AgentOrchestrator
 
                 messages.Add((JsonObject)turn.AssistantMessage.DeepClone());
                 if (!string.IsNullOrWhiteSpace(turn.Content)) Log("Model provided an intermediate note before requesting tools.");
+                Log($"Tool batch planned: {turn.ToolCalls.Count}|{completedToolCalls}");
+                var completedInBatch = 0;
 
                 foreach (var call in turn.ToolCalls)
                 {
@@ -108,6 +111,7 @@ public sealed class AgentOrchestrator
                         return task;
                     }
 
+                    Log($"Tool step started: {completedInBatch + 1}|{turn.ToolCalls.Count}|{completedToolCalls}");
                     Log($"Tool requested: {call.Name} ({toolCount}/{MaxToolCalls}).");
                     var toolActionFailed = false;
                     string output;
@@ -156,6 +160,9 @@ public sealed class AgentOrchestrator
                         ["content"] = output
                     });
                     Log($"Tool result recorded: {call.Name}.");
+                    completedInBatch++;
+                    completedToolCalls++;
+                    Log($"Progress update: {completedInBatch}|{turn.ToolCalls.Count}|{turn.ToolCalls.Count - completedInBatch}|{completedToolCalls}");
                     if (stopAfterToolFailureOrDecline && toolActionFailed)
                     {
                         task.Status = "Stopped";
@@ -170,6 +177,14 @@ public sealed class AgentOrchestrator
             task.Status = "Failed";
             task.Result = $"Execution stopped after the {MaxModelRounds}-round model limit. Review the activity log and split the request into smaller tasks.";
             Log(task.Result);
+            _history.Upsert(task);
+            return task;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            task.Status = "Failed";
+            task.Result = "An external operation timed out or stopped independently of the user's cancellation request. The task is incomplete; review the activity log before retrying.";
+            Log("External operation timed out or stopped independently; the task was marked Failed, not Cancelled.");
             _history.Upsert(task);
             return task;
         }

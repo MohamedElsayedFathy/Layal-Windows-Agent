@@ -135,6 +135,33 @@ public static class UiLocalization
         if (message == "Task cancelled by the user.")
             return isArabic ? "ألغى المستخدم المهمة." : message;
 
+        if (message.StartsWith("Tool batch planned: ", StringComparison.Ordinal))
+        {
+            var parts = message["Tool batch planned: ".Length..].Split('|');
+            if (parts.Length == 2)
+                return isArabic
+                    ? $"خطة دفعة الأدوات: {parts[0]} خطوة؛ سبق معالجة {parts[1]} خطوة."
+                    : $"Tool batch planned: {parts[0]} step(s); {parts[1]} already processed.";
+        }
+
+        if (message.StartsWith("Tool step started: ", StringComparison.Ordinal))
+        {
+            var parts = message["Tool step started: ".Length..].Split('|');
+            if (parts.Length == 3)
+                return isArabic
+                    ? $"بدء الخطوة {parts[0]} من {parts[1]}؛ سبق معالجة {parts[2]} خطوة."
+                    : $"Starting step {parts[0]} of {parts[1]}; {parts[2]} previously processed.";
+        }
+
+        if (message.StartsWith("Progress update: ", StringComparison.Ordinal))
+        {
+            var parts = message["Progress update: ".Length..].Split('|');
+            if (parts.Length == 4)
+                return isArabic
+                    ? $"التقدم: {parts[0]} من {parts[1]} خطوات عولجت في الدفعة؛ المتبقي {parts[2]}؛ الإجمالي {parts[3]}."
+                    : $"Progress: {parts[0]} of {parts[1]} steps processed in the batch; {parts[2]} remaining; {parts[3]} total.";
+        }
+
         if (message.StartsWith("Tool requested: ", StringComparison.Ordinal))
             return isArabic ? "طلبت المهمة الأداة: " + message["Tool requested: ".Length..] : "Tool requested: " + message["Tool requested: ".Length..];
 

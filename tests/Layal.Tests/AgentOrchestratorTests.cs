@@ -367,6 +367,70 @@ public sealed class AgentOrchestratorTests
         CollectionAssert.AreEqual(new[] { "reports/summary.txt" }, persisted.Artifacts);
         Assert.IsTrue(Directory.EnumerateFiles(Path.Combine(workspace, ".layal-backups")).Any(),
             "The approved replacement should keep the source backup.");
+        Assert.IsTrue(task.Events.Any(line => line.Contains("Tool batch planned: 1|0", StringComparison.Ordinal)));
+        Assert.IsTrue(task.Events.Any(line => line.Contains("Progress update: 1|1|0|1", StringComparison.Ordinal)));
+        Assert.IsTrue(task.Events.Any(line => line.Contains("Tool batch planned: 1|1", StringComparison.Ordinal)));
+        Assert.IsTrue(task.Events.Any(line => line.Contains("Progress update: 1|1|0|2", StringComparison.Ordinal)));
+        CollectionAssert.AreEqual(persisted.Events.ToArray(), task.Events.ToArray(),
+            "The completed/remaining progress trail must be persisted with the task.");
+    }
+
+    [TestMethod]
+    public async Task ProviderTimeoutIsMarkedFailedRatherThanUserCancelled()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(new HangingResponseHandler())
+        {
+            Timeout = TimeSpan.FromMilliseconds(150)
+        });
+        var tools = new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+
+        var task = await orchestrator.RunTaskAsync(
+            "Wait for a provider response that times out",
+            "https://provider.example/v1", "test-model", "test-key", Array.Empty<SkillRecord>(),
+            (_, _, _) => Task.FromResult(true), _ => { }, CancellationToken.None);
+
+        Assert.AreEqual("Failed", task.Status, string.Join(Environment.NewLine, task.Events));
+        StringAssert.Contains(task.Result, "timed out");
+        Assert.IsFalse(task.Status == "Cancelled", "A provider timeout is not a user cancellation.");
+        Assert.AreEqual("Failed", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
+    }
+
+    [TestMethod]
+    public async Task UserCancellationDuringProviderRequestRemainsCancelled()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(new HangingResponseHandler())
+        {
+            Timeout = TimeSpan.FromSeconds(10)
+        });
+        var tools = new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+
+        var task = await orchestrator.RunTaskAsync(
+            "Cancel while waiting for the provider",
+            "https://provider.example/v1", "test-model", "test-key", Array.Empty<SkillRecord>(),
+            (_, _, _) => Task.FromResult(true), _ => { }, cancellation.Token);
+
+        Assert.AreEqual("Cancelled", task.Status, string.Join(Environment.NewLine, task.Events));
+        Assert.IsTrue(cancellation.IsCancellationRequested);
+        Assert.AreEqual("Cancelled", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
     }
 
 
@@ -495,6 +559,16 @@ public sealed class AgentOrchestratorTests
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")
             });
+        }
+    }
+
+    private sealed class HangingResponseHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.AreEqual(HttpMethod.Post, request.Method);
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("The hanging response unexpectedly completed.");
         }
     }
 }
