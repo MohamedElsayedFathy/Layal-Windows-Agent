@@ -11,7 +11,10 @@ public sealed class UserSettings
     /// <summary>Validated global shortcut preset for the Quick Ask window.</summary>
     public string QuickAskHotkeyPreset { get; set; } = "AltShiftS";
     public string WeatherLocation { get; set; } = string.Empty;
-    public bool UseAutomaticLocation { get; set; } = true;
+    /// <summary>Automatic device location is off until the user explicitly opts in.</summary>
+    public bool UseAutomaticLocation { get; set; } = false;
+    /// <summary>Records the user's explicit disclosure consent before device coordinates may be sent to Open-Meteo.</summary>
+    public bool AutomaticLocationConsentConfirmed { get; set; } = false;
     public string ProviderBaseUrl { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
     public bool UseLocalAi { get; set; } = true;
@@ -56,6 +59,7 @@ public sealed class UserSettings
         QuickAskHotkeyPreset = QuickAskHotkeyPreset,
         WeatherLocation = WeatherLocation,
         UseAutomaticLocation = UseAutomaticLocation,
+        AutomaticLocationConsentConfirmed = AutomaticLocationConsentConfirmed,
         ProviderBaseUrl = ProviderBaseUrl,
         ModelId = ModelId,
         UseLocalAi = UseLocalAi,
@@ -93,6 +97,7 @@ public sealed class UserSettings
         QuickAskHotkeyPreset = source.QuickAskHotkeyPreset;
         WeatherLocation = source.WeatherLocation;
         UseAutomaticLocation = source.UseAutomaticLocation;
+        AutomaticLocationConsentConfirmed = source.AutomaticLocationConsentConfirmed;
         ProviderBaseUrl = source.ProviderBaseUrl;
         ModelId = source.ModelId;
         UseLocalAi = source.UseLocalAi;
