@@ -10,6 +10,7 @@ public static class RoutineToolOutcomePolicy
     private static readonly string[] FailurePrefixes =
     {
         "User declined",
+        "WEB SEARCH NOT SHARED",
         "The claim search was completed, but the separate contrary-evidence search was declined.",
         "No direct source opened:",
         "No eligible direct HTTPS source candidate",
