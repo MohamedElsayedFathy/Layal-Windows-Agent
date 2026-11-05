@@ -166,6 +166,25 @@ public sealed class ApiConnectionService
         var uri = BuildRequestUri(profile, path, queryJson);
         var approvedBody = NormalizeApprovedRequestBody(verb, bodyJson);
         var display = $"Connection: {profile.Name}{Environment.NewLine}Method: {verb}{Environment.NewLine}URL: {uri.AbsoluteUri}";
+        if (profile.AuthenticationType == "None")
+            display += Environment.NewLine + "Authentication: none";
+        else if (profile.AuthenticationType == "Bearer")
+            display += Environment.NewLine + "Authentication: Bearer token (secret value hidden)";
+        else
+            display += Environment.NewLine + $"Authentication: custom header '{profile.AuthHeaderName}' (secret value hidden)";
+        if (!string.IsNullOrWhiteSpace(profile.AdditionalHeadersJson))
+        {
+            var headers = JsonNode.Parse(profile.AdditionalHeadersJson) as JsonObject
+                ?? throw new InvalidOperationException("Additional headers must be a JSON object of string values.");
+            var headerLines = headers.Select(item =>
+            {
+                var value = item.Value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var headerValue)
+                    ? headerValue
+                    : throw new InvalidOperationException($"Additional header '{item.Key}' must have a string value.");
+                return item.Key + ": " + value;
+            });
+            display += Environment.NewLine + "Additional non-secret headers sent:" + Environment.NewLine + string.Join(Environment.NewLine, headerLines);
+        }
         if (approvedBody.Length > 0)
             display += Environment.NewLine + "Exact JSON body to send:" + Environment.NewLine + approvedBody;
         if (uri.Scheme == Uri.UriSchemeHttp && profile.AuthenticationType != "None")

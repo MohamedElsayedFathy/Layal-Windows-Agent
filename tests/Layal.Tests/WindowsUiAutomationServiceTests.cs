@@ -117,10 +117,17 @@ public sealed class WindowsUiAutomationServiceTests
     {
         var window = new UiWindowTarget(new IntPtr(123), "Approved App", 4242);
         var preview = new UiInvokePreview(
-            "Approved App", 4242, "Button", "Save", "saveButton", true, "7,8,9");
+            new IntPtr(123), "Approved App", 4242, "Button", "Save", "saveButton", true, "7,8,9");
 
         Assert.IsTrue(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
             preview, window, "7,8,9", "Save", isEnabled: true));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, new UiWindowTarget(new IntPtr(124), "Approved App", 4242), "7,8,9", "Save", isEnabled: true),
+            "A different HWND in the same process/title must not inherit approval.");
+        Assert.IsTrue(WindowsUiAutomationService.MatchesApprovedWindowTarget(
+            "Approved App", 4242, new IntPtr(123), window));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedWindowTarget(
+            "Approved App", 4242, new IntPtr(124), window));
         Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
             preview, window, "7,8,10", "Save", isEnabled: true),
             "A replacement control with the same AutomationId must not inherit approval.");

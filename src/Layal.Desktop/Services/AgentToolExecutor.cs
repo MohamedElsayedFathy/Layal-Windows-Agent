@@ -1336,7 +1336,7 @@ public sealed class AgentToolExecutor
         if (_browser is null)
             throw new InvalidOperationException("The dedicated browser service is not initialized.");
         var preview = await _browser.PreviewElementAsync(selector, "click", token);
-        var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nElement: {preview.Tag}\nLabel/name: {Truncate(preview.Label, 160)}\nText: {Truncate(preview.Text, 160)}\nLink URL: {Truncate(preview.Href, 500)}";
+        var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nElement: {preview.Tag}\nLabel/name: {Truncate(preview.Label, 160)}\nText: {Truncate(preview.Text, 160)}\nLink URL: {preview.Href}";
         if (!await confirm("Click browser element", "Dispatch one click to this visible standalone link/button? Submit/reset controls and all elements inside or associated with an HTML form are blocked. A page click handler can still navigate, send a request, change a remote record, or trigger another site effect. Verify the page, destination, and button purpose before approving.\n\n" + details, token))
             return "User declined browser click. No click was dispatched.";
         token.ThrowIfCancellationRequested();
@@ -1419,7 +1419,7 @@ public sealed class AgentToolExecutor
         var approvedProjectHash = await ComputeFileSha256Async(projectPath, token);
         var dotnetPath = ResolveTrustedDotnetExecutable();
         if (!await confirm($"Run dotnet {verb}",
-                $"Run the fixed .NET CLI host at '{dotnetPath}' with the '{verb}' verb on '{Path.GetRelativePath(_workspaceRoot, projectPath)}' using {configuration}? Build/test targets can execute arbitrary project-defined code and may restore packages from the internet. Only continue if you trust every file and dependency in this project.",
+                $"Run the fixed .NET CLI host at '{dotnetPath}' with the '{verb}' verb on '{Path.GetRelativePath(_workspaceRoot, projectPath)}' using {configuration}?\nApproved project SHA-256: {approvedProjectHash}\nBuild/test targets can execute arbitrary project-defined code and may restore packages from the internet. Only continue if you trust every file and dependency in this project.",
                 token))
             return "User declined the build/test operation.";
         token.ThrowIfCancellationRequested();

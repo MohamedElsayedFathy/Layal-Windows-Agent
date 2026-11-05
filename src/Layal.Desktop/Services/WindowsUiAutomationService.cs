@@ -203,16 +203,15 @@ public static class WindowsUiAutomationService
         var runtimeId = string.Join(",", element.GetRuntimeId().Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         if (string.IsNullOrWhiteSpace(runtimeId))
             throw new InvalidOperationException("Windows UI Automation did not provide a stable runtime identifier for the selected field. No value was set.");
-        return new UiTextEntryPreview(target.Title, target.ProcessId, automationId, runtimeId, info.IsEnabled, valuePattern.Current.IsReadOnly);
+        return new UiTextEntryPreview(target.Handle, target.Title, target.ProcessId, automationId, runtimeId, info.IsEnabled, valuePattern.Current.IsReadOnly);
     }
 
     private static UiTextEntryOutcome SetText(UiWindowTarget target, UiTextEntryPreview preview, string value)
     {
         ArgumentNullException.ThrowIfNull(preview);
         _ = ValidateUiText(value);
-        if (!string.Equals(preview.WindowTitle, target.Title, StringComparison.Ordinal) ||
-            preview.ProcessId != target.ProcessId)
-            throw new InvalidOperationException("The approved text-field target does not match the selected window. No value was set.");
+        if (!MatchesApprovedWindowTarget(preview.WindowTitle, preview.ProcessId, preview.WindowHandle, target))
+            throw new InvalidOperationException("The approved text-field target does not match the same window handle, process, and title. No value was set.");
 
         var element = FindUniqueEditableControl(target, preview.AutomationId);
         var info = element.Current;
@@ -253,16 +252,15 @@ public static class WindowsUiAutomationService
         if (string.IsNullOrWhiteSpace(runtimeId))
             throw new InvalidOperationException("Windows UI Automation did not provide a stable runtime identifier. No checkbox action was performed.");
 
-        return new UiCheckBoxPreview(target.Title, target.ProcessId, automationId, runtimeId, state == ToggleState.On, info.IsEnabled);
+        return new UiCheckBoxPreview(target.Handle, target.Title, target.ProcessId, automationId, runtimeId, state == ToggleState.On, info.IsEnabled);
     }
 
     private static UiCheckBoxOutcome SetCheckBox(UiWindowTarget target, UiCheckBoxPreview preview, bool shouldBeChecked)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(preview);
-        if (!string.Equals(preview.WindowTitle, target.Title, StringComparison.Ordinal) ||
-            preview.ProcessId != target.ProcessId)
-            throw new InvalidOperationException("The approved checkbox target does not match the selected window. No action was performed.");
+        if (!MatchesApprovedWindowTarget(preview.WindowTitle, preview.ProcessId, preview.WindowHandle, target))
+            throw new InvalidOperationException("The approved checkbox target does not match the same window handle, process, and title. No action was performed.");
 
         var element = FindUniqueActionControl(target, ControlType.CheckBox.ProgrammaticName, preview.AutomationId);
         var info = element.Current;
@@ -455,6 +453,7 @@ public static class WindowsUiAutomationService
             throw new InvalidOperationException("Windows UI Automation did not provide a stable runtime identifier for the selected control. No action was performed.");
 
         return new UiInvokePreview(
+            target.Handle,
             target.Title,
             target.ProcessId,
             DisplayControlType(programmaticType),
@@ -463,6 +462,18 @@ public static class WindowsUiAutomationService
             info.IsEnabled,
             runtimeId);
     }
+
+    public static bool MatchesApprovedWindowTarget(
+        string approvedTitle,
+        uint approvedProcessId,
+        IntPtr approvedHandle,
+        UiWindowTarget target) =>
+        target is not null &&
+        approvedHandle != IntPtr.Zero &&
+        approvedHandle == target.Handle &&
+        approvedProcessId != 0 &&
+        approvedProcessId == target.ProcessId &&
+        string.Equals(approvedTitle, target.Title, StringComparison.Ordinal);
 
     public static bool MatchesApprovedInvokeTarget(
         UiInvokePreview approval,
@@ -473,8 +484,8 @@ public static class WindowsUiAutomationService
     {
         ArgumentNullException.ThrowIfNull(approval);
         ArgumentNullException.ThrowIfNull(target);
-        return target.Handle != IntPtr.Zero &&
-               string.Equals(approval.WindowTitle, target.Title, StringComparison.Ordinal) &&
+        return MatchesApprovedWindowTarget(approval.WindowTitle, approval.ProcessId, approval.WindowHandle, target) &&
+               target.Handle != IntPtr.Zero &&
                approval.ProcessId == target.ProcessId &&
                approval.IsEnabled && isEnabled &&
                !string.IsNullOrWhiteSpace(approval.RuntimeId) &&
@@ -1011,6 +1022,7 @@ public static class WindowsUiAutomationService
 public sealed record UiWindowTarget(IntPtr Handle, string Title, uint ProcessId);
 
 public sealed record UiInvokePreview(
+    IntPtr WindowHandle,
     string WindowTitle,
     uint ProcessId,
     string ControlType,
@@ -1030,6 +1042,7 @@ public sealed record UiInvokeOutcome(
     bool? ControlStillEnabled);
 
 public sealed record UiCheckBoxPreview(
+    IntPtr WindowHandle,
     string WindowTitle,
     uint ProcessId,
     string AutomationId,
@@ -1045,6 +1058,7 @@ public sealed record UiCheckBoxOutcome(
     bool IsCheckedAfter);
 
 public sealed record UiTextEntryPreview(
+    IntPtr WindowHandle,
     string WindowTitle,
     uint ProcessId,
     string AutomationId,

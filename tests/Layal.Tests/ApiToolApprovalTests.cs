@@ -159,7 +159,8 @@ public sealed class ApiToolApprovalTests
             Name = "Demo CRM",
             BaseUrl = "https://crm.example.test/v1",
             AuthenticationType = "Bearer",
-            AuthSecret = "do-not-display-this-secret"
+            AuthSecret = "do-not-display-this-secret",
+            AdditionalHeadersJson = """{"X-Tenant":"demo-tenant","Accept":"application/json"}"""
         });
         var executor = new AgentToolExecutor(temp.Path, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")), connections);
         var longValue = new string('x', 3_000);
@@ -180,6 +181,9 @@ public sealed class ApiToolApprovalTests
 
         StringAssert.Contains(approvalDetails, longValue);
         StringAssert.Contains(approvalDetails, "Exact JSON body to send:");
+        StringAssert.Contains(approvalDetails, "X-Tenant: demo-tenant");
+        StringAssert.Contains(approvalDetails, "Accept: application/json");
+        StringAssert.Contains(approvalDetails, "Authentication: Bearer token (secret value hidden)");
         Assert.IsFalse(approvalDetails.Contains("do-not-display-this-secret", StringComparison.Ordinal));
         Assert.AreEqual(1, handler.RequestCount);
         StringAssert.Contains(result, "HTTP 201 Created");
@@ -206,6 +210,41 @@ public sealed class ApiToolApprovalTests
             path = "notes",
             query_json = "",
             body_json = JsonSerializer.Serialize(new { note = new string('z', 12_100) })
+        });
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "call_app_api", args,
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled);
+        Assert.AreEqual(0, handler.RequestCount);
+    }
+
+
+    [TestMethod]
+    public async Task JsonNullApiBodyIsRejectedBeforeApprovalOrRequest()
+    {
+        using var temp = new TestTempDirectory();
+        using var handler = new RecordingHandler();
+        using var client = new HttpClient(handler, disposeHandler: false) { Timeout = Timeout.InfiniteTimeSpan };
+        var connections = new ApiConnectionService(Path.Combine(temp.Path, "api-connections.dpapi"), client);
+        connections.Save(new ApiConnectionProfile
+        {
+            Name = "Demo CRM",
+            BaseUrl = "https://crm.example.test/v1",
+            AuthenticationType = "None"
+        });
+        var executor = new AgentToolExecutor(temp.Path, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")), connections);
+        var args = JsonSerializer.Serialize(new
+        {
+            connection_name = "Demo CRM",
+            method = "POST",
+            path = "notes",
+            query_json = "",
+            body_json = "null"
         });
         var approvalCalled = false;
 
