@@ -120,6 +120,9 @@ public sealed class ReminderManagerWindow : Window
         _relatedTaskSelector.Items.Add(new TaskLinkEntry(null, isArabic ? "بدون مهمة مرتبطة" : "No linked task"));
         foreach (var task in _taskHistory?.GetRecent(100) ?? Array.Empty<AgentTaskRecord>())
         {
+            if (string.IsNullOrWhiteSpace(task.Id))
+                continue;
+
             var goal = string.Join(" ", (task.Goal ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
             if (goal.Length > 90) goal = goal[..90] + "…";
             var updatedAt = task.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
