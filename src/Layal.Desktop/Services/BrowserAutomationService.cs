@@ -425,7 +425,7 @@ public sealed class BrowserAutomationService
         }
     }
 
-    public async Task<string> NavigateAsync(string url, CancellationToken token = default)
+    public async Task<BrowserPageIdentity> NavigateAsync(string url, CancellationToken token = default)
     {
         var targetUrl = ValidateHttpUrl(url);
         using var operationCancellation = CreateOperationToken(token);
@@ -458,16 +458,26 @@ public sealed class BrowserAutomationService
                 }
             }
 
-            var snapshot = await ReadPageSnapshotAsync(page, token);
-            return $"Navigation was requested. Current page URL: {snapshot.Url}\nTitle: {snapshot.Title}\nReady state: {snapshot.ReadyState}\nThis does not prove that the site's intended operation succeeded.";
+            // Navigation consent authorizes the network request and a bounded identity result only.
+            // Visible text and DOM metadata require the separate browser_read_page consent flow.
+            var identityJson = await EvaluateAsync(
+                page,
+                "JSON.stringify({url:location.href,title:document.title||'',readyState:document.readyState})",
+                token) ?? string.Empty;
+            using var identityDocument = JsonDocument.Parse(identityJson);
+            var identityRoot = identityDocument.RootElement;
+            var finalUrl = ValidateHttpUrl(identityRoot.GetProperty("url").GetString() ?? string.Empty).AbsoluteUri;
+            var title = identityRoot.GetProperty("title").GetString() ?? string.Empty;
+            var readyState = identityRoot.GetProperty("readyState").GetString() ?? string.Empty;
+            var activePage = await GetPageTargetAsync(token);
+            if (!string.Equals(activePage.Id, page.Id, StringComparison.Ordinal))
+                throw new InvalidOperationException("The browser tab changed while navigation was completing. No page content was read or shared.");
+
+            return new BrowserPageIdentity(page.Id, finalUrl, title, readyState);
         }
         finally { _gate.Release(); }
     }
 
-    /// <summary>
-    /// Reads only the active tab identity (target id, URL, title and ready state) for a consent
-    /// preview. It does not extract visible page text or DOM element content.
-    /// </summary>
     /// <summary>
     /// Opens one user-approved direct source and captures its page in a single browser-gated
     /// operation. The final page must remain HTTPS on the same registrable domain, resolve only
@@ -560,6 +570,10 @@ public sealed class BrowserAutomationService
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// Reads only the active tab identity (target id, URL, title and ready state) for a consent
+    /// preview. It does not extract visible page text or DOM element content.
+    /// </summary>
     public async Task<BrowserPageIdentity> GetCurrentPageIdentityAsync(CancellationToken token = default)
     {
         using var operationCancellation = CreateOperationToken(token);
@@ -1385,4 +1399,17 @@ public sealed record BrowserPageIdentity(
     string PageTargetId,
     string Url,
     string Title,
-    string ReadyState);
+    string ReadyState)
+{
+    /// <summary>
+    /// Formats the metadata permitted by navigation approval. Page content is intentionally absent.
+    /// </summary>
+    public string ToNavigationSummary()
+    {
+        var title = Title.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        if (title.Length > 180)
+            title = title[..180] + "…";
+
+        return $"Navigation was requested. Current page URL: {Url}\nTitle: {title}\nReady state: {ReadyState}\nPage content was not read or shared. Use browser_read_page for a separate approval before reading page content.";
+    }
+}
