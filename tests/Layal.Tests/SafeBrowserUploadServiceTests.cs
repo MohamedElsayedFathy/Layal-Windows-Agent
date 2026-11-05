@@ -198,6 +198,11 @@ public sealed class SafeBrowserUploadServiceTests
             "../outside.txt",
             "bad");
         CreateOfficePackage(
+            Path.Combine(workspace, "empty-segment.docx"),
+            "word/document.xml",
+            "word//empty.txt",
+            "bad");
+        CreateOfficePackage(
             Path.Combine(workspace, "bad-xml.docx"),
             "word/document.xml",
             "word/_rels/document.xml.rels",
@@ -205,6 +210,7 @@ public sealed class SafeBrowserUploadServiceTests
 
         var service = new SafeBrowserUploadService(workspace);
         Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("zip-slip.docx"));
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("empty-segment.docx"));
         Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("bad-xml.docx"));
     }
 
