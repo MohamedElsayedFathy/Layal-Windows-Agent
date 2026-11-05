@@ -166,6 +166,54 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task DotnetBuildTimeoutTerminatesTheExternalProcessTree()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The process timeout integration test requires Windows and dotnet.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var startedMarker = Path.Combine(workspace, "started.marker");
+        var finishedMarker = Path.Combine(workspace, "finished.marker");
+        File.WriteAllText(Path.Combine(workspace, "long-running.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <NuGetAudit>false</NuGetAudit>
+                <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+              </PropertyGroup>
+              <Target Name="WaitForAgentTimeout" BeforeTargets="CoreCompile">
+                <WriteLinesToFile File="started.marker" Lines="started" Overwrite="true" />
+                <Exec Command="ping -n 40 127.0.0.1 &gt; nul" />
+                <WriteLinesToFile File="finished.marker" Lines="finished" Overwrite="true" />
+              </Target>
+            </Project>
+            """);
+
+        var executor = new AgentToolExecutor(
+            workspace,
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")),
+            processTimeout: TimeSpan.FromSeconds(8));
+        var operation = executor.ExecuteAsync(
+            "run_dotnet_build",
+            """{"project_file":"long-running.csproj","configuration":"Debug"}""",
+            (_, _, _) => Task.FromResult(true),
+            _ => { },
+            CancellationToken.None);
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(7);
+        while (!File.Exists(startedMarker) && !operation.IsCompleted && DateTimeOffset.UtcNow < deadline)
+            await Task.Delay(50);
+
+        Assert.IsTrue(File.Exists(startedMarker), "The test project must enter its long-running build target before timeout.");
+        await Assert.ThrowsExactlyAsync<TimeoutException>(async () => await operation);
+        await Task.Delay(250);
+        Assert.IsFalse(File.Exists(finishedMarker),
+            "The dotnet process tree must be terminated when the configured timeout expires.");
+    }
+
+    [TestMethod]
     public void FactCheckSearchExtractsDirectHttpsSourcesAndRejectsRedirectorsAndLocalTargets()
     {
         var searchResult = """
