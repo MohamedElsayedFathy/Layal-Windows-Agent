@@ -304,8 +304,8 @@ public sealed class ReminderManagerWindow : Window
             _status.Text = removed
                 ? (_isArabic ? "تم حذف التذكير المحدد." : "Selected reminder deleted.")
                 : (_isArabic ? "لم يعد التذكير موجودًا." : "The reminder no longer exists.");
-            AppendSchedulerStatus();
             RefreshList();
+            AppendSchedulerStatus();
         }
         catch (Exception ex)
         {
