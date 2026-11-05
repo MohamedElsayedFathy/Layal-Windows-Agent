@@ -29,12 +29,20 @@ public sealed record WorkspaceFileManifestEntry(
     string? Sha256 = null,
     string? ContentOmittedReason = null);
 
+public sealed record WorkspaceSnapshotFilePreview(
+    string RelativePath,
+    long SizeBytes,
+    bool IsDirectory,
+    bool HasContent,
+    string? ContentOmittedReason = null);
+
 public sealed record WorkspaceSnapshotImportPreview(
     int TaskCount,
     int MemoryCount,
     int FileManifestCount,
     DateTimeOffset ExportedAt,
-    int FilesWithContent = 0);
+    int FilesWithContent = 0,
+    IReadOnlyList<WorkspaceSnapshotFilePreview>? FileEntries = null);
 
 public sealed record WorkspaceSnapshotImportResult(
     int TasksImported,
