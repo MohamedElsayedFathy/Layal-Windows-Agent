@@ -6159,6 +6159,7 @@ public partial class MainWindow : Window
 
         var now = DateTimeOffset.Now;
         var scheduleChanged = false;
+        var deliveredReminders = new List<ReminderRecord>();
         try
         {
             foreach (var due in AppRuntime.ReminderService.GetDue(now))
@@ -6169,22 +6170,7 @@ public partial class MainWindow : Window
                 if (delivered is null)
                     continue;
                 scheduleChanged = true;
-
-                if (AppRuntime.Tray is { } tray)
-                {
-                    var linkedTaskId = delivered.RelatedTaskId;
-                    tray.ShowReminderNotification(
-                        delivered.Title,
-                        IsArabic,
-                        string.IsNullOrWhiteSpace(linkedTaskId)
-                            ? null
-                            : () => OpenTaskFromNotification(linkedTaskId));
-                }
-                else
-                {
-                    SetAccessibleStatusText(TaskResult,
-                        (IsArabic ? "حان موعد التذكير: " : "Reminder due: ") + delivered.Title);
-                }
+                deliveredReminders.Add(delivered);
             }
         }
         catch (Exception ex)
@@ -6197,6 +6183,37 @@ public partial class MainWindow : Window
                 ex,
                 IsArabic));
             return;
+        }
+
+        if (deliveredReminders.Count == 1 && AppRuntime.Tray is { } singleTray)
+        {
+            var delivered = deliveredReminders[0];
+            var linkedTaskId = delivered.RelatedTaskId;
+            singleTray.ShowReminderNotification(
+                delivered.Title,
+                IsArabic,
+                string.IsNullOrWhiteSpace(linkedTaskId)
+                    ? null
+                    : () => OpenTaskFromNotification(linkedTaskId));
+        }
+        else if (deliveredReminders.Count > 1 && AppRuntime.Tray is { } digestTray)
+        {
+            digestTray.ShowReminderSummary(
+                deliveredReminders.Count,
+                IsArabic,
+                () => ShowFromTray());
+        }
+        else if (deliveredReminders.Count == 1)
+        {
+            SetAccessibleStatusText(TaskResult,
+                (IsArabic ? "حان موعد التذكير: " : "Reminder due: ") + deliveredReminders[0].Title);
+        }
+        else if (deliveredReminders.Count > 1)
+        {
+            SetAccessibleStatusText(TaskResult,
+                IsArabic
+                    ? $"حان موعد {deliveredReminders.Count} تذكيرات محفوظة."
+                    : $"{deliveredReminders.Count} saved reminders are due.");
         }
 
         if (scheduleChanged && AppRuntime.ReminderTaskSchedulerService is { } scheduler)
