@@ -6267,10 +6267,13 @@ public partial class MainWindow : Window
             }
             else if (deliveredReminders.Count > 1 && AppRuntime.Tray is { } digestTray)
             {
+                var uniqueTaskId = ReminderTaskLinkPolicy.GetUniqueLinkedTaskId(deliveredReminders);
                 digestTray.ShowReminderSummary(
                     deliveredReminders.Count,
                     IsArabic,
-                    () => ShowFromTray());
+                    uniqueTaskId is null
+                        ? () => ShowFromTray()
+                        : () => OpenTaskFromNotification(uniqueTaskId));
             }
             else if (deliveredReminders.Count == 1)
             {
