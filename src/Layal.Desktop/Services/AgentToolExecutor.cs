@@ -283,7 +283,7 @@ public sealed class AgentToolExecutor
             + $"Path: {relative}\nSize: {approved.Length} bytes\nSHA-256: {approved.Sha256}\n"
             + "<untrusted-file-content>\n" + approved.Text + "\n</untrusted-file-content>";
 
-        private async Task<string> CreateTextFileAsync(string relativePath, string content, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
+    private async Task<string> CreateTextFileAsync(string relativePath, string content, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
     {
         int contentBytes;
         try { contentBytes = StrictUtf8.GetByteCount(content); }
@@ -320,7 +320,7 @@ public sealed class AgentToolExecutor
         if (File.Exists(path) || Directory.Exists(path))
             throw new IOException("The target appeared while awaiting approval. No file was created.");
 
-        var temporaryPath = Path.Combine(parent, $"." + Path.GetFileName(path) + ".layal-create-" + Guid.NewGuid().ToString("N") + ".tmp");
+        var temporaryPath = Path.Combine(parent, "." + Path.GetFileName(path) + ".layal-create-" + Guid.NewGuid().ToString("N") + ".tmp");
         try
         {
             await using (var stream = new FileStream(
@@ -346,11 +346,11 @@ public sealed class AgentToolExecutor
                 File.Delete(temporaryPath);
         }
 
-        report($$"Created file: {relative} ({contentBytes} UTF-8 bytes).");
+        report($"Created file: {relative} ({contentBytes} UTF-8 bytes).");
         return $"File created: {relative}";
     }
 
-        private async Task<string> ReplaceTextAsync(string relativePath, string oldText, string newText, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
+    private async Task<string> ReplaceTextAsync(string relativePath, string oldText, string newText, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
     {
         if (string.IsNullOrEmpty(oldText)) throw new InvalidOperationException("old_text cannot be empty.");
         int replacementBytes;
@@ -388,9 +388,9 @@ public sealed class AgentToolExecutor
             + Environment.NewLine + $"Result size: {updatedBytes} bytes"
             + Environment.NewLine + Environment.NewLine
             + "Proposed replacement preview:"
-            + Environment.NewLine + $$"--- Removed (max {MaxReplacementPreviewSideChars} characters) ---"
+            + Environment.NewLine + $"--- Removed (max {MaxReplacementPreviewSideChars} characters) ---"
             + Environment.NewLine + BuildBoundedApprovalPreview(oldText, MaxReplacementPreviewSideChars)
-            + Environment.NewLine + $$"--- Added (max {MaxReplacementPreviewSideChars} characters) ---"
+            + Environment.NewLine + $"--- Added (max {MaxReplacementPreviewSideChars} characters) ---"
             + Environment.NewLine + BuildBoundedApprovalPreview(newText, MaxReplacementPreviewSideChars);
         if (!await confirm("Modify file", approvalDetails, token))
             return "User declined the file modification. No file was changed and no backup was created.";
@@ -466,7 +466,7 @@ public sealed class AgentToolExecutor
                 File.Delete(temporaryPath);
         }
 
-        report($$"Modified file: {relative}; byte-identical backup: {Path.GetRelativePath(_workspaceRoot, backupPath)}");
+        report($"Modified file: {relative}; byte-identical backup: {Path.GetRelativePath(_workspaceRoot, backupPath)}");
         return $"Updated file: {relative}{Environment.NewLine}Backup: {Path.GetRelativePath(_workspaceRoot, backupPath)}";
     }
 
