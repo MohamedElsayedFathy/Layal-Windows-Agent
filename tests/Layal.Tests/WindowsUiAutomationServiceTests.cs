@@ -111,6 +111,50 @@ public sealed class WindowsUiAutomationServiceTests
         Assert.ThrowsExactly<ArgumentException>(() => WindowsUiAutomationService.NormalizeInvokeControlType("CheckBox"));
     }
 
+
+    [TestMethod]
+    public void ApprovedInvokeTargetMustMatchTheSameWindowControlAndRuntimeId()
+    {
+        var window = new UiWindowTarget(new IntPtr(123), "Approved App", 4242);
+        var preview = new UiInvokePreview(
+            new IntPtr(123), "Approved App", 4242, "Button", "Save", "saveButton", true, "7,8,9");
+
+        Assert.IsTrue(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, window, "7,8,9", "Save", isEnabled: true));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, new UiWindowTarget(new IntPtr(124), "Approved App", 4242), "7,8,9", "Save", isEnabled: true),
+            "A different HWND in the same process/title must not inherit approval.");
+        Assert.IsTrue(WindowsUiAutomationService.MatchesApprovedWindowTarget(
+            "Approved App", 4242, new IntPtr(123), window));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedWindowTarget(
+            "Approved App", 4242, new IntPtr(124), window));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, window, "7,8,10", "Save", isEnabled: true),
+            "A replacement control with the same AutomationId must not inherit approval.");
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, new UiWindowTarget(new IntPtr(124), "Approved App", 4242), "7,8,9", "Save", isEnabled: true));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, new UiWindowTarget(new IntPtr(123), "Approved App", 5000), "7,8,9", "Save", isEnabled: true));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, window, "7,8,9", "Delete", isEnabled: true));
+        Assert.IsFalse(WindowsUiAutomationService.MatchesApprovedInvokeTarget(
+            preview, window, "7,8,9", "Save", isEnabled: false));
+    }
+
+    [TestMethod]
+    public void ApprovedWindowIdentityRequiresSameHandleProcessAndTitle()
+    {
+        var approved = new UiWindowTarget(new IntPtr(100), "Test Window", 4242);
+        Assert.IsTrue(WindowInventory.IsSameWindowTarget(
+            approved, new UiWindowTarget(new IntPtr(100), "Test Window", 4242)));
+        Assert.IsFalse(WindowInventory.IsSameWindowTarget(
+            approved, new UiWindowTarget(new IntPtr(101), "Test Window", 4242)));
+        Assert.IsFalse(WindowInventory.IsSameWindowTarget(
+            approved, new UiWindowTarget(new IntPtr(100), "Test Window", 4243)));
+        Assert.IsFalse(WindowInventory.IsSameWindowTarget(
+            approved, new UiWindowTarget(new IntPtr(100), "Different Window", 4242)));
+    }
+
     [TestMethod]
     public void AutomationIdMustBeNonEmptyBoundedAndFreeOfControlCharacters()
     {

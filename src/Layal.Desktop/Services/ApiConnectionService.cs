@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography;
 using Layal.Models;
 
 namespace Layal.Services;
@@ -15,6 +16,7 @@ namespace Layal.Services;
 public sealed class ApiConnectionService
 {
     private const int MaxRequestBodyChars = 100 * 1024;
+    private const int MaxApprovedRequestBodyChars = 12_000;
     private const int MaxQueryJsonChars = 8 * 1024;
     private const int MaxResponseBytes = 256 * 1024;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(45);
@@ -151,17 +153,92 @@ public sealed class ApiConnectionService
         return Truncate(string.Join(Environment.NewLine, parts), 12000);
     }
 
-    public string PreviewRequest(string connectionName, string method, string path, string queryJson, string bodyJson)
+    /// <summary>Captures a canonical request and an immutable connection snapshot before asking for consent.</summary>
+    public ApiConnectionRequestApproval CreateRequestApproval(
+        string connectionName,
+        string method,
+        string path,
+        string queryJson,
+        string bodyJson)
     {
         var profile = Find(connectionName) ?? throw new InvalidOperationException($"No API connection named '{connectionName}' is configured.");
         var verb = ValidateMethod(method);
         var uri = BuildRequestUri(profile, path, queryJson);
-        var preview = $"Connection: {profile.Name}{Environment.NewLine}Method: {verb}{Environment.NewLine}URL: {uri.AbsoluteUri}";
-        if (!string.IsNullOrWhiteSpace(bodyJson))
-            preview += Environment.NewLine + "JSON body preview: " + Truncate(bodyJson, 1200);
+        var approvedBody = NormalizeApprovedRequestBody(verb, bodyJson);
+        var display = $"Connection: {profile.Name}{Environment.NewLine}Method: {verb}{Environment.NewLine}URL: {uri.AbsoluteUri}";
+        if (profile.AuthenticationType == "None")
+            display += Environment.NewLine + "Authentication: none";
+        else if (profile.AuthenticationType == "Bearer")
+            display += Environment.NewLine + "Authentication: Bearer token (secret value hidden)";
+        else
+            display += Environment.NewLine + $"Authentication: custom header '{profile.AuthHeaderName}' (secret value hidden)";
+        if (!string.IsNullOrWhiteSpace(profile.AdditionalHeadersJson))
+        {
+            var headers = JsonNode.Parse(profile.AdditionalHeadersJson) as JsonObject
+                ?? throw new InvalidOperationException("Additional headers must be a JSON object of string values.");
+            var headerLines = headers.Select(item =>
+            {
+                var value = item.Value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var headerValue)
+                    ? headerValue
+                    : throw new InvalidOperationException($"Additional header '{item.Key}' must have a string value.");
+                return item.Key + ": " + value;
+            });
+            display += Environment.NewLine + "Additional non-secret headers sent:" + Environment.NewLine + string.Join(Environment.NewLine, headerLines);
+        }
+        if (approvedBody.Length > 0)
+            display += Environment.NewLine + "Exact JSON body to send:" + Environment.NewLine + approvedBody;
         if (uri.Scheme == Uri.UriSchemeHttp && profile.AuthenticationType != "None")
-            preview += Environment.NewLine + "WARNING: This endpoint uses HTTP without transport encryption; configured credentials and request data may be exposed on the network.";
-        return preview;
+            display += Environment.NewLine + "WARNING: This endpoint uses HTTP without transport encryption; configured credentials and request data may be exposed on the network.";
+        var approvedProfile = Clone(profile);
+        return new ApiConnectionRequestApproval(
+            approvedProfile.Name, verb, path, queryJson, approvedBody,
+            approvedProfile, ComputeProfileFingerprint(approvedProfile), display);
+    }
+
+    public string PreviewRequest(string connectionName, string method, string path, string queryJson, string bodyJson) =>
+        CreateRequestApproval(connectionName, method, path, queryJson, bodyJson).DisplayText;
+
+    /// <summary>Sends only the approved request and refuses if its saved connection changed during consent.</summary>
+    public async Task<ApiConnectionCallResult> SendApprovedRequestAsync(
+        ApiConnectionRequestApproval approval,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(approval);
+        cancellationToken.ThrowIfCancellationRequested();
+        var currentProfile = Find(approval.ConnectionName);
+        if (currentProfile is null ||
+            !string.Equals(ComputeProfileFingerprint(currentProfile), approval.ProfileFingerprint, StringComparison.Ordinal))
+            throw new InvalidOperationException("The API connection changed or was removed while awaiting approval. No request was sent; review the updated connection and approve again.");
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return await SendCoreAsync(
+            Clone(approval.Profile), approval.Method, approval.Path, approval.QueryJson, approval.BodyJson, cancellationToken);
+    }
+
+    private static string NormalizeApprovedRequestBody(string method, string bodyJson)
+    {
+        if (string.IsNullOrWhiteSpace(bodyJson)) return string.Empty;
+        if (bodyJson.Length > MaxApprovedRequestBodyChars)
+            throw new InvalidOperationException($"API request bodies must be {MaxApprovedRequestBodyChars} characters or fewer so the complete payload can be reviewed before approval.");
+        if (method == "GET")
+            throw new InvalidOperationException("GET requests must not include a body; use query_json for query parameters.");
+
+        JsonNode? body;
+        try { body = JsonNode.Parse(bodyJson); }
+        catch (JsonException) { throw new InvalidOperationException("body_json must contain valid JSON."); }
+        if (body is null)
+            throw new InvalidOperationException("JSON null is not a request body; use an empty string when no body is required.");
+        var normalized = body.ToJsonString();
+        if (normalized.Length > MaxApprovedRequestBodyChars)
+            throw new InvalidOperationException($"The canonical API request body exceeds the {MaxApprovedRequestBodyChars}-character approval limit.");
+        return normalized;
+    }
+
+    private static string ComputeProfileFingerprint(ApiConnectionProfile profile)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(profile);
+        try { return Convert.ToHexString(SHA256.HashData(bytes)); }
+        finally { CryptographicOperations.ZeroMemory(bytes); }
     }
 
     public Task<ApiConnectionCallResult> TestAsync(ApiConnectionProfile profile, string? testPath, CancellationToken cancellationToken = default)
@@ -523,6 +600,38 @@ public sealed class ApiConnectionService
     };
 
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max] + "…";
+}
+
+public sealed class ApiConnectionRequestApproval
+{
+    internal ApiConnectionRequestApproval(
+        string connectionName,
+        string method,
+        string path,
+        string queryJson,
+        string bodyJson,
+        ApiConnectionProfile profile,
+        string profileFingerprint,
+        string displayText)
+    {
+        ConnectionName = connectionName;
+        Method = method;
+        Path = path;
+        QueryJson = queryJson;
+        BodyJson = bodyJson;
+        Profile = profile;
+        ProfileFingerprint = profileFingerprint;
+        DisplayText = displayText;
+    }
+
+    internal string ConnectionName { get; }
+    internal string Method { get; }
+    internal string Path { get; }
+    internal string QueryJson { get; }
+    internal string BodyJson { get; }
+    internal ApiConnectionProfile Profile { get; }
+    internal string ProfileFingerprint { get; }
+    public string DisplayText { get; }
 }
 
 public sealed record ApiConnectionCallResult(

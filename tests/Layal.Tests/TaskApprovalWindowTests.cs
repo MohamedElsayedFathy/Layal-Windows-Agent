@@ -3,6 +3,8 @@ using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Reflection;
 using Layal.Views;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -34,6 +36,72 @@ public sealed class TaskApprovalWindowTests
                 Assert.IsFalse(dialog.ShowForApproval(cancellation.Token));
                 Assert.IsFalse(cancellation.IsCancellationRequested,
                     "Declining one action must not cancel the full agent task.");
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { dialog?.Close(); }
+        });
+
+        if (failure is not null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+
+    [TestMethod]
+    public void ClosingApprovalDialogThroughWindowChromeDeclinesOnlyTheAction()
+    {
+        using var cancellation = new CancellationTokenSource();
+        Exception? failure = null;
+
+        RunOnSta(() =>
+        {
+            TaskApprovalWindow? dialog = null;
+            try
+            {
+                dialog = new TaskApprovalWindow(false, "Delete record", "Review the exact record and effect.", cancellation.Cancel);
+                dialog.Loaded += (_, _) => dialog.Close();
+
+                Assert.IsFalse(dialog.ShowForApproval(cancellation.Token),
+                    "Closing the approval window must be treated as a decline.");
+                Assert.IsFalse(cancellation.IsCancellationRequested,
+                    "Closing one approval must not cancel the whole agent task.");
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { dialog?.Close(); }
+        });
+
+        if (failure is not null)
+            ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+
+    [TestMethod]
+    public void EscapeCancelsTheEntireTaskAndCannotApproveThePendingAction()
+    {
+        using var cancellation = new CancellationTokenSource();
+        Exception? failure = null;
+
+        RunOnSta(() =>
+        {
+            TaskApprovalWindow? dialog = null;
+            try
+            {
+                dialog = new TaskApprovalWindow(false, "Delete record", "Review the exact record and effect.", cancellation.Cancel);
+                var handler = typeof(TaskApprovalWindow).GetMethod(
+                    "TryHandleTaskCancellationShortcut",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?? throw new InvalidOperationException("The approval Escape shortcut handler was not found.");
+
+                Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.A, ModifierKeys.None })!,
+                    "A non-Escape key must not cancel the task.");
+                Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.Control })!,
+                    "Modified Escape must not cancel the task.");
+                Assert.IsTrue((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.None })!,
+                    "Unmodified Escape must request full-task cancellation.");
+
+                Assert.IsTrue(cancellation.IsCancellationRequested,
+                    "Escape must cancel the whole task, not just decline the current action.");
+                Assert.ThrowsExactly<OperationCanceledException>(() => dialog.ShowForApproval(cancellation.Token));
+                Assert.IsFalse(dialog.IsVisible, "A cancelled task must not show or approve the pending action.");
             }
             catch (Exception ex) { failure = ex; }
             finally { dialog?.Close(); }
