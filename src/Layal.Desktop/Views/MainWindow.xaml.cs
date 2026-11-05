@@ -124,6 +124,7 @@ public partial class MainWindow : Window
     private GlobalHotkeyService? _globalHotkeyService;
     private QuickAskWindow? _quickAskWindow;
     private bool _incognitoMode;
+    private bool _restoringProactiveCheckInInterval;
 
     public MainWindow()
     {
@@ -6041,7 +6042,8 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInIntervalSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!IsLoaded || ProactiveCheckInIntervalSelector.SelectedItem is not ComboBoxItem item ||
+        if (_restoringProactiveCheckInInterval || !IsLoaded ||
+            ProactiveCheckInIntervalSelector.SelectedItem is not ComboBoxItem item ||
             !int.TryParse(item.Tag?.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutes))
             return;
 
@@ -6058,9 +6060,17 @@ public partial class MainWindow : Window
         {
             AppRuntime.Settings.ProactiveCheckInIntervalMinutes = previousInterval;
             AppRuntime.Settings.LastProactiveCheckInAt = previousLastNotifiedAt;
-            ProactiveCheckInIntervalSelector.SelectedItem =
-                ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
-                    string.Equals(candidate.Tag?.ToString(), previousInterval.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
+            _restoringProactiveCheckInInterval = true;
+            try
+            {
+                ProactiveCheckInIntervalSelector.SelectedItem =
+                    ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
+                        string.Equals(candidate.Tag?.ToString(), previousInterval.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
+            }
+            finally
+            {
+                _restoringProactiveCheckInInterval = false;
+            }
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
                 "تعذر حفظ الفاصل الزمني", "Could not save the check-in interval", ex, IsArabic));
         }
