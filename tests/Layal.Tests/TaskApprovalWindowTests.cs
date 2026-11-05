@@ -88,17 +88,17 @@ public sealed class TaskApprovalWindowTests
                 dialog = new TaskApprovalWindow(false, "Delete record", "Review the exact record and effect.", cancellation.Cancel);
                 dialog.Loaded += (_, _) =>
                 {
-                    var source = PresentationSource.FromVisual(dialog)
-                        ?? throw new InvalidOperationException("The approval window has no presentation source.");
-                    var escape = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Escape)
-                    {
-                        RoutedEvent = Keyboard.PreviewKeyDownEvent
-                    };
                     var handler = typeof(TaskApprovalWindow).GetMethod(
-                        "TaskApprovalWindow_PreviewKeyDown",
+                        "TryHandleTaskCancellationShortcut",
                         BindingFlags.Instance | BindingFlags.NonPublic)
-                        ?? throw new InvalidOperationException("The approval Escape handler was not found.");
-                    handler.Invoke(dialog, new object[] { dialog, escape });
+                        ?? throw new InvalidOperationException("The approval Escape shortcut handler was not found.");
+
+                    Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.A, ModifierKeys.None })!,
+                        "A non-Escape key must not cancel the task.");
+                    Assert.IsFalse((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.Control })!,
+                        "Modified Escape must not cancel the task.");
+                    Assert.IsTrue((bool)handler.Invoke(dialog, new object[] { Key.Escape, ModifierKeys.None })!,
+                        "Unmodified Escape must request full-task cancellation.");
                 };
 
                 Assert.ThrowsExactly<OperationCanceledException>(() => dialog.ShowForApproval(cancellation.Token));

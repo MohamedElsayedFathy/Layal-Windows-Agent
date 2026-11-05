@@ -75,11 +75,19 @@ public sealed partial class TaskApprovalWindow : Window
 
     private void TaskApprovalWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None)
+        if (!TryHandleTaskCancellationShortcut(e.Key, Keyboard.Modifiers))
             return;
 
         e.Handled = true;
+    }
+
+    private bool TryHandleTaskCancellationShortcut(Key key, ModifierKeys modifiers)
+    {
+        if (key != Key.Escape || modifiers != ModifierKeys.None)
+            return false;
+
         _requestTaskCancellation();
+        return true;
     }
 
     private void ApproveButton_Click(object sender, RoutedEventArgs e) => DialogResult = true;
