@@ -66,6 +66,7 @@ public sealed class WorkspaceArtifactServiceTests
         }
 
         var service = new WorkspaceArtifactService(Path.Combine(linkedParent, "workspace"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ValidateWorkspaceRoot());
         Assert.ThrowsExactly<InvalidOperationException>(() =>
             service.ResolveExistingSafeFilePath("file.txt"));
         Assert.IsTrue(File.Exists(Path.Combine(workspace, "file.txt")),
