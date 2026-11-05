@@ -103,6 +103,7 @@ public partial class MainWindow : Window
     private string? _pendingVisionFileName;
     private string _lastCameraObservation = string.Empty;
     private CancellationTokenSource? _agentTaskCancellation;
+    private bool _stopAgentTaskAfterToolFailure;
     private string? _selectedMemoryId;
     private bool _selectedMemoryIsArchived;
     private bool _providerTestPassed;
@@ -5943,6 +5944,7 @@ public partial class MainWindow : Window
         window.ShowDialog();
         if (!string.IsNullOrWhiteSpace(window.RunPrompt))
         {
+            _stopAgentTaskAfterToolFailure = true;
             TaskInput.Text = window.RunPrompt;
             MainTabs.SelectedItem = TasksTab;
             RunAgentTaskButton_Click(RunAgentTaskButton, new RoutedEventArgs(Button.ClickEvent, RunAgentTaskButton));
@@ -6167,6 +6169,9 @@ public partial class MainWindow : Window
 
     private async void RunAgentTaskButton_Click(object sender, RoutedEventArgs e)
     {
+        var stopAfterToolFailureOrDecline = _stopAgentTaskAfterToolFailure;
+        _stopAgentTaskAfterToolFailure = false;
+
         if (!PrivateChatModePolicy.CanStartAgentTask(_incognitoMode))
         {
             SetAccessibleStatusText(TaskResult, IsArabic
@@ -6225,18 +6230,19 @@ public partial class MainWindow : Window
                 AddTaskEvent,
                 cancellation.Token,
                 AppRuntime.Settings.Language,
-                AppRuntime.Settings.AssistantPersona);
+                AppRuntime.Settings.AssistantPersona,
+                stopAfterToolFailureOrDecline);
 
             SetAccessibleStatusText(TaskResult, UiLocalization.FormatTaskResult(record, IsArabic));
             finalMood = record.Status switch
             {
                 "Completed" => "success",
-                "CompletedWithWarnings" => "warning",
+                "CompletedWithWarnings" or "Stopped" => "warning",
                 "Cancelled" => "paused",
                 _ => "error"
             };
             TaskResult.Foreground = record.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
-                record.Status is "CompletedWithWarnings" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
+                record.Status is "CompletedWithWarnings" or "Stopped" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
                 ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             RefreshRecentTasks(record.Id);
         }
@@ -6371,12 +6377,12 @@ public partial class MainWindow : Window
         SetAccessibleStatusText(TaskResult, UiLocalization.FormatTaskResult(task, IsArabic));
 
         TaskResult.Foreground = task.Status == "Completed" ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) :
-            task.Status is "CompletedWithWarnings" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
+            task.Status is "CompletedWithWarnings" or "Stopped" or "Cancelled" ? ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod) :
             ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         AppRuntime.MascotWindow?.SetMood(task.Status switch
         {
             "Completed" => "success",
-            "CompletedWithWarnings" => "warning",
+            "CompletedWithWarnings" or "Stopped" => "warning",
             "Cancelled" => "paused",
             _ => "error"
         });

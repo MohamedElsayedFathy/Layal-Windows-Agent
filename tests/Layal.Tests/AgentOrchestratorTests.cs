@@ -258,6 +258,48 @@ public sealed class AgentOrchestratorTests
     }
 
     [TestMethod]
+    public async Task SavedRoutineStopsAfterADeclinedToolAndDoesNotStartLaterCallsFromSameModelTurn()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(Path.Combine(workspace, "reports"));
+        var destination = Path.Combine(workspace, "reports", "declined-routine.txt");
+        var turn = BuildToolCallsResponse(
+            ("create_text_file", (object)new { path = "reports/declined-routine.txt", content = "should not be created" }, "call_create"),
+            ("get_current_time", (object)new { }, "call_time"));
+        using var handler = new QueueResponseHandler(turn);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(handler, disposeHandler: false));
+        var tools = new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+        var approvalCount = 0;
+
+        var task = await orchestrator.RunTaskAsync(
+            "Execute this saved routine in order and stop if any action is declined.",
+            "https://provider.example/v1", "test-model", "test-key", Array.Empty<SkillRecord>(),
+            (_, _, _) =>
+            {
+                approvalCount++;
+                return Task.FromResult(false);
+            },
+            _ => { }, CancellationToken.None,
+            stopAfterToolFailureOrDecline: true);
+
+        Assert.AreEqual("Stopped", task.Status, string.Join(Environment.NewLine, task.Events));
+        StringAssert.Contains(task.Result, "No later tool calls or steps were started");
+        Assert.AreEqual(1, approvalCount);
+        Assert.AreEqual(1, handler.RequestCount, "The model must not be called again after a declined routine step.");
+        Assert.IsFalse(File.Exists(destination), "A declined file creation must have no side effect.");
+        Assert.IsFalse(task.Events.Any(line => line.Contains("Tool requested: get_current_time", StringComparison.OrdinalIgnoreCase)),
+            "A later tool returned in the same model turn must not start after the first declined action.");
+        Assert.AreEqual("Stopped", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
+    }
+
+    [TestMethod]
     public async Task MultiStepFileTaskKeepsOneArtifactReferenceAcrossCreateAndReplace()
     {
         if (!OperatingSystem.IsWindows())

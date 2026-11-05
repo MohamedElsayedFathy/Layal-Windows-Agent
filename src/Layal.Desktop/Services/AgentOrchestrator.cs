@@ -32,7 +32,8 @@ public sealed class AgentOrchestrator
         Action<string> onEvent,
         CancellationToken cancellationToken,
         string interfaceLanguage = "ar",
-        string assistantPersona = "warm")
+        string assistantPersona = "warm",
+        bool stopAfterToolFailureOrDecline = false)
     {
         var task = new AgentTaskRecord { Goal = goal.Trim(), Status = "Running" };
         var lastPersist = DateTimeOffset.MinValue;
@@ -108,6 +109,7 @@ public sealed class AgentOrchestrator
                     }
 
                     Log($"Tool requested: {call.Name} ({toolCount}/{MaxToolCalls}).");
+                    var toolActionFailed = false;
                     string output;
                     try
                     {
@@ -118,12 +120,16 @@ public sealed class AgentOrchestrator
                     catch (Exception ex)
                     {
                         hadToolErrorsOrDeclinedActions = true;
+                        toolActionFailed = true;
                         output = $"TOOL ERROR ({call.Name}): {ex.Message}";
                         Log($"Tool failed: {call.Name}; {ex.Message}");
                     }
 
                     if (output.StartsWith("User declined", StringComparison.OrdinalIgnoreCase))
+                    {
                         hadToolErrorsOrDeclinedActions = true;
+                        toolActionFailed = true;
+                    }
 
                     var artifactCandidate = GetArtifactCandidate(call.Name, output);
                     if (artifactCandidate is not null &&
@@ -137,6 +143,7 @@ public sealed class AgentOrchestrator
                         catch (InvalidOperationException ex)
                         {
                             hadToolErrorsOrDeclinedActions = true;
+                            toolActionFailed = true;
                             Log("The workspace artifact was created, but its task link could not be saved: " + ex.Message);
                         }
                     }
@@ -149,6 +156,14 @@ public sealed class AgentOrchestrator
                         ["content"] = output
                     });
                     Log($"Tool result recorded: {call.Name}.");
+                    if (stopAfterToolFailureOrDecline && toolActionFailed)
+                    {
+                        task.Status = "Stopped";
+                        task.Result = "Routine stopped after an action was declined or failed. No later tool calls or steps were started. Review the activity log for completed side effects; those effects are not automatically undone.";
+                        Log(task.Result);
+                        _history.Upsert(task);
+                        return task;
+                    }
                 }
             }
 
