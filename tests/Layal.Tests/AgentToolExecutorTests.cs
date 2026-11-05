@@ -116,19 +116,83 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
-    public void FactCheckSourceSummaryIncludesBoundedAuthorAndDateMetadata()
+    public void FactCheckSourceSummaryIncludesPageDeclaredAuthorAndSeparateUnverifiedDates()
     {
         var page = """
-            {"title":"Quarterly report","url":"https://reports.example.org/q4","author":"Research Desk","publishedDate":"2026-10-30","modifiedDate":"2026-11-01","visibleTimeDate":"2026-10-28","siteName":"Example Reports","description":"A quarterly results summary.","visibleText":"The report describes events during the quarter."}
+            {"title":"Quarterly report","url":"https://reports.example.org/q4","author":"Research Desk","publishedDate":"2026-10-30","modifiedDate":"2026-11-01","visibleTimeDate":"2026-10-28","siteName":"Example Reports","description":"A quarterly results summary.","capturedAtUtc":"2026-11-05T06:00:00.0000000Z","visibleText":"The report describes events during the quarter."}
             """;
 
         var summary = AgentToolExecutor.SummarizeDirectSourcePage(page);
         Assert.IsNotNull(summary);
-        StringAssert.Contains(summary!, "Author (page-declared): Research Desk");
-        StringAssert.Contains(summary!, "Publication date (page-declared metadata; unverified): 2026-10-30");
-        StringAssert.Contains(summary!, "Modification date (page-declared metadata; unverified): 2026-11-01");
-        StringAssert.Contains(summary!, "Visible time element date (type not independently established): 2026-10-28");
-        StringAssert.Contains(summary!, "Visible text (untrusted)");
+        StringAssert.Contains(summary!, "Author (page-declared, unverified): Research Desk");
+        StringAssert.Contains(summary!, "Publication date (page-declared raw value; unverified): 2026-10-30 (parseable raw value; still unverified)");
+        StringAssert.Contains(summary!, "Modification date (page-declared raw value; unverified): 2026-11-01 (parseable raw value; still unverified)");
+        StringAssert.Contains(summary!, "First visible <time datetime> value (meaning not inferred): 2026-10-28 (parseable raw value; still unverified)");
+        StringAssert.Contains(summary!, "Captured by Layal at UTC (capture time, not source publication/event date): 2026-11-05T06:00:00.0000000Z");
+        StringAssert.Contains(summary!, "Visible page text (untrusted)");
+    }
+
+    [TestMethod]
+    public void FactCheckSourceSummaryKeepsMultipleVisibleTimeContextsAndFlagsInvalidDates()
+    {
+        var page = """
+            {
+              "title":"Event report",
+              "url":"https://reports.example.org/event",
+              "author":42,
+              "publishedDate":"not-a-date",
+              "modifiedDate":"2026-02-31",
+              "visibleTimeDate":"2026-02-01",
+              "visibleTimes":[
+                {"datetime":"2026-02-01","context":"Event took place on February 1"},
+                {"datetime":"2026-02-05","context":"Article published on February 5"},
+                {"datetime":"2026-03-01","context":"Last updated March 1"}
+              ],
+              "visibleText":"The visible article discusses the event."
+            }
+            """;
+
+        var summary = AgentToolExecutor.SummarizeDirectSourcePage(page);
+        Assert.IsNotNull(summary);
+        StringAssert.Contains(summary!, "Author (page-declared, unverified): not provided");
+        StringAssert.Contains(summary!, "Publication date (page-declared raw value; unverified): not-a-date (unparsed/invalid raw value; unverified)");
+        StringAssert.Contains(summary!, "Modification date (page-declared raw value; unverified): 2026-02-31 (unparsed/invalid raw value; unverified)");
+        StringAssert.Contains(summary!, "Event took place on February 1");
+        StringAssert.Contains(summary!, "Article published on February 5");
+        StringAssert.Contains(summary!, "Last updated March 1");
+        StringAssert.Contains(summary!, "A visible <time> value is not automatically an event date or a publication date.");
+    }
+
+    [TestMethod]
+    public void FactCheckSourceSummaryHandlesMissingAndWrongTypedMetadataWithoutInventingValues()
+    {
+        var page = """{"title":17,"url":"https://reports.example.org/no-metadata","author":{"name":"Injected"},"publishedDate":2026,"modifiedDate":false,"visibleTimes":"not-an-array","visibleText":"Text without source metadata."}""";
+        var summary = AgentToolExecutor.SummarizeDirectSourcePage(page);
+        Assert.IsNotNull(summary);
+        StringAssert.Contains(summary!, "Author (page-declared, unverified): not provided");
+        StringAssert.Contains(summary!, "Publication date (page-declared raw value; unverified): not provided");
+        StringAssert.Contains(summary!, "Modification date (page-declared raw value; unverified): not provided");
+        StringAssert.Contains(summary!, "All visible <time datetime> values and nearby context (none means not provided):\nnot provided");
+        Assert.IsNull(AgentToolExecutor.SummarizeDirectSourcePage("[]"));
+    }
+
+    [TestMethod]
+    public void FactCheckSourceCandidateExtractionRejectsReservedHostsAndNonstandardPorts()
+    {
+        var result = """
+            WEB SEARCH RESULTS
+            Search URL: https://www.bing.com/search?q=claim
+            {"links":[
+              {"text":"Eligible","href":"https://news.example.org/report"},
+              {"text":"Alternate port","href":"https://news.example.org:8443/report"},
+              {"text":"Test domain","href":"https://report.example.test/story"},
+              {"text":"Local host","href":"https://localhost/private"}
+            ]}
+            """;
+
+        var candidates = AgentToolExecutor.ExtractDirectSourceCandidates(result);
+        Assert.AreEqual(1, candidates.Count);
+        Assert.AreEqual("news.example.org", candidates[0].Host);
     }
 
     [TestMethod]
@@ -136,7 +200,7 @@ public sealed class AgentToolExecutorTests
     {
         var page = """{"title":"Report","url":"http://reports.example.org/" ,"visibleText":"text"}""";
         var summary = AgentToolExecutor.SummarizeDirectSourcePage(page);
-        Assert.AreEqual("The final page URL was not an eligible HTTPS web address; source content omitted.", summary);
+        Assert.AreEqual("The final page URL was not an eligible public HTTPS address on the standard port; source content omitted.", summary);
     }
 
     [TestMethod]

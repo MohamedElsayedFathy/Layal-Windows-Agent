@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -115,6 +116,72 @@ public sealed class BrowserAutomationService
             uri.Host.Length == 0)
             throw new InvalidOperationException("Browser navigation only supports absolute HTTP/HTTPS URLs without embedded credentials.");
         return uri;
+    }
+
+    /// <summary>Fact-check source URLs are HTTPS-only, port 443, and never IP literals or local names.</summary>
+    public static Uri ValidateFactCheckSourceUrl(string value)
+    {
+        var uri = ValidateHttpUrl(value);
+        var host = uri.IdnHost.TrimEnd('.').ToLowerInvariant();
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            uri.Port != 443 || string.IsNullOrWhiteSpace(host) || uri.IsLoopback ||
+            IPAddress.TryParse(host, out _) ||
+            host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".local", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".internal", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".test", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".example", StringComparison.OrdinalIgnoreCase) ||
+            uri.AbsolutePath.Length > 2048 || uri.Query.Length > 2048)
+            throw new InvalidOperationException("Fact-check sources must be public HTTPS URLs on the standard port, without local/IP hosts or reserved test domains.");
+        return uri;
+    }
+
+    /// <summary>
+    /// Conservative registrable-domain approximation for common public suffixes. It is used only
+    /// to avoid treating subdomains of the same publisher as independent sources.
+    /// </summary>
+    public static string GetRegistrableDomain(string host)
+    {
+        var normalized = (host ?? string.Empty).Trim().TrimEnd('.').ToLowerInvariant();
+        if (normalized.Length == 0 || IPAddress.TryParse(normalized, out _)) return normalized;
+        var labels = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (labels.Length <= 2) return normalized;
+        var twoLabelSuffixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ac.uk", "co.uk", "gov.uk", "org.uk", "sch.uk",
+            "com.au", "net.au", "org.au", "edu.au", "gov.au",
+            "co.nz", "org.nz", "govt.nz", "ac.nz",
+            "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp",
+            "com.br", "net.br", "org.br", "gov.br",
+            "com.cn", "net.cn", "org.cn", "gov.cn",
+            "com.sg", "com.my", "com.tr", "com.mx", "com.ar",
+            "co.in", "firm.in", "net.in", "org.in", "gen.in", "ind.in",
+            "com.eg", "gov.eg", "edu.eg", "org.eg", "net.eg"
+        };
+        var suffix = labels[^2] + "." + labels[^1];
+        return string.Join(".", labels[^(twoLabelSuffixes.Contains(suffix) ? 3 : 2)..]);
+    }
+
+    public static bool AreSameRegistrableDomain(string firstHost, string secondHost)
+    {
+        var first = GetRegistrableDomain(firstHost);
+        var second = GetRegistrableDomain(secondHost);
+        return first.Length > 0 && second.Length > 0 &&
+            string.Equals(first, second, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task ValidatePublicHostResolutionAsync(string host, CancellationToken token)
+    {
+        IPAddress[] addresses;
+        try { addresses = await Dns.GetHostAddressesAsync(host, token); }
+        catch (SocketException ex)
+        {
+            throw new InvalidOperationException("The approved source host could not be resolved to a public address.", ex);
+        }
+        if (addresses.Length == 0 || addresses.Any(address => !SafeBrowserDownloadService.IsPublicAddress(address)))
+            throw new InvalidOperationException("The approved source host resolves to a private, local, reserved, or otherwise non-public IP address. No navigation was performed.");
     }
 
     public static string ValidateCssSelector(string value)
@@ -353,6 +420,98 @@ public sealed class BrowserAutomationService
     /// Reads only the active tab identity (target id, URL, title and ready state) for a consent
     /// preview. It does not extract visible page text or DOM element content.
     /// </summary>
+    /// <summary>
+    /// Opens one user-approved direct source and captures its page in a single browser-gated
+    /// operation. The final page must remain HTTPS on the same registrable domain, resolve only
+    /// to public IP addresses, and remain the same tab/URL/title throughout the snapshot.
+    /// </summary>
+    public async Task<string> NavigateAndReadEvidencePageAsync(string url, string expectedHost, CancellationToken token = default)
+    {
+        var targetUrl = ValidateFactCheckSourceUrl(url);
+        var expectedDomain = GetRegistrableDomain(expectedHost);
+        if (!string.Equals(GetRegistrableDomain(targetUrl.IdnHost), expectedDomain, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The approved source URL does not match its expected publisher domain.");
+
+        await ValidatePublicHostResolutionAsync(targetUrl.IdnHost, token);
+        using var operationCancellation = CreateOperationToken(token);
+        token = operationCancellation.Token;
+        await _gate.WaitAsync(token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            await EnsureBrowserStartedAsync(token);
+            var page = await GetPageTargetAsync(token);
+            var response = await SendCommandAsync(page, "Page.navigate", new JsonObject { ["url"] = targetUrl.AbsoluteUri }, token);
+            var errorText = response["result"]?["errorText"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(errorText))
+                throw new InvalidOperationException("Fact-check source navigation failed: " + errorText);
+
+            var loaded = false;
+            for (var attempt = 0; attempt < 12; attempt++)
+            {
+                token.ThrowIfCancellationRequested();
+                await Task.Delay(250, token);
+                try
+                {
+                    var readyState = await EvaluateAsync(page, "document.readyState", token);
+                    if (readyState is "interactive" or "complete") { loaded = true; break; }
+                }
+                catch (Exception ex) when (ex is HttpRequestException or WebSocketException or TimeoutException or InvalidOperationException)
+                {
+                    var refreshed = await GetPageTargetAsync(token);
+                    if (!string.Equals(refreshed.Id, page.Id, StringComparison.Ordinal))
+                        throw new InvalidOperationException("The dedicated browser tab changed while the approved source was loading. No page content was shared.");
+                    page = refreshed;
+                }
+            }
+
+            token.ThrowIfCancellationRequested();
+            if (!loaded)
+                throw new TimeoutException("The approved source page did not reach an interactive or complete document state.");
+
+            var initialUrlText = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var initialTitle = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var finalUrl = ValidateFactCheckSourceUrl(initialUrlText);
+            if (!AreSameRegistrableDomain(targetUrl.IdnHost, finalUrl.IdnHost))
+                throw new InvalidOperationException("The approved source redirected to a different publisher domain. The redirected page was not read or shared.");
+            await ValidatePublicHostResolutionAsync(finalUrl.IdnHost, token);
+
+            var snapshot = await ReadPageSnapshotAsync(page, token);
+            token.ThrowIfCancellationRequested();
+            var currentUrl = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
+            var currentTitle = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
+            var activePage = await GetPageTargetAsync(token);
+            if (!string.Equals(activePage.Id, page.Id, StringComparison.Ordinal) ||
+                !string.Equals(snapshot.Url, initialUrlText, StringComparison.Ordinal) ||
+                !string.Equals(snapshot.Title, initialTitle, StringComparison.Ordinal) ||
+                !string.Equals(currentUrl, initialUrlText, StringComparison.Ordinal) ||
+                !string.Equals(currentTitle, initialTitle, StringComparison.Ordinal))
+                throw new InvalidOperationException("The source tab or page changed while its evidence was being read. The snapshot was discarded.");
+
+            var output = new JsonObject
+            {
+                ["title"] = snapshot.Title,
+                ["url"] = finalUrl.AbsoluteUri,
+                ["readyState"] = snapshot.ReadyState,
+                ["visibleText"] = snapshot.Text,
+                ["links"] = JsonNode.Parse(snapshot.LinksJson) ?? new JsonArray(),
+                ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson) ?? new JsonArray(),
+                ["fields"] = JsonNode.Parse(snapshot.FieldsJson) ?? new JsonArray(),
+                ["formCount"] = snapshot.FormCount,
+                ["author"] = snapshot.Author,
+                ["publishedDate"] = snapshot.PublishedDate,
+                ["modifiedDate"] = snapshot.ModifiedDate,
+                ["visibleTimeDate"] = snapshot.VisibleTimeDate,
+                ["visibleTimes"] = JsonNode.Parse(snapshot.VisibleTimesJson) ?? new JsonArray(),
+                ["siteName"] = snapshot.SiteName,
+                ["description"] = snapshot.Description,
+                ["capturedAtUtc"] = DateTimeOffset.UtcNow.ToString("O")
+            };
+            return output.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task<BrowserPageIdentity> GetCurrentPageIdentityAsync(CancellationToken token = default)
     {
         using var operationCancellation = CreateOperationToken(token);
@@ -390,16 +549,18 @@ public sealed class BrowserAutomationService
                 ["url"] = snapshot.Url,
                 ["readyState"] = snapshot.ReadyState,
                 ["visibleText"] = snapshot.Text,
-                ["links"] = JsonNode.Parse(snapshot.LinksJson),
-                ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson),
-                ["fields"] = JsonNode.Parse(snapshot.FieldsJson),
+                ["links"] = JsonNode.Parse(snapshot.LinksJson) ?? new JsonArray(),
+                ["buttons"] = JsonNode.Parse(snapshot.ButtonsJson) ?? new JsonArray(),
+                ["fields"] = JsonNode.Parse(snapshot.FieldsJson) ?? new JsonArray(),
                 ["formCount"] = snapshot.FormCount,
                 ["author"] = snapshot.Author,
                 ["publishedDate"] = snapshot.PublishedDate,
                 ["modifiedDate"] = snapshot.ModifiedDate,
                 ["visibleTimeDate"] = snapshot.VisibleTimeDate,
+                ["visibleTimes"] = JsonNode.Parse(snapshot.VisibleTimesJson) ?? new JsonArray(),
                 ["siteName"] = snapshot.SiteName,
-                ["description"] = snapshot.Description
+                ["description"] = snapshot.Description,
+                ["capturedAtUtc"] = DateTimeOffset.UtcNow.ToString("O")
             };
             return output.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         }
@@ -763,15 +924,90 @@ public sealed class BrowserAutomationService
 
     private async Task<BrowserPageSnapshot> ReadPageSnapshotAsync(CdpPageTarget page, CancellationToken token)
     {
-        var expression = "(() => JSON.stringify({title:document.title||'',url:location.href,readyState:document.readyState," +
-            "metadata:(()=>{const meta=k=>Array.from(document.querySelectorAll('meta')).find(m=>m.name===k||m.getAttribute('property')===k||m.getAttribute('itemprop')===k)?.content||'';" +
-            "const ld=(()=>{for(const script of Array.from(document.querySelectorAll('script[type=\\\"application/ld+json\\\"]')).slice(0,5)){const raw=script.textContent||'';if(raw.length>100000)continue;try{const value=JSON.parse(raw),roots=Array.isArray(value)?value:[value];for(const root of roots){const nodes=[root,...(Array.isArray(root?.['@graph'])?root['@graph']:[])];for(const node of nodes){if(node&&typeof node==='object'&&(node.datePublished||node.dateModified||node.author)){const a=node.author;return {publishedDate:String(node.datePublished||''),modifiedDate:String(node.dateModified||''),author:typeof a==='string'?a:Array.isArray(a)?a.map(x=>x?.name||'').filter(Boolean).join(', '):a?.name||''};}}}}catch{}}return {};})();" +
-            "return {author:(meta('author')||meta('article:author')||ld.author||'').slice(0,180),publishedDate:(meta('article:published_time')||meta('datePublished')||meta('pubdate')||ld.publishedDate||'').slice(0,80),modifiedDate:(meta('article:modified_time')||meta('dateModified')||ld.modifiedDate||'').slice(0,80),visibleTimeDate:(document.querySelector('time[datetime]')?.getAttribute('datetime')||'').slice(0,80),siteName:(meta('og:site_name')||'').slice(0,180),description:(meta('description')||meta('og:description')||'').slice(0,500)};})()," +
-            "text:(document.body?.innerText||'').slice(0,20000)," +
-            "links:Array.from(document.querySelectorAll('a[href]')).slice(0,50).map(a=>({text:(a.innerText||a.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160),href:a.href}))," +
-            "buttons:Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0,40).map(e=>({text:(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,120),id:e.id||'',type:e.tagName.toLowerCase()}))," +
-            "fields:Array.from(document.querySelectorAll('input:not([type=password]):not([type=file]):not([type=hidden]),textarea,[contenteditable=true]')).slice(0,40).map(e=>({tag:e.tagName.toLowerCase(),type:e.type||'',name:e.name||'',id:e.id||'',placeholder:e.placeholder||'',label:e.getAttribute('aria-label')||'',disabled:e.disabled===true}))," +
-            "formCount:document.forms.length}))()";
+        var expression = """
+            (() => JSON.stringify({
+              title: document.title || '',
+              url: location.href,
+              readyState: document.readyState,
+              metadata: (() => {
+                const allMeta = Array.from(document.querySelectorAll('meta'));
+                const meta = (...names) => {
+                  for (const name of names) {
+                    const found = allMeta.find(m =>
+                      (m.name || '').toLowerCase() === name.toLowerCase() ||
+                      (m.getAttribute('property') || '').toLowerCase() === name.toLowerCase() ||
+                      (m.getAttribute('itemprop') || '').toLowerCase() === name.toLowerCase());
+                    if (found?.content) return String(found.content).slice(0, 500);
+                  }
+                  return '';
+                };
+                const jsonLd = (() => {
+                  const result = {};
+                  let visited = 0;
+                  const authorName = value => {
+                    if (typeof value === 'string') return value;
+                    if (Array.isArray(value)) return value.map(authorName).filter(Boolean).join(', ');
+                    if (value && typeof value === 'object') return String(value.name || value.alternateName || '');
+                    return '';
+                  };
+                  const visit = (value, depth) => {
+                    if (!value || depth > 10 || visited++ > 1500) return;
+                    if (Array.isArray(value)) {
+                      for (const item of value.slice(0, 100)) visit(item, depth + 1);
+                      return;
+                    }
+                    if (typeof value !== 'object') return;
+                    if (!result.publishedDate && typeof value.datePublished === 'string') result.publishedDate = value.datePublished;
+                    if (!result.modifiedDate && typeof value.dateModified === 'string') result.modifiedDate = value.dateModified;
+                    if (!result.author && value.author) result.author = authorName(value.author);
+                    for (const key of ['@graph', 'mainEntity', 'mainEntityOfPage', 'hasPart', 'itemListElement']) {
+                      if (value[key]) visit(value[key], depth + 1);
+                    }
+                  };
+                  for (const script of Array.from(document.querySelectorAll('script[type="application/ld+json"]')).slice(0, 10)) {
+                    const raw = script.textContent || '';
+                    if (!raw || raw.length > 100000) continue;
+                    try { visit(JSON.parse(raw), 0); } catch { /* Invalid JSON-LD is untrusted and ignored. */ }
+                  }
+                  return result;
+                })();
+                const times = Array.from(document.querySelectorAll('time[datetime]')).slice(0, 8).map(element => ({
+                  datetime: String(element.getAttribute('datetime') || '').slice(0, 80),
+                  context: String(element.getAttribute('aria-label') || element.title || element.parentElement?.innerText || element.innerText || '')
+                    .replace(/\s+/g, ' ').trim().slice(0, 180)
+                })).filter(item => item.datetime.length > 0);
+                return {
+                  author: (meta('author', 'article:author', 'dc.creator', 'dcterms.creator') || jsonLd.author || '').slice(0, 180),
+                  publishedDate: (meta('article:published_time', 'datepublished', 'pubdate', 'parsely-pub-date', 'dcterms.date', 'dc.date') || jsonLd.publishedDate || '').slice(0, 80),
+                  modifiedDate: (meta('article:modified_time', 'datemodified', 'last-modified', 'dcterms.modified') || jsonLd.modifiedDate || '').slice(0, 80),
+                  visibleTimeDate: (times[0]?.datetime || '').slice(0, 80),
+                  visibleTimes: times,
+                  siteName: meta('og:site_name').slice(0, 180),
+                  description: meta('description', 'og:description', 'twitter:description').slice(0, 500)
+                };
+              })(),
+              text: (document.body?.innerText || '').slice(0, 20000),
+              links: Array.from(document.querySelectorAll('a[href]')).slice(0, 50).map(a => ({
+                text: (a.innerText || a.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 160),
+                href: a.href
+              })),
+              buttons: Array.from(document.querySelectorAll('button,[role=button],input[type=button],input[type=submit]')).slice(0, 40).map(e => ({
+                text: (e.innerText || e.value || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+                id: e.id || '',
+                type: e.tagName.toLowerCase()
+              })),
+              fields: Array.from(document.querySelectorAll('input:not([type=password]):not([type=file]):not([type=hidden]),textarea,[contenteditable=true]')).slice(0, 40).map(e => ({
+                tag: e.tagName.toLowerCase(),
+                type: e.type || '',
+                name: e.name || '',
+                id: e.id || '',
+                placeholder: e.placeholder || '',
+                label: e.getAttribute('aria-label') || '',
+                disabled: e.disabled === true
+              })),
+              formCount: document.forms.length
+            }))()
+            """;
         var json = await EvaluateAsync(page, expression, token);
         if (string.IsNullOrWhiteSpace(json)) throw new InvalidOperationException("The browser returned no page metadata.");
         using var doc = JsonDocument.Parse(json);
@@ -780,17 +1016,22 @@ public sealed class BrowserAutomationService
         _ = ValidateHttpUrl(pageUrl);
         var metadata = root.TryGetProperty("metadata", out var metadataElement) ? metadataElement : default;
         string Meta(string name) => metadata.ValueKind == JsonValueKind.Object &&
-            metadata.TryGetProperty(name, out var item) ? item.GetString() ?? string.Empty : string.Empty;
+            metadata.TryGetProperty(name, out var item) && item.ValueKind == JsonValueKind.String
+                ? item.GetString() ?? string.Empty : string.Empty;
+        var visibleTimesJson = metadata.ValueKind == JsonValueKind.Object &&
+            metadata.TryGetProperty("visibleTimes", out var times) && times.ValueKind == JsonValueKind.Array
+                ? times.GetRawText() : "[]";
         return new BrowserPageSnapshot(
-            root.TryGetProperty("title", out var title) ? title.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String ? title.GetString() ?? string.Empty : string.Empty,
             pageUrl,
-            root.TryGetProperty("readyState", out var ready) ? ready.GetString() ?? string.Empty : string.Empty,
-            root.TryGetProperty("text", out var text) ? text.GetString() ?? string.Empty : string.Empty,
-            root.TryGetProperty("links", out var links) ? links.GetRawText() : "[]",
-            root.TryGetProperty("buttons", out var buttons) ? buttons.GetRawText() : "[]",
-            root.TryGetProperty("fields", out var fields) ? fields.GetRawText() : "[]",
-            root.TryGetProperty("formCount", out var forms) ? forms.GetInt32() : 0,
-            Meta("author"), Meta("publishedDate"), Meta("modifiedDate"), Meta("visibleTimeDate"), Meta("siteName"), Meta("description"));
+            root.TryGetProperty("readyState", out var ready) && ready.ValueKind == JsonValueKind.String ? ready.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("links", out var links) && links.ValueKind == JsonValueKind.Array ? links.GetRawText() : "[]",
+            root.TryGetProperty("buttons", out var buttons) && buttons.ValueKind == JsonValueKind.Array ? buttons.GetRawText() : "[]",
+            root.TryGetProperty("fields", out var fields) && fields.ValueKind == JsonValueKind.Array ? fields.GetRawText() : "[]",
+            root.TryGetProperty("formCount", out var forms) && forms.TryGetInt32(out var formCount) ? formCount : 0,
+            Meta("author"), Meta("publishedDate"), Meta("modifiedDate"), Meta("visibleTimeDate"),
+            Meta("siteName"), Meta("description"), visibleTimesJson);
     }
 
     private async Task<string?> EvaluateAsync(CdpPageTarget page, string expression, CancellationToken token)
@@ -961,7 +1202,8 @@ public sealed record BrowserPageSnapshot(
     string ModifiedDate = "",
     string VisibleTimeDate = "",
     string SiteName = "",
-    string Description = "");
+    string Description = "",
+    string VisibleTimesJson = "[]");
 
 internal sealed record CdpPageTarget(string Id, string Title, string Url, string WebSocketUrl);
 
