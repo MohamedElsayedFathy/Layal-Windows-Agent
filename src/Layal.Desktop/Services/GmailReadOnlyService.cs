@@ -29,7 +29,7 @@ public sealed class GmailReadOnlyService
     public const int MaximumAttachmentPreviewCharacters = 10_000;
     public const int MaximumMessageResponseBytes = 25 * 1024 * 1024;
     private const int MaximumAttachmentResponseBytes = 2 * 1024 * 1024;
-    private const int MaximumSingleAttachmentPreviewCharacters = 3_000;
+    public const int MaximumSingleAttachmentPreviewCharacters = 3_000;
     private const string GmailReadOnlyScope = "https://www.googleapis.com/auth/gmail.readonly";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     private const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -516,6 +516,18 @@ public sealed class GmailReadOnlyService
                extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool IsSupportedImageAttachment(string fileName)
+    {
+        // These extensions are the only image formats accepted by local document OCR.
+        var extension = Path.GetExtension(fileName ?? string.Empty);
+        return extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".tif", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".tiff", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool IsSupportedTextAttachment(string fileName, string mimeType)
     {
         var extension = Path.GetExtension(fileName ?? string.Empty);
@@ -613,8 +625,9 @@ public sealed class GmailReadOnlyService
                 : "Not previewed: unsupported type or attachment exceeds the 1 MB text-preview limit.";
             var isTextAttachment = IsSupportedTextAttachment(safeName, mimeType);
             var isDocumentAttachment = IsSupportedDocumentAttachment(safeName, mimeType);
+            var isImageAttachment = IsSupportedImageAttachment(safeName);
             if (remainingPreviewCharacters > 0 &&
-                (isTextAttachment || isDocumentAttachment) && size <= MaximumAttachmentBytes)
+                (isTextAttachment || isDocumentAttachment || isImageAttachment) && size <= MaximumAttachmentBytes)
             {
                 try
                 {
@@ -623,12 +636,14 @@ public sealed class GmailReadOnlyService
                     {
                         try
                         {
-                            if (isDocumentAttachment)
+                            if (isDocumentAttachment || isImageAttachment)
                             {
-                                preview = await ExtractDocumentAttachmentTextAsync(safeName, bytes, cancellationToken);
-                                status = preview.Length > 0
-                                    ? "Local document text preview available; review extracted content for errors."
-                                    : "The document contained no extractable text.";
+                                preview = await ExtractLocalAttachmentTextAsync(safeName, bytes, cancellationToken);
+                                status = preview.Length == 0
+                                    ? "The attachment contained no locally extractable text."
+                                    : isImageAttachment
+                                        ? "Local image OCR preview available using bundled Arabic/English OCR; recognition may contain errors and must be reviewed."
+                                        : "Local document text preview available; review extracted content for errors.";
                             }
                             else
                             {
@@ -651,7 +666,7 @@ public sealed class GmailReadOnlyService
                         }
                     }
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException)
+                catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException or FormatException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException or DllNotFoundException or BadImageFormatException or TypeInitializationException)
                 {
                     status = "Preview unavailable: the read-only attachment request failed.";
                 }
@@ -681,18 +696,20 @@ public sealed class GmailReadOnlyService
     }
 
     /// <summary>
-    /// Extracts supported PDF/Word/Excel attachments into a private temporary file because the
-    /// existing local parser requires a path. The file is never exposed to the UI, and both the
-    /// temporary file and in-memory attachment bytes are removed immediately after extraction.
+    /// Extracts supported PDF/Word/Excel/image attachments through the existing local parser/OCR
+    /// into a private temporary file. The file is never exposed to the UI and is removed immediately.
+    /// Attachment bytes are zeroed by the caller after this method returns.
     /// </summary>
-    private async Task<string> ExtractDocumentAttachmentTextAsync(
+    private async Task<string> ExtractLocalAttachmentTextAsync(
         string safeFileName,
         byte[] bytes,
         CancellationToken cancellationToken)
     {
         var extension = Path.GetExtension(safeFileName).ToLowerInvariant();
-        if (extension is not ".pdf" and not ".docx" and not ".xlsx")
-            throw new NotSupportedException("This Gmail attachment type is not supported for local document preview.");
+        if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx" &&
+            extension != ".png" && extension != ".jpg" && extension != ".jpeg" &&
+            extension != ".bmp" && extension != ".tif" && extension != ".tiff")
+            throw new NotSupportedException("This Gmail attachment type is not supported for local document or image preview.");
 
         var temporaryPath = Path.Combine(
             Path.GetTempPath(),
