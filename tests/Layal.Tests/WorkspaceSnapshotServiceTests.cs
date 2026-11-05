@@ -50,6 +50,12 @@ public sealed class WorkspaceSnapshotServiceTests
         Assert.AreEqual(1, preview.TaskCount);
         Assert.AreEqual(1, preview.MemoryCount);
         Assert.IsTrue(preview.FileManifestCount >= 1);
+        var filePreview = preview.FileEntries!.Single();
+        Assert.AreEqual("report.txt", filePreview.RelativePath);
+        Assert.AreEqual(new FileInfo(Path.Combine(workspace, "report.txt")).Length, filePreview.SizeBytes);
+        Assert.IsFalse(filePreview.IsDirectory);
+        Assert.IsFalse(filePreview.HasContent);
+        Assert.IsNull(filePreview.ContentOmittedReason);
     }
 
     [TestMethod]
@@ -285,6 +291,11 @@ public sealed class WorkspaceSnapshotServiceTests
         var backup = backupService.ExportJson(includeWorkspaceFileContents: true);
         var preview = backupService.PreviewImportJson(backup);
         Assert.AreEqual(1, preview.FilesWithContent);
+        var embeddedPreview = preview.FileEntries!.Single();
+        Assert.AreEqual("report.txt", embeddedPreview.RelativePath);
+        Assert.AreEqual("RESTORABLE_WORKSPACE_CONTENT".Length, embeddedPreview.SizeBytes);
+        Assert.IsTrue(embeddedPreview.HasContent);
+        Assert.IsFalse(embeddedPreview.IsDirectory);
 
         var metadataOnlyTarget = Path.Combine(temp.Path, "metadata-only");
         Directory.CreateDirectory(metadataOnlyTarget);
@@ -319,6 +330,94 @@ public sealed class WorkspaceSnapshotServiceTests
         Assert.AreEqual(0, existingResult.FilesRestored);
         Assert.AreEqual(1, existingResult.FilesSkipped);
         Assert.AreEqual("KEEP_LOCAL_FILE", File.ReadAllText(Path.Combine(existingTarget, "report.txt")));
+    }
+
+    [TestMethod]
+    public void ImportFailureInSecondProtectedStoreRollsBackFirstStoreAndRestoredFiles()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source");
+        var targetWorkspace = Path.Combine(temp.Path, "target");
+        Directory.CreateDirectory(sourceWorkspace);
+        Directory.CreateDirectory(targetWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "RESTORED_FILE_SENTINEL");
+
+        var sourceTasks = new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi"));
+        sourceTasks.Upsert(new AgentTaskRecord
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Goal = "Imported task",
+            Status = "Completed",
+            Result = "Imported result"
+        });
+        var sourceMemory = new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi"));
+        _ = sourceMemory.Save("Imported memory", "Imported content.");
+        var backup = new WorkspaceSnapshotService(sourceTasks, sourceMemory, sourceWorkspace)
+            .ExportJson(includeWorkspaceFileContents: true);
+
+        var targetTasks = new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi"));
+        var targetMemoryPath = Path.Combine(temp.Path, "target-memory.dpapi");
+        var targetMemory = new MemoryService(targetMemoryPath);
+        var retained = targetMemory.Save("Keep local", "This note must remain.");
+        var targetService = new WorkspaceSnapshotService(targetTasks, targetMemory, targetWorkspace);
+
+        // Permit reads during preflight but deny replacement/deletion of the target memory file.
+        // Task import and file restoration therefore happen first; the memory save then fails.
+        using (var memoryLease = new FileStream(
+                   targetMemoryPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            try
+            {
+                _ = targetService.ImportJson(backup, restoreWorkspaceFiles: true);
+                Assert.Fail("The locked DPAPI store should reject replacement.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Expected: all earlier writes must be compensated.
+            }
+        }
+
+        Assert.AreEqual(0, targetTasks.GetRecent(10).Count,
+            "The newly imported task must be removed when the memory-store commit fails.");
+        var remainingMemories = targetMemory.GetAll(includeArchived: true);
+        Assert.AreEqual(1, remainingMemories.Count);
+        Assert.AreEqual(retained.Id, remainingMemories.Single().Id);
+        Assert.AreEqual("This note must remain.", remainingMemories.Single().Content);
+        Assert.IsFalse(File.Exists(Path.Combine(targetWorkspace, "report.txt")),
+            "Files restored before the failing store commit must be rolled back.");
+        Assert.AreEqual(0, Directory.EnumerateFiles(targetWorkspace, "*", SearchOption.AllDirectories).Count());
+    }
+
+    [TestMethod]
+    public void AtomicBackupWriterReplacesOnlyAfterSuccessfulWriteAndLeavesOldBackupOnFailure()
+    {
+        using var temp = new TestTempDirectory();
+        var backupPath = Path.Combine(temp.Path, "workspace-backup.json");
+        File.WriteAllText(backupPath, "OLD_BACKUP_SENTINEL");
+
+        using (var existingBackupLease = new FileStream(
+                   backupPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            try
+            {
+                WorkspaceSnapshotService.WriteJsonAtomically(backupPath, "{\\"SchemaVersion\\":2}");
+                Assert.Fail("A destination opened without delete sharing must not be replaced.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Expected: a failed final move must preserve the previous backup.
+            }
+
+            Assert.AreEqual("OLD_BACKUP_SENTINEL", File.ReadAllText(backupPath));
+        }
+
+        WorkspaceSnapshotService.WriteJsonAtomically(backupPath, "{\\"SchemaVersion\\":2}");
+        Assert.AreEqual("{\\"SchemaVersion\\":2}", File.ReadAllText(backupPath));
+        Assert.AreEqual(0, Directory.EnumerateFiles(temp.Path, ".layal-backup-*.tmp").Count(),
+            "Temporary backup files must not be left behind.");
     }
 
     [TestMethod]
