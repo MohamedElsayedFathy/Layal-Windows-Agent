@@ -213,7 +213,9 @@ public sealed class SavedRoutineManagerWindow : Window
             MinWidth = 205, MinHeight = 34, Margin = new Thickness(0, 0, 8, 0)
         };
         AutomationProperties.SetName(runButton, isArabic ? "تشغيل الروتين بعد التأكيد" : "Run routine after confirmation");
-        AutomationProperties.SetHelpText(runButton, isArabic ? "يبدأ مهمة واحدة بعد تأكيد إضافي، مع موافقة مستقلة لكل أداة." : "Starts one task after extra confirmation; each tool still requires separate approval.");
+        AutomationProperties.SetHelpText(runButton, isArabic
+            ? "يعرض الخطة كاملة في نافذة قابلة للتمرير. لن يبدأ التشغيل إلا بعد تأكيدك؛ وتظهر موافقة منفصلة قبل كل أداة أو أثر."
+            : "Shows the complete plan in a scrollable confirmation window. Execution starts only after you confirm; each tool or side effect still requires separate approval.");
         runButton.Click += RunButton_Click;
 
         var deleteButton = new Button
