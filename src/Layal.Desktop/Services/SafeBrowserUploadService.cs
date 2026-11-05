@@ -269,8 +269,10 @@ public sealed class SafeBrowserUploadService
             name.Any(char.IsControl))
             return false;
 
-        return name.Split('/', StringSplitOptions.RemoveEmptyEntries)
-            .All(segment => segment is not ("." or ".."));
+        var normalized = name.EndsWith("/", StringComparison.Ordinal) ? name[..^1] : name;
+        return normalized.Length > 0 &&
+            normalized.Split('/').All(segment =>
+                segment.Length > 0 && segment is not ("." or ".."));
     }
 
     private static bool ContainsActiveOfficePart(string name)
