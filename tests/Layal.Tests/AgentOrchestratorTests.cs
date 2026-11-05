@@ -299,6 +299,205 @@ public sealed class AgentOrchestratorTests
         Assert.AreEqual("Stopped", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
     }
 
+
+    [TestMethod]
+    public async Task SavedRoutineExecutesThreeStepsInOneTaskWithSeparateApprovals()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(Path.Combine(workspace, "reports"));
+        var turn = BuildToolCallsResponse(
+            ("create_text_file", (object)new { path = "reports/step-1.txt", content = "First completed step" }, "call_step_1"),
+            ("create_text_file", (object)new { path = "reports/step-2.txt", content = "Second completed step" }, "call_step_2"),
+            ("create_text_file", (object)new { path = "reports/step-3.txt", content = "Third completed step" }, "call_step_3"));
+        var final = JsonSerializer.Serialize(new
+        {
+            choices = new[]
+            {
+                new { message = new { role = "assistant", content = "All three approved routine steps completed." } }
+            }
+        });
+        using var handler = new QueueResponseHandler(turn, final);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(handler, disposeHandler: false));
+        var tools = new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+        var routine = new SavedRoutineRecord
+        {
+            Name = "Three-step report",
+            Goal = "Create the three approved report artifacts.",
+            Steps = new() { "Create the first report", "Create the second report", "Create the third report" }
+        };
+        var approvals = new List<string>();
+
+        var task = await orchestrator.RunTaskAsync(
+            SavedRoutineService.BuildExecutionPrompt(routine),
+            "https://provider.example/v1", "test-model", "test-key", Array.Empty<SkillRecord>(),
+            (_, preview, _) =>
+            {
+                approvals.Add(preview);
+                return Task.FromResult(true);
+            },
+            _ => { }, CancellationToken.None,
+            stopAfterToolFailureOrDecline: true);
+
+        Assert.AreEqual("Completed", task.Status, string.Join(Environment.NewLine, task.Events));
+        Assert.AreEqual(3, approvals.Count, "Each tool action must receive its own local approval.");
+        StringAssert.Contains(approvals[0].Replace('\\', '/'), "reports/step-1.txt");
+        StringAssert.Contains(approvals[1].Replace('\\', '/'), "reports/step-2.txt");
+        StringAssert.Contains(approvals[2].Replace('\\', '/'), "reports/step-3.txt");
+        CollectionAssert.AreEqual(
+            new[] { "reports/step-1.txt", "reports/step-2.txt", "reports/step-3.txt" },
+            task.Artifacts);
+        Assert.AreEqual("First completed step", File.ReadAllText(Path.Combine(workspace, "reports", "step-1.txt")));
+        Assert.AreEqual("Second completed step", File.ReadAllText(Path.Combine(workspace, "reports", "step-2.txt")));
+        Assert.AreEqual("Third completed step", File.ReadAllText(Path.Combine(workspace, "reports", "step-3.txt")));
+        Assert.AreEqual(2, handler.RequestCount);
+        Assert.AreEqual(1, history.GetRecent(10).Count(item => item.Id == task.Id),
+            "The routine must be recorded as one task, not one task per step.");
+        Assert.AreEqual("Completed", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
+    }
+
+    [TestMethod]
+    public async Task SavedRoutineStopsOnFailureBeforeApprovalAndSkipsLaterCalls()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var turn = BuildToolCallsResponse(
+            ("create_text_file", (object)new { path = "../outside.txt", content = "must not be created" }, "call_invalid_path"),
+            ("get_current_time", (object)new { }, "call_later_step"));
+        using var handler = new QueueResponseHandler(turn);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(handler, disposeHandler: false));
+        var tools = new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+        var approvalCount = 0;
+
+        var task = await orchestrator.RunTaskAsync(
+            "Execute the saved routine in order.",
+            "https://provider.example/v1", "test-model", "test-key", Array.Empty<SkillRecord>(),
+            (_, _, _) =>
+            {
+                approvalCount++;
+                return Task.FromResult(true);
+            },
+            _ => { }, CancellationToken.None,
+            stopAfterToolFailureOrDecline: true);
+
+        Assert.AreEqual("Stopped", task.Status, string.Join(Environment.NewLine, task.Events));
+        Assert.AreEqual(0, approvalCount, "Path validation must fail before asking for approval.");
+        Assert.AreEqual(1, handler.RequestCount);
+        Assert.IsTrue(task.Events.Any(line => line.Contains("Tool failed: create_text_file", StringComparison.Ordinal)));
+        Assert.IsFalse(task.Events.Any(line => line.Contains("Tool requested: get_current_time", StringComparison.Ordinal)));
+        Assert.AreEqual("Stopped", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
+        Assert.IsFalse(File.Exists(Path.Combine(temp.Path, "outside.txt")));
+    }
+
+    [TestMethod]
+    public async Task SavedRoutineStopsOnFailureAfterApprovalAndPreservesEarlierSideEffects()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(Path.Combine(workspace, "reports"));
+        var destination = Path.Combine(workspace, "reports", "progress.txt");
+        var turn = BuildToolCallsResponse(
+            ("create_text_file", (object)new { path = "reports/progress.txt", content = "initial content" }, "call_create_first"),
+            ("replace_text_in_file", (object)new { path = "reports/progress.txt", old_text = "initial", new_text = "replaced" }, "call_replace_second"),
+            ("get_current_time", (object)new { }, "call_later_step"));
+        using var handler = new QueueResponseHandler(turn);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(handler, disposeHandler: false));
+        var tools = new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+        var approvalCount = 0;
+
+        var task = await orchestrator.RunTaskAsync(
+            "Execute the saved routine in order and stop on the first failure.",
+            "https://provider.example/v1", "test-model", "test-key", Array.Empty<SkillRecord>(),
+            (_, _, _) =>
+            {
+                approvalCount++;
+                if (approvalCount == 2)
+                    File.WriteAllText(destination, "external concurrent edit");
+                return Task.FromResult(true);
+            },
+            _ => { }, CancellationToken.None,
+            stopAfterToolFailureOrDecline: true);
+
+        Assert.AreEqual("Stopped", task.Status, string.Join(Environment.NewLine, task.Events));
+        Assert.AreEqual(2, approvalCount);
+        Assert.IsTrue(task.Events.Any(line => line.Contains("Tool failed: replace_text_in_file", StringComparison.Ordinal)));
+        Assert.IsFalse(task.Events.Any(line => line.Contains("Tool requested: get_current_time", StringComparison.Ordinal)));
+        Assert.AreEqual("external concurrent edit", File.ReadAllText(destination),
+            "The failed replacement must not overwrite a file that changed during approval.");
+        CollectionAssert.AreEqual(new[] { "reports/progress.txt" }, task.Artifacts,
+            "The earlier completed artifact must remain associated with the stopped task.");
+        Assert.AreEqual("Stopped", history.GetRecent(10).Single(item => item.Id == task.Id).Status);
+        Assert.AreEqual(1, handler.RequestCount);
+    }
+
+    [TestMethod]
+    public async Task CancellingSavedRoutineDuringLaterStepKeepsCompletedProgressAndSkipsRemainingCalls()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The task history store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(Path.Combine(workspace, "reports"));
+        var firstPath = Path.Combine(workspace, "reports", "completed.txt");
+        var secondPath = Path.Combine(workspace, "reports", "not-created.txt");
+        var turn = BuildToolCallsResponse(
+            ("create_text_file", (object)new { path = "reports/completed.txt", content = "completed" }, "call_completed"),
+            ("create_text_file", (object)new { path = "reports/not-created.txt", content = "must not be written" }, "call_cancelled"),
+            ("get_current_time", (object)new { }, "call_after_cancel"));
+        using var handler = new QueueResponseHandler(turn);
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(handler, disposeHandler: false));
+        var tools = new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+        var skills = new SkillPackageService(Path.Combine(temp.Path, "skills"));
+        var history = new TaskHistoryService(Path.Combine(temp.Path, "task-history.dpapi"));
+        var orchestrator = new AgentOrchestrator(client, tools, skills, history);
+        using var cancellation = new CancellationTokenSource();
+        var approvalCount = 0;
+
+        var task = await orchestrator.RunTaskAsync(
+            "Execute the saved routine in order; cancellation must preserve completed progress.",
+            "https://provider.example/v1", "test-model", "test-key", Array.Empty<SkillRecord>(),
+            (_, _, _) =>
+            {
+                approvalCount++;
+                if (approvalCount == 2)
+                    cancellation.Cancel();
+                return Task.FromResult(true);
+            },
+            _ => { }, cancellation.Token,
+            stopAfterToolFailureOrDecline: true);
+
+        Assert.AreEqual("Cancelled", task.Status, string.Join(Environment.NewLine, task.Events));
+        Assert.AreEqual(2, approvalCount);
+        Assert.IsTrue(File.Exists(firstPath));
+        Assert.IsFalse(File.Exists(secondPath));
+        CollectionAssert.AreEqual(new[] { "reports/completed.txt" }, task.Artifacts);
+        Assert.IsFalse(task.Events.Any(line => line.Contains("Tool requested: get_current_time", StringComparison.Ordinal)));
+        Assert.AreEqual(1, handler.RequestCount);
+        var persisted = history.GetRecent(10).Single(item => item.Id == task.Id);
+        Assert.AreEqual("Cancelled", persisted.Status);
+        CollectionAssert.AreEqual(new[] { "reports/completed.txt" }, persisted.Artifacts);
+    }
+
     [TestMethod]
     public async Task MultiStepFileTaskKeepsOneArtifactReferenceAcrossCreateAndReplace()
     {

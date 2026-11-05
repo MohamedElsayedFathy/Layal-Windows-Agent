@@ -363,9 +363,9 @@
                                     AutomationProperties.Name="إدارة التذكيرات المحلية"
                                     AutomationProperties.HelpText="أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."/>
                             <Button x:Name="ManageRoutinesButton" Content="الروتينات" Click="ManageRoutinesButton_Click"
-                                    MinWidth="105" ToolTip="احفظ أهدافًا نصية متكررة. اختيار الروتين يملأ المسودة فقط ولا يشغله تلقائيًا."
+                                    MinWidth="105" ToolTip="احفظ قوالب مشفرة؛ أدرجها في مسودة أو شغّلها بعد مراجعة الخطة والتأكيد."
                                     AutomationProperties.Name="إدارة الروتينات المحفوظة"
-                                    AutomationProperties.HelpText="قوالب نصية مشفرة محليًا وليست سكربتات؛ راجع الهدف واضغط تنفيذ المهمة بنفسك."/>
+                                    AutomationProperties.HelpText="الروتينات قوالب نصية مشفرة محليًا وليست سكربتات؛ استخدام المسودة لا يشغّلها، والتشغيل يتطلب تأكيدًا إضافيًا وموافقة مستقلة لكل أداة."/>
                             <Button x:Name="WorkspaceHubButton" Content="مساحة العمل" Click="WorkspaceHubButton_Click"
                                     MinWidth="115" ToolTip="بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
                                     AutomationProperties.Name="فتح مساحة عمل ليال الموحدة"

@@ -11,7 +11,7 @@ using Layal.Services;
 
 namespace Layal.Views;
 
-/// <summary>Creates saved prompts and returns a chosen prompt for review; never executes a task itself.</summary>
+/// <summary>Manages encrypted user-authored routine templates and returns only an explicitly confirmed execution request.</summary>
 public sealed class SavedRoutineManagerWindow : Window
 {
     private readonly SavedRoutineService _service;
@@ -32,6 +32,7 @@ public sealed class SavedRoutineManagerWindow : Window
         _onUse = onUse ?? throw new ArgumentNullException(nameof(onUse));
         _isArabic = isArabic;
         Title = isArabic ? "الروتينات المحفوظة" : "Saved routines";
+        FlowDirection = isArabic ? System.Windows.FlowDirection.RightToLeft : System.Windows.FlowDirection.LeftToRight;
         Width = 820;
         Height = 710;
         MinWidth = 600;
@@ -42,8 +43,8 @@ public sealed class SavedRoutineManagerWindow : Window
         Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
-            ? "الروتين قالب نصي فقط، وليس سكربتًا. اختياره يملأ مسودة المهمة للمراجعة ولا يشغّلها تلقائيًا."
-            : "A routine is a text template, not a script. Choosing one fills the task draft for review and never runs it automatically.");
+            ? "احفظ قوالب أهداف وخطوات مشفرة محليًا. يمكنك إدراجها في مسودة دون تشغيل، أو بدء مهمة واحدة بعد مراجعة الخطة والتأكيد الإضافي. تظل الموافقة مطلوبة لكل أداة."
+            : "Save locally encrypted goal-and-step templates. You can place one in a draft without running it, or start one task after reviewing the full plan and confirming. Every tool still requires separate approval.");
 
         var root = new Grid { Margin = new Thickness(16) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -170,8 +171,8 @@ public sealed class SavedRoutineManagerWindow : Window
         };
         AutomationProperties.SetName(_list, isArabic ? "قائمة الروتينات المحفوظة" : "Saved routines list");
         AutomationProperties.SetHelpText(_list, isArabic
-            ? "حدد قالبًا ثم أدرجه في مسودة المهمة أو احذفه."
-            : "Select a template to load into the task draft or delete it.");
+            ? "حدد روتينًا لمراجعة بياناته، أو إدراجه في مسودة، أو تشغيله بعد تأكيد الخطة. الحذف يتطلب تأكيدًا."
+            : "Select a routine to review its details, load it into a draft, or run it after plan confirmation. Deletion requires confirmation.");
         _list.SelectionChanged += (_, _) => UpdateSelectedPreview();
         Grid.SetRow(_list, 2);
         root.Children.Add(_list);
@@ -213,7 +214,9 @@ public sealed class SavedRoutineManagerWindow : Window
             MinWidth = 205, MinHeight = 34, Margin = new Thickness(0, 0, 8, 0)
         };
         AutomationProperties.SetName(runButton, isArabic ? "تشغيل الروتين بعد التأكيد" : "Run routine after confirmation");
-        AutomationProperties.SetHelpText(runButton, isArabic ? "يبدأ مهمة واحدة بعد تأكيد إضافي، مع موافقة مستقلة لكل أداة." : "Starts one task after extra confirmation; each tool still requires separate approval.");
+        AutomationProperties.SetHelpText(runButton, isArabic
+            ? "يعرض الخطة كاملة في نافذة قابلة للتمرير. لن يبدأ التشغيل إلا بعد تأكيدك؛ وتظهر موافقة منفصلة قبل كل أداة أو أثر."
+            : "Shows the complete plan in a scrollable confirmation window. Execution starts only after you confirm; each tool or side effect still requires separate approval.");
         runButton.Click += RunButton_Click;
 
         var deleteButton = new Button
@@ -224,6 +227,9 @@ public sealed class SavedRoutineManagerWindow : Window
             Margin = new Thickness(0, 0, 8, 0)
         };
         AutomationProperties.SetName(deleteButton, isArabic ? "حذف الروتين المحدد" : "Delete selected routine");
+        AutomationProperties.SetHelpText(deleteButton, isArabic
+            ? "يعرض تأكيدًا قبل حذف الروتين من التخزين المحلي المشفر."
+            : "Asks for confirmation before removing the routine from encrypted local storage.");
         deleteButton.Click += DeleteButton_Click;
 
         var closeButton = new Button
@@ -322,19 +328,106 @@ public sealed class SavedRoutineManagerWindow : Window
             return;
         }
         var prompt = SavedRoutineService.BuildExecutionPrompt(selected.Record, _isArabic);
-        var preview = prompt.Length <= 1_600 ? prompt : prompt[..1_600] + Environment.NewLine + "[…]";
-        var accepted = MessageBox.Show(this,
-            (_isArabic ? "سيبدأ هذا الروتين مهمة وكيل واحدة. قد تُطلب موافقة منفصلة قبل كل قراءة أو تعديل أو إجراء خارجي. لن يتجاوز الروتين أي موافقة.\n\n" : "This starts one agent task. Separate approval is required before every tool or external action. The routine cannot bypass approvals.\n\n") + preview,
-            _isArabic ? "تأكيد تشغيل الروتين" : "Confirm routine execution",
-            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
-        if (accepted != MessageBoxResult.Yes)
+        if (!ConfirmRun(prompt))
         {
-            _status.Text = _isArabic ? "لم يتم تشغيل الروتين." : "The routine was not started.";
+            _status.Text = _isArabic ? "لم يتم تشغيل الروتين؛ لم يبدأ أي إجراء." : "The routine was not started; no action was performed.";
             return;
         }
+
         RunPrompt = prompt;
         DialogResult = true;
         Close();
+    }
+
+    private bool ConfirmRun(string prompt)
+    {
+        var confirmation = new Window
+        {
+            Title = _isArabic ? "مراجعة خطة الروتين والتأكيد" : "Review routine plan and confirm",
+            FlowDirection = _isArabic ? System.Windows.FlowDirection.RightToLeft : System.Windows.FlowDirection.LeftToRight,
+            Owner = this,
+            Width = 760,
+            Height = 640,
+            MinWidth = 560,
+            MinHeight = 420,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.CanResize,
+            ShowInTaskbar = false,
+            Background = Background,
+            Foreground = Foreground
+        };
+        AutomationProperties.SetName(confirmation, confirmation.Title);
+        AutomationProperties.SetHelpText(confirmation, _isArabic
+            ? "اقرأ الخطة كاملة قبل بدء مهمة واحدة. زر الإلغاء هو الخيار الافتراضي."
+            : "Review the complete plan before starting one task. Cancel is the default.");
+
+        var root = new Grid { Margin = new Thickness(16) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var notice = new TextBlock
+        {
+            Text = _isArabic
+                ? "سيُرسل نص الروتين إلى مزود الذكاء الاصطناعي المُعدّ لبدء مهمة واحدة. الروتين لا يمنح أي صلاحيات؛ ستظهر موافقة محلية منفصلة قبل كل أداة أو إجراء. لا يمكن التراجع تلقائيًا عن الآثار التي تمت."
+                : "The routine text is sent to the configured AI provider for one task. It grants no permissions; a separate local approval appears before each tool or action. Completed effects are not automatically undone.",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        Grid.SetRow(notice, 0);
+        root.Children.Add(notice);
+
+        var plan = new TextBox
+        {
+            Text = prompt,
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MinHeight = 280,
+            Padding = new Thickness(10),
+            IsTabStop = true
+        };
+        AutomationProperties.SetName(plan, _isArabic ? "الخطة الكاملة للروتين" : "Complete routine execution plan");
+        AutomationProperties.SetHelpText(plan, _isArabic
+            ? "الخطة كاملة للقراءة والتمرير والنسخ؛ هذه المعاينة لا تشغّلها."
+            : "The complete read-only plan; scroll or copy it. This preview does not run it.");
+        Grid.SetRow(plan, 1);
+        root.Children.Add(plan);
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+        var cancelButton = new Button
+        {
+            Content = _isArabic ? "إلغاء" : "Cancel",
+            MinWidth = 110,
+            MinHeight = 36,
+            IsCancel = true,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        AutomationProperties.SetName(cancelButton, _isArabic ? "إلغاء تشغيل الروتين" : "Cancel routine execution");
+        var confirmButton = new Button
+        {
+            Content = _isArabic ? "تأكيد وبدء مهمة واحدة" : "Confirm and start one task",
+            MinWidth = 205,
+            MinHeight = 36,
+            IsDefault = false
+        };
+        AutomationProperties.SetName(confirmButton, _isArabic ? "تأكيد خطة الروتين وبدء التنفيذ" : "Confirm routine plan and start execution");
+        confirmButton.Click += (_, _) => confirmation.DialogResult = true;
+        actions.Children.Add(cancelButton);
+        actions.Children.Add(confirmButton);
+        Grid.SetRow(actions, 2);
+        root.Children.Add(actions);
+
+        confirmation.Content = root;
+        confirmation.Loaded += (_, _) => cancelButton.Focus();
+        return confirmation.ShowDialog() == true;
     }
 
     private void DeleteButton_Click(object sender, RoutedEventArgs e)
@@ -342,6 +435,21 @@ public sealed class SavedRoutineManagerWindow : Window
         if (_list.SelectedItem is not RoutineListEntry selected)
         {
             _status.Text = _isArabic ? "اختر روتينًا أولًا." : "Select a routine first.";
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            _isArabic
+                ? $"هل تريد حذف الروتين «{selected.Record.Name}» من التخزين المحلي؟"
+                : $"Delete the routine “{selected.Record.Name}” from local storage?",
+            _isArabic ? "تأكيد حذف الروتين" : "Confirm routine deletion",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            _status.Text = _isArabic ? "تم إلغاء الحذف؛ الروتين ما زال محفوظًا." : "Deletion cancelled; the routine is still saved.";
             return;
         }
 

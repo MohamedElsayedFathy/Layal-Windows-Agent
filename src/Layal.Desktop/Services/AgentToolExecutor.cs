@@ -915,21 +915,28 @@ public sealed class AgentToolExecutor
 
         // Search leads are not evidence. Each search is sent to Bing only after its own local approval.
         var claimSearch = await WebSearchAsync(claimQuery, "Fact-check: search the claim", confirm, report, token);
-        if (claimSearch.StartsWith("User declined", StringComparison.Ordinal))
+        if (RoutineToolOutcomePolicy.ShouldStopRoutine(claimSearch))
             return claimSearch;
 
         token.ThrowIfCancellationRequested();
         var contrarySearch = await WebSearchAsync(contraryQuery, "Fact-check: seek independent contrary evidence", confirm, report, token);
-        if (contrarySearch.StartsWith("User declined", StringComparison.Ordinal))
-            return "The claim search was completed, but the separate contrary-evidence search was declined. No verification conclusion is possible.\n\n" + claimSearch;
+        if (RoutineToolOutcomePolicy.ShouldStopRoutine(contrarySearch))
+            return "The claim search was completed, but the separate contrary-evidence search could not be completed or shared. No verification conclusion is possible.\n\n" +
+                claimSearch + "\n\n" + contrarySearch;
 
         // A distinct registrable domain is a minimum independence check, not proof of distinct ownership.
         var seenPublisherDomains = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var claimSource = await OpenDirectSourceFromSearchAsync(
             claimSearch, "Fact-check: open a source candidate from the claim search", seenPublisherDomains, confirm, report, token);
+        if (RoutineToolOutcomePolicy.ShouldStopRoutine(claimSource))
+            return claimSource;
+
         token.ThrowIfCancellationRequested();
         var contrarySource = await OpenDirectSourceFromSearchAsync(
             contrarySearch, "Fact-check: open a source candidate from the contrary-evidence search", seenPublisherDomains, confirm, report, token);
+        if (RoutineToolOutcomePolicy.ShouldStopRoutine(contrarySource))
+            return "Fact-check could not retrieve the required contrary source. No verification conclusion is possible.\n\n" +
+                claimSource + "\n\n" + contrarySource;
 
         report("Fact-check evidence collection finished. Search snippets remain leads; only separately approved direct source pages were read. No automatic truth verdict was produced.");
         return "FACT-CHECK EVIDENCE REGISTER (untrusted web material; not a verdict):\n" +
