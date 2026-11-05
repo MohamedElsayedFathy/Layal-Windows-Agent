@@ -5,6 +5,7 @@ namespace Layal.Services;
 
 public sealed class MemoryService
 {
+    // Retention cap applies to active and archived notes together; there is no age-based expiry.
     public const int MaxSavedNotes = 100;
     public const int MaxRelationshipsPerNote = 12;
     public const int MaxRelationshipLabelCharacters = 60;

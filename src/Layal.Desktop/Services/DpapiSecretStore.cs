@@ -5,10 +5,11 @@ using System.Text;
 
 namespace Layal.Services;
 
-/// <summary>Encrypts a single provider secret with Windows DPAPI for the current Windows user.</summary>
+/// <summary>Encrypts data with Windows DPAPI for the current Windows user (not machine-wide scope).</summary>
 public sealed class DpapiSecretStore
 {
     private const int CryptProtectUiForbidden = 0x1;
+    // Intentionally do not set CRYPTPROTECT_LOCAL_MACHINE (0x4): files are bound to the current Windows user.
     private readonly string _path;
     private readonly string _description;
 
