@@ -1282,8 +1282,13 @@ public sealed class AgentToolExecutor
         BrowserAutomationService.ValidateBrowserUploadAccept(preview.Accept, candidate.Extension);
 
         var origin = new Uri(preview.PageUrl).GetLeftPart(UriPartial.Authority);
+        var transportWarning = preview.PageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            ? "WARNING: this destination uses unencrypted HTTP; the file and request may be observed or modified in transit. "
+            : string.Empty;
         var warning =
-            "Select this local file in the current website's file-upload control? The website may transmit the file immediately when the selection event fires, even though Layal will not click Submit or send the form. Only approve if you trust this destination and the file contains no information you do not intend to share. The file must remain unchanged while you approve. Layal sends it from its dedicated Edge profile and does not copy cookies from your normal browser.\n\n" +
+            "Select this local file in the current website's file-upload control? " +
+            transportWarning +
+            "The website may transmit the file immediately when the selection event fires, even though Layal will not click Submit or send the form. Only approve if you trust this destination and the file contains no information you do not intend to share. The file must remain unchanged while you approve. Layal sends it from its dedicated Edge profile and does not copy cookies from your normal browser.\n\n" +
             "Destination: " + origin +
             "\nPage: " + preview.PageUrl +
             "\nFile input: " + preview.Selector +
