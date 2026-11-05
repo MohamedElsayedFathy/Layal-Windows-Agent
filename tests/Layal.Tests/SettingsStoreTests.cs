@@ -33,7 +33,24 @@ public sealed class SettingsStoreTests
         Assert.IsNull(settings.LastProactiveCheckInAt);
         Assert.IsFalse(settings.GameModeAutoDetectionEnabled);
         Assert.AreEqual(0, settings.GameModeAllowedProcessNames.Count);
-        Assert.IsTrue(settings.UseAutomaticLocation);
+        Assert.IsFalse(settings.UseAutomaticLocation);
+        Assert.IsFalse(settings.AutomaticLocationConsentConfirmed);
+    }
+
+    [TestMethod]
+    public void LegacyAutomaticLocationDefaultCannotBypassTheNewExplicitConsentGate()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
+            """{"UseAutomaticLocation":true,"WeatherLocation":"Cairo, Egypt"}""");
+
+        var settings = new SettingsStore(temp.Path).Load();
+
+        Assert.IsFalse(settings.UseAutomaticLocation,
+            "Legacy settings may have persisted the former automatic-location default without a user opt-in.");
+        Assert.IsFalse(settings.AutomaticLocationConsentConfirmed);
+        Assert.AreEqual("Cairo, Egypt", settings.WeatherLocation,
+            "A previously saved city remains available as a manual fallback.");
     }
 
     [TestMethod]
@@ -116,7 +133,8 @@ public sealed class SettingsStoreTests
             ProactiveCheckInEnabled = true,
             ProactiveCheckInIntervalMinutes = 30,
             LastProactiveCheckInAt = new DateTimeOffset(2026, 10, 29, 8, 30, 0, TimeSpan.Zero),
-            UseAutomaticLocation = false
+            UseAutomaticLocation = true,
+            AutomaticLocationConsentConfirmed = true
         });
 
         var reloaded = new SettingsStore(temp.Path).Load();
@@ -143,7 +161,8 @@ public sealed class SettingsStoreTests
         Assert.IsTrue(reloaded.ProactiveCheckInEnabled);
         Assert.AreEqual(30, reloaded.ProactiveCheckInIntervalMinutes);
         Assert.AreEqual(new DateTimeOffset(2026, 10, 29, 8, 30, 0, TimeSpan.Zero), reloaded.LastProactiveCheckInAt);
-        Assert.IsFalse(reloaded.UseAutomaticLocation);
+        Assert.IsTrue(reloaded.UseAutomaticLocation);
+        Assert.IsTrue(reloaded.AutomaticLocationConsentConfirmed);
     }
 
     [TestMethod]
@@ -155,6 +174,7 @@ public sealed class SettingsStoreTests
             ThemeMode = "dark",
             WeatherLocation = "Cairo",
             UseAutomaticLocation = false,
+            AutomaticLocationConsentConfirmed = true,
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "old-model",
             UseLocalAi = false,
@@ -189,6 +209,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", candidate.ThemeMode);
         Assert.AreEqual("Cairo", candidate.WeatherLocation);
         Assert.IsFalse(candidate.UseAutomaticLocation);
+        Assert.IsTrue(candidate.AutomaticLocationConsentConfirmed);
         Assert.IsFalse(candidate.UseLocalAi);
         Assert.AreEqual("qwen3.5:2b", candidate.LocalAiModelId);
         Assert.AreEqual("old-transcriber", candidate.SpeechToTextModelId);
@@ -218,6 +239,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("marin", target.VoiceReplyId);
         Assert.AreEqual("professional", target.AssistantPersona);
+        Assert.IsTrue(target.AutomaticLocationConsentConfirmed);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", target.GmailOAuthClientId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
         Assert.IsTrue(target.PerformanceModeEnabled);
