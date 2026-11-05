@@ -1,6 +1,8 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
+using System.Windows.Interop;
 using Layal.Views;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -26,6 +28,10 @@ public sealed class GameModeHudWindowTests
                 Assert.AreEqual(WindowStyle.ToolWindow, hud.WindowStyle);
                 hud.Show();
                 Assert.IsTrue(hud.IsVisible);
+                var handle = new WindowInteropHelper(hud).Handle;
+                var extendedStyle = GetWindowLongPtr(handle, -20).ToInt64();
+                Assert.AreNotEqual(0L, extendedStyle & 0x08000000L,
+                    "The HUD must use WS_EX_NOACTIVATE so showing or clicking it does not take focus from a game.");
             }
             finally
             {
@@ -67,6 +73,9 @@ public sealed class GameModeHudWindowTests
             Assert.AreEqual(1, exitCount);
         });
     }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr(IntPtr handle, int index);
 
     private static void EnsureApplication()
     {
