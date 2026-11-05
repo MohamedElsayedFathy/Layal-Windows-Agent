@@ -403,7 +403,7 @@ public sealed class WorkspaceSnapshotServiceTests
         {
             try
             {
-                WorkspaceSnapshotService.WriteJsonAtomically(backupPath, "{\\"SchemaVersion\\":2}");
+                WorkspaceSnapshotService.WriteJsonAtomically(backupPath, """{"SchemaVersion":2}""");
                 Assert.Fail("A destination opened without delete sharing must not be replaced.");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -414,8 +414,8 @@ public sealed class WorkspaceSnapshotServiceTests
             Assert.AreEqual("OLD_BACKUP_SENTINEL", File.ReadAllText(backupPath));
         }
 
-        WorkspaceSnapshotService.WriteJsonAtomically(backupPath, "{\\"SchemaVersion\\":2}");
-        Assert.AreEqual("{\\"SchemaVersion\\":2}", File.ReadAllText(backupPath));
+                WorkspaceSnapshotService.WriteJsonAtomically(backupPath, """{"SchemaVersion":2}""");
+        Assert.AreEqual("""{"SchemaVersion":2}""", File.ReadAllText(backupPath));
         Assert.AreEqual(0, Directory.EnumerateFiles(temp.Path, ".layal-backup-*.tmp").Count(),
             "Temporary backup files must not be left behind.");
     }
