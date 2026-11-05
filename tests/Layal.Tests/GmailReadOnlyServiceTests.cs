@@ -79,6 +79,10 @@ public sealed class GmailReadOnlyServiceTests
         Assert.IsTrue(GmailReadOnlyService.IsSupportedDocumentAttachment("report.docx", "application/octet-stream"),
             "The allow-listed filename extension is authoritative when MIME metadata is sender-controlled.");
         Assert.IsTrue(GmailReadOnlyService.IsSupportedDocumentAttachment("budget.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        Assert.IsTrue(GmailReadOnlyService.IsSupportedImageAttachment("receipt.png"));
+        Assert.IsTrue(GmailReadOnlyService.IsSupportedImageAttachment("scan.tiff"));
+        Assert.IsFalse(GmailReadOnlyService.IsSupportedImageAttachment("payload.webp"));
+        Assert.IsFalse(GmailReadOnlyService.IsSupportedImageAttachment("payload.exe"));
         Assert.IsFalse(GmailReadOnlyService.IsSupportedDocumentAttachment("payload.exe", "application/pdf"));
         Assert.IsFalse(GmailReadOnlyService.IsSupportedDocumentAttachment("archive.zip", "application/zip"));
         Assert.IsTrue(GmailReadOnlyService.IsSupportedTextAttachment(string.Empty, "text/plain"),
@@ -286,6 +290,65 @@ public sealed class GmailReadOnlyServiceTests
             "Gmail document bytes must not be retained after the local preview is extracted.");
     }
 
+
+    [TestMethod]
+    public async Task ReadMessageAsyncOcrsSmallImageAttachmentsLocallyAndDeletesTemporaryFile()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The Gmail credential store uses Windows DPAPI and OCR uses bundled Windows models.");
+
+        using var temp = new TestTempDirectory();
+        var credentialPath = Path.Combine(temp.Path, "gmail.dpapi");
+        new ProtectedJsonStore<GmailOAuthCredential>(credentialPath).Save(new GmailOAuthCredential
+        {
+            ClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
+            RefreshToken = "test-refresh-token"
+        });
+
+        var fixturePath = Path.Combine(AppContext.BaseDirectory, "TestAssets", "arabic-ocr-fixture.png");
+        var imageBytes = await File.ReadAllBytesAsync(fixturePath);
+        Assert.IsTrue(imageBytes.Length <= GmailReadOnlyService.MaximumAttachmentBytes,
+            "The OCR fixture must remain within Gmail's 1 MiB attachment preview limit.");
+        var existingPreviews = Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var messageJson = JsonSerializer.Serialize(new
+        {
+            id = "message-image",
+            threadId = "thread-image",
+            snippet = "Image attachment",
+            internalDate = "1790000000000",
+            payload = new
+            {
+                headers = new[]
+                {
+                    new { name = "From", value = "sender@example.com" },
+                    new { name = "Subject", value = "Image OCR preview" }
+                },
+                parts = new[]
+                {
+                    new
+                    {
+                        filename = "receipt.png",
+                        mimeType = "image/png",
+                        body = new { size = imageBytes.Length, data = Base64Url(imageBytes) }
+                    }
+                }
+            }
+        });
+
+        using var http = new HttpClient(new GmailInlineAttachmentHandler(messageJson));
+        var service = new GmailReadOnlyService(credentialPath, http);
+        var detail = await service.ReadMessageAsync("message-image");
+
+        Assert.AreEqual(1, detail.Attachments!.Count);
+        StringAssert.Contains(detail.Attachments[0].Status, "Local image OCR preview available");
+        StringAssert.Contains(detail.Attachments[0].PreviewText, "اختبار");
+        Assert.IsTrue(detail.Attachments[0].PreviewText.Length <= GmailReadOnlyService.MaximumSingleAttachmentPreviewCharacters);
+        var leakedPreviews = Directory.EnumerateFiles(Path.GetTempPath(), "layal-gmail-preview-*")
+            .Where(path => !existingPreviews.Contains(path)).ToArray();
+        Assert.AreEqual(0, leakedPreviews.Length,
+            "Image attachment bytes may be processed in a private temporary file but the file must be removed immediately.");
+    }
 
     private static string Base64Url(string value) =>
         Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
