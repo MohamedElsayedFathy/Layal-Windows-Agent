@@ -1150,7 +1150,13 @@ public sealed class AgentToolExecutor
         if (_browser is null)
             throw new InvalidOperationException("The dedicated browser service is not initialized.");
         var target = BrowserAutomationService.ValidateHttpUrl(url);
-        var warning = "Open this URL in a separate Layal-controlled Microsoft Edge profile? The website will receive the request and its network-visible metadata. This profile does not reuse your normal browser sign-in session.\n\nURL: " + target.AbsoluteUri;
+        var transportWarning = target.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            ? "This URL uses unencrypted HTTP; network observers may read or alter traffic. "
+            : string.Empty;
+        var warning = "Open this exact URL in a separate Layal-controlled Microsoft Edge profile? " +
+            "The website receives the request and network-visible metadata. This profile does not reuse your normal browser sign-in session. " +
+            transportWarning +
+            "Local/private-network destinations are reachable only when explicitly approved; verify that the host is intended.\n\nURL: " + target.AbsoluteUri;
         if (!await confirm("Navigate Layal browser", warning, token))
             return "User declined browser navigation. No navigation was performed.";
         token.ThrowIfCancellationRequested();
@@ -1273,6 +1279,7 @@ public sealed class AgentToolExecutor
         token.ThrowIfCancellationRequested();
         var preview = await _browser.PreviewElementAsync(selector, "upload", token);
         BrowserAutomationService.ValidateBrowserUploadTarget(preview.Tag, preview.Type);
+        BrowserAutomationService.ValidateBrowserUploadAccept(preview.Accept, candidate.Extension);
 
         var origin = new Uri(preview.PageUrl).GetLeftPart(UriPartial.Authority);
         var warning =
@@ -1293,6 +1300,10 @@ public sealed class AgentToolExecutor
 
         token.ThrowIfCancellationRequested();
         var unchanged = _browserUploads.RevalidateUnchanged(candidate);
+        // Keep a read-only file handle open through CDP file selection. On Windows, this denies
+        // concurrent write/delete opens and closes the hash-to-selection race window.
+        using var uploadLease = _browserUploads.OpenVerifiedReadLease(unchanged);
+        token.ThrowIfCancellationRequested();
         var result = await _browser.UploadFileAsync(preview, unchanged.FullPath, token);
         report("One explicitly approved workspace file was selected in one browser file input. The website may upload it automatically; Layal did not submit the form.");
         return result;
@@ -1308,7 +1319,7 @@ public sealed class AgentToolExecutor
             throw new InvalidOperationException("The dedicated browser service is not initialized.");
         var preview = await _browser.PreviewElementAsync(selector, "click", token);
         var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nElement: {preview.Tag}\nLabel/name: {Truncate(preview.Label, 160)}\nText: {Truncate(preview.Text, 160)}\nLink URL: {Truncate(preview.Href, 500)}";
-        if (!await confirm("Click browser element", "Dispatch one click to this visible standalone link/button? Submit/reset controls and all elements inside or associated with an HTML form are blocked. An allowed page click handler may still navigate or modify remote data. Verify the target and destination before approving.\n\n" + details, token))
+        if (!await confirm("Click browser element", "Dispatch one click to this visible standalone link/button? Submit/reset controls and all elements inside or associated with an HTML form are blocked. A page click handler can still navigate, send a request, change a remote record, or trigger another site effect. Verify the page, destination, and button purpose before approving.\n\n" + details, token))
             return "User declined browser click. No click was dispatched.";
         token.ThrowIfCancellationRequested();
         var result = await _browser.ClickElementAsync(preview, token);
@@ -1328,7 +1339,7 @@ public sealed class AgentToolExecutor
         if (text.Length > 10_000) throw new InvalidOperationException("Text entry is limited to 10,000 characters.");
         var preview = await _browser.PreviewElementAsync(selector, "fill", token);
         var details = $"Page: {preview.PageUrl}\nSelector: {preview.Selector}\nField: {preview.Tag} {preview.Type}\nLabel/name: {Truncate(preview.Label, 160)} / {Truncate(preview.Name, 160)}\nText to enter ({text.Length} characters): {Truncate(text, 700)}";
-        if (!await confirm("Fill browser field", "Enter this text into one visible field on the current page? The text will be sent to that website. Password and file fields are blocked. Review the text and target before approving.\n\n" + details, token))
+        if (!await confirm("Fill browser field", "Enter this text into one visible field on the current page? The text will be sent to that website. Password and file fields are blocked. Page input/change handlers may react immediately, autosave, or trigger other site-side requests; Layal will not click Submit. Review the exact text and target before approving.\n\n" + details, token))
             return "User declined browser text entry. No text was entered.";
         token.ThrowIfCancellationRequested();
         var result = await _browser.FillElementAsync(preview, text, token);
