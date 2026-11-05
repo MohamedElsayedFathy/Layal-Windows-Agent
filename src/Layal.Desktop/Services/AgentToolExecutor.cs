@@ -875,6 +875,7 @@ public sealed class AgentToolExecutor
                 "\nPublication date (page-declared raw value; unverified): " + publishedDate +
                 "\nModification date (page-declared raw value; unverified): " + modifiedDate +
                 "\nFirst visible <time datetime> value (meaning not inferred): " + visibleTimeDate +
+                "\nA visible <time> value is not automatically an event date or a publication date." +
                 "\nAll visible <time datetime> values and nearby context (none means not provided):\n" +
                 (visibleTimes.Count == 0 ? "not provided" : string.Join("\n", visibleTimes)) +
                 "\nDescription (page-declared, unverified): " + description +
