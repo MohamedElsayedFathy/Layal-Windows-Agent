@@ -129,7 +129,8 @@ public sealed class AgentOrchestrator
                         Log($"Tool failed: {call.Name}; {ex.Message}");
                     }
 
-                    if (output.StartsWith("User declined", StringComparison.OrdinalIgnoreCase))
+                    if (output.StartsWith("User declined", StringComparison.OrdinalIgnoreCase) ||
+                        (stopAfterToolFailureOrDecline && RoutineToolOutcomePolicy.ShouldStopRoutine(output)))
                     {
                         hadToolErrorsOrDeclinedActions = true;
                         toolActionFailed = true;
