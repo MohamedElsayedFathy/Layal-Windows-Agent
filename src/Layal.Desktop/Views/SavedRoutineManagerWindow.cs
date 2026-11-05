@@ -226,6 +226,9 @@ public sealed class SavedRoutineManagerWindow : Window
             Margin = new Thickness(0, 0, 8, 0)
         };
         AutomationProperties.SetName(deleteButton, isArabic ? "حذف الروتين المحدد" : "Delete selected routine");
+        AutomationProperties.SetHelpText(deleteButton, isArabic
+            ? "يعرض تأكيدًا قبل حذف الروتين من التخزين المحلي المشفر."
+            : "Asks for confirmation before removing the routine from encrypted local storage.");
         deleteButton.Click += DeleteButton_Click;
 
         var closeButton = new Button
