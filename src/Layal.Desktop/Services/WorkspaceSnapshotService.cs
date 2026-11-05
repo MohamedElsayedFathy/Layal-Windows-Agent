@@ -93,19 +93,62 @@ public sealed class WorkspaceSnapshotService
         var embeddedCount = document.Files.Count(entry => entry.ContentBase64 is not null);
         var filesSkipped = restoreWorkspaceFiles ? 0 : embeddedCount;
 
+        // Capture only IDs that were absent before this import. If either DPAPI store fails
+        // after the other one has committed, these IDs let us compensate without touching
+        // any pre-existing local task or memory record.
+        var existingTaskIds = _taskHistory.GetRecent(100)
+            .Select(task => task.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var existingMemoryIds = _memory.GetAll(includeArchived: true)
+            .Select(note => note.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var taskRollbackIds = document.Tasks
+            .Select(task => task.Id)
+            .Where(id => !existingTaskIds.Contains(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var memoryRollbackIds = document.Memories
+            .Select(note => note.Id)
+            .Where(id => !existingMemoryIds.Contains(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        var taskImportAttempted = false;
+        var memoryImportAttempted = false;
         try
         {
             if (restoreWorkspaceFiles)
                 filesRestored = RestoreWorkspaceFiles(document.Files, createdFiles, createdDirectories, out filesSkipped);
 
+            taskImportAttempted = true;
             var tasksImported = _taskHistory.ImportMany(document.Tasks);
+            memoryImportAttempted = true;
             var memoriesImported = _memory.ImportMany(document.Memories);
             return new WorkspaceSnapshotImportResult(
                 tasksImported, memoriesImported, document.Files.Count, filesRestored, filesSkipped);
         }
-        catch
+        catch (Exception importFailure)
         {
-            RollBackCreatedFiles(createdFiles, createdDirectories);
+            var rollbackFailures = new List<Exception>();
+            if (memoryImportAttempted)
+            {
+                try { _memory.RollbackImportedMany(memoryRollbackIds); }
+                catch (Exception rollbackFailure) { rollbackFailures.Add(rollbackFailure); }
+            }
+            if (taskImportAttempted)
+            {
+                try { _taskHistory.RollbackImportedMany(taskRollbackIds); }
+                catch (Exception rollbackFailure) { rollbackFailures.Add(rollbackFailure); }
+            }
+
+            try { RollBackCreatedFiles(createdFiles, createdDirectories); }
+            catch (Exception rollbackFailure) { rollbackFailures.Add(rollbackFailure); }
+
+            if (rollbackFailures.Count > 0)
+                throw new AggregateException(
+                    "Workspace import failed and one or more compensating rollback operations also failed. Review local DPAPI stores and restored workspace files.",
+                    new[] { importFailure }.Concat(rollbackFailures));
+
             throw;
         }
     }
