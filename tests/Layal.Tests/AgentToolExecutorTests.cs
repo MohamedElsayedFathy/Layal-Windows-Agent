@@ -692,6 +692,23 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task ReadFileRejectsInvalidUtf8WithoutReturningReplacementCharacters()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllBytes(Path.Combine(workspace, "invalid.txt"), new byte[] { 0x61, 0xFF, 0x62 });
+        var executor = CreateExecutor(workspace);
+
+        await Assert.ThrowsExactlyAsync<System.Text.DecoderFallbackException>(() => executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "invalid.txt" }.ToJsonString(),
+            (_, _, _) => Task.FromResult(true),
+            _ => { },
+            CancellationToken.None));
+    }
+
+    [TestMethod]
     public async Task DeclinedFileReadReturnsNoContent()
     {
         using var temp = new TestTempDirectory();
