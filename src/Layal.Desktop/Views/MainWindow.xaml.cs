@@ -6207,7 +6207,11 @@ public partial class MainWindow : Window
 
         TaskEvents.Clear();
         _rawTaskEvents.Clear();
-        SetAccessibleStatusText(TaskResult, IsArabic ? "بدأت المهمة. راقب سجل التنفيذ والموافقات." : "Task started. Watch the activity log and approval prompts.");
+        TaskProgressBar.Minimum = 0;
+        TaskProgressBar.Maximum = 1;
+        TaskProgressBar.Value = 0;
+        TaskProgressStatus.Text = IsArabic ? "لم تبدأ أي خطوات بعد؛ يجري إعداد الخطة." : "No steps processed yet; preparing the plan.";
+        SetAccessibleStatusText(TaskResult, IsArabic ? "بدأت المهمة. راقب سجل التنفيذ والتقدم والموافقات." : "Task started. Watch the activity log, progress, and approval prompts.");
 
         SetAccessibleStatusText(TaskCopyStatus, string.Empty);
         var cancellation = new CancellationTokenSource();
@@ -6332,6 +6336,10 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => AddTaskEvent(text));
             return;
         }
+        var message = text.Length >= 10 && text[2] == ':' && text[5] == ':' && text[8] == ' '
+            ? text[10..]
+            : text;
+        UpdateTaskProgressFromEvent(message);
         _rawTaskEvents.Add(text);
         while (_rawTaskEvents.Count > 300) _rawTaskEvents.RemoveAt(0);
         TaskEvents.Add(UiLocalization.FormatTaskEvent(text, IsArabic));
@@ -6343,6 +6351,65 @@ public partial class MainWindow : Window
         if (mascotMood is not null)
             AppRuntime.MascotWindow?.SetMood(mascotMood,
                 showReaction: !text.Contains("Tool result recorded:", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void UpdateTaskProgressFromEvent(string message)
+    {
+        if (TryParseProgressValues(message, "Tool batch planned: ", 2, out var batch))
+        {
+            var batchSize = Math.Clamp(batch[0], 1, 12);
+            TaskProgressBar.Minimum = 0;
+            TaskProgressBar.Maximum = batchSize;
+            TaskProgressBar.Value = 0;
+            TaskProgressStatus.Text = IsArabic
+                ? $"دفعة جديدة: {batchSize} خطوة متاحة؛ أُنجز قبلها {batch[1]} خطوة."
+                : $"New batch: {batchSize} tool step(s); {batch[1]} step(s) processed before this batch.";
+            return;
+        }
+
+        if (TryParseProgressValues(message, "Tool step started: ", 3, out var started))
+        {
+            var step = Math.Clamp(started[0], 1, 12);
+            var batchSize = Math.Clamp(started[1], 1, 12);
+            TaskProgressStatus.Text = IsArabic
+                ? $"جارٍ تنفيذ الخطوة {step} من {batchSize}؛ المتبقي في هذه الدفعة {Math.Max(0, batchSize - step)}؛ إجمالي الخطوات السابقة {started[2]}."
+                : $"Executing step {step} of {batchSize}; {Math.Max(0, batchSize - step)} remaining in this batch; {started[2]} processed earlier.";
+            return;
+        }
+
+        if (TryParseProgressValues(message, "Progress update: ", 4, out var progress))
+        {
+            var completed = Math.Clamp(progress[0], 0, 12);
+            var batchSize = Math.Clamp(progress[1], 1, 12);
+            var remaining = Math.Clamp(progress[2], 0, batchSize);
+            TaskProgressBar.Maximum = batchSize;
+            TaskProgressBar.Value = Math.Min(completed, batchSize);
+            TaskProgressStatus.Text = IsArabic
+                ? $"المنفذ في الدفعة الحالية: {completed} من {batchSize}؛ المتبقي: {remaining}؛ إجمالي الخطوات التي عولجت: {progress[3]}."
+                : $"Current batch processed: {completed} of {batchSize}; remaining in batch: {remaining}; total steps processed: {progress[3]}.";
+        }
+    }
+
+    private static bool TryParseProgressValues(string message, string prefix, int expectedCount, out int[] values)
+    {
+        values = Array.Empty<int>();
+        if (!message.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+
+        var parts = message[prefix.Length..].Split('|');
+        if (parts.Length != expectedCount)
+            return false;
+
+        var parsed = new int[expectedCount];
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (!int.TryParse(parts[i], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out parsed[i]) || parsed[i] < 0)
+                return false;
+        }
+
+        values = parsed;
+        return true;
     }
 
     private void RefreshRecentTasks(string? selectTaskId = null)
