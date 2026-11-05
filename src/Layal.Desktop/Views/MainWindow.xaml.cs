@@ -1660,6 +1660,7 @@ public partial class MainWindow : Window
             ? "لا تحفظ مفاتيح API أو كلمات المرور. تصدير JSON غير مشفّر ويشمل المؤرشف والنشط؛ الاستيراد يدمج السجلات الجديدة ولا يستبدل الموجود. لا تُرسل أي ملاحظة إلى AI إلا بعد عرض النص الكامل وموافقتك."
             : "Do not store API keys or passwords. JSON exports are unencrypted and include active and archived notes; imports merge new records without replacing existing ones. Notes are shared with AI only after the full text is shown and you approve.";
         UpdateMemoryEditorButtons();
+        RefreshMemoryNotes();
         UpdateMemoryCountDisplay();
 
         UpdateClockDisplay();
@@ -6712,6 +6713,9 @@ public partial class MainWindow : Window
         MemoryCountText.Text = IsArabic
             ? $"{visibleNotes.Count} معروضة • نشطة {activeCount} • مؤرشفة {archivedCount}"
             : $"{visibleNotes.Count} shown • active {activeCount} • archived {archivedCount}";
+        AutomationProperties.SetName(MemoryCountText, IsArabic
+            ? $"عدد الملاحظات المعروضة {visibleNotes.Count}، النشطة {activeCount}، المؤرشفة {archivedCount}"
+            : $"{visibleNotes.Count} notes shown, {activeCount} active, {archivedCount} archived");
 
         if (allNotes.Count == 0)
         {
