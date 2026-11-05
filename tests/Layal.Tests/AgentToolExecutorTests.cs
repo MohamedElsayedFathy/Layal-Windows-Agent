@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Threading;
 using Layal.Services;
@@ -24,11 +25,164 @@ public sealed class AgentToolExecutorTests
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "fact_check_claim"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "browser_download"));
         Assert.IsNotNull(definitions.FirstOrDefault(n => n?["function"]?["name"]?.GetValue<string>() == "browser_upload_file"));
+        var launchDefinition = definitions.First(n => n?["function"]?["name"]?.GetValue<string>() == "launch_allowed_program");
+        var launchParameters = launchDefinition?["function"]?["parameters"] as JsonObject;
+        var programEnum = launchParameters?["properties"]?["program"]?["enum"]?.AsArray()
+            .Select(value => value?.GetValue<string>())
+            .ToArray();
+        CollectionAssert.AreEqual(
+            new[] { "notepad", "calculator", "paint", "file_explorer", "task_manager" },
+            programEnum!);
+        Assert.IsFalse(launchParameters!["properties"]!.AsObject().ContainsKey("arguments"),
+            "Programs must not accept model-supplied command-line arguments.");
+        Assert.IsFalse(launchParameters["properties"]!.AsObject().ContainsKey("executable_path"),
+            "Programs must not accept a model-supplied executable path.");
 
         Assert.AreEqual(names.Count, names.Distinct(StringComparer.Ordinal).Count());
         Assert.IsFalse(names.Any(string.IsNullOrWhiteSpace));
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as JsonObject);
+    }
+
+    [TestMethod]
+    public async Task UnknownProgramOrExecutablePathIsRejectedBeforeApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var executor = CreateExecutor(temp.Path);
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "launch_allowed_program",
+            """{"program":"C:\\Windows\\System32\\cmd.exe"}""",
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled, "Unknown executable names and paths must be rejected before approval.");
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "run_shell_command",
+            """{"command":"whoami"}""",
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+        Assert.IsFalse(approvalCalled, "No generic shell-command tool may be exposed.");
+    }
+
+    [TestMethod]
+    public async Task DecliningAllowListedProgramLaunchStartsNoProcess()
+    {
+        using var temp = new TestTempDirectory();
+        var executor = CreateExecutor(temp.Path);
+        string? approvalDetails = null;
+
+        var result = await executor.ExecuteAsync(
+            "launch_allowed_program",
+            """{"program":"notepad"}""",
+            (_, details, _) => { approvalDetails = details; return Task.FromResult(false); },
+            _ => { },
+            CancellationToken.None);
+
+        StringAssert.Contains(approvalDetails ?? string.Empty, "notepad.exe");
+        StringAssert.Contains(result, "declined");
+        Assert.IsFalse(result.Contains("Process ID:", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task CancellingAfterAllowListedProgramApprovalPreventsLaunch()
+    {
+        using var temp = new TestTempDirectory();
+        var executor = CreateExecutor(temp.Path);
+        using var cancellation = new CancellationTokenSource();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => executor.ExecuteAsync(
+            "launch_allowed_program",
+            """{"program":"notepad"}""",
+            (_, _, _) =>
+            {
+                cancellation.Cancel();
+                return Task.FromResult(true);
+            },
+            _ => { },
+            cancellation.Token));
+    }
+
+    [TestMethod]
+    public async Task ApprovedAllowListedProgramStartsTheFixedSystemBinary()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Inconclusive("Launching Windows desktop applications requires Windows.");
+            return;
+        }
+
+        var systemDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        var notepadPath = Path.GetFullPath(Path.Combine(systemDirectory, "notepad.exe"));
+        if (!File.Exists(notepadPath))
+        {
+            Assert.Inconclusive("Notepad is not installed on this Windows test image.");
+            return;
+        }
+
+        using var temp = new TestTempDirectory();
+        var executor = CreateExecutor(temp.Path);
+        string? approvalDetails = null;
+        var result = await executor.ExecuteAsync(
+            "launch_allowed_program",
+            """{"program":"notepad"}""",
+            (_, details, _) => { approvalDetails = details; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None);
+
+        StringAssert.Contains(approvalDetails ?? string.Empty, notepadPath);
+        StringAssert.Contains(result, "Process ID:");
+        var processText = result[(result.LastIndexOf("Process ID:", StringComparison.Ordinal) + "Process ID:".Length)..].Trim().TrimEnd('.');
+        Assert.IsTrue(int.TryParse(processText, out var processId), "The launched process ID must be reported.");
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch (ArgumentException)
+        {
+            // Windows may hand the Notepad request to an already-running packaged instance.
+        }
+    }
+
+    [TestMethod]
+    public async Task DotnetApprovalShowsPinnedAbsoluteHostPath()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Inconclusive("The trusted Windows .NET host is required.");
+            return;
+        }
+
+        using var temp = new TestTempDirectory();
+        var projectPath = Path.Combine(temp.Path, "TrustedProject.csproj");
+        File.WriteAllText(projectPath, "<Project />");
+        var executor = CreateExecutor(temp.Path);
+        string? approvalDetails = null;
+
+        var result = await executor.ExecuteAsync(
+            "run_dotnet_build",
+            """{"project_file":"TrustedProject.csproj","configuration":"Debug"}""",
+            (_, details, _) => { approvalDetails = details; return Task.FromResult(false); },
+            _ => { },
+            CancellationToken.None);
+
+        var hostLine = (approvalDetails ?? string.Empty).Split(Environment.NewLine)
+            .FirstOrDefault(line => line.Contains("dotnet.exe", StringComparison.OrdinalIgnoreCase));
+        Assert.IsNotNull(hostLine, "The approval must show the exact fixed .NET host executable.");
+        const string marker = "at '";
+        var pathStart = hostLine!.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
+        var pathEnd = hostLine.IndexOf("' with", pathStart, StringComparison.Ordinal);
+        Assert.IsTrue(pathStart >= marker.Length && pathEnd > pathStart, "The approved host path must be delimited in the consent preview.");
+        var hostPath = hostLine[pathStart..pathEnd];
+        Assert.IsTrue(Path.IsPathFullyQualified(hostPath), "dotnet must be invoked using an absolute executable path.");
+        Assert.IsTrue(hostPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(result, "declined");
     }
 
     [TestMethod]
