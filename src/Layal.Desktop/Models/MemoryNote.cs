@@ -9,6 +9,7 @@ public sealed class MemoryNote
     public bool IsArchived { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
+    public List<MemoryNoteRelationship> Relationships { get; set; } = new();
 
     public override string ToString() => $"{Title} — {UpdatedAt.LocalDateTime:g}";
 }
