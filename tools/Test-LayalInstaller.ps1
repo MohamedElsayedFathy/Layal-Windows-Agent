@@ -27,6 +27,7 @@ $sentinelPath = Join-Path $userDataDirectory "release-readiness-$testId.txt"
 $sentinelContents = "Layal installer data-preservation test $testId"
 $appProcess = $null
 $testOwnsInstall = $false
+$script:createdReminderTaskSentinel = $false
 if ($env:GITHUB_ACTIONS -ne 'true' -and $env:LAYAL_ALLOW_INSTALLER_TESTS -ne '1') {
     throw 'Refusing to run destructive installer tests outside CI unless LAYAL_ALLOW_INSTALLER_TESTS=1 is explicitly set in a disposable VM.'
 }
@@ -124,6 +125,61 @@ function Assert-InstalledVersion {
     Write-Host "PASS: install/upgrade registry reports Layal $ExpectedVersion."
 }
 
+function Get-ReminderDispatcherTaskExists {
+    $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+    $null = & $schtasks /Query /TN '\LayalReminderDispatcher' 2>&1
+    return ($LASTEXITCODE -eq 0)
+}
+
+function New-ReminderDispatcherTaskSentinel {
+    if (Get-ReminderDispatcherTaskExists) {
+        throw 'Refusing to replace an existing per-user Layal reminder task in the installer test profile.'
+    }
+
+    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $exe = [Security.SecurityElement]::Escape((Join-Path $env:SystemRoot 'System32\cmd.exe'))
+    $working = [Security.SecurityElement]::Escape((Join-Path $env:SystemRoot 'System32'))
+    $start = [DateTimeOffset]::UtcNow.AddDays(1)
+    $end = $start.AddYears(10)
+    $startText = $start.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+    $endText = $end.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+    $xml = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Author>Layal installer lifecycle test</Author><Description>Disposable test task. No user reminder data.</Description></RegistrationInfo>
+  <Triggers><TimeTrigger><StartBoundary>$startText</StartBoundary><EndBoundary>$endText</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers>
+  <Principals><Principal id="LayalUser"><UserId>$sid</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><StartWhenAvailable>true</StartWhenAvailable><Enabled>true</Enabled><Hidden>true</Hidden><ExecutionTimeLimit>PT2M</ExecutionTimeLimit><Priority>7</Priority></Settings>
+  <Actions Context="LayalUser"><Exec><Command>$exe</Command><Arguments>/c exit 0</Arguments><WorkingDirectory>$working</WorkingDirectory></Exec></Actions>
+</Task>
+"@
+    $xmlPath = Join-Path $env:TEMP ("layal-reminder-uninstall-test-" + [guid]::NewGuid().ToString('N') + '.xml')
+    try {
+        [IO.File]::WriteAllText($xmlPath, $xml, [Text.UTF8Encoding]::new($false))
+        $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+        $output = & $schtasks /Create /TN '\LayalReminderDispatcher' /XML $xmlPath /F 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not register reminder-task uninstall sentinel: $($output -join ' ')"
+        }
+        $script:createdReminderTaskSentinel = $true
+        if (-not (Get-ReminderDispatcherTaskExists)) {
+            throw 'Reminder-task uninstall sentinel was not visible after registration.'
+        }
+        Write-Host 'PASS: test profile contains the same per-user reminder task name used by Layal.'
+    }
+    finally {
+        Remove-Item -LiteralPath $xmlPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Assert-ReminderDispatcherTaskRemoved {
+    if (Get-ReminderDispatcherTaskExists) {
+        throw 'The LayalReminderDispatcher task remains registered after uninstall.'
+    }
+    $script:createdReminderTaskSentinel = $false
+    Write-Host 'PASS: uninstall removed the per-user Layal reminder dispatcher task.'
+}
+
 function Assert-Uninstalled {
     if (Test-Path -LiteralPath (Join-Path $installDirectory 'Layal.exe') -PathType Leaf) {
         throw 'Layal.exe remains in the installation directory after uninstall.'
@@ -146,7 +202,8 @@ function Assert-Uninstalled {
             throw "Installation directory still contains $($remainingFiles.Count) item(s) after uninstall."
         }
     }
-    Write-Host 'PASS: uninstall removed app files, shortcut, and Add/Remove Programs registration.'
+    Assert-ReminderDispatcherTaskRemoved
+    Write-Host 'PASS: uninstall removed app files, shortcut, Add/Remove Programs registration, and scheduled reminder task.'
 }
 
 function Test-AppStartup {
@@ -182,6 +239,9 @@ try {
     if ($existingLayalEntries.Count -ne 0) {
         throw "Refusing installer lifecycle tests because this user already has $($existingLayalEntries.Count) Layal uninstall registration(s). Use a clean disposable Windows profile."
     }
+    if (Get-ReminderDispatcherTaskExists) {
+        throw 'Refusing installer lifecycle tests because this user already has a Layal reminder dispatcher task. Use a clean disposable Windows profile.'
+    }
     if (Test-Path -LiteralPath $installDirectory) {
         throw "Refusing to overwrite a pre-existing default install folder: $installDirectory"
     }
@@ -214,6 +274,9 @@ try {
     Assert-UserDataSentinel -Stage 'rollback' -ExpectedContents $sentinelContents
 
     Write-Host '--- Uninstall ---'
+    # Mimic a real saved reminder by registering the product's fixed task name after all app
+    # startup smoke checks (startup intentionally removes stale tasks when no reminders exist).
+    New-ReminderDispatcherTaskSentinel
     $uninstaller = Join-Path $installDirectory 'unins000.exe'
     if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         throw 'Inno Setup uninstaller was not installed.'
@@ -237,6 +300,15 @@ finally {
     Remove-Item -LiteralPath $sentinelPath -Force -ErrorAction SilentlyContinue
 
     # Best-effort cleanup if a test failed before uninstall completed.
+    if ($script:createdReminderTaskSentinel -and (Get-ReminderDispatcherTaskExists)) {
+        try {
+            $schtasks = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+            $null = & $schtasks /Delete /TN '\LayalReminderDispatcher' /F 2>&1
+            $script:createdReminderTaskSentinel = $false
+        } catch {
+            Write-Warning "Could not clean up the reminder-task test sentinel: $($_.Exception.Message)"
+        }
+    }
     $uninstaller = Join-Path $installDirectory 'unins000.exe'
     if ($testOwnsInstall -and (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         try {
