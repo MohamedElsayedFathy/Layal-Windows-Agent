@@ -11,7 +11,7 @@ using Layal.Services;
 
 namespace Layal.Views;
 
-/// <summary>Creates saved prompts and returns a chosen prompt for review; never executes a task itself.</summary>
+/// <summary>Manages encrypted user-authored routine templates and returns only an explicitly confirmed execution request.</summary>
 public sealed class SavedRoutineManagerWindow : Window
 {
     private readonly SavedRoutineService _service;
