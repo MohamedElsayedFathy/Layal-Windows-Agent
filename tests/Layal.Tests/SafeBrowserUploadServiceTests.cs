@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Security.Cryptography;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -121,6 +123,119 @@ public sealed class SafeBrowserUploadServiceTests
 
         Assert.AreEqual(approved.FullPath, current.FullPath);
         Assert.AreEqual(approved.Sha256, current.Sha256);
+    }
+
+    [TestMethod]
+    public void OpenVerifiedReadLeaseRejectsChangedFileAndKeepsAnUnchangedFileReadOnly()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "LayalWorkspace");
+        Directory.CreateDirectory(workspace);
+        var file = Path.Combine(workspace, "report.txt");
+        File.WriteAllText(file, "approved");
+        var service = new SafeBrowserUploadService(workspace);
+        var approved = service.PrepareUpload("report.txt");
+
+        using (var lease = service.OpenVerifiedReadLease(approved))
+        {
+            Assert.IsTrue(lease.CanRead);
+            Assert.AreEqual(approved.LengthBytes, lease.Length);
+            if (OperatingSystem.IsWindows())
+            {
+                Assert.ThrowsExactly<IOException>(() =>
+                {
+                    using var writer = new FileStream(file, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+                }, "The read lease must deny concurrent write access while the browser receives the file path.");
+            }
+        }
+
+        using (var writer = new FileStream(file, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+            writer.WriteByte((byte)'!');
+        Assert.ThrowsExactly<IOException>(() => service.OpenVerifiedReadLease(approved));
+    }
+
+    [TestMethod]
+    public void PrepareUploadAcceptsPlainOfficePackagesButRejectsExternalRelationshipsAndActiveParts()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "LayalWorkspace");
+        Directory.CreateDirectory(workspace);
+        var service = new SafeBrowserUploadService(workspace);
+
+        CreateOfficePackage(Path.Combine(workspace, "safe.docx"), "word/document.xml", null, null);
+        CreateOfficePackage(
+            Path.Combine(workspace, "external.docx"),
+            "word/document.xml",
+            "word/_rels/document.xml.rels",
+            """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://untrusted.example/" TargetMode="External"/></Relationships>""");
+        CreateOfficePackage(
+            Path.Combine(workspace, "embedded.xlsx"),
+            "xl/workbook.xml",
+            "xl/embeddings/oleObject1.bin",
+            "not executable, but an active embedded object");
+        CreateOfficePackage(
+            Path.Combine(workspace, "macro.docx"),
+            "word/document.xml",
+            "[Content_Types].xml",
+            """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.ms-word.document.macroEnabled.main+xml"/></Types>""");
+
+        Assert.AreEqual(".docx", service.PrepareUpload("safe.docx").Extension);
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("external.docx"));
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("embedded.xlsx"));
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("macro.docx"));
+    }
+
+    [TestMethod]
+    public void PrepareUploadRejectsZipSlipAndMalformedOfficeXml()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "LayalWorkspace");
+        Directory.CreateDirectory(workspace);
+        CreateOfficePackage(
+            Path.Combine(workspace, "zip-slip.docx"),
+            "word/document.xml",
+            "../outside.txt",
+            "bad");
+        CreateOfficePackage(
+            Path.Combine(workspace, "bad-xml.docx"),
+            "word/document.xml",
+            "word/_rels/document.xml.rels",
+            "<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///C:/private.txt'>]><Relationships/>");
+
+        var service = new SafeBrowserUploadService(workspace);
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("zip-slip.docx"));
+        Assert.ThrowsExactly<InvalidDataException>(() => service.PrepareUpload("bad-xml.docx"));
+    }
+
+    private static void CreateOfficePackage(
+        string path,
+        string mainDocumentName,
+        string? extraEntryName,
+        string? extraEntryContent)
+    {
+        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
+        WriteEntry(archive, "[Content_Types].xml",
+            """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>""");
+        var mainXml = mainDocumentName.StartsWith("word/", StringComparison.Ordinal)
+            ? """<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>"""
+            : """<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>""";
+        WriteEntry(archive, mainDocumentName, mainXml);
+        if (extraEntryName is not null && !string.Equals(extraEntryName, "[Content_Types].xml", StringComparison.Ordinal))
+            WriteEntry(archive, extraEntryName, extraEntryContent ?? string.Empty);
+        else if (string.Equals(extraEntryName, "[Content_Types].xml", StringComparison.Ordinal))
+        {
+            // Recreate the second content-type entry with the supplied macro-enabled content.
+            WriteEntry(archive, "word/_rels/document.xml.rels",
+                """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>""");
+        }
+    }
+
+    private static void WriteEntry(ZipArchive archive, string name, string content)
+    {
+        var entry = archive.CreateEntry(name);
+        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+        writer.Write(content);
     }
 
     [TestMethod]
