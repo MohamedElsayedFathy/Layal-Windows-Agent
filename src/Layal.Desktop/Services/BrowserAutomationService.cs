@@ -693,8 +693,16 @@ public sealed class BrowserAutomationService
             var result = await EvaluateAsync(page, expression, token);
             EnsureActionSucceeded(result, "click");
             await Task.Delay(250, token);
-            var current = await ReadPageSnapshotAsync(await GetPageTargetAsync(token), token);
-            return $"The click event was dispatched to the approved browser element.\nPage after action: {current.Url}\nTitle: {current.Title}\nThis confirms that a DOM click was issued, not that the site's requested outcome succeeded.";
+            // Read the original tab directly: an approved link may intentionally open a new tab.
+            // The next Layal action will pause if multiple page tabs exist, rather than guessing.
+            var current = await ReadPageSnapshotAsync(page, token);
+            var extraTabNotice = string.Empty;
+            try { _ = await GetPageTargetAsync(token); }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("multiple page tabs", StringComparison.OrdinalIgnoreCase))
+            {
+                extraTabNotice = "\nAdditional tab(s) or popup(s) opened. Layal will pause browser actions until only one page tab remains.";
+            }
+            return $"The click event was dispatched to the approved browser element.\nPage after action: {current.Url}\nTitle: {current.Title}{extraTabNotice}\nThis confirms that a DOM click was issued, not that the site's requested outcome succeeded.";
         }
         finally { _gate.Release(); }
     }
