@@ -436,6 +436,21 @@ public sealed class SavedRoutineManagerWindow : Window
             return;
         }
 
+        var confirmation = MessageBox.Show(
+            this,
+            _isArabic
+                ? $"هل تريد حذف الروتين «{selected.Record.Name}» من التخزين المحلي؟"
+                : $"Delete the routine “{selected.Record.Name}” from local storage?",
+            _isArabic ? "تأكيد حذف الروتين" : "Confirm routine deletion",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            _status.Text = _isArabic ? "تم إلغاء الحذف؛ الروتين ما زال محفوظًا." : "Deletion cancelled; the routine is still saved.";
+            return;
+        }
+
         if (_service.Delete(selected.Record.Id))
         {
             _selectedRoutineId = null;
