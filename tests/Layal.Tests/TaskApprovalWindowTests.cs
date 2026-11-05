@@ -4,6 +4,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Reflection;
 using Layal.Views;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -93,7 +94,11 @@ public sealed class TaskApprovalWindowTests
                     {
                         RoutedEvent = Keyboard.PreviewKeyDownEvent
                     };
-                    dialog.RaiseEvent(escape);
+                    var handler = typeof(TaskApprovalWindow).GetMethod(
+                        "TaskApprovalWindow_PreviewKeyDown",
+                        BindingFlags.Instance | BindingFlags.NonPublic)
+                        ?? throw new InvalidOperationException("The approval Escape handler was not found.");
+                    handler.Invoke(dialog, new object[] { dialog, escape });
                 };
 
                 Assert.ThrowsExactly<OperationCanceledException>(() => dialog.ShowForApproval(cancellation.Token));
