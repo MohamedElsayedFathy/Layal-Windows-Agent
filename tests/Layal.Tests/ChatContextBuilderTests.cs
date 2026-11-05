@@ -67,6 +67,41 @@ public sealed class ChatContextBuilderTests
     }
 
     [TestMethod]
+    public void BuildExcludesGmailDerivedMessagesByDefaultAndAllowsOnlyAnExplicitOneShotContext()
+    {
+        var priorGmailMessage = new ChatMessage
+        {
+            Role = "user",
+            Content = "[Gmail email for review] prior private email",
+            IsGmailEphemeralData = true
+        };
+        var currentGmailMessage = new ChatMessage
+        {
+            Role = "user",
+            Content = "[Gmail email for review] current one-turn email",
+            IsGmailEphemeralData = true
+        };
+        var normalMessage = new ChatMessage { Role = "user", Content = "ordinary conversation" };
+
+        var defaultContext = ChatContextBuilder.Build(
+            "system",
+            new[] { priorGmailMessage, normalMessage, currentGmailMessage });
+
+        Assert.AreEqual(2, defaultContext.Count);
+        Assert.AreEqual("ordinary conversation", defaultContext[1].Content);
+
+        var oneShotContext = ChatContextBuilder.Build(
+            "system",
+            new[] { normalMessage, currentGmailMessage },
+            includeEphemeralGmailData: true);
+
+        Assert.AreEqual(3, oneShotContext.Count);
+        Assert.AreEqual("ordinary conversation", oneShotContext[1].Content);
+        Assert.AreEqual("[Gmail email for review] current one-turn email", oneShotContext[2].Content);
+        Assert.IsFalse(oneShotContext.Any(message => message.Content.Contains("prior private email", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public void BuildIgnoresSystemAndStatusMessagesFromConversationHistory()
     {
         var messages = new[]
