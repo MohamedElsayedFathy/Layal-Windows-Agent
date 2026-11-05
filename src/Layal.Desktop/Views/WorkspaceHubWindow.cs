@@ -602,17 +602,7 @@ public sealed class WorkspaceHubWindow : Window
                     return;
             }
 
-            var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(json);
-            try
-            {
-                if (bytes.Length > WorkspaceSnapshotService.MaximumJsonBytes)
-                    throw new InvalidOperationException("The workspace backup exceeds the configured size limit.");
-                WriteBackupAtomically(dialog.FileName, bytes);
-            }
-            finally
-            {
-                Array.Clear(bytes, 0, bytes.Length);
-            }
+            WorkspaceSnapshotService.WriteJsonAtomically(dialog.FileName, json);
 
             _status.Text = _isArabic
                 ? $"تم إنشاء النسخة غير المشفّرة: {dialog.FileName} — محتوى {preview.FilesWithContent} ملف مضمّن."
@@ -728,47 +718,6 @@ public sealed class WorkspaceHubWindow : Window
             lines.Add(isArabic ? $"… و{remaining} عنصرًا آخر." : $"… and {remaining} more item(s).");
         }
         return string.Join(Environment.NewLine, lines);
-    }
-
-    private static void WriteBackupAtomically(string destinationPath, byte[] bytes)
-    {
-        var fullPath = Path.GetFullPath(destinationPath);
-        var directory = Path.GetDirectoryName(fullPath)
-            ?? throw new InvalidOperationException("The selected backup path has no parent directory.");
-        if (!Directory.Exists(directory))
-            throw new DirectoryNotFoundException("The selected backup directory no longer exists.");
-
-        var temporaryPath = Path.Combine(
-            directory,
-            $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            using (var output = new FileStream(
-                       temporaryPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None,
-                       bufferSize: 64 * 1024,
-                       options: FileOptions.WriteThrough))
-            {
-                output.Write(bytes, 0, bytes.Length);
-                output.Flush(flushToDisk: true);
-            }
-
-            // The temporary file is on the same volume, so a failed write never truncates
-            // an existing backup. The final move replaces only after the full payload is flushed.
-            File.Move(temporaryPath, fullPath, overwrite: true);
-        }
-        finally
-        {
-            try
-            {
-                if (File.Exists(temporaryPath))
-                    File.Delete(temporaryPath);
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
     }
 
     private static string SafeFileName(string value)
