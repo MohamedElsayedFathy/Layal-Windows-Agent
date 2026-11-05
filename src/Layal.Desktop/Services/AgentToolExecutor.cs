@@ -1651,29 +1651,38 @@ public static class WindowInventory
         return results;
     }
 
-    public static bool ActivateWindowByExactTitle(string title)
+    public static bool IsSameWindowTarget(UiWindowTarget approved, UiWindowTarget current) =>
+        approved is not null && current is not null &&
+        approved.Handle != IntPtr.Zero && approved.Handle == current.Handle &&
+        approved.ProcessId != 0 && approved.ProcessId == current.ProcessId &&
+        string.Equals(approved.Title, current.Title, StringComparison.Ordinal);
+
+    public static bool ActivateWindowTarget(UiWindowTarget approved)
     {
-        IntPtr match = IntPtr.Zero;
-        EnumWindows((hWnd, lParam) =>
-        {
-            if (!IsWindowVisible(hWnd)) return true;
-            var length = GetWindowTextLength(hWnd);
-            if (length <= 0 || length > 500) return true;
-            var builder = new StringBuilder(length + 1);
-            _ = GetWindowText(hWnd, builder, builder.Capacity);
-            if (string.Equals(builder.ToString().Trim(), title, StringComparison.Ordinal))
-            {
-                match = hWnd;
-                return false;
-            }
-            return true;
-        }, IntPtr.Zero);
-        if (match == IntPtr.Zero) return false;
-        _ = ShowWindow(match, 9); // SW_RESTORE
-        return SetForegroundWindow(match);
+        ArgumentNullException.ThrowIfNull(approved);
+        if (!IsTargetStillSameWindow(approved))
+            return false;
+        _ = ShowWindow(approved.Handle, 9); // SW_RESTORE
+        return IsTargetStillSameWindow(approved) && SetForegroundWindow(approved.Handle);
+    }
+
+    private static bool IsTargetStillSameWindow(UiWindowTarget approved)
+    {
+        if (approved.Handle == IntPtr.Zero || !IsWindow(approved.Handle) || !IsWindowVisible(approved.Handle))
+            return false;
+        GetWindowThreadProcessId(approved.Handle, out var processId);
+        if (processId == 0 || processId != approved.ProcessId)
+            return false;
+        var length = GetWindowTextLength(approved.Handle);
+        if (length <= 0 || length > 500)
+            return false;
+        var builder = new StringBuilder(length + 1);
+        _ = GetWindowText(approved.Handle, builder, builder.Capacity);
+        return string.Equals(builder.ToString().Trim(), approved.Title, StringComparison.Ordinal);
     }
 
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindow(IntPtr hWnd);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowTextLength(IntPtr hWnd);

@@ -207,7 +207,9 @@ public sealed class ApiConnectionService
         JsonNode? body;
         try { body = JsonNode.Parse(bodyJson); }
         catch (JsonException) { throw new InvalidOperationException("body_json must contain valid JSON."); }
-        var normalized = body?.ToJsonString() ?? string.Empty;
+        if (body is null)
+            throw new InvalidOperationException("JSON null is not a request body; use an empty string when no body is required.");
+        var normalized = body.ToJsonString();
         if (normalized.Length > MaxApprovedRequestBodyChars)
             throw new InvalidOperationException($"The canonical API request body exceeds the {MaxApprovedRequestBodyChars}-character approval limit.");
         return normalized;

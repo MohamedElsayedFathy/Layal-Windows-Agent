@@ -32,7 +32,7 @@ public sealed class ApiToolApprovalTests
             method = "POST",
             path = "notes",
             query_json = "",
-            body_json = "{\"text\":\"test note\"}"
+            body_json = JsonSerializer.Serialize(new { text = "test note" })
         });
 
         var result = await executor.ExecuteAsync("call_app_api", args,
