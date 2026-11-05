@@ -1030,6 +1030,10 @@ public partial class MainWindow : Window
         _reminderTimer.Tick -= ReminderTimer_Tick;
         _proactiveCheckInTimer.Tick -= ProactiveCheckInTimer_Tick;
         _gameModeDetectionTimer.Tick -= GameModeDetectionTimer_Tick;
+        _automaticGameModeSessionActive = false;
+        _lastAllowedForegroundProcessName = null;
+        _gameModeAutoDismissalPolicy.Reset();
+        AppRuntime.IsGameModeActive = false;
         _weatherCancellation?.Cancel();
         _hoveredElementInspectionCancellation?.Cancel();
         _documentExtractionCancellation?.Cancel();
