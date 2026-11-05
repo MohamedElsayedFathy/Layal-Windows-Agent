@@ -6581,12 +6581,22 @@ public partial class MainWindow : Window
                 RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == idToSelect);
         }
         finally { _refreshingRecentTasks = false; }
+
+        // Programmatic selection is intentionally suppressed while rebuilding the list;
+        // explicitly refresh the detail pane afterward so notification deep-links show
+        // the selected task's result instead of leaving stale details from another task.
+        if (RecentTasksList.SelectedItem is TaskHistoryListItem selectedTask)
+            DisplayTaskHistoryRecord(selectedTask.Record);
     }
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_refreshingRecentTasks || RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
-        var task = selectedTask.Record;
+        DisplayTaskHistoryRecord(selectedTask.Record);
+    }
+
+    private void DisplayTaskHistoryRecord(AgentTaskRecord task)
+    {
         TaskEvents.Clear();
         _rawTaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
