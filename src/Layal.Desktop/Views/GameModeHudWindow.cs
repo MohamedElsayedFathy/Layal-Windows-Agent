@@ -119,8 +119,8 @@ public sealed class GameModeHudWindow : Window
         };
         AutomationProperties.SetName(exit, isArabic ? "إنهاء وضع الألعاب" : "Exit game mode");
         AutomationProperties.SetHelpText(exit, isArabic
-            ? "يغلق HUD ويعيد التذكيرات إلى العمل وفق إعداداتها."
-            : "Closes the HUD and restores reminders according to their settings.");
+            ? "يخفي HUD. تظل التذكيرات التي أنشأتها مستمرة؛ وتستأنف المتابعة الاستباقية بعد مغادرة اللعبة المسموح بها."
+            : "Hides the HUD. Your saved reminders continue; proactive check-ins resume after focus leaves the allowlisted game.");
         exit.Click += (_, _) => CloseByUser();
         footer.Children.Add(exit);
         Grid.SetRow(footer, 3);
