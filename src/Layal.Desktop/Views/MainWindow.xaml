@@ -578,6 +578,19 @@
                                             <TextBlock Text="  ·  " FontSize="11" Foreground="{DynamicResource Layal.Muted}"/>
                                             <TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:g}}" FontSize="11"
                                                        Foreground="{DynamicResource Layal.Muted}"/>
+                                            <TextBlock Text="  ·  مؤرشفة / Archived" FontSize="11"
+                                                       Foreground="{DynamicResource Layal.Warning}" Visibility="Collapsed">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="{x:Type TextBlock}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </WrapPanel>
                                     </StackPanel>
                                 </DataTemplate>

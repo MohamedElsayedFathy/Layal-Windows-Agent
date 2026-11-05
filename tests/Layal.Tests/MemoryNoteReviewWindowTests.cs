@@ -30,7 +30,7 @@ public sealed class MemoryNoteReviewWindowTests
             app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             try
             {
-                const string content = "محتوى عربي مع English text — " + nameof(SaveAndDeleteReviewsShowTheCompleteNoteInAReadOnlyAccessiblePreview) + "\n" +
+                var content = "محتوى عربي مع English text — " + nameof(SaveAndDeleteReviewsShowTheCompleteNoteInAReadOnlyAccessiblePreview) + "\n" +
                     "Long body marker: " + "full-preview-".PadRight(6000, 'x');
                 var note = new MemoryNote
                 {
