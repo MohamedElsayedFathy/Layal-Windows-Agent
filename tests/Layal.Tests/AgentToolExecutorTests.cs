@@ -606,11 +606,74 @@ public sealed class AgentToolExecutorTests
         Assert.IsNotNull(approvalDetails);
         StringAssert.Contains(approvalDetails!, "SHA-256:");
         StringAssert.Contains(approvalDetails!, "Size:");
-        StringAssert.Contains(result, "\"type\":\"untrusted_workspace_file\"");
-        StringAssert.Contains(result, "\"warning\":");
-        StringAssert.Contains(result, "\"content\":");
+        StringAssert.Contains(approvalDetails!, "Requested character range:");
+        StringAssert.Contains(result, "UNTRUSTED WORKSPACE FILE DATA");
+        StringAssert.Contains(result, "Next start_character: none");
         StringAssert.Contains(result, content);
         Assert.IsTrue(reports.Any(line => line.Contains("Read approved text file", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ReadFileReturnsResumableSlicesWithinAgentToolOutputLimit()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var path = Path.Combine(workspace, "arabic.txt");
+        var content = new string('\u0645', 20_000);
+        File.WriteAllText(path, content, new System.Text.UTF8Encoding(false));
+        var executor = CreateExecutor(workspace);
+        var approvalCount = 0;
+
+        var first = await executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "arabic.txt" }.ToJsonString(),
+            (_, _, _) => { approvalCount++; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None);
+
+        Assert.IsTrue(first.Length < 24_000, "A complete slice must fit the orchestrator's per-tool output limit.");
+        StringAssert.Contains(first, "Chunk: characters 0..17999");
+        StringAssert.Contains(first, "Next start_character: 18000");
+        StringAssert.Contains(first, new string('\u0645', 100));
+
+        var second = await executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "arabic.txt", ["start_character"] = 18_000 }.ToJsonString(),
+            (_, details, _) =>
+            {
+                approvalCount++;
+                StringAssert.Contains(details, "Requested character range: 18000 to 19999");
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        Assert.IsTrue(second.Length < 24_000);
+        StringAssert.Contains(second, "Chunk: characters 18000..19999");
+        StringAssert.Contains(second, "Next start_character: none");
+        StringAssert.Contains(second, new string('\u0645', 100));
+        Assert.AreEqual(2, approvalCount, "Every returned slice must have its own explicit approval.");
+    }
+
+    [TestMethod]
+    public async Task ReadFileRejectsSliceRequestsOutsideConfiguredBoundsBeforeApproval()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "notes.txt"), "text");
+        var executor = CreateExecutor(workspace);
+        var approvalCalled = false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            "read_text_file",
+            new JsonObject { ["path"] = "notes.txt", ["max_characters"] = 18_001 }.ToJsonString(),
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None));
+
+        Assert.IsFalse(approvalCalled);
     }
 
     [TestMethod]
