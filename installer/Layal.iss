@@ -59,3 +59,8 @@ Name: "{autodesktop}\Layal"; Filename: "{app}\Layal.exe"; WorkingDir: "{app}"; T
 
 [Run]
 Filename: "{app}\Layal.exe"; Description: "Launch Layal"; WorkingDir: "{app}"; Flags: postinstall nowait skipifsilent
+
+[UninstallRun]
+; The dispatcher is user-scoped and stores only the executable path/trigger, not reminder data.
+; Remove it with the same per-user identity on uninstall so no orphaned task can launch a deleted EXE.
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""\LayalReminderDispatcher"" /F"; Flags: runhidden waituntilterminated skipifdoesntexist
