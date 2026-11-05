@@ -1,0 +1,92 @@
+using System;
+using System.Threading;
+using System.Windows;
+using Layal.Views;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace Layal.Tests;
+
+[TestClass]
+[DoNotParallelize]
+public sealed class GameModeHudWindowTests
+{
+    [TestMethod]
+    public void HudIsTopmostAndDoesNotActivateWhenShown()
+    {
+        RunOnSta(() =>
+        {
+            EnsureApplication();
+            var hud = new GameModeHudWindow(false, () => "Layal is ready.");
+            try
+            {
+                Assert.IsTrue(hud.Topmost);
+                Assert.IsFalse(hud.ShowActivated);
+                Assert.IsFalse(hud.ShowInTaskbar);
+                Assert.IsNull(hud.Owner, "The HUD must not be owned by the main window so minimizing Layal does not hide it.");
+                Assert.AreEqual(WindowStyle.ToolWindow, hud.WindowStyle);
+                hud.Show();
+                Assert.IsTrue(hud.IsVisible);
+            }
+            finally
+            {
+                hud.CloseFromDetection();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void UserDismissalAndProgrammaticDetectionCloseAreDistinct()
+    {
+        RunOnSta(() =>
+        {
+            EnsureApplication();
+            var manuallyDismissed = new GameModeHudWindow(false, () => string.Empty);
+            manuallyDismissed.Show();
+            manuallyDismissed.CloseByUser();
+            Assert.IsTrue(manuallyDismissed.WasDismissedByUser);
+
+            var closedByDetection = new GameModeHudWindow(false, () => string.Empty, automaticallyLaunched: true);
+            closedByDetection.Show();
+            closedByDetection.CloseFromDetection();
+            Assert.IsFalse(closedByDetection.WasDismissedByUser);
+        });
+    }
+
+    [TestMethod]
+    public void WindowChromeCloseCountsAsUserDismissalAndExitEventIsRaisedOnce()
+    {
+        RunOnSta(() =>
+        {
+            EnsureApplication();
+            var exitCount = 0;
+            var hud = new GameModeHudWindow(false, () => string.Empty);
+            hud.ExitRequested += (_, _) => exitCount++;
+            hud.Show();
+            hud.Close();
+            Assert.IsTrue(hud.WasDismissedByUser);
+            Assert.AreEqual(1, exitCount);
+        });
+    }
+
+    private static void EnsureApplication()
+    {
+        if (Application.Current is null)
+            _ = new Application();
+    }
+
+    private static void RunOnSta(Action action)
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Start();
+        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(30)), "The Game HUD WPF test timed out.");
+        if (failure is not null)
+            Assert.Fail("Game HUD WPF test failed: " + failure);
+    }
+}
