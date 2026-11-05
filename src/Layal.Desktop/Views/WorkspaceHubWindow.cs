@@ -41,6 +41,7 @@ public sealed class WorkspaceHubWindow : Window
     private readonly Button _restoreButton;
     private readonly ListBox _artifactList;
     private readonly Button _deleteArtifactButton;
+    private string _workspaceIndexWarning = string.Empty;
     private readonly ObservableCollection<WorkspaceEntry> _visible = new();
     private IReadOnlyList<WorkspaceEntry> _all = Array.Empty<WorkspaceEntry>();
 
@@ -143,9 +144,17 @@ public sealed class WorkspaceHubWindow : Window
         _details = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
         AutomationProperties.SetName(_details, isArabic ? "معاينة العنصر المحدد" : "Selected item preview");
         AutomationProperties.SetHelpText(_details, isArabic
-            ? "معاينة محلية فقط. الملفات تعرض بياناتها الوصفية ولا تُقرأ محتوياتها تلقائيًا."
-            : "Local-only preview. Files show metadata; their contents are not read automatically.");
-        Grid.SetRow(_details, 0); right.Children.Add(_details);
+            ? "المعاينة كاملة وقابلة للتمرير. الملفات تعرض بياناتها الوصفية فقط ولا تُقرأ محتوياتها تلقائيًا."
+            : "The full preview is scrollable. Files show metadata only; their contents are not read automatically.");
+        var detailsScroll = new ScrollViewer
+        {
+            Content = _details,
+            MaxHeight = 230,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+        AutomationProperties.SetName(detailsScroll, isArabic ? "منطقة تمرير معاينة مساحة العمل" : "Workspace preview scroll area");
+        Grid.SetRow(detailsScroll, 0); right.Children.Add(detailsScroll);
 
         var artifactsPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         artifactsPanel.Children.Add(new TextBlock
@@ -262,18 +271,24 @@ public sealed class WorkspaceHubWindow : Window
             entries.Add(new WorkspaceEntry("task", task.Id, task.Goal, task.Status,
                 task.UpdatedAt, searchable, task.Result, task, null, null));
         }
-        foreach (var note in _memoryService.GetAll())
+        foreach (var note in _memoryService.GetAll(includeArchived: true))
         {
+            var noteState = note.IsArchived
+                ? (_isArabic ? "مؤرشفة" : "Archived")
+                : (_isArabic ? "نشطة" : "Active");
             entries.Add(new WorkspaceEntry("memory", note.Id, note.Title,
-                _isArabic ? "ملاحظة" : "Memory", note.UpdatedAt,
+                $"{note.Category} · {noteState}", note.UpdatedAt,
                 note.Category + "\n" + note.Title + "\n" + note.Content, note.Content, null, note, null));
         }
         entries.AddRange(IndexWorkspaceFiles());
         _all = entries.OrderByDescending(entry => entry.UpdatedAt).ToList();
         ApplyFilter();
-        _status.Text = _isArabic
-            ? $"الفهرس محلي: {_all.Count(entry => entry.Kind == "task")} مهمة، {_all.Count(entry => entry.Kind == "memory")} ملاحظة، {_all.Count(entry => entry.Kind == "file")} ملف/مجلد. حد الملفات {MaximumWorkspaceFiles}."
-            : $"Local index: {_all.Count(entry => entry.Kind == "task")} tasks, {_all.Count(entry => entry.Kind == "memory")} memories, {_all.Count(entry => entry.Kind == "file")} files/folders. File cap: {MaximumWorkspaceFiles}.";
+        var indexSummary = _isArabic
+            ? $"الفهرس محلي: {_all.Count(entry => entry.Kind == "task")} مهمة، {_all.Count(entry => entry.Kind == "memory")} ملاحظة (بما فيها المؤرشفة)، {_all.Count(entry => entry.Kind == "file")} ملف/مجلد. حد الملفات {MaximumWorkspaceFiles}."
+            : $"Local index: {_all.Count(entry => entry.Kind == "task")} tasks, {_all.Count(entry => entry.Kind == "memory")} memories (including archived), {_all.Count(entry => entry.Kind == "file")} files/folders. File cap: {MaximumWorkspaceFiles}.";
+        _status.Text = string.IsNullOrWhiteSpace(_workspaceIndexWarning)
+            ? indexSummary
+            : indexSummary + Environment.NewLine + _workspaceIndexWarning;
     }
 
     private IEnumerable<WorkspaceEntry> IndexWorkspaceFiles()
@@ -281,6 +296,19 @@ public sealed class WorkspaceHubWindow : Window
         var output = new List<WorkspaceEntry>();
         if (!Directory.Exists(_workspaceRoot))
             return output;
+
+        try
+        {
+            _artifactService.ValidateWorkspaceRoot();
+            _workspaceIndexWarning = string.Empty;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _workspaceIndexWarning = _isArabic
+                ? "توقف فهرس الملفات لأن مسار LayalWorkspace أو أحد مجلداته الأب يحتوي على رابط رمزي أو مسار غير آمن."
+                : "File indexing stopped because LayalWorkspace or one of its parent directories is a symbolic link or unsafe path.";
+            return output;
+        }
 
         var pending = new Stack<(string Path, int Depth)>();
         pending.Push((_workspaceRoot, 0));
@@ -330,7 +358,12 @@ public sealed class WorkspaceHubWindow : Window
                 {
                     var info = new DirectoryInfo(path);
                     if ((info.Attributes & FileAttributes.ReparsePoint) != 0) continue;
-                    if (info.Name is ".git" or ".vs" or "bin" or "obj" or "node_modules" or ".cache")
+                    if (info.Name.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals(".vs", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals("node_modules", StringComparison.OrdinalIgnoreCase) ||
+                        info.Name.Equals(".cache", StringComparison.OrdinalIgnoreCase))
                         continue;
                     var fullPath = Path.GetFullPath(path);
                     if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)) continue;
@@ -390,10 +423,10 @@ public sealed class WorkspaceHubWindow : Window
                 (entry.Task?.Artifacts is { Count: > 0 } artifacts
                     ? "\n\n" + (_isArabic ? "الملفات المرتبطة بالمهمة:" : "Task artifacts:") + "\n• " + string.Join("\n• ", artifacts)
                     : string.Empty) +
-                "\n\n" + Truncate(entry.Content, 8000),
+                "\n\n" + entry.Content,
             "memory" => (_isArabic ? "ملاحظة\n" : "Memory\n") + entry.Title +
                 "\n" + (_isArabic ? "آخر تحديث: " : "Updated: ") + entry.UpdatedAt.ToLocalTime().ToString("g") +
-                "\n\n" + Truncate(entry.Content, 8000),
+                "\n\n" + entry.Content,
             _ => (_isArabic ? "عنصر مساحة عمل\n" : "Workspace item\n") + entry.Title +
                 "\n" + entry.Path +
                 "\n" + entry.Subtitle +
@@ -543,10 +576,30 @@ public sealed class WorkspaceHubWindow : Window
             var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
             var json = service.ExportJson(includeFileContents);
             var preview = service.PreviewImportJson(json);
-            var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(json);
-            if (bytes.Length > WorkspaceSnapshotService.MaximumJsonBytes)
-                throw new InvalidOperationException("The workspace backup exceeds the configured size limit.");
-            File.WriteAllBytes(dialog.FileName, bytes);
+
+            if (includeFileContents)
+            {
+                var entries = preview.FileEntries ?? Array.Empty<WorkspaceSnapshotFilePreview>();
+                var embedded = entries.Where(entry => entry.HasContent).ToArray();
+                var omitted = entries.Where(entry => !entry.IsDirectory && !entry.HasContent &&
+                    !string.IsNullOrWhiteSpace(entry.ContentOmittedReason)).ToArray();
+                var review = _isArabic
+                    ? $"سيتم تضمين محتوى {embedded.Length} ملف فعليًا داخل JSON غير المشفّر. راجع المسارات والأحجام قبل الكتابة:\n\n" +
+                      FormatFilePreviewList(embedded, isArabic: true) +
+                      (omitted.Length > 0 ? "\n\nملفات لم يُضمّن محتواها (ستظل بيانات وصفية فقط):\n" + FormatFilePreviewList(omitted, isArabic: true, includeOmissionReason: true) : string.Empty) +
+                      "\n\nهل تريد حفظ النسخة بهذه الملفات؟"
+                    : $"Exactly {embedded.Length} file(s) will have their contents embedded in the unencrypted JSON. Review paths and sizes before writing:\n\n" +
+                      FormatFilePreviewList(embedded, isArabic: false) +
+                      (omitted.Length > 0 ? "\n\nFiles whose content was omitted (metadata only):\n" + FormatFilePreviewList(omitted, isArabic: false, includeOmissionReason: true) : string.Empty) +
+                      "\n\nSave the backup with these files?";
+                if (MessageBox.Show(this, review,
+                    _isArabic ? "مراجعة محتويات النسخة" : "Review embedded backup files",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+                    return;
+            }
+
+            WorkspaceSnapshotService.WriteJsonAtomically(dialog.FileName, json);
+
             _status.Text = _isArabic
                 ? $"تم إنشاء النسخة غير المشفّرة: {dialog.FileName} — محتوى {preview.FilesWithContent} ملف مضمّن."
                 : $"Unencrypted backup created: {dialog.FileName} — embedded contents for {preview.FilesWithContent} file(s).";
@@ -574,9 +627,12 @@ public sealed class WorkspaceHubWindow : Window
             var json = ReadBoundedBackupFile(dialog.FileName, WorkspaceSnapshotService.MaximumJsonBytes);
             var service = new WorkspaceSnapshotService(_taskHistory, _memoryService, _workspaceRoot);
             var preview = service.PreviewImportJson(json);
+            var embeddedPreview = FormatFilePreviewList(
+                (preview.FileEntries ?? Array.Empty<WorkspaceSnapshotFilePreview>()).Where(entry => entry.HasContent),
+                _isArabic);
             var summary = _isArabic
-                ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد، منها {preview.FilesWithContent} ملفًا يحتوي النسخ الاحتياطي على محتواه\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. لن تُستعاد الملفات في هذه الخطوة. قد يتضمن JSON نصوصًا ومحتوى ملفات خاصة غير مشفّرة. هل تريد دمج السجلات؟"
-                : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder entries, including {preview.FilesWithContent} with embedded file contents\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. No files will be restored in this step. The JSON may contain sensitive plaintext and file contents. Merge records?";
+                ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد، منها {preview.FilesWithContent} ملفًا يحتوي النسخ الاحتياطي على محتواه\n\nالملفات ذات المحتوى المضمّن (لن تُكتب قبل موافقة منفصلة):\n{embeddedPreview}\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. لن تُستعاد الملفات في هذه الخطوة. قد يتضمن JSON نصوصًا ومحتوى ملفات خاصة غير مشفّرة. هل تريد دمج السجلات؟"
+                : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder entries, including {preview.FilesWithContent} with embedded file contents\n\nFiles with embedded contents (nothing is written before separate consent):\n{embeddedPreview}\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. No files will be restored in this step. The JSON may contain sensitive plaintext and file contents. Merge records?";
             if (MessageBox.Show(this, summary,
                 _isArabic ? "مراجعة واستعادة النسخة الاحتياطية" : "Review and restore workspace backup",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
@@ -631,6 +687,33 @@ public sealed class WorkspaceHubWindow : Window
         {
             throw new InvalidOperationException("The selected backup is not valid UTF-8 JSON.", ex);
         }
+    }
+
+    private static string FormatFilePreviewList(
+        IEnumerable<WorkspaceSnapshotFilePreview> entries,
+        bool isArabic,
+        bool includeOmissionReason = false,
+        int maximumVisible = 100)
+    {
+        var values = entries.Take(maximumVisible + 1).ToArray();
+        if (values.Length == 0)
+            return isArabic ? "لا توجد ملفات." : "No files.";
+
+        var lines = values.Take(maximumVisible).Select(entry =>
+        {
+            var kind = entry.IsDirectory ? (isArabic ? "مجلد" : "folder") : (isArabic ? "ملف" : "file");
+            var line = $"• {entry.RelativePath} — {entry.SizeBytes:N0} bytes ({kind})";
+            if (includeOmissionReason && !string.IsNullOrWhiteSpace(entry.ContentOmittedReason))
+                line += $" — {entry.ContentOmittedReason}";
+            return line;
+        }).ToList();
+
+        if (values.Length > maximumVisible)
+        {
+            var remaining = entries.Count() - maximumVisible;
+            lines.Add(isArabic ? $"… و{remaining} عنصرًا آخر." : $"… and {remaining} more item(s).");
+        }
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static string SafeFileName(string value)

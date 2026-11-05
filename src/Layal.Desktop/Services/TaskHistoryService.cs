@@ -78,7 +78,15 @@ public sealed class TaskHistoryService
         }
     }
 
-    public int ImportMany(IEnumerable<AgentTaskRecord> imported)
+    public int ImportMany(IEnumerable<AgentTaskRecord> imported) =>
+        ImportManyWithIds(imported).Count;
+
+    /// <summary>
+    /// Merges validated task records and returns exactly the IDs newly added by this call.
+    /// The returned IDs allow the workspace snapshot coordinator to compensate if a later
+    /// protected-store import fails.
+    /// </summary>
+    public IReadOnlyList<string> ImportManyWithIds(IEnumerable<AgentTaskRecord> imported)
     {
         ArgumentNullException.ThrowIfNull(imported);
         var candidates = imported.Take(101).ToList();
@@ -125,12 +133,33 @@ public sealed class TaskHistoryService
             if (items.Count + toAdd.Count > 100)
                 throw new InvalidOperationException("There is not enough task-history capacity to merge this backup. Existing tasks were not changed.");
 
-            if (toAdd.Count > 0)
-            {
-                items.AddRange(toAdd);
+            if (toAdd.Count == 0)
+                return Array.Empty<string>();
+
+            var addedIds = toAdd.Select(item => item.Id).ToArray();
+            items.AddRange(toAdd);
+            _store.Save(items);
+            return addedIds;
+        }
+    }
+
+    /// <summary>Compensates a multi-store import by removing only records added by ImportManyWithIds.</summary>
+    public int RollbackImportedMany(IEnumerable<string> importedIds)
+    {
+        ArgumentNullException.ThrowIfNull(importedIds);
+        var ids = importedIds
+            .Where(id => Guid.TryParseExact(id, "N", out _))
+            .ToHashSet(StringComparer.Ordinal);
+        if (ids.Count == 0)
+            return 0;
+
+        lock (_sync)
+        {
+            var items = _store.Load(new List<AgentTaskRecord>());
+            var removed = items.RemoveAll(item => ids.Contains(item.Id));
+            if (removed > 0)
                 _store.Save(items);
-            }
-            return toAdd.Count;
+            return removed;
         }
     }
 

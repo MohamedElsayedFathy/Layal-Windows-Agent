@@ -64,6 +64,60 @@ public sealed class WorkspaceSnapshotService
         return json;
     }
 
+    /// <summary>
+    /// Writes a validated-size plaintext JSON backup through a same-directory temporary file.
+    /// The previous backup remains intact unless the complete new payload has been flushed and moved into place.
+    /// </summary>
+    public static void WriteJsonAtomically(string destinationPath, string json)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+        if (string.IsNullOrWhiteSpace(json))
+            throw new InvalidOperationException("The workspace backup is empty.");
+
+        var bytes = Encoding.UTF8.GetBytes(json);
+        var temporaryPath = string.Empty;
+        try
+        {
+            if (bytes.Length > MaximumJsonBytes)
+                throw new InvalidOperationException($"The workspace backup exceeds the {MaximumJsonBytes / (1024 * 1024)} MB export limit.");
+
+            var fullPath = Path.GetFullPath(destinationPath);
+            var directory = Path.GetDirectoryName(fullPath)
+                ?? throw new InvalidOperationException("The selected backup path has no parent directory.");
+            if (!Directory.Exists(directory))
+                throw new DirectoryNotFoundException("The selected backup directory no longer exists.");
+            if (Directory.Exists(fullPath))
+                throw new IOException("The selected backup destination is a directory.");
+
+            temporaryPath = Path.Combine(directory, $".layal-backup-{Guid.NewGuid():N}.tmp");
+            using (var output = new FileStream(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None,
+                       bufferSize: 64 * 1024,
+                       options: FileOptions.WriteThrough))
+            {
+                output.Write(bytes, 0, bytes.Length);
+                output.Flush(flushToDisk: true);
+            }
+
+            // Keep the temporary file on the same volume so the final replacement is atomic.
+            File.Move(temporaryPath, fullPath, overwrite: true);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+            try
+            {
+                if (temporaryPath.Length > 0 && File.Exists(temporaryPath))
+                    File.Delete(temporaryPath);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
     public WorkspaceSnapshotImportPreview PreviewImportJson(string json)
     {
         var document = ParseAndValidate(json);
@@ -72,7 +126,13 @@ public sealed class WorkspaceSnapshotService
             document.Memories.Count,
             document.Files.Count,
             document.ExportedAt,
-            document.Files.Count(entry => entry.ContentBase64 is not null));
+            document.Files.Count(entry => entry.ContentBase64 is not null),
+            document.Files.Select(entry => new WorkspaceSnapshotFilePreview(
+                entry.RelativePath,
+                entry.SizeBytes,
+                entry.IsDirectory,
+                entry.ContentBase64 is not null,
+                entry.ContentOmittedReason)).ToArray());
     }
 
     /// <summary>
@@ -93,19 +153,46 @@ public sealed class WorkspaceSnapshotService
         var embeddedCount = document.Files.Count(entry => entry.ContentBase64 is not null);
         var filesSkipped = restoreWorkspaceFiles ? 0 : embeddedCount;
 
+        // Roll back only the IDs that each import call confirms it actually added.
+        // This avoids deleting records another concurrent import may have inserted after preflight.
+        IReadOnlyList<string> taskRollbackIds = Array.Empty<string>();
+        IReadOnlyList<string> memoryRollbackIds = Array.Empty<string>();
+        var taskImportAttempted = false;
+        var memoryImportAttempted = false;
         try
         {
             if (restoreWorkspaceFiles)
                 filesRestored = RestoreWorkspaceFiles(document.Files, createdFiles, createdDirectories, out filesSkipped);
 
-            var tasksImported = _taskHistory.ImportMany(document.Tasks);
-            var memoriesImported = _memory.ImportMany(document.Memories);
+            taskImportAttempted = true;
+            taskRollbackIds = _taskHistory.ImportManyWithIds(document.Tasks);
+            memoryImportAttempted = true;
+            memoryRollbackIds = _memory.ImportManyWithIds(document.Memories);
             return new WorkspaceSnapshotImportResult(
-                tasksImported, memoriesImported, document.Files.Count, filesRestored, filesSkipped);
+                taskRollbackIds.Count, memoryRollbackIds.Count, document.Files.Count, filesRestored, filesSkipped);
         }
-        catch
+        catch (Exception importFailure)
         {
-            RollBackCreatedFiles(createdFiles, createdDirectories);
+            var rollbackFailures = new List<Exception>();
+            if (memoryImportAttempted)
+            {
+                try { _memory.RollbackImportedMany(memoryRollbackIds); }
+                catch (Exception rollbackFailure) { rollbackFailures.Add(rollbackFailure); }
+            }
+            if (taskImportAttempted)
+            {
+                try { _taskHistory.RollbackImportedMany(taskRollbackIds); }
+                catch (Exception rollbackFailure) { rollbackFailures.Add(rollbackFailure); }
+            }
+
+            try { RollBackCreatedFiles(createdFiles, createdDirectories); }
+            catch (Exception rollbackFailure) { rollbackFailures.Add(rollbackFailure); }
+
+            if (rollbackFailures.Count > 0)
+                throw new AggregateException(
+                    "Workspace import failed and one or more compensating rollback operations also failed. Review local DPAPI stores and restored workspace files.",
+                    new[] { importFailure }.Concat(rollbackFailures));
+
             throw;
         }
     }
@@ -259,6 +346,7 @@ public sealed class WorkspaceSnapshotService
                     EnsureWithinWorkspace(fullPath);
                     var relative = TaskHistoryService.NormalizeArtifactPath(
                         Path.GetRelativePath(_workspaceRoot, fullPath).Replace('\\', '/'));
+                    ValidateSafeWorkspaceRelativePath(relative);
 
                     string? contentBase64 = null;
                     string? sha256 = null;
@@ -298,9 +386,9 @@ public sealed class WorkspaceSnapshotService
                         sha256,
                         omittedReason));
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
-                    // Skip entries that disappear or become inaccessible while building the manifest.
+                    // Skip entries that disappear, become inaccessible, or cannot be safely restored.
                 }
             }
 
@@ -317,13 +405,14 @@ public sealed class WorkspaceSnapshotService
                     EnsureWithinWorkspace(fullPath);
                     var relative = TaskHistoryService.NormalizeArtifactPath(
                         Path.GetRelativePath(_workspaceRoot, fullPath).Replace('\\', '/'));
+                    ValidateSafeWorkspaceRelativePath(relative);
                     pending.Push((fullPath, depth + 1));
                     output.Add(new WorkspaceFileManifestEntry(
                         relative, 0, new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero), IsDirectory: true));
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
-                    // Skip entries that disappear or become inaccessible while traversing.
+                    // Skip entries that disappear, become inaccessible, or cannot be safely restored.
                 }
             }
         }
