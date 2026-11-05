@@ -28,22 +28,29 @@ public sealed class ChatSessionService
         _defaultTitle = string.IsNullOrWhiteSpace(defaultTitle) ? "New conversation" : BoundTitle(defaultTitle.Trim());
         _sessions = _store.Load(new List<ChatConversation>());
 
+        foreach (var session in _sessions)
+            RemovePersistedGmailTurn(session);
+
+        var deleteLegacyAfterSave = false;
         if (_sessions.Count == 0)
         {
             var legacyMessages = _legacyStore.Load(new List<ChatMessage>());
             if (legacyMessages.Count > 0)
             {
-                var migrated = new ChatConversation
+                var safeLegacyMessages = RemovePersistedGmailTurns(legacyMessages);
+                if (safeLegacyMessages.Count > 0)
                 {
-                    Title = BuildTitle(legacyMessages, _defaultTitle),
-                    CreatedAt = legacyMessages.Min(m => m.CreatedAt),
-                    UpdatedAt = legacyMessages.Max(m => m.CreatedAt),
-                    Messages = BoundMessages(legacyMessages)
-                };
-                _sessions.Add(migrated);
-                _store.Save(_sessions);
-                // Delete the old encrypted single-history file only after migration has been saved.
-                _legacyStore.Delete();
+                    var migrated = new ChatConversation
+                    {
+                        Title = BuildTitle(safeLegacyMessages, _defaultTitle),
+                        CreatedAt = safeLegacyMessages.Min(m => m.CreatedAt),
+                        UpdatedAt = safeLegacyMessages.Max(m => m.CreatedAt),
+                        Messages = BoundMessages(safeLegacyMessages)
+                    };
+                    _sessions.Add(migrated);
+                }
+                // Delete the legacy file only after the sanitized replacement has been saved.
+                deleteLegacyAfterSave = true;
             }
         }
 
@@ -52,6 +59,8 @@ public sealed class ChatSessionService
 
         _currentId = _sessions.OrderByDescending(s => s.UpdatedAt).First().Id;
         Save();
+        if (deleteLegacyAfterSave)
+            _legacyStore.Delete();
     }
 
     /// <summary>Updates the localized placeholder title without renaming user-authored conversations.</summary>
@@ -104,9 +113,14 @@ public sealed class ChatSessionService
     {
         ArgumentNullException.ThrowIfNull(messages);
         var current = FindCurrent();
+        var previousMessages = current.Messages ?? new List<ChatMessage>();
+        var previousTitleWasGenerated = string.Equals(
+            current.Title, BuildTitle(previousMessages, _defaultTitle), StringComparison.Ordinal);
         current.Messages = BoundMessages(messages);
         if (current.Messages.Count > 0)
             current.Title = BuildTitle(current.Messages, _defaultTitle);
+        else if (previousTitleWasGenerated)
+            current.Title = _defaultTitle;
         current.UpdatedAt = DateTimeOffset.Now;
         Save();
     }
@@ -186,9 +200,59 @@ public sealed class ChatSessionService
             _currentId = _sessions.OrderByDescending(s => s.UpdatedAt).First().Id;
     }
 
+    private static readonly string[] GmailHistoryMarkers =
+    {
+        "[Gmail email for review]",
+        "[بريد Gmail للمراجعة]"
+    };
+
+    /// <summary>
+    /// Removes Gmail turns written by earlier versions, before Gmail-derived messages were
+    /// marked as ephemeral. Remove the following assistant/status rows too because they may
+    /// contain summaries or other derivatives of the Gmail message.
+    /// </summary>
+    private bool RemovePersistedGmailTurn(ChatConversation session)
+    {
+        var original = session.Messages ?? new List<ChatMessage>();
+        var filtered = RemovePersistedGmailTurns(original);
+        if (filtered.Count == original.Count)
+            return false;
+
+        var generatedTitle = string.Equals(
+            session.Title, BuildTitle(original, _defaultTitle), StringComparison.Ordinal);
+        session.Messages = filtered;
+        if (generatedTitle)
+            session.Title = BuildTitle(filtered, _defaultTitle);
+        return true;
+    }
+
+    private static List<ChatMessage> RemovePersistedGmailTurns(IEnumerable<ChatMessage> messages)
+    {
+        var result = new List<ChatMessage>();
+        var removingGmailTurn = false;
+        foreach (var message in messages)
+        {
+            if (message is null) continue;
+            if (string.Equals(message.Role, "user", StringComparison.Ordinal))
+            {
+                removingGmailTurn = GmailHistoryMarkers.Any(marker =>
+                    (message.Content ?? string.Empty).Contains(marker, StringComparison.Ordinal));
+                if (removingGmailTurn)
+                    continue;
+            }
+
+            if (removingGmailTurn)
+                continue;
+
+            if (!message.IsGmailEphemeralData)
+                result.Add(message);
+        }
+        return result;
+    }
+
     private static List<ChatMessage> BoundMessages(IEnumerable<ChatMessage> messages)
     {
-        var source = messages.ToList();
+        var source = messages.Where(message => message is not null && !message.IsGmailEphemeralData).ToList();
         var newestFirst = new List<ChatMessage>(Math.Min(source.Count, MaxMessagesPerConversation));
         var totalCharacters = 0;
 
@@ -239,7 +303,8 @@ public sealed class ChatSessionService
         Content = content,
         DisplayRole = message.DisplayRole,
         CreatedAt = message.CreatedAt,
-        Direction = message.Direction
+        Direction = message.Direction,
+        IsGmailEphemeralData = message.IsGmailEphemeralData
     };
 
     private static string BuildTitle(IEnumerable<ChatMessage> messages, string fallback)
