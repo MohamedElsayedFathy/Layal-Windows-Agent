@@ -371,7 +371,7 @@
                                     AutomationProperties.Name="فتح مساحة عمل ليال الموحدة"
                                     AutomationProperties.HelpText="يعرض المهام والملاحظات وبيانات الملفات محليًا. لا يقرأ محتوى الملفات تلقائيًا؛ التصدير غير مشفر بعد تأكيدك."/>
                             <Button x:Name="GameModeButton" Content="وضع الألعاب" Click="GameModeButton_Click" MinWidth="110"
-                                    ToolTip="تشغيل HUD يدوي صغير؛ لا يوجد اكتشاف ألعاب أو مراقبة عمليات أو حقن."
+                                    ToolTip="يفتح HUD يدويًا؛ الكشف التلقائي اختياري ويعتمد على اسم عملية النافذة الأمامية في قائمة سماح تحددها."
                                     AutomationProperties.Name="تفعيل وضع الألعاب اليدوي"
                                     AutomationProperties.HelpText="يفتح HUD فوق النوافذ ويوقف إشعارات المتابعة والتذكيرات أثناء تشغيله. لا يقرأ بيانات اللعبة ولا يتحكم بها."/>
                             <Button x:Name="GameModeSettingsButton" Content="إعداد اكتشاف الألعاب" Click="ConfigureGameModeDetectionButton_Click" MinWidth="145"
