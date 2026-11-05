@@ -20,6 +20,9 @@ public sealed class WorkspaceArtifactService
         _rootPrefix = _workspaceRoot + Path.DirectorySeparatorChar;
     }
 
+    /// <summary>Validates that LayalWorkspace and every existing ancestor are regular directories.</summary>
+    public void ValidateWorkspaceRoot() => EnsureDirectoryIsNotReparsePoint(_workspaceRoot);
+
     /// <summary>
     /// Resolves a canonical workspace-relative file after rejecting traversal and every reparse-point
     /// component. Directories are not accepted as task output artifacts.
