@@ -29,7 +29,7 @@ public sealed class GmailReadOnlyService
     public const int MaximumAttachmentPreviewCharacters = 10_000;
     public const int MaximumMessageResponseBytes = 25 * 1024 * 1024;
     private const int MaximumAttachmentResponseBytes = 2 * 1024 * 1024;
-    private const int MaximumSingleAttachmentPreviewCharacters = 3_000;
+    public const int MaximumSingleAttachmentPreviewCharacters = 3_000;
     private const string GmailReadOnlyScope = "https://www.googleapis.com/auth/gmail.readonly";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     private const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
