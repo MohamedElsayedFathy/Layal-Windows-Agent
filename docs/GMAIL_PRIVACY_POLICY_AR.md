@@ -20,7 +20,7 @@
 - يبقى Access Token في ذاكرة العملية ويُجدد عند الحاجة. تُجرى طلبات Gmail عبر HTTPS.
 - لا تحفظ Layal مرفقات Gmail في Workspace أو Downloads. المعاينة المحلية للمستندات والصور تستخدم ملفًا مؤقتًا خاصًا، ثم تحذفه بعد الاستخراج أو عند حدوث خطأ/إلغاء.
 - تُصفّر بايتات المرفقات بعد المعالجة أو رفض الحجم. لا تشغّل Layal HTML أو JavaScript أو ماكرو أو ملفات تنفيذية من البريد.
-- قد يُحفظ النص الذي يرسله المستخدم إلى الشات ضمن سجل المحادثة المحلي المشفر بواسطة DPAPI، وفق حدود سياسة [الاحتفاظ المحلي](LOCAL_DATA_RETENTION_AR.md).
+- عند موافقة المستخدم وإرسال بريد إلى مزود AI، يُعرض الطلب والرد في نافذة Layal الحالية كدور واحد مؤقت؛ لا يُحفظ نص البريد أو رد النموذج في سجل المحادثات المحلي، ولا يُعاد استخدامهما في سياق الطلبات اللاحقة. تختفي الرسائل المؤقتة من الواجهة عند إغلاق Layal.
 
 ### المشاركة مع مزود ذكاء اصطناعي
 
@@ -67,7 +67,7 @@ Gmail data is used to provide the user-requested email interface, display messag
 - Access tokens remain in process memory and are refreshed when needed. Gmail API requests use HTTPS.
 - Gmail attachments are not saved into the Layal workspace or Downloads. Local document/image preview uses a private temporary file that is deleted after extraction, including failure/cancellation paths.
 - Attachment byte buffers are zeroed after processing or size rejection. Layal does not execute email HTML, JavaScript, macros, or executable attachments.
-- Message text that the user sends to chat may be stored in the local DPAPI-protected conversation history under the [local retention policy](LOCAL_DATA_RETENTION_AR.md).
+- When the user consents and sends email to an AI provider, the request and reply are displayed in the current Layal window as a one-turn temporary exchange. Neither the email text nor the model reply is saved in local conversation history or reused in subsequent request context. These in-memory messages disappear when Layal closes.
 
 ### Sharing with an AI provider
 
@@ -79,7 +79,7 @@ Content is transferred to the AI provider configured in Layal only after the use
 
 - Disconnecting Gmail locally deletes the refresh token on this device and clears the in-memory access token; it does not revoke Google's grant.
 - To revoke Google access, remove Layal from [Google Account permissions](https://myaccount.google.com/permissions).
-- Email content sent to chat is subject to Layal's local conversation retention policy. Clearing local chat history removes the locally stored copy within Layal, but cannot delete copies already sent to an AI provider or retained by that provider or its backup systems.
+- Gmail-derived email content is processed as a one-turn temporary chat exchange. Layal does not write the email text or its model reply to local conversation history and does not reuse them in later prompt context. The exchange remains visible only in the current running window and disappears when Layal closes. This local non-persistence does not delete data already transferred to an AI provider or copies retained by that provider or its backup systems.
 - Layal does not create a permanent Gmail-attachment archive; temporary preview files are deleted after extraction.
 
 ### Google policy commitment
