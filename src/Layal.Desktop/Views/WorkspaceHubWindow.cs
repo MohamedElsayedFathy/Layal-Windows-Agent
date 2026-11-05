@@ -284,7 +284,7 @@ public sealed class WorkspaceHubWindow : Window
 
         try
         {
-            EnsureNoReparsePointsInExistingPath(_workspaceRoot);
+            _artifactService.ValidateWorkspaceRoot();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -363,26 +363,6 @@ public sealed class WorkspaceHubWindow : Window
             }
         }
         return output;
-    }
-
-    private static void EnsureNoReparsePointsInExistingPath(string path)
-    {
-        var fullPath = Path.GetFullPath(path);
-        var root = Path.GetPathRoot(fullPath)
-            ?? throw new InvalidOperationException("The workspace path has no filesystem root.");
-        var current = root;
-        foreach (var segment in fullPath[root.Length..].Split(
-                     new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-                     StringSplitOptions.RemoveEmptyEntries))
-        {
-            current = Path.Combine(current, segment);
-            if (!Directory.Exists(current))
-                throw new DirectoryNotFoundException("A workspace directory does not exist.");
-            var attributes = File.GetAttributes(current);
-            if ((attributes & FileAttributes.ReparsePoint) != 0 ||
-                (attributes & FileAttributes.Directory) == 0)
-                throw new InvalidOperationException("The workspace path contains a symbolic link, reparse point, or non-directory parent.");
-        }
     }
 
     private void ApplyFilter()
