@@ -6185,6 +6185,9 @@ public partial class MainWindow : Window
 
     private void OpenTaskFromNotification(string taskId)
     {
+        if (string.IsNullOrWhiteSpace(taskId))
+            return;
+
         Dispatcher.BeginInvoke(new Action(() =>
         {
             if (AppRuntime.IsExiting)
@@ -6564,7 +6567,9 @@ public partial class MainWindow : Window
         try
         {
             RecentTasks.Clear();
-            foreach (var task in AppRuntime.TaskHistoryService.GetRecent(30))
+            // A reminder may target any retained task, not only the 30 most recent rows.
+            // Pin that exact ID into the list when necessary; never fall back to a different task.
+            foreach (var task in AppRuntime.TaskHistoryService.GetRecentWithSelectedTask(idToSelect, 30))
                 RecentTasks.Add(new TaskHistoryListItem(task, IsArabic));
             if (!string.IsNullOrWhiteSpace(idToSelect))
                 RecentTasksList.SelectedItem = RecentTasks.FirstOrDefault(t => t.Id == idToSelect);
