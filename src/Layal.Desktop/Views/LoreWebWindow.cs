@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
@@ -18,6 +19,9 @@ namespace Layal.Views;
 /// </summary>
 public sealed class LoreWebWindow : Window
 {
+    // Keep inferred links sparse even when many notes share generic title words.
+    // User-authored relationships are always retained separately.
+    private const int MaxHeuristicEdgesPerNote = 6;
     private readonly bool _isArabic;
     private readonly Action<MemoryNote> _openNote;
     private readonly Func<MemoryNote, bool> _deleteNote;
@@ -77,8 +81,8 @@ public sealed class LoreWebWindow : Window
         MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        Background = Application.Current.TryFindResource("Layal.Background") as Brush ?? Brushes.White;
-        Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
+        Background = GetThemeBrush("Layal.Background", Brushes.White);
+        Foreground = GetThemeBrush("Layal.Text", Brushes.Black);
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
             ? "خريطة محلية للملاحظات النشطة والمؤرشفة. التصنيفات تحددها أنت، والروابط مبنية على التصنيف وكلمات العنوان والترتيب الزمني؛ لا يُرسل المحتوى إلى AI."
@@ -103,10 +107,38 @@ public sealed class LoreWebWindow : Window
                 : "Drag to rotate and use the mouse wheel to zoom. The list shows category and archive state. You can archive or restore a note without deleting it.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0),
-            Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
+            Foreground = GetThemeBrush("Layal.Muted", Brushes.DimGray)
         };
         AutomationProperties.SetName(privacy, isArabic ? "شرح التنقل وخصوصية خريطة الذاكرة" : "Memory map navigation and privacy");
         header.Children.Add(privacy);
+        var legend = new TextBlock { Margin = new Thickness(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap };
+        legend.Inlines.Add(new Run
+        {
+            Text = isArabic ? "● نشطة" : "● Active",
+            Foreground = new SolidColorBrush(Color.FromRgb(55, 164, 181))
+        });
+        legend.Inlines.Add(new Run { Text = "   " });
+        legend.Inlines.Add(new Run
+        {
+            Text = isArabic ? "● مؤرشفة" : "● Archived",
+            Foreground = new SolidColorBrush(Color.FromRgb(125, 132, 145))
+        });
+        legend.Inlines.Add(new Run { Text = "   " });
+        legend.Inlines.Add(new Run
+        {
+            Text = isArabic ? "━ روابط تقريبية" : "━ Inferred links",
+            Foreground = new SolidColorBrush(Color.FromRgb(95, 145, 165))
+        });
+        legend.Inlines.Add(new Run { Text = "   " });
+        legend.Inlines.Add(new Run
+        {
+            Text = isArabic ? "━ علاقات صريحة" : "━ Explicit relationships",
+            Foreground = new SolidColorBrush(Color.FromRgb(228, 157, 73))
+        });
+        AutomationProperties.SetName(legend, isArabic
+            ? "مفتاح الألوان: الأزرق للملاحظات النشطة، والرمادي للمؤرشفة، والرمادي المزرق للروابط التقريبية، والذهبي للعلاقات التي حددها المستخدم."
+            : "Color legend: teal nodes are active, gray nodes are archived, blue-gray edges are inferred, and gold edges are user-defined.");
+        header.Children.Add(legend);
         Grid.SetRow(header, 0);
         root.Children.Add(header);
 
@@ -118,26 +150,33 @@ public sealed class LoreWebWindow : Window
         {
             ClipToBounds = true,
             IsHitTestVisible = true,
-            Cursor = Cursors.Hand
+            Focusable = true,
+            Cursor = Cursors.Hand,
+            ToolTip = isArabic
+                ? "لوحة المفاتيح: الأسهم للتدوير، + و- للتقريب، Home لإعادة ضبط المشهد."
+                : "Keyboard: Arrow keys rotate, + and - zoom, Home resets the view."
         };
         AutomationProperties.SetName(_viewport, isArabic ? "رسم شبكة الذاكرة ثلاثية الأبعاد" : "3D memory web graph");
         AutomationProperties.SetHelpText(_viewport, isArabic
-            ? "انقر على عقدة لعرض الملاحظة، واسحب لتدوير المشهد، واستخدم عجلة الفأرة للتقريب. يمكن أيضًا استخدام قائمة الملاحظات بلوحة المفاتيح."
-            : "Click a node to inspect the note, drag to rotate, and use the mouse wheel to zoom. The note list is keyboard accessible.");
+            ? "انقر على عقدة لعرض الملاحظة، واسحب لتدوير المشهد، واستخدم عجلة الفأرة للتقريب. عند تركيز الرسم استخدم الأسهم للتدوير و+ أو - للتقريب وHome لإعادة الضبط. ويمكن استخدام قائمة الملاحظات بلوحة المفاتيح."
+            : "Click a node to inspect it, drag or use Arrow keys to rotate, use the mouse wheel or + / - to zoom, and press Home to reset. The note list is keyboard accessible.");
         _camera = new PerspectiveCamera
         {
             FieldOfView = 50,
             UpDirection = new Vector3D(0, 1, 0)
         };
         _viewport.Camera = _camera;
+        KeyboardNavigation.SetIsTabStop(_viewport, true);
+        KeyboardNavigation.SetTabIndex(_viewport, 0);
+        _viewport.PreviewKeyDown += Viewport_PreviewKeyDown;
         _viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
         _viewport.MouseLeftButtonUp += Viewport_MouseLeftButtonUp;
         _viewport.MouseMove += Viewport_MouseMove;
         _viewport.MouseWheel += Viewport_MouseWheel;
         var viewportFrame = new Border
         {
-            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
-            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray,
+            Background = GetThemeBrush("Layal.Panel", Brushes.White),
+            BorderBrush = GetThemeBrush("Layal.Border", Brushes.Gray),
             BorderThickness = new Thickness(1),
             Child = _viewport
         };
@@ -162,9 +201,9 @@ public sealed class LoreWebWindow : Window
         {
             Margin = new Thickness(0, 0, 0, 10),
             Padding = new Thickness(5),
-            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
-            Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black,
-            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? Brushes.Gray,
+            Background = GetThemeBrush("Layal.Panel", Brushes.White),
+            Foreground = GetThemeBrush("Layal.Text", Brushes.Black),
+            BorderBrush = GetThemeBrush("Layal.Border", Brushes.Gray),
             DisplayMemberPath = nameof(NoteListEntry.Description)
         };
         _noteList.ItemsSource = _entries;
@@ -189,7 +228,7 @@ public sealed class LoreWebWindow : Window
         _selectedContent = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
-            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextTrimming = TextTrimming.None,
             VerticalAlignment = VerticalAlignment.Top
         };
         AutomationProperties.SetName(_selectedContent, isArabic ? "محتوى الملاحظة المحددة" : "Selected note content");
@@ -302,7 +341,7 @@ public sealed class LoreWebWindow : Window
         {
             Margin = new Thickness(0, 10, 0, 0),
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
+            Foreground = GetThemeBrush("Layal.Muted", Brushes.DimGray)
         };
         AutomationProperties.SetName(_status, isArabic ? "حالة خريطة الذاكرة" : "Memory web status");
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
@@ -351,14 +390,14 @@ public sealed class LoreWebWindow : Window
             _entries.Add(new NoteListEntry(note, $"{note.Title} · {note.Category} · {archiveLabel} · {relationshipCount} " + (_isArabic ? "علاقات" : "links")));
         }
 
+        var explicitEdges = BuildExplicitEdges(_notes);
         foreach (var edge in BuildEdges(_notes))
         {
             if (!_positions.TryGetValue(edge.FromId, out var start) ||
                 !_positions.TryGetValue(edge.ToId, out var end))
                 continue;
             var geometry = CreateCylinder(start, end, 0.32, 7);
-            var isExplicit = _notes.FirstOrDefault(note => string.Equals(note.Id, edge.FromId, StringComparison.Ordinal))?.Relationships?
-                .Any(link => string.Equals(link.TargetNoteId, edge.ToId, StringComparison.Ordinal)) == true;
+            var isExplicit = explicitEdges.Contains(edge);
             var material = CreateMaterial(isExplicit ? Color.FromArgb(225, 228, 157, 73) : Color.FromArgb(115, 95, 145, 165));
             var edgeVisual = new ModelVisual3D
             {
@@ -367,6 +406,17 @@ public sealed class LoreWebWindow : Window
             _viewport.Children.Add(edgeVisual);
             _edgeVisuals[edgeVisual] = (edge.FromId, edge.ToId);
         }
+    }
+
+    private static Brush GetThemeBrush(string resourceKey, Brush fallback)
+    {
+        // Lore Web can be constructed by isolated WPF tests without creating a second
+        // Application instance. Only read application resources from their owning dispatcher.
+        var application = Application.Current;
+        if (application is null || !application.Dispatcher.CheckAccess())
+            return fallback;
+
+        return application.TryFindResource(resourceKey) as Brush ?? fallback;
     }
 
     private static Point3D PositionOnSphere(int index, int count, double radius)
@@ -385,36 +435,85 @@ public sealed class LoreWebWindow : Window
 
     private static IReadOnlyList<(string FromId, string ToId)> BuildEdges(IReadOnlyList<MemoryNote> notes)
     {
-        var edges = new HashSet<(string FromId, string ToId)>();
-        foreach (var note in notes)
-            foreach (var relationship in note.Relationships ?? new List<MemoryNoteRelationship>())
-                AddEdge(edges, note.Id, relationship.TargetNoteId);
-        for (var index = 0; index < notes.Count - 1; index++)
-            AddEdge(edges, notes[index].Id, notes[index + 1].Id);
+        // Explicit user-authored links are never subject to the inferred-edge density cap.
+        var edges = BuildExplicitEdges(notes);
+        var heuristicDegree = notes
+            .Select(note => note.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(id => id, _ => 0, StringComparer.Ordinal);
 
-        // User-defined categories provide an explicit, local grouping signal. Connect only
-        // adjacent notes per category to keep the graph sparse when a category contains many notes.
+        void AddHeuristicEdge(string left, string right)
+        {
+            if (string.Equals(left, right, StringComparison.Ordinal))
+                return;
+
+            var edge = NormalizeEdge(left, right);
+            if (edges.Contains(edge) ||
+                !heuristicDegree.TryGetValue(left, out var leftDegree) ||
+                !heuristicDegree.TryGetValue(right, out var rightDegree) ||
+                leftDegree >= MaxHeuristicEdgesPerNote ||
+                rightDegree >= MaxHeuristicEdgesPerNote)
+                return;
+
+            edges.Add(edge);
+            heuristicDegree[left] = leftDegree + 1;
+            heuristicDegree[right] = rightDegree + 1;
+        }
+
+        // Chronology is the most predictable navigation path, so preserve it first.
+        for (var index = 0; index < notes.Count - 1; index++)
+            AddHeuristicEdge(notes[index].Id, notes[index + 1].Id);
+
+        // User-defined categories provide a local grouping signal. Connect adjacent notes
+        // per category, subject to the same per-note cap as all other inferred edges.
         foreach (var categoryGroup in notes
                      .Select((note, index) => (Note: note, Index: index))
                      .GroupBy(item => MemoryService.NormalizeCategory(item.Note.Category), StringComparer.OrdinalIgnoreCase))
         {
             var categoryNotes = categoryGroup.OrderBy(item => item.Index).Select(item => item.Note).ToArray();
             for (var index = 0; index < categoryNotes.Length - 1; index++)
-                AddEdge(edges, categoryNotes[index].Id, categoryNotes[index + 1].Id);
+                AddHeuristicEdge(categoryNotes[index].Id, categoryNotes[index + 1].Id);
         }
 
-        var titleTokens = notes.ToDictionary(note => note.Id, note => Tokenize(note.Title), StringComparer.Ordinal);
+        // Shared title words are only hints. Cap their contribution to prevent generic
+        // words (for example "project" or "note") from producing a near-complete graph.
+        var titleTokens = notes.Select(note => Tokenize(note.Title)).ToArray();
         for (var first = 0; first < notes.Count; first++)
         {
+            if (!heuristicDegree.TryGetValue(notes[first].Id, out var firstDegree) ||
+                firstDegree >= MaxHeuristicEdgesPerNote)
+                continue;
+
             for (var second = first + 1; second < notes.Count; second++)
             {
-                if (titleTokens[notes[first].Id].Overlaps(titleTokens[notes[second].Id]))
-                    AddEdge(edges, notes[first].Id, notes[second].Id);
+                if (heuristicDegree[notes[first].Id] >= MaxHeuristicEdgesPerNote)
+                    break;
+                if (heuristicDegree[notes[second].Id] >= MaxHeuristicEdgesPerNote)
+                    continue;
+
+                if (titleTokens[first].Overlaps(titleTokens[second]))
+                    AddHeuristicEdge(notes[first].Id, notes[second].Id);
             }
         }
 
-        return edges.ToList();
+        return edges
+            .OrderBy(edge => edge.FromId, StringComparer.Ordinal)
+            .ThenBy(edge => edge.ToId, StringComparer.Ordinal)
+            .ToArray();
     }
+
+    private static HashSet<(string FromId, string ToId)> BuildExplicitEdges(IReadOnlyList<MemoryNote> notes)
+    {
+        var edges = new HashSet<(string FromId, string ToId)>();
+        foreach (var note in notes)
+            foreach (var relationship in note.Relationships ?? new List<MemoryNoteRelationship>())
+                if (relationship is not null && !string.IsNullOrWhiteSpace(relationship.TargetNoteId))
+                    edges.Add(NormalizeEdge(note.Id, relationship.TargetNoteId));
+        return edges;
+    }
+
+    private static (string FromId, string ToId) NormalizeEdge(string left, string right) =>
+        string.CompareOrdinal(left, right) < 0 ? (left, right) : (right, left);
 
     private static HashSet<string> Tokenize(string title)
     {
@@ -538,8 +637,46 @@ public sealed class LoreWebWindow : Window
         _noteList.Items.Refresh();
     }
 
+    private void Viewport_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Left:
+                _yaw -= 0.12;
+                break;
+            case Key.Right:
+                _yaw += 0.12;
+                break;
+            case Key.Up:
+                _pitch = Math.Clamp(_pitch + 0.12, -1.35, 1.35);
+                break;
+            case Key.Down:
+                _pitch = Math.Clamp(_pitch - 0.12, -1.35, 1.35);
+                break;
+            case Key.Add:
+            case Key.OemPlus:
+                _distance = Math.Max(110, _distance - 15);
+                break;
+            case Key.Subtract:
+            case Key.OemMinus:
+                _distance = Math.Min(420, _distance + 15);
+                break;
+            case Key.Home:
+                _yaw = 0.45;
+                _pitch = 0.2;
+                _distance = 235;
+                break;
+            default:
+                return;
+        }
+
+        UpdateCamera();
+        e.Handled = true;
+    }
+
     private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        _viewport.Focus();
         _dragStart = e.GetPosition(_viewport);
         _dragging = true;
         _dragMoved = false;
