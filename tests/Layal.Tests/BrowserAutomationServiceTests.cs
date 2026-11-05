@@ -103,6 +103,33 @@ public sealed class BrowserAutomationServiceTests
     }
 
     [TestMethod]
+    public void BrowserControlRejectsAmbiguousTabsInsteadOfChoosingOneByListOrder()
+    {
+        BrowserAutomationService.ValidateSinglePageSession(1);
+        Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(0));
+        Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(2));
+        Assert.ThrowsExactly<InvalidOperationException>(() => BrowserAutomationService.ValidateSinglePageSession(5));
+    }
+
+    [TestMethod]
+    public void BrowserUploadRespectsTheFileInputAcceptAttribute()
+    {
+        BrowserAutomationService.ValidateBrowserUploadAccept("", ".pdf");
+        BrowserAutomationService.ValidateBrowserUploadAccept(".pdf,.docx", ".pdf");
+        BrowserAutomationService.ValidateBrowserUploadAccept("application/pdf", ".pdf");
+        BrowserAutomationService.ValidateBrowserUploadAccept("image/*", ".webp");
+        BrowserAutomationService.ValidateBrowserUploadAccept("text/*", ".csv");
+        BrowserAutomationService.ValidateBrowserUploadAccept("application/*", ".xlsx");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadAccept("image/*", ".pdf"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadAccept(".png,.jpg", ".docx"));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            BrowserAutomationService.ValidateBrowserUploadAccept("application/pdf", ".exe"));
+    }
+
+    [TestMethod]
     public async Task DeclinedNavigationDoesNotLaunchOrCreateBrowserProfile()
     {
         using var temp = new TestTempDirectory();
@@ -371,7 +398,7 @@ public sealed class BrowserAutomationServiceTests
         var definitions = executor.GetToolDefinitions();
         var names = definitions.Select(x => x?["function"]?["name"]?.GetValue<string>()).ToArray();
 
-        foreach (var expected in new[] { "browser_navigate", "browser_read_page", "browser_click", "browser_fill" })
+        foreach (var expected in new[] { "browser_navigate", "browser_read_page", "browser_click", "browser_fill", "browser_download", "browser_upload_file" })
             Assert.IsTrue(names.Contains(expected), $"Missing browser tool {expected}.");
         foreach (var definition in definitions)
             Assert.IsNotNull(definition?["function"]?["parameters"] as System.Text.Json.Nodes.JsonObject);

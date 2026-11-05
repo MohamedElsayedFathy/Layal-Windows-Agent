@@ -223,6 +223,54 @@ public sealed class BrowserAutomationService
             throw new InvalidOperationException("browser_upload_file requires one visible input[type=file] target. It never clicks or submits the form.");
     }
 
+    /// <summary>Refuses ambiguous sessions instead of guessing which tab the user intended.</summary>
+    public static void ValidateSinglePageSession(int pageCount)
+    {
+        if (pageCount == 0)
+            throw new InvalidOperationException("The dedicated Layal browser has no usable page tab. Navigate to an HTTP/HTTPS URL first.");
+        if (pageCount != 1)
+            throw new InvalidOperationException("Layal browser control is paused because the dedicated Edge window has multiple page tabs or popups. Close extra tabs/windows and retry; Layal will not guess which page you intended.");
+    }
+
+    /// <summary>
+    /// Enforces the target page's accept attribute before a local file can be selected.
+    /// A blank accept attribute means the page does not declare a type restriction.
+    /// </summary>
+    public static void ValidateBrowserUploadAccept(string accept, string extension)
+    {
+        var ext = (extension ?? string.Empty).Trim().ToLowerInvariant();
+        if (ext.Length < 2 || ext[0] != '.')
+            throw new InvalidOperationException("The selected upload must have a recognized file extension.");
+
+        var mime = ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".txt" => "text/plain",
+            ".md" => "text/markdown",
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            _ => throw new InvalidOperationException("This file type is not supported for browser upload.")
+        };
+        var tokens = (accept ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => value.ToLowerInvariant())
+            .ToArray();
+        if (tokens.Length == 0 || tokens.Contains("*/*", StringComparer.Ordinal))
+            return;
+
+        var family = mime[..mime.IndexOf('/')];
+        if (tokens.Any(token => token == ext || token == mime || token == family + "/*"))
+            return;
+
+        throw new InvalidOperationException(
+            $"The selected file type '{ext}' does not match the website file input's accept restriction '{accept}'. No file was selected.");
+    }
+
     /// <summary>
     /// Builds an HTTPS Bing search URL. Search text is normalized and bounded before it can be sent.
     /// </summary>
@@ -521,9 +569,14 @@ public sealed class BrowserAutomationService
         {
             token.ThrowIfCancellationRequested();
             var page = await GetPageTargetAsync(token);
-            var urlText = await EvaluateAsync(page, "location.href", token) ?? string.Empty;
-            var title = await EvaluateAsync(page, "document.title", token) ?? string.Empty;
-            var readyState = await EvaluateAsync(page, "document.readyState", token) ?? string.Empty;
+            var json = await EvaluateAsync(page,
+                "JSON.stringify({url:location.href,title:document.title||'',readyState:document.readyState})",
+                token) ?? string.Empty;
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            var urlText = root.GetProperty("url").GetString() ?? string.Empty;
+            var title = root.GetProperty("title").GetString() ?? string.Empty;
+            var readyState = root.GetProperty("readyState").GetString() ?? string.Empty;
             var url = ValidateHttpUrl(urlText).AbsoluteUri;
             return new BrowserPageIdentity(page.Id, url, title, readyState);
         }
@@ -599,9 +652,9 @@ public sealed class BrowserAutomationService
             else if (action == "upload")
                 ValidateBrowserUploadTarget(elementTag, elementType);
 
-            // Element previews need only target identity and one element's metadata. Avoid
-            // collecting the page's visible text or unrelated DOM when preparing an action.
-            var previewUrl = ValidateHttpUrl(await EvaluateAsync(page, "location.href", token) ?? string.Empty).AbsoluteUri;
+            // URL and element metadata come from the same synchronous DOM evaluation so a
+            // navigation cannot pair an old element with a new page URL in the consent preview.
+            var previewUrl = ValidateHttpUrl(root.GetProperty("url").GetString() ?? string.Empty).AbsoluteUri;
             return new BrowserElementPreview(
                 action,
                 page.Id,
@@ -640,8 +693,26 @@ public sealed class BrowserAutomationService
             var result = await EvaluateAsync(page, expression, token);
             EnsureActionSucceeded(result, "click");
             await Task.Delay(250, token);
-            var current = await ReadPageSnapshotAsync(await GetPageTargetAsync(token), token);
-            return $"The click event was dispatched to the approved browser element.\nPage after action: {current.Url}\nTitle: {current.Title}\nThis confirms that a DOM click was issued, not that the site's requested outcome succeeded.";
+            // Read the original tab directly: an approved link may intentionally open a new tab.
+            // The next Layal action will pause if multiple page tabs exist, rather than guessing.
+            // Return only the post-click URL/title; do not read page body or DOM metadata as a
+            // side effect of a click. An approved link may open a new page target.
+            var after = await EvaluateAsync(page,
+                "JSON.stringify({url:location.href,title:document.title||''})",
+                token) ?? string.Empty;
+            using var afterDocument = JsonDocument.Parse(after);
+            var currentUrl = afterDocument.RootElement.GetProperty("url").GetString() ?? string.Empty;
+            var currentTitle = afterDocument.RootElement.GetProperty("title").GetString() ?? string.Empty;
+            try { currentUrl = ValidateHttpUrl(currentUrl).AbsoluteUri; }
+            catch (InvalidOperationException) { currentUrl = "(non-HTTP page)"; }
+
+            var extraTabNotice = string.Empty;
+            try { _ = await GetPageTargetAsync(token); }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("multiple page tabs", StringComparison.OrdinalIgnoreCase))
+            {
+                extraTabNotice = "\nAdditional tab(s) or popup(s) opened. Layal will pause browser actions until only one page tab remains.";
+            }
+            return $"The click event was dispatched to the approved browser element.\nPage after action: {currentUrl}\nTitle: {currentTitle}{extraTabNotice}\nThis confirms that a DOM click was issued, not that the site's requested outcome succeeded.";
         }
         finally { _gate.Release(); }
     }
@@ -695,43 +766,13 @@ public sealed class BrowserAutomationService
             var page = await GetPageTargetAsync(token);
             if (!string.Equals(page.Id, preview.PageTargetId, StringComparison.Ordinal))
                 throw new InvalidOperationException("The active browser tab changed while awaiting upload approval. Inspect and approve the intended file input again.");
-            var currentUrl = ValidateHttpUrl(await EvaluateAsync(page, "location.href", token) ?? string.Empty).AbsoluteUri;
-            if (!string.Equals(currentUrl, preview.PageUrl, StringComparison.Ordinal))
-                throw new InvalidOperationException("The browser page URL changed while awaiting upload approval. No file was selected.");
+            _ = ValidateHttpUrl(preview.PageUrl);
+            ValidateBrowserUploadAccept(preview.Accept, Path.GetExtension(absoluteFilePath));
 
-            EnsureActionSucceeded(await EvaluateAsync(page, BuildActionExpression(preview, "upload", string.Empty), token), "upload");
-            token.ThrowIfCancellationRequested();
-
-            var document = await SendCommandAsync(page, "DOM.getDocument", new JsonObject
-            {
-                ["depth"] = 1,
-                ["pierce"] = true
-            }, token);
-            var rootNodeId = document["result"]?["root"]?["nodeId"]?.GetValue<int>() ?? 0;
-            if (rootNodeId <= 0)
-                throw new InvalidOperationException("The browser did not expose a document root for the approved file input.");
-
-            var query = await SendCommandAsync(page, "DOM.querySelector", new JsonObject
-            {
-                ["nodeId"] = rootNodeId,
-                ["selector"] = preview.Selector
-            }, token);
-            var nodeId = query["result"]?["nodeId"]?.GetValue<int>() ?? 0;
-            if (nodeId <= 0)
-                throw new InvalidOperationException("The approved file input is no longer present. No file was selected.");
-
-            // Re-check the exact page and element immediately before the local file path is passed to CDP.
-            var latest = await GetPageTargetAsync(token);
-            if (!string.Equals(latest.Id, preview.PageTargetId, StringComparison.Ordinal))
-                throw new InvalidOperationException("The active browser tab changed before file selection. No upload was started.");
-            EnsureActionSucceeded(await EvaluateAsync(latest, BuildActionExpression(preview, "upload", string.Empty), token), "upload");
-            token.ThrowIfCancellationRequested();
-
-            await SendCommandAsync(page, "DOM.setFileInputFiles", new JsonObject
-            {
-                ["nodeId"] = nodeId,
-                ["files"] = new JsonArray(JsonValue.Create(absoluteFilePath))
-            }, token);
+            // Keep all DOM protocol commands on one DevTools WebSocket session: CDP node ids
+            // are session-scoped, so resolving the approved element and assigning the file must
+            // happen on the same connection.
+            await SelectApprovedUploadFileAsync(page, preview, absoluteFilePath, token);
 
             var fileName = Path.GetFileName(absoluteFilePath);
             return $"Selected {fileName} in the approved browser file input. The website may upload it immediately in response to the file-selection event. Layal did not click a submit button or submit the surrounding form; verify the site's status before continuing.";
@@ -916,10 +957,12 @@ public sealed class BrowserAutomationService
                 x.GetProperty("webSocketDebuggerUrl").GetString() ?? string.Empty))
             .ToList();
 
-        var page = pages.LastOrDefault(x =>
-            !x.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase) &&
-            IsTrustedBrowserWebSocketUrl(x.WebSocketUrl));
-        return page ?? throw new InvalidOperationException("The Layal-controlled browser has no page target. Ask Layal to navigate to an HTTP/HTTPS URL first.");
+        var usablePages = pages
+            .Where(x => !x.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase) &&
+                        IsTrustedBrowserWebSocketUrl(x.WebSocketUrl))
+            .ToArray();
+        ValidateSinglePageSession(usablePages.Length);
+        return usablePages[0];
     }
 
     private async Task<BrowserPageSnapshot> ReadPageSnapshotAsync(CdpPageTarget page, CancellationToken token)
@@ -1117,19 +1160,139 @@ public sealed class BrowserAutomationService
         return "(() => {const q=" + q + ",action=" + requested + ";" +
             "const matches=document.querySelectorAll(q);if(matches.length===0)return JSON.stringify({found:false,error:'No element matched the selector.'});" +
             "if(matches.length!==1)return JSON.stringify({found:false,error:'The selector matched multiple elements. Use a more specific selector; ambiguous actions are blocked.'});" +
-            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase(),disabled=e.disabled===true,readOnly=e.readOnly===true;" +
-            "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
+            "const e=matches[0];const tag=e.tagName.toLowerCase(),type=(tag==='button'?(e.getAttribute('type')||''):(e.type||'')).toLowerCase(),disabled=e.disabled===true||e.getAttribute('aria-disabled')==='true',readOnly=e.readOnly===true;" +
+            "const style=getComputedStyle(e),rect=e.getBoundingClientRect();" +
+            "const visible=!!(e.getClientRects().length&&style.visibility!=='hidden'&&style.display!=='none'&&Number(style.opacity)>0.01&&style.pointerEvents!=='none'&&!e.closest('[aria-hidden=true]')&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.right>0&&rect.top<innerHeight&&rect.left<innerWidth);" +
             "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,160);" +
             "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=tag==='input'?(e.getAttribute('accept')||''):'',multiple=tag==='input'&&e.multiple===true;" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
-            "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible.'});" +
-            "if(action==='upload'){const rect=e.getBoundingClientRect(),style=getComputedStyle(e);if(Number(style.opacity)<=0.01||rect.width<=0||rect.height<=0||e.getAttribute('aria-hidden')==='true')return JSON.stringify({found:false,error:'Hidden or visually transparent file inputs are not supported; use a visible file input.'});}" +
+            "if(!visible)return JSON.stringify({found:false,error:'The selected element is not visible, is outside the viewport, or is hidden from assistive technology.'});" +
             "if(disabled)return JSON.stringify({found:false,error:'The selected element is disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({found:false,error:'Selector must match a visible link, button, role=button, submit/button input, or summary.'});" +
             "if(tag==='a'&&(!e.href||!/^https?:/i.test(e.href)))return JSON.stringify({found:false,error:'Only anchors with HTTP/HTTPS destinations are allowed for browser clicks.'});}" +
             "if(action==='fill'){const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;if(!allowed||readOnly)return JSON.stringify({found:false,error:'Selector must match an editable visible text/email/search/tel/url/number input, textarea, or contenteditable field. Password/file/hidden fields are not supported.'});}" +
             "if(action==='upload'&&(tag!=='input'||type!=='file'))return JSON.stringify({found:false,error:'Uploads require a visible input[type=file].'});" +
-            "return JSON.stringify({found:true,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',role,formAssociated,disabled,readOnly,accept,multiple,fingerprint:fp});})()";
+            "return JSON.stringify({found:true,url:location.href,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',role,formAssociated,disabled,readOnly,accept,multiple,fingerprint:fp});})()";
+    }
+
+    private async Task SelectApprovedUploadFileAsync(
+        CdpPageTarget page,
+        BrowserElementPreview preview,
+        string absoluteFilePath,
+        CancellationToken token)
+    {
+        // A CDP DOM node id is scoped to its DevTools session. Keep one WebSocket open from
+        // getDocument through setFileInputFiles so the selected node cannot silently refer to
+        // an unrelated or uninitialized DOM session.
+        using var socket = new ClientWebSocket();
+        using (var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(token))
+        {
+            connectTimeout.CancelAfter(CdpRequestTimeout);
+            await socket.ConnectAsync(new Uri(page.WebSocketUrl), connectTimeout.Token);
+        }
+
+        var commandId = 1;
+        _ = await SendCommandOnSocketAsync(socket, commandId++, "DOM.getDocument", new JsonObject
+        {
+            ["depth"] = 1,
+            ["pierce"] = true
+        }, token);
+
+        var selector = JsonSerializer.Serialize(preview.Selector);
+        var expectedUrl = JsonSerializer.Serialize(preview.PageUrl);
+        var expectedFingerprint = JsonSerializer.Serialize(preview.Fingerprint);
+        var expression =
+            "(() => {const q=" + selector + ",expectedUrl=" + expectedUrl + ",expectedFp=" + expectedFingerprint + ";" +
+            "if(location.href!==expectedUrl)throw new Error('The page URL changed while awaiting upload approval.');" +
+            "const matches=document.querySelectorAll(q);if(matches.length!==1)throw new Error('The approved file input is no longer unique.');" +
+            "const e=matches[0],tag=e.tagName.toLowerCase(),type=(e.type||'').toLowerCase();" +
+            "const text=(e.innerText||e.getAttribute('aria-label')||'').trim().split(/\\s+/).join(' ').slice(0,160);" +
+            "const label=e.getAttribute('aria-label')||e.getAttribute('name')||e.getAttribute('placeholder')||'',role=e.getAttribute('role')||'',formAssociated=!!(e.closest('form')||e.form),accept=e.getAttribute('accept')||'',multiple=e.multiple===true;" +
+            "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
+            "if(fp!==expectedFp||tag!=='input'||type!=='file')throw new Error('The approved file input changed while awaiting upload approval.');" +
+            "const style=getComputedStyle(e),rect=e.getBoundingClientRect();" +
+            "if(e.disabled===true||e.getAttribute('aria-disabled')==='true'||(e.files&&e.files.length>0)||!e.getClientRects().length||style.visibility==='hidden'||style.display==='none'||Number(style.opacity)<=0.01||style.pointerEvents==='none'||e.closest('[aria-hidden=true]')||rect.width<=0||rect.height<=0||rect.bottom<=0||rect.right<=0||rect.top>=innerHeight||rect.left>=innerWidth)throw new Error('The approved file input is no longer visible, enabled, and empty.');" +
+            "return e;})()";
+
+        var evaluation = await SendCommandOnSocketAsync(socket, commandId++, "Runtime.evaluate", new JsonObject
+        {
+            ["expression"] = expression,
+            ["returnByValue"] = false,
+            ["awaitPromise"] = false
+        }, token);
+        if (evaluation["result"]?["exceptionDetails"] is JsonObject exception)
+        {
+            var message = exception["exception"]?["description"]?.GetValue<string>() ??
+                exception["text"]?.GetValue<string>() ?? "The approved file input changed.";
+            throw new InvalidOperationException("No file was selected: " + message);
+        }
+
+        var objectId = evaluation["result"]?["result"]?["objectId"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(objectId))
+            throw new InvalidOperationException("The browser did not return a live reference to the approved file input.");
+
+        var request = await SendCommandOnSocketAsync(socket, commandId++, "DOM.requestNode", new JsonObject
+        {
+            ["objectId"] = objectId
+        }, token);
+        var nodeId = request["result"]?["nodeId"]?.GetValue<int>() ?? 0;
+        if (nodeId <= 0)
+            throw new InvalidOperationException("The approved file input was detached before local file selection.");
+
+        token.ThrowIfCancellationRequested();
+        _ = await SendCommandOnSocketAsync(socket, commandId, "DOM.setFileInputFiles", new JsonObject
+        {
+            ["nodeId"] = nodeId,
+            ["files"] = new JsonArray(JsonValue.Create(absoluteFilePath))
+        }, token);
+    }
+
+    private static async Task<JsonObject> SendCommandOnSocketAsync(
+        ClientWebSocket socket,
+        int commandId,
+        string method,
+        JsonObject parameters,
+        CancellationToken token)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(CdpRequestTimeout);
+        try
+        {
+            var request = JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                id = commandId,
+                method,
+                @params = parameters
+            });
+            await socket.SendAsync(request.AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
+            var buffer = new byte[8192];
+            while (true)
+            {
+                using var message = new MemoryStream();
+                while (true)
+                {
+                    var received = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
+                    if (received.MessageType == WebSocketMessageType.Close)
+                        throw new WebSocketException("The browser closed the DevTools upload connection.");
+                    if (message.Length + received.Count > MaxCdpMessageBytes)
+                        throw new InvalidOperationException("The browser DevTools upload response exceeded 2 MB.");
+                    message.Write(buffer, 0, received.Count);
+                    if (received.EndOfMessage) break;
+                }
+
+                using var document = JsonDocument.Parse(message.ToArray());
+                var root = document.RootElement;
+                if (!root.TryGetProperty("id", out var id) || id.GetInt32() != commandId)
+                    continue;
+                if (root.TryGetProperty("error", out var error))
+                    throw new InvalidOperationException("Browser DevTools upload command failed: " + error.GetRawText());
+                return JsonNode.Parse(root.GetRawText()) as JsonObject ?? new JsonObject();
+            }
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Browser DevTools upload command '{method}' timed out after {CdpRequestTimeout.TotalSeconds:0} seconds.");
+        }
     }
 
     private static string BuildActionExpression(BrowserElementPreview preview, string action, string value)
@@ -1149,8 +1312,9 @@ public sealed class BrowserAutomationService
             "if(action==='click'&&((['button','input'].includes(tag)&&['submit','reset'].includes(type))||formAssociated))return JSON.stringify({ok:false,error:'Form-associated controls and submit/reset actions are blocked by browser_click.'});" +
             "const fp=JSON.stringify({tag,id:e.id||'',name:e.getAttribute('name')||'',type,label,text,href:e.href||'',role,formAssociated,accept,multiple});" +
             "if(fp!==expectedFp)return JSON.stringify({ok:false,error:'The selected element changed while awaiting approval. Inspect the page again.'});" +
-            "const visible=!!(e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');" +
-            "if(!visible||e.disabled===true)return JSON.stringify({ok:false,error:'The selected element is hidden or disabled.'});" +
+            "const style=getComputedStyle(e),rect=e.getBoundingClientRect();" +
+            "const visible=!!(e.getClientRects().length&&style.visibility!=='hidden'&&style.display!=='none'&&Number(style.opacity)>0.01&&style.pointerEvents!=='none'&&!e.closest('[aria-hidden=true]')&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.right>0&&rect.top<innerHeight&&rect.left<innerWidth);" +
+            "if(!visible||e.disabled===true||e.getAttribute('aria-disabled')==='true')return JSON.stringify({ok:false,error:'The selected element is hidden, outside the viewport, or disabled.'});" +
             "if(action==='click'){const clickable=tag==='button'||tag==='a'||e.getAttribute('role')==='button'||(tag==='input'&&['button','submit','reset'].includes(type))||tag==='summary';if(!clickable)return JSON.stringify({ok:false,error:'The element is no longer an allowed click target.'});e.click();return JSON.stringify({ok:true,action:'click',tag,text});}" +
             "if(action==='upload'){if(tag!=='input'||type!=='file'||(e.files&&e.files.length>0))return JSON.stringify({ok:false,error:'The approved target is no longer an empty file input.'});return JSON.stringify({ok:true,action:'upload',accept,multiple});}" +
             "const allowed=(tag==='textarea')||(tag==='input'&&['text','email','search','tel','url','number'].includes(type))||e.isContentEditable;" +
