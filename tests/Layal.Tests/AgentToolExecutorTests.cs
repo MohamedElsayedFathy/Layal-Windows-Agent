@@ -561,6 +561,40 @@ public sealed class AgentToolExecutorTests
 
 
     [TestMethod]
+    public async Task ApprovedMemoryDisclosureReturnsExactlyTheTextShownInTheApprovalPreview()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Encrypted memory persistence uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        const string targetContent = "The complete approved note text is shared, and nothing else.";
+        var memory = new MemoryService(System.IO.Path.Combine(temp.Path, "memory.dpapi"));
+        _ = memory.Save("Target reference", targetContent);
+        _ = memory.Save("Unrelated reference", "This note must not be included in the result.");
+        var executor = new AgentToolExecutor(temp.Path, memory);
+        var approvalPreview = string.Empty;
+
+        var result = await executor.ExecuteAsync(
+            "search_memory",
+            """{"query":"Target reference"}""",
+            (_, preview, _) =>
+            {
+                approvalPreview = preview;
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None);
+
+        var separator = approvalPreview.IndexOf("\n\n", StringComparison.Ordinal);
+        Assert.IsTrue(separator >= 0, "The approval must separate its explanation from the exact shareable payload.");
+        var exactApprovedPayload = approvalPreview[(separator + 2)..];
+        Assert.AreEqual(exactApprovedPayload, result,
+            "The tool must return exactly the complete text displayed in the approval dialog.");
+        StringAssert.Contains(exactApprovedPayload, targetContent);
+        Assert.IsFalse(exactApprovedPayload.Contains("Unrelated reference", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task DecliningMemoryDisclosureDoesNotReturnMatchedContentToTheModel()
     {
         if (!OperatingSystem.IsWindows())
