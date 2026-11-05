@@ -3018,6 +3018,8 @@ public partial class MainWindow : Window
         }
         AppRuntime.Settings.WeatherLocation = location;
         AppRuntime.Settings.UseAutomaticLocation = false;
+        // Choosing a manual city also revokes Layal's saved opt-in for future device-location reads.
+        AppRuntime.Settings.AutomaticLocationConsentConfirmed = false;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         _currentWeatherReport = null;
         UpdateClockDisplay();
