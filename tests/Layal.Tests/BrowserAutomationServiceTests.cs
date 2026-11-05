@@ -113,22 +113,23 @@ public sealed class BrowserAutomationServiceTests
 
 
     [TestMethod]
-    public void BrowserNavigationSummaryContainsOnlyBoundedPageIdentityAndRequiresSeparateReadApproval()
+    public void BrowserNavigationReceiptDoesNotDiscloseLocallyInspectedPageIdentityOrContent()
     {
         var identity = new BrowserPageIdentity(
             "page-target",
-            "https://example.com/account",
-            "Example account page\\r\\nUntrusted extra line",
+            "https://private.example/account?token=secret",
+            "Private account title",
             "complete");
 
-        var summary = identity.ToNavigationSummary();
+        var receipt = identity.ToConsentSafeNavigationReceipt();
 
-        StringAssert.Contains(summary, "https://example.com/account");
-        StringAssert.Contains(summary, "Example account page Untrusted extra line");
-        StringAssert.Contains(summary, "Page content was not read or shared");
-        StringAssert.Contains(summary, "browser_read_page");
-        Assert.IsFalse(summary.Contains("visibleText", StringComparison.OrdinalIgnoreCase));
-        Assert.IsFalse(summary.Contains("page body", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(receipt, "Navigation was requested");
+        StringAssert.Contains(receipt, "Page identity and content remain local");
+        StringAssert.Contains(receipt, "browser_read_page");
+        Assert.IsFalse(receipt.Contains(identity.Url, StringComparison.Ordinal));
+        Assert.IsFalse(receipt.Contains(identity.Title, StringComparison.Ordinal));
+        Assert.IsFalse(receipt.Contains("visibleText", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(receipt.Contains("page body", StringComparison.OrdinalIgnoreCase));
     }
 
     [TestMethod]
