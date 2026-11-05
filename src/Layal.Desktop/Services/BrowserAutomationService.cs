@@ -1402,14 +1402,8 @@ public sealed record BrowserPageIdentity(
     string ReadyState)
 {
     /// <summary>
-    /// Formats the metadata permitted by navigation approval. Page content is intentionally absent.
+    /// Returns a navigation receipt without disclosing the locally inspected page identity or content.
     /// </summary>
-    public string ToNavigationSummary()
-    {
-        var title = Title.Replace('\r', ' ').Replace('\n', ' ').Trim();
-        if (title.Length > 180)
-            title = title[..180] + "…";
-
-        return $"Navigation was requested. Current page URL: {Url}\nTitle: {title}\nReady state: {ReadyState}\nPage content was not read or shared. Use browser_read_page for a separate approval before reading page content.";
-    }
+    public string ToConsentSafeNavigationReceipt() =>
+        "Navigation was requested in Layal's dedicated Edge profile. Page identity and content remain local and were not shared with the AI provider. Use browser_read_page to preview page identity locally and request separate approval before sharing page content.";
 }
