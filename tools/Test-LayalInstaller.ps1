@@ -309,3 +309,8 @@ finally {
         }
     }
 }
+
+# The final expected "task not found" assertion invokes schtasks.exe and leaves
+# LASTEXITCODE=1. Reaching the end means all lifecycle assertions passed; reset the
+# process exit code so the calling distribution script does not misreport success.
+$global:LASTEXITCODE = 0
