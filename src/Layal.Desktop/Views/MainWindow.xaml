@@ -550,7 +550,7 @@
                                       AutomationProperties.HelpText="أظهر الملاحظات المؤرشفة لعرضها واستعادتها."/>
                             <TextBlock x:Name="MemoryCategoryFilterLabel" Text="تصفية التصنيف" VerticalAlignment="Center" Margin="4,0,6,0"/>
                             <ComboBox x:Name="MemoryCategoryFilter" MinWidth="150" MinHeight="30"
-                                      SelectedIndex="0" SelectionChanged="MemoryCategoryFilter_SelectionChanged"
+                                      SelectionChanged="MemoryCategoryFilter_SelectionChanged"
                                       AutomationProperties.Name="تصفية الذاكرة حسب التصنيف / Filter memory by category"/>
                             <Button x:Name="ClearMemoryFiltersButton" Content="مسح عوامل التصفية" Click="ClearMemoryFiltersButton_Click"/>
                             <TextBlock x:Name="MemoryCountText" Margin="10,6,4,0" VerticalAlignment="Center"
@@ -604,9 +604,9 @@
                                          AutomationProperties.LabeledBy="{Binding ElementName=MemoryCategoryLabel}"
                                          ToolTip="General, Work, Project..."/>
                                 <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,10,0,4"/>
-                                <TextBox x:Name="MemoryTitleInput" MinHeight="32" AutomationProperties.Name="عنوان الملاحظة / Memory note title" AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"/>
+                                <TextBox x:Name="MemoryTitleInput" MinHeight="32" MaxLength="120" AutomationProperties.Name="عنوان الملاحظة / Memory note title" AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"/>
                                 <TextBlock x:Name="MemoryContentLabel" Text="المحتوى" Margin="0,10,0,4"/>
-                                <TextBox x:Name="MemoryContentInput" MinHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="محتوى الملاحظة / Memory note content" AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"/>
+                                <TextBox x:Name="MemoryContentInput" MinHeight="160" MaxLength="12000" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="محتوى الملاحظة / Memory note content" AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"/>
                                 <WrapPanel Margin="0,10,0,0">
                                     <Button x:Name="SaveMemoryButton" Content="حفظ الملاحظة" Click="SaveMemoryButton_Click"/>
                                     <Button x:Name="ArchiveMemoryButton" Content="أرشفة" Click="ArchiveMemoryButton_Click" IsEnabled="False"/>
