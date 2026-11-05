@@ -336,7 +336,7 @@ public sealed class GmailReadOnlyServiceTests
             }
         });
 
-        using var http = new HttpClient(new GmailInlineAttachmentHandler(messageJson));
+        using var http = new HttpClient(new GmailInlineAttachmentHandler(messageJson, "message-image"));
         var service = new GmailReadOnlyService(credentialPath, http);
         var detail = await service.ReadMessageAsync("message-image");
 
@@ -358,7 +358,7 @@ public sealed class GmailReadOnlyServiceTests
         Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
 
-    private sealed class GmailInlineAttachmentHandler(string messageJson) : HttpMessageHandler
+    private sealed class GmailInlineAttachmentHandler(string messageJson, string messageId = "message-docx") : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -373,7 +373,7 @@ public sealed class GmailReadOnlyServiceTests
                 })));
 
             if (uri.Host == "gmail.googleapis.com" &&
-                uri.AbsolutePath.EndsWith("/messages/message-docx", StringComparison.Ordinal))
+                uri.AbsolutePath.EndsWith("/messages/" + Uri.EscapeDataString(messageId), StringComparison.Ordinal))
                 return Task.FromResult(JsonResponse(messageJson));
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
