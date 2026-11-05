@@ -1,8 +1,10 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Interop;
 using System.Windows.Threading;
 
 namespace Layal.Views;
@@ -22,6 +24,8 @@ public sealed class GameModeHudWindow : Window
     private readonly TextBlock _activity;
     private bool _exitRaised;
     private bool _closingProgrammatically;
+    private const int ExtendedWindowStyleIndex = -20;
+    private const long ExtendedStyleNoActivate = 0x08000000L;
 
     /// <summary>True when the user dismissed the HUD with its button or window chrome.</summary>
     public bool WasDismissedByUser { get; private set; }
@@ -131,6 +135,24 @@ public sealed class GameModeHudWindow : Window
         _timer.Tick += Timer_Tick;
         _timer.Start();
     }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        // Keep the game as the foreground window even when the user clicks the HUD.
+        // WS_EX_NOACTIVATE still permits mouse interaction with the HUD controls.
+        var handle = new WindowInteropHelper(this).Handle;
+        var currentStyle = GetWindowLongPtr(handle, ExtendedWindowStyleIndex).ToInt64();
+        _ = SetWindowLongPtr(handle, ExtendedWindowStyleIndex,
+            new IntPtr(currentStyle | ExtendedStyleNoActivate));
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr(IntPtr handle, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr(IntPtr handle, int index, IntPtr value);
 
     private void Timer_Tick(object? sender, EventArgs e)
     {
