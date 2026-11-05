@@ -12,7 +12,7 @@ namespace Layal.Tests;
 public sealed class SafeBrowserUploadServiceTests
 {
     [TestMethod]
-    public void PrepareUploadAcceptsOnlyBoundedPassiveDocumentAndImageTypesInsideWorkspace()
+    public void PrepareUploadAcceptsOnlyBoundedSupportedDocumentAndImageTypesInsideWorkspace()
     {
         using var temp = new TestTempDirectory();
         var workspace = Path.Combine(temp.Path, "LayalWorkspace");
