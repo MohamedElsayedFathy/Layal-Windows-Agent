@@ -17,6 +17,7 @@ public sealed class PrivateChatModePolicyTests
     public void PrivateChatBlocksPersonalMemoryAccess()
     {
         Assert.IsFalse(PrivateChatModePolicy.CanAccessPersonalMemory(privateChatActive: true));
+        Assert.IsFalse(PrivateChatModePolicy.CanDeliverLocalNotifications(privateChatActive: true));
     }
 
     [TestMethod]
@@ -38,5 +39,6 @@ public sealed class PrivateChatModePolicyTests
         Assert.IsTrue(PrivateChatModePolicy.CanAccessReminderManager(privateChatActive: false));
         Assert.IsTrue(PrivateChatModePolicy.CanAccessWorkspaceHub(privateChatActive: false));
         Assert.IsTrue(PrivateChatModePolicy.CanAccessPersonalMemory(privateChatActive: false));
+        Assert.IsTrue(PrivateChatModePolicy.CanDeliverLocalNotifications(privateChatActive: false));
     }
 }
