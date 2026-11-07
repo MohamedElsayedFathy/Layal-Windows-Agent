@@ -17,7 +17,6 @@ public sealed class GameModeHudWindowTests
     {
         RunOnSta(() =>
         {
-            EnsureApplication();
             var hud = new GameModeHudWindow(false, () => "Layal is ready.");
             try
             {
@@ -45,9 +44,9 @@ public sealed class GameModeHudWindowTests
     {
         RunOnSta(() =>
         {
-            EnsureApplication();
             var manuallyDismissed = new GameModeHudWindow(false, () => string.Empty);
             manuallyDismissed.Show();
+            Assert.IsTrue(manuallyDismissed.IsVisible, "The test HUD must be visible before user dismissal.");
             manuallyDismissed.CloseByUser();
             Assert.IsTrue(manuallyDismissed.WasDismissedByUser);
 
@@ -63,7 +62,6 @@ public sealed class GameModeHudWindowTests
     {
         RunOnSta(() =>
         {
-            EnsureApplication();
             var exitCount = 0;
             var hud = new GameModeHudWindow(false, () => string.Empty);
             hud.ExitRequested += (_, _) => exitCount++;
@@ -76,12 +74,6 @@ public sealed class GameModeHudWindowTests
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr handle, int index);
-
-    private static void EnsureApplication()
-    {
-        if (Application.Current is null)
-            _ = new Application();
-    }
 
     private static void RunOnSta(Action action)
     {
