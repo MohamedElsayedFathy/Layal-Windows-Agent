@@ -33,7 +33,24 @@ Incognito يمنع تخزين رسائل الجلسة في سجل Layal المح
 
 ## نتائج CI والدمج
 
-الحالة: **تنتظر CI على PR**. يتم تحديث هذا القسم بعد ظهور نتائج Windows build والاختبارات وفحوص الأمان الفعلية.
+<badge color="success">Windows CI وSecurity CI ناجحان</badge>
+
+- PR #128: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/128
+- Commit الذي تم اختباره: `39c7c94b9af3f42b69adb0fe587e5b185f192309`
+- Windows CI: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42409091394
+- Security CI: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42409091421
+- Release build: ناجح.
+- اختبارات .NET: **581 ناجحًا، صفر فشل، صفر تخطٍ**؛ والتحقق من TRX أكد تنفيذ الاختبارات وغياب النتائج الفاشلة.
+- Windows visual/integration: WPF visual smoke ولقطات UI، DPI، GLB، click-through، mouse drag والتنقل بلوحة المفاتيح: ناجحة وفق الـ CI.
+- Installer lifecycle: تثبيت نظيف 0.5.6، ترقية إلى 0.5.7، rollback إلى 0.5.6، startup smoke، ثم uninstall؛ بيانات المستخدم بقيت كما هي وأُزيلت ملفات التطبيق والاختصار وتسجيل Add/Remove Programs ومهمة التذكير المجدولة.
+- التوزيع: source package وself-contained Windows publish وinstaller/portable ZIP وSBOM وSHA-256 manifest؛ تم التحقق من 15 ملفًا.
+- Security: Gitleaks وفحص NuGet advisories وlicense inventory: ناجحان.
+- حزمة CI **غير موقّعة**؛ ولا يُدّعى أنها إصدار عام موقّع.
+- نتيجة الدمج: يحدّث هذا السطر بعد إتمام الدمج في `main`.
+
+## قيود القبول اليدوي
+
+الحالة: **BLOCKED — لا يزال يتطلب جهاز Windows مستهدفًا**. اختبارات WPF/UIA الآلية على عامل Windows لا تثبت سلوك قارئ الشاشة الفعلي أو تنقل لوحة المفاتيح على أجهزة المستخدمين أو إعدادات RTL/High Contrast أو وصول إشعارات Windows من Task Scheduler في كل ظروف الجهاز. كذلك لا يمكن للتطبيق أو CI إثبات سياسة احتفاظ مزود AI الخارجي بالرسائل التي أُرسلت إليه.
 
 ## قبول Windows اليدوي
 
