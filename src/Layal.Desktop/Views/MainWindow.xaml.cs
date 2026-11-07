@@ -655,6 +655,11 @@ public partial class MainWindow : Window
                 : "Privacy shield disabled. Separate consent is still required before any capture."));
     }
 
+    private bool IsCaptureBlockedByPrivacyShield() =>
+        !PrivacyShieldPolicy.CanStartCapture(
+            AppRuntime.Settings.PrivacyShieldEnabled,
+            AppRuntime.IsExiting);
+
     private void StopCaptureSourcesForPrivacyShield()
     {
         // A privacy-shield change must also close an in-flight local screen preview.
@@ -693,7 +698,7 @@ public partial class MainWindow : Window
 
         if (_cameraVisionWindow is { } camera)
         {
-            try { camera.Close(); }
+            try { camera.StopForPrivacyShield(); }
             catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Privacy shield could not close the camera window: {0}", ex.Message); }
             _cameraVisionWindow = null;
         }
@@ -705,7 +710,7 @@ public partial class MainWindow : Window
         if ((visionAttachmentIsCapture || visionAttachmentIsClipboard) &&
             _pendingVisionImageBytes is { } pendingImageBytes)
         {
-            Array.Clear(pendingImageBytes, 0, pendingImageBytes.Length);
+            PrivacyShieldPolicy.ClearCapturedBuffer(pendingImageBytes);
             _pendingVisionImageBytes = null;
             _pendingVisionContentType = null;
             _pendingVisionFileName = null;
