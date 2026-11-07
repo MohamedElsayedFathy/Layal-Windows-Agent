@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
+using Layal.Services;
 using Layal.Views;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -54,6 +55,29 @@ public sealed class GameModeHudWindowTests
             closedByDetection.Show();
             closedByDetection.CloseFromDetection();
             Assert.IsFalse(closedByDetection.WasDismissedByUser);
+        });
+    }
+
+
+    [TestMethod]
+    public void HudDisplaysTheConfiguredQuickAskShortcutInsteadOfAlwaysUsingTheDefault()
+    {
+        RunOnSta(() =>
+        {
+            var hud = new GameModeHudWindow(
+                false,
+                () => "Layal is ready.",
+                shortcutDisplay: GlobalHotkeyService.GetDisplayName("CtrlAltShiftSpace"));
+            try
+            {
+                Assert.AreEqual("Ctrl+Alt+Shift+Space", hud.ShortcutDisplay);
+                hud.Show();
+                Assert.IsTrue(hud.IsVisible);
+            }
+            finally
+            {
+                hud.CloseFromDetection();
+            }
         });
     }
 
