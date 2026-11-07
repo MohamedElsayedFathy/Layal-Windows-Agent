@@ -464,7 +464,7 @@ public sealed class MainWindowVisualSmokeTests
             AppRuntime.Settings.Language = language;
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
-            Assert.AreEqual(language == "ar" ? "قياس أداء ليال الآن" : "Measure Layal performance",
+            Assert.AreEqual(language == "ar" ? "قياس موارد ليال الآن" : "Measure Layal resources",
                 performanceMetricsButton.Content as string);
             Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(performanceMetricsButton)));
             window.UpdateLayout();
