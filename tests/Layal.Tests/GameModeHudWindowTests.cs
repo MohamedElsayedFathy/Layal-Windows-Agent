@@ -71,6 +71,9 @@ public sealed class GameModeHudWindowTests
             try
             {
                 Assert.AreEqual("Ctrl+Alt+Shift+Space", hud.ShortcutDisplay);
+                hud.UpdateShortcutDisplay(GlobalHotkeyService.GetDisplayName("AltShiftQ"));
+                Assert.AreEqual("Alt+Shift+Q", hud.ShortcutDisplay,
+                    "The HUD must update its shortcut text when the user changes the Quick Ask setting while the HUD remains open.");
                 hud.Show();
                 Assert.IsTrue(hud.IsVisible);
             }
