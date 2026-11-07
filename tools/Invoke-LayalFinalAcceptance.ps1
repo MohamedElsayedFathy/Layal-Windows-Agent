@@ -330,7 +330,7 @@ function Write-AcceptanceReports {
     $blocked = @($script:Checks | Where-Object Status -eq 'BLOCKED')
     $skipped = @($script:Checks | Where-Object Status -eq 'SKIPPED')
     $passed = @($script:Checks | Where-Object Status -eq 'PASS')
-    $automatedStatus = if ($failed.Count -gt 0) { 'FAIL' } elseif ($blocked.Count -gt 0) { 'BLOCKED' } elseif ($passed.Count -gt 0) { 'PASS' } else { 'INCOMPLETE' }
+    $automatedStatus = if ($failed.Count -gt 0) { 'FAIL' } elseif ($blocked.Count -gt 0) { 'BLOCKED' } elseif ($skipped.Count -gt 0) { 'PARTIAL — acceptance stages were skipped' } elseif ($passed.Count -gt 0) { 'PASS' } else { 'INCOMPLETE' }
     $manualGates = @(
         [pscustomobject]@{ Gate = 'الميكروفون والتعرف على الكلام والرد الصوتي'; Status = 'PENDING'; Reason = 'يتطلب أجهزة فعلية وعينات صوتية مرجعية وقياسًا بشريًا للجودة والتأخير.' }
         [pscustomobject]@{ Gate = 'الكاميرا وONVIF وRTSP/RTSPS'; Status = 'PENDING'; Reason = 'يتطلب كاميرا أو جهاز بث وشبكة محلية وبيانات اعتماد تجريبية وموافقة المستخدم.' }
@@ -345,6 +345,8 @@ function Write-AcceptanceReports {
         'FAIL — one or more automated acceptance checks failed'
     } elseif ($blocked.Count -gt 0) {
         'BLOCKED — one or more requested acceptance stages could not run'
+    } elseif ($skipped.Count -gt 0) {
+        'PARTIAL — one or more acceptance stages were intentionally skipped; rerun with the full-acceptance switches'
     } else {
         'AUTOMATED PASS — FINAL ACCEPTANCE PENDING MANUAL / EXTERNAL GATES'
     }
