@@ -50,4 +50,13 @@
 
 ## نتائج CI والدمج
 
-تُحدّث هذه الخانة بعد تشغيل Windows CI وSecurity CI على commit الخاص بهذه المهمة. لا تُسجّل نجاحًا بناءً على CI سابق أو على وجود التعديلات فقط.
+- **Windows CI:** نجح workflow run [#1325](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42414967205) على commit `0a265bc40991eb57d1c743d161628c8b44316a6f` قبل الدمج. Release build ناجح (8 تحذيرات، 0 أخطاء)، و**584 اختبارًا ناجحًا، 0 فشل، 0 تخطٍ**.
+- **قبول Windows الآلي:** نجاح click-through وmouse-drag وDPI topology ولوحة المفاتيح وGLB preview وWPF visual smoke ورفع أدلتها؛ وتحقق TRX من وجود اختبارات منفذة.
+- **دورة المثبّت:** نجحت fresh install ثم upgrade إلى `0.5.7` ثم rollback إلى baseline الاختباري ثم uninstall؛ نجح تشغيل التطبيق بعد مراحل التثبيت، والتحقق من إزالة الملفات والاختصار والتسجيل ومهمة التذكير مع الحفاظ على بيانات المستخدم.
+- **Security/Supply-chain:** نجح workflow run [#1009](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42414967236)؛ Gitleaks وفحص NuGet advisories والاعتماديات المباشرة/الانتقالية وجرد التراخيص جميعها ناجحة.
+- **الحزمة:** رُفع artifact [distribution](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42414967205/artifacts/13591162113) متضمنًا Inno Setup installer وportable ZIP وCycloneDX SBOM (15 مكوّنًا) و`SHA256SUMS.txt`. هذه **حزمة CI غير موقعة** وليست إصدارًا عامًا موقّعًا.
+- **الدمج:** دُمج PR #129 في `main` عبر squash commit `a523ebe5189f01b8c65b340d49300900ba9b5784` بتاريخ 7 نوفمبر 2026.
+
+### القبول اليدوي المتبقي
+
+الحالة: **BLOCKED — لم يُنفّذ اختبار مستخدم/جهاز Windows فعلي خارج بيئة CI**. نجاح Windows CI الآلي لا يثبت توقف جهاز ميكروفون أو كاميرا مستخدم بعينها، ولا يغني عن التحقق بقارئ الشاشة وHigh Contrast وRTL/LTR على جهاز مستهدف. نفّذ قائمة القبول العشر أعلاه قبل إعلان إصدار إنتاجي أو موقّع. كذلك لم يُنفّذ هذا المسار كإصدار tagged موقّع؛ خطوات التوقيع وفحوص الإصدار الموسوم كانت skipped في تشغيل PR.
