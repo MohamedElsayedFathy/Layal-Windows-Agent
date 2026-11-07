@@ -24,7 +24,7 @@ public static class UiThemePalette
             ["Layal.Color.Purple"] = dark ? "#B6A5FF" : "#7563D6",
             ["Layal.Color.Text"] = dark ? "#EDF2FF" : "#1C2940",
             ["Layal.Color.Muted"] = dark ? "#A8B4C9" : "#4D5C75",
-            ["Layal.Color.ScrollThumb"] = dark ? "#50617A" : "#9BAEC7",
+            ["Layal.Color.ScrollThumb"] = dark ? "#566F8A" : "#9BAEC7",
             ["Layal.Color.Success"] = dark ? "#73DEAA" : "#177A57",
             ["Layal.Color.Warning"] = dark ? "#FFD17D" : "#946200",
             ["Layal.Color.Danger"] = dark ? "#FF91A8" : "#BD3C55",
@@ -151,7 +151,7 @@ public static class UiThemePalette
                     ["Layal.Color.HoverSurface"] = "#25485A", ["Layal.Color.BackdropStart"] = "#143955",
                     ["Layal.Color.BackdropMiddle"] = "#24556B", ["Layal.Color.BackdropEnd"] = "#36426D",
                     ["Layal.Color.ButtonStart"] = "#246A7E", ["Layal.Color.ButtonEnd"] = "#4D5C9D",
-                    ["Layal.Color.AccentStart"] = "#1F9DB8", ["Layal.Color.AccentEnd"] = "#536FD1"
+                    ["Layal.Color.AccentStart"] = "#197B92", ["Layal.Color.AccentEnd"] = "#536FD1"
                 }
                 : new Dictionary<string, string>
                 {
@@ -165,7 +165,7 @@ public static class UiThemePalette
                     ["Layal.Color.HoverSurface"] = "#E2F3F8", ["Layal.Color.BackdropStart"] = "#75C8DD",
                     ["Layal.Color.BackdropMiddle"] = "#A2BFEF", ["Layal.Color.BackdropEnd"] = "#D6C9F4",
                     ["Layal.Color.ButtonStart"] = "#9BDCE9", ["Layal.Color.ButtonEnd"] = "#B7C9F4",
-                    ["Layal.Color.AccentStart"] = "#1688A5", ["Layal.Color.AccentEnd"] = "#5A6BC6"
+                    ["Layal.Color.AccentStart"] = "#147B96", ["Layal.Color.AccentEnd"] = "#5A6BC6"
                 },
             "forest" => dark
                 ? new Dictionary<string, string>
@@ -180,7 +180,7 @@ public static class UiThemePalette
                     ["Layal.Color.HoverSurface"] = "#2B4736", ["Layal.Color.BackdropStart"] = "#244F3B",
                     ["Layal.Color.BackdropMiddle"] = "#37634E", ["Layal.Color.BackdropEnd"] = "#455A70",
                     ["Layal.Color.ButtonStart"] = "#2C7354", ["Layal.Color.ButtonEnd"] = "#5B6A91",
-                    ["Layal.Color.AccentStart"] = "#23865E", ["Layal.Color.AccentEnd"] = "#6378AB"
+                    ["Layal.Color.AccentStart"] = "#227C59", ["Layal.Color.AccentEnd"] = "#606F9F"
                 }
                 : new Dictionary<string, string>
                 {
@@ -194,7 +194,7 @@ public static class UiThemePalette
                     ["Layal.Color.HoverSurface"] = "#E7F4E8", ["Layal.Color.BackdropStart"] = "#97D1AC",
                     ["Layal.Color.BackdropMiddle"] = "#B4DCC1", ["Layal.Color.BackdropEnd"] = "#C5D6F0",
                     ["Layal.Color.ButtonStart"] = "#AFE0BC", ["Layal.Color.ButtonEnd"] = "#C7C5EB",
-                    ["Layal.Color.AccentStart"] = "#25895B", ["Layal.Color.AccentEnd"] = "#6E69AB"
+                    ["Layal.Color.AccentStart"] = "#247B53", ["Layal.Color.AccentEnd"] = "#6E69AB"
                 },
             _ => dark
                 ? new Dictionary<string, string>
