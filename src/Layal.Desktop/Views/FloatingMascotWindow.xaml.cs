@@ -385,6 +385,7 @@ public partial class FloatingMascotWindow : Window
             HoloComputerProp.Opacity = 0;
         ClearCinematicEffects();
         HideReaction();
+        RestoreEyes();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -1691,9 +1692,25 @@ public partial class FloatingMascotWindow : Window
         if (_glbPreviewEnabled == enabled)
             return;
 
+        var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
+        if (enabled && !automatedGlbPreviewTest && !CurrentPerformanceBudget.CanLoadGlbPreview)
+        {
+            if (showFailureDialog)
+            {
+                MessageBox.Show(
+                    this,
+                    IsArabic
+                        ? "معاينة GLB اختيارية وتحتاج تفعيل حركة الشخصية وإعدادات حركة Windows، مع إيقاف وضع الأداء العالي."
+                        : "The optional GLB preview requires mascot animations and Windows client-area animations to be enabled, with high-performance mode turned off.",
+                    IsArabic ? "معاينة 3D غير متاحة" : "3D preview unavailable",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            return;
+        }
+
         if (enabled)
         {
-            var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
             GlbPreviewAutomationStatus.Visibility = Visibility.Visible;
             GlbPreviewAutomationStatus.Content = "Loading bundled GLB preview...";
             AutomationProperties.SetHelpText(GlbPreviewAutomationStatus, "Loading bundled GLB preview...");
@@ -1706,7 +1723,10 @@ public partial class FloatingMascotWindow : Window
                     AutomationProperties.SetName(this, Title);
                     AutomationProperties.SetHelpText(this, "Loading bundled GLB preview...");
                 }
-                _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(AvatarViewport, automationStatusElement: automationStatusTarget);
+                _gltfPreviewRenderer = GltfSkinnedAnimationRenderer.LoadBundled(
+                    AvatarViewport,
+                    autoPlay: false,
+                    automationStatusElement: automationStatusTarget);
                 _glbPreviewEnabled = true;
                 LegacyRig.Visibility = Visibility.Collapsed;
                 GlbPreviewLayer.Visibility = Visibility.Visible;
@@ -1717,7 +1737,8 @@ public partial class FloatingMascotWindow : Window
                 _gltfPreviewRenderer?.Dispose();
                 _gltfPreviewRenderer = null;
                 _glbPreviewEnabled = false;
-                InitializeAvatarRig();
+                if (!UseSpriteCharacter)
+                    EnsureAvatarRigInitialized();
                 LegacyRig.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
                 GlbPreviewLayer.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
                 CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
@@ -1773,11 +1794,17 @@ public partial class FloatingMascotWindow : Window
             _gltfPreviewRenderer = null;
             _glbPreviewEnabled = false;
             GlbPreviewAutomationStatus.Visibility = Visibility.Collapsed;
-            InitializeAvatarRig();
+            if (!UseSpriteCharacter)
+                EnsureAvatarRigInitialized();
             LegacyRig.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
             GlbPreviewLayer.Visibility = UseSpriteCharacter ? Visibility.Collapsed : Visibility.Visible;
             CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        if (_glbPreviewEnabled && CurrentPerformanceBudget.PlayGlbAnimation && IsVisible)
+            _gltfPreviewRenderer?.Start();
+        else
+            _gltfPreviewRenderer?.Stop();
 
         if (persist)
         {
