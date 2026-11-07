@@ -1,8 +1,10 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Interop;
 using System.Windows.Threading;
 
 namespace Layal.Views;
@@ -15,14 +17,45 @@ public sealed class GameModeHudWindow : Window
 {
     private readonly bool _isArabic;
     private readonly Func<string> _getActivity;
-    private readonly string _shortcutDisplay;
+    private string _shortcutDisplay;
     private readonly bool _automaticallyLaunched;
+    private readonly TextBlock _shortcutText;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly TextBlock _clock;
     private readonly TextBlock _activity;
     private bool _exitRaised;
+    private bool _closingProgrammatically;
+    private const int ExtendedWindowStyleIndex = -20;
+    private const long ExtendedStyleNoActivate = 0x08000000L;
+
+    /// <summary>True when the user dismissed the HUD with its button or window chrome.</summary>
+    public bool WasDismissedByUser { get; private set; }
+
+    /// <summary>The configured Quick Ask shortcut displayed in this HUD.</summary>
+    public string ShortcutDisplay => _shortcutDisplay;
+
+    public void UpdateShortcutDisplay(string shortcutDisplay)
+    {
+        _shortcutDisplay = string.IsNullOrWhiteSpace(shortcutDisplay) ? "Alt+Shift+S" : shortcutDisplay.Trim();
+        _shortcutText.Text = _shortcutDisplay + " · " + (_isArabic ? "Esc داخل ليال" : "Esc in Layal");
+        UpdateShortcutAccessibility();
+        UpdateStatus();
+    }
+
+    private void UpdateShortcutAccessibility()
+    {
+        AutomationProperties.SetName(_shortcutText, _isArabic
+            ? $"اختصار السؤال السريع: {_shortcutDisplay}. إلغاء العملية من داخل ليال فقط: Esc."
+            : $"Quick Ask shortcut: {_shortcutDisplay}. Cancel only inside Layal: Esc.");
+        AutomationProperties.SetHelpText(_shortcutText, _isArabic
+            ? "يعرض الاختصار العالمي المضبوط في الإعدادات. قد يتعذر تسجيله إذا كان تطبيق آخر يستخدمه."
+            : "Shows the global shortcut selected in Settings. Registration may fail if another app owns it.");
+    }
 
     public event EventHandler? ExitRequested;
+
+    private static Brush FindBrushResource(string key, Brush fallback) =>
+        Application.Current?.TryFindResource(key) as Brush ?? fallback;
 
     public GameModeHudWindow(
         bool isArabic,
@@ -50,8 +83,8 @@ public sealed class GameModeHudWindow : Window
         WindowStartupLocation = WindowStartupLocation.Manual;
         Left = Math.Max(SystemParameters.WorkArea.Left, SystemParameters.WorkArea.Right - Width - 16);
         Top = Math.Max(SystemParameters.WorkArea.Top, SystemParameters.WorkArea.Top + 28);
-        Background = Application.Current.TryFindResource("Layal.Background") as Brush ?? Brushes.White;
-        Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
+        Background = FindBrushResource("Layal.Background", Brushes.White);
+        Foreground = FindBrushResource("Layal.Text", Brushes.Black);
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
             ? "HUD يدوي أو تم فتحه من قائمة السماح. لا يقرأ عناوين النوافذ أو ذاكرة اللعبة أو مدخلاتها، ولا يتحكم في اللعبة."
@@ -78,10 +111,9 @@ public sealed class GameModeHudWindow : Window
         {
             Text = DateTimeOffset.Now.ToString("t"),
             Margin = new Thickness(0, 3, 0, 5),
-            Foreground = Application.Current.TryFindResource("Layal.Cyan") as Brush ?? Brushes.Teal
+            Foreground = FindBrushResource("Layal.Cyan", Brushes.Teal)
         };
         AutomationProperties.SetName(_clock, isArabic ? "الوقت الحالي" : "Current time");
-        AutomationProperties.SetLiveSetting(_clock, AutomationLiveSetting.Polite);
         Grid.SetRow(_clock, 1);
         root.Children.Add(_clock);
 
@@ -98,15 +130,15 @@ public sealed class GameModeHudWindow : Window
         root.Children.Add(_activity);
 
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        var shortcut = new TextBlock
+        _shortcutText = new TextBlock
         {
-            Text = _shortcutDisplay + " · Esc",
+            Text = _shortcutDisplay + " · " + (_isArabic ? "Esc داخل ليال" : "Esc in Layal"),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
-            Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
+            Foreground = FindBrushResource("Layal.Muted", Brushes.DimGray)
         };
-        AutomationProperties.SetName(shortcut, isArabic ? "اختصارات ليال" : "Layal shortcuts");
-        footer.Children.Add(shortcut);
+        UpdateShortcutAccessibility();
+        footer.Children.Add(_shortcutText);
         var exit = new Button
         {
             Content = isArabic ? "إنهاء الوضع" : "Exit mode",
@@ -115,13 +147,9 @@ public sealed class GameModeHudWindow : Window
         };
         AutomationProperties.SetName(exit, isArabic ? "إنهاء وضع الألعاب" : "Exit game mode");
         AutomationProperties.SetHelpText(exit, isArabic
-            ? "يغلق HUD ويعيد التذكيرات إلى العمل وفق إعداداتها."
-            : "Closes the HUD and restores reminders according to their settings.");
-        exit.Click += (_, _) =>
-        {
-            RaiseExitRequested();
-            Close();
-        };
+            ? "يخفي HUD. تظل التذكيرات التي أنشأتها مستمرة؛ وتستأنف المتابعة الاستباقية بعد مغادرة اللعبة المسموح بها."
+            : "Hides the HUD. Your saved reminders continue; proactive check-ins resume after focus leaves the allowlisted game.");
+        exit.Click += (_, _) => CloseByUser();
         footer.Children.Add(exit);
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
@@ -131,6 +159,24 @@ public sealed class GameModeHudWindow : Window
         _timer.Tick += Timer_Tick;
         _timer.Start();
     }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        // Keep the game as the foreground window even when the user clicks the HUD.
+        // WS_EX_NOACTIVATE still permits mouse interaction with the HUD controls.
+        var handle = new WindowInteropHelper(this).Handle;
+        var currentStyle = GetWindowLongPtr(handle, ExtendedWindowStyleIndex).ToInt64();
+        _ = SetWindowLongPtr(handle, ExtendedWindowStyleIndex,
+            new IntPtr(currentStyle | ExtendedStyleNoActivate));
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr(IntPtr handle, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr(IntPtr handle, int index, IntPtr value);
 
     private void Timer_Tick(object? sender, EventArgs e)
     {
@@ -143,10 +189,44 @@ public sealed class GameModeHudWindow : Window
         var activity = _getActivity();
         _activity.Text = string.IsNullOrWhiteSpace(activity)
             ? (_isArabic
-                ? $"لا توجد مهمة نشطة.\nسؤال سريع: {_shortcutDisplay}\nإلغاء العملية الحالية: Esc"
-                : $"No active task.\nQuick Ask: {_shortcutDisplay}\nCancel current operation: Esc")
+                ? $"لا توجد مهمة نشطة.\nسؤال سريع: {_shortcutDisplay}\nالإلغاء من نافذة ليال: Esc"
+                : $"No active task.\nQuick Ask: {_shortcutDisplay}\nCancel inside Layal: Esc")
             : activity + Environment.NewLine +
-              (_isArabic ? $"سؤال سريع: {_shortcutDisplay} · إلغاء: Esc" : $"Quick Ask: {_shortcutDisplay} · Cancel: Esc");
+              (_isArabic ? $"سؤال سريع: {_shortcutDisplay} · الإلغاء داخل ليال: Esc" : $"Quick Ask: {_shortcutDisplay} · Cancel in Layal: Esc");
+    }
+
+    /// <summary>Close after the user explicitly chooses to dismiss the HUD.</summary>
+    public void CloseByUser()
+    {
+        WasDismissedByUser = true;
+        if (IsVisible)
+            Close();
+        else
+            CompleteClose();
+    }
+
+    /// <summary>Close because detection ended, settings changed, or Layal is shutting down.</summary>
+    public void CloseFromDetection()
+    {
+        _closingProgrammatically = true;
+        if (IsVisible)
+            Close();
+        else
+            CompleteClose();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_closingProgrammatically)
+            WasDismissedByUser = true;
+        base.OnClosing(e);
+    }
+
+    private void CompleteClose()
+    {
+        _timer.Stop();
+        _timer.Tick -= Timer_Tick;
+        RaiseExitRequested();
     }
 
     private void RaiseExitRequested()
@@ -158,9 +238,7 @@ public sealed class GameModeHudWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _timer.Stop();
-        _timer.Tick -= Timer_Tick;
-        RaiseExitRequested();
+        CompleteClose();
         base.OnClosed(e);
     }
 }
