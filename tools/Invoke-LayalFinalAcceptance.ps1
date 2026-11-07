@@ -458,6 +458,17 @@ try {
         Invoke-ExternalCommand -Executable $script:Python.Source -Arguments @('-m', 'unittest', 'discover', '-s', 'tests/python', '-p', 'test_*.py') -Description 'Python unit tests'
     } | Out-Null
 
+    $ocrModelsPassed = Invoke-Check -Name 'Install pinned offline Arabic and English OCR models' -Category 'Runtime assets' -Action {
+        $modelInstaller = Join-Path $Root 'tools/Install-LayalOcrModels.ps1'
+        $modelLog = Join-Path $ReportDirectory 'ocr-model-install'
+        $child = Invoke-PowerShellChild -Name 'Install-LayalOcrModels' -ScriptPath $modelInstaller -Arguments @('-Destination', (Join-Path $Root 'src/Layal.Desktop/tessdata')) -LogDirectory $modelLog
+        foreach ($name in @('ara.traineddata', 'eng.traineddata')) {
+            $modelPath = Join-Path $Root "src/Layal.Desktop/tessdata/$name"
+            if (-not (Test-Path -LiteralPath $modelPath -PathType Leaf)) { throw "Pinned OCR model is missing after installation: $modelPath" }
+        }
+        return "Pinned local OCR models verified before build/test. Log: $($child.StdoutPath)."
+    }
+
     $restorePassed = Invoke-Check -Name 'NuGet restore' -Category 'Build' -Action {
         Invoke-ExternalCommand -Executable $script:Dotnet.Source -Arguments @('restore', 'Layal.sln', '--nologo') -Description 'dotnet restore Layal.sln'
     }
@@ -492,11 +503,16 @@ try {
 
     if ($buildPassed) {
         New-Item -ItemType Directory -Path $script:TrxDirectory -Force | Out-Null
-        $testPassed = Invoke-Check -Name 'C# automated test suite' -Category 'Automated tests' -Action {
-            Invoke-ExternalCommand -Executable $script:Dotnet.Source -Arguments @(
-                'test', 'Layal.sln', '--configuration', 'Release', '--no-build', '--no-restore', '--nologo',
-                '--logger', 'trx;LogFileName=Layal.Tests.trx', '--results-directory', $script:TrxDirectory
-            ) -Description 'dotnet test Layal.sln -c Release'
+        if ($ocrModelsPassed) {
+            $testPassed = Invoke-Check -Name 'C# automated test suite' -Category 'Automated tests' -Action {
+                Invoke-ExternalCommand -Executable $script:Dotnet.Source -Arguments @(
+                    'test', 'Layal.sln', '--configuration', 'Release', '--no-build', '--no-restore', '--nologo',
+                    '--logger', 'trx;LogFileName=Layal.Tests.trx', '--results-directory', $script:TrxDirectory
+                ) -Description 'dotnet test Layal.sln -c Release'
+            }
+        } else {
+            Add-CheckResult -Name 'C# automated test suite' -Category 'Automated tests' -Status 'SKIPPED' -Details 'Pinned OCR models failed installation; OCR-dependent tests are not run against an incomplete runtime asset set.'
+            $testPassed = $false
         }
         if ($testPassed) {
             Invoke-Check -Name 'TRX executed-test validation' -Category 'Automated tests' -Action {
