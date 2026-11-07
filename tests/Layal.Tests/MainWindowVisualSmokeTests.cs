@@ -1104,6 +1104,9 @@ public sealed class MainWindowVisualSmokeTests
             "High Contrast must suppress decorative particles.");
         
         applyAppearance.Invoke(mascot, new object[] { systemHighContrast });
+        // The real system-preference handler also refreshes the performance budget;
+        // this rebuilds decorative particles after High Contrast cleared them.
+        mascot.ApplyPerformanceMode();
         Assert.AreEqual(originalBrush, shell.BorderBrush, "The mascot border must restore to the system-selected appearance.");
         Assert.AreEqual(originalThickness, shell.BorderThickness, "The mascot border thickness must restore after the forced test state.");
         Assert.AreEqual(originalEffect, shell.Effect, "The mascot shell effect must restore after the forced test state.");
