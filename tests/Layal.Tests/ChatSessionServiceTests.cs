@@ -122,6 +122,67 @@ public sealed class ChatSessionServiceTests
     }
 
     [TestMethod]
+    public void TemporarySessionSuppressesAllDiskWritesAndRestoresSavedHistoryAfterRestart()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted session persistence uses Windows DPAPI.");
+        using var temp = new TestTempDirectory();
+        var legacyPath = System.IO.Path.Combine(temp.Path, "legacy-chat.dpapi");
+        var sessionsPath = System.IO.Path.Combine(temp.Path, "chat-sessions.dpapi");
+        var legacy = new ProtectedJsonStore<List<ChatMessage>>(legacyPath);
+        var service = new ChatSessionService(sessionsPath, legacy, "New conversation");
+
+        service.SaveCurrentMessages(new List<ChatMessage>
+        {
+            new() { Role = "user", Content = "Persisted before Incognito" },
+            new() { Role = "assistant", Content = "Saved normal-mode reply" }
+        });
+        var savedConversationId = service.GetCurrent().Id;
+        var encryptedSessionsBefore = System.IO.File.ReadAllBytes(sessionsPath);
+
+        // Keep a legacy-store fixture too: ClearAll must never delete it inside a temporary session.
+        legacy.Save(new List<ChatMessage>
+        {
+            new() { Role = "user", Content = "Legacy fallback sentinel" }
+        });
+
+        service.BeginTemporarySession();
+        Assert.IsTrue(service.IsTemporarySession);
+
+        service.SaveCurrentMessages(new List<ChatMessage>
+        {
+            new() { Role = "user", Content = "Private message must never reach disk" }
+        });
+        service.CreateNewConversation("Temporary-only conversation");
+        service.ClearAll("Temporary-only clear");
+
+        Assert.IsTrue(service.IsTemporarySession);
+        CollectionAssert.AreEqual(encryptedSessionsBefore, System.IO.File.ReadAllBytes(sessionsPath),
+            "Save, create, and clear operations inside Incognito must not modify the encrypted session file.");
+        Assert.AreEqual("Legacy fallback sentinel",
+            legacy.Load(new List<ChatMessage>()).Single().Content,
+            "ClearAll inside Incognito must not delete the legacy history store.");
+
+        // Simulate a new application process while the original in-memory service is still private.
+        var reopenedDuringPrivateChat = new ChatSessionService(
+            sessionsPath,
+            new ProtectedJsonStore<List<ChatMessage>>(legacyPath),
+            "New conversation");
+        Assert.IsFalse(reopenedDuringPrivateChat.IsTemporarySession);
+        Assert.AreEqual(1, reopenedDuringPrivateChat.GetAll().Count);
+        Assert.AreEqual(savedConversationId, reopenedDuringPrivateChat.GetCurrent().Id);
+        Assert.AreEqual("Persisted before Incognito", reopenedDuringPrivateChat.GetCurrent().Messages[0].Content);
+        Assert.AreEqual("Saved normal-mode reply", reopenedDuringPrivateChat.GetCurrent().Messages[1].Content);
+
+        service.EndTemporarySession();
+        Assert.IsFalse(service.IsTemporarySession);
+        Assert.AreEqual(savedConversationId, service.GetCurrent().Id);
+        Assert.AreEqual(2, service.GetCurrent().Messages.Count);
+        Assert.AreEqual("Persisted before Incognito", service.GetCurrent().Messages[0].Content);
+        Assert.IsFalse(service.GetCurrent().Messages.Any(message =>
+            message.Content.Contains("Private message", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public void ClearAllDeletesArchivedSessionsAndCreatesFreshBlankConversation()
     {
         if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Encrypted session persistence uses Windows DPAPI.");
