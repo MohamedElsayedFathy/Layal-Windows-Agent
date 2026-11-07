@@ -516,8 +516,8 @@ public partial class MainWindow : Window
         UpdateDocumentAttachmentUi();
         UpdatePrivateChatModeUi();
         SetChatActivityStatus(IsArabic
-            ? "المحادثة الخاصة نشطة: الرسائل لا تُحفظ محليًا، وتبويبا المهام والذاكرة معطلان. قد يستقبل المزود الخارجي الرسائل وفق إعداداتك."
-            : "Private chat is active: messages are not saved locally, and Tasks/Memory are disabled. The external provider may still receive messages according to your settings.");
+            ? "المحادثة الخاصة نشطة: الرسائل لا تُحفظ محليًا، والمهام وسجلها والذاكرة والروتينات والتذكيرات المرتبطة بالمهام ومساحة العمل والإشعارات متوقفة مؤقتًا. قد يستقبل مزود AI ما ترسله يدويًا."
+            : "Private chat is active: messages are not saved locally. Tasks, task history, memory, saved routines, task-linked reminders, the workspace hub, and local notifications are paused. Your explicit messages may still reach the AI provider.");
     }
 
     private void ExitPrivateChatMode()
