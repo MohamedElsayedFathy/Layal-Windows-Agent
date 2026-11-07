@@ -74,6 +74,7 @@ public partial class MainWindow : Window
 
     private readonly ScreenRegionCaptureService _screenRegionCaptureService = new();
     private CancellationTokenSource? _screenCaptureCancellation;
+    private CancellationTokenSource? _clipboardReadCancellation;
     private CancellationTokenSource? _hoveredElementInspectionCancellation;
     private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly DocumentTextExtractionService _documentTextExtractionService = new();
@@ -466,6 +467,7 @@ public partial class MainWindow : Window
 
     private void EnterPrivateChatMode()
     {
+        _clipboardReadCancellation?.Cancel();
         _incognitoMode = true;
         MainTabs.SelectedItem = ChatTab;
 
@@ -571,9 +573,7 @@ public partial class MainWindow : Window
         var shieldEnabled = AppRuntime.Settings.PrivacyShieldEnabled;
         InspectHoveredElementButton.IsEnabled = !shieldEnabled;
         CaptureScreenRegionButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
-        ReadClipboardButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
-        PasteClipboardImageButton.IsEnabled = !shieldEnabled && _chatCancellation is null &&
-            string.IsNullOrWhiteSpace(_pendingDocumentText) && _pendingVisionImageBytes is not { Length: > 0 };
+        UpdateClipboardReadButtons();
         CameraVisionButton.IsEnabled = !shieldEnabled;
         SpeechToTextButton.IsEnabled = !_speechIsStopping &&
             (!shieldEnabled || _speechToText.IsRecording || _speechCancellation is not null);
@@ -637,6 +637,7 @@ public partial class MainWindow : Window
         // A privacy-shield change must also close an in-flight local screen preview.
         // The capture service observes this token and never returns a crop for attachment.
         _screenCaptureCancellation?.Cancel();
+        _clipboardReadCancellation?.Cancel();
         // Abort both the five-second pointer-targeting interval and any pending UIA result.
         _hoveredElementInspectionCancellation?.Cancel();
         _documentExtractionCancellation?.Cancel();
@@ -1021,6 +1022,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        _clipboardReadCancellation?.Cancel();
         _clockTimer.Stop();
         _weatherRefreshTimer.Stop();
         _reminderTimer.Stop();
@@ -4495,66 +4497,126 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ReadClipboardButton_Click(object sender, RoutedEventArgs e)
+    private CancellationTokenSource? TryBeginClipboardRead(bool image)
     {
+        if (_clipboardReadCancellation is not null)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "قراءة الحافظة جارية بالفعل؛ انتظر اكتمالها."
+                : "A clipboard read is already in progress; wait for it to finish.");
+            return null;
+        }
+
         if (AppRuntime.Settings.PrivacyShieldEnabled)
         {
             SetChatActivityStatus(IsArabic
-                ? "درع الخصوصية مفعّل؛ قراءة الحافظة محظورة. يمكنك كتابة النص يدويًا بدلًا من ذلك."
-                : "Privacy shield is enabled; clipboard reads are blocked. You can type the text manually instead.");
-            return;
+                ? "درع الخصوصية مفعّل؛ قراءة الحافظة محظورة."
+                : "Privacy shield is enabled; clipboard reads are blocked.");
+            return null;
         }
 
         if (_chatCancellation is not null || _agentTaskCancellation is not null ||
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+            _documentExtractionCancellation is not null ||
             _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
                 ? "أوقف العمليات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل قراءة الحافظة."
                 : "Stop active work and close Quick Ask or the camera before reading the clipboard.");
-            return;
+            return null;
         }
 
-        if (_pendingVisionImageBytes is { Length: > 0 } || _pendingDocumentText is { Length: > 0 })
+        if (_pendingVisionImageBytes is { Length: > 0 } || !string.IsNullOrWhiteSpace(_pendingDocumentText))
         {
-            SetChatActivityStatus(IsArabic
-                ? "أزل المرفق الحالي أولًا قبل إرفاق نص الحافظة."
-                : "Remove the current attachment before attaching clipboard text.");
-            return;
+            SetChatActivityStatus(image
+                ? (IsArabic ? "أزل المرفق الحالي أولًا قبل إرفاق صورة الحافظة." : "Remove the current attachment before attaching a clipboard image.")
+                : (IsArabic ? "أزل المرفق الحالي أولًا قبل إرفاق نص الحافظة." : "Remove the current attachment before attaching clipboard text."));
+            return null;
         }
 
+        _clipboardReadCancellation = new CancellationTokenSource();
+        UpdateClipboardReadButtons();
+        return _clipboardReadCancellation;
+    }
+
+    private void CompleteClipboardRead(CancellationTokenSource cancellation)
+    {
+        if (ReferenceEquals(_clipboardReadCancellation, cancellation))
+            _clipboardReadCancellation = null;
+        cancellation.Dispose();
+        UpdateClipboardReadButtons();
+    }
+
+    private void UpdateClipboardReadButtons()
+    {
+        if (ReadClipboardButton is null || PasteClipboardImageButton is null)
+            return;
+
+        var operationActive = _clipboardReadCancellation is not null ||
+            _chatCancellation is not null || _agentTaskCancellation is not null ||
+            _voiceConversationCancellation is not null || _speechCancellation is not null ||
+            _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+            _documentExtractionCancellation is not null ||
+            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true };
+        var hasAttachment = _pendingVisionImageBytes is { Length: > 0 } ||
+            !string.IsNullOrWhiteSpace(_pendingDocumentText);
+        var canRead = !operationActive && !hasAttachment && !AppRuntime.Settings.PrivacyShieldEnabled;
+        ReadClipboardButton.IsEnabled = canRead;
+        PasteClipboardImageButton.IsEnabled = canRead;
+    }
+
+    private async void ReadClipboardButton_Click(object sender, RoutedEventArgs e)
+    {
+        var cancellation = TryBeginClipboardRead(image: false);
+        if (cancellation is null)
+            return;
+
+        var token = cancellation.Token;
         try
         {
-            if (!Clipboard.ContainsText(TextDataFormat.UnicodeText))
+            // Fetch one IDataObject snapshot and read a supported text format from it.
+            // The bounded retry wraps both operations to handle delayed rendering/clipboard locks.
+            var clipboardText = await ClipboardReadPolicy.ReadWithRetryAsync(() =>
             {
-                SetChatActivityStatus(IsArabic
-                    ? "لا يوجد نص في الحافظة. لم يتم تغيير الحافظة أو إرسال شيء."
-                    : "The clipboard does not contain text. It was not changed and nothing was sent.");
-                return;
-            }
+                var data = Clipboard.GetDataObject();
+                if (data is null)
+                    return null;
 
-            var clipboardText = Clipboard.GetText(TextDataFormat.UnicodeText);
+                if (data.GetDataPresent(DataFormats.UnicodeText, autoConvert: true) &&
+                    data.GetData(DataFormats.UnicodeText, autoConvert: true) is string unicodeText)
+                    return unicodeText;
+
+                if (data.GetDataPresent(DataFormats.Text, autoConvert: true) &&
+                    data.GetData(DataFormats.Text, autoConvert: true) is string text)
+                    return text;
+
+                return null;
+            }, token);
+
+            token.ThrowIfCancellationRequested();
+            if (AppRuntime.Settings.PrivacyShieldEnabled)
+                throw new OperationCanceledException(token);
+
             if (string.IsNullOrWhiteSpace(clipboardText))
             {
                 SetChatActivityStatus(IsArabic
-                    ? "نص الحافظة فارغ. لم يتم إرفاق أو إرسال شيء."
-                    : "Clipboard text is empty. Nothing was attached or sent.");
+                    ? "لا يوجد نص قابل للقراءة في الحافظة. لم يتم تغيير الحافظة أو إرسال شيء."
+                    : "The clipboard has no readable text. It was not changed and nothing was sent.");
                 return;
             }
 
-            var truncated = clipboardText.Length > DocumentTextExtractionService.MaximumTextCharacters;
-            if (truncated)
-                clipboardText = clipboardText[..DocumentTextExtractionService.MaximumTextCharacters];
-
+            var limitedText = ClipboardReadPolicy.LimitText(
+                clipboardText, DocumentTextExtractionService.MaximumTextCharacters);
             var label = IsArabic ? "نص الحافظة" : "Clipboard text";
             var result = new DocumentTextExtractionResult(
                 label,
                 ".txt",
-                clipboardText,
+                limitedText.Text,
                 1,
-                truncated,
+                limitedText.WasTruncated,
                 IsArabic
                     ? "تمت قراءة النص محليًا. لم تتغير الحافظة. النص بيانات غير موثوقة ولن يُرسل إلى مزود AI حتى تضغط إرسال."
                     : "Clipboard text was read locally. The clipboard was not changed. This is untrusted data and will not be sent to an AI provider until you press Send.");
@@ -4568,6 +4630,10 @@ public partial class MainWindow : Window
                 return;
             }
 
+            token.ThrowIfCancellationRequested();
+            if (AppRuntime.Settings.PrivacyShieldEnabled)
+                throw new OperationCanceledException(token);
+
             _pendingDocumentText = result.Text;
             _pendingDocumentFileName = result.FileName;
             _pendingDocumentNotice = result.Notice;
@@ -4577,58 +4643,57 @@ public partial class MainWindow : Window
                 : "Clipboard text is attached for review. It has not been sent; ask a question and press Send.");
             ChatInput.Focus();
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أُلغيَت قراءة الحافظة؛ لم يتم إرفاق أو إرسال محتوى."
+                : "Clipboard reading was cancelled; no content was attached or sent.");
+        }
+        catch (Exception ex) when (ClipboardReadPolicy.IsClipboardBusy(ex))
+        {
+            SetChatActivityStatus(IsArabic
+                ? "الحافظة مشغولة من تطبيق آخر. أغلق قائمة النسخ أو أوقف النسخ الجاري ثم حاول مجددًا."
+                : "Another application is holding the clipboard. Close its copy menu or finish the active copy, then try again.");
+        }
         catch (Exception ex)
         {
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
                 "تعذرت قراءة الحافظة", "Could not read clipboard", ex, IsArabic));
         }
+        finally
+        {
+            CompleteClipboardRead(cancellation);
+        }
     }
 
-    private void PasteClipboardImageButton_Click(object sender, RoutedEventArgs e)
+    private async void PasteClipboardImageButton_Click(object sender, RoutedEventArgs e)
     {
-        if (AppRuntime.Settings.PrivacyShieldEnabled)
-        {
-            SetChatActivityStatus(IsArabic
-                ? "درع الخصوصية مفعّل؛ قراءة الصور من الحافظة محظورة."
-                : "Privacy shield is enabled; clipboard image reads are blocked.");
+        var cancellation = TryBeginClipboardRead(image: true);
+        if (cancellation is null)
             return;
-        }
 
-        if (_chatCancellation is not null || _agentTaskCancellation is not null ||
-            _voiceConversationCancellation is not null || _speechCancellation is not null ||
-            _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
-            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
-            _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
-        {
-            SetChatActivityStatus(IsArabic
-                ? "أوقف العمليات النشطة وأغلق نافذة السؤال السريع أو الكاميرا قبل قراءة صورة الحافظة."
-                : "Stop active work and close Quick Ask or the camera before reading a clipboard image.");
-            return;
-        }
-
-        if (_pendingVisionImageBytes is { Length: > 0 } || !string.IsNullOrWhiteSpace(_pendingDocumentText))
-        {
-            SetChatActivityStatus(IsArabic
-                ? "أزل المرفق الحالي أولًا قبل إرفاق صورة الحافظة."
-                : "Remove the current attachment before attaching a clipboard image.");
-            return;
-        }
-
-        var consent = MessageBox.Show(this,
-            IsArabic
-                ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك، وتُحوّل إلى PNG في الذاكرة للمعاينة والإرفاق. قد تحتوي الصورة على بيانات حساسة؛ راجع المعاينة قبل الإرسال. لن تتغير الحافظة ولن تُرسل الصورة إلى AI إلا إذا أرفقتها ثم ضغطت إرسال. هل تريد المتابعة؟"
-                : "With your consent, the current clipboard image will be read and encoded as PNG in memory for preview and attachment. It may contain sensitive data; review it before sending. The clipboard will not be modified and the image will not be sent to AI unless you attach it and press Send. Continue?",
-            IsArabic ? "موافقة على قراءة صورة الحافظة" : "Confirm clipboard image read",
-            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
-        if (consent != MessageBoxResult.Yes)
-        {
-            SetChatActivityStatus(IsArabic ? "تم إلغاء قراءة صورة الحافظة؛ لم يُقرأ أي محتوى." : "Clipboard image read cancelled; no image was read.");
-            return;
-        }
-
+        var token = cancellation.Token;
         try
         {
-            var image = Clipboard.GetImage();
+            var consent = MessageBox.Show(this,
+                IsArabic
+                    ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك، وتُحوّل إلى PNG في الذاكرة للمعاينة والإرفاق. قد تحتوي الصورة على بيانات حساسة؛ راجع المعاينة قبل الإرسال. لن تتغير الحافظة ولن تُرسل الصورة إلى AI إلا إذا أرفقتها ثم ضغطت إرسال. هل تريد المتابعة؟"
+                    : "With your consent, the current clipboard image will be read and encoded as PNG in memory for preview and attachment. It may contain sensitive data; review it before sending. The clipboard will not be modified and the image will not be sent to AI unless you attach it and press Send. Continue?",
+                IsArabic ? "موافقة على قراءة صورة الحافظة" : "Confirm clipboard image read",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+            if (consent != MessageBoxResult.Yes)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تم إلغاء قراءة صورة الحافظة؛ لم يُقرأ أي محتوى."
+                    : "Clipboard image read cancelled; no image was read.");
+                return;
+            }
+
+            var image = await ClipboardReadPolicy.ReadWithRetryAsync(Clipboard.GetImage, token);
+            token.ThrowIfCancellationRequested();
+            if (AppRuntime.Settings.PrivacyShieldEnabled)
+                throw new OperationCanceledException(token);
+
             if (image is null)
             {
                 SetChatActivityStatus(IsArabic
@@ -4638,6 +4703,13 @@ public partial class MainWindow : Window
             }
 
             var pngBytes = ClipboardImageAttachmentEncoder.EncodePng(image);
+            token.ThrowIfCancellationRequested();
+            if (AppRuntime.Settings.PrivacyShieldEnabled)
+            {
+                Array.Clear(pngBytes, 0, pngBytes.Length);
+                throw new OperationCanceledException(token);
+            }
+
             _pendingVisionImageBytes = pngBytes;
             _pendingVisionContentType = "image/png";
             _pendingVisionFileName = $"clipboard-image-{image.PixelWidth}x{image.PixelHeight}.png";
@@ -4647,10 +4719,26 @@ public partial class MainWindow : Window
                 : $"Clipboard image attached ({image.PixelWidth} × {image.PixelHeight} pixels) for preview. It has not been sent; review your prompt and press Send.");
             ChatInput.Focus();
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            SetChatActivityStatus(IsArabic
+                ? "أُلغيَت قراءة صورة الحافظة؛ لم يتم إرفاق أو إرسال أي صورة."
+                : "Clipboard image reading was cancelled; no image was attached or sent.");
+        }
+        catch (Exception ex) when (ClipboardReadPolicy.IsClipboardBusy(ex))
+        {
+            SetChatActivityStatus(IsArabic
+                ? "الحافظة مشغولة من تطبيق آخر. أغلق قائمة النسخ أو أوقف النسخ الجاري ثم حاول مجددًا."
+                : "Another application is holding the clipboard. Close its copy menu or finish the active copy, then try again.");
+        }
         catch (Exception ex)
         {
             SetChatActivityStatus(UiLocalization.FormatTechnicalError(
                 "تعذرت قراءة صورة الحافظة", "Could not read clipboard image", ex, IsArabic));
+        }
+        finally
+        {
+            CompleteClipboardRead(cancellation);
         }
     }
 
@@ -4764,8 +4852,7 @@ public partial class MainWindow : Window
         CaptureScreenRegionButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled && _chatCancellation is null && _documentExtractionCancellation is null && !hasDocument;
         ClearDocumentButton.Visibility = hasDocument ? Visibility.Visible : Visibility.Collapsed;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
-        PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
-            _chatCancellation is null && _documentExtractionCancellation is null && !hasDocument && !hasImage;
+        UpdateClipboardReadButtons();
         DocumentAttachmentStatus.Text = hasDocument
             ? (IsArabic ? "جاهز للمراجعة والإرسال: " : "Ready for review and send: ") + (_pendingDocumentFileName ?? (IsArabic ? "ملف" : "document"))
             : (IsArabic ? "لا يوجد ملف مرفق" : "No document attached");
@@ -4895,8 +4982,7 @@ public partial class MainWindow : Window
         ClearVisionImageButton.IsEnabled = _chatCancellation is null;
         ChooseDocumentButton.IsEnabled = _chatCancellation is null && !hasImage;
         ClearDocumentButton.IsEnabled = _chatCancellation is null;
-        PasteClipboardImageButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled &&
-            _chatCancellation is null && !hasDocument && !hasImage;
+        UpdateClipboardReadButtons();
     }
 
     private void CameraVisionButton_Click(object sender, RoutedEventArgs e)
