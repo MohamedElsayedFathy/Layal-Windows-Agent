@@ -546,8 +546,10 @@ public partial class VisionCameraWindow : System.Windows.Window
         ClearLatestFrame();
         CameraPasswordInput.Clear();
         CameraStatusChanged?.Invoke(false);
-        if (IsVisible)
-            Close();
+        // Owned windows can be hidden with the main window; close even when not visible
+        // so the native capture device is released and Closed cleanup always runs.
+        try { Close(); }
+        catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Privacy shield could not close the camera window: {0}", ex.Message); }
     }
 
     private void ClearLatestFrame()
