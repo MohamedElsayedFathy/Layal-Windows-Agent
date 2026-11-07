@@ -482,7 +482,7 @@
 | 22 | BLOCKED — قبول Windows اليدوي فقط؛ CI الآلي ناجح | 7b9fa463a89dd20127809d3b45a1c8d3f959833c | 2026-11-05 | PR #115 مدمج. Windows CI run 42067149725: 522/522 اختبارًا ناجحة، Release build، نقر/سحب/DPI/لوحة مفاتيح 18/18/GLB، ودورة المثبّت install/upgrade/rollback/uninstall مع حفظ بيانات المستخدم وحذف مهمة التذكير. الأمن وسلسلة التوريد run 42067149676 ناجح. المتبقي: قبول يدوي على جهاز Windows لتجربة إنشاء/تعديل/إدراج/تشغيل/رفض/حذف الروتين والحفظ بعد إعادة التشغيل. |
 | 21/23/24 | NOT RUN | | | |
 | 25/26 | NOT RUN | | | |
-| 27 | BLOCKED — التنفيذ البرمجي واختبارات CI قيد التحقق؛ قبول الألعاب الفعلي على Windows ما زال مطلوبًا | يضاف بعد دمج PR | 2026-11-05 | راجع docs/GAME_MODE_AR.md؛ يتطلب قبول Notepad/ألعاب حقيقية، إخفاء HUD، التركيز، Borderless/Exclusive Fullscreen وقياس CPU/RAM على جهاز Windows. لا تُعتمد هذه الحالات بنتائج CI وحدها. |
+| 27 | BLOCKED — التنفيذ مدمج وفحوص CI الآلية ناجحة؛ قبول الألعاب على جهاز Windows فعلي ما زال مطلوبًا | f1225388d77f4b66fd526026fc1c03e2689e680c | 2026-11-07 | PR #122 مدمج. CI run `42368781228`: Release build، native clickthrough/drag، DPI، keyboard، GLB، `.NET` tests وتحقق تقرير النتائج نجحت؛ security run `42368781222`: Gitleaks وNuGet/license audit نجحت. دورة التوزيعة/المثبّت كانت لا تزال قيد التنفيذ عند تحديث هذا السجل. المتبقي: Notepad/لعبة فعلية، إخفاء HUD والعودة وتبديل العمليات، درع الخصوصية، تصغير Layal، عدم سرقة التركيز، Borderless/Exclusive Fullscreen وقياس CPU/RAM على جهاز المستخدم. لا يُعد CI بديلًا لهذا القبول اليدوي. راجع `docs/GAME_MODE_AR.md`. |
 | 28/29/30 | NOT RUN | | | |
 | 31/32/33 | NOT RUN | | | |
 
