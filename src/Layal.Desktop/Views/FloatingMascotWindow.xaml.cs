@@ -143,6 +143,15 @@ public partial class FloatingMascotWindow : Window
     private readonly MenuItem _exitMenuItem = new();
     private GltfSkinnedAnimationRenderer? _gltfPreviewRenderer;
     private bool _glbPreviewEnabled;
+    private bool _avatarRigInitialized;
+    private MascotPerformanceBudget CurrentPerformanceBudget => MascotPerformancePolicy.Evaluate(
+        IsVisible,
+        AppRuntime.Settings.PerformanceModeEnabled,
+        AppRuntime.Settings.MascotAnimationsEnabled,
+        SystemParameters.ClientAreaAnimation,
+        SystemParameters.HighContrast);
+    private bool AnimationsAllowed => CurrentPerformanceBudget.AnimateMascot;
+    private bool CinematicEffectsAllowed => CurrentPerformanceBudget.RenderCinematicEffects;
     private bool IsArabic => AppRuntime.Settings.Language == "ar";
 
     private static readonly Brush EyeWhite = new SolidColorBrush(Color.FromRgb(247, 249, 255));
@@ -214,7 +223,6 @@ public partial class FloatingMascotWindow : Window
         _normalShellEffect = Shell.Effect;
         SystemEvents.UserPreferenceChanged += Mascot_UserPreferenceChanged;
         Closed += MascotWindow_Closed;
-        InitializeAvatarRig();
         InitializeCinematicEffects();
         InitializeCharacterArt();
         ApplyCharacterDisplayMode(AppRuntime.Settings.MascotCharacterDisplayMode);
@@ -245,9 +253,10 @@ public partial class FloatingMascotWindow : Window
 
         // The test asset is an engineering preview, not the production Layal character.
         // It is opt-in and remains off unless the user saved the preference or CI explicitly requests a smoke test.
-        var automatedGlbPreviewTest = IsAutomatedGlbPreviewTest();
-        if ((AppRuntime.Settings.MascotUseGlbPreview && !AppRuntime.Settings.PerformanceModeEnabled) || automatedGlbPreviewTest)
-            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: !automatedGlbPreviewTest);
+        // CI can explicitly force the engineering preview. A user's saved preview is loaded
+        // lazily only when the mascot becomes visible and the active animation budget permits it.
+        if (IsAutomatedGlbPreviewTest())
+            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: false);
 
         _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AppRuntime.Settings.PerformanceModeEnabled ? 10_000 : 3650) };
         _blinkTimer.Tick += (_, _) => Blink();
@@ -270,56 +279,112 @@ public partial class FloatingMascotWindow : Window
         SetMood("idle");
     }
 
-    /// <summary>Stop high-frequency polling and animation while the mascot window is hidden.</summary>
-    private bool AnimationsAllowed => !AppRuntime.Settings.PerformanceModeEnabled && AppRuntime.Settings.MascotAnimationsEnabled;
-
-    /// <summary>Applies the effective animation/rendering budget without overwriting normal animation preferences.</summary>
-    public void ApplyPerformanceMode()
-    {
-        var performanceMode = AppRuntime.Settings.PerformanceModeEnabled;
-        _blinkTimer.Interval = TimeSpan.FromMilliseconds(performanceMode ? 10_000 : 3650);
-        _floatTimer.Interval = TimeSpan.FromMilliseconds(performanceMode ? 100 : 45);
-        _idleTimer.Interval = TimeSpan.FromSeconds(performanceMode ? 45 : 15);
-        _hitTestTimer.Interval = TimeSpan.FromMilliseconds(performanceMode ? 33 : 8);
-
-        if (performanceMode && _glbPreviewEnabled)
-            SetGlbPreviewEnabled(false, persist: false, showFailureDialog: false);
-        else if (!performanceMode && AppRuntime.Settings.MascotUseGlbPreview && !_glbPreviewEnabled)
-            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: false);
-
-        UpdateTimersForVisibility();
-    }
+    /// <summary>Applies the effective animation/rendering budget without overwriting normal preferences.</summary>
+    public void ApplyPerformanceMode() => UpdateTimersForVisibility();
 
     private void UpdateTimersForVisibility()
     {
-        if (AppRuntime.IsExiting) return;
-        if (IsVisible)
+        if (AppRuntime.IsExiting)
+        {
+            StopMascotTimers();
+            return;
+        }
+
+        var budget = CurrentPerformanceBudget;
+        _blinkTimer.Interval = budget.BlinkInterval;
+        _floatTimer.Interval = budget.FloatInterval;
+        _idleTimer.Interval = budget.IdleInterval;
+        _hitTestTimer.Interval = budget.HitTestInterval;
+
+        if (budget.RunPollingTimers)
         {
             _idleTimer.Start();
             _hitTestTimer.Start();
-            if (AnimationsAllowed)
-            {
-                _blinkTimer.Start();
-                _restoreEyesTimer.Start();
-                _floatTimer.Start();
-            }
-            else
-            {
-                _blinkTimer.Stop();
-                _restoreEyesTimer.Stop();
-                _floatTimer.Stop();
-                Root.RenderTransform = Transform.Identity;
-                RestoreEyes();
-            }
+        }
+        else
+        {
+            _idleTimer.Stop();
+            _hitTestTimer.Stop();
+        }
+
+        if (budget.AnimateMascot)
+        {
+            _blinkTimer.Start();
+            _restoreEyesTimer.Start();
+            _floatTimer.Start();
         }
         else
         {
             _blinkTimer.Stop();
             _restoreEyesTimer.Stop();
-            _idleTimer.Stop();
-            _hitTestTimer.Stop();
             _floatTimer.Stop();
+            ResetMotionVisuals();
         }
+
+        if (budget.RenderCinematicEffects && _cinematicParticles.Count == 0)
+            ConfigureCinematicEffects(_mood);
+        else if (!budget.RenderCinematicEffects)
+            ClearCinematicEffects();
+
+        UpdateGlbPreviewForBudget(budget);
+    }
+
+    private void UpdateGlbPreviewForBudget(MascotPerformanceBudget budget)
+    {
+        var automatedTest = IsAutomatedGlbPreviewTest();
+        var requested = AppRuntime.Settings.MascotUseGlbPreview || automatedTest;
+        var canLoad = automatedTest || budget.CanLoadGlbPreview;
+
+        if (_glbPreviewEnabled && (!requested || !canLoad))
+            SetGlbPreviewEnabled(false, persist: false, showFailureDialog: false);
+        else if (!_glbPreviewEnabled && requested && canLoad && (IsVisible || automatedTest))
+            SetGlbPreviewEnabled(true, persist: false, showFailureDialog: false);
+
+        if (_glbPreviewEnabled)
+        {
+            if (budget.PlayGlbAnimation && IsVisible)
+                _gltfPreviewRenderer?.Start();
+            else
+                _gltfPreviewRenderer?.Stop();
+        }
+    }
+
+    private void StopMascotTimers()
+    {
+        _blinkTimer.Stop();
+        _restoreEyesTimer.Stop();
+        _floatTimer.Stop();
+        _moodResetTimer.Stop();
+        _idleTimer.Stop();
+        _hitTestTimer.Stop();
+        _gltfPreviewRenderer?.Stop();
+    }
+
+    private void ClearCinematicEffects()
+    {
+        CinematicEffectsLayer.Visibility = Visibility.Collapsed;
+        CinematicEffectsLayer.Children.Clear();
+        _cinematicParticles.Clear();
+    }
+
+    private void ResetMotionVisuals()
+    {
+        Root.RenderTransform = Transform.Identity;
+        AntennaDot.RenderTransform = Transform.Identity;
+        if (UseSpriteCharacter)
+            ResetCharacterMotion();
+        else if (_avatarRigInitialized)
+            ApplyRigPose(0);
+
+        GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
+        PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
+        Canvas.SetTop(PaperProp, 94);
+        Canvas.SetTop(PencilProp, 89);
+        UpdateTaskProps();
+        if (TaskPropsLayer.Visibility != Visibility.Visible)
+            HoloComputerProp.Opacity = 0;
+        ClearCinematicEffects();
+        HideReaction();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -336,7 +401,12 @@ public partial class FloatingMascotWindow : Window
         _ = Dispatcher.BeginInvoke(new Action(() =>
         {
             if (IsLoaded && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+            {
                 ApplySystemAccessibilityAppearance();
+                // Windows can disable client-area animations while Layal is already running.
+                // Re-evaluate the timer and GLB budgets immediately instead of polling forever.
+                UpdateTimersForVisibility();
+            }
         }), DispatcherPriority.ApplicationIdle);
     }
 
@@ -356,10 +426,10 @@ public partial class FloatingMascotWindow : Window
         Shell.BorderThickness = highContrast ? new Thickness(3) : _normalShellBorderThickness;
         Shell.Effect = highContrast ? null : _normalShellEffect;
 
-        CinematicEffectsLayer.Visibility =
-            !highContrast && AnimationsAllowed && _cinematicParticles.Count > 0
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+        if (highContrast || !IsVisible || !AnimationsAllowed)
+            ClearCinematicEffects();
+        else
+            CinematicEffectsLayer.Visibility = _cinematicParticles.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
 
@@ -411,10 +481,20 @@ public partial class FloatingMascotWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _hitTestTimer.Stop();
+        StopMascotTimers();
+        ClearCinematicEffects();
         _gltfPreviewRenderer?.Dispose();
         _gltfPreviewRenderer = null;
         base.OnClosed(e);
+    }
+
+    private void EnsureAvatarRigInitialized()
+    {
+        if (_avatarRigInitialized)
+            return;
+
+        InitializeAvatarRig();
+        _avatarRigInitialized = true;
     }
 
     private void InitializeAvatarRig()
@@ -724,10 +804,14 @@ public partial class FloatingMascotWindow : Window
 
     private void ConfigureCinematicEffects(string mood)
     {
-        CinematicEffectsLayer.Children.Clear();
-        _cinematicParticles.Clear();
+        ClearCinematicEffects();
         _cinematicStyle = MascotEffectStyleResolver.Resolve(mood);
         _cinematicStartedAt = DateTimeOffset.UtcNow;
+
+        // Avoid allocating transient TextBlocks/particles when performance, visibility,
+        // Windows motion preferences, or High Contrast disallow decorative effects.
+        if (!CinematicEffectsAllowed)
+            return;
 
         // Choose symbols for the actual work phase, rather than changing only the tint.
         string[] symbols = mood switch
@@ -852,16 +936,16 @@ public partial class FloatingMascotWindow : Window
 
         _particleSeed++;
         CinematicEffectsLayer.Visibility =
-            AnimationsAllowed && count > 0
+            CinematicEffectsAllowed && count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
 
     private void AnimateCinematicEffects()
     {
-        if (!AnimationsAllowed || _cinematicParticles.Count == 0)
+        if (!CinematicEffectsAllowed || _cinematicParticles.Count == 0)
         {
-            CinematicEffectsLayer.Visibility = Visibility.Collapsed;
+            ClearCinematicEffects();
             return;
         }
 
@@ -1444,6 +1528,7 @@ public partial class FloatingMascotWindow : Window
     private void FallBackToLegacyRig()
     {
         UseSpriteCharacter = false;
+        EnsureAvatarRigInitialized();
         CharacterLayer.Visibility = Visibility.Collapsed;
         LegacyRig.Visibility = Visibility.Visible;
         ApplyThreeDimensionalFaceExpression(_mood);
@@ -2257,22 +2342,9 @@ public partial class FloatingMascotWindow : Window
 
     private void AnimateMoodTick()
     {
-        if (!AnimationsAllowed || !IsVisible || !SystemParameters.ClientAreaAnimation)
+        if (!AnimationsAllowed)
         {
-            Root.RenderTransform = Transform.Identity;
-            AntennaDot.RenderTransform = Transform.Identity;
-            // Keep the canonical head lift/scale and each mood's static pose; disabled
-            // animation should freeze the rig, not snap it back to a different-sized model.
-            if (UseSpriteCharacter) ResetCharacterMotion();
-            else ApplyRigPose(0);
-            GlowHalo.Opacity = _mood is "offline" or "privacy" ? 0.24 : 0.5;
-            PaperProp.RenderTransform = PencilProp.RenderTransform = HoloComputerProp.RenderTransform = Transform.Identity;
-            Canvas.SetTop(PaperProp, 94);
-            Canvas.SetTop(PencilProp, 89);
-            UpdateTaskProps();
-            HoloComputerProp.Opacity = TaskPropsLayer.Visibility == Visibility.Visible ? HoloComputerProp.Opacity : 0;
-            CinematicEffectsLayer.Visibility = Visibility.Collapsed;
-            HideReaction();
+            ResetMotionVisuals();
             return;
         }
 
@@ -2632,13 +2704,8 @@ public partial class FloatingMascotWindow : Window
         }
         else
         {
-            _blinkTimer.Stop();
-            _restoreEyesTimer.Stop();
-            _floatTimer.Stop();
-            _moodResetTimer.Stop();
-            _idleTimer.Stop();
-            CinematicEffectsLayer.Children.Clear();
-            _cinematicParticles.Clear();
+            StopMascotTimers();
+            ResetMotionVisuals();
         }
         base.OnClosing(e);
     }
