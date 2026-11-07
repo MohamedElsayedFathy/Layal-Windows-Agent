@@ -147,6 +147,12 @@ public sealed class ChatSessionServiceTests
 
         service.BeginTemporarySession();
         Assert.IsTrue(service.IsTemporarySession);
+        Assert.AreEqual(1, service.GetAll().Count,
+            "The service itself must expose only the current temporary conversation during Incognito.");
+        Assert.AreNotEqual(savedConversationId, service.GetCurrent().Id,
+            "The temporary session must not use the saved conversation identifier.");
+        Assert.AreEqual(0, service.GetCurrent().Messages.Count,
+            "The private working conversation must start empty at service level.");
         service.SetDefaultTitle("Private temporary title");
 
         service.SaveCurrentMessages(new List<ChatMessage>
