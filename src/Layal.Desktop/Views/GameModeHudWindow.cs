@@ -17,8 +17,9 @@ public sealed class GameModeHudWindow : Window
 {
     private readonly bool _isArabic;
     private readonly Func<string> _getActivity;
-    private readonly string _shortcutDisplay;
+    private string _shortcutDisplay;
     private readonly bool _automaticallyLaunched;
+    private readonly TextBlock _shortcutText;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly TextBlock _clock;
     private readonly TextBlock _activity;
@@ -32,6 +33,13 @@ public sealed class GameModeHudWindow : Window
 
     /// <summary>The configured Quick Ask shortcut displayed in this HUD.</summary>
     public string ShortcutDisplay => _shortcutDisplay;
+
+    public void UpdateShortcutDisplay(string shortcutDisplay)
+    {
+        _shortcutDisplay = string.IsNullOrWhiteSpace(shortcutDisplay) ? "Alt+Shift+S" : shortcutDisplay.Trim();
+        _shortcutText.Text = _shortcutDisplay + " · " + (_isArabic ? "Esc داخل ليال" : "Esc in Layal");
+        UpdateStatus();
+    }
 
     public event EventHandler? ExitRequested;
 
@@ -112,15 +120,15 @@ public sealed class GameModeHudWindow : Window
         root.Children.Add(_activity);
 
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        var shortcut = new TextBlock
+        _shortcutText = new TextBlock
         {
             Text = _shortcutDisplay + " · " + (_isArabic ? "Esc داخل ليال" : "Esc in Layal"),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
             Foreground = FindBrushResource("Layal.Muted", Brushes.DimGray)
         };
-        AutomationProperties.SetName(shortcut, isArabic ? "اختصارات ليال" : "Layal shortcuts");
-        footer.Children.Add(shortcut);
+        AutomationProperties.SetName(_shortcutText, isArabic ? "اختصارات ليال" : "Layal shortcuts");
+        footer.Children.Add(_shortcutText);
         var exit = new Button
         {
             Content = isArabic ? "إنهاء الوضع" : "Exit mode",
