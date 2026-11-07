@@ -109,7 +109,7 @@ public sealed class PerformanceMetricsServiceTests
         await Task.Delay(50);
         cancellation.Cancel();
 
-        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => measurement);
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => measurement);
     }
 
 }
