@@ -37,7 +37,7 @@ public sealed class UserSettings
     public string GmailOAuthClientId { get; set; } = string.Empty;
     public bool MascotAlwaysOnTop { get; set; } = true;
     public bool MascotAnimationsEnabled { get; set; } = true;
-    /// <summary>Reduces animation, 3D rendering and hit-test polling while preserving the user's animation preference.</summary>
+    /// <summary>Temporarily pauses mascot motion and particles, disposes the optional GLB renderer, reduces visible-window hit testing to about 30 Hz, and suspends polling while hidden. Does not overwrite saved animation or GLB preferences.</summary>
     public bool PerformanceModeEnabled { get; set; } = false;
     public bool MascotUseGlbPreview { get; set; } = false;
     public double MascotScale { get; set; } = 1.0;
