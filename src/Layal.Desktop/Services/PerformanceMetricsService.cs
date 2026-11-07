@@ -45,9 +45,9 @@ public static class PerformanceMetricsService
             after.PrivateBytes,
             after.ManagedHeapBytes,
             after.ThreadCount,
-            after.Gen0Collections,
-            after.Gen1Collections,
-            after.Gen2Collections);
+            CalculateCollectionDelta(before.Gen0Collections, after.Gen0Collections),
+            CalculateCollectionDelta(before.Gen1Collections, after.Gen1Collections),
+            CalculateCollectionDelta(before.Gen2Collections, after.Gen2Collections));
     }
 
     public static double CalculateCpuPercent(TimeSpan cpuTimeDelta, TimeSpan elapsed, int logicalProcessorCount)
@@ -61,6 +61,10 @@ public static class PerformanceMetricsService
             return 0;
         return Math.Clamp(percentage, 0, 100);
     }
+
+    /// <summary>Returns collections that occurred inside the measured window, never lifetime totals.</summary>
+    public static int CalculateCollectionDelta(int before, int after) =>
+        after >= before ? after - before : 0;
 
     private static ProcessSnapshot Capture()
     {
