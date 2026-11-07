@@ -133,6 +133,8 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _incognitoMode = false;
+        AppRuntime.IsPrivateChatActive = false;
         InitializeComponent();
         AppRuntime.OpenTaskNotification = OpenTaskFromNotification;
         if (!Layal.App.SuppressStartupForTests)
@@ -371,7 +373,7 @@ public partial class MainWindow : Window
 
     private void GmailInboxButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_incognitoMode)
+        if (!PrivateChatModePolicy.CanUseGmail(_incognitoMode))
         {
             SetChatActivityStatus(IsArabic
                 ? "تكامل Gmail غير متاح أثناء وضع Incognito. اخرج من الوضع الخاص أولًا."
@@ -469,6 +471,7 @@ public partial class MainWindow : Window
     {
         _clipboardReadCancellation?.Cancel();
         _incognitoMode = true;
+        AppRuntime.IsPrivateChatActive = true;
         MainTabs.SelectedItem = ChatTab;
 
         // Clear personal/task content from visible controls for this temporary session.
@@ -487,14 +490,12 @@ public partial class MainWindow : Window
         MemoryContentInput.Clear();
         SetMemoryEditorBaseline(null);
         UpdateMemoryEditorButtons();
-        RecentTasks.Clear();
-        TaskEvents.Clear();
-        _rawTaskEvents.Clear();
-        TaskInput.Clear();
-        TaskResult.Text = string.Empty;
+        ClearTaskWorkspaceSurface();
+        MemoryResult.Text = string.Empty;
 
         ChatMessages.Clear();
         ChatInput.Clear();
+        ChatCopyStatus.Text = string.Empty;
         _pendingVisionImageBytes = null;
         _pendingVisionContentType = null;
         _pendingVisionFileName = null;
@@ -507,6 +508,7 @@ public partial class MainWindow : Window
         UpdateVisionAttachmentControls();
         UpdateDocumentAttachmentUi();
         UpdatePrivateChatModeUi();
+        TrySynchronizeLocalNotificationSchedule();
         SetChatActivityStatus(IsArabic
             ? "المحادثة الخاصة نشطة: الرسائل لا تُحفظ محليًا، وتبويبا المهام والذاكرة معطلان. قد يستقبل المزود الخارجي الرسائل وفق إعداداتك."
             : "Private chat is active: messages are not saved locally, and Tasks/Memory are disabled. The external provider may still receive messages according to your settings.");
@@ -515,6 +517,7 @@ public partial class MainWindow : Window
     private void ExitPrivateChatMode()
     {
         _incognitoMode = false;
+        AppRuntime.IsPrivateChatActive = false;
         // Discard any image or camera attachment created during the temporary session.
         _pendingVisionImageBytes = null;
         _pendingVisionContentType = null;
@@ -547,6 +550,7 @@ public partial class MainWindow : Window
         RefreshRecentTasks();
         RefreshMemoryNotes();
         UpdatePrivateChatModeUi();
+        TrySynchronizeLocalNotificationSchedule();
         RefreshProviderStatus();
         SetChatActivityStatus(IsArabic
             ? "تم التخلص من رسائل المحادثة الخاصة واستعادة المحادثة المحفوظة."
@@ -724,14 +728,14 @@ public partial class MainWindow : Window
             : "Does not save this session's messages in local chat history. Tasks and Memory tabs are disabled, new agent tasks and memory operations are blocked, and existing saved data is preserved. The AI provider may retain data it receives.");
         TasksTab.IsEnabled = PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode);
         MemoryTab.IsEnabled = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
-        ChatHistorySelector.IsEnabled = !_incognitoMode;
-        NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
-        ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
-        QuickAskButton.IsEnabled = !_incognitoMode;
+        ChatHistorySelector.IsEnabled = PrivateChatModePolicy.CanAccessSavedChatHistory(_incognitoMode);
+        NewConversationButton.IsEnabled = PrivateChatModePolicy.CanAccessSavedChatHistory(_incognitoMode) && _chatCancellation is null;
+        ClearSavedChatHistoryButton.IsEnabled = PrivateChatModePolicy.CanAccessSavedChatHistory(_incognitoMode) && _chatCancellation is null;
+        QuickAskButton.IsEnabled = PrivateChatModePolicy.CanUseQuickAsk(_incognitoMode);
         QuickAskButton.ToolTip = _incognitoMode
             ? (ar ? "السؤال السريع متوقف أثناء المحادثة الخاصة." : "Quick Ask is disabled during private chat.")
             : (ar ? "افتح نافذة سؤال سريع مستقلة." : "Open a separate Quick Ask window.");
-        GmailInboxButton.IsEnabled = !_incognitoMode;
+        GmailInboxButton.IsEnabled = PrivateChatModePolicy.CanUseGmail(_incognitoMode);
         GmailInboxButton.ToolTip = _incognitoMode
             ? (ar ? "تكامل Gmail متوقف أثناء المحادثة الخاصة." : "Gmail is disabled during private chat.")
             : (ar ? "عرض بريد Gmail محليًا بصلاحية قراءة فقط؛ لا تتم مشاركته تلقائيًا." : "Preview Gmail locally with read-only access; messages are not shared automatically.");
@@ -742,7 +746,7 @@ public partial class MainWindow : Window
 
     private void OpenQuickAskWindow()
     {
-        if (_incognitoMode)
+        if (!PrivateChatModePolicy.CanUseQuickAsk(_incognitoMode))
         {
             SetChatActivityStatus(IsArabic
                 ? "السؤال السريع غير متاح أثناء المحادثة الخاصة؛ استخدم نافذة المحادثة المؤقتة فقط."
@@ -1022,6 +1026,8 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        _incognitoMode = false;
+        AppRuntime.IsPrivateChatActive = false;
         _clipboardReadCancellation?.Cancel();
         _clockTimer.Stop();
         _weatherRefreshTimer.Stop();
@@ -5593,7 +5599,7 @@ public partial class MainWindow : Window
 
     private void SaveCurrentChatMessages()
     {
-        if (_incognitoMode)
+        if (!PrivateChatModePolicy.CanPersistChatMessages(_incognitoMode))
             return;
 
         try
@@ -5770,7 +5776,7 @@ public partial class MainWindow : Window
     private void RefreshChatSessions(string? selectedId = null)
     {
         _refreshingChatSessions = true;
-        if (_incognitoMode)
+        if (!PrivateChatModePolicy.CanAccessSavedChatHistory(_incognitoMode))
         {
             try
             {
@@ -5798,7 +5804,7 @@ public partial class MainWindow : Window
 
     private void NewConversationButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_incognitoMode)
+        if (!PrivateChatModePolicy.CanAccessSavedChatHistory(_incognitoMode))
         {
             SetChatActivityStatus(IsArabic ? "أنهِ المحادثة الخاصة ثم ابدأ محادثة محفوظة جديدة." : "Exit private chat before creating a saved conversation.");
             return;
@@ -5822,7 +5828,7 @@ public partial class MainWindow : Window
 
     private void ClearSavedChatHistoryButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_incognitoMode)
+        if (!PrivateChatModePolicy.CanAccessSavedChatHistory(_incognitoMode))
         {
             SetChatActivityStatus(IsArabic ? "مسح السجل المحفوظ غير متاح أثناء المحادثة الخاصة." : "Clearing saved history is unavailable during private chat.");
             return;
@@ -5852,7 +5858,7 @@ public partial class MainWindow : Window
 
     private void ChatHistorySelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_incognitoMode)
+        if (!PrivateChatModePolicy.CanAccessSavedChatHistory(_incognitoMode))
         {
             ChatHistorySelector.SelectedItem = null;
             return;
@@ -6382,6 +6388,9 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInTimer_Tick(object? sender, EventArgs e)
     {
+        if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
+            return;
+
         var now = DateTimeOffset.Now;
         var last = AppRuntime.Settings.LastProactiveCheckInAt;
         if (last is null)
@@ -6405,7 +6414,8 @@ public partial class MainWindow : Window
                 applicationExiting: AppRuntime.IsExiting,
                 lastNotifiedAt: last,
                 now: now,
-                intervalMinutes: AppRuntime.Settings.ProactiveCheckInIntervalMinutes))
+                intervalMinutes: AppRuntime.Settings.ProactiveCheckInIntervalMinutes,
+                privateChatActive: AppRuntime.IsPrivateChatActive))
             return;
 
         // Persist the next time before notifying. If the machine wakes after several missed
@@ -6724,6 +6734,13 @@ public partial class MainWindow : Window
 
     private void CopyTaskTextToClipboard(string text, string label)
     {
+        if (!PrivateChatModePolicy.CanCopyTaskData(_incognitoMode))
+        {
+            SetAccessibleStatusText(TaskCopyStatus, IsArabic
+                ? "نسخ بيانات المهام غير متاح أثناء المحادثة الخاصة."
+                : "Copying task data is unavailable during private chat.");
+            return;
+        }
         if (string.IsNullOrWhiteSpace(text))
         {
             SetAccessibleStatusText(TaskCopyStatus, IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.");
@@ -6771,6 +6788,8 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => AddTaskEvent(text));
             return;
         }
+        if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
+            return;
         var message = text.Length >= 10 && text[2] == ':' && text[5] == ':' && text[8] == ' '
             ? text[10..]
             : text;
@@ -6847,11 +6866,30 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private void ClearTaskWorkspaceSurface()
+    {
+        _refreshingRecentTasks = true;
+        try
+        {
+            RecentTasks.Clear();
+            RecentTasksList.SelectedItem = null;
+        }
+        finally { _refreshingRecentTasks = false; }
+
+        TaskEvents.Clear();
+        _rawTaskEvents.Clear();
+        TaskInput.Clear();
+        TaskResult.Clear();
+        TaskCopyStatus.Text = string.Empty;
+        TaskProgressStatus.Text = string.Empty;
+        TaskProgressBar.Value = 0;
+    }
+
     private void RefreshRecentTasks(string? selectTaskId = null)
     {
         if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
         {
-            RecentTasks.Clear();
+            ClearTaskWorkspaceSurface();
             return;
         }
 
@@ -6879,12 +6917,22 @@ public partial class MainWindow : Window
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!PrivateChatModePolicy.CanAccessTaskDetails(_incognitoMode))
+        {
+            ClearTaskWorkspaceSurface();
+            return;
+        }
         if (_refreshingRecentTasks || RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
         DisplayTaskHistoryRecord(selectedTask.Record);
     }
 
     private void DisplayTaskHistoryRecord(AgentTaskRecord task)
     {
+        if (!PrivateChatModePolicy.CanAccessTaskDetails(_incognitoMode))
+        {
+            ClearTaskWorkspaceSurface();
+            return;
+        }
         TaskEvents.Clear();
         _rawTaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
