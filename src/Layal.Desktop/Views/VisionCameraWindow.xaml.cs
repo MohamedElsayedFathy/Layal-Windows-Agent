@@ -111,7 +111,7 @@ public partial class VisionCameraWindow : System.Windows.Window
         AutomationProperties.SetName(CameraStatusText, _isArabic ? "حالة الكاميرا" : "Camera status");
     }
 
-    private void VisionCameraWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void VisionCameraWindow_Loaded(object sender, RoutedEventArgs e)
     {
         if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
         {
@@ -121,37 +121,66 @@ public partial class VisionCameraWindow : System.Windows.Window
             StopForPrivacyShield();
             return;
         }
+        if (_switchingSource || _captureReady) return;
 
+        _switchingSource = true;
+        UseLocalCameraButton.IsEnabled = false;
+        ScanNetworkCamerasButton.IsEnabled = false;
+        ConnectNetworkCameraButton.IsEnabled = false;
+        CameraStatusText.Text = _isArabic ? "جارٍ فتح كاميرا الكمبيوتر..." : "Opening the computer camera...";
+        VideoCapture? candidate = null;
         try
         {
-            _capture = new VideoCapture();
-            _captureReady = _capture.Open(0, VideoCaptureAPIs.DSHOW);
-            if (!_captureReady)
-                _captureReady = _capture.Open(0, VideoCaptureAPIs.MSMF);
-            if (!_captureReady)
-            {
-                CameraStatusText.Text = _isArabic
-                    ? "تعذر فتح الكاميرا. تحقق من توصيلها وإذن Windows وعدم استخدامها من تطبيق آخر."
-                    : "Could not open the camera. Check its connection, Windows privacy permission, and whether another app is using it.";
-                AnalyzeCurrentFrameButton.IsEnabled = false;
-                CameraStatusChanged?.Invoke(false);
+            candidate = new VideoCapture();
+            var opened = await OpenLocalCaptureAsync(candidate, () => candidate = null, _lifetimeToken);
+            _lifetimeToken.ThrowIfCancellationRequested();
+            if (_isClosing || !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
                 return;
-            }
+            if (!opened)
+                throw new InvalidOperationException(_isArabic
+                    ? "تعذر فتح الكاميرا. تحقق من توصيلها وإذن Windows وعدم استخدامها من تطبيق آخر."
+                    : "Could not open the camera. Check its connection, Windows privacy permission, and whether another app is using it.");
 
+            _capture = candidate;
+            candidate = null;
+            _captureReady = true;
+            _isNetworkCamera = false;
+            ClearLatestFrame();
             _previewTimer.Start();
-            CameraStatusText.Text = _isArabic ? "الكاميرا نشطة محليًا — لم تُرسل أي صورة بعد." : "Camera is previewing locally — no image has been sent yet.";
+            CameraStatusText.Text = _isArabic
+                ? "الكاميرا نشطة محليًا — لم تُرسل أي صورة بعد."
+                : "Camera is previewing locally — no image has been sent yet.";
             CameraStatusChanged?.Invoke(true);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إلغاء فتح الكاميرا." : "Camera startup was cancelled.";
         }
         catch (Exception ex)
         {
-            _captureReady = false;
-            CameraStatusText.Text = (_isArabic ? "تعذر تشغيل الكاميرا: " : "Could not start camera: ") + ex.Message;
-            AnalyzeCurrentFrameButton.IsEnabled = false;
-            CameraStatusChanged?.Invoke(false);
+            if (!_isClosing)
+            {
+                _captureReady = false;
+                CameraStatusText.Text = (_isArabic ? "تعذر تشغيل الكاميرا: " : "Could not start camera: ") + SafeCameraError(ex);
+                AnalyzeCurrentFrameButton.IsEnabled = false;
+                CameraStatusChanged?.Invoke(false);
+            }
+        }
+        finally
+        {
+            candidate?.Dispose();
+            if (!_isClosing)
+            {
+                _switchingSource = false;
+                UseLocalCameraButton.IsEnabled = true;
+                ScanNetworkCamerasButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+            }
         }
     }
 
-    private async void PreviewTimer_Tick(object? sender, EventArgs e)
+        private async void PreviewTimer_Tick(object? sender, EventArgs e)
     {
         if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
         {
@@ -434,6 +463,35 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
     }
 
+    private static async Task<bool> OpenLocalCaptureAsync(
+        VideoCapture capture, Action transferOwnership, CancellationToken cancellationToken)
+    {
+        // Native camera opens cannot be interrupted safely. Run them off the dispatcher and
+        // dispose only after Open returns if cancellation or the timeout wins.
+        cancellationToken.ThrowIfCancellationRequested();
+        var opening = Task.Run(() =>
+        {
+            if (capture.Open(0, VideoCaptureAPIs.DSHOW)) return true;
+            return capture.Open(0, VideoCaptureAPIs.MSMF);
+        });
+        var timeout = Task.Delay(TimeSpan.FromSeconds(15));
+        var cancelled = Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        var completed = await Task.WhenAny(opening, timeout, cancelled);
+        if (!ReferenceEquals(completed, opening))
+        {
+            transferOwnership();
+            _ = opening.ContinueWith(task =>
+            {
+                _ = task.Exception;
+                capture.Dispose();
+            }, TaskScheduler.Default);
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new TimeoutException("Opening the local camera exceeded 15 seconds.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return await opening;
+    }
     private static async Task<bool> OpenNetworkCaptureAsync(
         VideoCapture capture, string address, Action transferOwnership, CancellationToken cancellationToken)
     {
