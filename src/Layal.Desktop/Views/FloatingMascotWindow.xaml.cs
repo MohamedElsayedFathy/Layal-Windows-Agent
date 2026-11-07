@@ -342,7 +342,7 @@ public partial class FloatingMascotWindow : Window
 
         if (_glbPreviewEnabled)
         {
-            if (budget.PlayGlbAnimation && IsVisible)
+            if (automatedTest || (budget.PlayGlbAnimation && IsVisible))
                 _gltfPreviewRenderer?.Start();
             else
                 _gltfPreviewRenderer?.Stop();
@@ -1801,7 +1801,8 @@ public partial class FloatingMascotWindow : Window
             CharacterLayer.Visibility = UseSpriteCharacter ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        if (_glbPreviewEnabled && CurrentPerformanceBudget.PlayGlbAnimation && IsVisible)
+        if (_glbPreviewEnabled &&
+            (automatedGlbPreviewTest || (CurrentPerformanceBudget.PlayGlbAnimation && IsVisible)))
             _gltfPreviewRenderer?.Start();
         else
             _gltfPreviewRenderer?.Stop();
