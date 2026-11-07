@@ -229,7 +229,7 @@ function Write-AcceptanceReports {
     $blocked = @($script:Checks | Where-Object Status -eq 'BLOCKED')
     $skipped = @($script:Checks | Where-Object Status -eq 'SKIPPED')
     $passed = @($script:Checks | Where-Object Status -eq 'PASS')
-    $automatedStatus = if ($failed.Count -eq 0 -and $passed.Count -gt 0) { 'PASS' } else { 'FAIL' }
+    $automatedStatus = if ($failed.Count -gt 0) { 'FAIL' } elseif ($blocked.Count -gt 0) { 'BLOCKED' } elseif ($passed.Count -gt 0) { 'PASS' } else { 'INCOMPLETE' }
     $manualGates = @(
         [pscustomobject]@{ Gate = 'الميكروفون والتعرف على الكلام والرد الصوتي'; Status = 'PENDING'; Reason = 'يتطلب أجهزة فعلية وعينات صوتية مرجعية وقياسًا بشريًا للجودة والتأخير.' }
         [pscustomobject]@{ Gate = 'الكاميرا وONVIF وRTSP/RTSPS'; Status = 'PENDING'; Reason = 'يتطلب كاميرا أو جهاز بث وشبكة محلية وبيانات اعتماد تجريبية وموافقة المستخدم.' }
@@ -242,6 +242,8 @@ function Write-AcceptanceReports {
     )
     $decision = if ($failed.Count -gt 0) {
         'FAIL — one or more automated acceptance checks failed'
+    } elseif ($blocked.Count -gt 0) {
+        'BLOCKED — one or more requested acceptance stages could not run'
     } else {
         'AUTOMATED PASS — FINAL ACCEPTANCE PENDING MANUAL / EXTERNAL GATES'
     }
@@ -364,7 +366,7 @@ function Write-AcceptanceReports {
     Write-Host "Markdown: $markdownPath"
     Write-Host "Requirements matrix: $requirementsCsv"
     Write-Host "AYO matrix: $ayoCsv"
-    return [pscustomobject]@{ Decision = $decision; AutomatedStatus = $automatedStatus; FailedCount = $failed.Count }
+    return [pscustomobject]@{ Decision = $decision; AutomatedStatus = $automatedStatus; FailedCount = $failed.Count; BlockedCount = $blocked.Count }
 }
 
 try {
@@ -592,7 +594,7 @@ try {
     }
 
     $result = Write-AcceptanceReports
-    if ($result.FailedCount -gt 0) { exit 1 }
+    if ($result.FailedCount -gt 0 -or $result.BlockedCount -gt 0) { exit 1 }
     exit 0
 }
 catch {
