@@ -1,37 +1,41 @@
-# Layal 0.5.0 — light theme contrast notes
+# AYO-29 — الثيمات والألوان المتعددة
 
-The revised theme uses a low-glare cool-white background, white panels, blue-gray separators, dark slate text, and restrained cyan/lilac accents. The mascot keeps a dark face display so the eyes and expressions remain legible against its pearl shell and both light and dark desktop backgrounds.
+## السلوك
 
-## Main palette
+يدعم التطبيق أربع مجموعات ألوان مستقلة:
+- **Classic** — الأزرق والنيلي الأصليان.
+- **Ocean** — الأزرق البحري والفيروزي.
+- **Forest** — الأخضر مع اللمسات البنفسجية.
+- **Sunset** — الوردي والبرقوقي.
 
-| Purpose | Color | Intended use |
-|---|---|---|
-| Application background | `#F4F7FC` | Cool, low-glare window surface |
-| Panel | `#FFFFFF` | Cards, content and inputs |
-| Main text | `#1C2940` | Body text and headings |
-| Muted text | `#63738A` | Helper text and labels |
-| Cyan accent | `#087B8F` | Links, focus, selected markers |
-| Purple accent | `#7563D6` | Secondary emphasis and mascot detail |
-| Success | `#177A57` | Successful status text |
-| Warning | `#946200` | Warning status text |
-| Danger | `#BD3C55` | Error/destructive status text |
-| Primary surface gradient | `#A3E3E7` → `#C8C0F7` | Primary controls with dark text |
+لكل مجموعة وضع **فاتح** و**داكن** مستقل. يحفظ التطبيق ThemePreset وThemeMode محليًا ضمن إعدادات المستخدم، ولا يؤدي تبديل أحدهما إلى إعادة ضبط الآخر. يطبّق الاختيار فورًا على الفرش والتدرجات المستخدمة بواسطة DynamicResource.
 
-## Calculated contrast checks
+## أولوية إمكانية الوصول
 
-Contrast ratios were calculated from the listed sRGB colors using the WCAG relative-luminance formula. Approximate ratios:
+عند تفعيل Windows High Contrast، تتجاوز ألوان Windows المجموعات الأربعة والوضع الفاتح/الداكن. يحوّل التطبيق الخلفيات والبطاقات والأزرار إلى أسطح نظام صلبة، ويوقف الوهج والظلال الزخرفية، ويستخدم لون التمييز ولون نص التمييز من Windows. يظل خيار الثيم محفوظًا ويعود بعد إيقاف High Contrast.
 
-- Main text `#1C2940` on background `#F4F7FC`: **13.58:1**.
-- Main text `#1C2940` on white: **14.58:1**.
-- Muted text `#63738A` on white: **4.83:1**.
-- Cyan `#087B8F` on white: **4.95:1**.
-- Success `#177A57` on white: **5.31:1**.
-- Warning `#946200` on white: **5.24:1**.
-- Danger `#BD3C55` on white: **5.33:1**.
-- Main text on both ends of the primary gradient: **10.20:1** and **8.57:1**.
+## حدود التباين التي تتحقق منها الاختبارات
 
-These are color-pair calculations, not a substitute for checking the rendered UI, disabled controls, thin focus indicators, icons, and text over gradients on a real Windows display.
+تحسب الاختبارات السطوع النسبي وفق صيغة WCAG لألوان sRGB وتختبر كل تركيبة من المجموعات الأربع والوضعين:
 
-## Mascot appearance
+| العنصر | الهدف |
+|---|---:|
+| النص الأساسي أمام أسطح المحتوى وحالات hover/selected/focus | 7:1 على الأقل |
+| النص الثانوي أمام الأسطح نفسها | 4.5:1 على الأقل |
+| حالات النجاح والتحذير والخطأ أمام الخلفية واللوحة | 4.5:1 على الأقل |
+| مقبض شريط التمرير أمام مساره الفعلي (SurfaceRaised) | 2:1 على الأقل |
+| النص الأبيض فوق طرفي تدرج Accent | 4.5:1 على الأقل |
+| نص الزر الأساسي فوق طرفي تدرجه | 4.5:1 على الأقل |
 
-The mascot uses a pearl-white/light-lavender outer shell and layered cyan/violet modules around a dark high-contrast face display. The outer shell, aura, orbit dots, eye highlights, cheeks, side pods, status ring, and small feet are vector elements so facial states can continue to update in WPF. The redesign preserves the existing named controls expected by the state controller.
+لون مقبض شريط التمرير في الوضع الفاتح هو #9BAEC7، وفي الوضع الداكن #566F8A حتى يحافظ وضع Ocean الداكن على الحد المطلوب فوق مسار التمرير. كما عُدّلت درجات Accent في Ocean وForest كي يظل النص الأبيض فوق التدرج مقروءًا في الوضعين.
+
+هذه اختبارات لأزواج الألوان المعرّفة في موارد التطبيق، وليست ادعاءً باجتياز كل حالة مرئية أو عنصر معطّل أو صورة/نص فوق الزجاج الشفاف. يلزم الفحص البصري على جهاز Windows لكل التبويبات وحالات التفاعل وDPI.
+
+## القبول اليدوي على Windows
+
+- تحقق من كل مجموعة في الوضعين الفاتح والداكن، ثم أعد التشغيل وتأكد من بقاء المجموعة والوضع محفوظين بصورة مستقلة.
+- افحص النص والروابط والبطاقات والأزرار والحدود ومؤشرات التركيز وحالات hover/pressed/disabled ورسائل النجاح والتحذير والخطأ.
+- فعّل Windows High Contrast قبل تشغيل التطبيق وبعده؛ يجب أن تتقدم ألوان النظام على ألوان Layal وألا تختفي حدود التحكم أو مؤشرات التركيز.
+- أعد الاختبار بالعربية RTL والإنجليزية LTR وعلى مقاييس DPI متعددة وشاشة خارجية إن توفرت.
+
+لا يُستبدل هذا القبول اليدوي بنتائج اختبارات الوحدة أو بناء Windows.
