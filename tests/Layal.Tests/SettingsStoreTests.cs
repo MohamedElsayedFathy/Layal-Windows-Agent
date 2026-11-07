@@ -119,6 +119,7 @@ public sealed class SettingsStoreTests
             ThemeMode = "dark",
             ThemePreset = "ocean",
             AssistantPersona = "focused",
+            VoiceReplyId = "shimmer",
             VoiceDeliveryStyleId = "gentle",
             MascotCharacterDisplayMode = "robot",
             QuickAskHotkeyPreset = "AltShiftQ",
@@ -151,6 +152,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("AltShiftQ", reloaded.QuickAskHotkeyPreset);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
         Assert.AreEqual("focused", reloaded.AssistantPersona);
+        Assert.AreEqual("shimmer", reloaded.VoiceReplyId, "A valid user's selected voice must not be silently replaced during load.");
         Assert.AreEqual("gentle", reloaded.VoiceDeliveryStyleId);
         Assert.AreEqual("robot", reloaded.MascotCharacterDisplayMode);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
