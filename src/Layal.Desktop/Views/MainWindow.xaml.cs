@@ -3400,7 +3400,8 @@ public partial class MainWindow : Window
             await _localVoiceService.SpeakAsync(
                 "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak locally and clearly.",
                 cancellation.Token,
-                AppRuntime.Settings.AudioOutputDeviceId);
+                AppRuntime.Settings.AudioOutputDeviceId,
+                AppRuntime.Settings.VoiceDeliveryStyleId);
             SetAccessibleStatusText(ProviderActionStatus, IsArabic
                 ? "انتهت تجربة الصوت المحلي؛ لم يُرسل النص إلى خادم."
                 : "Local voice preview completed; text was not sent to a server.");
