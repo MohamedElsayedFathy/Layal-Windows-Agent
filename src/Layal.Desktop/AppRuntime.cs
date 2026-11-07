@@ -31,16 +31,25 @@ public static class AppRuntime
     public static TrayService? Tray { get; set; }
     public static Action? ExitAction { get; set; }
     public static bool IsExiting { get; set; }
+    /// <summary>Transient process state; never persisted. True only while MainWindow owns a private chat.</summary>
+    public static bool IsPrivateChatActive { get; set; }
+
     /// <summary>
     /// Reconciles the single Windows dispatch task with both saved reminders and the optional
-    /// local check-in. Check-ins are never scheduled while disabled or while the privacy shield
-    /// or manual game mode is active.
+    /// local check-in. Incognito removes the dispatch task without modifying saved reminder
+    /// records or their due times; startup or private-mode exit schedules it again.
     /// </summary>
     public static void SynchronizeLocalNotifications()
     {
         var scheduler = ReminderTaskSchedulerService;
         if (scheduler is null || ReminderService is null)
             return;
+
+        if (!PrivateChatModePolicy.CanDeliverLocalNotifications(IsPrivateChatActive))
+        {
+            scheduler.DeleteTaskIfPresent();
+            return;
+        }
 
         var proactiveDueAt = ProactiveCheckInPolicy.GetNextDueAt(
             enabled: Settings.ProactiveCheckInEnabled,
