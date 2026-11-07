@@ -22,6 +22,7 @@ public sealed class ChatSessionService
     private string _currentId = string.Empty;
     private List<ChatConversation>? _temporarySessionSnapshot;
     private string? _temporaryCurrentId;
+    private string? _temporaryDefaultTitle;
 
     /// <summary>True while conversation mutations are isolated from the encrypted persistent store.</summary>
     public bool IsTemporarySession => _temporarySessionSnapshot is not null;
@@ -93,6 +94,7 @@ public sealed class ChatSessionService
 
         _temporarySessionSnapshot = _sessions.Select(CloneConversation).ToList();
         _temporaryCurrentId = _currentId;
+        _temporaryDefaultTitle = _defaultTitle;
     }
 
     /// <summary>Discards temporary mutations and restores the saved conversations and selection.</summary>
@@ -106,8 +108,11 @@ public sealed class ChatSessionService
         _currentId = _temporaryCurrentId ??
             _sessions.OrderByDescending(session => session.UpdatedAt).FirstOrDefault()?.Id ??
             string.Empty;
+        if (_temporaryDefaultTitle is not null)
+            _defaultTitle = _temporaryDefaultTitle;
         _temporarySessionSnapshot = null;
         _temporaryCurrentId = null;
+        _temporaryDefaultTitle = null;
     }
 
     public ChatConversation GetCurrent() => FindCurrent();
