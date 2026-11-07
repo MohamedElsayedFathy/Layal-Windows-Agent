@@ -44,6 +44,23 @@ public sealed class ClipboardImageAttachmentEncoderTests
     }
 
     [TestMethod]
+    public void EncodedClipboardImageAcceptsExactByteBudget()
+    {
+        ClipboardImageAttachmentEncoder.ValidateEncodedByteLength(
+            ClipboardImageAttachmentEncoder.MaximumBytes);
+    }
+
+    [TestMethod]
+    public void EncodedClipboardImageRejectsEmptyAndOversizedOutput()
+    {
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            ClipboardImageAttachmentEncoder.ValidateEncodedByteLength(0));
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            ClipboardImageAttachmentEncoder.ValidateEncodedByteLength(
+                ClipboardImageAttachmentEncoder.MaximumBytes + 1L));
+    }
+
+    [TestMethod]
     public void ClipboardImageDimensionsAcceptExactPixelBudget()
     {
         ClipboardImageAttachmentEncoder.ValidateDimensions(20_000, 2_000);
