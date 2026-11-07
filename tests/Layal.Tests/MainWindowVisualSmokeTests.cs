@@ -344,6 +344,8 @@ public sealed class MainWindowVisualSmokeTests
                 ?? throw new InvalidOperationException("Reminder timer was not found.");
             var proactiveTimerField = typeof(MainWindow).GetField("_proactiveCheckInTimer", flags)
                 ?? throw new InvalidOperationException("Proactive check-in timer was not found.");
+            var reminderTimerWasEnabled = ((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled;
+            var proactiveTimerWasEnabled = ((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled;
             Assert.IsFalse(((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled,
                 "Saved reminder delivery must pause during private chat.");
             Assert.IsFalse(((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled,
@@ -467,8 +469,12 @@ public sealed class MainWindowVisualSmokeTests
                 "Exiting private mode must restore normal chat persistence.");
             Assert.IsFalse(AppRuntime.IsPrivateChatActive,
                 "The process-wide private flag must be cleared after exiting Incognito.");
-            Assert.IsTrue(((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled,
-                "Saved reminder delivery must resume after private chat.");
+            Assert.AreEqual(reminderTimerWasEnabled,
+                ((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled,
+                "Saved reminder delivery must return to its exact pre-Incognito state.");
+            Assert.AreEqual(proactiveTimerWasEnabled && AppRuntime.Settings.ProactiveCheckInEnabled,
+                ((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled,
+                "Proactive check-ins must return to their pre-Incognito state unless the feature is now disabled.");
             Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
             Assert.IsTrue(tasksTab.IsEnabled, "Task workspace should return after private chat.");
             Assert.IsTrue(memoryTab.IsEnabled, "Memory workspace should return after private chat.");
@@ -1591,6 +1597,7 @@ public sealed class MainWindowVisualSmokeTests
             new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor,
             AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
         AppRuntime.IsExiting = false;
+        AppRuntime.IsPrivateChatActive = false;
     }
 
     private static void SaveSnapshot(
