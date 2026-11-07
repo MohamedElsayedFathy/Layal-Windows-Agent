@@ -6917,12 +6917,14 @@ public partial class MainWindow : Window
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_refreshingRecentTasks)
+            return;
         if (!PrivateChatModePolicy.CanAccessTaskDetails(_incognitoMode))
         {
             ClearTaskWorkspaceSurface();
             return;
         }
-        if (_refreshingRecentTasks || RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
+        if (RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
         DisplayTaskHistoryRecord(selectedTask.Record);
     }
 
