@@ -347,8 +347,8 @@ public sealed class MainWindowVisualSmokeTests
         var taskCopyStatus = (TextBlock?)window.FindName("TaskCopyStatus")
             ?? throw new InvalidOperationException("Task copy status was not found.");
 
-        refreshTasks.Invoke(window, null);
-        refreshMemory.Invoke(window, null);
+        refreshTasks.Invoke(window, new object?[] { null });
+        refreshMemory.Invoke(window, new object?[] { null });
         Assert.IsTrue(window.RecentTasks.Any(item => item.Id == savedTask.Id),
             "The saved task fixture must be visible before entering private chat.");
         Assert.IsTrue(window.MemoryNotes.Any(note => note.Id == savedMemory.Id),
