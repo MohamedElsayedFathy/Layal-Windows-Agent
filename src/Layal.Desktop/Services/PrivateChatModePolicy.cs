@@ -11,5 +11,19 @@ public static class PrivateChatModePolicy
     public static bool CanStartAgentTask(bool privateChatActive) =>
         CanAccessTaskWorkspace(privateChatActive);
 
+    public static bool CanAccessTaskDetails(bool privateChatActive) =>
+        CanAccessTaskWorkspace(privateChatActive);
+
+    public static bool CanCopyTaskData(bool privateChatActive) =>
+        CanAccessTaskWorkspace(privateChatActive);
+
     public static bool CanAccessPersonalMemory(bool privateChatActive) => !privateChatActive;
+
+    public static bool CanAccessSavedChatHistory(bool privateChatActive) => !privateChatActive;
+
+    public static bool CanPersistChatMessages(bool privateChatActive) => !privateChatActive;
+
+    public static bool CanUseQuickAsk(bool privateChatActive) => !privateChatActive;
+
+    public static bool CanUseGmail(bool privateChatActive) => !privateChatActive;
 }
