@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Media.Imaging;
@@ -24,6 +25,8 @@ public partial class VisionCameraWindow : System.Windows.Window
     private bool _switchingSource;
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(120) };
     private readonly DispatcherTimer _observationTimer = new() { Interval = TimeSpan.FromSeconds(10) };
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly CancellationToken _lifetimeToken;
     private byte[]? _latestJpeg;
     private bool _captureReady;
     private bool _frameReadInProgress;
@@ -43,6 +46,7 @@ public partial class VisionCameraWindow : System.Windows.Window
     public VisionCameraWindow(bool isArabic)
     {
         _isArabic = isArabic;
+        _lifetimeToken = _lifetimeCancellation.Token;
         InitializeComponent();
         ApplyLanguage();
         DiscoveredCamerasSelector.ItemsSource = _discoveredCameras;
@@ -107,39 +111,82 @@ public partial class VisionCameraWindow : System.Windows.Window
         AutomationProperties.SetName(CameraStatusText, _isArabic ? "حالة الكاميرا" : "Camera status");
     }
 
-    private void VisionCameraWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void VisionCameraWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        {
+            CameraStatusText.Text = _isArabic
+                ? "درع الخصوصية مفعّل؛ لم تُفتح الكاميرا."
+                : "The privacy shield is active; the camera was not opened.";
+            StopForPrivacyShield();
+            return;
+        }
+        if (_switchingSource || _captureReady) return;
+
+        _switchingSource = true;
+        UseLocalCameraButton.IsEnabled = false;
+        ScanNetworkCamerasButton.IsEnabled = false;
+        ConnectNetworkCameraButton.IsEnabled = false;
+        CameraStatusText.Text = _isArabic ? "جارٍ فتح كاميرا الكمبيوتر..." : "Opening the computer camera...";
+        VideoCapture? candidate = null;
         try
         {
-            _capture = new VideoCapture();
-            _captureReady = _capture.Open(0, VideoCaptureAPIs.DSHOW);
-            if (!_captureReady)
-                _captureReady = _capture.Open(0, VideoCaptureAPIs.MSMF);
-            if (!_captureReady)
-            {
-                CameraStatusText.Text = _isArabic
-                    ? "تعذر فتح الكاميرا. تحقق من توصيلها وإذن Windows وعدم استخدامها من تطبيق آخر."
-                    : "Could not open the camera. Check its connection, Windows privacy permission, and whether another app is using it.";
-                AnalyzeCurrentFrameButton.IsEnabled = false;
-                CameraStatusChanged?.Invoke(false);
+            candidate = new VideoCapture();
+            var opened = await OpenLocalCaptureAsync(candidate, () => candidate = null, _lifetimeToken);
+            _lifetimeToken.ThrowIfCancellationRequested();
+            if (_isClosing || !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
                 return;
-            }
+            if (!opened)
+                throw new InvalidOperationException(_isArabic
+                    ? "تعذر فتح الكاميرا. تحقق من توصيلها وإذن Windows وعدم استخدامها من تطبيق آخر."
+                    : "Could not open the camera. Check its connection, Windows privacy permission, and whether another app is using it.");
 
+            _capture = candidate;
+            candidate = null;
+            _captureReady = true;
+            _isNetworkCamera = false;
+            ClearLatestFrame();
             _previewTimer.Start();
-            CameraStatusText.Text = _isArabic ? "الكاميرا نشطة محليًا — لم تُرسل أي صورة بعد." : "Camera is previewing locally — no image has been sent yet.";
+            CameraStatusText.Text = _isArabic
+                ? "الكاميرا نشطة محليًا — لم تُرسل أي صورة بعد."
+                : "Camera is previewing locally — no image has been sent yet.";
             CameraStatusChanged?.Invoke(true);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إلغاء فتح الكاميرا." : "Camera startup was cancelled.";
         }
         catch (Exception ex)
         {
-            _captureReady = false;
-            CameraStatusText.Text = (_isArabic ? "تعذر تشغيل الكاميرا: " : "Could not start camera: ") + ex.Message;
-            AnalyzeCurrentFrameButton.IsEnabled = false;
-            CameraStatusChanged?.Invoke(false);
+            if (!_isClosing)
+            {
+                _captureReady = false;
+                CameraStatusText.Text = (_isArabic ? "تعذر تشغيل الكاميرا: " : "Could not start camera: ") + SafeCameraError(ex);
+                AnalyzeCurrentFrameButton.IsEnabled = false;
+                CameraStatusChanged?.Invoke(false);
+            }
+        }
+        finally
+        {
+            candidate?.Dispose();
+            if (!_isClosing)
+            {
+                _switchingSource = false;
+                UseLocalCameraButton.IsEnabled = true;
+                ScanNetworkCamerasButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+            }
         }
     }
 
-    private async void PreviewTimer_Tick(object? sender, EventArgs e)
+        private async void PreviewTimer_Tick(object? sender, EventArgs e)
     {
+        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        {
+            StopForPrivacyShield();
+            return;
+        }
         if (!_captureReady || _isClosing || _frameReadInProgress) return;
         var source = _capture;
         if (source is null) return;
@@ -172,8 +219,16 @@ public partial class VisionCameraWindow : System.Windows.Window
         try
         {
             var bytes = await readTask;
-            if (bytes is null || _isClosing || !_captureReady || !ReferenceEquals(source, _capture)) return;
+            if (bytes is null) return;
+            if (_isClosing || !_captureReady || !ReferenceEquals(source, _capture) ||
+                !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+            {
+                PrivacyShieldPolicy.ClearCapturedBuffer(bytes);
+                if (!_isClosing) StopForPrivacyShield();
+                return;
+            }
 
+            ClearLatestFrame();
             _latestJpeg = bytes;
             using var stream = new MemoryStream(bytes, writable: false);
             var bitmap = new BitmapImage();
@@ -210,6 +265,9 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private async void ScanNetworkCamerasButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_switchingSource || !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+            return;
+
         var consent = MessageBox.Show(this,
             _isArabic
                 ? "سيُرسل التطبيق طلب اكتشاف ONVIF متعدد الإرسال إلى الشبكة المحلية لاكتشاف الأجهزة التي تعلن أنها كاميرات. لن يُجرّب كلمات مرور أو يفتح البث أثناء الفحص. لا تتابع إلا إذا كنت مخولًا بفحص هذه الشبكة. هل تريد المتابعة؟"
@@ -217,13 +275,19 @@ public partial class VisionCameraWindow : System.Windows.Window
             _isArabic ? "تأكيد فحص الشبكة المحلية" : "Confirm local network scan",
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (consent != MessageBoxResult.Yes) return;
+        if (_switchingSource || !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+            return;
 
+        _switchingSource = true;
         ScanNetworkCamerasButton.IsEnabled = false;
         ConnectNetworkCameraButton.IsEnabled = false;
+        UseLocalCameraButton.IsEnabled = false;
         CameraStatusText.Text = _isArabic ? "جارٍ البحث عن كاميرات ONVIF محلية لمدة تصل إلى 4 ثوانٍ..." : "Searching for local ONVIF cameras for up to 4 seconds...";
         try
         {
-            var cameras = await _onvifDiscovery.DiscoverAsync(TimeSpan.FromSeconds(4));
+            var cameras = await _onvifDiscovery.DiscoverAsync(TimeSpan.FromSeconds(4), _lifetimeToken);
+            _lifetimeToken.ThrowIfCancellationRequested();
+            if (_isClosing) return;
             _discoveredCameras.Clear();
             foreach (var camera in cameras)
                 _discoveredCameras.Add(camera);
@@ -243,22 +307,30 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
         catch (OperationCanceledException)
         {
-            CameraStatusText.Text = _isArabic ? "تم إيقاف فحص الشبكة." : "Network scan was cancelled.";
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إيقاف فحص الشبكة." : "Network scan was cancelled.";
         }
         catch (Exception ex)
         {
-            CameraStatusText.Text = (_isArabic ? "تعذر فحص الشبكة المحلية: " : "Local network scan failed: ") + ex.Message;
+            if (!_isClosing)
+                CameraStatusText.Text = (_isArabic ? "تعذر فحص الشبكة المحلية: " : "Local network scan failed: ") + ex.Message;
         }
         finally
         {
-            ScanNetworkCamerasButton.IsEnabled = true;
-            ConnectNetworkCameraButton.IsEnabled = true;
+            if (!_isClosing)
+            {
+                _switchingSource = false;
+                ScanNetworkCamerasButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+                UseLocalCameraButton.IsEnabled = true;
+            }
         }
     }
 
     private async void ConnectNetworkCameraButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_switchingSource) return;
+        if (_switchingSource || !PrivacyShieldPolicy.CanStartCapture(
+                AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting)) return;
 
         var manualAddress = ManualRtspAddressInput.Text.Trim();
         var camera = string.IsNullOrWhiteSpace(manualAddress)
@@ -317,24 +389,34 @@ public partial class VisionCameraWindow : System.Windows.Window
             CameraPasswordInput.Clear();
             return;
         }
+        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        {
+            CameraPasswordInput.Clear();
+            return;
+        }
 
         _switchingSource = true;
         ConnectNetworkCameraButton.IsEnabled = false;
         ScanNetworkCamerasButton.IsEnabled = false;
+        UseLocalCameraButton.IsEnabled = false;
         CameraStatusText.Text = _isArabic ? "جارٍ التحقق من صلاحية الكاميرا وفتح البث..." : "Authenticating to the camera and opening the stream...";
         VideoCapture? candidate = null;
         try
         {
             Uri streamUri;
             if (camera is not null)
-                streamUri = await _onvifDiscovery.GetAuthenticatedStreamUriAsync(camera, username, password);
+                streamUri = await _onvifDiscovery.GetAuthenticatedStreamUriAsync(camera, username, password, _lifetimeToken);
             else
                 streamUri = manualStreamUri!;
 
+            _lifetimeToken.ThrowIfCancellationRequested();
+            if (_isClosing) return;
             var authenticatedAddress = OnvifCameraDiscoveryService.BuildAuthenticatedStreamAddress(streamUri, username, password);
             candidate = new VideoCapture();
             var openingCapture = candidate;
-            var opened = await OpenNetworkCaptureAsync(openingCapture, authenticatedAddress, () => candidate = null);
+            var opened = await OpenNetworkCaptureAsync(
+                openingCapture, authenticatedAddress, () => candidate = null, _lifetimeToken);
+            _lifetimeToken.ThrowIfCancellationRequested();
             if (_isClosing) return;
             if (!opened)
                 throw new InvalidOperationException(_isArabic
@@ -348,7 +430,7 @@ public partial class VisionCameraWindow : System.Windows.Window
             candidate = null;
             _captureReady = true;
             _isNetworkCamera = true;
-            _latestJpeg = null;
+            ClearLatestFrame();
             try { previous?.Release(); } catch { }
             previous?.Dispose();
             CameraStatusText.Text = _isArabic
@@ -359,43 +441,86 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
         catch (OperationCanceledException)
         {
-            CameraStatusText.Text = _isArabic ? "تم إلغاء الاتصال بكاميرا الشبكة." : "Network camera connection was cancelled.";
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إلغاء الاتصال بكاميرا الشبكة." : "Network camera connection was cancelled.";
         }
         catch (Exception ex)
         {
-            // Never show the credential-bearing RTSP URL or exception text from the native media stack.
-            CameraStatusText.Text = (_isArabic
+            if (!_isClosing)
+            {
+                // Never show the credential-bearing RTSP URL or exception text from the native media stack.
+                CameraStatusText.Text = (_isArabic
                 ? "تعذر الاتصال بكاميرا الشبكة. تحقق من بيانات الدخول ودعم ONVIF/RTSP وصلاحيات المشاهدة. التفاصيل الآمنة: "
                 : "Could not connect to the network camera. Verify credentials, ONVIF/RTSP support, and viewing permissions. Safe detail: ") +
                 SafeCameraError(ex);
+            }
         }
         finally
         {
             candidate?.Dispose();
-            CameraPasswordInput.Clear();
-            _switchingSource = false;
-            ScanNetworkCamerasButton.IsEnabled = true;
-            ConnectNetworkCameraButton.IsEnabled = true;
+            if (!_isClosing)
+            {
+                CameraPasswordInput.Clear();
+                _switchingSource = false;
+                ScanNetworkCamerasButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+                UseLocalCameraButton.IsEnabled = true;
+            }
         }
     }
 
-    private static async Task<bool> OpenNetworkCaptureAsync(VideoCapture capture, string address, Action transferOwnership)
+    private static async Task<bool> OpenLocalCaptureAsync(
+        VideoCapture capture, Action transferOwnership, CancellationToken cancellationToken)
     {
-        // Older pinned OpenCvSharp releases do not expose the overload that sets open/read timeouts.
-        // Keep native RTSP opening off the UI thread and dispose a timed-out capture only after Open returns.
-        var opening = Task.Run(() => capture.Open(address, VideoCaptureAPIs.FFMPEG));
-        var completed = await Task.WhenAny(opening, Task.Delay(TimeSpan.FromSeconds(15)));
+        // Native camera opens cannot be interrupted safely. Run them off the dispatcher and
+        // dispose only after Open returns if cancellation or the timeout wins.
+        cancellationToken.ThrowIfCancellationRequested();
+        var opening = Task.Run(() =>
+        {
+            if (capture.Open(0, VideoCaptureAPIs.DSHOW)) return true;
+            return capture.Open(0, VideoCaptureAPIs.MSMF);
+        });
+        var timeout = Task.Delay(TimeSpan.FromSeconds(15));
+        var cancelled = Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        var completed = await Task.WhenAny(opening, timeout, cancelled);
         if (!ReferenceEquals(completed, opening))
         {
             transferOwnership();
             _ = opening.ContinueWith(task =>
             {
-                _ = task.Exception; // observe any native/open exception before releasing the handle
+                _ = task.Exception;
                 capture.Dispose();
             }, TaskScheduler.Default);
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new TimeoutException("Opening the local camera exceeded 15 seconds.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return await opening;
+    }
+    private static async Task<bool> OpenNetworkCaptureAsync(
+        VideoCapture capture, string address, Action transferOwnership, CancellationToken cancellationToken)
+    {
+        // Native OpenCV open calls cannot be interrupted reliably. On cancellation, transfer
+        // ownership to a continuation that disposes the capture only after Open actually returns.
+        cancellationToken.ThrowIfCancellationRequested();
+        var opening = Task.Run(() => capture.Open(address, VideoCaptureAPIs.FFMPEG));
+        var timeout = Task.Delay(TimeSpan.FromSeconds(15));
+        var cancelled = Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        var completed = await Task.WhenAny(opening, timeout, cancelled);
+        if (!ReferenceEquals(completed, opening))
+        {
+            transferOwnership();
+            _ = opening.ContinueWith(task =>
+            {
+                _ = task.Exception;
+                capture.Dispose();
+            }, TaskScheduler.Default);
+            cancellationToken.ThrowIfCancellationRequested();
             throw new TimeoutException("Opening the local camera stream exceeded 15 seconds.");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var opened = await opening;
         if (opened)
             capture.Set((VideoCaptureProperties)CaptureReadTimeoutProperty, 3000);
@@ -404,20 +529,22 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private async void UseLocalCameraButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_switchingSource) return;
+        if (_switchingSource || !PrivacyShieldPolicy.CanStartCapture(
+                AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting)) return;
         _switchingSource = true;
         UseLocalCameraButton.IsEnabled = false;
+        ConnectNetworkCameraButton.IsEnabled = false;
+        ScanNetworkCamerasButton.IsEnabled = false;
         CameraStatusText.Text = _isArabic ? "جارٍ فتح كاميرا الكمبيوتر..." : "Opening the computer camera...";
         VideoCapture? candidate = null;
         try
         {
             candidate = new VideoCapture();
-            var opened = await Task.Run(() =>
-            {
-                if (candidate.Open(0, VideoCaptureAPIs.DSHOW)) return true;
-                return candidate.Open(0, VideoCaptureAPIs.MSMF);
-            });
-            if (_isClosing) return;
+            var opened = await OpenLocalCaptureAsync(candidate, () => candidate = null, _lifetimeToken);
+            _lifetimeToken.ThrowIfCancellationRequested();
+            if (_isClosing || !PrivacyShieldPolicy.CanStartCapture(
+                    AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+                return;
             if (!opened)
                 throw new InvalidOperationException(_isArabic
                     ? "تعذر فتح كاميرا الكمبيوتر. تحقق من إذن Windows ومن عدم استخدامها في تطبيق آخر."
@@ -430,7 +557,7 @@ public partial class VisionCameraWindow : System.Windows.Window
             candidate = null;
             _captureReady = true;
             _isNetworkCamera = false;
-            _latestJpeg = null;
+            ClearLatestFrame();
             try { previous?.Release(); } catch { }
             previous?.Dispose();
             CameraStatusText.Text = _isArabic
@@ -439,20 +566,31 @@ public partial class VisionCameraWindow : System.Windows.Window
             _previewTimer.Start();
             CameraStatusChanged?.Invoke(true);
         }
+        catch (OperationCanceledException)
+        {
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إلغاء فتح الكاميرا المحلية." : "Local camera startup was cancelled.";
+        }
         catch (Exception ex)
         {
-            CameraStatusText.Text = SafeCameraError(ex);
+            if (!_isClosing)
+                CameraStatusText.Text = SafeCameraError(ex);
         }
         finally
         {
             candidate?.Dispose();
-            CameraPasswordInput.Clear();
-            UseLocalCameraButton.IsEnabled = true;
-            _switchingSource = false;
+            if (!_isClosing)
+            {
+                CameraPasswordInput.Clear();
+                UseLocalCameraButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+                ScanNetworkCamerasButton.IsEnabled = true;
+                _switchingSource = false;
+            }
         }
     }
 
-    private static string SafeCameraError(Exception ex)
+        private static string SafeCameraError(Exception ex)
     {
         var message = ex.Message;
         // Native OpenCV/FFmpeg messages sometimes include input URLs. Do not surface credentials.
@@ -469,6 +607,37 @@ public partial class VisionCameraWindow : System.Windows.Window
         return message;
     }
 
+    /// <summary>Stops the camera immediately and discards its latest in-memory frame.</summary>
+    public void StopForPrivacyShield()
+    {
+        _isClosing = true;
+        _captureReady = false;
+        _lifetimeCancellation.Cancel();
+        _previewTimer.Stop();
+        _observationTimer.Stop();
+        if (ContinuousObservationCheckBox.IsChecked == true)
+            ContinuousObservationCheckBox.IsChecked = false;
+        ClearLatestFrame();
+        CameraPasswordInput.Clear();
+        CameraStatusChanged?.Invoke(false);
+        // Owned windows can be hidden with the main window; close even when not visible
+        // so the native capture device is released and Closed cleanup always runs.
+        try { Close(); }
+        catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Privacy shield could not close the camera window: {0}", ex.Message); }
+    }
+
+    private void ClearLatestFrame()
+    {
+        PrivacyShieldPolicy.ClearCapturedBuffer(_latestJpeg);
+        _latestJpeg = null;
+        if (CameraPreview is not null)
+            CameraPreview.Source = null;
+        if (AnalyzeCurrentFrameButton is not null)
+            AnalyzeCurrentFrameButton.IsEnabled = false;
+        if (ScanSurroundingsButton is not null)
+            ScanSurroundingsButton.IsEnabled = false;
+    }
+
     public void StopAutomaticObservation()
     {
         _observationTimer.Stop();
@@ -483,6 +652,11 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void ObservationTimer_Tick(object? sender, EventArgs e)
     {
+        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        {
+            StopForPrivacyShield();
+            return;
+        }
         if (!_captureReady || _isClosing || ContinuousObservationCheckBox.IsChecked != true || _latestJpeg is null)
             return;
 
@@ -491,6 +665,12 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void ContinuousObservationCheckBox_Click(object sender, RoutedEventArgs e)
     {
+        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        {
+            ContinuousObservationCheckBox.IsChecked = false;
+            _observationTimer.Stop();
+            return;
+        }
         if (ContinuousObservationCheckBox.IsChecked == true)
         {
             var answer = MessageBox.Show(this,
@@ -507,9 +687,11 @@ public partial class VisionCameraWindow : System.Windows.Window
                 return;
             }
 
-            if (!_captureReady)
+            if (!_captureReady || _isClosing ||
+                !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
             {
                 ContinuousObservationCheckBox.IsChecked = false;
+                _observationTimer.Stop();
                 return;
             }
 
@@ -531,6 +713,11 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void AnalyzeCurrentFrameButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        {
+            StopForPrivacyShield();
+            return;
+        }
         if (!_captureReady || _latestJpeg is null)
         {
             CameraStatusText.Text = _isArabic ? "لا توجد لقطة متاحة للتحليل." : "No frame is available to analyze.";
@@ -542,6 +729,11 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void ScanSurroundingsButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        {
+            StopForPrivacyShield();
+            return;
+        }
         if (!_captureReady || _latestJpeg is null)
         {
             CameraStatusText.Text = _isArabic ? "لا توجد لقطة متاحة لمسح المكان." : "No frame is available to scan the surroundings.";
@@ -556,6 +748,8 @@ public partial class VisionCameraWindow : System.Windows.Window
     private async void VisionCameraWindow_Closed(object? sender, EventArgs e)
     {
         _isClosing = true;
+        _captureReady = false;
+        _lifetimeCancellation.Cancel();
         CameraStatusChanged?.Invoke(false);
         _previewTimer.Stop();
         _observationTimer.Stop();
@@ -570,8 +764,9 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
         try { _capture?.Release(); } catch { }
         _capture?.Dispose();
+        _capture = null;
         CameraPasswordInput.Clear();
-        CameraPreview.Source = null;
-        _latestJpeg = null;
+        ClearLatestFrame();
+        try { _lifetimeCancellation.Dispose(); } catch { }
     }
 }

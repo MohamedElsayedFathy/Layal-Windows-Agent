@@ -655,6 +655,11 @@ public partial class MainWindow : Window
                 : "Privacy shield disabled. Separate consent is still required before any capture."));
     }
 
+    private bool IsCaptureBlockedByPrivacyShield() =>
+        !PrivacyShieldPolicy.CanStartCapture(
+            AppRuntime.Settings.PrivacyShieldEnabled,
+            AppRuntime.IsExiting);
+
     private void StopCaptureSourcesForPrivacyShield()
     {
         // A privacy-shield change must also close an in-flight local screen preview.
@@ -693,7 +698,7 @@ public partial class MainWindow : Window
 
         if (_cameraVisionWindow is { } camera)
         {
-            try { camera.Close(); }
+            try { camera.StopForPrivacyShield(); }
             catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Privacy shield could not close the camera window: {0}", ex.Message); }
             _cameraVisionWindow = null;
         }
@@ -705,7 +710,7 @@ public partial class MainWindow : Window
         if ((visionAttachmentIsCapture || visionAttachmentIsClipboard) &&
             _pendingVisionImageBytes is { } pendingImageBytes)
         {
-            Array.Clear(pendingImageBytes, 0, pendingImageBytes.Length);
+            PrivacyShieldPolicy.ClearCapturedBuffer(pendingImageBytes);
             _pendingVisionImageBytes = null;
             _pendingVisionContentType = null;
             _pendingVisionFileName = null;
@@ -3687,6 +3692,13 @@ public partial class MainWindow : Window
         if (useLocal)
         {
             if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true)) return;
+            if (IsCaptureBlockedByPrivacyShield())
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "درع الخصوصية مفعّل؛ لم يبدأ تسجيل الميكروفون."
+                    : "The privacy shield is active; microphone recording did not start.");
+                return;
+            }
             if (!_localVoiceReady)
             {
                 SetChatActivityStatus(IsArabic
@@ -3728,6 +3740,13 @@ public partial class MainWindow : Window
             IsArabic ? "السماح بالتسجيل اليدوي" : "Allow manual microphone recording",
             MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (microphoneConsent != MessageBoxResult.Yes) return;
+        if (IsCaptureBlockedByPrivacyShield())
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لم يبدأ تسجيل الميكروفون."
+                : "The privacy shield is active; microphone recording did not start.");
+            return;
+        }
 
         try
         {
@@ -3805,6 +3824,13 @@ public partial class MainWindow : Window
                 try
                 {
                     var transcript = await _localVoiceService.TranscribeAsync(audio!, localTranscriptCancellation.Token);
+                    if (ShouldDiscardPendingSpeechAudio() || localTranscriptCancellation.IsCancellationRequested)
+                    {
+                        SetChatActivityStatus(IsArabic
+                            ? "تم التخلص من نتيجة تحويل الصوت بعد تفعيل درع الخصوصية أو الإلغاء."
+                            : "The speech transcript was discarded after the privacy shield or cancellation became active.");
+                        return;
+                    }
                     ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
                         ? transcript
                         : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
@@ -3851,6 +3877,13 @@ public partial class MainWindow : Window
                 SetChatActivityStatus(IsArabic ? "تم إلغاء الإرسال والتخلص من التسجيل المؤقت." : "Upload cancelled; temporary audio discarded.");
                 return;
             }
+            if (ShouldDiscardPendingSpeechAudio())
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تم التخلص من التسجيل؛ درع الخصوصية منع الإرسال بعد نافذة الموافقة."
+                    : "The recording was discarded; the privacy shield prevented upload after the consent dialog.");
+                return;
+            }
 
             var key = AppRuntime.SecretStore?.Load() ?? string.Empty;
             var modelId = AppRuntime.Settings.SpeechToTextModelId;
@@ -3864,6 +3897,13 @@ public partial class MainWindow : Window
             {
                 var transcript = await _speechToText.TranscribeAsync(
                     AppRuntime.Settings.ProviderBaseUrl, key, modelId, audio, tokenSource.Token);
+                if (ShouldDiscardPendingSpeechAudio() || tokenSource.IsCancellationRequested)
+                {
+                    SetChatActivityStatus(IsArabic
+                        ? "تم التخلص من نتيجة تحويل الصوت بعد تفعيل درع الخصوصية أو الإلغاء."
+                        : "The speech transcript was discarded after the privacy shield or cancellation became active.");
+                    return;
+                }
                 ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
                     ? transcript
                     : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
@@ -3961,6 +4001,13 @@ public partial class MainWindow : Window
         }
 
         if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true)) return;
+        if (IsCaptureBlockedByPrivacyShield())
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لم يبدأ تسجيل الميكروفون."
+                : "The privacy shield is active; microphone recording did not start.");
+            return;
+        }
         if (!_localVoiceReady)
         {
             SetChatActivityStatus(IsArabic
@@ -3977,6 +4024,13 @@ public partial class MainWindow : Window
             IsArabic ? "بدء الكلام المحلي" : "Start local voice input",
             MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
         if (consent != MessageBoxResult.Yes) return;
+        if (IsCaptureBlockedByPrivacyShield())
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لم يبدأ تسجيل الميكروفون."
+                : "The privacy shield is active; microphone recording did not start.");
+            return;
+        }
 
         var session = new CancellationTokenSource();
         try
@@ -4027,6 +4081,13 @@ public partial class MainWindow : Window
         {
             var recording = await _speechToText.StopRecordingAsync();
             audio = recording.WavBytes;
+            if (ShouldDiscardPendingSpeechAudio() || session?.IsCancellationRequested == true)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تم التخلص من التسجيل الصوتي المحلي بعد تفعيل درع الخصوصية أو الإلغاء."
+                    : "The local voice recording was discarded after the privacy shield or cancellation became active.");
+                return;
+            }
             if (!IsVisible || AppRuntime.IsExiting)
             {
                 SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل المحلي والتخلص من الصوت المؤقت." : "Local recording cancelled; temporary audio discarded.");
@@ -4034,6 +4095,13 @@ public partial class MainWindow : Window
             }
 
             var transcript = await _localVoiceService.TranscribeAsync(audio, session?.Token ?? CancellationToken.None);
+            if (ShouldDiscardPendingSpeechAudio() || session?.IsCancellationRequested == true)
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تم التخلص من نص الصوت المحلي بعد تفعيل درع الخصوصية أو الإلغاء."
+                    : "The local speech transcript was discarded after the privacy shield or cancellation became active.");
+                return;
+            }
             if (string.IsNullOrWhiteSpace(transcript))
             {
                 SetChatActivityStatus(IsArabic ? "لم يُتعرّف على كلام واضح؛ حاول مرة أخرى." : "No clear speech was recognized; try again.");
@@ -4193,6 +4261,13 @@ public partial class MainWindow : Window
             IsArabic ? "تأكيد تشغيل الميكروفون المباشر" : "Confirm live microphone access",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (approved != MessageBoxResult.Yes) return;
+        if (IsCaptureBlockedByPrivacyShield())
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لم تبدأ المحادثة الصوتية."
+                : "The privacy shield is active; the live voice session did not start.");
+            return;
+        }
 
         var cancellation = new CancellationTokenSource();
         var service = new VoiceConversationService();
@@ -4273,7 +4348,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            if (!IsLoaded) return;
+            if (!IsLoaded || AppRuntime.Settings.PrivacyShieldEnabled) return;
             _voiceConversationStatus = status;
             UpdateVoiceConversationControls();
             if (status != VoiceConversationStatus.Stopped)
@@ -4286,7 +4361,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(role) || string.IsNullOrWhiteSpace(text)) return;
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            if (!IsLoaded || AppRuntime.IsExiting) return;
+            if (!IsLoaded || AppRuntime.IsExiting || AppRuntime.Settings.PrivacyShieldEnabled) return;
             AddMessage(role == "user" ? "user" : "assistant", text.Trim());
             if (role == "assistant")
                 AppRuntime.MascotWindow?.SetMood(SelectChatMood(
@@ -4910,6 +4985,15 @@ public partial class MainWindow : Window
                 return;
             }
 
+            _documentExtractionCancellation.Token.ThrowIfCancellationRequested();
+            if (IsCaptureBlockedByPrivacyShield())
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تم إلغاء استخراج الملف؛ درع الخصوصية منع إرفاق النتيجة."
+                    : "Document extraction was cancelled; the privacy shield prevented attaching its result.");
+                return;
+            }
+
             _pendingDocumentText = extraction.Text;
             _pendingDocumentFileName = extraction.FileName;
             _pendingDocumentNotice = extraction.Notice;
@@ -5041,6 +5125,7 @@ public partial class MainWindow : Window
 
     private void ClearVisionImageButton_Click(object sender, RoutedEventArgs e)
     {
+        PrivacyShieldPolicy.ClearCapturedBuffer(_pendingVisionImageBytes);
         _pendingVisionImageBytes = null;
         _pendingVisionContentType = null;
         _pendingVisionFileName = null;
@@ -5124,6 +5209,13 @@ public partial class MainWindow : Window
             IsArabic ? "موافقة على تشغيل الكاميرا" : "Confirm camera access",
             MessageBoxButton.YesNo, MessageBoxImage.Information);
         if (consent != MessageBoxResult.Yes) return;
+        if (IsCaptureBlockedByPrivacyShield())
+        {
+            SetChatActivityStatus(IsArabic
+                ? "درع الخصوصية مفعّل؛ لم تُفتح الكاميرا."
+                : "The privacy shield is active; the camera was not opened.");
+            return;
+        }
 
         var camera = new VisionCameraWindow(IsArabic) { Owner = this };
         camera.CameraStatusChanged += CameraVisionWindow_CameraStatusChanged;
@@ -5151,6 +5243,7 @@ public partial class MainWindow : Window
 
         if (_chatCancellation is not null)
         {
+            PrivacyShieldPolicy.ClearCapturedBuffer(imageBytes);
             SetChatActivityStatus(IsArabic ? "انتظر انتهاء الطلب الحالي قبل تحليل لقطة أخرى." : "Wait for the active request to finish before analyzing another frame.");
             return;
         }
@@ -5161,7 +5254,8 @@ public partial class MainWindow : Window
             IsArabic ? "لقطة من الكاميرا" : "camera snapshot",
             prompt,
             automaticObservation: false,
-            clearChatInput: !string.IsNullOrWhiteSpace(prompt));
+            clearChatInput: !string.IsNullOrWhiteSpace(prompt),
+            capturedSource: true);
     }
 
     private async void CameraVisionWindow_ScanSurroundingsRequested(byte[] imageBytes)
@@ -5177,6 +5271,7 @@ public partial class MainWindow : Window
 
         if (_chatCancellation is not null)
         {
+            PrivacyShieldPolicy.ClearCapturedBuffer(imageBytes);
             SetChatActivityStatus(IsArabic ? "انتظر انتهاء الطلب الحالي قبل مسح المكان." : "Wait for the current request to finish before scanning surroundings.");
             return;
         }
@@ -5194,7 +5289,8 @@ public partial class MainWindow : Window
             IsArabic ? "مسح المكان حول الكاميرا" : "surroundings scan",
             prompt,
             automaticObservation: false,
-            clearChatInput: !string.IsNullOrWhiteSpace(extraQuestion));
+            clearChatInput: !string.IsNullOrWhiteSpace(extraQuestion),
+            capturedSource: true);
     }
 
     private async void CameraVisionWindow_ObserveRequested(byte[] imageBytes)
@@ -5211,14 +5307,18 @@ public partial class MainWindow : Window
         // Automatic observation never interrupts a typed request or live voice session.
         if (_chatCancellation is not null || _voiceConversationCancellation is not null ||
             _cameraVisionWindow is not { IsVisible: true })
+        {
+            PrivacyShieldPolicy.ClearCapturedBuffer(imageBytes);
             return;
+        }
 
         await AnalyzeVisionImageAsync(
             imageBytes,
             "image/jpeg",
             IsArabic ? "ملاحظة بصرية تلقائية" : "automatic camera observation",
             string.Empty,
-            automaticObservation: true);
+            automaticObservation: true,
+            capturedSource: true);
     }
 
     private void CameraVisionWindow_CameraStatusChanged(bool isRunning) => UpdateCameraVisionIndicator();
@@ -5278,7 +5378,43 @@ public partial class MainWindow : Window
         string prompt,
         bool automaticObservation,
         bool consumePendingAttachment = false,
-        bool clearChatInput = false)
+        bool clearChatInput = false,
+        bool capturedSource = false)
+    {
+        try
+        {
+            if (capturedSource && PrivacyShieldPolicy.ShouldDiscardCapturedImage(
+                    AppRuntime.Settings.PrivacyShieldEnabled,
+                    AppRuntime.IsExiting,
+                    cancellationRequested: false))
+            {
+                if (!AppRuntime.IsExiting)
+                    SetChatActivityStatus(IsArabic
+                        ? "درع الخصوصية مفعّل؛ تم التخلص من إطار الالتقاط ولم يُرسل."
+                        : "The privacy shield is active; the captured frame was discarded and not sent.");
+                return;
+            }
+
+            await AnalyzeVisionImageCoreAsync(
+                imageBytes, contentType, fileName, prompt, automaticObservation,
+                consumePendingAttachment, clearChatInput, capturedSource);
+        }
+        finally
+        {
+            // The request owns its byte[] copy. Clear it after every outcome, including errors and early returns.
+            PrivacyShieldPolicy.ClearCapturedBuffer(imageBytes);
+        }
+    }
+
+    private async Task AnalyzeVisionImageCoreAsync(
+        byte[] imageBytes,
+        string contentType,
+        string fileName,
+        string prompt,
+        bool automaticObservation,
+        bool consumePendingAttachment,
+        bool clearChatInput,
+        bool capturedSource)
     {
         if (_chatCancellation is not null)
         {
@@ -5317,6 +5453,7 @@ public partial class MainWindow : Window
 
         if (consumePendingAttachment)
         {
+            PrivacyShieldPolicy.ClearCapturedBuffer(_pendingVisionImageBytes);
             _pendingVisionImageBytes = null;
             _pendingVisionContentType = null;
             _pendingVisionFileName = null;
@@ -5376,6 +5513,17 @@ public partial class MainWindow : Window
                 imageBytes,
                 contentType,
                 _chatCancellation.Token);
+
+            if (capturedSource && PrivacyShieldPolicy.ShouldDiscardCapturedImage(
+                    AppRuntime.Settings.PrivacyShieldEnabled,
+                    AppRuntime.IsExiting,
+                    _chatCancellation.IsCancellationRequested))
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تم التخلص من نتيجة الالتقاط؛ درع الخصوصية أو الإلغاء منع عرضها."
+                    : "The captured result was discarded because the privacy shield or cancellation became active.");
+                return;
+            }
 
             if (automaticObservation && response.Trim().Equals("[NO_CHANGE]", StringComparison.OrdinalIgnoreCase))
             {
@@ -5502,13 +5650,17 @@ public partial class MainWindow : Window
                 return;
             }
 
+            var attachedImageIsCaptured =
+                _pendingVisionFileName?.StartsWith("screen-region-", StringComparison.OrdinalIgnoreCase) == true ||
+                _pendingVisionFileName?.StartsWith("clipboard-image-", StringComparison.OrdinalIgnoreCase) == true;
             await AnalyzeVisionImageAsync(
                 attachedImage.ToArray(),
                 _pendingVisionContentType ?? "image/png",
                 _pendingVisionFileName ?? "image",
                 text,
                 automaticObservation: false,
-                consumePendingAttachment: true);
+                consumePendingAttachment: true,
+                capturedSource: attachedImageIsCaptured);
             return;
         }
         if (string.IsNullOrWhiteSpace(text)) return;

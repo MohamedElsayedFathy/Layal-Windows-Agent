@@ -152,6 +152,10 @@ public sealed class VoiceConversationService : IDisposable
         EventHandler<StoppedEventArgs>? stoppedHandler = null;
         Task? microphoneSender = null;
         Task? playbackMonitor = null;
+        var microphoneStartSync = new object();
+        var microphoneStarted = false;
+        var microphoneStartBlocked = false;
+        CancellationTokenRegistration microphoneStopRegistration = default;
 
         RaiseStatus(VoiceConversationStatus.Connecting, null);
         try
@@ -168,6 +172,7 @@ public sealed class VoiceConversationService : IDisposable
             using (var updated = await ReadUntilEventAsync(socket, "session.updated", token))
                 _ = updated.RootElement.ValueKind;
 
+            token.ThrowIfCancellationRequested();
             playback = CreatePlaybackBuffer();
             output = new WaveOut
             {
@@ -175,6 +180,7 @@ public sealed class VoiceConversationService : IDisposable
             };
             output.Init(playback);
 
+            token.ThrowIfCancellationRequested();
             microphone = new WaveIn
             {
                 DeviceNumber = AudioDeviceService.ResolveInputDeviceNumber(inputDeviceId),
@@ -185,8 +191,13 @@ public sealed class VoiceConversationService : IDisposable
 
             dataHandler = (_, args) =>
             {
-                if (token.IsCancellationRequested || args.BytesRecorded <= 0)
+                if (args.BytesRecorded <= 0)
                     return;
+                if (token.IsCancellationRequested)
+                {
+                    Array.Clear(args.Buffer, 0, Math.Min(args.BytesRecorded, args.Buffer.Length));
+                    return;
+                }
 
                 var count = args.BytesRecorded - (args.BytesRecorded % (BitsPerSample / 8));
                 if (count <= 0) return;
@@ -233,9 +244,42 @@ public sealed class VoiceConversationService : IDisposable
                 lifetime.Cancel();
             });
 
+            microphoneStopRegistration = token.Register(() =>
+            {
+                lock (microphoneStartSync)
+                {
+                    microphoneStartBlocked = true;
+                    if (microphoneStarted)
+                    {
+                        try { microphone?.StopRecording(); }
+                        catch { /* A device may already be stopped or disconnected. */ }
+                    }
+                }
+            });
+
             try
             {
-                microphone.StartRecording();
+                lock (microphoneStartSync)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (microphoneStartBlocked)
+                        token.ThrowIfCancellationRequested();
+                    microphone.StartRecording();
+                    microphoneStarted = true;
+                    // If cancellation ran re-entrantly during StartRecording, the callback
+                    // may already have returned before the device became active. Close that
+                    // narrow race while still holding the start gate.
+                    if (token.IsCancellationRequested)
+                    {
+                        try { microphone.StopRecording(); } catch { }
+                        microphoneStarted = false;
+                        token.ThrowIfCancellationRequested();
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -325,6 +369,7 @@ public sealed class VoiceConversationService : IDisposable
         finally
         {
             lifetime.Cancel();
+            try { microphoneStopRegistration.Dispose(); } catch { }
             captureQueue.Writer.TryComplete();
 
             if (microphone is not null)

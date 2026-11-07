@@ -42,6 +42,31 @@ public sealed class PrivacyShieldPolicyTests
     }
 
     [TestMethod]
+    public void CaptureStartsOnlyWhenShieldIsOffAndApplicationIsLive()
+    {
+        Assert.IsTrue(PrivacyShieldPolicy.CanStartCapture(privacyShieldEnabled: false, applicationExiting: false));
+        Assert.IsFalse(PrivacyShieldPolicy.CanStartCapture(privacyShieldEnabled: true, applicationExiting: false));
+        Assert.IsFalse(PrivacyShieldPolicy.CanStartCapture(privacyShieldEnabled: false, applicationExiting: true));
+    }
+
+    [TestMethod]
+    public void CapturedImagesAreRejectedWhenShieldShutdownOrCancellationWins()
+    {
+        Assert.IsTrue(PrivacyShieldPolicy.ShouldDiscardCapturedImage(true, false, false));
+        Assert.IsTrue(PrivacyShieldPolicy.ShouldDiscardCapturedImage(false, true, false));
+        Assert.IsTrue(PrivacyShieldPolicy.ShouldDiscardCapturedImage(false, false, true));
+        Assert.IsFalse(PrivacyShieldPolicy.ShouldDiscardCapturedImage(false, false, false));
+    }
+
+    [TestMethod]
+    public void CapturedImageBuffersAreZeroedBeforeReferencesAreDiscarded()
+    {
+        var bytes = new byte[] { 0x11, 0x22, 0x33, 0x44 };
+        PrivacyShieldPolicy.ClearCapturedBuffer(bytes);
+        CollectionAssert.AreEqual(new byte[4], bytes);
+        PrivacyShieldPolicy.ClearCapturedBuffer(null);
+    }
+    [TestMethod]
     public void ActiveAgentTaskIsCancelledOnlyWhenPrivacyShieldIsEnabled()
     {
         Assert.IsTrue(PrivacyShieldPolicy.ShouldCancelAgentTask(privacyShieldEnabled: true));
