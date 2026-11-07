@@ -757,16 +757,46 @@ public partial class MainWindow : Window
             ? "جلسة مؤقتة لا تُكتب رسائلها أو تغييرات سجل المحادثات إلى القرص. تُحجب المهام وسجلها والروتينات والتذكيرات المرتبطة بها ومساحة العمل والذاكرة الشخصية. تبقى البيانات المحفوظة سابقًا كما هي وتعود بعد الخروج. قد تصل الرسائل المرسلة إلى مزود AI وتخضع لاحتفاظه."
             : "A temporary session: its messages and conversation-history changes are never written to disk. Tasks, task history, saved routines, task-linked reminders, the workspace hub, and personal memory are blocked. Previously saved data remains unchanged and returns on exit. Messages you send may still reach your AI provider and follow its retention policy.");
         var canAccessTasks = PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode);
+        var canAccessMemory = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
         TasksTab.IsEnabled = canAccessTasks;
-        MemoryTab.IsEnabled = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
-        ProactiveCheckInEnabledCheckBox.IsEnabled = !_incognitoMode;
-        ProactiveCheckInIntervalSelector.IsEnabled = !_incognitoMode;
+        MemoryTab.IsEnabled = canAccessMemory;
+
+        // Set each sensitive control explicitly as well as disabling its containing tab.
+        // UI Automation can inspect child controls independently of tab navigation.
+        TaskInput.IsEnabled = canAccessTasks && _agentTaskCancellation is null;
+        RunAgentTaskButton.IsEnabled = canAccessTasks && _agentTaskCancellation is null;
+        CancelAgentTaskButton.IsEnabled = canAccessTasks && _agentTaskCancellation is not null;
+        TaskOpenNotepadButton.IsEnabled = canAccessTasks;
+        RecentTasksList.IsEnabled = canAccessTasks;
+        TaskResult.IsEnabled = canAccessTasks;
+        CopyTaskLogButton.IsEnabled = canAccessTasks;
+        CopyTaskResultButton.IsEnabled = canAccessTasks;
         ManageRemindersButton.IsEnabled = canAccessTasks &&
             PrivateChatModePolicy.CanAccessReminderManager(_incognitoMode);
         ManageRoutinesButton.IsEnabled = canAccessTasks &&
             PrivateChatModePolicy.CanAccessSavedRoutines(_incognitoMode);
         WorkspaceHubButton.IsEnabled = canAccessTasks &&
             PrivateChatModePolicy.CanAccessWorkspaceHub(_incognitoMode);
+
+        MemoryList.IsEnabled = canAccessMemory;
+        MemorySearchInput.IsEnabled = canAccessMemory;
+        MemorySearchButton.IsEnabled = canAccessMemory;
+        MemoryShowArchivedCheckBox.IsEnabled = canAccessMemory;
+        MemoryCategoryFilter.IsEnabled = canAccessMemory;
+        MemoryCategoryInput.IsEnabled = canAccessMemory;
+        MemoryTitleInput.IsEnabled = canAccessMemory;
+        MemoryContentInput.IsEnabled = canAccessMemory;
+        NewMemoryButton.IsEnabled = canAccessMemory;
+        SaveMemoryButton.IsEnabled = canAccessMemory;
+        ArchiveMemoryButton.IsEnabled = canAccessMemory && !string.IsNullOrWhiteSpace(_selectedMemoryId);
+        DeleteMemoryButton.IsEnabled = canAccessMemory && !string.IsNullOrWhiteSpace(_selectedMemoryId);
+        ImportMemoryButton.IsEnabled = canAccessMemory;
+        ExportMemoryButton.IsEnabled = canAccessMemory;
+        LoreWebButton.IsEnabled = canAccessMemory;
+        ClearMemoryFiltersButton.IsEnabled = canAccessMemory;
+
+        ProactiveCheckInEnabledCheckBox.IsEnabled = !_incognitoMode;
+        ProactiveCheckInIntervalSelector.IsEnabled = !_incognitoMode;
         ChatHistorySelector.IsEnabled = !_incognitoMode;
         NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
