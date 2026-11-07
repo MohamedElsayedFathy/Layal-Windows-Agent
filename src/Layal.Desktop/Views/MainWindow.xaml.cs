@@ -130,6 +130,8 @@ public partial class MainWindow : Window
     private QuickAskWindow? _quickAskWindow;
     private bool _incognitoMode;
     private bool _restoringProactiveCheckInInterval;
+    private bool _reminderTimerWasEnabledBeforePrivateChat;
+    private bool _proactiveTimerWasEnabledBeforePrivateChat;
 
     public MainWindow()
     {
@@ -475,6 +477,8 @@ public partial class MainWindow : Window
         _clipboardReadCancellation?.Cancel();
         _incognitoMode = true;
         AppRuntime.IsPrivateChatActive = true;
+        _reminderTimerWasEnabledBeforePrivateChat = _reminderTimer.IsEnabled;
+        _proactiveTimerWasEnabledBeforePrivateChat = _proactiveCheckInTimer.IsEnabled;
         _reminderTimer.Stop();
         _proactiveCheckInTimer.Stop();
         TrySynchronizeLocalNotificationSchedule();
@@ -523,12 +527,16 @@ public partial class MainWindow : Window
         AppRuntime.ChatSessionService.EndTemporarySession();
         _incognitoMode = false;
         AppRuntime.IsPrivateChatActive = false;
-        if (AppRuntime.ReminderService is not null)
+        if (_reminderTimerWasEnabledBeforePrivateChat)
             _reminderTimer.Start();
-        if (AppRuntime.Settings.ProactiveCheckInEnabled)
+        else
+            _reminderTimer.Stop();
+        if (_proactiveTimerWasEnabledBeforePrivateChat && AppRuntime.Settings.ProactiveCheckInEnabled)
             _proactiveCheckInTimer.Start();
         else
             _proactiveCheckInTimer.Stop();
+        _reminderTimerWasEnabledBeforePrivateChat = false;
+        _proactiveTimerWasEnabledBeforePrivateChat = false;
         TrySynchronizeLocalNotificationSchedule();
         UpdateVisionAttachmentControls();
         UpdateDocumentAttachmentUi();
@@ -751,6 +759,8 @@ public partial class MainWindow : Window
         var canAccessTasks = PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode);
         TasksTab.IsEnabled = canAccessTasks;
         MemoryTab.IsEnabled = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
+        ProactiveCheckInEnabledCheckBox.IsEnabled = !_incognitoMode;
+        ProactiveCheckInIntervalSelector.IsEnabled = !_incognitoMode;
         ManageRemindersButton.IsEnabled = canAccessTasks &&
             PrivateChatModePolicy.CanAccessReminderManager(_incognitoMode);
         ManageRoutinesButton.IsEnabled = canAccessTasks &&
@@ -6334,6 +6344,12 @@ public partial class MainWindow : Window
     {
         if (!IsLoaded)
             return;
+        if (IsPrivateTaskWorkspaceAccessBlocked())
+        {
+            ProactiveCheckInEnabledCheckBox.IsChecked = AppRuntime.Settings.ProactiveCheckInEnabled;
+            ProactiveCheckInEnabledCheckBox.IsEnabled = false;
+            return;
+        }
 
         var previousEnabled = AppRuntime.Settings.ProactiveCheckInEnabled;
         var previousLastNotifiedAt = AppRuntime.Settings.LastProactiveCheckInAt;
@@ -6366,8 +6382,23 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInIntervalSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_restoringProactiveCheckInInterval || !IsLoaded ||
-            ProactiveCheckInIntervalSelector.SelectedItem is not ComboBoxItem item ||
+        if (_restoringProactiveCheckInInterval || !IsLoaded)
+            return;
+
+        if (IsPrivateTaskWorkspaceAccessBlocked())
+        {
+            _restoringProactiveCheckInInterval = true;
+            try
+            {
+                ProactiveCheckInIntervalSelector.SelectedItem =
+                    ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
+                        string.Equals(candidate.Tag?.ToString(), AppRuntime.Settings.ProactiveCheckInIntervalMinutes.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
+            }
+            finally { _restoringProactiveCheckInInterval = false; }
+            return;
+        }
+
+        if (ProactiveCheckInIntervalSelector.SelectedItem is not ComboBoxItem item ||
             !int.TryParse(item.Tag?.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutes))
             return;
 
