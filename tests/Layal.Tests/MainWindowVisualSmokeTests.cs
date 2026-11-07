@@ -67,13 +67,22 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("Screen capture cancellation field was not found.");
         var clipboardReadField = typeof(MainWindow).GetField("_clipboardReadCancellation", flags)
             ?? throw new InvalidOperationException("Clipboard read cancellation field was not found.");
+        var uiAutomationField = typeof(MainWindow).GetField("_hoveredElementInspectionCancellation", flags)
+            ?? throw new InvalidOperationException("UI Automation cancellation field was not found.");
+        var extractionField = typeof(MainWindow).GetField("_documentExtractionCancellation", flags)
+            ?? throw new InvalidOperationException("Document extraction cancellation field was not found.");
 
         var previousScreenCapture = screenCaptureField.GetValue(window);
         var previousClipboardRead = clipboardReadField.GetValue(window);
-        if (previousScreenCapture is not null || previousClipboardRead is not null)
+        var previousUiAutomation = uiAutomationField.GetValue(window);
+        var previousExtraction = extractionField.GetValue(window);
+        if (previousScreenCapture is not null || previousClipboardRead is not null ||
+            previousUiAutomation is not null || previousExtraction is not null)
             throw new InvalidOperationException("The privacy-shield regression test requires no active capture.");
         using var activeScreenCapture = new CancellationTokenSource();
         using var activeClipboardRead = new CancellationTokenSource();
+        using var activeUiAutomation = new CancellationTokenSource();
+        using var activeExtraction = new CancellationTokenSource();
         var previousShield = AppRuntime.Settings.PrivacyShieldEnabled;
         var previousImageBytes = imageBytesField.GetValue(window);
         var previousImageName = imageNameField.GetValue(window);
@@ -94,6 +103,8 @@ public sealed class MainWindowVisualSmokeTests
             documentNoticeField.SetValue(window, "Local preview only.");
             screenCaptureField.SetValue(window, activeScreenCapture);
             clipboardReadField.SetValue(window, activeClipboardRead);
+            uiAutomationField.SetValue(window, activeUiAutomation);
+            extractionField.SetValue(window, activeExtraction);
 
             stopCaptures.Invoke(window, null);
 
@@ -101,6 +112,10 @@ public sealed class MainWindowVisualSmokeTests
                 "Enabling the privacy shield must cancel and close an in-flight screen capture preview.");
             Assert.IsTrue(activeClipboardRead.IsCancellationRequested,
                 "Enabling the privacy shield must cancel an in-flight clipboard read before attachment.");
+            Assert.IsTrue(activeUiAutomation.IsCancellationRequested,
+                "Enabling the privacy shield must cancel an in-flight UI Automation inspection.");
+            Assert.IsTrue(activeExtraction.IsCancellationRequested,
+                "Enabling the privacy shield must cancel an in-flight document extraction before its preview can attach.");
             Assert.IsNull(imageBytesField.GetValue(window),
                 "Enabling the privacy shield must discard an unsubmitted clipboard image.");
             Assert.IsTrue(clipboardImageBytes.All(value => value == 0),
@@ -126,6 +141,8 @@ public sealed class MainWindowVisualSmokeTests
             AppRuntime.Settings.PrivacyShieldEnabled = previousShield;
             screenCaptureField.SetValue(window, previousScreenCapture);
             clipboardReadField.SetValue(window, previousClipboardRead);
+            uiAutomationField.SetValue(window, previousUiAutomation);
+            extractionField.SetValue(window, previousExtraction);
             imageBytesField.SetValue(window, previousImageBytes);
             imageNameField.SetValue(window, previousImageName);
             imageTypeField.SetValue(window, previousImageType);
@@ -137,6 +154,30 @@ public sealed class MainWindowVisualSmokeTests
         }
     }
 
+    private static void AssertPrivacyShieldRejectsLateCameraFrames(MainWindow window)
+    {
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var analyze = typeof(MainWindow).GetMethod("AnalyzeVisionImageAsync", flags)
+            ?? throw new InvalidOperationException("Vision analysis method was not found.");
+        var previousShield = AppRuntime.Settings.PrivacyShieldEnabled;
+        var lateFrame = new byte[] { 0x41, 0x59, 0x4F, 0x33, 0x33 };
+        try
+        {
+            AppRuntime.Settings.PrivacyShieldEnabled = true;
+            var pending = analyze.Invoke(window, new object[]
+            {
+                lateFrame, "image/jpeg", "camera snapshot", "late frame",
+                false, false, false, true
+            }) as Task ?? throw new InvalidOperationException("Vision analysis did not return a Task.");
+            pending.GetAwaiter().GetResult();
+            Assert.IsTrue(lateFrame.All(value => value == 0),
+                "A late camera frame must be zeroed and rejected after enabling the privacy shield.");
+        }
+        finally
+        {
+            AppRuntime.Settings.PrivacyShieldEnabled = previousShield;
+        }
+    }
     private static void AssertAttachmentControlMutualExclusion(MainWindow window)
     {
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -808,6 +849,7 @@ public sealed class MainWindowVisualSmokeTests
         AssertEscapeCancelsActiveChatAndAgentOperations(window);
         AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window, temp.Path);
         AssertPrivacyShieldClearsUnsubmittedClipboardAttachments(window);
+        AssertPrivacyShieldRejectsLateCameraFrames(window);
         lines.Add("AYO safety regression: Escape cancellation and non-persistent private-chat history passed.");
         AssertAttachmentControlMutualExclusion(window);
         lines.Add("Attachment regression: image and document inputs stay mutually exclusive and respect privacy/preview state.");
