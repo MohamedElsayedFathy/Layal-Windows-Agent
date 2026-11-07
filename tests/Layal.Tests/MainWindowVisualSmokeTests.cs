@@ -374,8 +374,11 @@ public sealed class MainWindowVisualSmokeTests
             foreach (var name in new[]
             {
                 "ManageRemindersButton", "ManageRoutinesButton", "WorkspaceHubButton",
-                "RunAgentTaskButton", "SaveMemoryButton", "MemorySearchButton",
-                "ImportMemoryButton", "ExportMemoryButton", "LoreWebButton"
+                "RunAgentTaskButton", "TaskOpenNotepadButton", "RecentTasksList",
+                "CopyTaskLogButton", "CopyTaskResultButton", "SaveMemoryButton",
+                "NewMemoryButton", "MemorySearchButton", "MemoryList", "MemoryTitleInput",
+                "MemoryContentInput", "ImportMemoryButton", "ExportMemoryButton", "LoreWebButton",
+                "ProactiveCheckInEnabledCheckBox", "ProactiveCheckInIntervalSelector"
             })
             {
                 var control = window.FindName(name) as UIElement
