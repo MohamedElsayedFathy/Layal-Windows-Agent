@@ -266,6 +266,15 @@ public sealed class VoiceConversationService : IDisposable
                         token.ThrowIfCancellationRequested();
                     microphone.StartRecording();
                     microphoneStarted = true;
+                    // If cancellation ran re-entrantly during StartRecording, the callback
+                    // may already have returned before the device became active. Close that
+                    // narrow race while still holding the start gate.
+                    if (token.IsCancellationRequested)
+                    {
+                        try { microphone.StopRecording(); } catch { }
+                        microphoneStarted = false;
+                        token.ThrowIfCancellationRequested();
+                    }
                 }
             }
             catch (OperationCanceledException)
