@@ -130,6 +130,8 @@ public partial class MainWindow : Window
     private QuickAskWindow? _quickAskWindow;
     private bool _incognitoMode;
     private bool _restoringProactiveCheckInInterval;
+    private bool _reminderTimerWasEnabledBeforePrivateChat;
+    private bool _proactiveTimerWasEnabledBeforePrivateChat;
 
     public MainWindow()
     {
@@ -421,6 +423,8 @@ public partial class MainWindow : Window
             if (_chatCancellation is not null || _agentTaskCancellation is not null ||
                 _voiceConversationCancellation is not null || _speechCancellation is not null ||
                 _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
+                _documentExtractionCancellation is not null || _clipboardReadCancellation is not null ||
+                _screenCaptureCancellation is not null || _hoveredElementInspectionCancellation is not null ||
                 _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
                 _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
             {
@@ -445,7 +449,9 @@ public partial class MainWindow : Window
 
         if (_chatCancellation is not null || _agentTaskCancellation is not null ||
             _voiceConversationCancellation is not null || _speechCancellation is not null || _voiceTestCancellation is not null ||
-            _localAiSetupCancellation is not null || _localVoiceRecordingActive ||
+            _localAiSetupCancellation is not null || _documentExtractionCancellation is not null ||
+            _clipboardReadCancellation is not null || _screenCaptureCancellation is not null ||
+            _hoveredElementInspectionCancellation is not null || _localVoiceRecordingActive ||
             _speechToText.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
@@ -467,8 +473,15 @@ public partial class MainWindow : Window
 
     private void EnterPrivateChatMode()
     {
+        AppRuntime.ChatSessionService.BeginTemporarySession();
         _clipboardReadCancellation?.Cancel();
         _incognitoMode = true;
+        AppRuntime.IsPrivateChatActive = true;
+        _reminderTimerWasEnabledBeforePrivateChat = _reminderTimer.IsEnabled;
+        _proactiveTimerWasEnabledBeforePrivateChat = _proactiveCheckInTimer.IsEnabled;
+        _reminderTimer.Stop();
+        _proactiveCheckInTimer.Stop();
+        TrySynchronizeLocalNotificationSchedule();
         MainTabs.SelectedItem = ChatTab;
 
         // Clear personal/task content from visible controls for this temporary session.
@@ -492,15 +505,18 @@ public partial class MainWindow : Window
         _rawTaskEvents.Clear();
         TaskInput.Clear();
         TaskResult.Text = string.Empty;
+        TaskProgressStatus.Text = IsArabic ? "المهام غير متاحة أثناء المحادثة الخاصة." : "Tasks are unavailable during private chat.";
+        TaskProgressBar.Value = 0;
+        TaskEventsEmptyStateText.Text = string.Empty;
+        RecentTasksEmptyStateText.Text = string.Empty;
+        TaskCopyStatus.Text = string.Empty;
+
+        MemoryResult.Text = string.Empty;
+        MemoryEmptyStateText.Text = IsArabic ? "الذاكرة الشخصية غير متاحة أثناء المحادثة الخاصة." : "Personal memory is unavailable during private chat.";
 
         ChatMessages.Clear();
         ChatInput.Clear();
-        _pendingVisionImageBytes = null;
-        _pendingVisionContentType = null;
-        _pendingVisionFileName = null;
-        _pendingDocumentText = null;
-        _pendingDocumentFileName = null;
-        _pendingDocumentNotice = null;
+        ClearPendingChatAttachmentsForPrivateMode();
         _lastCameraObservation = string.Empty;
         ChatConversations.Clear();
         ChatHistorySelector.SelectedItem = null;
@@ -508,21 +524,28 @@ public partial class MainWindow : Window
         UpdateDocumentAttachmentUi();
         UpdatePrivateChatModeUi();
         SetChatActivityStatus(IsArabic
-            ? "المحادثة الخاصة نشطة: الرسائل لا تُحفظ محليًا، وتبويبا المهام والذاكرة معطلان. قد يستقبل المزود الخارجي الرسائل وفق إعداداتك."
-            : "Private chat is active: messages are not saved locally, and Tasks/Memory are disabled. The external provider may still receive messages according to your settings.");
+            ? "المحادثة الخاصة نشطة: الرسائل لا تُحفظ محليًا، والمهام وسجلها والذاكرة والروتينات والتذكيرات المرتبطة بالمهام ومساحة العمل والإشعارات متوقفة مؤقتًا. قد يستقبل مزود AI ما ترسله يدويًا."
+            : "Private chat is active: messages are not saved locally. Tasks, task history, memory, saved routines, task-linked reminders, the workspace hub, and local notifications are paused. Your explicit messages may still reach the AI provider.");
     }
 
     private void ExitPrivateChatMode()
     {
-        _incognitoMode = false;
-        // Discard any image or camera attachment created during the temporary session.
-        _pendingVisionImageBytes = null;
-        _pendingVisionContentType = null;
-        _pendingVisionFileName = null;
-        _pendingDocumentText = null;
-        _pendingDocumentFileName = null;
-        _pendingDocumentNotice = null;
+        ClearPendingChatAttachmentsForPrivateMode();
         _lastCameraObservation = string.Empty;
+        AppRuntime.ChatSessionService.EndTemporarySession();
+        _incognitoMode = false;
+        AppRuntime.IsPrivateChatActive = false;
+        if (_reminderTimerWasEnabledBeforePrivateChat)
+            _reminderTimer.Start();
+        else
+            _reminderTimer.Stop();
+        if (_proactiveTimerWasEnabledBeforePrivateChat && AppRuntime.Settings.ProactiveCheckInEnabled)
+            _proactiveCheckInTimer.Start();
+        else
+            _proactiveCheckInTimer.Stop();
+        _reminderTimerWasEnabledBeforePrivateChat = false;
+        _proactiveTimerWasEnabledBeforePrivateChat = false;
+        TrySynchronizeLocalNotificationSchedule();
         UpdateVisionAttachmentControls();
         UpdateDocumentAttachmentUi();
 
@@ -707,6 +730,25 @@ public partial class MainWindow : Window
         UpdateCameraVisionIndicator();
     }
 
+    private void ClearPendingChatAttachmentsForPrivateMode()
+    {
+        if (_pendingVisionImageBytes is { Length: > 0 } imageBytes)
+            Array.Clear(imageBytes, 0, imageBytes.Length);
+
+        _pendingVisionImageBytes = null;
+        _pendingVisionContentType = null;
+        _pendingVisionFileName = null;
+        // .NET strings are immutable; dropping all application references is the available
+        // cleanup mechanism for text extracted from user-selected files or clipboard data.
+        _pendingDocumentText = null;
+        _pendingDocumentFileName = null;
+        _pendingDocumentNotice = null;
+        if (VisionAttachmentPreview is not null)
+            VisionAttachmentPreview.Source = null;
+        UpdateVisionAttachmentControls();
+        UpdateDocumentAttachmentUi();
+    }
+
     private void UpdatePrivateChatModeUi()
     {
         var ar = IsArabic;
@@ -720,10 +762,76 @@ public partial class MainWindow : Window
             ? (ar ? "إنهاء المحادثة الخاصة" : "Exit private chat")
             : (ar ? "بدء محادثة خاصة" : "Start private chat"));
         AutomationProperties.SetHelpText(IncognitoModeButton, ar
-            ? "لا يحفظ رسائل الجلسة في سجل الدردشة المحلي. أثناء الوضع الخاص تُعطّل تبويبات المهام والذاكرة وتُمنع المهام الجديدة وعمليات الذاكرة؛ تبقى البيانات السابقة محفوظة. قد يحتفظ مزود AI بما يصله."
-            : "Does not save this session's messages in local chat history. Tasks and Memory tabs are disabled, new agent tasks and memory operations are blocked, and existing saved data is preserved. The AI provider may retain data it receives.");
-        TasksTab.IsEnabled = PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode);
-        MemoryTab.IsEnabled = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
+            ? "جلسة مؤقتة لا تُكتب رسائلها أو تغييرات سجل المحادثات إلى القرص. تُحجب المهام وسجلها والروتينات والتذكيرات المرتبطة بها ومساحة العمل والذاكرة الشخصية. تبقى البيانات المحفوظة سابقًا كما هي وتعود بعد الخروج. قد تصل الرسائل المرسلة إلى مزود AI وتخضع لاحتفاظه."
+            : "A temporary session: its messages and conversation-history changes are never written to disk. Tasks, task history, saved routines, task-linked reminders, the workspace hub, and personal memory are blocked. Previously saved data remains unchanged and returns on exit. Messages you send may still reach your AI provider and follow its retention policy.");
+        var canAccessTasks = PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode);
+        var canAccessMemory = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
+        TasksTab.IsEnabled = canAccessTasks;
+        MemoryTab.IsEnabled = canAccessMemory;
+        TasksHeading.IsEnabled = canAccessTasks;
+        TasksDescription.IsEnabled = canAccessTasks;
+        TaskSkillHint.IsEnabled = canAccessTasks;
+        TaskSafeToolTitle.IsEnabled = canAccessTasks;
+        TaskSafeToolDescription.IsEnabled = canAccessTasks;
+        TaskProgressStatus.IsEnabled = canAccessTasks;
+        TaskProgressBar.IsEnabled = canAccessTasks;
+        TaskEventsList.IsEnabled = canAccessTasks;
+        TaskEventsEmptyStateText.IsEnabled = canAccessTasks;
+        RecentTasksGroup.IsEnabled = canAccessTasks;
+        RecentTasksEmptyStateText.IsEnabled = canAccessTasks;
+        TaskCopyStatus.IsEnabled = canAccessTasks;
+        GameModeButton.IsEnabled = canAccessTasks;
+        GameModeSettingsButton.IsEnabled = canAccessTasks;
+        ProactiveCheckInPrivacyNote.IsEnabled = canAccessTasks;
+
+        MemoryHeading.IsEnabled = canAccessMemory;
+        MemoryDescription.IsEnabled = canAccessMemory;
+        MemoryCategoryFilterLabel.IsEnabled = canAccessMemory;
+        MemoryCountText.IsEnabled = canAccessMemory;
+        MemoryFilterNotice.IsEnabled = canAccessMemory;
+        MemoryEmptyStateText.IsEnabled = canAccessMemory;
+        MemoryCategoryLabel.IsEnabled = canAccessMemory;
+        MemoryTitleLabel.IsEnabled = canAccessMemory;
+        MemoryContentLabel.IsEnabled = canAccessMemory;
+        MemoryResult.IsEnabled = canAccessMemory;
+        MemoryPrivacyNote.IsEnabled = canAccessMemory;
+
+        // Set each sensitive control explicitly as well as disabling its containing tab.
+        // UI Automation can inspect child controls independently of tab navigation.
+        TaskInput.IsEnabled = canAccessTasks && _agentTaskCancellation is null;
+        RunAgentTaskButton.IsEnabled = canAccessTasks && _agentTaskCancellation is null;
+        CancelAgentTaskButton.IsEnabled = canAccessTasks && _agentTaskCancellation is not null;
+        TaskOpenNotepadButton.IsEnabled = canAccessTasks;
+        RecentTasksList.IsEnabled = canAccessTasks;
+        TaskResult.IsEnabled = canAccessTasks;
+        CopyTaskLogButton.IsEnabled = canAccessTasks;
+        CopyTaskResultButton.IsEnabled = canAccessTasks;
+        ManageRemindersButton.IsEnabled = canAccessTasks &&
+            PrivateChatModePolicy.CanAccessReminderManager(_incognitoMode);
+        ManageRoutinesButton.IsEnabled = canAccessTasks &&
+            PrivateChatModePolicy.CanAccessSavedRoutines(_incognitoMode);
+        WorkspaceHubButton.IsEnabled = canAccessTasks &&
+            PrivateChatModePolicy.CanAccessWorkspaceHub(_incognitoMode);
+
+        MemoryList.IsEnabled = canAccessMemory;
+        MemorySearchInput.IsEnabled = canAccessMemory;
+        MemorySearchButton.IsEnabled = canAccessMemory;
+        MemoryShowArchivedCheckBox.IsEnabled = canAccessMemory;
+        MemoryCategoryFilter.IsEnabled = canAccessMemory;
+        MemoryCategoryInput.IsEnabled = canAccessMemory;
+        MemoryTitleInput.IsEnabled = canAccessMemory;
+        MemoryContentInput.IsEnabled = canAccessMemory;
+        NewMemoryButton.IsEnabled = canAccessMemory;
+        SaveMemoryButton.IsEnabled = canAccessMemory;
+        ArchiveMemoryButton.IsEnabled = canAccessMemory && !string.IsNullOrWhiteSpace(_selectedMemoryId);
+        DeleteMemoryButton.IsEnabled = canAccessMemory && !string.IsNullOrWhiteSpace(_selectedMemoryId);
+        ImportMemoryButton.IsEnabled = canAccessMemory;
+        ExportMemoryButton.IsEnabled = canAccessMemory;
+        LoreWebButton.IsEnabled = canAccessMemory;
+        ClearMemoryFiltersButton.IsEnabled = canAccessMemory;
+
+        ProactiveCheckInEnabledCheckBox.IsEnabled = !_incognitoMode;
+        ProactiveCheckInIntervalSelector.IsEnabled = !_incognitoMode;
         ChatHistorySelector.IsEnabled = !_incognitoMode;
         NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
@@ -5989,6 +6097,7 @@ public partial class MainWindow : Window
 
     private void ManageRemindersButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateTaskWorkspaceAccessBlocked()) return;
         var window = new ReminderManagerWindow(AppRuntime.ReminderService, IsArabic, AppRuntime.ReminderTaskSchedulerService, AppRuntime.TaskHistoryService)
         {
             Owner = this
@@ -6209,6 +6318,7 @@ public partial class MainWindow : Window
 
     private void WorkspaceHubButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateTaskWorkspaceAccessBlocked() || IsPrivateMemoryAccessBlocked()) return;
         try
         {
             var window = new WorkspaceHubWindow(
@@ -6261,6 +6371,7 @@ public partial class MainWindow : Window
 
     private void ManageRoutinesButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsPrivateTaskWorkspaceAccessBlocked()) return;
         var window = new SavedRoutineManagerWindow(
             AppRuntime.SavedRoutineService,
             IsArabic,
@@ -6298,6 +6409,12 @@ public partial class MainWindow : Window
     {
         if (!IsLoaded)
             return;
+        if (IsPrivateTaskWorkspaceAccessBlocked())
+        {
+            ProactiveCheckInEnabledCheckBox.IsChecked = AppRuntime.Settings.ProactiveCheckInEnabled;
+            ProactiveCheckInEnabledCheckBox.IsEnabled = false;
+            return;
+        }
 
         var previousEnabled = AppRuntime.Settings.ProactiveCheckInEnabled;
         var previousLastNotifiedAt = AppRuntime.Settings.LastProactiveCheckInAt;
@@ -6330,8 +6447,23 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInIntervalSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_restoringProactiveCheckInInterval || !IsLoaded ||
-            ProactiveCheckInIntervalSelector.SelectedItem is not ComboBoxItem item ||
+        if (_restoringProactiveCheckInInterval || !IsLoaded)
+            return;
+
+        if (IsPrivateTaskWorkspaceAccessBlocked())
+        {
+            _restoringProactiveCheckInInterval = true;
+            try
+            {
+                ProactiveCheckInIntervalSelector.SelectedItem =
+                    ProactiveCheckInIntervalSelector.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
+                        string.Equals(candidate.Tag?.ToString(), AppRuntime.Settings.ProactiveCheckInIntervalMinutes.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
+            }
+            finally { _restoringProactiveCheckInInterval = false; }
+            return;
+        }
+
+        if (ProactiveCheckInIntervalSelector.SelectedItem is not ComboBoxItem item ||
             !int.TryParse(item.Tag?.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutes))
             return;
 
@@ -6382,6 +6514,9 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInTimer_Tick(object? sender, EventArgs e)
     {
+        if (!PrivateChatModePolicy.CanDeliverLocalNotifications(_incognitoMode))
+            return;
+
         var now = DateTimeOffset.Now;
         var last = AppRuntime.Settings.LastProactiveCheckInAt;
         if (last is null)
@@ -6512,7 +6647,8 @@ public partial class MainWindow : Window
 
     private void ReminderTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.IsExiting)
+        if (AppRuntime.IsExiting ||
+            !PrivateChatModePolicy.CanDeliverLocalNotifications(_incognitoMode))
             return;
 
         var now = DateTimeOffset.Now;
@@ -6724,6 +6860,7 @@ public partial class MainWindow : Window
 
     private void CopyTaskTextToClipboard(string text, string label)
     {
+        if (IsPrivateTaskWorkspaceAccessBlocked()) return;
         if (string.IsNullOrWhiteSpace(text))
         {
             SetAccessibleStatusText(TaskCopyStatus, IsArabic ? "لا يوجد نص لنسخه." : "There is no text to copy.");
@@ -6852,6 +6989,11 @@ public partial class MainWindow : Window
         if (!PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
         {
             RecentTasks.Clear();
+            RecentTasksList.SelectedItem = null;
+            TaskEvents.Clear();
+            _rawTaskEvents.Clear();
+            TaskResult.Clear();
+            TaskCopyStatus.Text = string.Empty;
             return;
         }
 
@@ -6879,12 +7021,21 @@ public partial class MainWindow : Window
 
     private void RecentTasksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (IsPrivateTaskWorkspaceAccessBlocked()) return;
         if (_refreshingRecentTasks || RecentTasksList.SelectedItem is not TaskHistoryListItem selectedTask) return;
         DisplayTaskHistoryRecord(selectedTask.Record);
     }
 
     private void DisplayTaskHistoryRecord(AgentTaskRecord task)
     {
+        if (IsPrivateTaskWorkspaceAccessBlocked())
+        {
+            TaskEvents.Clear();
+            _rawTaskEvents.Clear();
+            TaskResult.Clear();
+            return;
+        }
+
         TaskEvents.Clear();
         _rawTaskEvents.Clear();
         foreach (var line in task.Events.TakeLast(300)) AddTaskEvent(line);
@@ -6900,6 +7051,17 @@ public partial class MainWindow : Window
             "Cancelled" => "paused",
             _ => "error"
         });
+    }
+
+    private bool IsPrivateTaskWorkspaceAccessBlocked()
+    {
+        if (PrivateChatModePolicy.CanAccessTaskWorkspace(_incognitoMode))
+            return false;
+
+        SetChatActivityStatus(IsArabic
+            ? "مساحة المهام وسجلها والروتينات والتذكيرات المرتبطة بها غير متاحة أثناء المحادثة الخاصة."
+            : "The task workspace, history, saved routines, and task-linked reminders are unavailable during private chat.");
+        return true;
     }
 
     private bool IsPrivateMemoryAccessBlocked()
@@ -6920,6 +7082,7 @@ public partial class MainWindow : Window
 
     private bool ConfirmDiscardMemoryDraft(bool clearDraft = false)
     {
+        if (IsPrivateMemoryAccessBlocked()) return false;
         if (!MemoryEditorHasUnsavedChanges) return true;
         var answer = MessageBox.Show(this,
             IsArabic
@@ -6950,6 +7113,7 @@ public partial class MainWindow : Window
 
     private void LoadMemoryEditor(MemoryNote note)
     {
+        if (IsPrivateMemoryAccessBlocked()) return;
         _selectedMemoryId = note.Id;
         _selectedMemoryIsArchived = note.IsArchived;
         _selectedMemoryUpdatedAt = note.UpdatedAt;
@@ -6982,7 +7146,8 @@ public partial class MainWindow : Window
 
     private void UpdateMemoryEditorButtons()
     {
-        var hasSelection = !string.IsNullOrWhiteSpace(_selectedMemoryId);
+        var hasSelection = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode) &&
+            !string.IsNullOrWhiteSpace(_selectedMemoryId);
         ArchiveMemoryButton.IsEnabled = hasSelection;
         DeleteMemoryButton.IsEnabled = hasSelection;
         AutomationProperties.SetHelpText(ArchiveMemoryButton, IsArabic

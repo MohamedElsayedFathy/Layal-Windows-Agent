@@ -277,7 +277,7 @@
                             <Button x:Name="IncognitoModeButton" Content="محادثة خاصة" Click="IncognitoModeButton_Click" MinWidth="110"
                                     ToolTip="جلسة دردشة مؤقتة لا تحفظ رسائلها محليًا؛ تظل بيانات الإرسال للمزود حسب إعداداتك."
                                     AutomationProperties.Name="محادثة خاصة"
-                                    AutomationProperties.HelpText="يخفي سجل المحادثات ويبدأ سياقًا مؤقتًا. لا يعطل حفظ سجلات المهام أو الذاكرة."/>
+                                    AutomationProperties.HelpText="يبدأ جلسة مؤقتة لا تحفظ رسائلها أو تغييرات سجل المحادثات؛ يحجب المهام وسجلها والروتينات والتذكيرات المرتبطة بها ومساحة العمل والذاكرة الشخصية. تبقى البيانات المحفوظة سابقًا كما هي. قد تصل الرسائل المرسلة إلى مزود AI."/>
                             <Button x:Name="CaptureScreenRegionButton" Content="قص جزء من الشاشة" Click="CaptureScreenRegionButton_Click"
                                     ToolTip="يلتقط الشاشة الموجودة على الشاشة الحالية بعد موافقتك، ويعرض معاينة لقص منطقة قبل الإرفاق."
                                     MinWidth="135" AutomationProperties.Name="التقاط وقص جزء من الشاشة"

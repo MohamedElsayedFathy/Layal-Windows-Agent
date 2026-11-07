@@ -283,13 +283,20 @@ public sealed class MainWindowVisualSmokeTests
         };
     }
 
-    private static void AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(MainWindow window)
+    private static void AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(MainWindow window, string dataRoot)
     {
         AppRuntime.ChatSessionService.SaveCurrentMessages(new[]
         {
             new ChatMessage { Role = "user", Content = "Saved conversation sentinel" },
             new ChatMessage { Role = "assistant", Content = "Saved reply sentinel" }
         });
+        var savedConversationId = AppRuntime.ChatSessionService.GetCurrent().Id;
+        var savedMemory = AppRuntime.MemoryService.Save(
+            "Incognito memory guard sentinel",
+            "Existing memory must remain unchanged while private chat is active.",
+            category: "Regression test");
+        var originalMemoryCount = AppRuntime.MemoryService.GetAll(includeArchived: true).Count;
+        var originalTaskCount = AppRuntime.TaskHistoryService.GetRecent(100).Count;
 
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var enterPrivate = typeof(MainWindow).GetMethod("EnterPrivateChatMode", flags)
@@ -298,48 +305,206 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("Chat message method was not found.");
         var exitPrivate = typeof(MainWindow).GetMethod("ExitPrivateChatMode", flags)
             ?? throw new InvalidOperationException("Private-chat exit method was not found.");
-
-        enterPrivate.Invoke(window, null);
-        Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
-        Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
-        var historySelector = (ComboBox?)window.FindName("ChatHistorySelector")
-            ?? throw new InvalidOperationException("Chat history selector was not found.");
-        Assert.IsFalse(historySelector.IsEnabled, "Saved history must not be selectable in private chat.");
-
-        addMessage.Invoke(window, new object[] { "user", "Private-only sentinel" });
-        Assert.AreEqual(1, window.ChatMessages.Count);
-        var storedWhilePrivate = AppRuntime.ChatSessionService.GetCurrent();
-        Assert.AreEqual(2, storedWhilePrivate.Messages.Count, "Private messages must not change persisted history.");
-        Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
-        Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
-
-        var agentTaskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
-            ?? throw new InvalidOperationException("Agent-task cancellation field was not found.");
         var privateModeField = typeof(MainWindow).GetField("_incognitoMode", flags)
             ?? throw new InvalidOperationException("Private-chat state field was not found.");
         var privateToggleHandler = typeof(MainWindow).GetMethod("IncognitoModeButton_Click", flags)
             ?? throw new InvalidOperationException("Private-chat toggle handler was not found.");
-        using (var activeAgentTask = new CancellationTokenSource())
-        {
-            agentTaskField.SetValue(window, activeAgentTask);
-            privateToggleHandler.Invoke(window, new object[] { window, new RoutedEventArgs() });
-            Assert.IsTrue((bool)privateModeField.GetValue(window)!,
-                "Private chat must remain active until an agent task has stopped.");
-            Assert.IsFalse(activeAgentTask.IsCancellationRequested,
-                "Attempting to exit private chat must not silently cancel or corrupt an active task.");
-            Assert.AreEqual(1, window.ChatMessages.Count,
-                "A blocked exit must leave the unsaved private transcript intact.");
-            agentTaskField.SetValue(window, null);
-        }
+        var imageBytesField = typeof(MainWindow).GetField("_pendingVisionImageBytes", flags)
+            ?? throw new InvalidOperationException("Pending image byte field was not found.");
+        var imageTypeField = typeof(MainWindow).GetField("_pendingVisionContentType", flags)
+            ?? throw new InvalidOperationException("Pending image content-type field was not found.");
+        var imageNameField = typeof(MainWindow).GetField("_pendingVisionFileName", flags)
+            ?? throw new InvalidOperationException("Pending image filename field was not found.");
+        var documentTextField = typeof(MainWindow).GetField("_pendingDocumentText", flags)
+            ?? throw new InvalidOperationException("Pending document text field was not found.");
+        var documentNameField = typeof(MainWindow).GetField("_pendingDocumentFileName", flags)
+            ?? throw new InvalidOperationException("Pending document filename field was not found.");
+        var documentNoticeField = typeof(MainWindow).GetField("_pendingDocumentNotice", flags)
+            ?? throw new InvalidOperationException("Pending document notice field was not found.");
 
-        exitPrivate.Invoke(window, null);
-        Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
-        Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
-        Assert.AreEqual("Saved conversation sentinel", window.ChatMessages[0].Content);
-        Assert.AreEqual("Saved reply sentinel", window.ChatMessages[1].Content);
-        Assert.AreEqual(1, window.ChatConversations.Count);
-        Assert.AreEqual(2, AppRuntime.ChatSessionService.GetCurrent().Messages.Count);
+        var imageBytes = new byte[] { 0x10, 0x20, 0x30, 0x40 };
+        imageBytesField.SetValue(window, imageBytes);
+        imageTypeField.SetValue(window, "image/png");
+        imageNameField.SetValue(window, "clipboard-image-private-test.png");
+        documentTextField.SetValue(window, "temporary private document text");
+        documentNameField.SetValue(window, "Clipboard text");
+        documentNoticeField.SetValue(window, "Private local test preview.");
+
+        var previousClipboardText = Clipboard.ContainsText()
+            ? Clipboard.GetText()
+            : null;
+        try
+        {
+            enterPrivate.Invoke(window, null);
+            Assert.IsTrue((bool)privateModeField.GetValue(window)!);
+            Assert.IsTrue(AppRuntime.ChatSessionService.IsTemporarySession,
+                "The chat store must enter reversible temporary mode before private messages are accepted.");
+            Assert.IsTrue(AppRuntime.IsPrivateChatActive);
+            var reminderTimerField = typeof(MainWindow).GetField("_reminderTimer", flags)
+                ?? throw new InvalidOperationException("Reminder timer was not found.");
+            var proactiveTimerField = typeof(MainWindow).GetField("_proactiveCheckInTimer", flags)
+                ?? throw new InvalidOperationException("Proactive check-in timer was not found.");
+            var reminderTimerWasEnabled = ((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled;
+            var proactiveTimerWasEnabled = ((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled;
+            Assert.IsFalse(((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled,
+                "Saved reminder delivery must pause during private chat.");
+            Assert.IsFalse(((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled,
+                "Task-history based proactive check-ins must pause during private chat.");
+            Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
+            Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
+            Assert.IsTrue(imageBytes.All(value => value == 0),
+                "Image bytes waiting as an attachment must be cleared when private mode starts.");
+            Assert.IsNull(imageBytesField.GetValue(window));
+            Assert.IsNull(imageTypeField.GetValue(window));
+            Assert.IsNull(imageNameField.GetValue(window));
+            Assert.IsNull(documentTextField.GetValue(window));
+            Assert.IsNull(documentNameField.GetValue(window));
+            Assert.IsNull(documentNoticeField.GetValue(window));
+
+            var historySelector = (ComboBox?)window.FindName("ChatHistorySelector")
+                ?? throw new InvalidOperationException("Chat history selector was not found.");
+            var tasksTab = (TabItem?)window.FindName("TasksTab")
+                ?? throw new InvalidOperationException("TasksTab was not found.");
+            var memoryTab = (TabItem?)window.FindName("MemoryTab")
+                ?? throw new InvalidOperationException("MemoryTab was not found.");
+            Assert.IsFalse(historySelector.IsEnabled, "Saved history must not be selectable in private chat.");
+            Assert.IsFalse(tasksTab.IsEnabled, "The entire task workspace must be unavailable to UI Automation.");
+            Assert.IsFalse(memoryTab.IsEnabled, "The entire memory workspace must be unavailable to UI Automation.");
+
+            foreach (var name in new[]
+            {
+                "ManageRemindersButton", "ManageRoutinesButton", "WorkspaceHubButton",
+                "RunAgentTaskButton", "TaskOpenNotepadButton", "RecentTasksList", "TaskEventsList",
+                "TaskProgressStatus", "TaskProgressBar", "GameModeButton", "GameModeSettingsButton",
+                "CopyTaskLogButton", "CopyTaskResultButton", "SaveMemoryButton", "NewMemoryButton",
+                "MemorySearchButton", "MemoryList", "MemoryTitleInput", "MemoryContentInput",
+                "MemoryResult", "MemoryEmptyStateText", "ImportMemoryButton", "ExportMemoryButton",
+                "LoreWebButton", "ProactiveCheckInEnabledCheckBox", "ProactiveCheckInIntervalSelector"
+            })
+            {
+                var control = window.FindName(name) as UIElement
+                    ?? throw new InvalidOperationException($"{name} was not found.");
+                Assert.IsFalse(control.IsEnabled,
+                    $"{name} must not expose an enabled UI Automation action during private chat.");
+            }
+
+            addMessage.Invoke(window, new object[] { "user", "Private-only sentinel" });
+            Assert.AreEqual(1, window.ChatMessages.Count);
+            AppRuntime.ChatSessionService.SaveCurrentMessages(new[]
+            {
+                new ChatMessage { Role = "user", Content = "Direct service bypass must stay temporary" }
+            });
+
+            // Re-open the encrypted file through a fresh service, as a new process would.
+            var reopenedDuringPrivateChat = new ChatSessionService(
+                Path.Combine(dataRoot, "sessions.dpapi"),
+                new ProtectedJsonStore<List<ChatMessage>>(Path.Combine(dataRoot, "chat.dpapi")),
+                "Visual smoke");
+            Assert.IsFalse(reopenedDuringPrivateChat.IsTemporarySession);
+            Assert.AreEqual(1, reopenedDuringPrivateChat.GetAll().Count);
+            Assert.AreEqual(savedConversationId, reopenedDuringPrivateChat.GetCurrent().Id);
+            Assert.AreEqual(2, reopenedDuringPrivateChat.GetCurrent().Messages.Count);
+            Assert.AreEqual("Saved conversation sentinel", reopenedDuringPrivateChat.GetCurrent().Messages[0].Content);
+            Assert.AreEqual("Saved reply sentinel", reopenedDuringPrivateChat.GetCurrent().Messages[1].Content);
+            Assert.IsFalse(reopenedDuringPrivateChat.GetCurrent().Messages.Any(message =>
+                message.Content.Contains("Private", StringComparison.OrdinalIgnoreCase)),
+                "A newly constructed service must never load Incognito messages from disk.");
+
+            // Exercise UI handlers directly, bypassing tab navigation as a UIA/programmatic caller could.
+            void InvokeGuardedHandler(string methodName)
+            {
+                var handler = typeof(MainWindow).GetMethod(methodName, flags)
+                    ?? throw new InvalidOperationException($"Private-mode guard handler {methodName} was not found.");
+                handler.Invoke(window, new object[] { window, new RoutedEventArgs() });
+            }
+
+            foreach (var methodName in new[]
+            {
+                "ManageRemindersButton_Click",
+                "ManageRoutinesButton_Click",
+                "WorkspaceHubButton_Click",
+                "RunAgentTaskButton_Click",
+                "MemorySearchButton_Click",
+                "NewMemoryButton_Click",
+                "SaveMemoryButton_Click",
+                "ArchiveMemoryButton_Click",
+                "DeleteMemoryButton_Click",
+                "ImportMemoryButton_Click",
+                "ExportMemoryButton_Click",
+                "LoreWebButton_Click"
+            })
+                InvokeGuardedHandler(methodName);
+
+            var taskResult = (TextBox?)window.FindName("TaskResult")
+                ?? throw new InvalidOperationException("TaskResult was not found.");
+            taskResult.Text = "Private task history sentinel";
+            const string clipboardSentinel = "Clipboard must not be overwritten by a private task-copy request.";
+            Clipboard.SetText(clipboardSentinel);
+            InvokeGuardedHandler("CopyTaskResultButton_Click");
+            Assert.AreEqual(clipboardSentinel, Clipboard.GetText(),
+                "A task-copy handler must not export task history from the private workspace.");
+
+            Assert.AreEqual(originalMemoryCount, AppRuntime.MemoryService.GetAll(includeArchived: true).Count);
+            Assert.AreEqual(savedMemory.Content,
+                AppRuntime.MemoryService.GetAll(includeArchived: true)
+                    .Single(note => note.Id == savedMemory.Id).Content,
+                "Existing encrypted memory must remain unchanged while private mode is active.");
+            Assert.AreEqual(originalTaskCount, AppRuntime.TaskHistoryService.GetRecent(100).Count,
+                "No task-history record may be created from blocked private workspace handlers.");
+
+            var agentTaskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
+                ?? throw new InvalidOperationException("Agent-task cancellation field was not found.");
+            using (var activeAgentTask = new CancellationTokenSource())
+            {
+                agentTaskField.SetValue(window, activeAgentTask);
+                privateToggleHandler.Invoke(window, new object[] { window, new RoutedEventArgs() });
+                Assert.IsTrue((bool)privateModeField.GetValue(window)!,
+                    "Private chat must remain active until an agent task has stopped.");
+                Assert.IsFalse(activeAgentTask.IsCancellationRequested,
+                    "Attempting to exit private chat must not silently cancel or corrupt an active task.");
+                Assert.AreEqual(1, window.ChatMessages.Count,
+                    "A blocked exit must leave the unsaved private transcript intact.");
+                agentTaskField.SetValue(window, null);
+            }
+
+            exitPrivate.Invoke(window, null);
+            Assert.IsFalse((bool)privateModeField.GetValue(window)!);
+            Assert.IsFalse(AppRuntime.ChatSessionService.IsTemporarySession,
+                "Exiting private mode must restore normal chat persistence.");
+            Assert.IsFalse(AppRuntime.IsPrivateChatActive,
+                "The process-wide private flag must be cleared after exiting Incognito.");
+            Assert.AreEqual(reminderTimerWasEnabled,
+                ((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled,
+                "Saved reminder delivery must return to its exact pre-Incognito state.");
+            Assert.AreEqual(proactiveTimerWasEnabled && AppRuntime.Settings.ProactiveCheckInEnabled,
+                ((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled,
+                "Proactive check-ins must return to their pre-Incognito state unless the feature is now disabled.");
+            Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
+            Assert.IsTrue(tasksTab.IsEnabled, "Task workspace should return after private chat.");
+            Assert.IsTrue(memoryTab.IsEnabled, "Memory workspace should return after private chat.");
+            Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
+            Assert.AreEqual("Saved conversation sentinel", window.ChatMessages[0].Content);
+            Assert.AreEqual("Saved reply sentinel", window.ChatMessages[1].Content);
+            Assert.AreEqual(1, window.ChatConversations.Count);
+            Assert.AreEqual(2, AppRuntime.ChatSessionService.GetCurrent().Messages.Count);
+
+            var reopenedAfterPrivateChat = new ChatSessionService(
+                Path.Combine(dataRoot, "sessions.dpapi"),
+                new ProtectedJsonStore<List<ChatMessage>>(Path.Combine(dataRoot, "chat.dpapi")),
+                "Visual smoke");
+            Assert.AreEqual(2, reopenedAfterPrivateChat.GetCurrent().Messages.Count);
+            Assert.IsFalse(reopenedAfterPrivateChat.GetCurrent().Messages.Any(message =>
+                message.Content.Contains("Private", StringComparison.OrdinalIgnoreCase)));
+        }
+        finally
+        {
+            if (previousClipboardText is null)
+                Clipboard.Clear();
+            else
+                Clipboard.SetText(previousClipboardText);
+        }
     }
+
 
     private static void RenderAllStates()
     {
@@ -641,7 +806,7 @@ public sealed class MainWindowVisualSmokeTests
         lines.Add("Interactive settings regression: language/theme/navigation, mascot toggles, size/opacity, opt-in window inspection, provider validation/persistence, and show/hide passed.");
 
         AssertEscapeCancelsActiveChatAndAgentOperations(window);
-        AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window);
+        AssertPrivateChatDoesNotPersistMessagesAndRestoresSavedConversation(window, temp.Path);
         AssertPrivacyShieldClearsUnsubmittedClipboardAttachments(window);
         lines.Add("AYO safety regression: Escape cancellation and non-persistent private-chat history passed.");
         AssertAttachmentControlMutualExclusion(window);
@@ -1436,6 +1601,7 @@ public sealed class MainWindowVisualSmokeTests
             new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor,
             AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
         AppRuntime.IsExiting = false;
+        AppRuntime.IsPrivateChatActive = false;
     }
 
     private static void SaveSnapshot(
