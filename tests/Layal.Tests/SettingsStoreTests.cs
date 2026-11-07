@@ -26,6 +26,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
         Assert.AreEqual("warm", settings.AssistantPersona);
+        Assert.AreEqual("natural", settings.VoiceDeliveryStyleId);
+        Assert.AreEqual("duo", settings.MascotCharacterDisplayMode);
         Assert.AreEqual(string.Empty, settings.GmailOAuthClientId);
         Assert.IsFalse(settings.PrivacyShieldEnabled);
         Assert.IsFalse(settings.ProactiveCheckInEnabled);
@@ -58,7 +60,7 @@ public sealed class SettingsStoreTests
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
-            "{\"Language\":\"fr\",\"ThemeMode\":\"neon\",\"ProviderBaseUrl\":\" \",\"ModelId\":\"\",\"MascotScale\":12,\"MascotOpacity\":-2}");
+            "{\"Language\":\"fr\",\"ThemeMode\":\"neon\",\"ProviderBaseUrl\":\" \",\"ModelId\":\"\",\"MascotScale\":12,\"MascotOpacity\":-2,\"VoiceDeliveryStyleId\":\"untrusted\",\"MascotCharacterDisplayMode\":\"hidden-all\"}");
 
         var settings = new SettingsStore(temp.Path).Load();
 
@@ -67,6 +69,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.AreEqual(1.8, settings.MascotScale, 0.0001);
         Assert.AreEqual(0.35, settings.MascotOpacity, 0.0001);
+        Assert.AreEqual("natural", settings.VoiceDeliveryStyleId);
+        Assert.AreEqual("duo", settings.MascotCharacterDisplayMode);
     }
 
     [TestMethod]
@@ -115,6 +119,8 @@ public sealed class SettingsStoreTests
             ThemeMode = "dark",
             ThemePreset = "ocean",
             AssistantPersona = "focused",
+            VoiceDeliveryStyleId = "gentle",
+            MascotCharacterDisplayMode = "robot",
             QuickAskHotkeyPreset = "AltShiftQ",
             GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             ProviderBaseUrl = "https://provider.example/v1",
@@ -145,6 +151,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("AltShiftQ", reloaded.QuickAskHotkeyPreset);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
         Assert.AreEqual("focused", reloaded.AssistantPersona);
+        Assert.AreEqual("gentle", reloaded.VoiceDeliveryStyleId);
+        Assert.AreEqual("robot", reloaded.MascotCharacterDisplayMode);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
         Assert.IsFalse(reloaded.UseLocalAi);
@@ -184,6 +192,8 @@ public sealed class SettingsStoreTests
             VoiceReplyModelId = "old-voice-model",
             VoiceReplyId = "marin",
             AssistantPersona = "professional",
+            VoiceDeliveryStyleId = "bright",
+            MascotCharacterDisplayMode = "layal",
             GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
@@ -216,6 +226,8 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
         Assert.AreEqual("old-voice-model", candidate.VoiceReplyModelId);
         Assert.AreEqual("professional", candidate.AssistantPersona);
+        Assert.AreEqual("bright", candidate.VoiceDeliveryStyleId);
+        Assert.AreEqual("layal", candidate.MascotCharacterDisplayMode);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", candidate.GmailOAuthClientId);
         Assert.IsFalse(candidate.MascotAlwaysOnTop);
         Assert.IsFalse(candidate.MascotAnimationsEnabled);
@@ -239,6 +251,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("marin", target.VoiceReplyId);
         Assert.AreEqual("professional", target.AssistantPersona);
+        Assert.AreEqual("bright", target.VoiceDeliveryStyleId);
+        Assert.AreEqual("layal", target.MascotCharacterDisplayMode);
         Assert.IsTrue(target.AutomaticLocationConsentConfirmed);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", target.GmailOAuthClientId);
         Assert.IsTrue(target.AllowWindowTitleInspection);
