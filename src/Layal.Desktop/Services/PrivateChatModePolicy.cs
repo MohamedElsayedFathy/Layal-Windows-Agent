@@ -24,4 +24,6 @@ public static class PrivateChatModePolicy
         CanAccessTaskWorkspace(privateChatActive);
 
     public static bool CanAccessPersonalMemory(bool privateChatActive) => !privateChatActive;
+
+    public static bool CanDeliverLocalNotifications(bool privateChatActive) => !privateChatActive;
 }
