@@ -147,6 +147,7 @@ public sealed class ChatSessionServiceTests
 
         service.BeginTemporarySession();
         Assert.IsTrue(service.IsTemporarySession);
+        service.SetDefaultTitle("Private temporary title");
 
         service.SaveCurrentMessages(new List<ChatMessage>
         {
@@ -180,6 +181,8 @@ public sealed class ChatSessionServiceTests
         Assert.AreEqual("Persisted before Incognito", service.GetCurrent().Messages[0].Content);
         Assert.IsFalse(service.GetCurrent().Messages.Any(message =>
             message.Content.Contains("Private message", StringComparison.Ordinal)));
+        Assert.AreEqual("New conversation", service.CreateNewConversation().Title,
+            "Temporary UI language/default-title changes must not leak into normal mode.");
     }
 
     [TestMethod]
