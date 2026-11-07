@@ -1350,7 +1350,7 @@ public sealed class AgentToolExecutorTests
             (_, _, _) =>
             {
                 File.Delete(System.IO.Path.Combine(workspace, "notes.txt"));
-                File.CreateSymbolicLink(System.IO.Path.Combine(workspace, "notes.txt"), outside);
+                CreateFileSymbolicLinkOrInconclusive(System.IO.Path.Combine(workspace, "notes.txt"), outside);
                 return Task.FromResult(true);
             }, _ => { }, CancellationToken.None));
 
@@ -1374,7 +1374,7 @@ public sealed class AgentToolExecutorTests
             (_, _, _) =>
             {
                 Directory.Move(originalParent, System.IO.Path.Combine(workspace, "sub-original"));
-                Directory.CreateSymbolicLink(originalParent, outside);
+                CreateDirectorySymbolicLinkOrInconclusive(originalParent, outside);
                 return Task.FromResult(true);
             }, _ => { }, CancellationToken.None));
 
@@ -1398,11 +1398,40 @@ public sealed class AgentToolExecutorTests
             (_, _, _) =>
             {
                 File.Delete(System.IO.Path.Combine(workspace, "notes.txt"));
-                File.CreateSymbolicLink(System.IO.Path.Combine(workspace, "notes.txt"), outside);
+                CreateFileSymbolicLinkOrInconclusive(System.IO.Path.Combine(workspace, "notes.txt"), outside);
                 return Task.FromResult(true);
             }, _ => { }, CancellationToken.None));
 
         Assert.AreEqual("outside secret", File.ReadAllText(outside), "The outside target must remain unchanged.");
+    }
+
+
+    private static void CreateFileSymbolicLinkOrInconclusive(string linkPath, string targetPath)
+    {
+        try
+        {
+            File.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            Assert.Inconclusive(
+                $"This race-condition test requires Windows symbolic-link creation permission. " +
+                $"Enable Developer Mode or run the test process with the required privilege. Details: {exception.Message}");
+        }
+    }
+
+    private static void CreateDirectorySymbolicLinkOrInconclusive(string linkPath, string targetPath)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            Assert.Inconclusive(
+                $"This race-condition test requires Windows directory symbolic-link creation permission. " +
+                $"Enable Developer Mode or run the test process with the required privilege. Details: {exception.Message}");
+        }
     }
 
     private static AgentToolExecutor CreateExecutor(string root, ApiConnectionService? apiConnections = null) =>
