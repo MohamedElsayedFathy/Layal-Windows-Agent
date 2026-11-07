@@ -18,10 +18,11 @@ public static class ProactiveCheckInPolicy
         bool gameModeActive,
         bool applicationExiting,
         DateTimeOffset? lastNotifiedAt,
-        int intervalMinutes)
+        int intervalMinutes,
+        bool privateChatActive = false)
     {
         if (!enabled || privacyShieldEnabled || gameModeActive || applicationExiting ||
-            lastNotifiedAt is null || intervalMinutes is not (15 or 30 or 60 or 120))
+            privateChatActive || lastNotifiedAt is null || intervalMinutes is not (15 or 30 or 60 or 120))
             return null;
 
         try
@@ -41,10 +42,11 @@ public static class ProactiveCheckInPolicy
         bool applicationExiting,
         DateTimeOffset? lastNotifiedAt,
         DateTimeOffset now,
-        int intervalMinutes)
+        int intervalMinutes,
+        bool privateChatActive = false)
     {
         if (!enabled || privacyShieldEnabled || gameModeActive || applicationExiting ||
-            lastNotifiedAt is null || now < lastNotifiedAt.Value)
+            privateChatActive || lastNotifiedAt is null || now < lastNotifiedAt.Value)
             return false;
 
         if (intervalMinutes is not (15 or 30 or 60 or 120))
