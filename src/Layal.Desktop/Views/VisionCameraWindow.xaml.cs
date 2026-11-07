@@ -527,16 +527,15 @@ public partial class VisionCameraWindow : System.Windows.Window
                 AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting)) return;
         _switchingSource = true;
         UseLocalCameraButton.IsEnabled = false;
+        ConnectNetworkCameraButton.IsEnabled = false;
+        ScanNetworkCamerasButton.IsEnabled = false;
         CameraStatusText.Text = _isArabic ? "جارٍ فتح كاميرا الكمبيوتر..." : "Opening the computer camera...";
         VideoCapture? candidate = null;
         try
         {
             candidate = new VideoCapture();
-            var opened = await Task.Run(() =>
-            {
-                if (candidate.Open(0, VideoCaptureAPIs.DSHOW)) return true;
-                return candidate.Open(0, VideoCaptureAPIs.MSMF);
-            });
+            var opened = await OpenLocalCaptureAsync(candidate, () => candidate = null, _lifetimeToken);
+            _lifetimeToken.ThrowIfCancellationRequested();
             if (_isClosing || !PrivacyShieldPolicy.CanStartCapture(
                     AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
                 return;
@@ -561,20 +560,31 @@ public partial class VisionCameraWindow : System.Windows.Window
             _previewTimer.Start();
             CameraStatusChanged?.Invoke(true);
         }
+        catch (OperationCanceledException)
+        {
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إلغاء فتح الكاميرا المحلية." : "Local camera startup was cancelled.";
+        }
         catch (Exception ex)
         {
-            CameraStatusText.Text = SafeCameraError(ex);
+            if (!_isClosing)
+                CameraStatusText.Text = SafeCameraError(ex);
         }
         finally
         {
             candidate?.Dispose();
-            CameraPasswordInput.Clear();
-            UseLocalCameraButton.IsEnabled = true;
-            _switchingSource = false;
+            if (!_isClosing)
+            {
+                CameraPasswordInput.Clear();
+                UseLocalCameraButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+                ScanNetworkCamerasButton.IsEnabled = true;
+                _switchingSource = false;
+            }
         }
     }
 
-    private static string SafeCameraError(Exception ex)
+        private static string SafeCameraError(Exception ex)
     {
         var message = ex.Message;
         // Native OpenCV/FFmpeg messages sometimes include input URLs. Do not surface credentials.
