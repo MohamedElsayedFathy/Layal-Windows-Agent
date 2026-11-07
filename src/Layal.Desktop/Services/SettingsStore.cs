@@ -103,6 +103,8 @@ public sealed class SettingsStore
         settings.QuickAskHotkeyPreset = GlobalHotkeyService.NormalizePreset(settings.QuickAskHotkeyPreset);
         if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
             settings.AssistantPersona = "warm";
+        settings.VoiceDeliveryStyleId = VoiceDeliveryStylePolicy.Normalize(settings.VoiceDeliveryStyleId);
+        settings.MascotCharacterDisplayMode = CharacterDisplayModePolicy.Normalize(settings.MascotCharacterDisplayMode);
         settings.GmailOAuthClientId = (settings.GmailOAuthClientId ?? string.Empty).Trim();
         if (settings.GmailOAuthClientId.Length > 300 ||
             settings.GmailOAuthClientId.Any(char.IsControl) ||

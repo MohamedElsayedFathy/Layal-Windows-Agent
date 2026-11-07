@@ -34,9 +34,10 @@ public sealed class LayalSpeechService
         "distinctly childlike and feminine, like a young-girl character, with a naturally youthful, light upper register; warm, soft, bright, and conversational. " +
         "Let pitch, rhythm, emphasis, and pauses vary naturally with the meaning. Avoid a forced high pitch, sing-song delivery, squeakiness, exaggerated baby-talk, over-enunciation, or a robotic, evenly timed cadence; do not sound like a mature adult woman.";
 
-    private const string VoiceInstructions =
+    public static string BuildVoiceInstructions(string? deliveryStyleId) =>
         "Read the user's supplied text aloud exactly as written. Do not answer it, paraphrase, summarize, translate, add a greeting, or add any other words. " +
         "You are Layal, a fictional young-girl character. Your voice should be " + VoiceCharacterDescription + " " +
+        VoiceDeliveryStylePolicy.BuildRealtimeInstruction(deliveryStyleId) + " " +
         "Use natural Egyptian Arabic when the text is Egyptian colloquial, clear Modern Standard Arabic when it is formal Arabic, and natural English for English text. " +
         "Use relaxed conversational timing and connected speech. Let sentence endings, emphasis, and short pauses follow the meaning instead of using the same cadence for every sentence. " +
         "Keep the warmth and light playfulness subtle rather than performed or overly cute. " +
@@ -84,7 +85,8 @@ public sealed class LayalSpeechService
         string voiceId,
         string text,
         CancellationToken cancellationToken = default,
-        string? outputDeviceId = null)
+        string? outputDeviceId = null,
+        string? deliveryStyleId = null)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Save a valid API key in Settings before using Layal's voice.");
@@ -97,7 +99,7 @@ public sealed class LayalSpeechService
         foreach (var chunk in chunks)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var pcm = await GeneratePcmChunkAsync(endpoint, apiKey.Trim(), modelId.Trim(), voiceId.Trim(), chunk, cancellationToken);
+            var pcm = await GeneratePcmChunkAsync(endpoint, apiKey.Trim(), modelId.Trim(), voiceId.Trim(), chunk, deliveryStyleId, cancellationToken);
             try
             {
                 await PlayPcmAsync(pcm, cancellationToken, outputDeviceId);
@@ -165,6 +167,7 @@ public sealed class LayalSpeechService
         string modelId,
         string voiceId,
         string text,
+        string? deliveryStyleId,
         CancellationToken cancellationToken)
     {
         using var socket = new ClientWebSocket();
@@ -191,7 +194,7 @@ public sealed class LayalSpeechService
                         voice = voiceId
                     }
                 },
-                instructions = VoiceInstructions
+                instructions = BuildVoiceInstructions(deliveryStyleId)
             }
         }, cancellationToken);
 

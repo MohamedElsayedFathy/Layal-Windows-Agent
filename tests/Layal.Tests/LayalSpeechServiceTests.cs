@@ -90,11 +90,34 @@ public sealed class LayalSpeechServiceTests
     }
 
     [TestMethod]
+    public void BuildVoiceInstructions_SeparatesDeliveryStyleFromVoiceCharacterAndPreservesExactTextContract()
+    {
+        var natural = LayalSpeechService.BuildVoiceInstructions("natural");
+        var gentle = LayalSpeechService.BuildVoiceInstructions("gentle");
+        var bright = LayalSpeechService.BuildVoiceInstructions("bright");
+        var clear = LayalSpeechService.BuildVoiceInstructions("clear");
+
+        foreach (var instructions in new[] { natural, gentle, bright, clear })
+        {
+            StringAssert.Contains(instructions, "Read the user's supplied text aloud exactly as written");
+            StringAssert.Contains(instructions, LayalSpeechService.VoiceCharacterDescription);
+            StringAssert.Contains(instructions, "The voice is AI-generated, not a human recording.");
+        }
+
+        Assert.AreNotEqual(natural, gentle);
+        Assert.AreNotEqual(gentle, bright);
+        Assert.AreNotEqual(bright, clear);
+        StringAssert.Contains(LayalSpeechService.BuildVoiceInstructions("unknown"), "natural and conversational");
+    }
+
+    [TestMethod]
     public void IsSupportedVoice_OnlyAcceptsKnownVoicePresets()
     {
         Assert.IsTrue(LayalSpeechService.IsSupportedVoice(LayalSpeechService.DefaultVoiceId));
         Assert.IsTrue(LayalSpeechService.IsSupportedVoice("shimmer"));
         Assert.IsTrue(LayalSpeechService.IsSupportedVoice("MARIN"));
+        foreach (var voice in new[] { "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "cedar", "marin" })
+            Assert.IsTrue(LayalSpeechService.IsSupportedVoice(voice), $"Realtime voice '{voice}' must have a selectable preset.");
         Assert.IsFalse(LayalSpeechService.IsSupportedVoice("untrusted-voice"));
         Assert.IsFalse(LayalSpeechService.IsSupportedVoice(" "));
     }

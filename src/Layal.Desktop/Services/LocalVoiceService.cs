@@ -288,7 +288,11 @@ public sealed class LocalVoiceService
         }
     }
 
-    public async Task SpeakAsync(string text, CancellationToken cancellationToken = default, string? outputDeviceId = null)
+    public async Task SpeakAsync(
+        string text,
+        CancellationToken cancellationToken = default,
+        string? outputDeviceId = null,
+        string? deliveryStyleId = null)
     {
         if (!IsReady || string.IsNullOrWhiteSpace(_piperExecutable))
             throw new InvalidOperationException("جهّز موارد الصوت المحلي أولًا من الإعدادات.");
@@ -321,10 +325,11 @@ public sealed class LocalVoiceService
             }
         }
 
+        var lengthScale = VoiceDeliveryStylePolicy.GetLocalLengthScale(deliveryStyleId);
         foreach (var segment in segments)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await SpeakSegmentAsync(segment.Text, segment.IsArabic, outputDeviceId, cancellationToken);
+            await SpeakSegmentAsync(segment.Text, segment.IsArabic, outputDeviceId, cancellationToken, lengthScale);
         }
     }
 
@@ -382,7 +387,8 @@ public sealed class LocalVoiceService
         string text,
         bool isArabic,
         string? outputDeviceId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        double lengthScale)
     {
         var modelPath = isArabic ? ArabicModelPath : EnglishModelPath;
         var configPath = isArabic ? ArabicConfigPath : EnglishConfigPath;
@@ -406,6 +412,8 @@ public sealed class LocalVoiceService
             start.ArgumentList.Add(configPath);
             start.ArgumentList.Add("--output_file");
             start.ArgumentList.Add(outputPath);
+            start.ArgumentList.Add("--length_scale");
+            start.ArgumentList.Add(lengthScale.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
 
             var result = await RunProcessAsync(start, text, TimeSpan.FromMinutes(2), cancellationToken);
             if (result.ExitCode != 0)

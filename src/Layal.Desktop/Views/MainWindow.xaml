@@ -810,11 +810,17 @@
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة أجهزة الصوت"/>
                         <TextBlock x:Name="VoiceReplyVoiceLabel" Text="نبرة الصوت السحابي (اختياري)" Margin="4,6,4,0"/>
-                        <ComboBox x:Name="VoiceReplyVoiceSelector" SelectedValuePath="Tag" SelectedValue="marin" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="صوت ليال الطفولي">
-                            <ComboBoxItem Tag="shimmer" Content="طفولي وناعم (Shimmer)"/>
-                            <ComboBoxItem Tag="coral" Content="طفولي ودافئ (Coral)"/>
-                            <ComboBoxItem Tag="marin" Content="طبيعي وعفوي (Marin)"/>
-                            <ComboBoxItem Tag="cedar" Content="هادئة وواضحة (Cedar)"/>
+                        <ComboBox x:Name="VoiceReplyVoiceSelector" SelectedValuePath="Tag" SelectedValue="marin" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="صوت الرد السحابي">
+                            <ComboBoxItem Tag="marin" Content="Marin — موصى به"/>
+                            <ComboBoxItem Tag="cedar" Content="Cedar — موصى به"/>
+                            <ComboBoxItem Tag="alloy" Content="Alloy"/>
+                            <ComboBoxItem Tag="ash" Content="Ash"/>
+                            <ComboBoxItem Tag="ballad" Content="Ballad"/>
+                            <ComboBoxItem Tag="coral" Content="Coral"/>
+                            <ComboBoxItem Tag="echo" Content="Echo"/>
+                            <ComboBoxItem Tag="sage" Content="Sage"/>
+                            <ComboBoxItem Tag="shimmer" Content="Shimmer"/>
+                            <ComboBoxItem Tag="verse" Content="Verse"/>
                         </ComboBox>
                         <TextBlock x:Name="AssistantPersonaLabel" Text="نمط شخصية ليال" Margin="4,8,4,0"/>
                         <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
@@ -825,9 +831,22 @@
                             <ComboBoxItem Tag="focused" Content="مركزة ومختصرة"/>
                             <ComboBoxItem Tag="professional" Content="احترافية ومنظمة"/>
                         </ComboBox>
-                        <TextBlock x:Name="AssistantPersonaDisclosure" Text="نمط الرد يغيّر طريقة الصياغة فقط، ولا يغيّر الهوية أو حدود الأمان."
+                        <TextBlock x:Name="AssistantPersonaDisclosure" Text="أسلوب النص مستقل عن نبرة الإلقاء، ولا يغيّر الهوية أو حدود الأمان أو الصلاحيات."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
-                                   AutomationProperties.Name="حدود نمط الشخصية"/>
+                                   AutomationProperties.Name="حدود نمط الرد"/>
+                        <TextBlock x:Name="VoiceDeliveryStyleLabel" Text="نبرة الإلقاء" Margin="4,6,4,0"/>
+                        <ComboBox x:Name="VoiceDeliveryStyleSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
+                                  SelectionChanged="VoiceDeliveryStyleSelector_SelectionChanged"
+                                  AutomationProperties.Name="نبرة الإلقاء الصوتي"
+                                  AutomationProperties.HelpText="إعداد مستقل عن أسلوب النص واختيار الصوت. النطق المحلي يغيّر السرعة فقط؛ Realtime يطبق تعليمات النبرة.">
+                            <ComboBoxItem Tag="natural" Content="طبيعية وعفوية"/>
+                            <ComboBoxItem Tag="gentle" Content="هادئة ولطيفة"/>
+                            <ComboBoxItem Tag="bright" Content="مشرقة وحيوية باعتدال"/>
+                            <ComboBoxItem Tag="clear" Content="واضحة ومتزنة"/>
+                        </ComboBox>
+                        <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="في الوضع المحلي يتغير إيقاع النطق فقط لأن نموذج Piper الحالي لا يوفّر تغييرًا عاطفيًا أو صوتيًا؛ في الوضع السحابي تُرسل تعليمات نبرة منفصلة عن معرّف الصوت."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
+                                   AutomationProperties.Name="حدود نبرة الإلقاء"/>
                         <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" Margin="4,8,4,0"/>
                         <TextBox x:Name="VoiceReplyModelInput" FlowDirection="LeftToRight" Text="gpt-realtime-2.1-mini" AutomationProperties.Name="معرّف نموذج الرد الصوتي" AutomationProperties.LabeledBy="{Binding ElementName=VoiceReplyModelLabel}"/>
                         <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك؛ عند اختيار المزود السحابي قد تُطبق رسوم." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
@@ -866,6 +885,17 @@
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.Name="ملاحظة أولوية التباين العالي"/>
                         <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <TextBlock x:Name="CharacterDisplayModeLabel" Text="الشخصية المعروضة" Margin="4,6,4,0"/>
+                        <ComboBox x:Name="CharacterDisplayModeSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
+                                  SelectionChanged="CharacterDisplayModeSelector_SelectionChanged"
+                                  AutomationProperties.Name="الشخصية المعروضة"
+                                  AutomationProperties.HelpText="اختر عرض ليال أو الروبوت أو كليهما؛ لا يغيّر ذلك حالات الشخصية أو صلاحيات المساعد.">
+                            <ComboBoxItem Tag="duo" Content="ليال والروبوت"/>
+                            <ComboBoxItem Tag="layal" Content="ليال فقط"/>
+                            <ComboBoxItem Tag="robot" Content="الروبوت فقط"/>
+                        </ComboBox>
+                        <TextBlock x:Name="CharacterDisplayModeDisclosure" Text="يغيّر هذا الاختيار الرسومات الظاهرة فقط؛ تظل حالة المساعد وتعبيراته الفعلية محدثة."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"/>
                         <CheckBox x:Name="AlwaysOnTopCheckbox" Content="إبقاء الشخصية فوق النوافذ الأخرى" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
                         <CheckBox x:Name="AnimationsCheckbox" Content="تفعيل حركة الشخصية والرمش" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"/>
                         <CheckBox x:Name="PerformanceModeCheckbox" Content="وضع الأداء (حركة أقل واستهلاك أقل)" Checked="MascotSettingChanged" Unchecked="MascotSettingChanged"

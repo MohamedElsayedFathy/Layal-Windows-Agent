@@ -159,16 +159,12 @@ public partial class MainWindow : Window
         SpeechModelInput.Text = AppRuntime.Settings.SpeechToTextModelId;
         VoiceReplyCheckbox.IsChecked = AppRuntime.Settings.VoiceRepliesEnabled;
         VoiceReplyModelInput.Text = AppRuntime.Settings.VoiceReplyModelId;
-        // Shimmer was the previous default. Switch that legacy default to Marin for more natural delivery.
-        if (string.IsNullOrWhiteSpace(AppRuntime.Settings.VoiceReplyId) ||
-            string.Equals(AppRuntime.Settings.VoiceReplyId, "shimmer", StringComparison.OrdinalIgnoreCase))
-        {
-            AppRuntime.Settings.VoiceReplyId = LayalSpeechService.DefaultVoiceId;
-            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
-        }
+        // SettingsStore normalizes only invalid/empty IDs. Preserve every valid voice explicitly selected by the user.
         VoiceReplyVoiceSelector.SelectedValue = AppRuntime.Settings.VoiceReplyId;
         AssistantPersonaSelector.SelectedItem = AssistantPersonaSelector.Items.OfType<ComboBoxItem>()
             .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), AppRuntime.Settings.AssistantPersona, StringComparison.Ordinal));
+        VoiceDeliveryStyleSelector.SelectedValue = VoiceDeliveryStylePolicy.Normalize(AppRuntime.Settings.VoiceDeliveryStyleId);
+        CharacterDisplayModeSelector.SelectedValue = CharacterDisplayModePolicy.Normalize(AppRuntime.Settings.MascotCharacterDisplayMode);
         AlwaysOnTopCheckbox.IsChecked = AppRuntime.Settings.MascotAlwaysOnTop;
         AnimationsCheckbox.IsChecked = AppRuntime.Settings.MascotAnimationsEnabled;
         PerformanceModeCheckbox.IsChecked = AppRuntime.Settings.PerformanceModeEnabled;
@@ -1280,7 +1276,7 @@ public partial class MainWindow : Window
             : "Select the speaker or audio output used for Layal's spoken replies and live conversations.");
         AutomationProperties.SetName(RefreshAudioDevicesButton, ar ? "تحديث قائمة أجهزة الصوت" : "Refresh audio devices");
         VoiceReplyCheckbox.Content = ar ? "ليال تقرأ ردودها بصوت طفولي" : "Have Layal read replies aloud in a childlike voice";
-        VoiceReplyVoiceLabel.Text = ar ? "نبرة الصوت السحابي (اختياري)" : "Cloud voice preset (optional)";
+        VoiceReplyVoiceLabel.Text = ar ? "هوية الصوت السحابي (Realtime)" : "Cloud voice identity (Realtime)";
         VoiceReplyModelLabel.Text = ar ? "معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" : "Cloud voice model ID (Realtime; optional)";
         VoiceReplyDisclosureText.Text = ar
             ? "صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك دون إرسال الرد إلى خادم صوت؛ قد تُطبق رسوم عند اختيار المزود السحابي."
@@ -1293,17 +1289,23 @@ public partial class MainWindow : Window
         {
             voiceItem.Content = (voiceItem.Tag?.ToString() ?? string.Empty).ToLowerInvariant() switch
             {
-                "shimmer" => ar ? "طفولي وناعم (Shimmer)" : "Childlike and soft (Shimmer)",
-                "coral" => ar ? "طفولي ودافئ (Coral)" : "Childlike and warm (Coral)",
-                "marin" => ar ? "طبيعي وعفوي (Marin)" : "Natural and conversational (Marin)",
-                "cedar" => ar ? "هادئة وواضحة (Cedar)" : "Calm and clear (Cedar)",
+                "marin" => ar ? "Marin — موصى به" : "Marin — recommended",
+                "cedar" => ar ? "Cedar — موصى به" : "Cedar — recommended",
+                "alloy" => "Alloy",
+                "ash" => "Ash",
+                "ballad" => "Ballad",
+                "coral" => "Coral",
+                "echo" => "Echo",
+                "sage" => "Sage",
+                "shimmer" => "Shimmer",
+                "verse" => "Verse",
                 _ => voiceItem.Tag?.ToString() ?? string.Empty
             };
         }
-        AssistantPersonaLabel.Text = ar ? "نمط شخصية ليال" : "Layal response style";
+        AssistantPersonaLabel.Text = ar ? "أسلوب صياغة الرد" : "Text response style";
         AssistantPersonaDisclosure.Text = ar
-            ? "نمط الرد يغيّر طريقة الصياغة فقط، ولا يغيّر الهوية أو حدود الأمان."
-            : "Response style changes wording only; it does not change identity or safety boundaries.";
+            ? "يتحكم في صياغة النص فقط. اختيارات نبرة الإلقاء والصوت منفصلة عنه، ولا تتغير الهوية أو حدود الأمان أو الصلاحيات."
+            : "Controls wording only. Spoken delivery style and voice identity are independent; identity, safety boundaries and permissions never change.";
         foreach (ComboBoxItem personaItem in AssistantPersonaSelector.Items)
         {
             personaItem.Content = (personaItem.Tag?.ToString() ?? string.Empty) switch
@@ -1314,10 +1316,30 @@ public partial class MainWindow : Window
                 _ => personaItem.Tag?.ToString() ?? string.Empty
             };
         }
-        AutomationProperties.SetName(AssistantPersonaSelector, ar ? "نمط شخصية ليال" : "Layal response style");
+        AutomationProperties.SetName(AssistantPersonaSelector, ar ? "أسلوب صياغة الرد" : "Text response style");
         AutomationProperties.SetHelpText(AssistantPersonaSelector, ar
-            ? "اختيار الأسلوب يغيّر طريقة الصياغة فقط ولا يغيّر قواعد الأمان أو الموافقات أو الصلاحيات."
-            : "Style changes wording only and never changes safety rules, confirmations, or tool permissions.");
+            ? "اختيار أسلوب النص منفصل عن نبرة الإلقاء واختيار هوية الصوت؛ لا يغيّر قواعد الأمان أو الموافقات أو الصلاحيات."
+            : "Text style is independent from delivery style and voice identity; it never changes safety rules, confirmations, or tool permissions.");
+        VoiceDeliveryStyleLabel.Text = ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style";
+        VoiceDeliveryStyleDisclosure.Text = ar
+            ? "طبيعية أو هادئة أو مشرقة أو واضحة. محليًا يتغير الإيقاع فقط؛ سحابيًا تُرسل تعليمات نبرة مستقلة. لا يتغير معرّف الصوت."
+            : "Natural, gentle, bright, or clear. Local mode changes pace only; cloud mode sends separate delivery instructions. The voice ID stays unchanged.";
+        AutomationProperties.SetName(VoiceDeliveryStyleSelector, ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style");
+        AutomationProperties.SetHelpText(VoiceDeliveryStyleSelector, ar
+            ? "اختيار مستقل عن أسلوب النص وهوية الصوت. لا يغيّر قواعد الأمان أو صلاحيات الأدوات."
+            : "Independent from text style and voice identity. Does not change safety rules or tool permissions.");
+        foreach (ComboBoxItem styleItem in VoiceDeliveryStyleSelector.Items)
+            styleItem.Content = VoiceDeliveryStylePolicy.GetDisplayName(styleItem.Tag?.ToString(), ar);
+        CharacterDisplayModeLabel.Text = ar ? "الشخصية المعروضة" : "Displayed character";
+        CharacterDisplayModeDisclosure.Text = ar
+            ? "يغيّر الرسومات الظاهرة فقط؛ تظل حالات المساعد وتعبيراته الفعلية محدثة."
+            : "Changes only which artwork is visible; actual assistant states and expressions continue to update.";
+        AutomationProperties.SetName(CharacterDisplayModeSelector, ar ? "الشخصية المعروضة" : "Displayed character");
+        AutomationProperties.SetHelpText(CharacterDisplayModeSelector, ar
+            ? "اختر ليال أو الروبوت أو كليهما. هذا لا يغيّر شخصية المساعد أو صلاحياته."
+            : "Choose Layal, the robot, or both. This does not change assistant identity or permissions.");
+        foreach (ComboBoxItem modeItem in CharacterDisplayModeSelector.Items)
+            modeItem.Content = CharacterDisplayModePolicy.GetModeName(modeItem.Tag?.ToString(), ar);
         AutomationProperties.SetName(VoiceReplyCheckbox, ar ? "الردود الصوتية لليال" : "Layal voice replies");
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
             ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
@@ -3230,6 +3252,52 @@ public partial class MainWindow : Window
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
     }
 
+    private void VoiceDeliveryStyleSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || VoiceDeliveryStyleSelector.SelectedItem is not ComboBoxItem item) return;
+        var style = VoiceDeliveryStylePolicy.Normalize(item.Tag?.ToString());
+        var previous = AppRuntime.Settings.VoiceDeliveryStyleId;
+        if (string.Equals(previous, style, StringComparison.Ordinal)) return;
+        AppRuntime.Settings.VoiceDeliveryStyleId = style;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "تم حفظ نبرة الإلقاء الصوتي. هوية الصوت وأسلوب النص لم يتغيرا."
+                : "Spoken delivery style saved. Voice identity and text style are unchanged.");
+        }
+        catch (Exception ex)
+        {
+            AppRuntime.Settings.VoiceDeliveryStyleId = previous;
+            VoiceDeliveryStyleSelector.SelectedValue = VoiceDeliveryStylePolicy.Normalize(previous);
+            SetAccessibleStatusText(ProviderActionStatus,
+                UiLocalization.FormatTechnicalError("تعذر حفظ نبرة الإلقاء", "Could not save delivery style", ex, IsArabic));
+        }
+    }
+
+    private void CharacterDisplayModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || CharacterDisplayModeSelector.SelectedItem is not ComboBoxItem item) return;
+        var mode = CharacterDisplayModePolicy.Normalize(item.Tag?.ToString());
+        var previous = AppRuntime.Settings.MascotCharacterDisplayMode;
+        if (string.Equals(previous, mode, StringComparison.Ordinal)) return;
+        AppRuntime.Settings.MascotCharacterDisplayMode = mode;
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            AppRuntime.MascotWindow?.ApplyCharacterDisplayMode(mode);
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حفظ طريقة عرض الشخصية." : "Character display preference saved.");
+        }
+        catch (Exception ex)
+        {
+            AppRuntime.Settings.MascotCharacterDisplayMode = previous;
+            CharacterDisplayModeSelector.SelectedValue = CharacterDisplayModePolicy.Normalize(previous);
+            AppRuntime.MascotWindow?.ApplyCharacterDisplayMode(previous);
+            SetAccessibleStatusText(ProviderActionStatus,
+                UiLocalization.FormatTechnicalError("تعذر حفظ طريقة عرض الشخصية", "Could not save character display preference", ex, IsArabic));
+        }
+    }
+
     private void AssistantPersonaSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded || AssistantPersonaSelector.SelectedItem is not ComboBoxItem item)
@@ -3292,7 +3360,8 @@ public partial class MainWindow : Window
                 baseUrl, apiKey, model, voiceId,
                 "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak gently and clearly.",
                 cancellation.Token,
-                AppRuntime.Settings.AudioOutputDeviceId);
+                AppRuntime.Settings.AudioOutputDeviceId,
+                AppRuntime.Settings.VoiceDeliveryStyleId);
             SetAccessibleStatusText(ProviderActionStatus, IsArabic
                 ? "انتهت تجربة صوت ليال."
                 : "Layal voice preview completed.");
@@ -3331,7 +3400,8 @@ public partial class MainWindow : Window
             await _localVoiceService.SpeakAsync(
                 "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak locally and clearly.",
                 cancellation.Token,
-                AppRuntime.Settings.AudioOutputDeviceId);
+                AppRuntime.Settings.AudioOutputDeviceId,
+                AppRuntime.Settings.VoiceDeliveryStyleId);
             SetAccessibleStatusText(ProviderActionStatus, IsArabic
                 ? "انتهت تجربة الصوت المحلي؛ لم يُرسل النص إلى خادم."
                 : "Local voice preview completed; text was not sent to a server.");
@@ -4037,6 +4107,7 @@ public partial class MainWindow : Window
             var instructions = characterInstructions + Environment.NewLine + Environment.NewLine +
                 "This is a natural, full-duplex spoken conversation with Layal, a fictional young-girl character. " +
                 LayalSpeechService.VoiceCharacterDescription + " " +
+                VoiceDeliveryStylePolicy.BuildRealtimeInstruction(AppRuntime.Settings.VoiceDeliveryStyleId) + " " +
                 "Speak in natural Egyptian Arabic for Egyptian colloquial speech, clear Modern Standard Arabic for formal Arabic, " +
                 "and natural conversational English for English. Listen continuously, wait for the user to finish a turn, " +
                 "and respond naturally without announcing turn detection. If the user speaks while you are talking, stop your response and listen to them. " +
@@ -5145,7 +5216,8 @@ public partial class MainWindow : Window
                         AppRuntime.Settings.VoiceReplyId,
                         response.Trim(),
                         _chatCancellation.Token,
-                        AppRuntime.Settings.AudioOutputDeviceId);
+                        AppRuntime.Settings.AudioOutputDeviceId,
+                        AppRuntime.Settings.VoiceDeliveryStyleId);
                     completionStatus = IsArabic ? "اكتمل التحليل الصوتي للصورة." : "Image analysis completed with voice.";
                 }
                 catch (OperationCanceledException)
@@ -5356,7 +5428,7 @@ public partial class MainWindow : Window
                     {
                         if (useLocal)
                         {
-                            await _localVoiceService.SpeakAsync(response, _chatCancellation.Token, AppRuntime.Settings.AudioOutputDeviceId);
+                            await _localVoiceService.SpeakAsync(response, _chatCancellation.Token, AppRuntime.Settings.AudioOutputDeviceId, AppRuntime.Settings.VoiceDeliveryStyleId);
                         }
                         else
                         {
@@ -5367,7 +5439,8 @@ public partial class MainWindow : Window
                                 AppRuntime.Settings.VoiceReplyId,
                                 response,
                                 _chatCancellation.Token,
-                                AppRuntime.Settings.AudioOutputDeviceId);
+                                AppRuntime.Settings.AudioOutputDeviceId,
+                                AppRuntime.Settings.VoiceDeliveryStyleId);
                         }
                         completionStatus = IsArabic ? "اكتمل الرد الصوتي" : "Response completed with voice";
                     }

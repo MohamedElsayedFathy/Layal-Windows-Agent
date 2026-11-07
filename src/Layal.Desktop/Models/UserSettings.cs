@@ -29,6 +29,10 @@ public sealed class UserSettings
     public string AudioOutputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
     /// <summary>Conversational response style only; never changes safety rules, tool permissions, or confirmation requirements.</summary>
     public string AssistantPersona { get; set; } = "warm";
+    /// <summary>Independent speech delivery style; local Piper applies pace only, cloud Realtime receives style instructions.</summary>
+    public string VoiceDeliveryStyleId { get; set; } = Layal.Services.VoiceDeliveryStylePolicy.DefaultStyle;
+    /// <summary>Which existing artwork is displayed by the floating mascot: Layal, robot, or both.</summary>
+    public string MascotCharacterDisplayMode { get; set; } = Layal.Services.CharacterDisplayModePolicy.DefaultMode;
     /// <summary>Public Google OAuth Desktop client ID; the refresh token itself is stored in a separate DPAPI-protected file.</summary>
     public string GmailOAuthClientId { get; set; } = string.Empty;
     public bool MascotAlwaysOnTop { get; set; } = true;
@@ -71,6 +75,8 @@ public sealed class UserSettings
         AudioInputDeviceId = AudioInputDeviceId,
         AudioOutputDeviceId = AudioOutputDeviceId,
         AssistantPersona = AssistantPersona,
+        VoiceDeliveryStyleId = VoiceDeliveryStyleId,
+        MascotCharacterDisplayMode = MascotCharacterDisplayMode,
         GmailOAuthClientId = GmailOAuthClientId,
         MascotAlwaysOnTop = MascotAlwaysOnTop,
         MascotAnimationsEnabled = MascotAnimationsEnabled,
@@ -109,6 +115,8 @@ public sealed class UserSettings
         AudioInputDeviceId = source.AudioInputDeviceId;
         AudioOutputDeviceId = source.AudioOutputDeviceId;
         AssistantPersona = source.AssistantPersona;
+        VoiceDeliveryStyleId = source.VoiceDeliveryStyleId;
+        MascotCharacterDisplayMode = source.MascotCharacterDisplayMode;
         GmailOAuthClientId = source.GmailOAuthClientId;
         MascotAlwaysOnTop = source.MascotAlwaysOnTop;
         MascotAnimationsEnabled = source.MascotAnimationsEnabled;

@@ -217,6 +217,7 @@ public partial class FloatingMascotWindow : Window
         InitializeAvatarRig();
         InitializeCinematicEffects();
         InitializeCharacterArt();
+        ApplyCharacterDisplayMode(AppRuntime.Settings.MascotCharacterDisplayMode);
         ApplySystemAccessibilityAppearance();
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
         Opacity = AppRuntime.Settings.MascotOpacity;
@@ -1382,6 +1383,7 @@ public partial class FloatingMascotWindow : Window
     private LayalSprite? _currentSprite;
     private RobotFaceSpec? _currentRobotFace;
     private CharacterExpression? _currentExpression;
+    private string _characterDisplayMode = CharacterDisplayModePolicy.DefaultMode;
     private double _robotApproach;
 
     private static SolidColorBrush FrozenBrush(byte r, byte g, byte b)
@@ -1470,12 +1472,28 @@ public partial class FloatingMascotWindow : Window
         UpdateCharacterAccessibility();
     }
 
+    /// <summary>Applies a saved character visibility preset without changing expression or animation state.</summary>
+    public void ApplyCharacterDisplayMode(string? mode)
+    {
+        _characterDisplayMode = CharacterDisplayModePolicy.Normalize(mode);
+        LayalImage.Visibility = CharacterDisplayModePolicy.ShowsLayal(_characterDisplayMode) ? Visibility.Visible : Visibility.Collapsed;
+        RobotRoot.Visibility = CharacterDisplayModePolicy.ShowsRobot(_characterDisplayMode) ? Visibility.Visible : Visibility.Collapsed;
+        // Centre a single visible character; preserve the original positions in duo mode.
+        System.Windows.Controls.Canvas.SetLeft(LayalImage, _characterDisplayMode == "layal" ? 58 : 80);
+        System.Windows.Controls.Canvas.SetLeft(RobotRoot, _characterDisplayMode == "robot" ? 97 : 22);
+        UpdateCharacterAccessibility();
+    }
+
     private void UpdateCharacterAccessibility()
     {
         if (_currentExpression is null) return;
         var ar = AppRuntime.Settings.Language == "ar";
-        AutomationProperties.SetName(CharacterLayer, ar ? "ليال ومساعدها الروبوت" : "Layal and her robot assistant");
-        AutomationProperties.SetHelpText(CharacterLayer, CharacterExpressionMap.Describe(_currentExpression, ar));
+        AutomationProperties.SetName(CharacterLayer, CharacterDisplayModePolicy.GetAutomationName(_characterDisplayMode, ar));
+        var helpText = CharacterDisplayModePolicy.GetHelpText(_characterDisplayMode, ar);
+        // The combined expression description mentions both characters; never announce a hidden character.
+        if (_characterDisplayMode == "duo")
+            helpText += " " + CharacterExpressionMap.Describe(_currentExpression, ar);
+        AutomationProperties.SetHelpText(CharacterLayer, helpText);
     }
 
     private void ApplyRobotFace(RobotFaceSpec face)
