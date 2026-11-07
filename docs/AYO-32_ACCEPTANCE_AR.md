@@ -36,9 +36,9 @@ Incognito يمنع تخزين رسائل الجلسة في سجل Layal المح
 <badge color="success">Windows CI وSecurity CI ناجحان</badge>
 
 - PR #128: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/128
-- Commit الذي تم اختباره: `39c7c94b9af3f42b69adb0fe587e5b185f192309`
-- Windows CI: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42409091394
-- Security CI: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42409091421
+- Commit الذي تم اختباره: `67b2f7608c5c4252b13ce9e40c232bbb61f36f8f`
+- Windows CI: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42409835632
+- Security CI: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42409835633
 - Release build: ناجح.
 - اختبارات .NET: **581 ناجحًا، صفر فشل، صفر تخطٍ**؛ والتحقق من TRX أكد تنفيذ الاختبارات وغياب النتائج الفاشلة.
 - Windows visual/integration: WPF visual smoke ولقطات UI، DPI، GLB، click-through، mouse drag والتنقل بلوحة المفاتيح: ناجحة وفق الـ CI.
@@ -46,7 +46,7 @@ Incognito يمنع تخزين رسائل الجلسة في سجل Layal المح
 - التوزيع: source package وself-contained Windows publish وinstaller/portable ZIP وSBOM وSHA-256 manifest؛ تم التحقق من 15 ملفًا.
 - Security: Gitleaks وفحص NuGet advisories وlicense inventory: ناجحان.
 - حزمة CI **غير موقّعة**؛ ولا يُدّعى أنها إصدار عام موقّع.
-- نتيجة الدمج: يحدّث هذا السطر بعد إتمام الدمج في `main`.
+- نتيجة الدمج: **تم دمج PR #128**، وmerge commit هو `61492dc3e6cec2da0ca0aa72d558b841b8677c41`.
 
 ## قيود القبول اليدوي
 
