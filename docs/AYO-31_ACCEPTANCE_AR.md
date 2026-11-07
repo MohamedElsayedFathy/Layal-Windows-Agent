@@ -28,9 +28,24 @@
 - اختبار WPF المرئي يتأكد من أن درع الخصوصية يلغي قراءة الحافظة الجارية ويمسح مرفقات النص/الصورة غير المرسلة.
 - اختبارات ترميز PNG وحدود عدد البكسلات وحجم الملف تغطيها ClipboardImageAttachmentEncoderTests.
 
+## نتيجة التنفيذ والتحقق الآلي
+
+<badge>مُدمج في main</badge>
+
+- PR #126: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/126
+- Merge commit: `945a101830d43288246016697db7ac8ad7052ea1`
+- Windows build run: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42399442648
+- Security run: https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42399442699
+- الاختبارات: **579 ناجحًا، 0 فشل، 0 تخطٍ**.
+- Release build وWindows click-through/drag وDPI وkeyboard navigation وGLB preview وWPF visual smoke وتقارير TRX: ناجحة.
+- دورة التثبيت: تثبيت نظيف 0.5.6، ترقية إلى 0.5.7، تراجع إلى 0.5.6، تشغيل التطبيق، ثم إزالة البرنامج والتنظيف؛ بيانات المستخدم بقيت كما هي والاختصار/التسجيل/مهمة التذكير أُزيلت.
+- حزمة المصدر وWindows publish والتوزيعة وSBOM رُفعت؛ تم التحقق من SHA-256 لعدد 15 ملفًا.
+- Gitleaks وNuGet advisory/license audit: ناجحان.
+- حزمة CI **غير موقعة**؛ هذا ليس إصدارًا عامًا موقّعًا.
+
 ## قبول Windows اليدوي
 
-الحالة: BLOCKED — يحتاج جهاز Windows فعليًا.
+الحالة: **BLOCKED — يحتاج جهاز Windows فعليًا**. نجاح CI يثبت الاختبارات الآلية والتكامل المتاح على عامل Windows، لكنه لا يثبت بعد قبول تطبيقات الحافظة الخارجية أو قارئ الشاشة على جهاز المستخدم.
 
 لم يتم الادعاء بتنفيذ اختبار يدوي على جهاز المستخدم. يجب إجراء القائمة التالية على Windows بعد تثبيت البناء المرشح:
 
