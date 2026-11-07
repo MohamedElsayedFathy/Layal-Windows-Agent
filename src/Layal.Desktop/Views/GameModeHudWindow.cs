@@ -30,6 +30,9 @@ public sealed class GameModeHudWindow : Window
     /// <summary>True when the user dismissed the HUD with its button or window chrome.</summary>
     public bool WasDismissedByUser { get; private set; }
 
+    /// <summary>The configured Quick Ask shortcut displayed in this HUD.</summary>
+    public string ShortcutDisplay => _shortcutDisplay;
+
     public event EventHandler? ExitRequested;
 
     private static Brush FindBrushResource(string key, Brush fallback) =>
