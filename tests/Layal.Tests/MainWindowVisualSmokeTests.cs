@@ -291,6 +291,21 @@ public sealed class MainWindowVisualSmokeTests
             new ChatMessage { Role = "assistant", Content = "Saved reply sentinel" }
         });
 
+        var savedTask = new AgentTaskRecord
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Goal = "Private-mode task sentinel",
+            Status = "Completed",
+            Result = "Private-mode task result sentinel",
+            Events = new List<string> { "Private-mode task event sentinel" }
+        };
+        AppRuntime.TaskHistoryService.Upsert(savedTask);
+
+        var savedMemory = AppRuntime.MemoryService.Save(
+            "Private-mode memory sentinel",
+            "Private-mode memory content sentinel",
+            category: "Incognito test");
+
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var enterPrivate = typeof(MainWindow).GetMethod("EnterPrivateChatMode", flags)
             ?? throw new InvalidOperationException("Private-chat entry method was not found.");
@@ -298,13 +313,102 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("Chat message method was not found.");
         var exitPrivate = typeof(MainWindow).GetMethod("ExitPrivateChatMode", flags)
             ?? throw new InvalidOperationException("Private-chat exit method was not found.");
+        var refreshTasks = typeof(MainWindow).GetMethod("RefreshRecentTasks", flags)
+            ?? throw new InvalidOperationException("Task workspace refresh method was not found.");
+        var refreshMemory = typeof(MainWindow).GetMethod("RefreshMemoryNotes", flags)
+            ?? throw new InvalidOperationException("Memory workspace refresh method was not found.");
+        var displayTask = typeof(MainWindow).GetMethod("DisplayTaskHistoryRecord", flags)
+            ?? throw new InvalidOperationException("Task detail display method was not found.");
+        var copyTask = typeof(MainWindow).GetMethod("CopyTaskTextToClipboard", flags)
+            ?? throw new InvalidOperationException("Task data copy method was not found.");
+        var saveMemory = typeof(MainWindow).GetMethod("SaveMemoryButton_Click", flags)
+            ?? throw new InvalidOperationException("Memory save handler was not found.");
+        var clearTaskSurface = typeof(MainWindow).GetMethod("ClearTaskWorkspaceSurface", flags)
+            ?? throw new InvalidOperationException("Task workspace clear method was not found.");
 
-        enterPrivate.Invoke(window, null);
-        Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
-        Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
+        var flagsTaskTab = (TabItem?)window.FindName("TasksTab")
+            ?? throw new InvalidOperationException("Tasks tab was not found.");
+        var memoryTab = (TabItem?)window.FindName("MemoryTab")
+            ?? throw new InvalidOperationException("Memory tab was not found.");
         var historySelector = (ComboBox?)window.FindName("ChatHistorySelector")
             ?? throw new InvalidOperationException("Chat history selector was not found.");
+        var quickAskButton = (Button?)window.FindName("QuickAskButton")
+            ?? throw new InvalidOperationException("Quick Ask button was not found.");
+        var gmailButton = (Button?)window.FindName("GmailInboxButton")
+            ?? throw new InvalidOperationException("Gmail button was not found.");
+        var memoryTitle = (TextBox?)window.FindName("MemoryTitleInput")
+            ?? throw new InvalidOperationException("Memory title editor was not found.");
+        var memoryContent = (TextBox?)window.FindName("MemoryContentInput")
+            ?? throw new InvalidOperationException("Memory content editor was not found.");
+        var memoryResult = (TextBlock?)window.FindName("MemoryResult")
+            ?? throw new InvalidOperationException("Memory status was not found.");
+        var taskResult = (TextBox?)window.FindName("TaskResult")
+            ?? throw new InvalidOperationException("Task result was not found.");
+        var taskCopyStatus = (TextBlock?)window.FindName("TaskCopyStatus")
+            ?? throw new InvalidOperationException("Task copy status was not found.");
+
+        refreshTasks.Invoke(window, null);
+        refreshMemory.Invoke(window, null);
+        Assert.IsTrue(window.RecentTasks.Any(item => item.Id == savedTask.Id),
+            "The saved task fixture must be visible before entering private chat.");
+        Assert.IsTrue(window.MemoryNotes.Any(note => note.Id == savedMemory.Id),
+            "The saved memory fixture must be visible before entering private chat.");
+
+        enterPrivate.Invoke(window, null);
+        Assert.IsTrue(AppRuntime.IsPrivateChatActive,
+            "Incognito state must be represented in process memory while the session is active.");
+        Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
+        Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
         Assert.IsFalse(historySelector.IsEnabled, "Saved history must not be selectable in private chat.");
+        Assert.IsFalse(flagsTaskTab.IsEnabled, "Task workspace must be disabled in private chat.");
+        Assert.IsFalse(memoryTab.IsEnabled, "Personal memory must be disabled in private chat.");
+        Assert.IsFalse(quickAskButton.IsEnabled, "Quick Ask must be unavailable during private chat.");
+        Assert.IsFalse(gmailButton.IsEnabled, "Gmail must be unavailable during private chat.");
+        Assert.AreEqual(0, window.RecentTasks.Count, "Task records must be removed from the visible collection.");
+        Assert.AreEqual(0, window.MemoryNotes.Count, "Memory notes must be removed from the visible collection.");
+        Assert.AreEqual(string.Empty, taskResult.Text, "Previously displayed task details must be cleared.");
+        Assert.AreEqual(string.Empty, memoryResult.Text, "Previously displayed memory status must be cleared.");
+        Assert.AreEqual(string.Empty, memoryTitle.Text, "The memory editor must not retain a note title.");
+        Assert.AreEqual(string.Empty, memoryContent.Text, "The memory editor must not retain note content.");
+
+        // Directly invoking a stale selection/display callback must not re-populate task data.
+        displayTask.Invoke(window, new object[] { savedTask });
+        Assert.AreEqual(string.Empty, taskResult.Text,
+            "A stale UIA/selection callback must not reveal a task detail while private chat is active.");
+        Assert.AreEqual(0, window.TaskEvents.Count);
+
+        // Direct task-copy callbacks are also blocked rather than copying hidden task content.
+        string? previousClipboardText = null;
+        var hadPreviousClipboardText = Clipboard.ContainsText(TextDataFormat.UnicodeText);
+        if (hadPreviousClipboardText)
+            previousClipboardText = Clipboard.GetText(TextDataFormat.UnicodeText);
+        try
+        {
+            Clipboard.SetText("clipboard preservation sentinel");
+            copyTask.Invoke(window, new object[] { "Private-mode task secret", "task result" });
+            Assert.AreEqual("clipboard preservation sentinel", Clipboard.GetText(TextDataFormat.UnicodeText),
+                "A stale task-copy callback must not copy task data during private chat.");
+            Assert.IsTrue(taskCopyStatus.Text.Contains("private", StringComparison.OrdinalIgnoreCase) ||
+                taskCopyStatus.Text.Contains("غير متاح", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (hadPreviousClipboardText)
+                Clipboard.SetText(previousClipboardText ?? string.Empty);
+            else
+                Clipboard.Clear();
+        }
+
+        // Memory mutation handlers must fail closed even when invoked programmatically.
+        memoryTitle.Text = "Attempted private memory write";
+        memoryContent.Text = "This must never be saved.";
+        var memorySaveCount = AppRuntime.MemoryService.GetAll(includeArchived: true).Count;
+        saveMemory.Invoke(window, new object[] { window, new RoutedEventArgs() });
+        Assert.AreEqual(memorySaveCount, AppRuntime.MemoryService.GetAll(includeArchived: true).Count,
+            "A programmatic memory-save callback must not write while Incognito is active.");
+        Assert.IsTrue(AppRuntime.MemoryService.GetAll(includeArchived: true)
+            .Any(note => note.Id == savedMemory.Id && note.Content == "Private-mode memory content sentinel"),
+            "Entering Incognito must preserve saved memory without exposing or changing it.");
 
         addMessage.Invoke(window, new object[] { "user", "Private-only sentinel" });
         Assert.AreEqual(1, window.ChatMessages.Count);
@@ -312,6 +416,17 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(2, storedWhilePrivate.Messages.Count, "Private messages must not change persisted history.");
         Assert.AreEqual("Saved conversation sentinel", storedWhilePrivate.Messages[0].Content);
         Assert.AreEqual("Saved reply sentinel", storedWhilePrivate.Messages[1].Content);
+
+        // Simulate a fresh process reading the encrypted session store: the private message
+        // must not exist there, while the last normal conversation remains intact.
+        var restartedSessions = new ChatSessionService(
+            Path.Combine(AppRuntime.DataRoot, "sessions.dpapi"),
+            new ProtectedJsonStore<List<ChatMessage>>(Path.Combine(AppRuntime.DataRoot, "chat.dpapi")),
+            "Restarted visual smoke");
+        Assert.IsFalse(restartedSessions.GetAll().SelectMany(item => item.Messages)
+            .Any(message => message.Content.Contains("Private-only sentinel", StringComparison.Ordinal)),
+            "A restarted application must not load any transcript from the private session.");
+        Assert.AreEqual("Saved conversation sentinel", restartedSessions.GetCurrent().Messages[0].Content);
 
         var agentTaskField = typeof(MainWindow).GetField("_agentTaskCancellation", flags)
             ?? throw new InvalidOperationException("Agent-task cancellation field was not found.");
@@ -333,13 +448,25 @@ public sealed class MainWindowVisualSmokeTests
         }
 
         exitPrivate.Invoke(window, null);
+        Assert.IsFalse(AppRuntime.IsPrivateChatActive, "Leaving Incognito must release the transient private flag.");
         Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
+        Assert.IsTrue(flagsTaskTab.IsEnabled, "Task workspace should return after private chat.");
+        Assert.IsTrue(memoryTab.IsEnabled, "Personal memory should return after private chat.");
+        Assert.IsTrue(quickAskButton.IsEnabled, "Quick Ask should return after private chat.");
+        Assert.IsTrue(gmailButton.IsEnabled, "Gmail should return after private chat.");
         Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
         Assert.AreEqual("Saved conversation sentinel", window.ChatMessages[0].Content);
         Assert.AreEqual("Saved reply sentinel", window.ChatMessages[1].Content);
         Assert.AreEqual(1, window.ChatConversations.Count);
+        Assert.AreEqual(1, window.RecentTasks.Count);
+        Assert.AreEqual(savedTask.Id, window.RecentTasks[0].Id);
+        Assert.AreEqual(1, window.MemoryNotes.Count);
+        Assert.AreEqual(savedMemory.Id, window.MemoryNotes[0].Id);
         Assert.AreEqual(2, AppRuntime.ChatSessionService.GetCurrent().Messages.Count);
+        Assert.IsTrue(AppRuntime.TaskHistoryService.GetRecent().Any(item => item.Id == savedTask.Id),
+            "Task history must remain persisted when Incognito is entered and exited.");
     }
+
 
     private static void RenderAllStates()
     {
@@ -1418,6 +1545,8 @@ public sealed class MainWindowVisualSmokeTests
 
     private static void InitializeRuntime(string root)
     {
+        AppRuntime.DataRoot = root;
+        AppRuntime.IsPrivateChatActive = false;
         AppRuntime.SettingsStore = new SettingsStore(root);
         AppRuntime.Settings = new UserSettings();
         AppRuntime.SecretStore = new DpapiSecretStore(Path.Combine(root, "secrets", "visual-smoke.dpapi"));
