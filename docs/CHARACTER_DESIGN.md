@@ -17,6 +17,15 @@ The floating mascot shows **Layal** (blue-silver hair, crescent clip, white tech
 - The previous procedural 3D rig is still in the project, collapsed. Set `UseSpriteCharacter` to `false`
   in `FloatingMascotWindow.xaml.cs` to bring it back; if the artwork cannot load it is restored automatically.
 
+## User-selectable character display
+
+The Settings page offers three saved display modes using the artwork already shipped with the app:
+- **Layal only** — hides the robot while retaining Layal's live expression.
+- **Robot only** — hides Layal while retaining the robot's live face/state.
+- **Layal + robot** — the original/default composition.
+
+A single visible character is centred in the mascot area. The accessibility name and help text follow the selected display mode and current mood. This is a presentation choice only; it does not select a different assistant identity or change permissions.
+
 ## Known limits (be honest about these)
 - The concept sheet only contains six expressions plus the default pose (happy, curious, playful, focused,
   surprised, calm). Moods without art (sad, worried, error...) use the closest portrait while the robot's face
