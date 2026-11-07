@@ -32,6 +32,9 @@ public sealed class GameModeHudWindow : Window
 
     public event EventHandler? ExitRequested;
 
+    private static Brush FindBrushResource(string key, Brush fallback) =>
+        Application.Current?.TryFindResource(key) as Brush ?? fallback;
+
     public GameModeHudWindow(
         bool isArabic,
         Func<string> getActivity,
@@ -58,8 +61,8 @@ public sealed class GameModeHudWindow : Window
         WindowStartupLocation = WindowStartupLocation.Manual;
         Left = Math.Max(SystemParameters.WorkArea.Left, SystemParameters.WorkArea.Right - Width - 16);
         Top = Math.Max(SystemParameters.WorkArea.Top, SystemParameters.WorkArea.Top + 28);
-        Background = Application.Current.TryFindResource("Layal.Background") as Brush ?? Brushes.White;
-        Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black;
+        Background = FindBrushResource("Layal.Background", Brushes.White);
+        Foreground = FindBrushResource("Layal.Text", Brushes.Black);
         AutomationProperties.SetName(this, Title);
         AutomationProperties.SetHelpText(this, isArabic
             ? "HUD يدوي أو تم فتحه من قائمة السماح. لا يقرأ عناوين النوافذ أو ذاكرة اللعبة أو مدخلاتها، ولا يتحكم في اللعبة."
@@ -86,7 +89,7 @@ public sealed class GameModeHudWindow : Window
         {
             Text = DateTimeOffset.Now.ToString("t"),
             Margin = new Thickness(0, 3, 0, 5),
-            Foreground = Application.Current.TryFindResource("Layal.Cyan") as Brush ?? Brushes.Teal
+            Foreground = FindBrushResource("Layal.Cyan", Brushes.Teal)
         };
         AutomationProperties.SetName(_clock, isArabic ? "الوقت الحالي" : "Current time");
         AutomationProperties.SetLiveSetting(_clock, AutomationLiveSetting.Polite);
@@ -111,7 +114,7 @@ public sealed class GameModeHudWindow : Window
             Text = _shortcutDisplay + " · " + (_isArabic ? "Esc داخل ليال" : "Esc in Layal"),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
-            Foreground = Application.Current.TryFindResource("Layal.Muted") as Brush ?? Brushes.DimGray
+            Foreground = FindBrushResource("Layal.Muted", Brushes.DimGray)
         };
         AutomationProperties.SetName(shortcut, isArabic ? "اختصارات ليال" : "Layal shortcuts");
         footer.Children.Add(shortcut);
@@ -174,17 +177,21 @@ public sealed class GameModeHudWindow : Window
     /// <summary>Close after the user explicitly chooses to dismiss the HUD.</summary>
     public void CloseByUser()
     {
-        if (!IsVisible) return;
         WasDismissedByUser = true;
-        Close();
+        if (IsVisible)
+            Close();
+        else
+            RaiseExitRequested();
     }
 
     /// <summary>Close because detection ended, settings changed, or Layal is shutting down.</summary>
     public void CloseFromDetection()
     {
-        if (!IsVisible) return;
         _closingProgrammatically = true;
-        Close();
+        if (IsVisible)
+            Close();
+        else
+            RaiseExitRequested();
     }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
