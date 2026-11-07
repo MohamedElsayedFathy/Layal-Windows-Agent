@@ -220,7 +220,12 @@ public partial class MainWindow : Window
         if (!Layal.App.SuppressStartupForTests &&
             AppRuntime.Settings.GameModeAutoDetectionEnabled &&
             AppRuntime.Settings.GameModeAllowedProcessNames.Count > 0)
+        {
             _gameModeDetectionTimer.Start();
+            // Apply the game-session suppression gate immediately at startup; do not wait
+            // for the first three-second timer tick when a game is already in the foreground.
+            GameModeDetectionTimer_Tick(this, EventArgs.Empty);
+        }
     }
 
     private void RefreshAudioDeviceSelectors()
