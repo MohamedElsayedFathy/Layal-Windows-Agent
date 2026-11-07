@@ -86,44 +86,69 @@ public partial class QuickAskWindow : Window
 
         try
         {
-            var result = await _askAsync(question);
-            if (_isDisposed)
-                return;
-
-            if (!result.Succeeded || string.IsNullOrWhiteSpace(result.Message))
+            // Do not rely only on the ambient SynchronizationContext: tests, automation hosts,
+            // and custom callers can invoke the async delegate without a WPF message context.
+            var result = await _askAsync(question).ConfigureAwait(false);
+            await InvokeOnUiDispatcherAsync(() =>
             {
-                AnswerScrollViewer.Visibility = Visibility.Collapsed;
-                StatusText.Text = string.IsNullOrWhiteSpace(result.Message)
-                    ? (_isArabic ? "لم تكتمل الإجابة. يمكنك مراجعة حالة المحادثة أو إعادة المحاولة." : "The answer did not complete. Check chat status or try again.")
-                    : result.Message;
-                return;
-            }
+                if (_isDisposed)
+                    return;
 
-            AnswerText.Text = result.Message;
-            AnswerScrollViewer.Visibility = Visibility.Visible;
-            StatusText.Text = _isArabic ? "انتهى الطلب. يمكنك كتابة سؤال متابعة." : "Request finished. You can ask a follow-up.";
-            QuestionInput.Clear();
-            Height = Math.Min(MaxHeight, Math.Max(Height, 390));
+                if (!result.Succeeded || string.IsNullOrWhiteSpace(result.Message))
+                {
+                    AnswerScrollViewer.Visibility = Visibility.Collapsed;
+                    StatusText.Text = string.IsNullOrWhiteSpace(result.Message)
+                        ? (_isArabic ? "لم تكتمل الإجابة. يمكنك مراجعة حالة المحادثة أو إعادة المحاولة." : "The answer did not complete. Check chat status or try again.")
+                        : result.Message;
+                    return;
+                }
+
+                AnswerText.Text = result.Message;
+                AnswerScrollViewer.Visibility = Visibility.Visible;
+                StatusText.Text = _isArabic ? "انتهى الطلب. يمكنك كتابة سؤال متابعة." : "Request finished. You can ask a follow-up.";
+                QuestionInput.Clear();
+                Height = Math.Min(MaxHeight, Math.Max(Height, 390));
+            }).ConfigureAwait(false);
         }
         catch (Exception)
         {
-            if (!_isDisposed)
-                StatusText.Text = _isArabic
-                    ? "تعذر إكمال السؤال السريع. راجع حالة المحادثة الرئيسية."
-                    : "Quick Ask could not finish. Check the main chat status.";
+            await InvokeOnUiDispatcherAsync(() =>
+            {
+                if (!_isDisposed)
+                    StatusText.Text = _isArabic
+                        ? "تعذر إكمال السؤال السريع. راجع حالة المحادثة الرئيسية."
+                        : "Quick Ask could not finish. Check the main chat status.";
+            }).ConfigureAwait(false);
         }
         finally
         {
-            _isSubmitting = false;
-            if (!_isDisposed)
+            await InvokeOnUiDispatcherAsync(() =>
             {
-                SubmitButton.IsEnabled = true;
-                QuestionInput.IsEnabled = true;
-                CancelButton.Content = _isArabic ? "إغلاق" : "Close";
-                CancelButton.IsEnabled = true;
-                QuestionInput.Focus();
-            }
+                _isSubmitting = false;
+                if (!_isDisposed)
+                {
+                    SubmitButton.IsEnabled = true;
+                    QuestionInput.IsEnabled = true;
+                    CancelButton.Content = _isArabic ? "إغلاق" : "Close";
+                    CancelButton.IsEnabled = true;
+                    QuestionInput.Focus();
+                }
+            }).ConfigureAwait(false);
         }
+    }
+
+    private Task InvokeOnUiDispatcherAsync(Action action)
+    {
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return Task.CompletedTask;
+
+        if (Dispatcher.CheckAccess())
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        return Dispatcher.InvokeAsync(action).Task;
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)

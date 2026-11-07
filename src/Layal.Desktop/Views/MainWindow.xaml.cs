@@ -1637,20 +1637,20 @@ public partial class MainWindow : Window
         MascotSettingsTitle.Text = ar ? "إعدادات الشخصية العائمة" : "Floating mascot settings";
         AlwaysOnTopCheckbox.Content = ar ? "إبقاء الشخصية فوق النوافذ الأخرى" : "Keep mascot above other windows";
         AnimationsCheckbox.Content = ar ? "تفعيل حركة الشخصية والرمش" : "Enable mascot movement and blinking";
-        PerformanceModeCheckbox.Content = ar ? "وضع الأداء (حركة أقل واستهلاك أقل)" : "Performance mode (less animation and CPU use)";
-        PerformanceMetricsButton.Content = ar ? "قياس أداء ليال الآن" : "Measure Layal performance";
+        PerformanceModeCheckbox.Content = ar ? "وضع الأداء العالي (إيقاف المؤثرات الثقيلة)" : "High-performance mode (pause heavy effects)";
+        PerformanceMetricsButton.Content = ar ? "قياس موارد ليال الآن" : "Measure Layal resources";
         AutomationProperties.SetName(PerformanceMetricsButton, ar ? "قياس موارد عملية ليال" : "Measure Layal process resources");
         AutomationProperties.SetHelpText(PerformanceMetricsButton, ar
-            ? "عينة محلية لمدة ثانية واحدة لوقت CPU والذاكرة وعدد الخيوط وعدادات GC. لا تجمع بيانات عن تطبيقات أخرى ولا تقيس GPU."
-            : "One-second local sample of process CPU time, memory, thread count, and GC counters. Does not inspect other applications or measure GPU.");
+            ? "عينة محلية لمدة ثانية واحدة لوقت CPU كنسبة من سعة الأنوية المنطقية، والذاكرة الفعلية والخاصة و.NET Heap وعدد الخيوط وفروق عدادات GC داخل العينة. لا تجمع بيانات عن تطبيقات أخرى ولا تقيس GPU."
+            : "One-second local sample of process CPU normalized to logical-processor capacity, working set, private memory, .NET heap, thread count, and GC collections during the sample. No other processes or GPU telemetry are collected.");
         AutomationProperties.SetName(PerformanceMetricsStatus, ar ? "نتيجة آخر قياس أداء" : "Latest performance measurement");
         PerformanceModeCheckbox.ToolTip = ar
-            ? "يقلل معدل فحص النقرات ويوقف مؤقتات الحركة والرمش ومعاينة GLB الثقيلة دون تغيير تفضيل الحركة المحفوظ."
-            : "Reduces hit-test polling and pauses animation/blink timers and heavy GLB preview without changing your saved animation preference.";
-        AutomationProperties.SetName(PerformanceModeCheckbox, ar ? "تفعيل وضع الأداء للشخصية" : "Enable mascot performance mode");
+            ? "يوقف حركة الشخصية والرمش والجسيمات وفقاعات التعبير، يوقف معاينة GLB ثلاثية الأبعاد، ويخفض فحص تمرير النقرات إلى نحو 30 مرة/ثانية. لا يغيّر تفضيل الرسوم المتحركة المحفوظ."
+            : "Pauses mascot motion, blinking, particles and reaction bubbles, stops the GLB 3D preview, and reduces click-through hit testing to about 30 checks per second. The saved animation preference is preserved.";
+        AutomationProperties.SetName(PerformanceModeCheckbox, ar ? "تفعيل وضع الأداء العالي للشخصية" : "Enable mascot high-performance mode");
         AutomationProperties.SetHelpText(PerformanceModeCheckbox, ar
-            ? "يقلل فحص تمرير النقرات إلى نحو 30 مرة في الثانية، ويوقف مؤقتات الحركة والرمش ويغلق معاينة GLB الثقيلة. عند إيقافه تعود الإعدادات السابقة."
-            : "Reduces click-through hit testing to about 30 checks per second, stops movement/blink timers, and closes heavy GLB preview. Previous settings return when disabled.");
+            ? "يوقف مؤقتات الحركة والرمش ويزيل المؤثرات المرئية فورًا ويحرر نموذج GLB الاختياري؛ يبقي فحص الشفافية للماوس بمعدل أقل أثناء ظهور الشخصية، ويوقف المؤقتات عند إخفائها. تعود الحركة ومعاينة GLB المحفوظة عند إيقاف الوضع. يحترم أيضًا إعداد Windows لتعطيل حركة عناصر الواجهة."
+            : "Stops motion/blink timers, clears visible effects immediately, and disposes the optional GLB renderer; keeps transparent-window hit testing at a lower rate while visible and stops polling when hidden. Saved animation and GLB preferences are restored when disabled. Windows client-area animation settings are also respected.");
         MascotSizeLabel.Text = ar ? "حجم الشخصية" : "Mascot size";
         MascotOpacityLabel.Text = ar ? "شفافية الشخصية" : "Mascot opacity";
         System.Windows.Automation.AutomationProperties.SetName(MascotSizeSlider, MascotSizeLabel.Text);
@@ -3493,8 +3493,8 @@ public partial class MainWindow : Window
             var privateBytes = FormatMetricBytes(sample.PrivateBytes);
             var managedHeap = FormatMetricBytes(sample.ManagedHeapBytes);
             PerformanceMetricsStatus.Text = IsArabic
-                ? $"CPU للعملية: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% خلال {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} ث | الذاكرة الفعلية: {workingSet} | الذاكرة الخاصة: {privateBytes} | .NET Heap: {managedHeap} | الخيوط: {sample.ThreadCount} | GC Gen 0/1/2: {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. قياس للعملية الحالية فقط، وليس GPU أو بقية التطبيقات."
-                : $"Process CPU: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% over {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} s | Working set: {workingSet} | Private memory: {privateBytes} | .NET heap: {managedHeap} | Threads: {sample.ThreadCount} | GC Gen 0/1/2: {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. Current process only; no GPU or other applications.";
+                ? $"CPU للعملية: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% من سعة الأنوية المنطقية خلال {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} ث | الذاكرة الفعلية: {workingSet} | الذاكرة الخاصة: {privateBytes} | .NET Heap: {managedHeap} | الخيوط: {sample.ThreadCount} | عمليات GC خلال العينة (0/1/2): {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. قياس للعملية الحالية فقط؛ لا يشمل GPU أو التطبيقات الأخرى."
+                : $"Process CPU: {sample.CpuPercent.ToString("F1", CultureInfo.InvariantCulture)}% of logical-processor capacity over {sample.SamplingDuration.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)} s | Working set: {workingSet} | Private memory: {privateBytes} | .NET heap: {managedHeap} | Threads: {sample.ThreadCount} | GC collections during sample (Gen 0/1/2): {sample.Gen0Collections}/{sample.Gen1Collections}/{sample.Gen2Collections}. Current process only; no GPU or other applications.";
         }
         catch (Exception ex)
         {
