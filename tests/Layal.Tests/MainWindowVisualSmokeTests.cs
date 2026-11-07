@@ -339,6 +339,15 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsTrue((bool)privateModeField.GetValue(window)!);
             Assert.IsTrue(AppRuntime.ChatSessionService.IsTemporarySession,
                 "The chat store must enter reversible temporary mode before private messages are accepted.");
+            Assert.IsTrue(AppRuntime.IsPrivateChatActive);
+            var reminderTimerField = typeof(MainWindow).GetField("_reminderTimer", flags)
+                ?? throw new InvalidOperationException("Reminder timer was not found.");
+            var proactiveTimerField = typeof(MainWindow).GetField("_proactiveCheckInTimer", flags)
+                ?? throw new InvalidOperationException("Proactive check-in timer was not found.");
+            Assert.IsFalse(((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled,
+                "Saved reminder delivery must pause during private chat.");
+            Assert.IsFalse(((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled,
+                "Task-history based proactive check-ins must pause during private chat.");
             Assert.AreEqual(0, window.ChatMessages.Count, "Private chat must start without the previous transcript.");
             Assert.AreEqual(0, window.ChatConversations.Count, "Saved conversations must be hidden in private chat.");
             Assert.IsTrue(imageBytes.All(value => value == 0),
@@ -456,6 +465,10 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsFalse((bool)privateModeField.GetValue(window)!);
             Assert.IsFalse(AppRuntime.ChatSessionService.IsTemporarySession,
                 "Exiting private mode must restore normal chat persistence.");
+            Assert.IsFalse(AppRuntime.IsPrivateChatActive,
+                "The process-wide private flag must be cleared after exiting Incognito.");
+            Assert.IsTrue(((DispatcherTimer)reminderTimerField.GetValue(window)!).IsEnabled,
+                "Saved reminder delivery must resume after private chat.");
             Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
             Assert.IsTrue(tasksTab.IsEnabled, "Task workspace should return after private chat.");
             Assert.IsTrue(memoryTab.IsEnabled, "Memory workspace should return after private chat.");
