@@ -33,6 +33,99 @@ $script:DotnetSdk = 'unavailable'
 $script:PythonVersion = 'unavailable'
 $previousInstallerOptIn = $env:LAYAL_ALLOW_INSTALLER_TESTS
 
+# These maps connect each documented requirement/feature to actual automated test assets.
+# Presence of a test file is evidence of test coverage intent, never proof that the complete
+# acceptance criterion passed; manual and external gates remain explicit in the report.
+$script:RequirementSuiteMap = @{
+    'LAYAL-001' = @('tests/Layal.Tests/LayalIdentityTests.cs')
+    'LAYAL-002' = @('tests/Layal.Tests/MainWindowVisualSmokeTests.cs', 'tests/Layal.Tests/MascotHitTestGeometryTests.cs')
+    'LAYAL-003' = @('tests/Layal.Tests/MascotHitTestGeometryTests.cs', 'tools/Test-LayalClickThrough.Native.ps1', 'tools/Test-LayalDisplayDpi.ps1')
+    'LAYAL-004' = @('tests/Layal.Tests/MainWindowVisualSmokeTests.cs', 'tests/Layal.Tests/NotificationActionSlotTests.cs')
+    'LAYAL-005' = @('tests/Layal.Tests/CharacterExpressionMapTests.cs', 'tests/Layal.Tests/CharacterDisplayModePolicyTests.cs', 'tests/Layal.Tests/MascotEffectStyleResolverTests.cs', 'tests/Layal.Tests/MascotPerformancePolicyTests.cs')
+    'LAYAL-006' = @('tests/Layal.Tests/UiLocalizationTests.cs', 'tests/Layal.Tests/BidiTextNormalizerTests.cs', 'tests/Layal.Tests/TextDirectionConverterTests.cs')
+    'LAYAL-007' = @('tests/Layal.Tests/SpeechToTextServiceTests.cs', 'tests/Layal.Tests/LocalVoiceIntegrityTests.cs', 'tests/Layal.Tests/LocalVoiceLanguageSegmentationTests.cs')
+    'LAYAL-008' = @('tests/Layal.Tests/VoiceConversationServiceTests.cs', 'tests/Layal.Tests/VoiceDeliveryStylePolicyTests.cs', 'tests/Layal.Tests/LayalSpeechServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs', 'tests/Layal.Tests/AudioDeviceSettingsTests.cs')
+    'LAYAL-009' = @('tests/Layal.Tests/PrivacyShieldPolicyTests.cs', 'tests/Layal.Tests/VoiceConversationServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs')
+    'LAYAL-010' = @('tests/Layal.Tests/OpenAiCompatibleClientTests.cs', 'tests/Layal.Tests/LocalAiServiceTests.cs')
+    'LAYAL-011' = @('tests/Layal.Tests/OpenAiCompatibleClientTests.cs', 'tests/Layal.Tests/LocalAiServiceTests.cs')
+    'LAYAL-012' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/LocalAiServiceTests.cs')
+    'LAYAL-013' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskHistoryArtifactTests.cs')
+    'LAYAL-014' = @('tests/Layal.Tests/TaskApprovalWindowTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs', 'tests/Layal.Tests/AgentToolExecutorTests.cs')
+    'LAYAL-015' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/AgentToolExecutorEditFidelityTests.cs', 'tests/Layal.Tests/WorkspaceArtifactServiceTests.cs', 'tests/Layal.Tests/WorkspaceSnapshotServiceTests.cs')
+    'LAYAL-016' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/AgentOrchestratorTests.cs')
+    'LAYAL-017' = @('tests/Layal.Tests/WindowsUiAutomationServiceTests.cs')
+    'LAYAL-018' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/BrowserAutomationShutdownTests.cs')
+    'LAYAL-019' = @('tests/Layal.Tests/SafeBrowserDownloadServiceTests.cs', 'tests/Layal.Tests/SafeBrowserUploadServiceTests.cs')
+    'LAYAL-020' = @('tests/Layal.Tests/SkillPackageServiceTests.cs', 'tests/Layal.Tests/SkillPackageServiceBoundedCopyTests.cs')
+    'LAYAL-021' = @()
+    'LAYAL-022' = @()
+    'LAYAL-023' = @('tests/Layal.Tests/MemoryServiceTests.cs', 'tests/Layal.Tests/MemoryNoteReviewWindowTests.cs')
+    'LAYAL-024' = @('tests/Layal.Tests/DpapiSecretStoreTests.cs', 'tests/Layal.Tests/ProtectedJsonStoreTests.cs')
+    'LAYAL-025' = @('tests/Layal.Tests/OnvifCameraDiscoveryServiceTests.cs', 'tests/Layal.Tests/PrivacyShieldPolicyTests.cs')
+    'LAYAL-026' = @('tests/Layal.Tests/ScreenRegionCaptureServiceTests.cs', 'tests/Layal.Tests/ClipboardImageAttachmentEncoderTests.cs', 'tests/Layal.Tests/OpenAiCompatibleClientTests.cs')
+    'LAYAL-027' = @()
+    'LAYAL-028' = @()
+    'LAYAL-029' = @('tests/Layal.Tests/ProtectedJsonStoreTests.cs', 'tests/Layal.Tests/WorkspaceSnapshotServiceTests.cs', 'tests/Layal.Tests/WorkspaceArtifactServiceTests.cs')
+    'LAYAL-030' = @('tests/Layal.Tests/PerformanceMetricsServiceTests.cs', 'tests/Layal.Tests/TaskHistoryArtifactTests.cs')
+    'LAYAL-031' = @('tests/Layal.Tests/PerformanceMetricsServiceTests.cs', 'tests/Layal.Tests/MascotPerformancePolicyTests.cs')
+    'LAYAL-032' = @('tools/Test-LayalInstaller.ps1', 'tools/Verify-LayalDistributionIntegrity.ps1')
+    'LAYAL-033' = @('tests/Layal.Tests/Layal.Tests.csproj', 'tools/validate_test_results.py')
+    'LAYAL-034' = @('tools/VERIFY-LAYAL.ps1', 'tools/Build-LayalDistribution.ps1')
+    'LAYAL-035' = @('tools/validate_licenses.py', 'tools/audit_nuget.py')
+    'LAYAL-036' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs', 'tests/Layal.Tests/SkillPackageServiceTests.cs')
+    'LAYAL-037' = @('tests/Layal.Tests/MainWindowVisualSmokeTests.cs', 'tests/Layal.Tests/UiLocalizationTests.cs', 'tools/Test-LayalKeyboardNavigation.ps1')
+    'LAYAL-038' = @('tests/Layal.Tests/ApiConnectionServiceTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs')
+}
+$script:AyoSuiteMap = @{
+    'AYO-01' = @('tests/Layal.Tests/SpeechToTextServiceTests.cs', 'tests/Layal.Tests/VoiceConversationServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs', 'tests/Layal.Tests/LocalVoiceLanguageSegmentationTests.cs')
+    'AYO-02' = @('tests/Layal.Tests/QuickAskWindowTests.cs', 'tests/Layal.Tests/QuickAskRequestPolicyTests.cs')
+    'AYO-03' = @('tests/Layal.Tests/GlobalHotkeyServiceTests.cs', 'tests/Layal.Tests/QuickAskWindowTests.cs')
+    'AYO-04' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskApprovalWindowTests.cs')
+    'AYO-05' = @('tests/Layal.Tests/ScreenRegionCaptureServiceTests.cs', 'tests/Layal.Tests/PrivacyShieldPolicyTests.cs')
+    'AYO-06' = @('tests/Layal.Tests/ScreenRegionCaptureServiceTests.cs', 'tests/Layal.Tests/MainWindowVisualSmokeTests.cs')
+    'AYO-07' = @('tests/Layal.Tests/WindowsUiAutomationServiceTests.cs')
+    'AYO-08' = @('tests/Layal.Tests/DocumentTextExtractionServiceTests.cs')
+    'AYO-09' = @('tests/Layal.Tests/DocumentTextExtractionServiceTests.cs')
+    'AYO-10' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/OpenAiCompatibleClientTests.cs')
+    'AYO-11' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/BrowserAutomationShutdownTests.cs')
+    'AYO-12' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskHistoryArtifactTests.cs')
+    'AYO-13' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/AgentToolExecutorEditFidelityTests.cs', 'tests/Layal.Tests/WorkspaceArtifactServiceTests.cs')
+    'AYO-14' = @('tests/Layal.Tests/AgentToolExecutorTests.cs')
+    'AYO-15' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/SafeBrowserDownloadServiceTests.cs', 'tests/Layal.Tests/SafeBrowserUploadServiceTests.cs')
+    'AYO-16' = @('tests/Layal.Tests/TaskApprovalWindowTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs')
+    'AYO-17' = @('tests/Layal.Tests/MemoryServiceTests.cs', 'tests/Layal.Tests/DpapiSecretStoreTests.cs')
+    'AYO-18' = @('tests/Layal.Tests/MemoryServiceTests.cs', 'tests/Layal.Tests/MemoryNoteReviewWindowTests.cs')
+    'AYO-19' = @('tests/Layal.Tests/LoreWebWindowTests.cs', 'tests/Layal.Tests/GltfSkinnedAnimationRendererTests.cs')
+    'AYO-20' = @('tests/Layal.Tests/WorkspaceSnapshotServiceTests.cs', 'tests/Layal.Tests/WorkspaceArtifactServiceTests.cs')
+    'AYO-21' = @('tests/Layal.Tests/ReminderServiceTests.cs', 'tests/Layal.Tests/ReminderTaskSchedulerServiceTests.cs', 'tests/Layal.Tests/ReminderNotificationQueueTests.cs')
+    'AYO-22' = @('tests/Layal.Tests/SavedRoutineServiceTests.cs', 'tests/Layal.Tests/RoutineToolOutcomePolicyTests.cs')
+    'AYO-23' = @('tests/Layal.Tests/ProactiveCheckInPolicyTests.cs', 'tests/Layal.Tests/ReminderTaskSchedulerServiceTests.cs')
+    'AYO-24' = @('tests/Layal.Tests/ReminderTaskLinkPolicyTests.cs', 'tests/Layal.Tests/ReminderServiceTests.cs')
+    'AYO-25' = @('tests/Layal.Tests/GmailReadOnlyServiceTests.cs', 'tests/Layal.Tests/DocumentTextExtractionServiceTests.cs')
+    'AYO-26' = @('tests/Layal.Tests/WeatherServiceTests.cs')
+    'AYO-27' = @('tests/Layal.Tests/GameModeHudWindowTests.cs', 'tests/Layal.Tests/GameModeAutoDismissalPolicyTests.cs', 'tests/Layal.Tests/GameModeProcessAllowlistTests.cs')
+    'AYO-28' = @('tests/Layal.Tests/CharacterDisplayModePolicyTests.cs', 'tests/Layal.Tests/VoiceDeliveryStylePolicyTests.cs', 'tests/Layal.Tests/CharacterExpressionMapTests.cs')
+    'AYO-29' = @('tests/Layal.Tests/UiThemePaletteTests.cs', 'tests/Layal.Tests/DesignTokensTests.cs')
+    'AYO-30' = @('tests/Layal.Tests/MascotPerformancePolicyTests.cs', 'tests/Layal.Tests/PerformanceMetricsServiceTests.cs')
+    'AYO-31' = @('tests/Layal.Tests/ClipboardReadPolicyTests.cs', 'tests/Layal.Tests/ClipboardImageAttachmentEncoderTests.cs')
+    'AYO-32' = @('tests/Layal.Tests/ChatSessionServiceTests.cs', 'tests/Layal.Tests/PrivateChatModePolicyTests.cs')
+    'AYO-33' = @('tests/Layal.Tests/PrivacyShieldPolicyTests.cs', 'tests/Layal.Tests/VoiceConversationServiceTests.cs')
+}
+
+function Resolve-AutomatedEvidence {
+    param([string[]]$Paths)
+    $found = [System.Collections.Generic.List[string]]::new()
+    foreach ($relativePath in $Paths) {
+        if ([string]::IsNullOrWhiteSpace($relativePath)) { continue }
+        $fullPath = Join-Path $Root $relativePath
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            throw "Coverage map points to a missing test/evidence file: $relativePath"
+        }
+        $found.Add($relativePath) | Out-Null
+    }
+    return @($found)
+}
+
 function Add-CheckResult {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -195,23 +288,31 @@ function Get-RequirementInventories {
     }
 
     $script:RequirementRows = @($requirements | ForEach-Object {
+        $id = [string]$_.id
+        $evidenceFiles = @(Resolve-AutomatedEvidence -Paths $script:RequirementSuiteMap[$id])
         [pscustomobject]@{
-            Id = [string]$_.id
+            Id = $id
             Area = [string]$_.area
             Requirement = [string]$_.requirement
             SourceStatus = [string]$_.status_0_5_2
             AcceptanceEvidence = [string]$_.acceptance_evidence
             Priority = [string]$_.priority
-            RequirementDecision = 'PENDING — not certified by aggregate tests alone'
+            AutomatedTestSuites = ($evidenceFiles -join '; ')
+            AutomatedCoverageStatus = if ($evidenceFiles.Count -gt 0) { 'TEST ASSETS PRESENT — criterion-level acceptance remains pending' } else { 'NO DIRECT AUTOMATED TEST ASSET — acceptance remains pending' }
+            RequirementDecision = 'PENDING — test asset presence is not criterion-level acceptance'
         }
     })
     $script:AyoRows = @($ayoRows | ForEach-Object {
+        $id = [string]$_.Id
+        $evidenceFiles = @(Resolve-AutomatedEvidence -Paths $script:AyoSuiteMap[$id])
         [pscustomobject]@{
-            Id = $_.Id
+            Id = $id
             Feature = $_.Feature
             SourceStatus = $_.SourceStatus
             AcceptanceCriteria = $_.AcceptanceCriteria
-            RequirementDecision = 'PENDING — not certified by aggregate tests alone'
+            AutomatedTestSuites = ($evidenceFiles -join '; ')
+            AutomatedCoverageStatus = if ($evidenceFiles.Count -gt 0) { 'TEST ASSETS PRESENT — criterion-level acceptance remains pending' } else { 'NO DIRECT AUTOMATED TEST ASSET — acceptance remains pending' }
+            RequirementDecision = 'PENDING — test asset presence is not criterion-level acceptance'
         }
     })
     return "Loaded $($requirements.Count) LAYAL requirements and $($ayoRows.Count) AYO features."
@@ -335,18 +436,18 @@ function Write-AcceptanceReports {
     $lines.Add('')
     $lines.Add('نجاح الاختبارات العامة لا يحوّل المتطلب المنفرد إلى مقبول دون دليل يطابق معيار قبوله.')
     $lines.Add('')
-    $lines.Add('| المعرّف | المجال | المتطلب | حالة المصدر | قرار القبول |')
-    $lines.Add('|---|---|---|---|---|')
+    $lines.Add('| المعرّف | المجال | المتطلب | حالة المصدر | ملفات الاختبار المرتبطة | حالة دليل الاختبار | قرار القبول |')
+    $lines.Add('|---|---|---|---|---|---|---|')
     foreach ($row in $script:RequirementRows) {
-        $lines.Add("| $($row.Id) | $(ConvertTo-MarkdownCell $row.Area) | $(ConvertTo-MarkdownCell $row.Requirement) | $(ConvertTo-MarkdownCell $row.SourceStatus) | PENDING |")
+        $lines.Add("| $($row.Id) | $(ConvertTo-MarkdownCell $row.Area) | $(ConvertTo-MarkdownCell $row.Requirement) | $(ConvertTo-MarkdownCell $row.SourceStatus) | $(ConvertTo-MarkdownCell $row.AutomatedTestSuites) | $(ConvertTo-MarkdownCell $row.AutomatedCoverageStatus) | PENDING |")
     }
     $lines.Add('')
     $lines.Add('## وظائف AYO الـ33')
     $lines.Add('')
-    $lines.Add('| المعرّف | الوظيفة | الحالة المسجلة | قرار القبول |')
-    $lines.Add('|---|---|---|---|')
+    $lines.Add('| المعرّف | الوظيفة | الحالة المسجلة | ملفات الاختبار المرتبطة | حالة دليل الاختبار | قرار القبول |')
+    $lines.Add('|---|---|---|---|---|---|')
     foreach ($row in $script:AyoRows) {
-        $lines.Add("| $($row.Id) | $(ConvertTo-MarkdownCell $row.Feature) | $(ConvertTo-MarkdownCell $row.SourceStatus) | PENDING |")
+        $lines.Add("| $($row.Id) | $(ConvertTo-MarkdownCell $row.Feature) | $(ConvertTo-MarkdownCell $row.SourceStatus) | $(ConvertTo-MarkdownCell $row.AutomatedTestSuites) | $(ConvertTo-MarkdownCell $row.AutomatedCoverageStatus) | PENDING |")
     }
     $lines.Add('')
     $lines.Add('## ملفات الدليل')
