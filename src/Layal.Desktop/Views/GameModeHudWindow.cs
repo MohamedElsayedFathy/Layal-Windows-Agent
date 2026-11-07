@@ -38,7 +38,18 @@ public sealed class GameModeHudWindow : Window
     {
         _shortcutDisplay = string.IsNullOrWhiteSpace(shortcutDisplay) ? "Alt+Shift+S" : shortcutDisplay.Trim();
         _shortcutText.Text = _shortcutDisplay + " · " + (_isArabic ? "Esc داخل ليال" : "Esc in Layal");
+        UpdateShortcutAccessibility();
         UpdateStatus();
+    }
+
+    private void UpdateShortcutAccessibility()
+    {
+        AutomationProperties.SetName(_shortcutText, _isArabic
+            ? $"اختصار السؤال السريع: {_shortcutDisplay}. إلغاء العملية من داخل ليال فقط: Esc."
+            : $"Quick Ask shortcut: {_shortcutDisplay}. Cancel only inside Layal: Esc.");
+        AutomationProperties.SetHelpText(_shortcutText, _isArabic
+            ? "يعرض الاختصار العالمي المضبوط في الإعدادات. قد يتعذر تسجيله إذا كان تطبيق آخر يستخدمه."
+            : "Shows the global shortcut selected in Settings. Registration may fail if another app owns it.");
     }
 
     public event EventHandler? ExitRequested;
@@ -103,7 +114,6 @@ public sealed class GameModeHudWindow : Window
             Foreground = FindBrushResource("Layal.Cyan", Brushes.Teal)
         };
         AutomationProperties.SetName(_clock, isArabic ? "الوقت الحالي" : "Current time");
-        AutomationProperties.SetLiveSetting(_clock, AutomationLiveSetting.Polite);
         Grid.SetRow(_clock, 1);
         root.Children.Add(_clock);
 
@@ -127,7 +137,7 @@ public sealed class GameModeHudWindow : Window
             Margin = new Thickness(0, 0, 10, 0),
             Foreground = FindBrushResource("Layal.Muted", Brushes.DimGray)
         };
-        AutomationProperties.SetName(_shortcutText, isArabic ? "اختصارات ليال" : "Layal shortcuts");
+        UpdateShortcutAccessibility();
         footer.Children.Add(_shortcutText);
         var exit = new Button
         {
