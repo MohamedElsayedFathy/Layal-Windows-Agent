@@ -2107,6 +2107,7 @@ public partial class MainWindow : Window
             _globalHotkeyService?.Dispose();
             _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow, preset);
         }
+        _gameModeHudWindow?.UpdateShortcutDisplay(GlobalHotkeyService.GetDisplayName(preset));
         UpdateQuickAskHotkeyStatus();
     }
 
