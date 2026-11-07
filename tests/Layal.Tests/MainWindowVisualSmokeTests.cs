@@ -65,11 +65,15 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("Privacy shield stop method was not found.");
         var screenCaptureField = typeof(MainWindow).GetField("_screenCaptureCancellation", flags)
             ?? throw new InvalidOperationException("Screen capture cancellation field was not found.");
+        var clipboardReadField = typeof(MainWindow).GetField("_clipboardReadCancellation", flags)
+            ?? throw new InvalidOperationException("Clipboard read cancellation field was not found.");
 
         var previousScreenCapture = screenCaptureField.GetValue(window);
-        if (previousScreenCapture is not null)
-            throw new InvalidOperationException("The privacy-shield regression test requires no active screen capture.");
+        var previousClipboardRead = clipboardReadField.GetValue(window);
+        if (previousScreenCapture is not null || previousClipboardRead is not null)
+            throw new InvalidOperationException("The privacy-shield regression test requires no active capture.");
         using var activeScreenCapture = new CancellationTokenSource();
+        using var activeClipboardRead = new CancellationTokenSource();
         var previousShield = AppRuntime.Settings.PrivacyShieldEnabled;
         var previousImageBytes = imageBytesField.GetValue(window);
         var previousImageName = imageNameField.GetValue(window);
@@ -89,11 +93,14 @@ public sealed class MainWindowVisualSmokeTests
             documentNameField.SetValue(window, "Clipboard text");
             documentNoticeField.SetValue(window, "Local preview only.");
             screenCaptureField.SetValue(window, activeScreenCapture);
+            clipboardReadField.SetValue(window, activeClipboardRead);
 
             stopCaptures.Invoke(window, null);
 
             Assert.IsTrue(activeScreenCapture.IsCancellationRequested,
                 "Enabling the privacy shield must cancel and close an in-flight screen capture preview.");
+            Assert.IsTrue(activeClipboardRead.IsCancellationRequested,
+                "Enabling the privacy shield must cancel an in-flight clipboard read before attachment.");
             Assert.IsNull(imageBytesField.GetValue(window),
                 "Enabling the privacy shield must discard an unsubmitted clipboard image.");
             Assert.IsTrue(clipboardImageBytes.All(value => value == 0),
@@ -118,6 +125,7 @@ public sealed class MainWindowVisualSmokeTests
         {
             AppRuntime.Settings.PrivacyShieldEnabled = previousShield;
             screenCaptureField.SetValue(window, previousScreenCapture);
+            clipboardReadField.SetValue(window, previousClipboardRead);
             imageBytesField.SetValue(window, previousImageBytes);
             imageNameField.SetValue(window, previousImageName);
             imageTypeField.SetValue(window, previousImageType);
