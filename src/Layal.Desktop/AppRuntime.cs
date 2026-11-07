@@ -31,10 +31,12 @@ public static class AppRuntime
     public static TrayService? Tray { get; set; }
     public static Action? ExitAction { get; set; }
     public static bool IsExiting { get; set; }
+    /// <summary>Transient Incognito state; intentionally never written to user settings or disk.</summary>
+    public static bool IsPrivateChatActive { get; set; }
     /// <summary>
     /// Reconciles the single Windows dispatch task with both saved reminders and the optional
-    /// local check-in. Check-ins are never scheduled while disabled or while the privacy shield
-    /// or manual game mode is active.
+    /// local check-in. Check-ins are never scheduled while disabled, while private chat or
+    /// the privacy shield is active, or while manual game mode is active.
     /// </summary>
     public static void SynchronizeLocalNotifications()
     {
@@ -48,7 +50,8 @@ public static class AppRuntime
             gameModeActive: IsGameModeActive,
             applicationExiting: IsExiting,
             lastNotifiedAt: Settings.LastProactiveCheckInAt,
-            intervalMinutes: Settings.ProactiveCheckInIntervalMinutes);
+            intervalMinutes: Settings.ProactiveCheckInIntervalMinutes,
+            privateChatActive: IsPrivateChatActive);
 
         scheduler.Synchronize(ReminderService.GetAll(), proactiveDueAt);
     }
