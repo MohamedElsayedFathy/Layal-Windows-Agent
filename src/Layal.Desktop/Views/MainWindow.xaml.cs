@@ -3877,6 +3877,13 @@ public partial class MainWindow : Window
                 SetChatActivityStatus(IsArabic ? "تم إلغاء الإرسال والتخلص من التسجيل المؤقت." : "Upload cancelled; temporary audio discarded.");
                 return;
             }
+            if (ShouldDiscardPendingSpeechAudio())
+            {
+                SetChatActivityStatus(IsArabic
+                    ? "تم التخلص من التسجيل؛ درع الخصوصية منع الإرسال بعد نافذة الموافقة."
+                    : "The recording was discarded; the privacy shield prevented upload after the consent dialog.");
+                return;
+            }
 
             var key = AppRuntime.SecretStore?.Load() ?? string.Empty;
             var modelId = AppRuntime.Settings.SpeechToTextModelId;
@@ -5118,6 +5125,7 @@ public partial class MainWindow : Window
 
     private void ClearVisionImageButton_Click(object sender, RoutedEventArgs e)
     {
+        PrivacyShieldPolicy.ClearCapturedBuffer(_pendingVisionImageBytes);
         _pendingVisionImageBytes = null;
         _pendingVisionContentType = null;
         _pendingVisionFileName = null;
@@ -5445,6 +5453,7 @@ public partial class MainWindow : Window
 
         if (consumePendingAttachment)
         {
+            PrivacyShieldPolicy.ClearCapturedBuffer(_pendingVisionImageBytes);
             _pendingVisionImageBytes = null;
             _pendingVisionContentType = null;
             _pendingVisionFileName = null;
