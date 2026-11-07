@@ -505,6 +505,14 @@ public partial class MainWindow : Window
         _rawTaskEvents.Clear();
         TaskInput.Clear();
         TaskResult.Text = string.Empty;
+        TaskProgressStatus.Text = IsArabic ? "المهام غير متاحة أثناء المحادثة الخاصة." : "Tasks are unavailable during private chat.";
+        TaskProgressBar.Value = 0;
+        TaskEventsEmptyStateText.Text = string.Empty;
+        RecentTasksEmptyStateText.Text = string.Empty;
+        TaskCopyStatus.Text = string.Empty;
+
+        MemoryResult.Text = string.Empty;
+        MemoryEmptyStateText.Text = IsArabic ? "الذاكرة الشخصية غير متاحة أثناء المحادثة الخاصة." : "Personal memory is unavailable during private chat.";
 
         ChatMessages.Clear();
         ChatInput.Clear();
@@ -760,6 +768,33 @@ public partial class MainWindow : Window
         var canAccessMemory = PrivateChatModePolicy.CanAccessPersonalMemory(_incognitoMode);
         TasksTab.IsEnabled = canAccessTasks;
         MemoryTab.IsEnabled = canAccessMemory;
+        TasksHeading.IsEnabled = canAccessTasks;
+        TasksDescription.IsEnabled = canAccessTasks;
+        TaskSkillHint.IsEnabled = canAccessTasks;
+        TaskSafeToolTitle.IsEnabled = canAccessTasks;
+        TaskSafeToolDescription.IsEnabled = canAccessTasks;
+        TaskProgressStatus.IsEnabled = canAccessTasks;
+        TaskProgressBar.IsEnabled = canAccessTasks;
+        TaskEventsList.IsEnabled = canAccessTasks;
+        TaskEventsEmptyStateText.IsEnabled = canAccessTasks;
+        RecentTasksGroup.IsEnabled = canAccessTasks;
+        RecentTasksEmptyStateText.IsEnabled = canAccessTasks;
+        TaskCopyStatus.IsEnabled = canAccessTasks;
+        GameModeButton.IsEnabled = canAccessTasks;
+        GameModeSettingsButton.IsEnabled = canAccessTasks;
+        ProactiveCheckInPrivacyNote.IsEnabled = canAccessTasks;
+
+        MemoryHeading.IsEnabled = canAccessMemory;
+        MemoryDescription.IsEnabled = canAccessMemory;
+        MemoryCategoryFilterLabel.IsEnabled = canAccessMemory;
+        MemoryCountText.IsEnabled = canAccessMemory;
+        MemoryFilterNotice.IsEnabled = canAccessMemory;
+        MemoryEmptyStateText.IsEnabled = canAccessMemory;
+        MemoryCategoryLabel.IsEnabled = canAccessMemory;
+        MemoryTitleLabel.IsEnabled = canAccessMemory;
+        MemoryContentLabel.IsEnabled = canAccessMemory;
+        MemoryResult.IsEnabled = canAccessMemory;
+        MemoryPrivacyNote.IsEnabled = canAccessMemory;
 
         // Set each sensitive control explicitly as well as disabling its containing tab.
         // UI Automation can inspect child controls independently of tab navigation.
