@@ -181,7 +181,7 @@ public sealed class GameModeHudWindow : Window
         if (IsVisible)
             Close();
         else
-            RaiseExitRequested();
+            CompleteClose();
     }
 
     /// <summary>Close because detection ended, settings changed, or Layal is shutting down.</summary>
@@ -191,7 +191,7 @@ public sealed class GameModeHudWindow : Window
         if (IsVisible)
             Close();
         else
-            RaiseExitRequested();
+            CompleteClose();
     }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -199,6 +199,13 @@ public sealed class GameModeHudWindow : Window
         if (!_closingProgrammatically)
             WasDismissedByUser = true;
         base.OnClosing(e);
+    }
+
+    private void CompleteClose()
+    {
+        _timer.Stop();
+        _timer.Tick -= Timer_Tick;
+        RaiseExitRequested();
     }
 
     private void RaiseExitRequested()
@@ -210,9 +217,7 @@ public sealed class GameModeHudWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _timer.Stop();
-        _timer.Tick -= Timer_Tick;
-        RaiseExitRequested();
+        CompleteClose();
         base.OnClosed(e);
     }
 }
