@@ -276,16 +276,21 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
         catch (OperationCanceledException)
         {
-            CameraStatusText.Text = _isArabic ? "تم إيقاف فحص الشبكة." : "Network scan was cancelled.";
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إيقاف فحص الشبكة." : "Network scan was cancelled.";
         }
         catch (Exception ex)
         {
-            CameraStatusText.Text = (_isArabic ? "تعذر فحص الشبكة المحلية: " : "Local network scan failed: ") + ex.Message;
+            if (!_isClosing)
+                CameraStatusText.Text = (_isArabic ? "تعذر فحص الشبكة المحلية: " : "Local network scan failed: ") + ex.Message;
         }
         finally
         {
-            ScanNetworkCamerasButton.IsEnabled = true;
-            ConnectNetworkCameraButton.IsEnabled = true;
+            if (!_isClosing)
+            {
+                ScanNetworkCamerasButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+            }
         }
     }
 
@@ -391,7 +396,7 @@ public partial class VisionCameraWindow : System.Windows.Window
             candidate = null;
             _captureReady = true;
             _isNetworkCamera = true;
-            _latestJpeg = null;
+            ClearLatestFrame();
             try { previous?.Release(); } catch { }
             previous?.Dispose();
             CameraStatusText.Text = _isArabic
@@ -402,23 +407,30 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
         catch (OperationCanceledException)
         {
-            CameraStatusText.Text = _isArabic ? "تم إلغاء الاتصال بكاميرا الشبكة." : "Network camera connection was cancelled.";
+            if (!_isClosing)
+                CameraStatusText.Text = _isArabic ? "تم إلغاء الاتصال بكاميرا الشبكة." : "Network camera connection was cancelled.";
         }
         catch (Exception ex)
         {
-            // Never show the credential-bearing RTSP URL or exception text from the native media stack.
-            CameraStatusText.Text = (_isArabic
+            if (!_isClosing)
+            {
+                // Never show the credential-bearing RTSP URL or exception text from the native media stack.
+                CameraStatusText.Text = (_isArabic
                 ? "تعذر الاتصال بكاميرا الشبكة. تحقق من بيانات الدخول ودعم ONVIF/RTSP وصلاحيات المشاهدة. التفاصيل الآمنة: "
                 : "Could not connect to the network camera. Verify credentials, ONVIF/RTSP support, and viewing permissions. Safe detail: ") +
                 SafeCameraError(ex);
+            }
         }
         finally
         {
             candidate?.Dispose();
-            CameraPasswordInput.Clear();
-            _switchingSource = false;
-            ScanNetworkCamerasButton.IsEnabled = true;
-            ConnectNetworkCameraButton.IsEnabled = true;
+            if (!_isClosing)
+            {
+                CameraPasswordInput.Clear();
+                _switchingSource = false;
+                ScanNetworkCamerasButton.IsEnabled = true;
+                ConnectNetworkCameraButton.IsEnabled = true;
+            }
         }
     }
 
@@ -482,7 +494,7 @@ public partial class VisionCameraWindow : System.Windows.Window
             candidate = null;
             _captureReady = true;
             _isNetworkCamera = false;
-            _latestJpeg = null;
+            ClearLatestFrame();
             try { previous?.Release(); } catch { }
             previous?.Dispose();
             CameraStatusText.Text = _isArabic
