@@ -474,6 +474,10 @@ public partial class MainWindow : Window
         AppRuntime.ChatSessionService.BeginTemporarySession();
         _clipboardReadCancellation?.Cancel();
         _incognitoMode = true;
+        AppRuntime.IsPrivateChatActive = true;
+        _reminderTimer.Stop();
+        _proactiveCheckInTimer.Stop();
+        TrySynchronizeLocalNotificationSchedule();
         MainTabs.SelectedItem = ChatTab;
 
         // Clear personal/task content from visible controls for this temporary session.
@@ -518,6 +522,14 @@ public partial class MainWindow : Window
         _lastCameraObservation = string.Empty;
         AppRuntime.ChatSessionService.EndTemporarySession();
         _incognitoMode = false;
+        AppRuntime.IsPrivateChatActive = false;
+        if (AppRuntime.ReminderService is not null)
+            _reminderTimer.Start();
+        if (AppRuntime.Settings.ProactiveCheckInEnabled)
+            _proactiveCheckInTimer.Start();
+        else
+            _proactiveCheckInTimer.Stop();
+        TrySynchronizeLocalNotificationSchedule();
         UpdateVisionAttachmentControls();
         UpdateDocumentAttachmentUi();
 
@@ -6406,6 +6418,9 @@ public partial class MainWindow : Window
 
     private void ProactiveCheckInTimer_Tick(object? sender, EventArgs e)
     {
+        if (!PrivateChatModePolicy.CanDeliverLocalNotifications(_incognitoMode))
+            return;
+
         var now = DateTimeOffset.Now;
         var last = AppRuntime.Settings.LastProactiveCheckInAt;
         if (last is null)
@@ -6536,7 +6551,8 @@ public partial class MainWindow : Window
 
     private void ReminderTimer_Tick(object? sender, EventArgs e)
     {
-        if (AppRuntime.IsExiting)
+        if (AppRuntime.IsExiting ||
+            !PrivateChatModePolicy.CanDeliverLocalNotifications(_incognitoMode))
             return;
 
         var now = DateTimeOffset.Now;
