@@ -1489,8 +1489,11 @@ public partial class FloatingMascotWindow : Window
         if (_currentExpression is null) return;
         var ar = AppRuntime.Settings.Language == "ar";
         AutomationProperties.SetName(CharacterLayer, CharacterDisplayModePolicy.GetAutomationName(_characterDisplayMode, ar));
-        AutomationProperties.SetHelpText(CharacterLayer,
-            CharacterDisplayModePolicy.GetHelpText(_characterDisplayMode, ar) + " " + CharacterExpressionMap.Describe(_currentExpression, ar));
+        var helpText = CharacterDisplayModePolicy.GetHelpText(_characterDisplayMode, ar);
+        // The combined expression description mentions both characters; never announce a hidden character.
+        if (_characterDisplayMode == "duo")
+            helpText += " " + CharacterExpressionMap.Describe(_currentExpression, ar);
+        AutomationProperties.SetHelpText(CharacterLayer, helpText);
     }
 
     private void ApplyRobotFace(RobotFaceSpec face)

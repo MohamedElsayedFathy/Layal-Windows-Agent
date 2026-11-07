@@ -33,5 +33,9 @@ public sealed class CharacterDisplayModePolicyTests
         Assert.AreEqual("مساعد ليال الروبوت", CharacterDisplayModePolicy.GetAutomationName("robot", true));
         Assert.AreEqual("Layal and her robot assistant", CharacterDisplayModePolicy.GetAutomationName("duo", false));
         Assert.IsFalse(string.IsNullOrWhiteSpace(CharacterDisplayModePolicy.GetHelpText("robot", true)));
+        StringAssert.Contains(CharacterDisplayModePolicy.GetHelpText("layal", false), "Layal's portrait");
+        Assert.IsFalse(CharacterDisplayModePolicy.GetHelpText("layal", false).Contains("robot", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(CharacterDisplayModePolicy.GetHelpText("robot", false).Contains("Layal's portrait", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(CharacterDisplayModePolicy.GetHelpText("duo", false), "both");
     }
 }
