@@ -73,24 +73,70 @@ public sealed class UiThemePaletteTests
     }
 
     [TestMethod]
-    public void EveryNamedPresetMeetsPrimaryMutedAndScrollbarContrastTargets()
+    public void EveryNamedPresetMeetsTextAndScrollbarContrastTargetsOnRenderedSurfaces()
+    {
+        var textSurfaceKeys = new[]
+        {
+            "Layal.Color.Background",
+            "Layal.Color.Surface",
+            "Layal.Color.SurfaceRaised",
+            "Layal.Color.SurfaceHover",
+            "Layal.Color.InputFocus",
+            "Layal.Color.NavSelected",
+            "Layal.Color.ListHover",
+            "Layal.Color.ListSelected"
+        };
+
+        foreach (var preset in new[] { "classic", "ocean", "forest", "sunset" })
+        foreach (var dark in new[] { false, true })
+        {
+            var palette = UiThemePalette.Create(dark, highContrast: false, preset);
+            var mode = dark ? "dark" : "light";
+            var text = ToColor(palette, "Layal.Color.Text");
+            var muted = ToColor(palette, "Layal.Color.Muted");
+
+            foreach (var surfaceKey in textSurfaceKeys)
+            {
+                var surface = ToColor(palette, surfaceKey);
+                Assert.IsTrue(ContrastRatio(text, surface) >= 7.0,
+                    $"Primary text must be at least 7:1 against {surfaceKey} for {preset}/{mode}.");
+                Assert.IsTrue(ContrastRatio(muted, surface) >= 4.5,
+                    $"Muted text must be at least 4.5:1 against {surfaceKey} for {preset}/{mode}.");
+            }
+
+            // App.xaml styles the ScrollBar track with Layal.PanelAlt, which maps to SurfaceRaised.
+            var scrollbarTrack = ToColor(palette, "Layal.Color.SurfaceRaised");
+            var scrollbarThumb = ToColor(palette, "Layal.Color.ScrollThumb");
+            Assert.IsTrue(ContrastRatio(scrollbarThumb, scrollbarTrack) >= 2.0,
+                $"Scrollbar thumb must be at least 2:1 against its actual track for {preset}/{mode}.");
+
+            foreach (var statusKey in new[] { "Layal.Color.Success", "Layal.Color.Warning", "Layal.Color.Danger" })
+            foreach (var statusSurfaceKey in new[] { "Layal.Color.Background", "Layal.Color.Surface" })
+            {
+                Assert.IsTrue(ContrastRatio(ToColor(palette, statusKey), ToColor(palette, statusSurfaceKey)) >= 4.5,
+                    $"{statusKey} must be at least 4.5:1 against {statusSurfaceKey} for {preset}/{mode}.");
+            }
+        }
+    }
+
+    [TestMethod]
+    public void AccentAndPrimaryButtonGradientsKeepReadableForegroundInEveryPreset()
     {
         foreach (var preset in new[] { "classic", "ocean", "forest", "sunset" })
         foreach (var dark in new[] { false, true })
         {
             var palette = UiThemePalette.Create(dark, highContrast: false, preset);
             var mode = dark ? "dark" : "light";
-            var background = ToColor(palette, "Layal.Color.Background");
-            var text = ToColor(palette, "Layal.Color.Text");
-            var muted = ToColor(palette, "Layal.Color.Muted");
-            var scrollbar = ToColor(palette, "Layal.Color.ScrollThumb");
+            var accentForeground = ToColor(palette, "Layal.Color.OnAccent");
+            var buttonForeground = ToColor(palette, "Layal.Color.Text");
 
-            Assert.IsTrue(ContrastRatio(text, background) >= 7.0,
-                $"Primary text contrast must be at least 7:1 for {preset}/{mode}.");
-            Assert.IsTrue(ContrastRatio(muted, background) >= 4.5,
-                $"Muted text contrast must be at least 4.5:1 for {preset}/{mode}.");
-            Assert.IsTrue(ContrastRatio(scrollbar, background) >= 2.0,
-                $"Scrollbar control contrast must be at least 2:1 for {preset}/{mode}.");
+            foreach (var accentStop in new[] { "Layal.Color.AccentStart", "Layal.Color.AccentEnd" })
+                Assert.IsTrue(ContrastRatio(accentForeground, ToColor(palette, accentStop)) >= 4.5,
+                    $"Accent foreground must be at least 4.5:1 against {accentStop} for {preset}/{mode}.");
+
+            foreach (var buttonStop in new[] { "Layal.Color.ButtonStart", "Layal.Color.ButtonEnd" })
+                Assert.IsTrue(ContrastRatio(buttonForeground, ToColor(palette, buttonStop)) >= 4.5,
+                    $"Primary button text must be at least 4.5:1 against {buttonStop} for {preset}/{mode}.");
         }
     }
 
