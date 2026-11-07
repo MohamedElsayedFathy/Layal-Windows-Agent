@@ -36,6 +36,6 @@ public sealed class CharacterDisplayModePolicyTests
         StringAssert.Contains(CharacterDisplayModePolicy.GetHelpText("layal", false), "Layal's portrait");
         Assert.IsFalse(CharacterDisplayModePolicy.GetHelpText("layal", false).Contains("robot", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(CharacterDisplayModePolicy.GetHelpText("robot", false).Contains("Layal's portrait", StringComparison.OrdinalIgnoreCase));
-        StringAssert.Contains(CharacterDisplayModePolicy.GetHelpText("duo", false), "both");
+        StringAssert.Contains(CharacterDisplayModePolicy.GetHelpText("duo", false), "robot assistant");
     }
 }
