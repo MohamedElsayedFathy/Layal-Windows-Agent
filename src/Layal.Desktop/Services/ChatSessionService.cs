@@ -95,6 +95,14 @@ public sealed class ChatSessionService
         _temporarySessionSnapshot = _sessions.Select(CloneConversation).ToList();
         _temporaryCurrentId = _currentId;
         _temporaryDefaultTitle = _defaultTitle;
+
+        // Do not merely hide the saved conversation list in the UI. Replace the service's
+        // working set with a single blank temporary conversation so GetCurrent/GetAll also
+        // have no access to pre-Incognito chat contents until EndTemporarySession restores them.
+        _sessions.Clear();
+        var temporaryConversation = CreateRecord(_defaultTitle);
+        _sessions.Add(temporaryConversation);
+        _currentId = temporaryConversation.Id;
     }
 
     /// <summary>Discards temporary mutations and restores the saved conversations and selection.</summary>
