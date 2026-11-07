@@ -265,7 +265,7 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private async void ScanNetworkCamerasButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        if (_switchingSource || !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
             return;
 
         var consent = MessageBox.Show(this,
@@ -275,11 +275,13 @@ public partial class VisionCameraWindow : System.Windows.Window
             _isArabic ? "تأكيد فحص الشبكة المحلية" : "Confirm local network scan",
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (consent != MessageBoxResult.Yes) return;
-        if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
+        if (_switchingSource || !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
             return;
 
+        _switchingSource = true;
         ScanNetworkCamerasButton.IsEnabled = false;
         ConnectNetworkCameraButton.IsEnabled = false;
+        UseLocalCameraButton.IsEnabled = false;
         CameraStatusText.Text = _isArabic ? "جارٍ البحث عن كاميرات ONVIF محلية لمدة تصل إلى 4 ثوانٍ..." : "Searching for local ONVIF cameras for up to 4 seconds...";
         try
         {
@@ -317,8 +319,10 @@ public partial class VisionCameraWindow : System.Windows.Window
         {
             if (!_isClosing)
             {
+                _switchingSource = false;
                 ScanNetworkCamerasButton.IsEnabled = true;
                 ConnectNetworkCameraButton.IsEnabled = true;
+                UseLocalCameraButton.IsEnabled = true;
             }
         }
     }
@@ -394,6 +398,7 @@ public partial class VisionCameraWindow : System.Windows.Window
         _switchingSource = true;
         ConnectNetworkCameraButton.IsEnabled = false;
         ScanNetworkCamerasButton.IsEnabled = false;
+        UseLocalCameraButton.IsEnabled = false;
         CameraStatusText.Text = _isArabic ? "جارٍ التحقق من صلاحية الكاميرا وفتح البث..." : "Authenticating to the camera and opening the stream...";
         VideoCapture? candidate = null;
         try
@@ -459,6 +464,7 @@ public partial class VisionCameraWindow : System.Windows.Window
                 _switchingSource = false;
                 ScanNetworkCamerasButton.IsEnabled = true;
                 ConnectNetworkCameraButton.IsEnabled = true;
+                UseLocalCameraButton.IsEnabled = true;
             }
         }
     }
