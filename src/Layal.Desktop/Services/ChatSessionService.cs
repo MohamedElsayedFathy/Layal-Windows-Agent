@@ -20,6 +20,11 @@ public sealed class ChatSessionService
     private readonly List<ChatConversation> _sessions;
     private string _defaultTitle;
     private string _currentId = string.Empty;
+    private List<ChatConversation>? _temporarySessionSnapshot;
+    private string? _temporaryCurrentId;
+
+    /// <summary>True while conversation mutations are isolated from the encrypted persistent store.</summary>
+    public bool IsTemporarySession => _temporarySessionSnapshot is not null;
 
     public ChatSessionService(string path, ProtectedJsonStore<List<ChatMessage>> legacyStore, string defaultTitle = "New conversation")
     {
@@ -76,6 +81,35 @@ public sealed class ChatSessionService
         Save();
     }
 
+    /// <summary>
+    /// Starts a reversible, in-memory-only session. All conversation-store writes are suppressed
+    /// until EndTemporarySession restores the exact pre-session snapshot. The snapshot is deep
+    /// cloned so even accidental object mutations cannot alter the saved conversation objects.
+    /// </summary>
+    public void BeginTemporarySession()
+    {
+        if (IsTemporarySession)
+            throw new InvalidOperationException("A temporary chat session is already active.");
+
+        _temporarySessionSnapshot = _sessions.Select(CloneConversation).ToList();
+        _temporaryCurrentId = _currentId;
+    }
+
+    /// <summary>Discards temporary mutations and restores the saved conversations and selection.</summary>
+    public void EndTemporarySession()
+    {
+        if (_temporarySessionSnapshot is null)
+            return;
+
+        _sessions.Clear();
+        _sessions.AddRange(_temporarySessionSnapshot);
+        _currentId = _temporaryCurrentId ??
+            _sessions.OrderByDescending(session => session.UpdatedAt).FirstOrDefault()?.Id ??
+            string.Empty;
+        _temporarySessionSnapshot = null;
+        _temporaryCurrentId = null;
+    }
+
     public ChatConversation GetCurrent() => FindCurrent();
 
     public IReadOnlyList<ChatConversation> GetAll() =>
@@ -115,7 +149,9 @@ public sealed class ChatSessionService
     public ChatConversation ClearAll(string? title = null)
     {
         _sessions.Clear();
-        _legacyStore.Delete();
+        // A temporary private chat must not delete the legacy store as a side effect.
+        if (!IsTemporarySession)
+            _legacyStore.Delete();
         var fresh = CreateRecord(string.IsNullOrWhiteSpace(title) ? _defaultTitle : title.Trim());
         _sessions.Add(fresh);
         _currentId = fresh.Id;
@@ -149,9 +185,32 @@ public sealed class ChatSessionService
 
     private void Save()
     {
+        if (IsTemporarySession)
+            return;
+
         ApplyRetention();
         _store.Save(_sessions);
     }
+
+    private static ChatConversation CloneConversation(ChatConversation conversation) => new()
+    {
+        Id = conversation.Id,
+        Title = conversation.Title,
+        CreatedAt = conversation.CreatedAt,
+        UpdatedAt = conversation.UpdatedAt,
+        Messages = (conversation.Messages ?? new List<ChatMessage>())
+            .Select(CloneMessage)
+            .ToList()
+    };
+
+    private static ChatMessage CloneMessage(ChatMessage message) => new()
+    {
+        Role = message.Role,
+        Content = message.Content,
+        DisplayRole = message.DisplayRole,
+        CreatedAt = message.CreatedAt,
+        Direction = message.Direction
+    };
 
     private void ApplyRetention()
     {
