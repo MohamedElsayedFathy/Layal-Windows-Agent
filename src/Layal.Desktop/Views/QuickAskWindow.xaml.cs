@@ -169,7 +169,7 @@ public partial class QuickAskWindow : Window
     {
         if (_isSubmitting)
         {
-            var result = MessageBox.Show(
+            var result = LayalDialogService.Show(
                 this,
                 _isArabic ? "هل تريد إيقاف السؤال الحالي وإغلاق النافذة؟" : "Stop the current question and close this window?",
                 _isArabic ? "إيقاف السؤال السريع" : "Stop Quick Ask",
