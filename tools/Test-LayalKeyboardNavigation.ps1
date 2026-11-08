@@ -236,6 +236,144 @@ try {
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Start-Sleep -Milliseconds 250
 
+    # Exercise the real floating navigation dock through UI Automation and keyboard input.
+    # Stable AutomationIds keep this test independent from Arabic/English display text.
+    [System.Windows.Forms.SendKeys]::SendWait("^1")
+    Start-Sleep -Milliseconds 250
+    $toggleCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+        "ToggleBottomDockButton")
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    if ($null -eq $toggleElement) {
+        throw "The floating dock toggle is not exposed to UI Automation."
+    }
+    $toggleElement.SetFocus()
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $toggleFocused = $null -ne $focused -and $focused.Current.AutomationId -eq "ToggleBottomDockButton"
+    $results.Add([pscustomobject]@{
+        Test = "Bottom dock toggle focus"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($toggleFocused) { "PASS" } else { "FAIL" }
+        Details = "AutomationId=$($toggleElement.Current.AutomationId); focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+    })
+    if (-not $toggleFocused) { throw "The bottom dock toggle could not receive keyboard focus." }
+
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Start-Sleep -Milliseconds 450
+    $dockChatCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+        "DockChatButton")
+    $dockChatElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $dockChatCondition)
+    $dockExpanded = $null -ne $dockChatElement -and
+        -not [bool]$dockChatElement.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
+    $results.Add([pscustomobject]@{
+        Test = "Space expands bottom dock"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($dockExpanded) { "PASS" } else { "FAIL" }
+        Details = "DockChatButton exposed and on-screen after Space: $dockExpanded"
+    })
+    if (-not $dockExpanded) { throw "Space did not expose the expanded navigation destinations." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $tabEntersDock = $null -ne $focused -and $focused.Current.AutomationId -eq "DockChatButton"
+    $results.Add([pscustomobject]@{
+        Test = "Tab enters bottom dock"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($tabEntersDock) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+    })
+    if (-not $tabEntersDock) { throw "Tab did not move from the dock toggle to the first navigation destination." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("+{TAB}")
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $reverseDockFocus = $null -ne $focused -and $focused.Current.AutomationId -eq "ToggleBottomDockButton"
+    $results.Add([pscustomobject]@{
+        Test = "Shift+Tab returns to dock toggle"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($reverseDockFocus) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+    })
+    if (-not $reverseDockFocus) { throw "Shift+Tab did not return focus to the bottom dock toggle." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+    Start-Sleep -Milliseconds 120
+    $expectedDockIds = @(
+        "DockChatButton", "DockOverviewButton", "DockTasksButton", "DockSkillsButton",
+        "DockCamerasButton", "DockMemoryButton", "DockApiButton", "DockSettingsButton"
+    )
+    $expectedDockNamePatterns = @(
+        "(?i)(Home\s*-\s*Chat|الرئيسية\s*-\s*المحادثة)",
+        "(?i)(Overview|نظرة عامة)",
+        "(?i)(Tasks|المهام)",
+        "(?i)(Skills|المهارات)",
+        "(?i)(Cameras|الكاميرات)",
+        "(?i)(Memory|الذاكرة)",
+        "(?i)(API integrations|تكاملات API)",
+        "(?i)(Settings|الإعدادات)"
+    )
+    for ($index = 0; $index -lt $expectedDockIds.Count; $index++) {
+        $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+        $focusedId = if ($null -eq $focused) { "" } else { $focused.Current.AutomationId }
+        $focusedName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
+        $expectedId = $expectedDockIds[$index]
+        $expectedNamePattern = $expectedDockNamePatterns[$index]
+        $dockButtonOk = $focusedId -eq $expectedId -and $focusedName -match $expectedNamePattern
+        $results.Add([pscustomobject]@{
+            Test = "Tab dock destination $($index + 1)"
+            ExpectedSection = $expectedId
+            SelectedSection = (Get-CurrentSectionStatus)
+            Result = if ($dockButtonOk) { "PASS" } else { "FAIL" }
+            Details = "Focused AutomationId=$focusedId; Name=$focusedName; expected=$expectedId"
+        })
+        if (-not $dockButtonOk) {
+            throw "Tab order mismatch in bottom dock at destination $($index + 1): expected $expectedId, focused $focusedId ('$focusedName')."
+        }
+        if ($index -lt $expectedDockIds.Count - 1) {
+            [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+            Start-Sleep -Milliseconds 120
+        }
+    }
+
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Start-Sleep -Milliseconds 350
+    $selectedDockPage = Get-CurrentSectionStatus
+    $settingsSelected = $selectedDockPage -match "(?i)(Settings|الإعدادات)"
+    $results.Add([pscustomobject]@{
+        Test = "Space activates focused dock destination"
+        ExpectedSection = "Settings"
+        SelectedSection = $selectedDockPage
+        Result = if ($settingsSelected) { "PASS" } else { "FAIL" }
+        Details = "Focused Settings destination activated through Space."
+    })
+    if (-not $settingsSelected) { throw "Space did not navigate to the focused Settings destination; current page was '$selectedDockPage'." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("^1")
+    Start-Sleep -Milliseconds 250
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    if ($null -eq $toggleElement) { throw "The dock toggle disappeared after returning to Chat." }
+    $toggleElement.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Start-Sleep -Milliseconds 450
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    $toggleName = if ($null -eq $toggleElement) { "" } else { $toggleElement.Current.Name }
+    $dockCollapsed = $toggleName -match "(?i)(Expand navigation dock|توسيع شريط التنقل)"
+    $results.Add([pscustomobject]@{
+        Test = "Space collapses bottom dock"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($dockCollapsed) { "PASS" } else { "FAIL" }
+        Details = "Dock toggle accessible name after collapse: $toggleName"
+    })
+    if (-not $dockCollapsed) { throw "Space did not collapse the navigation dock." }
+
     $results | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
     $summary = [pscustomobject]@{
         Result = "passed"
