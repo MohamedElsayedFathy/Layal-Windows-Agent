@@ -22,6 +22,9 @@ public sealed class SkillPackageService
     public SkillPackageService(string root)
     {
         _root = Path.GetFullPath(root);
+        // Check existing ancestors before Directory.CreateDirectory so a linked parent cannot
+        // cause the constructor itself to create the managed catalog outside its intended path.
+        EnsureNoReparsePointsInExistingPath(_root);
         Directory.CreateDirectory(_root);
         EnsureNoReparsePointsInExistingPath(_root);
         _indexPath = Path.Combine(_root, "skills-index.json");
