@@ -1113,6 +1113,7 @@ public partial class MainWindow : Window
         }
 
         AppRuntime.Tray?.SetTheme(IsDarkTheme, highContrast);
+        LayalWindowChrome.RefreshAll(IsDarkTheme, highContrast);
         ApplyWindowBackdrop();
     }
 
