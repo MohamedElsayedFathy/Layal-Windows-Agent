@@ -155,7 +155,6 @@ internal static class LayalDialogService
             FontSize = 14,
             LineHeight = 21,
             Margin = new Thickness(0, 0, 0, 18),
-            IsTextSelectionEnabled = true
         };
         message.SetResourceReference(TextBlock.ForegroundProperty, highContrast ? "Layal.Text" : "Layal.Text");
         AutomationProperties.SetName(message, isArabic ? "تفاصيل الرسالة" : "Message details");
