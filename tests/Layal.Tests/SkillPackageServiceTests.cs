@@ -171,7 +171,7 @@ public sealed class SkillPackageServiceTests
         using var temp = new TestTempDirectory();
         const string commitSha = "0123456789abcdef0123456789abcdef01234567";
         var repositoryArchivePath = CreateRawZip(temp.Path,
-            ("repository-snapshot/sample-skill/SKILL.md", "---\\nname: sample-skill\\ndescription: GitHub skill.\\n---\\nBody"),
+            ("repository-snapshot/sample-skill/SKILL.md", "---\nname: sample-skill\ndescription: GitHub skill.\n---\nBody"),
             ("repository-snapshot/sample-skill/reference.md", "reference content"));
         var repositoryArchiveBytes = File.ReadAllBytes(repositoryArchivePath);
         var handler = new StubGitHubHttpMessageHandler(request =>
@@ -181,7 +181,7 @@ public sealed class SkillPackageServiceTests
                 path.Equals("/repos/acme/skills/commits/main", StringComparison.Ordinal))
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent($"{{\\"sha\\":\\"{commitSha}\\"}}", Encoding.UTF8, "application/json")
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
                 };
 
             if (request.RequestUri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
@@ -231,7 +231,7 @@ public sealed class SkillPackageServiceTests
         using var temp = new TestTempDirectory();
         const string commitSha = "abcdef0123456789abcdef0123456789abcdef01";
         var repositoryArchivePath = CreateRawZip(temp.Path,
-            ("repository-snapshot/SKILL.md", "---\\nname: root-skill\\ndescription: Root skill.\\n---\\nBody"));
+            ("repository-snapshot/SKILL.md", "---\nname: root-skill\ndescription: Root skill.\n---\nBody"));
         var repositoryArchiveBytes = File.ReadAllBytes(repositoryArchivePath);
         var handler = new StubGitHubHttpMessageHandler(request =>
         {
@@ -240,13 +240,13 @@ public sealed class SkillPackageServiceTests
                 path.Equals("/repos/acme/skills", StringComparison.Ordinal))
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent("{\\"default_branch\\":\\"trunk\\"}", Encoding.UTF8, "application/json")
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { default_branch = "trunk" }), Encoding.UTF8, "application/json")
                 };
             if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
                 path.Equals("/repos/acme/skills/commits/trunk", StringComparison.Ordinal))
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent($"{{\\"sha\\":\\"{commitSha}\\"}}", Encoding.UTF8, "application/json")
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
                 };
             if (request.RequestUri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
                 path.Equals($"/acme/skills/zip/{commitSha}", StringComparison.Ordinal))
@@ -263,6 +263,53 @@ public sealed class SkillPackageServiceTests
 
         Assert.AreEqual("trunk", imported.SourceRef);
         Assert.AreEqual(commitSha, imported.SourceCommitSha);
+    }
+
+
+    [TestMethod]
+    public async Task GitHubImportRejectsSymbolicLinkEntriesBeforeFiltering()
+    {
+        using var temp = new TestTempDirectory();
+        const string commitSha = "fedcba9876543210fedcba9876543210fedcba98";
+        var repositoryArchivePath = System.IO.Path.Combine(temp.Path, "repository.zip");
+        using (var archiveFile = File.Create(repositoryArchivePath))
+        using (var archive = new ZipArchive(archiveFile, ZipArchiveMode.Create))
+        {
+            var markdown = archive.CreateEntry("repository-snapshot/sample-skill/SKILL.md");
+            using (var writer = new StreamWriter(markdown.Open()))
+                writer.Write("---\nname: sample-skill\ndescription: GitHub skill.\n---\nBody");
+
+            var link = archive.CreateEntry("repository-snapshot/sample-skill/reference-link.md");
+            link.ExternalAttributes = unchecked((int)0xA0000000u);
+            using (var writer = new StreamWriter(link.Open()))
+                writer.Write("../../outside.txt");
+        }
+
+        var repositoryArchiveBytes = File.ReadAllBytes(repositoryArchivePath);
+        var handler = new StubGitHubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals("/repos/acme/skills/commits/main", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
+                };
+            if (request.RequestUri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/acme/skills/zip/{commitSha}", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(repositoryArchiveBytes)
+                };
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var httpClient = new HttpClient(handler);
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"), httpClient);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            service.ImportFromGitHubAsync("https://github.com/acme/skills/tree/main/sample-skill", overwrite: false));
+
+        Assert.AreEqual(0, service.GetInstalled().Count);
     }
 
     [TestMethod]

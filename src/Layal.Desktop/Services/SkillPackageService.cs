@@ -548,15 +548,21 @@ public sealed class SkillPackageService
     public string ReadSkillMarkdown(SkillRecord record, int maxCharacters = 12000)
     {
         var packagePath = ResolveManagedPackagePath(record);
+        ValidateSkillRecordProvenance(record);
+
+        // Hash and parse through the same read-only handle so a path swap between two
+        // separate opens cannot replace the bytes after the integrity check.
+        using var packageStream = new FileStream(packagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (!string.IsNullOrWhiteSpace(record.PackageSha256))
         {
             if (!IsSha256Hash(record.PackageSha256))
                 throw new InvalidOperationException("The installed skill package has an invalid SHA-256 catalog value.");
-            var actualPackageSha256 = ComputeSha256Hex(packagePath);
+            var actualPackageSha256 = Convert.ToHexString(SHA256.HashData(packageStream));
+            packageStream.Position = 0;
             if (!string.Equals(actualPackageSha256, record.PackageSha256, StringComparison.OrdinalIgnoreCase))
                 throw new IOException("The installed skill package no longer matches its recorded SHA-256 digest.");
         }
-        using var archive = ZipFile.OpenRead(packagePath);
+        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: true);
         ValidateSkillArchive(archive);
         var candidates = archive.Entries
             .Where(entry => !entry.FullName.EndsWith("/", StringComparison.Ordinal) &&
@@ -703,12 +709,29 @@ public sealed class SkillPackageService
         long totalUncompressed = 0;
         foreach (var entry in selectedEntries)
         {
-            var normalized = Normalize(entry.FullName);
-            if (normalized.Split('/').Any(part => part is "." or "..") || Path.IsPathRooted(normalized))
+            var rawPath = entry.FullName;
+            if (string.IsNullOrWhiteSpace(rawPath) ||
+                rawPath.Contains('\\') ||
+                rawPath.StartsWith("/", StringComparison.Ordinal) ||
+                Path.IsPathRooted(rawPath))
+                throw new InvalidOperationException("The GitHub skill archive contains a rooted or non-canonical path.");
+
+            var normalized = Normalize(rawPath);
+            var segments = normalized.Split('/');
+            if (segments.Any(part => part.Length == 0 || part is "." or ".."))
                 throw new InvalidOperationException("The skill archive contains an unsafe path.");
+
             var unixMode = (entry.ExternalAttributes >> 16) & 0xF000;
-            if (unixMode == 0xA000) throw new InvalidOperationException("Symbolic links are not allowed in imported skills.");
-            if (entry.Length > 5L * 1024 * 1024) throw new InvalidOperationException("A selected skill file exceeds the 5 MB per-file limit.");
+            if (unixMode == 0xA000)
+                throw new InvalidOperationException("Symbolic links are not allowed in imported skills.");
+            if (unixMode is not 0 and not 0x8000 and not 0x4000)
+                throw new InvalidOperationException("The GitHub skill archive contains an unsupported special filesystem entry.");
+            var isDirectory = rawPath.EndsWith("/", StringComparison.Ordinal);
+            if (unixMode == 0x4000 && !isDirectory || unixMode == 0x8000 && isDirectory)
+                throw new InvalidOperationException("The GitHub skill archive has inconsistent file/directory metadata.");
+
+            if (entry.Length > 5L * 1024 * 1024)
+                throw new InvalidOperationException("A selected skill file exceeds the 5 MB per-file limit.");
             totalUncompressed += entry.Length;
         }
         if (totalUncompressed > 10L * 1024 * 1024) throw new InvalidOperationException("The selected skill exceeds the 10 MB extracted-size limit.");
