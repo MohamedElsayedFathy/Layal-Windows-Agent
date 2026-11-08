@@ -40,6 +40,8 @@
         <Color x:Key="Layal.Color.ListSelected">#E3F3F6</Color>
         <Color x:Key="Layal.Color.InputFocus">#FBFDFF</Color>
         <Color x:Key="Layal.Color.HoverSurface">#E8F5F7</Color>
+        <Color x:Key="Layal.Color.MenuHover">#E8F5F7</Color>
+        <Color x:Key="Layal.Color.MenuHoverText">#1C2940</Color>
         <Color x:Key="Layal.Color.Shadow">#A8B9D6</Color>
         <!-- The aurora is intentionally more saturated so the frosted surfaces read as glass, not flat white cards. -->
         <Color x:Key="Layal.Color.BackdropStart">#899DF4</Color>
