@@ -239,6 +239,12 @@ public sealed class SkillPackageServiceTests
         {
             var path = request.RequestUri!.AbsolutePath;
             if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals("/repos/acme/skills", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { default_branch = "main" }), Encoding.UTF8, "application/json")
+                };
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
                 path.Equals("/repos/acme/skills/commits/main", StringComparison.Ordinal))
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
