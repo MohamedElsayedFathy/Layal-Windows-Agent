@@ -81,6 +81,67 @@ public sealed class SkillPackageServiceTests
     }
 
     [TestMethod]
+    public void RejectsWindowsReservedSkillNamesBeforeCreatingPackageFolders()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var service = new SkillPackageService(root);
+
+        foreach (var reservedName in new[] { "con", "nul", "aux", "prn", "com1", "lpt1" })
+        {
+            var zipPath = CreateRawZip(temp.Path,
+                ("incoming/SKILL.md", $"---\\nname: {reservedName}\\ndescription: Reserved name.\\n---\\nBody"));
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(zipPath, overwrite: false));
+            Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, reservedName)),
+                $"Reserved skill name '{reservedName}' must be rejected before creating its package directory.");
+        }
+
+        Assert.AreEqual(0, service.GetInstalled().Count);
+        Assert.IsFalse(File.Exists(System.IO.Path.Combine(root, "skills-index.json")));
+    }
+
+    [TestMethod]
+    public void RejectsReservedSkillNameInIndexBeforeInstallingAnotherPackage()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var service = new SkillPackageService(root);
+        var indexPath = System.IO.Path.Combine(root, "skills-index.json");
+        var invalidRecord = new Layal.Models.SkillRecord
+        {
+            Name = "con",
+            Description = "Invalid reserved device name.",
+            PackagePath = System.IO.Path.Combine(root, "con", "con.zip")
+        };
+        var invalidIndex = System.Text.Json.JsonSerializer.Serialize(new[] { invalidRecord });
+        File.WriteAllText(indexPath, invalidIndex);
+
+        var replacementZip = CreateSkillZip(temp.Path, "safe-skill", "A safe skill.", "body");
+
+        Assert.ThrowsExactly<System.Text.Json.JsonException>(
+            () => service.ImportZip(replacementZip, overwrite: false));
+
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, "safe-skill")));
+        Assert.AreEqual(invalidIndex, File.ReadAllText(indexPath));
+    }
+
+    [TestMethod]
+    public void ReadSkillMarkdownRejectsReservedDeviceNameInSuppliedRecord()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var sourceZip = CreateSkillZip(temp.Path, "sample-skill", "A safe skill.", "body");
+        var service = new SkillPackageService(root);
+        var imported = service.ImportZip(sourceZip, overwrite: false);
+
+        imported.Name = "nul";
+        imported.PackagePath = System.IO.Path.Combine(root, "nul", "nul.zip");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ReadSkillMarkdown(imported));
+    }
+
+    [TestMethod]
     public void RejectsArchiveWithoutSkillMarkdown()
     {
         using var temp = new TestTempDirectory();
