@@ -65,7 +65,7 @@ public sealed class OpenAiCompatibleClientTests
         Assert.AreEqual("local-test-key", handler.LastAuthorizationParameter);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("https://provider.example/v1?tenant=private")]
     [DataRow("https://provider.example/v1#private-fragment")]
     [DataRow("https://user:password@provider.example/v1")]
