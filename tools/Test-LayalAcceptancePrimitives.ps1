@@ -63,5 +63,38 @@ if ($emptyResult -ne $true -or $script:CapturedAcceptanceResults[-1].Status -ne 
     throw 'Invoke-Check must continue to accept a successful action that emits no detail.'
 }
 
-Write-Host 'PowerShell acceptance primitive tests: PASS (success, false return, exception, no-output).'
+$childFunctionAst = $ast.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -eq 'Invoke-PowerShellChild'
+}, $true)
+if ($null -eq $childFunctionAst) {
+    throw 'Could not locate Invoke-PowerShellChild in the final-acceptance runner.'
+}
+. ([scriptblock]::Create($childFunctionAst.Extent.Text))
+
+$script:PowerShell = Get-Command 'pwsh' -ErrorAction Stop
+$script:Root = $root
+$probeRoot = Join-Path ([IO.Path]::GetTempPath()) ("Layal-PowerShell-Primitive-" + [Guid]::NewGuid().ToString('N'))
+$probeScript = Join-Path $probeRoot 'empty-args-child.ps1'
+$probeLogs = Join-Path $probeRoot 'logs'
+New-Item -ItemType Directory -Path $probeRoot -Force | Out-Null
+try {
+    [IO.File]::WriteAllText(
+        $probeScript,
+        "Write-Output 'child-empty-args-ok'",
+        [Text.UTF8Encoding]::new($false))
+    $childResult = Invoke-PowerShellChild -Name 'empty-arguments child process self-test' -ScriptPath $probeScript -Arguments @() -LogDirectory $probeLogs
+    $childOutput = Get-Content -LiteralPath $childResult.StdoutPath -Raw
+    if ($childResult.ExitCode -ne 0 -or $childOutput -notmatch 'child-empty-args-ok') {
+        throw 'Invoke-PowerShellChild did not execute a script successfully with an empty argument list.'
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $probeRoot) {
+        Remove-Item -LiteralPath $probeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Write-Host 'PowerShell acceptance primitive tests: PASS (success, false return, exception, no-output, empty child arguments).'
 exit 0
