@@ -46,7 +46,7 @@ public sealed class SkillPackageService
     {
         if (Directory.Exists(_indexPath))
             throw new IOException("The skills index path is a directory; refusing to modify the skill catalog.");
-        EnsureNotReparsePoint(_indexPath);
+        EnsureNoReparsePointsInExistingPath(_indexPath);
 
         string json;
         try
