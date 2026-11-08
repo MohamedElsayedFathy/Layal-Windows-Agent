@@ -42,8 +42,14 @@ public sealed class MemoryNoteReviewWindowTests
                 })
                 {
                     var window = new MemoryNoteReviewWindow(note, isArabic: true, action);
-                    var root = window.Content as Grid
-                        ?? throw new AssertFailedException("The review window must use a structured WPF layout.");
+                    var glassSurface = window.Content as Border
+                        ?? throw new AssertFailedException("The review window must use the shared glass surface.");
+                    Assert.AreEqual(new CornerRadius(18), glassSurface.CornerRadius,
+                        "The complete-note review must use the shared rounded glass geometry.");
+                    Assert.IsNotNull(glassSurface.Effect,
+                        "The complete-note review must retain the shared glass elevation outside High Contrast.");
+                    var root = glassSurface.Child as Grid
+                        ?? throw new AssertFailedException("The review window must retain its structured WPF layout inside the glass surface.");
                     var previewContainer = root.Children.OfType<Border>().Single();
                     var preview = previewContainer.Child as TextBox
                         ?? throw new AssertFailedException("The complete note preview TextBox was not found.");
