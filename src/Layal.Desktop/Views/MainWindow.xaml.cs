@@ -136,10 +136,12 @@ public partial class MainWindow : Window
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
     private bool _isBottomDockExpanded;
     private bool _isChatHistoryPanelOpen;
+    private bool _isUiInitialized;
 
     public MainWindow()
     {
         InitializeComponent();
+        _isUiInitialized = true;
         AppRuntime.OpenTaskNotification = OpenTaskFromNotification;
         if (!Layal.App.SuppressStartupForTests)
             _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow, AppRuntime.Settings.QuickAskHotkeyPreset);
@@ -2622,7 +2624,13 @@ public partial class MainWindow : Window
     private void DockApiButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ApiIntegrationsTab);
     private void DockSettingsButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(SettingsTab);
 
-    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDockSelection();
+    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // WPF can raise this event while InitializeComponent is still adding the first TabItem.
+        // The dock is declared after MainTabs, so its named controls do not exist yet at that point.
+        if (_isUiInitialized)
+            UpdateDockSelection();
+    }
 
     private void UpdateDockSelection()
     {
