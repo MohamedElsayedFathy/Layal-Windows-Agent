@@ -414,6 +414,46 @@ public sealed class WorkspaceSnapshotServiceTests
     }
 
     [TestMethod]
+    public void RestoreRejectsDanglingDirectorySymbolicLinkAncestor()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores and Windows reparse-point behavior are validated on Windows.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source-workspace");
+        Directory.CreateDirectory(sourceWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "DANGLING_LINK_RESTORE_SENTINEL");
+        var backup = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi")),
+            sourceWorkspace).ExportJson(includeWorkspaceFileContents: true);
+
+        var missingLinkTarget = Path.Combine(temp.Path, "not-created-target");
+        var danglingParent = Path.Combine(temp.Path, "dangling-parent");
+        try
+        {
+            Directory.CreateSymbolicLink(danglingParent, missingLinkTarget);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive("The test environment does not permit creation of a directory symbolic link.");
+        }
+
+        var targetWorkspace = Path.Combine(danglingParent, "workspace");
+        var target = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi")),
+            targetWorkspace);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => target.ImportJson(backup, restoreWorkspaceFiles: true));
+        Assert.IsFalse(Directory.Exists(missingLinkTarget),
+            "Restore must reject the dangling reparse point instead of creating its missing target.");
+        Assert.IsFalse(Directory.Exists(targetWorkspace),
+            "Restore must not create a workspace directory through a dangling symbolic link.");
+    }
+
+    [TestMethod]
     public void RestoreCreatesMissingWorkspaceAncestorsOneSafeDirectoryAtATime()
     {
         if (!OperatingSystem.IsWindows())
