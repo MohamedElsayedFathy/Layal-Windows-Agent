@@ -155,12 +155,14 @@ try {
     $focused = $null
     $focusName = ""
     $focusControlType = ""
+    $focusAutomationId = ""
     do {
         Start-Sleep -Milliseconds 100
         $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
         $focusName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
         $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
-        $focusReady = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and
+        $focusAutomationId = if ($null -eq $focused) { "" } else { $focused.Current.AutomationId }
+        $focusReady = ($focusAutomationId -eq "ChatInput") -and
                       ($focusControlType -eq "ControlType.Edit")
     } while (-not $focusReady -and (Get-Date) -lt $focusDeadline)
     # The application exposes the accessible textbox name in localized form as "رسالة المحادثة".
@@ -197,9 +199,9 @@ try {
         ExpectedSection = "Chat / Home"
         SelectedSection = $focusSection
         Result = if ($focusOk) { "PASS" } else { "FAIL" }
-        Details = "Focused element name: $focusName; control type: $focusControlType; Edit peers: $editDiagnosticText"
+        Details = "Focused element name: $focusName; automation id: $focusAutomationId; control type: $focusControlType; Edit peers: $editDiagnosticText"
     })
-    if (-not $focusOk) { throw "Ctrl+1 did not select Chat/Home and focus the accessible message field; page status was '$focusSection', focused element was '$focusName' with control type '$focusControlType'. UIA Edit peers: $editDiagnosticText" }
+    if (-not $focusOk) { throw "Ctrl+1 did not select Chat/Home and focus the accessible message field; page status was '$focusSection', focused element was '$focusName' (AutomationId='$focusAutomationId') with control type '$focusControlType'. UIA Edit peers: $editDiagnosticText" }
 
     # F1 opens a modal help message. Confirm it exists, then close it without triggering another action.
     [System.Windows.Forms.SendKeys]::SendWait("{F1}")
