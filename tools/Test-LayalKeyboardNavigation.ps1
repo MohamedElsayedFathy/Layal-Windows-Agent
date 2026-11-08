@@ -162,7 +162,7 @@ try {
         $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
         $focusReady = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and
                       ($focusControlType -eq "ControlType.Edit")
-    } while (-not $focusReady -and (Get-Date) -lt $focusDeadline) }
+    } while (-not $focusReady -and (Get-Date) -lt $focusDeadline)
     # The application exposes the accessible textbox name in localized form as "رسالة المحادثة".
     # Verify the focused element is an Edit control instead of depending on one exact translated label.
     $focusSection = Get-CurrentSectionStatus
