@@ -6,7 +6,7 @@
         AutomationProperties.Name="نافذة الرؤية بالكاميرا">
     <Border Margin="12" Padding="14" CornerRadius="18"
             Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
-            BorderThickness="1" Effect="{StaticResource Layal.CardShadow}">
+            BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
     <Grid Margin="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
