@@ -125,6 +125,8 @@ public sealed class DocumentTextPreviewWindow : Window
         root.Children.Add(footer);
 
         Content = root;
+
+        LayalWindowChrome.ApplyGlass(this, isArabic);
     }
 
     private static string BuildDetails(DocumentTextExtractionResult extraction, bool isArabic)
