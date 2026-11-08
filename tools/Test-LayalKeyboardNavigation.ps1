@@ -236,7 +236,7 @@ try {
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Start-Sleep -Milliseconds 250
 
-    # Exercise the real floating navigation dock through UI Automation and keyboard input.
+    # Exercise the persistent left navigation rail through UI Automation and keyboard input.
     # Stable AutomationIds keep this test independent from Arabic/English display text.
     [System.Windows.Forms.SendKeys]::SendWait("^1")
     Start-Sleep -Milliseconds 250
@@ -245,7 +245,7 @@ try {
         "ToggleBottomDockButton")
     $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
     if ($null -eq $toggleElement) {
-        throw "The floating dock toggle is not exposed to UI Automation."
+        throw "The navigation rail toggle is not exposed to UI Automation."
     }
     $toggleElement.SetFocus()
     Start-Sleep -Milliseconds 120
@@ -260,8 +260,37 @@ try {
     })
     if (-not $toggleFocused) { throw "The bottom dock toggle could not receive keyboard focus." }
 
+    $initialRailName = $toggleElement.Current.Name
+    $initialRailExpanded = $initialRailName -match "(?i)(Collapse navigation rail|طي شريط التنقل الجانبي)"
+    $results.Add([pscustomobject]@{
+        Test = "Navigation rail starts expanded"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($initialRailExpanded) { "PASS" } else { "FAIL" }
+        Details = "Initial navigation toggle name: $initialRailName"
+    })
+    if (-not $initialRailExpanded) { throw "The navigation rail did not start expanded by default." }
+
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Start-Sleep -Milliseconds 450
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    $collapsedRailName = if ($null -eq $toggleElement) { "" } else { $toggleElement.Current.Name }
+    $railCollapsed = $collapsedRailName -match "(?i)(Expand navigation rail|توسيع شريط التنقل الجانبي)"
+    $results.Add([pscustomobject]@{
+        Test = "Space collapses left navigation rail"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($railCollapsed) { "PASS" } else { "FAIL" }
+        Details = "Navigation toggle name after collapse: $collapsedRailName"
+    })
+    if (-not $railCollapsed) { throw "Space did not collapse the left navigation rail." }
+
+    $toggleElement.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Start-Sleep -Milliseconds 450
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    $expandedRailName = if ($null -eq $toggleElement) { "" } else { $toggleElement.Current.Name }
+    $railExpanded = $expandedRailName -match "(?i)(Collapse navigation rail|طي شريط التنقل الجانبي)"
     $dockChatCondition = New-Object System.Windows.Automation.PropertyCondition(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
         "DockChatButton")
@@ -269,13 +298,13 @@ try {
     $dockExpanded = $null -ne $dockChatElement -and
         -not [bool]$dockChatElement.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
     $results.Add([pscustomobject]@{
-        Test = "Space expands bottom dock"
+        Test = "Space expands left navigation rail"
         ExpectedSection = "Chat / Home"
         SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($dockExpanded) { "PASS" } else { "FAIL" }
-        Details = "DockChatButton exposed and on-screen after Space: $dockExpanded"
+        Result = if ($railExpanded -and $dockExpanded) { "PASS" } else { "FAIL" }
+        Details = "Navigation toggle name=$expandedRailName; first destination on-screen=$dockExpanded"
     })
-    if (-not $dockExpanded) { throw "Space did not expose the expanded navigation destinations." }
+    if (-not ($railExpanded -and $dockExpanded)) { throw "Space did not expand the left navigation rail and expose its destinations." }
 
     [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
     Start-Sleep -Milliseconds 120
@@ -364,15 +393,15 @@ try {
     Start-Sleep -Milliseconds 450
     $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
     $toggleName = if ($null -eq $toggleElement) { "" } else { $toggleElement.Current.Name }
-    $dockCollapsed = $toggleName -match "(?i)(Expand navigation dock|توسيع شريط التنقل)"
+    $dockCollapsed = $toggleName -match "(?i)(Expand navigation rail|توسيع شريط التنقل الجانبي)"
     $results.Add([pscustomobject]@{
-        Test = "Space collapses bottom dock"
+        Test = "Space collapses left navigation rail"
         ExpectedSection = "Chat / Home"
         SelectedSection = (Get-CurrentSectionStatus)
         Result = if ($dockCollapsed) { "PASS" } else { "FAIL" }
-        Details = "Dock toggle accessible name after collapse: $toggleName"
+        Details = "Navigation toggle accessible name after collapse: $toggleName"
     })
-    if (-not $dockCollapsed) { throw "Space did not collapse the navigation dock." }
+    if (-not $dockCollapsed) { throw "Space did not collapse the left navigation rail." }
 
     $results | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
     $summary = [pscustomobject]@{
