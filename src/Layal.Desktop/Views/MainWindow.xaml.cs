@@ -1083,9 +1083,9 @@ public partial class MainWindow : Window
         Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
         {
             Color = colors["Layal.Color.Shadow"],
-            BlurRadius = 24,
-            ShadowDepth = 2,
-            Opacity = 0.14
+            BlurRadius = 18,
+            ShadowDepth = 1,
+            Opacity = 0.10
         };
         var backdropBase = colors["Layal.Color.Background"];
         Application.Current.Resources["Layal.AppBackdropWash"] = highContrast
