@@ -82,6 +82,7 @@
         <SolidColorBrush x:Key="Layal.NavSelectedBorder" Color="{DynamicResource Layal.Color.NavSelectedBorder}" />
         <SolidColorBrush x:Key="Layal.NavHover" Color="{DynamicResource Layal.Color.NavHover}" />
         <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
+        <SolidColorBrush x:Key="Layal.AppBackdropWash" Color="#40F4F7FC" />
         <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />
         <SolidColorBrush x:Key="Layal.GlassBorderBrush" Color="{DynamicResource Layal.Color.GlassBorder}" />
         <RadialGradientBrush x:Key="Layal.GlowBlueBrush" RadiusX="0.5" RadiusY="0.5">
@@ -593,6 +594,22 @@
             </Setter>
         </Style>
 
+        <!-- Content-only tab host: all section navigation is provided by the floating bottom dock. -->
+        <Style x:Key="Layal.ContentOnlyTabControl" TargetType="{x:Type TabControl}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TabControl}">
+                        <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
+                                          Margin="0" SnapsToDevicePixels="True" FlowDirection="LeftToRight"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Legacy rail resources remain for auxiliary windows; MainWindow now uses the floating bottom dock. -->
         <!-- Glass shell: a translucent sidebar (brand/footer overlays live in MainWindow, rows 88/156 are reserved for them)
              and a translucent content panel over the dusk backdrop. -->
         <Style TargetType="TabControl">

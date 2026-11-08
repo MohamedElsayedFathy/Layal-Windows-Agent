@@ -521,6 +521,9 @@ public sealed class MainWindowVisualSmokeTests
                 ((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled,
                 "Proactive check-ins must return to their pre-Incognito state unless the feature is now disabled.");
             Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
+            var historyList = (ListBox?)window.FindName("ChatHistoryList")
+                ?? throw new InvalidOperationException("ChatHistoryList was not found.");
+            Assert.IsTrue(historyList.IsEnabled, "The visible saved-history list should return after private chat.");
             Assert.IsTrue(tasksTab.IsEnabled, "Task workspace should return after private chat.");
             Assert.IsTrue(memoryTab.IsEnabled, "Memory workspace should return after private chat.");
             Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
@@ -580,12 +583,20 @@ public sealed class MainWindowVisualSmokeTests
         AssertClockWeatherDashboard(window);
         var windowContent = window.Content as FrameworkElement
             ?? throw new InvalidOperationException("MainWindow content root was not found.");
+        var rootGrid = window.FindName("WindowRoot") as Grid
+            ?? throw new InvalidOperationException("WindowRoot was not found.");
+        Assert.IsTrue(window.Background is SolidColorBrush windowBrush && windowBrush.Color.A == 0,
+            "The window itself must allow the system desktop backdrop to show through.");
+        var washBrush = rootGrid.Background as SolidColorBrush
+            ?? throw new InvalidOperationException("The application backdrop wash must resolve to a solid brush.");
+        Assert.AreEqual(SystemParameters.HighContrast ? (byte)255 : (byte)0x40, washBrush.Color.A,
+            "Normal mode must use a translucent app wash; Windows High Contrast must use an opaque system surface.");
 
         var tabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
         Assert.AreSame(window.FindName("ChatTab"), tabs.SelectedItem,
             "The primary window must open directly into the glass chat view, not the legacy home dashboard.");
-        foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell", "SidebarOverlay", "SidebarBrandRow", "SidebarFooterPanel" })
+        foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell", "TopBarBrandRow", "BottomDockShell", "DockNavigationItems", "ChatHistoryPanel", "ChatHistoryList" })
             Assert.IsNotNull(window.FindName(visualSurface),
                 $"The updated layered-glass chat surface '{visualSurface}' must be present in the shipped UI.");
         var applyTheme = typeof(MainWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -593,7 +604,7 @@ public sealed class MainWindowVisualSmokeTests
         var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("ApplyLanguage was not found.");
 
-        var tabNames = new[] { "home", "chat", "tasks", "skills", "cameras", "memory", "api", "settings" };
+        var tabNames = new[] { "overview", "chat", "tasks", "skills", "cameras", "memory", "api", "settings" };
         Assert.AreEqual(tabNames.Length, tabs.Items.Count,
             "The visual audit must render every expected main section; the test must not silently skip a missing tab.");
 
@@ -667,7 +678,7 @@ public sealed class MainWindowVisualSmokeTests
             $"Window Width/Height DIPs after show: {window.Width:0}x{window.Height:0}",
             $"Actual client content DIPs: {windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}",
             "Captures render the full WPF Window (including its own theme background) at 96 DPI multiplied by renderScale; this does not emulate physical monitor DPI or multi-monitor movement.",
-            "Coverage: 112 full-window images (7 sections x 2 themes x 2 languages x 4 render scales), plus 28 compact-window images (7 sections x 2 themes x 2 languages at 900x560 DIPs).",
+            "Coverage: 128 full-window images (8 sections x 2 themes x 2 languages x 4 render scales), plus 32 compact-window images (8 sections x 2 themes x 2 languages at 900x560 DIPs).",
             "Compact captures test window resizing only; they do not certify OS display scaling at 100%, 125%, 150%, or 175%."
         };
 
@@ -1019,6 +1030,12 @@ public sealed class MainWindowVisualSmokeTests
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetName(window.FindName("DockChatButton") as DependencyObject)),
+            "The primary chat destination must expose a localized accessible name.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(window.FindName("ChatHistoryList") as DependencyObject)),
+            "The saved-history panel must explain how to resume a conversation.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
     }
@@ -1164,18 +1181,25 @@ public sealed class MainWindowVisualSmokeTests
         var mainTabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
         Assert.AreEqual(expectedWritingDirection, mainTabs.FlowDirection,
-            $"The navigation shell must reflect the selected writing direction for {language}.");
-        var sidebar = window.FindName("SidebarOverlay") as Grid
-            ?? throw new InvalidOperationException("SidebarOverlay was not found.");
-        Assert.AreEqual(ar ? HorizontalAlignment.Right : HorizontalAlignment.Left, sidebar.HorizontalAlignment,
-            $"The brand/settings overlay must stay aligned with the navigation rail for {language}.");
-        foreach (var panelName in new[] { "SidebarBrandRow", "SidebarFooterPanel" })
-        {
-            var panel = window.FindName(panelName) as FrameworkElement
-                ?? throw new InvalidOperationException($"Expected RTL-aware sidebar panel '{panelName}' was not found.");
-            Assert.AreEqual(expectedWritingDirection, panel.FlowDirection,
-                $"Sidebar panel '{panelName}' has the wrong flow direction for {language}.");
-        }
+            $"The page host must retain the selected language flow direction for {language}.");
+        var dockItems = window.FindName("DockNavigationItems") as StackPanel
+            ?? throw new InvalidOperationException("DockNavigationItems was not found.");
+        Assert.AreEqual(expectedWritingDirection, dockItems.FlowDirection,
+            $"The bottom navigation dock must follow the selected writing direction for {language}.");
+        var historyPanel = window.FindName("ChatHistoryPanel") as Border
+            ?? throw new InvalidOperationException("ChatHistoryPanel was not found.");
+        Assert.AreEqual(expectedWritingDirection, historyPanel.FlowDirection,
+            $"The chat history panel must follow the selected writing direction for {language}.");
+        Assert.AreEqual(ar ? 1 : 0, Grid.GetColumn(historyPanel),
+            $"The saved-history panel must appear on the correct language side for {language}.");
+        var chatSurface = window.FindName("ChatConversationSurface") as Grid
+            ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
+        Assert.AreEqual(ar ? 0 : 1, Grid.GetColumn(chatSurface),
+            $"The main conversation surface must retain the opposite column for {language}.");
+        var dockHost = window.FindName("BottomDockHost") as Grid
+            ?? throw new InvalidOperationException("BottomDockHost was not found.");
+        Assert.AreEqual(VerticalAlignment.Bottom, dockHost.VerticalAlignment,
+            "The floating navigation host must stay anchored to the bottom of the application.");
 
         var taskResult = window.FindName("TaskResult") as TextBox
             ?? throw new InvalidOperationException("TaskResult was not found.");
@@ -1413,6 +1437,18 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("GoSettingsButton was not found.");
         var showMascot = window.FindName("ShowMascotButton") as Button
             ?? throw new InvalidOperationException("ShowMascotButton was not found.");
+        var dockChat = window.FindName("DockChatButton") as Button
+            ?? throw new InvalidOperationException("DockChatButton was not found.");
+        var dockOverview = window.FindName("DockOverviewButton") as Button
+            ?? throw new InvalidOperationException("DockOverviewButton was not found.");
+        var dockToggle = window.FindName("ToggleBottomDockButton") as Button
+            ?? throw new InvalidOperationException("ToggleBottomDockButton was not found.");
+        var expandedDock = window.FindName("DockExpandedSurface") as Border
+            ?? throw new InvalidOperationException("DockExpandedSurface was not found.");
+        var historyToggle = window.FindName("ToggleChatHistoryButton") as Button
+            ?? throw new InvalidOperationException("ToggleChatHistoryButton was not found.");
+        var historyPanel = window.FindName("ChatHistoryPanel") as Border
+            ?? throw new InvalidOperationException("ChatHistoryPanel was not found.");
         var alwaysOnTop = window.FindName("AlwaysOnTopCheckbox") as CheckBox
             ?? throw new InvalidOperationException("AlwaysOnTopCheckbox was not found.");
         var animations = window.FindName("AnimationsCheckbox") as CheckBox
@@ -1454,8 +1490,49 @@ public sealed class MainWindowVisualSmokeTests
         goSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goSettings));
         Assert.AreSame(settingsTab, tabs.SelectedItem, "The home settings shortcut must navigate to Settings.");
         goChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goChat));
-        Assert.AreSame(chatTab, tabs.SelectedItem, "The home chat shortcut must navigate to Chat.");
-        tabs.SelectedItem = homeTab;
+        Assert.AreSame(chatTab, tabs.SelectedItem, "The overview chat shortcut must navigate to Chat.");
+
+        // The bottom dock is compact on startup, expands on demand, and navigates to real pages.
+        var previousPerformanceMode = AppRuntime.Settings.PerformanceModeEnabled;
+        AppRuntime.Settings.PerformanceModeEnabled = true;
+        var bottomDockField = typeof(MainWindow).GetField("_isBottomDockExpanded", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Bottom dock expansion state was not found.");
+        var toggleHistory = typeof(MainWindow).GetMethod("SetChatHistoryPanelOpen", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Chat history panel method was not found.");
+        try
+        {
+            Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
+                "The bottom dock must start compact rather than occupying the conversation surface.");
+            Assert.AreEqual(0, expandedDock.Width, 0.1,
+                "The labeled navigation destinations must be collapsed on startup.");
+            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
+            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
+                "The dock toggle must expand the navigation destinations.");
+            Assert.AreEqual(730, expandedDock.Width, 0.1,
+                "The expanded dock must expose its complete navigation strip.");
+            dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
+            Assert.AreSame(chatTab, tabs.SelectedItem, "The first dock destination must return to the primary chat page.");
+            dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));
+            Assert.AreSame(homeTab, tabs.SelectedItem, "The overview destination must open the separate dashboard.");
+            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
+            Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
+                "The dock toggle must collapse the navigation destinations again.");
+            Assert.AreEqual(0, expandedDock.Width, 0.1);
+
+            Assert.AreEqual(Visibility.Collapsed, historyPanel.Visibility,
+                "Saved conversation history must not steal space from the chat until requested.");
+            historyToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, historyToggle));
+            Assert.AreEqual(Visibility.Visible, historyPanel.Visibility,
+                "The chat history toggle must show the collapsible side panel.");
+            toggleHistory.Invoke(window, new object[] { false });
+            Assert.AreEqual(Visibility.Collapsed, historyPanel.Visibility,
+                "Closing the history panel must return the full-width chat surface.");
+        }
+        finally
+        {
+            AppRuntime.Settings.PerformanceModeEnabled = previousPerformanceMode;
+            tabs.SelectedItem = homeTab;
+        }
 
         // Checkbox changes persist immediately and are reflected by the live mascot.
         alwaysOnTop.IsChecked = false;

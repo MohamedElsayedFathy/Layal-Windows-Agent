@@ -14,7 +14,9 @@ using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
@@ -132,6 +134,8 @@ public partial class MainWindow : Window
     private bool _restoringProactiveCheckInInterval;
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
+    private bool _isBottomDockExpanded;
+    private bool _isChatHistoryPanelOpen;
 
     public MainWindow()
     {
@@ -139,7 +143,11 @@ public partial class MainWindow : Window
         AppRuntime.OpenTaskNotification = OpenTaskFromNotification;
         if (!Layal.App.SuppressStartupForTests)
             _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow, AppRuntime.Settings.QuickAskHotkeyPreset);
-        SourceInitialized += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateQuickAskHotkeyStatus));
+        SourceInitialized += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(new Action(UpdateQuickAskHotkeyStatus));
+            ApplyWindowBackdrop();
+        };
         // The chat is Layal's primary surface; Home remains available from the navigation rail.
         // Clock/date/weather live in the chat header so core context is visible immediately.
         MainTabs.SelectedItem = ChatTab;
@@ -838,6 +846,7 @@ public partial class MainWindow : Window
         ProactiveCheckInEnabledCheckBox.IsEnabled = !_incognitoMode;
         ProactiveCheckInIntervalSelector.IsEnabled = !_incognitoMode;
         ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
         NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         QuickAskButton.IsEnabled = !_incognitoMode;
@@ -978,6 +987,13 @@ public partial class MainWindow : Window
     private static System.Windows.Media.Brush ThemeBrush(string key, System.Windows.Media.Brush fallback) =>
         Application.Current.TryFindResource(key) as System.Windows.Media.Brush ?? fallback;
 
+    private void ApplyWindowBackdrop()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+            WindowBackdropService.TryApply(handle, IsDarkTheme, SystemParameters.HighContrast);
+    }
+
     private void ApplyTheme()
     {
         // Replace the theme brushes and gradients themselves, not only their source colors.
@@ -1067,6 +1083,11 @@ public partial class MainWindow : Window
             ShadowDepth = 2,
             Opacity = 0.14
         };
+        var backdropBase = colors["Layal.Color.Background"];
+        Application.Current.Resources["Layal.AppBackdropWash"] = highContrast
+            ? new SolidColorBrush(SystemColors.WindowColor)
+            : new SolidColorBrush(Color.FromArgb(IsDarkTheme ? (byte)0x52 : (byte)0x40,
+                backdropBase.R, backdropBase.G, backdropBase.B));
 
         if (highContrast)
         {
@@ -1086,7 +1107,10 @@ public partial class MainWindow : Window
                 ShadowDepth = 0,
                 Opacity = 0
             };
+            Application.Current.Resources["Layal.AppBackdropWash"] = new SolidColorBrush(SystemColors.WindowColor);
         }
+
+        ApplyWindowBackdrop();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -1192,12 +1216,16 @@ public partial class MainWindow : Window
         // Keep the root visual tree LTR: setting RTL on the entire Window mirrors glyphs and icons.
         // Apply RTL to input fields and Arabic text runs locally instead of flipping all visuals.
         FlowDirection = FlowDirection.LeftToRight;
-        // Mirror the navigation rail only. The native window and content surface remain LTR so
-        // icons, caption controls, and provider/model inputs do not get accidentally mirrored.
+        // Only the dock and chat-history surface follow the writing direction. The window,
+        // content canvas, caption controls, and technical fields remain left-to-right.
         MainTabs.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        SidebarOverlay.HorizontalAlignment = ar ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-        SidebarBrandRow.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        SidebarFooterPanel.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        DockNavigationItems.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        ChatHistoryPanel.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        ChatHistoryList.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        Grid.SetColumn(ChatHistoryPanel, ar ? 1 : 0);
+        Grid.SetColumn(ChatConversationSurface, ar ? 0 : 1);
+        ChatHistoryPanel.Margin = ar ? new Thickness(8, 4, 0, 4) : new Thickness(0, 4, 8, 4);
+        ChatHistoryPanelTransform.X = ar ? 10 : -10;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = MemoryCategoryInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         SpeechModelInput.FlowDirection = VoiceReplyModelInput.FlowDirection = FlowDirection.LeftToRight;
         TaskResult.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
@@ -1233,15 +1261,18 @@ public partial class MainWindow : Window
         KeyboardHelpButton.ToolTip = ar ? "F1 — عرض اختصارات لوحة المفاتيح" : "F1 — Show keyboard shortcuts";
         AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
         AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
-        AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
-        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 8 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+8 to switch tabs.");
+        AutomationProperties.SetName(MainTabs, ar ? "محتوى صفحات التطبيق" : "Application page content");
+        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة." : "Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
+        AutomationProperties.SetName(DockNavigationItems, ar ? "شريط التنقل السفلي" : "Bottom navigation dock");
+        AutomationProperties.SetName(ChatHistoryList, ar ? "سجل المحادثات المحفوظة" : "Saved conversation history");
+        AutomationProperties.SetHelpText(ChatHistoryList, ar ? "اختر محادثة محفوظة لتحميلها في مساحة الشات." : "Choose a saved conversation to load into the chat.");
         AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
         AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
         AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
         AutomationProperties.SetName(ChatMessagesList, ar ? "رسائل المحادثة" : "Chat messages");
         AutomationProperties.SetHelpText(ChatMessagesList, ar ? "استخدم الأسهم لاستعراض الرسائل." : "Use the arrow keys to review messages.");
         AutomationProperties.SetName(ChatInput, ar ? "الرسالة" : "Message");
-        AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة واضغط Enter للإرسال. Ctrl+2 ينقل التركيز إلى هذا الحقل." : "Type a message and press Enter to send. Ctrl+2 focuses this field.");
+        AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة واضغط Enter للإرسال. Ctrl+1 ينقل التركيز إلى هذا الحقل." : "Type a message and press Enter to send. Ctrl+1 focuses this field.");
         AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
         AutomationProperties.SetHelpText(TaskInput, ar ? "اكتب المهمة ثم استخدم Tab للوصول إلى زر تنفيذ المهمة." : "Describe the task, then press Tab to reach Run task.");
         AutomationProperties.SetName(TaskEventsList, ar ? "سجل أحداث المهمة" : "Task event log");
@@ -1277,20 +1308,49 @@ public partial class MainWindow : Window
             TaskEvents.Add(UiLocalization.FormatTaskEvent(line, ar));
         RefreshRecentTasks();
 
-        HomeTab.Header = ar ? "⌂  الرئيسية" : "⌂  Home";
-        ChatTab.Header = ar ? "✦  المحادثة" : "✦  Chat";
+        HomeTab.Header = ar ? "⌂  نظرة عامة" : "⌂  Overview";
+        ChatTab.Header = ar ? "✦  الرئيسية" : "✦  Home";
         TasksTab.Header = ar ? "▣  المهام" : "▣  Tasks";
         SkillsTab.Header = ar ? "◇  المهارات" : "◇  Skills";
         CamerasTab.Header = ar ? "◉  الكاميرات" : "◉  Cameras";
         MemoryTab.Header = ar ? "▤  الذاكرة" : "▤  Memory";
         SettingsTab.Header = ar ? "⚙  الإعدادات" : "⚙  Settings";
-        System.Windows.Automation.AutomationProperties.SetName(HomeTab, ar ? "الرئيسية" : "Home");
-        System.Windows.Automation.AutomationProperties.SetName(ChatTab, ar ? "المحادثة" : "Chat");
+        System.Windows.Automation.AutomationProperties.SetName(HomeTab, ar ? "نظرة عامة" : "Overview");
+        System.Windows.Automation.AutomationProperties.SetName(ChatTab, ar ? "الرئيسية" : "Home");
         System.Windows.Automation.AutomationProperties.SetName(TasksTab, ar ? "المهام" : "Tasks");
         System.Windows.Automation.AutomationProperties.SetName(SkillsTab, ar ? "المهارات" : "Skills");
         System.Windows.Automation.AutomationProperties.SetName(CamerasTab, ar ? "الكاميرات" : "Cameras");
         System.Windows.Automation.AutomationProperties.SetName(MemoryTab, ar ? "الذاكرة" : "Memory");
         System.Windows.Automation.AutomationProperties.SetName(SettingsTab, ar ? "الإعدادات" : "Settings");
+        DockChatButton.Content = ar ? "✦  الرئيسية" : "✦  Home";
+        DockOverviewButton.Content = ar ? "⌂  نظرة عامة" : "⌂  Overview";
+        DockTasksButton.Content = ar ? "▣  المهام" : "▣  Tasks";
+        DockSkillsButton.Content = ar ? "◇  المهارات" : "◇  Skills";
+        DockCamerasButton.Content = ar ? "◉  الكاميرات" : "◉  Cameras";
+        DockMemoryButton.Content = ar ? "▤  الذاكرة" : "▤  Memory";
+        DockApiButton.Content = ar ? "⌘  تكاملات API" : "⌘  API";
+        DockSettingsButton.Content = ar ? "⚙  الإعدادات" : "⚙  Settings";
+        ToggleBottomDockButton.ToolTip = _isBottomDockExpanded
+            ? (ar ? "طي شريط التنقل" : "Collapse navigation dock")
+            : (ar ? "توسيع شريط التنقل" : "Expand navigation dock");
+        AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
+        ChatHistoryHeading.Text = ar ? "المحادثات السابقة" : "Previous conversations";
+        ToggleChatHistoryButton.Content = ar ? "سجل المحادثات" : "Chat history";
+        ToggleChatHistoryButton.ToolTip = ar ? "إظهار أو إخفاء سجل المحادثات" : "Show or hide chat history";
+        AutomationProperties.SetName(ToggleChatHistoryButton, _isChatHistoryPanelOpen
+            ? (ar ? "إخفاء سجل المحادثات" : "Hide chat history")
+            : (ar ? "إظهار سجل المحادثات" : "Show chat history"));
+        ChatHistoryEmptyStateText.Text = ar ? "لا توجد محادثات محفوظة بعد." : "No saved conversations yet.";
+        AutomationProperties.SetName(CloseChatHistoryButton, ar ? "إغلاق سجل المحادثات" : "Close chat history");
+        AutomationProperties.SetName(DockChatButton, ar ? "الرئيسية - المحادثة" : "Home - Chat");
+        AutomationProperties.SetName(DockOverviewButton, ar ? "نظرة عامة" : "Overview");
+        AutomationProperties.SetName(DockTasksButton, ar ? "المهام" : "Tasks");
+        AutomationProperties.SetName(DockSkillsButton, ar ? "المهارات" : "Skills");
+        AutomationProperties.SetName(DockCamerasButton, ar ? "الكاميرات" : "Cameras");
+        AutomationProperties.SetName(DockMemoryButton, ar ? "الذاكرة" : "Memory");
+        AutomationProperties.SetName(DockApiButton, ar ? "تكاملات API" : "API integrations");
+        AutomationProperties.SetName(DockSettingsButton, ar ? "الإعدادات" : "Settings");
+        UpdateDockSelection();
         System.Windows.Automation.AutomationProperties.SetName(LanguageButton, ar ? "تغيير لغة الواجهة" : "Change interface language");
         System.Windows.Automation.AutomationProperties.SetName(ThemeButton, ThemeButton.ToolTip as string ?? (ar ? "تغيير المظهر" : "Change theme"));
         System.Windows.Automation.AutomationProperties.SetName(ShowMascotButton, ar ? "إظهار الشخصية" : "Show mascot");
@@ -2443,8 +2503,8 @@ public partial class MainWindow : Window
 
         TabItem? requestedTab = e.Key switch
         {
-            Key.D1 or Key.NumPad1 => HomeTab,
-            Key.D2 or Key.NumPad2 => ChatTab,
+            Key.D1 or Key.NumPad1 => ChatTab,
+            Key.D2 or Key.NumPad2 => HomeTab,
             Key.D3 or Key.NumPad3 => TasksTab,
             Key.D4 or Key.NumPad4 => SkillsTab,
             Key.D5 or Key.NumPad5 => CamerasTab,
@@ -2506,8 +2566,8 @@ public partial class MainWindow : Window
     {
         var message = IsArabic
             ? "اختصارات لوحة المفاتيح\n\n" +
-              "Ctrl+1 — الرئيسية\n" +
-              "Ctrl+2 — المحادثة (ينقل التركيز إلى حقل الرسالة)\n" +
+              "Ctrl+1 — المحادثة / الرئيسية\n" +
+              "Ctrl+2 — نظرة عامة\n" +
               "Ctrl+3 — المهام\n" +
               "Ctrl+4 — المهارات\n" +
               "Ctrl+5 — الكاميرات\n" +
@@ -2518,8 +2578,8 @@ public partial class MainWindow : Window
               "F1 — عرض هذه المساعدة\n\n" +
               "استخدم Tab للتنقل للأمام وShift+Tab للرجوع. استخدم الأسهم داخل قوائم التبويبات والقوائم، وSpace لتبديل مربعات الاختيار، والأسهم لتعديل أشرطة التمرير. في حقل المحادثة، Enter يرسل الرسالة."
             : "Keyboard shortcuts\n\n" +
-              "Ctrl+1 — Home\n" +
-              "Ctrl+2 — Chat (focuses the message field)\n" +
+              "Ctrl+1 — Home (Chat)\n" +
+              "Ctrl+2 — Overview\n" +
               "Ctrl+3 — Tasks\n" +
               "Ctrl+4 — Skills\n" +
               "Ctrl+5 — Cameras\n" +
@@ -2542,9 +2602,196 @@ public partial class MainWindow : Window
     private void ArabicLanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage("ar");
     private void EnglishLanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage("en");
     private void ShowMascotButton_Click(object sender, RoutedEventArgs e) => AppRuntime.MascotWindow?.ShowAgain();
-    private void GoChatButton_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedItem = ChatTab;
-    private void GoSettingsButton_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedItem = SettingsTab;
-    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+    private void GoChatButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ChatTab);
+    private void GoSettingsButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(SettingsTab);
+
+    private void NavigateToTab(TabItem tab)
+    {
+        MainTabs.SelectedItem = tab;
+        UpdateDockSelection();
+        if (ReferenceEquals(tab, ChatTab))
+            ChatInput.Focus();
+    }
+
+    private void DockChatButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ChatTab);
+    private void DockOverviewButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(HomeTab);
+    private void DockTasksButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(TasksTab);
+    private void DockSkillsButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(SkillsTab);
+    private void DockCamerasButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(CamerasTab);
+    private void DockMemoryButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(MemoryTab);
+    private void DockApiButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ApiIntegrationsTab);
+    private void DockSettingsButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(SettingsTab);
+
+    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDockSelection();
+
+    private void UpdateDockSelection()
+    {
+        var selected = MainTabs.SelectedItem;
+        var activeBrush = ThemeBrush("Layal.NavSelected", Brushes.Transparent);
+        var activeBorder = ThemeBrush("Layal.NavSelectedBorder", Brushes.Transparent);
+        void Set(Button button, bool active)
+        {
+            button.Background = active ? activeBrush : Brushes.Transparent;
+            button.BorderBrush = active ? activeBorder : Brushes.Transparent;
+            button.BorderThickness = active ? new Thickness(1) : new Thickness(0);
+        }
+
+        Set(DockChatButton, ReferenceEquals(selected, ChatTab));
+        Set(DockOverviewButton, ReferenceEquals(selected, HomeTab));
+        Set(DockTasksButton, ReferenceEquals(selected, TasksTab));
+        Set(DockSkillsButton, ReferenceEquals(selected, SkillsTab));
+        Set(DockCamerasButton, ReferenceEquals(selected, CamerasTab));
+        Set(DockMemoryButton, ReferenceEquals(selected, MemoryTab));
+        Set(DockApiButton, ReferenceEquals(selected, ApiIntegrationsTab));
+        Set(DockSettingsButton, ReferenceEquals(selected, SettingsTab));
+    }
+
+    private bool CanAnimateUi => !SystemParameters.HighContrast &&
+                                 SystemParameters.ClientAreaAnimation &&
+                                 !AppRuntime.Settings.PerformanceModeEnabled;
+
+    private void ToggleBottomDockButton_Click(object sender, RoutedEventArgs e) => SetBottomDockExpanded(!_isBottomDockExpanded);
+
+    private void SetBottomDockExpanded(bool expanded)
+    {
+        _isBottomDockExpanded = expanded;
+        ToggleBottomDockButton.Content = expanded ? "\uE711" : "\uE700";
+        ToggleBottomDockButton.ToolTip = expanded
+            ? (IsArabic ? "طي شريط التنقل" : "Collapse navigation dock")
+            : (IsArabic ? "توسيع شريط التنقل" : "Expand navigation dock");
+        AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
+
+        var currentWidth = Math.Max(0, DockExpandedSurface.ActualWidth);
+        var currentOpacity = DockExpandedSurface.Opacity;
+        DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+        DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
+
+        const double expandedWidth = 730;
+        if (!CanAnimateUi)
+        {
+            DockExpandedSurface.Width = expanded ? expandedWidth : 0;
+            DockExpandedSurface.Opacity = expanded ? 1 : 0;
+            DockExpandedSurface.IsHitTestVisible = expanded;
+            return;
+        }
+
+        var duration = TimeSpan.FromMilliseconds(190);
+        if (expanded)
+        {
+            DockExpandedSurface.IsHitTestVisible = true;
+            DockExpandedSurface.Width = 0;
+            DockExpandedSurface.Opacity = 0;
+            var width = new DoubleAnimation(0, expandedWidth, duration)
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            width.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+                DockExpandedSurface.Width = expandedWidth;
+            };
+            var opacity = new DoubleAnimation(0, 1, duration);
+            opacity.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
+                DockExpandedSurface.Opacity = 1;
+            };
+            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
+            DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+        else
+        {
+            DockExpandedSurface.Width = currentWidth;
+            DockExpandedSurface.Opacity = currentOpacity;
+            var width = new DoubleAnimation(currentWidth, 0, duration)
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+            };
+            var opacity = new DoubleAnimation(currentOpacity, 0, duration);
+            width.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+                DockExpandedSurface.Width = 0;
+                DockExpandedSurface.IsHitTestVisible = false;
+            };
+            opacity.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
+                DockExpandedSurface.Opacity = 0;
+            };
+            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
+            DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+    }
+
+    private void ToggleChatHistoryButton_Click(object sender, RoutedEventArgs e) => SetChatHistoryPanelOpen(!_isChatHistoryPanelOpen);
+    private void CloseChatHistoryButton_Click(object sender, RoutedEventArgs e) => SetChatHistoryPanelOpen(false);
+
+    private void SetChatHistoryPanelOpen(bool open)
+    {
+        if (open == _isChatHistoryPanelOpen &&
+            (open ? ChatHistoryPanel.Visibility == Visibility.Visible : ChatHistoryPanel.Visibility == Visibility.Collapsed))
+            return;
+
+        _isChatHistoryPanelOpen = open;
+        AutomationProperties.SetName(ToggleChatHistoryButton, open
+            ? (IsArabic ? "إخفاء سجل المحادثات" : "Hide chat history")
+            : (IsArabic ? "إظهار سجل المحادثات" : "Show chat history"));
+        ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, null);
+        ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
+        if (open)
+        {
+            ChatHistoryPanel.Visibility = Visibility.Visible;
+            ChatHistoryPanelTransform.X = IsArabic ? 10 : -10;
+            if (!CanAnimateUi)
+            {
+                ChatHistoryPanel.Opacity = 1;
+                ChatHistoryPanelTransform.X = 0;
+                return;
+            }
+
+            ChatHistoryPanel.Opacity = 0;
+            var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(170));
+            fade.Completed += (_, _) =>
+            {
+                ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, null);
+                ChatHistoryPanel.Opacity = 1;
+            };
+            var slide = new DoubleAnimation(ChatHistoryPanelTransform.X, 0, TimeSpan.FromMilliseconds(170))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            slide.Completed += (_, _) =>
+            {
+                ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
+                ChatHistoryPanelTransform.X = 0;
+            };
+            ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, fade);
+            ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, slide);
+        }
+        else
+        {
+            if (ChatHistoryPanel.Visibility == Visibility.Collapsed)
+                return;
+            if (!CanAnimateUi)
+            {
+                ChatHistoryPanel.Opacity = 0;
+                ChatHistoryPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var fade = new DoubleAnimation(ChatHistoryPanel.Opacity, 0, TimeSpan.FromMilliseconds(150));
+            fade.Completed += (_, _) =>
+            {
+                ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, null);
+                ChatHistoryPanel.Opacity = 0;
+                ChatHistoryPanel.Visibility = Visibility.Collapsed;
+            };
+            var slide = new DoubleAnimation(ChatHistoryPanelTransform.X, IsArabic ? 10 : -10, TimeSpan.FromMilliseconds(150));
+            ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, fade);
+            ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, slide);
+        }
+    }
 
     private void OpenNotepadButton_Click(object sender, RoutedEventArgs e)
     {
@@ -4048,6 +4295,7 @@ public partial class MainWindow : Window
             NewConversationButton.IsEnabled = false;
             ClearSavedChatHistoryButton.IsEnabled = false;
             ChatHistorySelector.IsEnabled = false;
+                ChatHistoryList.IsEnabled = false;
             UpdateVoiceConversationControls();
             UpdateSpeechToTextButton();
             SetChatActivityStatus(IsArabic
@@ -4127,6 +4375,7 @@ public partial class MainWindow : Window
                 NewConversationButton.IsEnabled = !_incognitoMode;
                 ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
                 ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
             }
             UpdateVoiceConversationControls();
             SetChatActivityStatus(IsArabic
@@ -4162,6 +4411,7 @@ public partial class MainWindow : Window
                 NewConversationButton.IsEnabled = !_incognitoMode;
                 ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
                 ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
                 RefreshProviderStatus();
             }
         }
@@ -4183,6 +4433,7 @@ public partial class MainWindow : Window
         NewConversationButton.IsEnabled = !_incognitoMode;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
         ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
         SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل المحلي؛ لم يتم إرسال الصوت." : "Local recording cancelled; audio was not sent.");
         UpdateVoiceConversationControls();
         UpdateSpeechToTextButton();
@@ -4284,6 +4535,7 @@ public partial class MainWindow : Window
         NewConversationButton.IsEnabled = false;
         ClearSavedChatHistoryButton.IsEnabled = false;
         ChatHistorySelector.IsEnabled = false;
+                ChatHistoryList.IsEnabled = false;
         SetChatActivityStatus(IsArabic ? "جارٍ الاتصال وتهيئة الميكروفون..." : "Connecting and preparing the microphone...");
 
         try
@@ -4338,6 +4590,7 @@ public partial class MainWindow : Window
                 NewConversationButton.IsEnabled = !_incognitoMode;
                 ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
                 ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
                 UpdateSpeechToTextButton();
                 RefreshProviderStatus();
             }
@@ -6032,11 +6285,14 @@ public partial class MainWindow : Window
         _refreshingChatSessions = true;
         if (_incognitoMode)
         {
+            SetChatHistoryPanelOpen(false);
             try
             {
                 ChatConversations.Clear();
                 ChatHistorySelector.SelectedItem = null;
+                ChatHistoryList.SelectedItem = null;
                 ChatHistorySelector.IsEnabled = false;
+                ChatHistoryList.IsEnabled = false;
             }
             finally
             {
@@ -6050,8 +6306,11 @@ public partial class MainWindow : Window
             foreach (var conversation in AppRuntime.ChatSessionService.GetAll())
                 ChatConversations.Add(conversation);
             var id = string.IsNullOrWhiteSpace(selectedId) ? _currentConversationId : selectedId;
-            ChatHistorySelector.SelectedItem = ChatConversations.FirstOrDefault(c => c.Id == id)
+            var selectedConversation = ChatConversations.FirstOrDefault(c => c.Id == id)
                 ?? ChatConversations.FirstOrDefault();
+            ChatHistorySelector.SelectedItem = selectedConversation;
+            ChatHistoryList.SelectedItem = selectedConversation;
+            ChatHistoryList.IsEnabled = !_incognitoMode;
         }
         finally { _refreshingChatSessions = false; }
     }
@@ -6112,12 +6371,29 @@ public partial class MainWindow : Window
 
     private void ChatHistorySelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        var selected = sender switch
+        {
+            ComboBox selector => selector.SelectedItem as ChatConversation,
+            ListBox list => list.SelectedItem as ChatConversation,
+            _ => null
+        };
+
+        if (sender is ListBox && !_refreshingChatSessions && !_incognitoMode)
+        {
+            _refreshingChatSessions = true;
+            try { ChatHistorySelector.SelectedItem = selected; }
+            finally { _refreshingChatSessions = false; }
+        }
+
         if (_incognitoMode)
         {
-            ChatHistorySelector.SelectedItem = null;
+            if (sender is ComboBox)
+                ChatHistorySelector.SelectedItem = null;
+            else if (sender is ListBox)
+                ChatHistoryList.SelectedItem = null;
             return;
         }
-        if (_refreshingChatSessions || ChatHistorySelector.SelectedItem is not ChatConversation selected)
+        if (_refreshingChatSessions || selected is null)
             return;
         if (string.Equals(selected.Id, _currentConversationId, StringComparison.Ordinal))
             return;
