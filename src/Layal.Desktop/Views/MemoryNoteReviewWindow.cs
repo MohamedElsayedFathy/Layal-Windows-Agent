@@ -164,7 +164,17 @@ public sealed class MemoryNoteReviewWindow : Window
         Grid.SetRow(buttons, 2);
         root.Children.Add(buttons);
 
-        Content = root;
+        var glassSurface = new Border
+        {
+            Child = root,
+            Padding = new Thickness(8),
+            CornerRadius = new CornerRadius(18),
+            BorderThickness = new Thickness(1)
+        };
+        glassSurface.SetResourceReference(Border.EffectProperty, "Layal.CardShadow");
+        glassSurface.SetResourceReference(Border.BackgroundProperty, "Layal.GlassFill");
+        glassSurface.SetResourceReference(Border.BorderBrushProperty, "Layal.GlassBorderBrush");
+        Content = glassSurface;
 
         LayalWindowChrome.ApplyGlass(this, isArabic);
     }
