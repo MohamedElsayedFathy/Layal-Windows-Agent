@@ -751,7 +751,7 @@
             </Setter>
         </Style>
 
-        <!-- Content-only tab host: all section navigation is provided by the floating bottom dock. -->
+        <!-- Content-only tab host: all section navigation is provided by the persistent navigation rail. -->
         <Style x:Key="Layal.ContentOnlyTabControl" TargetType="{x:Type TabControl}">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -768,7 +768,7 @@
             </Setter>
         </Style>
 
-        <!-- Legacy rail resources remain for auxiliary windows; MainWindow now uses the floating bottom dock. -->
+        <!-- Legacy rail resources remain for auxiliary windows; MainWindow now uses the persistent Soft Aurora navigation rail. -->
         <!-- Glass shell: a translucent sidebar (brand/footer overlays live in MainWindow, rows 88/156 are reserved for them)
              and a translucent content panel over the dusk backdrop. -->
         <Style TargetType="TabControl">
