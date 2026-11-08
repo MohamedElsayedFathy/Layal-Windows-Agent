@@ -51,6 +51,22 @@ public sealed class DesignTokensTests
         }
     }
 
+    [TestMethod]
+    public void GlassSurfacesRemainOpaqueEnoughForReadableContent()
+    {
+        foreach (var dark in new[] { false, true })
+        {
+            var palette = UiThemePalette.Create(dark, highContrast: false);
+            var glass = Parse(palette["Layal.Color.Glass"]);
+            var strongGlass = Parse(palette["Layal.Color.GlassStrong"]);
+
+            Assert.IsTrue(glass.A >= 0xF0,
+                $"The standard glass surface must remain at least 94% opaque (dark={dark}).");
+            Assert.IsTrue(strongGlass.A >= 0xF5,
+                $"The primary glass surface must remain at least 96% opaque (dark={dark}).");
+        }
+    }
+
     private static Color Parse(string value) => (Color)ColorConverter.ConvertFromString(value)!;
     private static Color Opaque(Color c) => Color.FromRgb(c.R, c.G, c.B);
 

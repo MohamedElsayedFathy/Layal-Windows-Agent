@@ -15,13 +15,19 @@
 - The list uses the existing encrypted chat-session service and selection handler; creating, switching, copying, clearing, and private-chat protections retain their existing business logic.
 - The clock, date, weather, provider status, attachments, voice controls, and message composer remain part of the primary chat surface.
 
-## Visual system
+## Visual system — Soft Aurora Workspace
 
-- Light and dark appearance remain switchable from the top bar and are persisted by the existing settings store.
-- Glass surfaces use translucent fills, visible borders, soft shadows, and the app's ambient color wash.
-- On supported Windows 11 builds, the main window additionally requests the native DWM transient system backdrop so the desktop surface can contribute behind translucent app panels.
-- Unsupported Windows versions fall back to the WPF translucent wash and app-owned glass surfaces. A native backdrop failure must never prevent startup.
+The adopted visual direction is **Soft Aurora Workspace**, combining calm light surfaces, pearl/lavender accents, and a clear workspace hierarchy.
+
+- The default light palette uses neutral cool backgrounds, white/pearl surfaces, deep readable navy text, indigo primary actions, and restrained lavender/cyan support accents.
+- The dark palette follows the same hierarchy with deep navy surfaces and light readable text; both modes remain switchable and persisted through the existing settings store.
+- App-owned glass surfaces remain nearly opaque, with visible quiet borders and low-depth shadows. Ambient blue/violet/pink color is restrained to background decoration and never competes with content.
+- Shared WPF buttons, text fields, password fields, combo boxes, tooltips, context menus, and popup surfaces use consistent corner radii and theme resources.
+- Auxiliary windows use the shared palette and chrome. Character-specific colors in the floating Layal mascot remain intentionally distinct to preserve the character identity.
+- The floating navigation dock remains the navigation model; its shape and surface are refined without changing its eight destinations, automation identifiers, or keyboard routes.
+- On supported Windows 11 builds, the main window additionally requests the native DWM transient system backdrop. Unsupported Windows versions fall back to app-owned WPF surfaces.
 - Windows High Contrast overrides the native backdrop, translucent wash, and decorative effects with system colors. UI motion also respects Windows client-area animation preferences and the app performance mode.
+- See [Soft Aurora design system](SOFT_AURORA_DESIGN_SYSTEM_AR.md) for the shared visual rules and acceptance scope.
 
 ## Transient surfaces and auxiliary windows
 
