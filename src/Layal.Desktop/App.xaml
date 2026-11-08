@@ -160,6 +160,7 @@
             <Setter Property="UseLayoutRounding" Value="True" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassFill}" />
         </Style>
 
         <!-- Popup surfaces are part of the same glass system as the main shell. -->
