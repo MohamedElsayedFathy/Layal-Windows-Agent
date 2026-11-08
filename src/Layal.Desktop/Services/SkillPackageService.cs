@@ -25,6 +25,7 @@ public sealed class SkillPackageService
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("LayalSkillImporter/0.4");
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return client;
     }
 
@@ -35,6 +36,8 @@ public sealed class SkillPackageService
         _githubHttpClient = githubHttpClient ?? throw new ArgumentNullException(nameof(githubHttpClient));
         if (_githubHttpClient.DefaultRequestHeaders.UserAgent.Count == 0)
             _githubHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("LayalSkillImporter/0.4");
+        if (_githubHttpClient.DefaultRequestHeaders.Accept.Count == 0)
+            _githubHttpClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         _root = Path.GetFullPath(root);
         // Check existing ancestors before Directory.CreateDirectory so a linked parent cannot
         // cause the constructor itself to create the managed catalog outside its intended path.
@@ -643,7 +646,9 @@ public sealed class SkillPackageService
         if (!Regex.IsMatch(commitSha, "^[0-9a-f]{40}$", RegexOptions.CultureInvariant))
             throw new InvalidOperationException("GitHub archive download requires a resolved 40-character commit SHA.");
 
-        var url = $"https://codeload.github.com/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}/zip/{commitSha}";
+        // GitHub's documented zipball endpoint resolves a commit SHA and follows its
+        // 302 to the generated archive. HttpClient follows the redirect by default.
+        var url = $"https://api.github.com/repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}/zipball/{commitSha}";
         using var response = await _githubHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException(
@@ -693,6 +698,10 @@ public sealed class SkillPackageService
             throw new InvalidOperationException(normalizedDesired is null
                 ? "No SKILL.md was found in this repository. Paste the exact GitHub directory URL for the skill."
                 : $"No SKILL.md was found at the requested directory '{normalizedDesired}'. Paste the exact directory URL containing SKILL.md.");
+
+        if (normalizedDesired is null && candidates.Count > 1)
+            throw new InvalidOperationException(
+                $"Found {candidates.Count} SKILL.md files in this repository. Paste the exact GitHub directory URL for the skill you intend to import.");
 
         var chosen = Normalize(candidates[0].FullName);
         var chosenRelative = chosen[(top.Length + 1)..];

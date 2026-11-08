@@ -149,7 +149,9 @@ The path checks reduce accidental and adversarial link traversal before director
 - [x] Persist the repository, requested ref, resolved commit SHA, selected skill directory, resolution timestamp, SHA-256 of the downloaded repository archive, and SHA-256 of the managed skill package.
 - [x] Verify the managed package SHA-256 before reading `SKILL.md`; preserve compatibility with older local index records that predate digest fields.
 - [x] Reject GitHub import URLs containing credentials, custom ports, query strings, or fragments; add deterministic HTTP-handler tests for commit resolution, default-branch selection, fail-closed behavior, provenance persistence, and tamper detection.
-- [ ] Pass Windows Release build, full C# regression suite, static validation, and security/supply-chain workflows on the same PR head.
+- [x] Pass Windows Release build, static validation, the full C# regression suite (**622 passed, 0 failed, 0 skipped**), native input/DPI/keyboard/GLB checks, package build, and installer lifecycle on the same PR head: [Windows build #1367](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42472774847).
+- [x] Pass PowerShell final acceptance on the same PR head: [final acceptance #33](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42472774846). Final automated decision: PASS; manual/external gates remain open.
+- [x] Pass Gitleaks full-history scan, NuGet vulnerability audit, and license inventory workflow: [security checks #1051](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42472774911).
 - [ ] Manually verify an import from a public GitHub repository and inspect the recorded commit/digest fields on a Windows desktop.
 
 The commit SHA makes the fetched Git tree reproducible for that import; the recorded archive digest identifies the exact archive bytes received, and the package digest detects later local modification. These values are not a GitHub publisher signature, provenance attestation, or guarantee that the skill's instructions are safe. Skill Markdown remains untrusted input and skill scripts remain unexecuted.

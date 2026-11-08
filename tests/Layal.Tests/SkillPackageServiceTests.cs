@@ -184,8 +184,8 @@ public sealed class SkillPackageServiceTests
                     Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
                 };
 
-            if (request.RequestUri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
-                path.Equals($"/acme/skills/zip/{commitSha}", StringComparison.Ordinal))
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/repos/acme/skills/zipball/{commitSha}", StringComparison.Ordinal))
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(repositoryArchiveBytes)
@@ -215,14 +215,54 @@ public sealed class SkillPackageServiceTests
             imported.PackageSha256);
         Assert.IsTrue(imported.ValidationStatus.Contains(commitSha, StringComparison.Ordinal));
         Assert.IsTrue(handler.RequestedUris.Any(uri =>
-            uri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
-            uri.AbsolutePath.EndsWith($"/zip/{commitSha}", StringComparison.Ordinal)));
+            uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+            uri.AbsolutePath.EndsWith($"/zipball/{commitSha}", StringComparison.Ordinal)));
         Assert.IsFalse(handler.RequestedUris.Any(uri =>
-            uri.AbsolutePath.Contains("/zip/refs/heads/", StringComparison.Ordinal)));
+            uri.AbsolutePath.Contains("/zipball/main", StringComparison.Ordinal)));
 
         var reloaded = new SkillPackageService(root, httpClient).GetInstalled().Single();
         Assert.AreEqual(commitSha, reloaded.SourceCommitSha);
         StringAssert.Contains(new SkillPackageService(root, httpClient).ReadSkillMarkdown(reloaded), "Body");
+    }
+
+
+    [TestMethod]
+    public async Task GitHubRepositoryImportRejectsMultipleSkillsWithoutAnExactDirectory()
+    {
+        using var temp = new TestTempDirectory();
+        const string commitSha = "1023456789abcdef0123456789abcdef01234567";
+        var repositoryArchivePath = CreateRawZip(temp.Path,
+            ("repository-snapshot/skills/alpha/SKILL.md", "---\nname: alpha-skill\ndescription: Alpha.\n---\nAlpha body"),
+            ("repository-snapshot/skills/bravo/SKILL.md", "---\nname: bravo-skill\ndescription: Bravo.\n---\nBravo body"));
+        var repositoryArchiveBytes = File.ReadAllBytes(repositoryArchivePath);
+        var handler = new StubGitHubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals("/repos/acme/skills/commits/main", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
+                };
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/repos/acme/skills/zipball/{commitSha}", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(repositoryArchiveBytes)
+                };
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var httpClient = new HttpClient(handler);
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var service = new SkillPackageService(root, httpClient);
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            service.ImportFromGitHubAsync("https://github.com/acme/skills", overwrite: false));
+
+        StringAssert.Contains(error.Message, "exact GitHub directory URL");
+        Assert.AreEqual(0, service.GetInstalled().Count);
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, "alpha-skill")));
+        Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, "bravo-skill")));
     }
 
     [TestMethod]
@@ -248,8 +288,8 @@ public sealed class SkillPackageServiceTests
                 {
                     Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
                 };
-            if (request.RequestUri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
-                path.Equals($"/acme/skills/zip/{commitSha}", StringComparison.Ordinal))
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/repos/acme/skills/zipball/{commitSha}", StringComparison.Ordinal))
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(repositoryArchiveBytes)
@@ -295,8 +335,8 @@ public sealed class SkillPackageServiceTests
                 {
                     Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
                 };
-            if (request.RequestUri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
-                path.Equals($"/acme/skills/zip/{commitSha}", StringComparison.Ordinal))
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/repos/acme/skills/zipball/{commitSha}", StringComparison.Ordinal))
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(repositoryArchiveBytes)
