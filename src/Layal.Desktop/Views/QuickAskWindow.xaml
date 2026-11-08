@@ -7,7 +7,7 @@
         FontFamily="Segoe UI" FontSize="14" PreviewKeyDown="QuickAskWindow_PreviewKeyDown">
     <Border Margin="12" Padding="18" CornerRadius="18"
             Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-            Effect="{StaticResource Layal.CardShadow}">
+            Effect="{DynamicResource Layal.CardShadow}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
