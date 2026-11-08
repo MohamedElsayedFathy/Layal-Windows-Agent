@@ -155,6 +155,8 @@ public sealed class GameModeHudWindow : Window
         root.Children.Add(footer);
 
         Content = root;
+
+        LayalWindowChrome.ApplyGlass(this, _isArabic);
         UpdateStatus();
         _timer.Tick += Timer_Tick;
         _timer.Start();
