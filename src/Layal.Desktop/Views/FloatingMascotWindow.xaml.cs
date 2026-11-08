@@ -1649,6 +1649,7 @@ public partial class FloatingMascotWindow : Window
     public void UpdateLanguage()
     {
         var ar = AppRuntime.Settings.Language == "ar";
+        _contextMenu.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Title = ar ? "ليال" : "Layal";
         var localizedToolTip = ar ? "ليال | انقر مرتين لفتح الواجهة" : "Layal | Double-click to open the full interface";
         ToolTip = localizedToolTip;
