@@ -1769,9 +1769,10 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(textBrush.Color, comboForeground.Color,
             $"Chat history ComboBox text does not follow {theme}/{language} text resources.");
 
-        AssertTransientPopupOpenClose(Window.GetWindow(historySelector)
-            ?? throw new InvalidOperationException("Chat history selector is not attached to a window."),
-            historySelector, theme, language);
+        AssertTransientPopupOpenClose(
+            Window.GetWindow(historySelector)
+                ?? throw new InvalidOperationException("Chat history selector is not attached to a window."),
+            theme, language);
 
         Assert.IsTrue(ContrastRatio(text, background) >= 7.0,
             $"Primary text contrast must be at least 7:1 in {theme}/{language}.");
@@ -1783,7 +1784,6 @@ public sealed class MainWindowVisualSmokeTests
 
     private static void AssertTransientPopupOpenClose(
         Window owner,
-        ComboBox historySelector,
         string theme,
         string language)
     {
@@ -1791,56 +1791,88 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("The glass popup fill must resolve before transient controls are opened.");
         var dispatcher = owner.Dispatcher;
 
-        var contextMenu = new ContextMenu
+        var contextTarget = new Button
         {
-            PlacementTarget = historySelector,
-            Placement = PlacementMode.Bottom
+            Content = language == "ar" ? "هدف القائمة" : "Popup target",
+            MinWidth = 120,
+            MinHeight = 36
         };
-        contextMenu.Items.Add(new MenuItem
-        {
-            Header = language == "ar" ? "عنصر قائمة تجريبي" : "Transient menu item"
-        });
-        try
-        {
-            contextMenu.IsOpen = true;
-            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-            Assert.IsTrue(contextMenu.IsOpen, $"ContextMenu must open in {theme}/{language}.");
-            Assert.IsNotNull(contextMenu.Template, "The context menu must resolve a WPF control template.");
-            Assert.AreEqual(glassFill.Color,
-                (contextMenu.Background as SolidColorBrush)?.Color,
-                $"ContextMenu must use the glass fill in {theme}/{language}.");
-        }
-        finally
-        {
-            contextMenu.IsOpen = false;
-        }
+        var comboProbe = new ComboBox { Width = 220, MinHeight = 36 };
+        comboProbe.Items.Add(new ComboBoxItem { Content = language == "ar" ? "اختيار أول" : "First option" });
+        comboProbe.Items.Add(new ComboBoxItem { Content = language == "ar" ? "اختيار ثانٍ" : "Second option" });
+        comboProbe.SelectedIndex = 0;
+        var datePicker = new DatePicker { SelectedDate = new DateTime(2026, 5, 12), Width = 260 };
 
-        var toolTip = new ToolTip
+        var probeHost = new Window
         {
-            PlacementTarget = historySelector,
-            Content = language == "ar" ? "تلميح تجريبي" : "Transient tooltip"
+            Owner = owner,
+            Width = 330,
+            Height = 230,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+            ShowActivated = true,
+            ResizeMode = ResizeMode.NoResize,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(16),
+                Orientation = Orientation.Vertical,
+                Children = { contextTarget, comboProbe, datePicker }
+            }
         };
-        try
-        {
-            toolTip.IsOpen = true;
-            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-            Assert.IsTrue(toolTip.IsOpen, $"ToolTip must open in {theme}/{language}.");
-            Assert.AreEqual(glassFill.Color,
-                (toolTip.Background as SolidColorBrush)?.Color,
-                $"ToolTip must use the glass fill in {theme}/{language}.");
-        }
-        finally
-        {
-            toolTip.IsOpen = false;
-        }
 
-        var originalDropDownState = historySelector.IsDropDownOpen;
         try
         {
-            historySelector.ApplyTemplate();
-            var comboPopup = historySelector.Template.FindName("PART_Popup", historySelector) as Popup
+            probeHost.Show();
+            probeHost.UpdateLayout();
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var contextMenu = new ContextMenu
+            {
+                PlacementTarget = contextTarget,
+                Placement = PlacementMode.Bottom
+            };
+            contextMenu.Items.Add(new MenuItem
+            {
+                Header = language == "ar" ? "عنصر قائمة تجريبي" : "Transient menu item"
+            });
+            try
+            {
+                contextMenu.IsOpen = true;
+                dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Assert.IsTrue(contextMenu.IsOpen, $"ContextMenu must open in {theme}/{language}.");
+                Assert.IsNotNull(contextMenu.Template, "The context menu must resolve a WPF control template.");
+                Assert.AreEqual(glassFill.Color,
+                    (contextMenu.Background as SolidColorBrush)?.Color,
+                    $"ContextMenu must use the glass fill in {theme}/{language}.");
+            }
+            finally
+            {
+                contextMenu.IsOpen = false;
+            }
+
+            var toolTip = new ToolTip
+            {
+                PlacementTarget = contextTarget,
+                Content = language == "ar" ? "تلميح تجريبي" : "Transient tooltip"
+            };
+            try
+            {
+                toolTip.IsOpen = true;
+                dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Assert.IsTrue(toolTip.IsOpen, $"ToolTip must open in {theme}/{language}.");
+                Assert.AreEqual(glassFill.Color,
+                    (toolTip.Background as SolidColorBrush)?.Color,
+                    $"ToolTip must use the glass fill in {theme}/{language}.");
+            }
+            finally
+            {
+                toolTip.IsOpen = false;
+            }
+
+            comboProbe.ApplyTemplate();
+            var comboPopup = comboProbe.Template.FindName("PART_Popup", comboProbe) as Popup
                 ?? throw new InvalidOperationException("The themed ComboBox template must expose PART_Popup.");
-            historySelector.IsDropDownOpen = true;
+            comboProbe.IsDropDownOpen = true;
             dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Assert.IsTrue(comboPopup.IsOpen, $"ComboBox popup must open in {theme}/{language}.");
             var popupSurface = comboPopup.Child as Border
@@ -1848,28 +1880,8 @@ public sealed class MainWindowVisualSmokeTests
             Assert.AreEqual(glassFill.Color,
                 (popupSurface.Background as SolidColorBrush)?.Color,
                 $"ComboBox popup must use the glass fill in {theme}/{language}.");
-        }
-        finally
-        {
-            historySelector.IsDropDownOpen = originalDropDownState;
-        }
+            comboProbe.IsDropDownOpen = false;
 
-        var datePicker = new DatePicker { SelectedDate = new DateTime(2026, 5, 12), Width = 260 };
-        var pickerHost = new Window
-        {
-            Owner = owner,
-            Width = 300,
-            Height = 110,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            ShowInTaskbar = false,
-            ShowActivated = false,
-            ResizeMode = ResizeMode.NoResize,
-            Content = datePicker
-        };
-        try
-        {
-            pickerHost.Show();
-            pickerHost.UpdateLayout();
             datePicker.ApplyTemplate();
             var datePopup = datePicker.Template.FindName("PART_Popup", datePicker) as Popup
                 ?? throw new InvalidOperationException("The DatePicker template must expose PART_Popup.");
@@ -1881,11 +1893,11 @@ public sealed class MainWindowVisualSmokeTests
                 "The DatePicker must pass its theme-aware Calendar style into the popup.");
             Assert.AreSame(Application.Current.TryFindResource("Layal.CalendarPopup"), datePicker.CalendarStyle,
                 $"The open DatePicker popup must use the shared calendar style in {theme}/{language}.");
+            datePicker.IsDropDownOpen = false;
         }
         finally
         {
-            datePicker.IsDropDownOpen = false;
-            pickerHost.Close();
+            probeHost.Close();
         }
     }
 
