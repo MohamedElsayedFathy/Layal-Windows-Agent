@@ -291,7 +291,7 @@ public sealed class SkillPackageServiceTests
         using var temp = new TestTempDirectory();
         var realParent = System.IO.Path.Combine(temp.Path, "real-parent");
         var catalog = System.IO.Path.Combine(realParent, "installed");
-        Directory.CreateDirectory(catalog);
+        Directory.CreateDirectory(realParent);
         var linkedParent = System.IO.Path.Combine(temp.Path, "linked-parent");
 
         try
@@ -305,6 +305,8 @@ public sealed class SkillPackageServiceTests
 
         Assert.ThrowsExactly<IOException>(() =>
             new SkillPackageService(System.IO.Path.Combine(linkedParent, "installed")));
+        Assert.IsFalse(Directory.Exists(catalog),
+            "The constructor must reject a linked ancestor before creating the catalog outside the requested path.");
     }
 
     [TestMethod]
