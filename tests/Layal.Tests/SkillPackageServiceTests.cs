@@ -190,6 +190,161 @@ public sealed class SkillPackageServiceTests
             "The unreadable index must remain untouched until explicitly recovered.");
     }
 
+    [TestMethod]
+    public void RejectsTraversalAndWindowsSpecialPathsBeforeInstallingAnyPackage()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var service = new SkillPackageService(root);
+
+        foreach (var unsafePath in new[] { "sample-skill/../escape.txt", "sample-skill/CON.txt", "sample-skill/report.txt:secret" })
+        {
+            var zipPath = CreateRawZip(temp.Path,
+                ("sample-skill/SKILL.md", "---\nname: sample-skill\ndescription: Safe metadata.\n---\nBody"),
+                (unsafePath, "must not be accepted"));
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(zipPath, overwrite: false));
+            Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, "sample-skill")),
+                "An unsafe archive must be rejected before creating an installed skill folder.");
+        }
+    }
+
+    [TestMethod]
+    public void RejectsCaseInsensitiveDuplicateArchivePaths()
+    {
+        using var temp = new TestTempDirectory();
+        var zipPath = CreateRawZip(temp.Path,
+            ("sample-skill/SKILL.md", "---\nname: sample-skill\ndescription: Safe metadata.\n---\nBody"),
+            ("sample-skill/Readme.md", "one"),
+            ("sample-skill/README.md", "two"));
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(zipPath, overwrite: false));
+        Assert.AreEqual(0, service.GetInstalled().Count);
+    }
+
+    [TestMethod]
+    public void RejectsSymbolicLinkEntriesInLocalSkillArchives()
+    {
+        using var temp = new TestTempDirectory();
+        var zipPath = System.IO.Path.Combine(temp.Path, "symlink-skill.zip");
+        using (var file = File.Create(zipPath))
+        using (var archive = new ZipArchive(file, ZipArchiveMode.Create))
+        {
+            var markdown = archive.CreateEntry("sample-skill/SKILL.md");
+            using (var writer = new StreamWriter(markdown.Open()))
+                writer.Write("---\nname: sample-skill\ndescription: Safe metadata.\n---\nBody");
+
+            var link = archive.CreateEntry("sample-skill/reference-link.md");
+            link.ExternalAttributes = unchecked((int)0xA0000000u);
+            using (var writer = new StreamWriter(link.Open()))
+                writer.Write("../../outside.txt");
+        }
+
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(zipPath, overwrite: false));
+        Assert.AreEqual(0, service.GetInstalled().Count);
+    }
+
+    [TestMethod]
+    public void RejectsAmbiguousSkillMarkdownAndExcessiveEntryCounts()
+    {
+        using var temp = new TestTempDirectory();
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"));
+
+        var multipleSkills = CreateRawZip(temp.Path,
+            ("first/SKILL.md", "---\nname: first\ndescription: First.\n---\nBody"),
+            ("second/SKILL.md", "---\nname: second\ndescription: Second.\n---\nBody"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(multipleSkills, overwrite: false));
+
+        var manyEntries = new List<(string Name, string Content)>
+        {
+            ("sample-skill/SKILL.md", "---\nname: sample-skill\ndescription: Safe metadata.\n---\nBody")
+        };
+        for (var index = 0; index < 200; index++)
+            manyEntries.Add(($"sample-skill/reference-{index:D3}.md", "reference"));
+
+        var oversizedCount = CreateRawZip(temp.Path, manyEntries.ToArray());
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(oversizedCount, overwrite: false));
+        Assert.AreEqual(0, service.GetInstalled().Count);
+    }
+
+    [TestMethod]
+    public void RejectsCompressedArchivesWhoseExpandedContentExceedsLimits()
+    {
+        using var temp = new TestTempDirectory();
+        var largeContent = new string('x', 4 * 1024 * 1024);
+        var zipPath = CreateRawZip(temp.Path,
+            ("sample-skill/SKILL.md", "---\nname: sample-skill\ndescription: Safe metadata.\n---\nBody"),
+            ("sample-skill/a.txt", largeContent),
+            ("sample-skill/b.txt", largeContent),
+            ("sample-skill/c.txt", largeContent));
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(zipPath, overwrite: false));
+        Assert.AreEqual(0, service.GetInstalled().Count);
+    }
+
+    [TestMethod]
+    public void RejectsSkillCatalogWhoseAncestorIsAReparsePoint()
+    {
+        using var temp = new TestTempDirectory();
+        var realParent = System.IO.Path.Combine(temp.Path, "real-parent");
+        var catalog = System.IO.Path.Combine(realParent, "installed");
+        Directory.CreateDirectory(catalog);
+        var linkedParent = System.IO.Path.Combine(temp.Path, "linked-parent");
+
+        try
+        {
+            Directory.CreateSymbolicLink(linkedParent, realParent);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive("The test environment does not permit creation of a directory symbolic link.");
+        }
+
+        Assert.ThrowsExactly<IOException>(() =>
+            new SkillPackageService(System.IO.Path.Combine(linkedParent, "installed")));
+    }
+
+    [TestMethod]
+    public void ReadSkillMarkdownRejectsPackagePathOutsideManagedSkillDirectory()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var sourceZip = CreateSkillZip(temp.Path, "sample-skill", "A safe skill.", "body");
+        var service = new SkillPackageService(root);
+        var imported = service.ImportZip(sourceZip, overwrite: false);
+        var outsidePackage = CreateSkillZip(temp.Path, "outside-skill", "Outside package.", "must not be read");
+
+        imported.PackagePath = outsidePackage;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ReadSkillMarkdown(imported));
+    }
+
+    [TestMethod]
+    public void ReadSkillMarkdownRejectsInstalledPackageReparsePoint()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var sourceZip = CreateSkillZip(temp.Path, "sample-skill", "A safe skill.", "body");
+        var service = new SkillPackageService(root);
+        var imported = service.ImportZip(sourceZip, overwrite: false);
+        var outsidePackage = CreateSkillZip(temp.Path, "outside-skill", "Outside package.", "outside content");
+
+        File.Delete(imported.PackagePath);
+        try
+        {
+            File.CreateSymbolicLink(imported.PackagePath, outsidePackage);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive("The test environment does not permit creation of a file symbolic link.");
+        }
+
+        Assert.ThrowsExactly<IOException>(() => service.ReadSkillMarkdown(imported));
+    }
+
     private static string CreateSkillZip(string directory, string name, string description, string body, bool validateName = true)
     {
         var frontName = validateName ? name : "Invalid_Name";
