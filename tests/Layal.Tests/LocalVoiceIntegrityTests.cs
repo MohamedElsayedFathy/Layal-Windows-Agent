@@ -59,7 +59,10 @@ public sealed class LocalVoiceIntegrityTests
         Assert.AreEqual(Path.Combine(installRoot, "bin", "whisper-cli.exe"), verifiedPath);
 
         // Same-length replacement must be rejected; checking file size alone is insufficient.
-        await File.WriteAllTextAsync(verifiedPath!, "damaged-exe");
+        var tamperedBytes = Encoding.UTF8.GetBytes("damaged-exe");
+        Assert.AreEqual(new FileInfo(verifiedPath!).Length, tamperedBytes.Length,
+            "The replacement must have exactly the same byte length as the trusted executable.");
+        await File.WriteAllBytesAsync(verifiedPath!, tamperedBytes);
         Assert.IsNull(await FindVerifiedWhisperExecutableAsync(archivePath, installRoot));
     }
 
@@ -94,8 +97,8 @@ public sealed class LocalVoiceIntegrityTests
     {
         var entry = archive.CreateEntry(name, CompressionLevel.Optimal);
         await using var stream = entry.Open();
-        await using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: false);
-        await writer.WriteAsync(content);
+        var bytes = Encoding.UTF8.GetBytes(content);
+        await stream.WriteAsync(bytes.AsMemory());
     }
 
     private static async Task<string?> FindVerifiedWhisperExecutableAsync(string archivePath, string installRoot)
