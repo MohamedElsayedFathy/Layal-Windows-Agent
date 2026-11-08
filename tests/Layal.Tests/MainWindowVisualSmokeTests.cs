@@ -1254,8 +1254,10 @@ public sealed class MainWindowVisualSmokeTests
             $"The main conversation surface must retain the opposite column for {language}.");
         var dockHost = window.FindName("BottomDockHost") as Grid
             ?? throw new InvalidOperationException("BottomDockHost was not found.");
-        Assert.AreEqual(VerticalAlignment.Bottom, dockHost.VerticalAlignment,
-            "The floating navigation host must stay anchored to the bottom of the application.");
+        Assert.AreEqual(VerticalAlignment.Stretch, dockHost.VerticalAlignment,
+            "The persistent navigation rail must span the available application height.");
+        Assert.AreEqual(HorizontalAlignment.Left, dockHost.HorizontalAlignment,
+            "The persistent navigation rail must remain anchored to the left edge of the application.");
 
         var taskResult = window.FindName("TaskResult") as TextBox
             ?? throw new InvalidOperationException("TaskResult was not found.");
@@ -1548,33 +1550,50 @@ public sealed class MainWindowVisualSmokeTests
         goChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goChat));
         Assert.AreSame(chatTab, tabs.SelectedItem, "The overview chat shortcut must navigate to Chat.");
 
-        // The bottom dock is compact on startup, expands on demand, and navigates to real pages.
+        // The persistent left navigation rail starts expanded, supports compact mode, and navigates to real pages.
         var previousPerformanceMode = AppRuntime.Settings.PerformanceModeEnabled;
         AppRuntime.Settings.PerformanceModeEnabled = true;
         var bottomDockField = typeof(MainWindow).GetField("_isBottomDockExpanded", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Bottom dock expansion state was not found.");
+            ?? throw new InvalidOperationException("Navigation rail expansion state was not found.");
         var toggleHistory = typeof(MainWindow).GetMethod("SetChatHistoryPanelOpen", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Chat history panel method was not found.");
+        var brandCopy = window.FindName("DockBrandCopy") as StackPanel
+            ?? throw new InvalidOperationException("DockBrandCopy was not found.");
+        var footerNote = window.FindName("DockFooterNote") as Border
+            ?? throw new InvalidOperationException("DockFooterNote was not found.");
         try
         {
+            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
+                "The navigation rail must start expanded so destinations are immediately visible.");
+            Assert.AreEqual(166, expandedDock.Width, 0.1,
+                "The expanded navigation rail must expose its labeled destinations.");
+            Assert.AreEqual(Visibility.Visible, brandCopy.Visibility,
+                "The expanded navigation rail must show its brand label.");
+            Assert.AreEqual(Visibility.Visible, footerNote.Visibility,
+                "The expanded navigation rail must show its footer note.");
+
+            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
             Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
-                "The bottom dock must start compact rather than occupying the conversation surface.");
-            Assert.AreEqual(0, expandedDock.Width, 0.1,
-                "The labeled navigation destinations must be collapsed on startup.");
+                "The navigation rail toggle must enter compact mode.");
+            Assert.AreEqual(48, expandedDock.Width, 0.1,
+                "The compact navigation rail must retain its icon destinations.");
+            Assert.AreEqual(Visibility.Collapsed, brandCopy.Visibility,
+                "The compact navigation rail must hide its brand label.");
+            Assert.AreEqual(Visibility.Collapsed, footerNote.Visibility,
+                "The compact navigation rail must hide its footer note.");
+
             dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
             Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
-                "The dock toggle must expand the navigation destinations.");
-            Assert.AreEqual(730, expandedDock.Width, 0.1,
-                "The expanded dock must expose its complete navigation strip.");
+                "The navigation rail toggle must restore the expanded layout.");
+            Assert.AreEqual(166, expandedDock.Width, 0.1,
+                "The expanded rail must restore the full navigation width.");
             dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
-            Assert.AreSame(chatTab, tabs.SelectedItem, "The first dock destination must return to the primary chat page.");
+            Assert.AreSame(chatTab, tabs.SelectedItem, "The first navigation destination must return to the primary chat page.");
             dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));
             Assert.AreSame(homeTab, tabs.SelectedItem, "The overview destination must open the separate dashboard.");
-            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
-            Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
-                "The dock toggle must collapse the navigation destinations again.");
-            Assert.AreEqual(0, expandedDock.Width, 0.1);
-
+            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
+                "Page navigation must not unexpectedly collapse the left navigation rail.");
+            Assert.AreEqual(166, expandedDock.Width, 0.1);
             Assert.AreEqual(Visibility.Collapsed, historyPanel.Visibility,
                 "Saved conversation history must not steal space from the chat until requested.");
             historyToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, historyToggle));
