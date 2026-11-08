@@ -1731,8 +1731,20 @@ public sealed class MainWindowVisualSmokeTests
 
         var glassPopupBrush = Application.Current.TryFindResource("Layal.GlassStrongFill") as SolidColorBrush;
         var glassBorderBrush = Application.Current.TryFindResource("Layal.GlassBorderBrush") as SolidColorBrush;
+        var menuHoverBrush = Application.Current.TryFindResource("Layal.MenuHover") as SolidColorBrush;
+        var menuHoverTextBrush = Application.Current.TryFindResource("Layal.MenuHoverText") as SolidColorBrush;
         Assert.IsNotNull(glassPopupBrush, $"Glass popup fill must resolve in {theme}/{language}.");
         Assert.IsNotNull(glassBorderBrush, $"Glass popup border must resolve in {theme}/{language}.");
+        Assert.IsNotNull(menuHoverBrush, $"Menu selection background must resolve in {theme}/{language}.");
+        Assert.IsNotNull(menuHoverTextBrush, $"Menu selection text must resolve in {theme}/{language}.");
+
+        var highContrastPalette = UiThemePalette.Create(dark: theme == "dark", highContrast: true);
+        var expectedMenuHighlight = SystemColors.HighlightColor;
+        var expectedMenuHighlightText = SystemColors.HighlightTextColor;
+        Assert.AreEqual(expectedMenuHighlight, (Color)ColorConverter.ConvertFromString(highContrastPalette["Layal.Color.MenuHover"])!,
+            "High Contrast menu selection must use the active Windows highlight color.");
+        Assert.AreEqual(expectedMenuHighlightText, (Color)ColorConverter.ConvertFromString(highContrastPalette["Layal.Color.MenuHoverText"])!,
+            "High Contrast selected menu text must use the Windows highlight text color.");
 
         Assert.IsNotNull(panelBrush, $"Layal.Panel must resolve for {theme}/{language}.");
         Assert.IsNotNull(comboBackground, $"ComboBox background must use a solid theme surface for {theme}/{language}.");
