@@ -159,6 +159,9 @@ function Invoke-Check {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     try {
         $detail = & $Action
+        if ($detail -is [bool] -and -not $detail) {
+            throw 'The acceptance action returned Boolean false.'
+        }
         if ($null -eq $detail) { $detail = 'Completed successfully.' }
         Add-CheckResult -Name $Name -Category $Category -Status 'PASS' -Details ([string]$detail) -DurationSeconds $timer.Elapsed.TotalSeconds
         return $true
@@ -541,6 +544,13 @@ try {
         }
         if ($errors.Count -gt 0) { throw ($errors -join [Environment]::NewLine) }
         return "Parsed $($scripts.Count) PowerShell scripts with zero syntax errors."
+    } | Out-Null
+
+    Invoke-Check -Name 'PowerShell acceptance primitive tests' -Category 'Static analysis' -Action {
+        $primitiveTest = Join-Path $Root 'tools/Test-LayalAcceptancePrimitives.ps1'
+        $primitiveLog = Join-Path $ReportDirectory 'powershell-acceptance-primitives'
+        $child = Invoke-PowerShellChild -Name 'Test-LayalAcceptancePrimitives' -ScriptPath $primitiveTest -Arguments @() -LogDirectory $primitiveLog
+        return "Acceptance result semantics passed. Log: $($child.StdoutPath)"
     } | Out-Null
 
     $pythonChecks = @(
