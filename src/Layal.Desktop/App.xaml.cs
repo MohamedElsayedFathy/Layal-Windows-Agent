@@ -246,7 +246,7 @@ public partial class App : Application
                 _crashDialogShown = true; // avoid a dialog storm if a timer keeps throwing
                 try
                 {
-                    MessageBox.Show(
+                    LayalDialogService.Show(
                         "حدث خطأ غير متوقع وتم تسجيله. يمكنك متابعة العمل.\nAn unexpected error occurred and was logged. You can keep working.\n\n" + args.Exception.Message,
                         "Layal | ليال", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
