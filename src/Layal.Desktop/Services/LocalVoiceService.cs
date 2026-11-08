@@ -230,12 +230,15 @@ public sealed class LocalVoiceService
             Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip"),
             Path.Combine(ToolsRoot, "whisper"),
             cancellationToken);
+        var modelIsVerified = await MatchesExpectedFileAsync(
+            WhisperModelPath, WhisperModelSize, WhisperModelSha256, null, cancellationToken);
         if (verifiedWhisperExecutable is null ||
-            !string.Equals(Path.GetFullPath(verifiedWhisperExecutable), Path.GetFullPath(_whisperExecutable), StringComparison.OrdinalIgnoreCase))
+            !string.Equals(Path.GetFullPath(verifiedWhisperExecutable), Path.GetFullPath(_whisperExecutable), StringComparison.OrdinalIgnoreCase) ||
+            !modelIsVerified)
         {
             Volatile.Write(ref _ready, 0);
             _whisperExecutable = null;
-            throw new InvalidOperationException("تم تغيير محرك Whisper أو أحد ملفاته منذ آخر تحقق؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
+            throw new InvalidOperationException("تم تغيير محرك Whisper أو ملف النموذج منذ آخر تحقق؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
         }
         if (wavBytes.Length <= 44 || wavBytes.Length > MaximumAudioBytes)
             throw new InvalidOperationException("التسجيل الصوتي فارغ أو يتجاوز الحد المحلي المسموح.");
