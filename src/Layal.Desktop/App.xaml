@@ -180,7 +180,7 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="13"
                                 Padding="{TemplateBinding Padding}"
-                                Effect="{StaticResource Layal.CardShadow}"
+                                Effect="{DynamicResource Layal.CardShadow}"
                                 SnapsToDevicePixels="True">
                             <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
                         </Border>
@@ -226,7 +226,7 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="10"
                                 Padding="{TemplateBinding Padding}"
-                                Effect="{StaticResource Layal.CardShadow}"
+                                Effect="{DynamicResource Layal.CardShadow}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter ContentSource="Content" RecognizesAccessKey="True" />
                         </Border>
