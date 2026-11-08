@@ -39,7 +39,7 @@ public sealed class MemoryNoteReviewWindow : Window
         ResizeMode = ResizeMode.CanResize;
         ShowInTaskbar = false;
         FlowDirection = FlowDirection.LeftToRight;
-        Background = SystemColors.WindowBrush;
+        Background = Application.Current.TryFindResource("Layal.GlassFill") as Brush ?? SystemColors.WindowBrush;
         AutomationProperties.SetName(this, Title);
 
         var root = new Grid { Margin = new Thickness(22) };
@@ -74,9 +74,9 @@ public sealed class MemoryNoteReviewWindow : Window
                     ? "النص أدناه هو المحتوى الكامل الذي سيُحفظ محليًا مشفّرًا. لا يُرسل إلى AI عند الحفظ."
                     : "The text below is the complete content that will be saved locally in encrypted form. Saving does not send it to AI."),
             TextWrapping = TextWrapping.Wrap,
-            Foreground = isDelete ? Brushes.DarkRed : SystemColors.GrayTextBrush,
             Margin = new Thickness(0, 0, 0, 12)
         };
+        explanation.SetResourceReference(TextBlock.ForegroundProperty, isDelete ? "Layal.Danger" : "Layal.Muted");
         AutomationProperties.SetName(explanation, explanation.Text);
         header.Children.Add(explanation);
 
@@ -105,8 +105,9 @@ public sealed class MemoryNoteReviewWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             Padding = new Thickness(12),
             FontSize = 14,
-            Background = SystemColors.ControlLightLightBrush,
-            BorderBrush = SystemColors.ActiveBorderBrush,
+            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? SystemColors.WindowBrush,
+            Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? SystemColors.WindowTextBrush,
+            BorderBrush = Application.Current.TryFindResource("Layal.Border") as Brush ?? SystemColors.ActiveBorderBrush,
             BorderThickness = new Thickness(1),
             FlowDirection = ContainsArabic(note.Content) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
             TextAlignment = ContainsArabic(note.Content) ? TextAlignment.Right : TextAlignment.Left
@@ -117,7 +118,7 @@ public sealed class MemoryNoteReviewWindow : Window
             : "Read-only preview. Review the complete text before confirming the action.");
         var previewBorder = new Border
         {
-            BorderBrush = SystemColors.ActiveBorderBrush,
+            BorderBrush = Application.Current.TryFindResource("Layal.GlassBorderBrush") as Brush ?? SystemColors.ActiveBorderBrush,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
             Child = preview
@@ -151,8 +152,8 @@ public sealed class MemoryNoteReviewWindow : Window
             MinWidth = 142,
             MinHeight = 36,
             IsDefault = isSave,
-            Foreground = isDelete ? Brushes.DarkRed : SystemColors.ControlTextBrush
         };
+        accept.SetResourceReference(Control.ForegroundProperty, isDelete ? "Layal.Danger" : "Layal.OnAccent");
         AutomationProperties.SetName(accept, accept.Content?.ToString() ?? (isArabic ? "تأكيد" : "Confirm"));
         AutomationProperties.SetHelpText(accept, isDelete
             ? (isArabic ? "يحذف الملاحظة المحددة من مخزن الذاكرة المحلي." : "Deletes this note from the local memory store.")
