@@ -117,14 +117,8 @@ public sealed class LocalVoiceService
         _whisperExecutable = await FindVerifiedWhisperExecutableAsync(
             whisperArchive, whisperRoot, cancellationToken);
         if (_whisperExecutable is null)
-        {
-            // Keep the verified archive as the local trust anchor. The extracted executable and
-            // every sidecar DLL are re-hashed against its entries on every application start.
-            DeleteWhisperInstallDirectory(whisperRoot);
-            SafeExtractZip(whisperArchive, whisperRoot);
-            _whisperExecutable = await FindVerifiedWhisperExecutableAsync(
+            _whisperExecutable = await ExtractVerifiedWhisperArchiveAsync(
                 whisperArchive, whisperRoot, cancellationToken);
-        }
         if (_whisperExecutable is null)
             throw new InvalidOperationException("تعذر التحقق من محرك Whisper وملفاته المستخرجة من الأرشيف الموثوق؛ لم يتم تشغيله.");
 
@@ -185,10 +179,6 @@ public sealed class LocalVoiceService
         try
         {
             var whisperArchive = Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip");
-            if (!await MatchesExpectedFileAsync(
-                    whisperArchive, WhisperArchiveSize, WhisperArchiveSha256, null, cancellationToken))
-                return false;
-
             _whisperExecutable = await FindVerifiedWhisperExecutableAsync(
                 whisperArchive, Path.Combine(ToolsRoot, "whisper"), cancellationToken);
             if (_whisperExecutable is null)
@@ -201,8 +191,9 @@ public sealed class LocalVoiceService
             if (!File.Exists(_piperExecutable))
                 return false;
 
-            // The archive is only needed to repair a bad install. Older valid installs may
-            // have already deleted it, so validate installed files independently on startup.
+            // The retained, hash-pinned archive is the trust anchor for the extracted Whisper
+            // executable and sidecar DLLs. Legacy installs without it remain not-ready until the
+            // next user-approved setup downloads the archive for verification.
             if (!await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, WhisperModelSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicModelPath, PiperVoiceSize, ArabicVoiceSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicConfigPath, ArabicVoiceConfigSize, ArabicVoiceConfigSha256, null, cancellationToken) ||
@@ -235,6 +226,17 @@ public sealed class LocalVoiceService
         ArgumentNullException.ThrowIfNull(wavBytes);
         if (!IsReady || string.IsNullOrWhiteSpace(_whisperExecutable))
             throw new InvalidOperationException("جهّز موارد الصوت المحلي أولًا من الإعدادات.");
+        var verifiedWhisperExecutable = await FindVerifiedWhisperExecutableAsync(
+            Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip"),
+            Path.Combine(ToolsRoot, "whisper"),
+            cancellationToken);
+        if (verifiedWhisperExecutable is null ||
+            !string.Equals(Path.GetFullPath(verifiedWhisperExecutable), Path.GetFullPath(_whisperExecutable), StringComparison.OrdinalIgnoreCase))
+        {
+            Volatile.Write(ref _ready, 0);
+            _whisperExecutable = null;
+            throw new InvalidOperationException("تم تغيير محرك Whisper أو أحد ملفاته منذ آخر تحقق؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
+        }
         if (wavBytes.Length <= 44 || wavBytes.Length > MaximumAudioBytes)
             throw new InvalidOperationException("التسجيل الصوتي فارغ أو يتجاوز الحد المحلي المسموح.");
 
@@ -545,6 +547,150 @@ public sealed class LocalVoiceService
             (File.GetAttributes(installRoot) & FileAttributes.ReparsePoint) != 0)
             return null;
 
+        await using var archiveStream = await OpenVerifiedWhisperArchiveAsync(archivePath, cancellationToken);
+        if (archiveStream is null)
+            return null;
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read, leaveOpen: true);
+        return await VerifyWhisperExtractedFilesAsync(archive, installRoot, cancellationToken);
+    }
+
+    private static async Task<string?> ExtractVerifiedWhisperArchiveAsync(
+        string archivePath,
+        string installRoot,
+        CancellationToken cancellationToken)
+    {
+        // Hold the hash-verified archive open with FileShare.Read for the entire extraction
+        // and comparison, so it cannot be replaced between verification and use.
+        await using var archiveStream = await OpenVerifiedWhisperArchiveAsync(archivePath, cancellationToken);
+        if (archiveStream is null)
+            return null;
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read, leaveOpen: true);
+        DeleteWhisperInstallDirectory(installRoot);
+        SafeExtractZip(archive, installRoot);
+        return await VerifyWhisperExtractedFilesAsync(archive, installRoot, cancellationToken);
+    }
+
+    private static async Task<FileStream?> OpenVerifiedWhisperArchiveAsync(
+        string archivePath,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(archivePath) ||
+            (File.GetAttributes(archivePath) & FileAttributes.ReparsePoint) != 0)
+            return null;
+
+        var stream = new FileStream(
+            archivePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            bufferSize: 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        try
+        {
+            if (stream.Length != WhisperArchiveSize)
+            {
+                await stream.DisposeAsync();
+                return null;
+            }
+
+            var actualHash = await SHA256.HashDataAsync(stream, cancellationToken);
+            var expectedHash = Convert.FromHexString(WhisperArchiveSha256);
+            if (!CryptographicOperations.FixedTimeEquals(actualHash, expectedHash))
+            {
+                await stream.DisposeAsync();
+                return null;
+            }
+
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
+    }
+
+    private static async Task<string?> VerifyWhisperExtractedFilesAsync(
+        ZipArchive archive,
+        string installRoot,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(installRoot) ||
+            (File.GetAttributes(installRoot) & FileAttributes.ReparsePoint) != 0)
+            return null;
+
+        var expectedFiles = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
+        var executablePaths = new List<string>();
+        foreach (var entry in archive.Entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (entry.Name.Length == 0)
+                continue;
+
+            var relative = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
+            if (string.IsNullOrWhiteSpace(relative) ||
+                Path.IsPathRooted(relative) ||
+                relative.Split(Path.DirectorySeparatorChar).Any(part => part is "" or "." or "..") ||
+                relative.Contains(':') ||
+                ((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
+                return null;
+
+            var fullPath = Path.GetFullPath(Path.Combine(installRoot, relative));
+            var rootPrefix = Path.GetFullPath(installRoot).TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var normalized = Path.GetRelativePath(installRoot, fullPath).Replace(Path.DirectorySeparatorChar, '/');
+            if (!expectedFiles.TryAdd(normalized, entry))
+                return null;
+
+            if (string.Equals(Path.GetFileName(fullPath), "whisper-cli.exe", StringComparison.OrdinalIgnoreCase))
+                executablePaths.Add(fullPath);
+        }
+
+        if (expectedFiles.Count is 0 or > 512 || executablePaths.Count != 1)
+            return null;
+
+        var actualFiles = EnumerateFilesWithoutFollowingReparsePoints(installRoot)
+            .ToDictionary(
+                path => Path.GetRelativePath(installRoot, path).Replace(Path.DirectorySeparatorChar, '/'),
+                path => path,
+                StringComparer.OrdinalIgnoreCase);
+        if (actualFiles.Count != expectedFiles.Count ||
+            !actualFiles.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                .SetEquals(expectedFiles.Keys))
+            return null;
+
+        foreach (var pair in expectedFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var actualPath = actualFiles[pair.Key];
+            var attributes = File.GetAttributes(actualPath);
+            if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
+                return null;
+
+            var info = new FileInfo(actualPath);
+            if (info.Length != pair.Value.Length)
+                return null;
+
+            await using var archiveEntryStream = pair.Value.Open();
+            await using var installedStream = new FileStream(
+                actualPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                bufferSize: 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            var archiveHash = await SHA256.HashDataAsync(archiveEntryStream, cancellationToken);
+            var installedHash = await SHA256.HashDataAsync(installedStream, cancellationToken);
+            if (!CryptographicOperations.FixedTimeEquals(archiveHash, installedHash))
+                return null;
+        }
+
+        return executablePaths[0];
+    }
+
+
+        if (!Directory.Exists(installRoot) ||
+            (File.GetAttributes(installRoot) & FileAttributes.ReparsePoint) != 0)
+            return null;
+
         using var archive = ZipFile.OpenRead(archivePath);
         var expectedFiles = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
         var executablePaths = new List<string>();
@@ -664,7 +810,7 @@ public sealed class LocalVoiceService
         {
             var attributes = File.GetAttributes(entry);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidOperationException("رفض التطبيق استخدام رابط رمزي أو reparse point داخل مجلد Piper.");
+                throw new InvalidOperationException("رفض التطبيق استخدام رابط رمزي أو reparse point داخل مجلد أدوات الصوت.");
 
             if ((attributes & FileAttributes.Directory) != 0)
             {
@@ -708,9 +854,14 @@ public sealed class LocalVoiceService
 
     private static void SafeExtractZip(string archivePath, string destination)
     {
+        using var archive = ZipFile.OpenRead(archivePath);
+        SafeExtractZip(archive, destination);
+    }
+
+    private static void SafeExtractZip(ZipArchive archive, string destination)
+    {
         Directory.CreateDirectory(destination);
         var fullRoot = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        using var archive = ZipFile.OpenRead(archivePath);
         foreach (var entry in archive.Entries)
         {
             var target = Path.GetFullPath(Path.Combine(destination, entry.FullName));
@@ -722,14 +873,6 @@ public sealed class LocalVoiceService
                 throw new InvalidOperationException("رفض التطبيق رابطًا رمزيًا داخل أرشيف أداة الصوت.");
         }
         archive.ExtractToDirectory(destination, overwriteFiles: true);
-    }
-
-    private static string? FindExecutable(string root, string name)
-    {
-        if (!Directory.Exists(root)) return null;
-        return Directory.EnumerateFiles(root, name, SearchOption.AllDirectories)
-            .OrderBy(path => path.Length)
-            .FirstOrDefault();
     }
 
     private static void ValidateVoiceConfig(string path, string expectedName)
