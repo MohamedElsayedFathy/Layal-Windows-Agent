@@ -55,7 +55,7 @@ public sealed class LocalVoiceIntegrityTests
         }
         ZipFile.ExtractToDirectory(archivePath, installRoot);
 
-        var verifiedPath = await FindVerifiedWhisperExecutableAsync(archivePath, installRoot);
+        var verifiedPath = await VerifyWhisperExtractedFilesAsync(archivePath, installRoot);
         Assert.AreEqual(Path.Combine(installRoot, "bin", "whisper-cli.exe"), verifiedPath);
 
         // Same-length replacement must be rejected; checking file size alone is insufficient.
@@ -101,13 +101,14 @@ public sealed class LocalVoiceIntegrityTests
         await stream.WriteAsync(bytes.AsMemory());
     }
 
-    private static async Task<string?> FindVerifiedWhisperExecutableAsync(string archivePath, string installRoot)
+    private static async Task<string?> VerifyWhisperExtractedFilesAsync(string archivePath, string installRoot)
     {
+        using var archive = ZipFile.OpenRead(archivePath);
         var method = typeof(LocalVoiceService).GetMethod(
-            "FindVerifiedWhisperExecutableAsync",
+            "VerifyWhisperExtractedFilesAsync",
             BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.IsNotNull(method, "The archive-backed Whisper integrity verifier must exist.");
-        var result = method!.Invoke(null, new object?[] { archivePath, installRoot, CancellationToken.None });
+        Assert.IsNotNull(method, "The extracted Whisper file-set verifier must exist.");
+        var result = method!.Invoke(null, new object?[] { archive, installRoot, CancellationToken.None });
         Assert.IsNotNull(result);
         Assert.IsInstanceOfType(result, typeof(Task<string>));
         return await ((Task<string?>)result!);
