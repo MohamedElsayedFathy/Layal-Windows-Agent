@@ -9,7 +9,7 @@
         PreviewKeyDown="TaskApprovalWindow_PreviewKeyDown">
     <Border Margin="12" Padding="20" CornerRadius="18"
             Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-            Effect="{StaticResource Layal.CardShadow}">
+            Effect="{DynamicResource Layal.CardShadow}">
         <StackPanel>
             <TextBlock x:Name="HeadingText" FontSize="20" FontWeight="SemiBold"
                        TextWrapping="Wrap" AutomationProperties.Name="Approval action"/>
