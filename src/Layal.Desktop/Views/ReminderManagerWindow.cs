@@ -292,7 +292,7 @@ public sealed class ReminderManagerWindow : Window
             return;
         }
 
-        var confirmation = MessageBox.Show(
+        var confirmation = LayalDialogService.Show(
             this,
             _isArabic
                 ? $"سيتم حذف التذكير «{selected.Record.Title}» نهائيًا من قائمة التذكيرات المحلية. هل تريد المتابعة؟"
