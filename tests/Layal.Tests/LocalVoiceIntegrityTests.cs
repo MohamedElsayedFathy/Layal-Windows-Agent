@@ -82,6 +82,33 @@ public sealed class LocalVoiceIntegrityTests
     }
 
     [TestMethod]
+    public async Task WhisperRuntimeRejectsReparsePointsWithoutFollowingThem()
+    {
+        using var temp = new TestTempDirectory();
+        var archivePath = Path.Combine(temp.Path, "whisper.zip");
+        var installRoot = Path.Combine(temp.Path, "whisper");
+        var outsideRoot = Path.Combine(temp.Path, "outside");
+
+        using (var archive = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            await WriteArchiveEntryAsync(archive, "whisper-cli.exe", "trusted-exe");
+        ZipFile.ExtractToDirectory(archivePath, installRoot);
+        Directory.CreateDirectory(outsideRoot);
+
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(installRoot, "redirected"), outsideRoot);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException or NotSupportedException)
+        {
+            Assert.Inconclusive("This Windows runner does not permit creating a directory symbolic link: " + ex.Message);
+            return;
+        }
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            VerifyWhisperExtractedFilesAsync(archivePath, installRoot));
+    }
+
+    [TestMethod]
     public async Task WhisperArchiveGateRejectsWrongSizeAndSha256()
     {
         using var temp = new TestTempDirectory();
