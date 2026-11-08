@@ -2635,6 +2635,26 @@ public partial class MainWindow : Window
     private void UpdateDockSelection()
     {
         var selected = MainTabs.SelectedItem;
+        var currentSection = ReferenceEquals(selected, ChatTab)
+            ? (IsArabic ? "المحادثة / الرئيسية" : "Home (Chat)")
+            : ReferenceEquals(selected, HomeTab)
+                ? (IsArabic ? "نظرة عامة" : "Overview")
+                : ReferenceEquals(selected, TasksTab)
+                    ? (IsArabic ? "المهام" : "Tasks")
+                    : ReferenceEquals(selected, SkillsTab)
+                        ? (IsArabic ? "المهارات" : "Skills")
+                        : ReferenceEquals(selected, CamerasTab)
+                            ? (IsArabic ? "الكاميرات" : "Cameras")
+                            : ReferenceEquals(selected, MemoryTab)
+                                ? (IsArabic ? "الذاكرة" : "Memory")
+                                : ReferenceEquals(selected, ApiIntegrationsTab)
+                                    ? (IsArabic ? "تكاملات API" : "API integrations")
+                                    : ReferenceEquals(selected, SettingsTab)
+                                        ? (IsArabic ? "الإعدادات" : "Settings")
+                                        : string.Empty;
+        AutomationProperties.SetHelpText(MainTabs, IsArabic
+            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
+            : $"Current section: {currentSection}. Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
         var activeBrush = ThemeBrush("Layal.NavSelected", Brushes.Transparent);
         var activeBorder = ThemeBrush("Layal.NavSelectedBorder", Brushes.Transparent);
         void Set(Button button, bool active)
