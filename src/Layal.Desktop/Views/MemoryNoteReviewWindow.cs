@@ -164,6 +164,8 @@ public sealed class MemoryNoteReviewWindow : Window
         root.Children.Add(buttons);
 
         Content = root;
+
+        LayalWindowChrome.ApplyGlass(this, isArabic);
     }
 
     private static bool ContainsArabic(string value) =>
