@@ -23,8 +23,13 @@ public sealed class OpenAiCompatibleClient
 
     // Provider APIs may carry prompts, images, tool arguments and bearer credentials.
     // Never let a 3xx response silently forward that request to a different origin.
+    private static SocketsHttpHandler CreateProviderHttpHandler() => new()
+    {
+        AllowAutoRedirect = false
+    };
+
     private static HttpClient CreateProviderHttpClient(TimeSpan timeout) =>
-        new(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = timeout };
+        new(CreateProviderHttpHandler()) { Timeout = timeout };
 
     // Reuse connection pools in production; tests can still inject short-lived deterministic clients.
     public OpenAiCompatibleClient() : this(timeout =>
