@@ -2655,7 +2655,12 @@ public partial class MainWindow : Window
         // WPF can raise this event while InitializeComponent is still adding the first TabItem.
         // The dock is declared after MainTabs, so its named controls do not exist yet at that point.
         if (_isUiInitialized)
+        {
+            // The selected page changes inside a content-only template. Invalidate the peer
+            // cache so screen readers and UI Automation clients see the newly selected page.
+            UIElementAutomationPeer.FromElement(MainTabs)?.ResetChildrenCache();
             UpdateDockSelection();
+        }
     }
 
     private void UpdateDockSelection()
