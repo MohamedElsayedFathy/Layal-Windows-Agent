@@ -239,7 +239,6 @@ internal sealed class LayalTrayMenuColorTable : Forms.ProfessionalColorTable
     public override Drawing.Color MenuItemSelected => _selected;
     public override Drawing.Color MenuItemBorder => _border;
     public override Drawing.Color MenuItemSelectedGradientBegin => _selected;
-    public override Drawing.Color MenuItemSelectedGradientMiddle => _selected;
     public override Drawing.Color MenuItemSelectedGradientEnd => _selected;
     public override Drawing.Color MenuItemPressedGradientBegin => _selected;
     public override Drawing.Color MenuItemPressedGradientMiddle => _selected;
