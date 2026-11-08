@@ -65,15 +65,20 @@ public sealed class OpenAiCompatibleClientTests
         Assert.AreEqual("local-test-key", handler.LastAuthorizationParameter);
     }
 
-    [TestMethod]
-    public async Task ProbeRejectsBaseUrlQueryAndFragmentBeforeSendingCredentials()
+    [DataTestMethod]
+    [DataRow("https://provider.example/v1?tenant=private")]
+    [DataRow("https://provider.example/v1#private-fragment")]
+    [DataRow("https://user:password@provider.example/v1")]
+    public async Task ProbeRejectsBaseUrlQueryFragmentAndEmbeddedCredentialsBeforeSendingCredentials(string baseUrl)
     {
         using var handler = new RecordingHandler(_ => JsonResponse("{\"data\":[]}"));
         var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
 
         await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
-            client.ProbeAsync("https://provider.example/v1?tenant=private", "must-not-be-sent"));
-        Assert.IsNull(handler.LastRequestUri);
+            client.ProbeAsync(baseUrl, "must-not-be-sent"));
+        Assert.IsNull(handler.LastRequestUri,
+            "An invalid provider base URL must be rejected before any request or API credential is sent.");
+        Assert.IsNull(handler.LastAuthorizationParameter);
     }
 
     [TestMethod]
