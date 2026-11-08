@@ -25,14 +25,14 @@
         <Color x:Key="Layal.Color.HeaderStart">#F1F4FD</Color>
         <Color x:Key="Layal.Color.HeaderMiddle">#FCFDFF</Color>
         <Color x:Key="Layal.Color.HeaderEnd">#F3F0FD</Color>
-        <Color x:Key="Layal.Color.CardStart">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.CardEnd">#FAFBFF</Color>
+        <Color x:Key="Layal.Color.CardStart">#FFFFFFFF</Color>
+        <Color x:Key="Layal.Color.CardEnd">#FFFAFBFF</Color>
         <Color x:Key="Layal.Color.ButtonStart">#D7DFFA</Color>
         <Color x:Key="Layal.Color.ButtonEnd">#E4DDF8</Color>
         <Color x:Key="Layal.Color.BrandBorder">#D8DDF3</Color>
         <Color x:Key="Layal.Color.BrandDot">#D8B66D</Color>
         <Color x:Key="Layal.Color.DangerSurface">#FBECEF</Color>
-        <Color x:Key="Layal.Color.DangerBorder">#E9C3CC</Color>
+        <Color x:Key="Layal.Color.DangerBorder">#E9C8D1</Color>
         <Color x:Key="Layal.Color.NavSelected">#EAEDFC</Color>
         <Color x:Key="Layal.Color.NavSelectedBorder">#D4DBF4</Color>
         <Color x:Key="Layal.Color.NavHover">#F3F5FC</Color>
