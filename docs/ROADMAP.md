@@ -74,6 +74,20 @@
 - [ ] Windows UI Automation adapter for approved apps.
 - [ ] Explicit mouse/keyboard adapter, screen capture approvals, and outcome checks.
 
+## Security hardening — Phase 2: workspace and skill trust boundaries
+
+**Status: implementation and adversarial tests added on a feature branch; Windows CI review pending.** This phase advances the open roadmap item for a threat model and automated security tests covering workspace/skill handling.
+
+- [x] Stage each selected skill ZIP once under the managed skill root, then validate and install those same staged bytes.
+- [x] Validate every local ZIP member, not only `SKILL.md`: reject rooted/traversal/Windows-special paths, reparse/special entries, duplicate or case-colliding paths, file/directory conflicts, ambiguous multiple `SKILL.md` files, more than 200 entries, files above 5 MiB, and expanded packages above 10 MiB.
+- [x] Revalidate managed package paths and their existing ancestor chain before reading skill content; reject index entries or package paths that escape the managed catalog or traverse reparse points.
+- [x] Add regression tests for archive traversal, reserved names/alternate streams, ZIP path collisions, symbolic links, ambiguous metadata, entry-count and expanded-size limits, catalog ancestor links, and redirected package paths.
+- [x] Document trust boundaries, threats, mitigations, and residual risks in [the workspace/skills threat model](SECURITY_THREAT_MODEL_WORKSPACE_SKILLS_AR.md).
+- [ ] Pass Windows Release build, full C# suite, static project validation, and security/supply-chain workflows on the final PR head.
+- [ ] Run manual Windows acceptance for skill import/read, package replacement, workspace backup/restore, and reparse-point refusal; record the exact environment and evidence.
+
+This phase does not enable skill script execution, provide a sandbox, or close release signing/license/manual-acceptance gates.
+
 ## 0.6 — Native automation, API integrations, and safety hardening
 - [x] Read-only UI Automation inspection of a uniquely titled external window, with per-request approval, metadata-only output, a background worker, and an 8-second caller timeout; Windows runtime acceptance remains pending.
 - [x] One-control UI Automation InvokePattern action for a unique exact AutomationId on an external window, fresh per-action approval, 8-second bound, and post-action metadata observation; real-app acceptance remains pending.
