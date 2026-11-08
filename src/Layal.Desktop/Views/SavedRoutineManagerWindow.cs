@@ -247,6 +247,8 @@ public sealed class SavedRoutineManagerWindow : Window
         root.Children.Add(footer);
 
         Content = root;
+
+        LayalWindowChrome.ApplyGlass(this, _isArabic);
         RefreshList();
     }
 
