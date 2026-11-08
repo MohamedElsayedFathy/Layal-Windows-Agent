@@ -15,11 +15,6 @@ public sealed partial class TaskApprovalWindow : Window
     {
         _requestTaskCancellation = requestTaskCancellation ?? throw new ArgumentNullException(nameof(requestTaskCancellation));
         InitializeComponent();
-        Loaded += (_, _) => Layal.Services.WindowBackdropService.TryApply(
-            new System.Windows.Interop.WindowInteropHelper(this).Handle,
-            string.Equals(AppRuntime.Settings.ThemeMode, "dark", StringComparison.OrdinalIgnoreCase),
-            SystemParameters.HighContrast);
-
         Title = isArabic ? "موافقة مطلوبة من ليال" : "Layal requires approval";
         HeadingText.Text = string.IsNullOrWhiteSpace(title)
             ? (isArabic ? "الإجراء التالي يحتاج موافقتك" : "Action requires your approval")
@@ -34,6 +29,7 @@ public sealed partial class TaskApprovalWindow : Window
 
         FlowDirection = isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         DetailsText.TextAlignment = isArabic ? TextAlignment.Right : TextAlignment.Left;
+        LayalWindowChrome.ApplyGlass(this, isArabic);
         AutomationProperties.SetName(this, isArabic ? "موافقة مطلوبة من ليال" : "Layal approval required");
         AutomationProperties.SetHelpText(this, EscapeHintText.Text);
         AutomationProperties.SetName(DetailsText, isArabic ? "تفاصيل الإجراء المطلوب" : "Requested action details");
