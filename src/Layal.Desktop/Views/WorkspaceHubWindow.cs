@@ -258,6 +258,7 @@ public sealed class WorkspaceHubWindow : Window
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         Grid.SetRow(_status, 3); root.Children.Add(_status);
         Content = root;
+        LayalWindowChrome.ApplyGlass(this, isArabic);
         RefreshIndex();
     }
 
