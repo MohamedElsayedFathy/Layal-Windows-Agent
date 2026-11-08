@@ -468,9 +468,6 @@ public sealed class WorkspaceSnapshotService
         if (files.Length == 0)
             return 0;
 
-        Directory.CreateDirectory(_workspaceRoot);
-        EnsureNoReparsePointsInExistingPath(_workspaceRoot);
-
         foreach (var entry in files)
         {
             var bytes = Convert.FromBase64String(entry.ContentBase64!);
@@ -509,34 +506,58 @@ public sealed class WorkspaceSnapshotService
     private void EnsureParentDirectories(string parent, List<string> createdDirectories)
     {
         EnsureWithinWorkspace(parent);
-        var relative = Path.GetRelativePath(_workspaceRoot, parent);
-        var current = _workspaceRoot;
-        if (!Directory.Exists(current))
-        {
-            Directory.CreateDirectory(current);
-            createdDirectories.Add(current);
-        }
-        EnsureNoReparsePointsInExistingPath(current);
+        EnsureSafeDirectoryChainExists(parent, createdDirectories);
+    }
 
-        if (relative == ".")
-            return;
+    /// <summary>
+    /// Validates each existing ancestor before creating the next directory component. This is
+    /// intentionally performed before Directory.CreateDirectory so a missing workspace root
+    /// cannot be created by following a symlink/junction in one of its existing parents.
+    /// </summary>
+    private static void EnsureSafeDirectoryChainExists(string path, List<string> createdDirectories)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath)
+            ?? throw new InvalidOperationException("The workspace path has no filesystem root.");
+        var current = root;
 
-        foreach (var segment in relative.Split(
+        foreach (var segment in fullPath[root.Length..].Split(
                      new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
                      StringSplitOptions.RemoveEmptyEntries))
         {
             current = Path.Combine(current, segment);
-            if (!Directory.Exists(current))
+            if (!TryGetFileAttributes(current, out var attributes))
             {
-                if (File.Exists(current))
-                    throw new IOException("A workspace file blocks a required restore directory.");
+                // The parent was checked on the previous iteration. Create one component at
+                // a time, then validate the created entry before advancing deeper.
                 Directory.CreateDirectory(current);
                 createdDirectories.Add(current);
+                attributes = File.GetAttributes(current);
             }
-            var attributes = File.GetAttributes(current);
+
             if ((attributes & FileAttributes.ReparsePoint) != 0 ||
                 (attributes & FileAttributes.Directory) == 0)
-                throw new InvalidOperationException("File restoration is blocked by a symbolic link or non-directory parent.");
+                throw new InvalidOperationException(
+                    "File restoration is blocked by a symbolic link, reparse point, or non-directory parent.");
+        }
+    }
+
+    private static bool TryGetFileAttributes(string path, out FileAttributes attributes)
+    {
+        try
+        {
+            attributes = File.GetAttributes(path);
+            return true;
+        }
+        catch (FileNotFoundException)
+        {
+            attributes = default;
+            return false;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            attributes = default;
+            return false;
         }
     }
 
