@@ -165,6 +165,31 @@ try {
     } while (-not $focusReady -and (Get-Date) -lt $focusDeadline)
     # The application exposes the accessible textbox name in localized form as "رسالة المحادثة".
     # Verify the focused element is an Edit control instead of depending on one exact translated label.
+    $editCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Edit)
+    $editPeers = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
+    $editDiagnostics = @()
+    foreach ($editPeer in $editPeers) {
+        try {
+            $editDiagnostics += [pscustomobject]@{
+                Name = $editPeer.Current.Name
+                AutomationId = $editPeer.Current.AutomationId
+                Enabled = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsEnabledProperty)
+                KeyboardFocusable = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsKeyboardFocusableProperty)
+                Offscreen = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
+                HasKeyboardFocus = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::HasKeyboardFocusProperty)
+            }
+        } catch {
+            $editDiagnostics += [pscustomobject]@{ Name = "stale Edit peer"; AutomationId = ""; Enabled = $false; KeyboardFocusable = $false; Offscreen = $true; HasKeyboardFocus = $false }
+        }
+    }
+    $editDiagnosticText = if ($editDiagnostics.Count -eq 0) {
+        "No Edit peers exposed below the main window."
+    } else {
+        ($editDiagnostics | ConvertTo-Json -Compress -Depth 4)
+    }
+
     $focusSection = Get-CurrentSectionStatus
     $focusOk = ($focusSection -match $expectedSectionPatterns[0]) -and $focusReady
     $results.Add([pscustomobject]@{
@@ -172,9 +197,9 @@ try {
         ExpectedSection = "Chat / Home"
         SelectedSection = $focusSection
         Result = if ($focusOk) { "PASS" } else { "FAIL" }
-        Details = "Focused element name: $focusName; control type: $focusControlType"
+        Details = "Focused element name: $focusName; control type: $focusControlType; Edit peers: $editDiagnosticText"
     })
-    if (-not $focusOk) { throw "Ctrl+1 did not select Chat/Home and focus the accessible message field; page status was '$focusSection', focused element was '$focusName' with control type '$focusControlType'." }
+    if (-not $focusOk) { throw "Ctrl+1 did not select Chat/Home and focus the accessible message field; page status was '$focusSection', focused element was '$focusName' with control type '$focusControlType'. UIA Edit peers: $editDiagnosticText" }
 
     # F1 opens a modal help message. Confirm it exists, then close it without triggering another action.
     [System.Windows.Forms.SendKeys]::SendWait("{F1}")
