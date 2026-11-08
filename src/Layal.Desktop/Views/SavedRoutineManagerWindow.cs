@@ -438,7 +438,7 @@ public sealed class SavedRoutineManagerWindow : Window
             return;
         }
 
-        var confirmation = MessageBox.Show(
+        var confirmation = LayalDialogService.Show(
             this,
             _isArabic
                 ? $"هل تريد حذف الروتين «{selected.Record.Name}» من التخزين المحلي؟"
