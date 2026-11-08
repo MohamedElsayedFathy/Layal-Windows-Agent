@@ -86,7 +86,7 @@ try {
         "Cameras", "Memory", "API integrations", "Settings"
     )
     $expectedSectionPatterns = @(
-        "(?i)(Home\\s*\\(Chat\\)|Chat|المحادثة|الرئيسية)",
+        "(?i)(Home\s*\(Chat\)|Chat|المحادثة|الرئيسية)",
         "(?i)(Overview|نظرة عامة)",
         "(?i)(Tasks|المهام)",
         "(?i)(Skills|المهارات)",
