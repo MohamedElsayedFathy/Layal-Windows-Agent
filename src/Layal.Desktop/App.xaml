@@ -9,7 +9,7 @@
         <!-- Layal Soft Aurora design system: calm surfaces, pearl tones, indigo accents, and readable glass. -->
         <Color x:Key="Layal.Color.Background">#F4F6FC</Color>
         <Color x:Key="Layal.Color.BackgroundEnd">#EEF1FA</Color>
-        <Color x:Key="Layal.Color.Surface">#FCFDFF</Color>
+        <Color x:Key="Layal.Color.Surface">#FFFFFF</Color>
         <Color x:Key="Layal.Color.SurfaceRaised">#FCFCFF</Color>
         <Color x:Key="Layal.Color.SurfaceHover">#F2F4FB</Color>
         <Color x:Key="Layal.Color.Border">#E2E7F1</Color>
@@ -23,7 +23,7 @@
         <Color x:Key="Layal.Color.Danger">#B33C5A</Color>
         <Color x:Key="Layal.Color.Focus">#B6C5F6</Color>
         <Color x:Key="Layal.Color.HeaderStart">#F1F4FD</Color>
-        <Color x:Key="Layal.Color.HeaderMiddle">#FFFFFF</Color>
+        <Color x:Key="Layal.Color.HeaderMiddle">#FCFDFF</Color>
         <Color x:Key="Layal.Color.HeaderEnd">#F3F0FD</Color>
         <Color x:Key="Layal.Color.CardStart">#FFFFFF</Color>
         <Color x:Key="Layal.Color.CardEnd">#FAFBFF</Color>
@@ -36,14 +36,14 @@
         <Color x:Key="Layal.Color.NavSelected">#EAEDFC</Color>
         <Color x:Key="Layal.Color.NavSelectedBorder">#D4DBF4</Color>
         <Color x:Key="Layal.Color.NavHover">#F3F5FC</Color>
-        <Color x:Key="Layal.Color.ListHover">#F0F6FC</Color>
+        <Color x:Key="Layal.Color.ListHover">#F3F5FC</Color>
         <Color x:Key="Layal.Color.ListSelected">#EBEEFC</Color>
         <Color x:Key="Layal.Color.InputFocus">#FCFDFF</Color>
         <Color x:Key="Layal.Color.HoverSurface">#EEF0FC</Color>
-        <Color x:Key="Layal.Color.MenuHover">#E8F5F7</Color>
-        <Color x:Key="Layal.Color.MenuHoverText">#1C2940</Color>
+        <Color x:Key="Layal.Color.MenuHover">#EEF0FC</Color>
+        <Color x:Key="Layal.Color.MenuHoverText">#25314A</Color>
         <Color x:Key="Layal.Color.Shadow">#AAB8D3</Color>
-        <!-- The aurora is intentionally more saturated so the frosted surfaces read as glass, not flat white cards. -->
+        <!-- Keep the ambient aurora restrained; the content surfaces remain the visual focus. -->
         <Color x:Key="Layal.Color.BackdropStart">#9CAAE0</Color>
         <Color x:Key="Layal.Color.BackdropMiddle">#B7A9E4</Color>
         <Color x:Key="Layal.Color.BackdropEnd">#E8C1D8</Color>
@@ -53,8 +53,8 @@
         <Color x:Key="Layal.Color.GlowBlue">#557E8FF0</Color>
         <Color x:Key="Layal.Color.GlowViolet">#4F9A7DE8</Color>
         <Color x:Key="Layal.Color.GlowPink">#40D67AAE</Color>
-        <Color x:Key="Layal.Color.AccentStart">#4A66DE</Color>
-        <Color x:Key="Layal.Color.AccentEnd">#7A50D4</Color>
+        <Color x:Key="Layal.Color.AccentStart">#5369C7</Color>
+        <Color x:Key="Layal.Color.AccentEnd">#7662C7</Color>
         <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
 
         <SolidColorBrush x:Key="Layal.Background" Color="{DynamicResource Layal.Color.Background}" />
