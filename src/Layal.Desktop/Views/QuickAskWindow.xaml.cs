@@ -31,6 +31,10 @@ public partial class QuickAskWindow : Window
         _cancelRequest = cancelRequest ?? throw new ArgumentNullException(nameof(cancelRequest));
         _shortcutDisplay = shortcutDisplay;
         InitializeComponent();
+        Loaded += (_, _) => Layal.Services.WindowBackdropService.TryApply(
+            new System.Windows.Interop.WindowInteropHelper(this).Handle,
+            string.Equals(AppRuntime.Settings.ThemeMode, "dark", StringComparison.OrdinalIgnoreCase),
+            SystemParameters.HighContrast);
         ApplyLanguage();
     }
 
