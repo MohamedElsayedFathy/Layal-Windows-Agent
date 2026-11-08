@@ -245,6 +245,7 @@ internal static class LayalDialogService
         AutomationProperties.SetName(dialog, dialog.Title);
         AutomationProperties.SetHelpText(dialog, isArabic ? "نافذة مؤقتة تتطلب مراجعة الرسالة واختيار إجراء." : "Temporary prompt. Review the message and choose an action.");
         dialog.Content = surface;
+        LayalWindowChrome.ApplyGlass(dialog, isArabic);
         _ = dialog.ShowDialog();
         return selectedResult == MessageBoxResult.None ? safeDefault : selectedResult;
     }
