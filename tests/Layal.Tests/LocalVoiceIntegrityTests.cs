@@ -63,7 +63,7 @@ public sealed class LocalVoiceIntegrityTests
         Assert.AreEqual(new FileInfo(verifiedPath!).Length, tamperedBytes.Length,
             "The replacement must have exactly the same byte length as the trusted executable.");
         await File.WriteAllBytesAsync(verifiedPath!, tamperedBytes);
-        Assert.IsNull(await FindVerifiedWhisperExecutableAsync(archivePath, installRoot));
+        Assert.IsNull(await VerifyWhisperExtractedFilesAsync(archivePath, installRoot));
     }
 
     [TestMethod]
@@ -78,7 +78,7 @@ public sealed class LocalVoiceIntegrityTests
         ZipFile.ExtractToDirectory(archivePath, installRoot);
         await File.WriteAllTextAsync(Path.Combine(installRoot, "unexpected.dll"), "unreviewed-code");
 
-        Assert.IsNull(await FindVerifiedWhisperExecutableAsync(archivePath, installRoot));
+        Assert.IsNull(await VerifyWhisperExtractedFilesAsync(archivePath, installRoot));
     }
 
     [TestMethod]
