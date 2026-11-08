@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -1729,6 +1730,19 @@ public sealed class MainWindowVisualSmokeTests
                 .Any(setter => setter.Property == Control.BackgroundProperty),
             $"DatePicker calendar popup must have a theme-aware background in {theme}/{language}.");
 
+        foreach (var calendarControlType in new[] { typeof(CalendarDayButton), typeof(CalendarButton), typeof(DatePickerTextBox) })
+        {
+            Assert.IsNotNull(Application.Current.TryFindResource(calendarControlType) as Style,
+                $"The DatePicker popup sub-control '{calendarControlType.Name}' must use Layal's theme resources in {theme}/{language}.");
+        }
+        var calendarDayStyle = (Style)Application.Current.TryFindResource(typeof(CalendarDayButton))!;
+        Assert.IsTrue(calendarDayStyle.Triggers.OfType<Trigger>()
+                .Any(trigger => trigger.Property == CalendarDayButton.IsSelectedProperty),
+            "Calendar day selection must have a dedicated visible selected state.");
+        Assert.IsTrue(calendarDayStyle.Triggers.OfType<Trigger>()
+                .Any(trigger => trigger.Property == CalendarDayButton.IsBlackedOutProperty),
+            "Unavailable calendar days must have a distinct disabled appearance.");
+
         var glassPopupBrush = Application.Current.TryFindResource("Layal.GlassStrongFill") as SolidColorBrush;
         var glassBorderBrush = Application.Current.TryFindResource("Layal.GlassBorderBrush") as SolidColorBrush;
         var menuHoverBrush = Application.Current.TryFindResource("Layal.MenuHover") as SolidColorBrush;
@@ -1755,12 +1769,124 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(textBrush.Color, comboForeground.Color,
             $"Chat history ComboBox text does not follow {theme}/{language} text resources.");
 
+        AssertTransientPopupOpenClose(Window.GetWindow(historySelector)
+            ?? throw new InvalidOperationException("Chat history selector is not attached to a window."),
+            historySelector, theme, language);
+
         Assert.IsTrue(ContrastRatio(text, background) >= 7.0,
             $"Primary text contrast must be at least 7:1 in {theme}/{language}.");
         Assert.IsTrue(ContrastRatio(muted, background) >= 4.5,
             $"Muted text contrast must be at least 4.5:1 in {theme}/{language}.");
         Assert.IsTrue(ContrastRatio(scrollThumb, background) >= 2.0,
             $"Scrollbar thumb contrast must be at least 2:1 in {theme}/{language}.");
+    }
+
+    private static void AssertTransientPopupOpenClose(
+        Window owner,
+        ComboBox historySelector,
+        string theme,
+        string language)
+    {
+        var glassFill = Application.Current.TryFindResource("Layal.GlassStrongFill") as SolidColorBrush
+            ?? throw new InvalidOperationException("The glass popup fill must resolve before transient controls are opened.");
+        var dispatcher = owner.Dispatcher;
+
+        var contextMenu = new ContextMenu
+        {
+            PlacementTarget = historySelector,
+            Placement = PlacementMode.Bottom
+        };
+        contextMenu.Items.Add(new MenuItem
+        {
+            Header = language == "ar" ? "عنصر قائمة تجريبي" : "Transient menu item"
+        });
+        try
+        {
+            contextMenu.IsOpen = true;
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.IsTrue(contextMenu.IsOpen, $"ContextMenu must open in {theme}/{language}.");
+            Assert.IsNotNull(contextMenu.Template, "The context menu must resolve a WPF control template.");
+            Assert.AreEqual(glassFill.Color,
+                (contextMenu.Background as SolidColorBrush)?.Color,
+                $"ContextMenu must use the glass fill in {theme}/{language}.");
+        }
+        finally
+        {
+            contextMenu.IsOpen = false;
+        }
+
+        var toolTip = new ToolTip
+        {
+            PlacementTarget = historySelector,
+            Content = language == "ar" ? "تلميح تجريبي" : "Transient tooltip"
+        };
+        try
+        {
+            toolTip.IsOpen = true;
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.IsTrue(toolTip.IsOpen, $"ToolTip must open in {theme}/{language}.");
+            Assert.AreEqual(glassFill.Color,
+                (toolTip.Background as SolidColorBrush)?.Color,
+                $"ToolTip must use the glass fill in {theme}/{language}.");
+        }
+        finally
+        {
+            toolTip.IsOpen = false;
+        }
+
+        var originalDropDownState = historySelector.IsDropDownOpen;
+        try
+        {
+            historySelector.ApplyTemplate();
+            var comboPopup = historySelector.Template.FindName("PART_Popup", historySelector) as Popup
+                ?? throw new InvalidOperationException("The themed ComboBox template must expose PART_Popup.");
+            historySelector.IsDropDownOpen = true;
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.IsTrue(comboPopup.IsOpen, $"ComboBox popup must open in {theme}/{language}.");
+            var popupSurface = comboPopup.Child as Border
+                ?? throw new InvalidOperationException("The ComboBox popup must render through its glass Border surface.");
+            Assert.AreEqual(glassFill.Color,
+                (popupSurface.Background as SolidColorBrush)?.Color,
+                $"ComboBox popup must use the glass fill in {theme}/{language}.");
+        }
+        finally
+        {
+            historySelector.IsDropDownOpen = originalDropDownState;
+        }
+
+        var datePicker = new DatePicker { SelectedDate = new DateTime(2026, 5, 12), Width = 260 };
+        var pickerHost = new Window
+        {
+            Owner = owner,
+            Width = 300,
+            Height = 110,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            ResizeMode = ResizeMode.NoResize,
+            Content = datePicker
+        };
+        try
+        {
+            pickerHost.Show();
+            pickerHost.UpdateLayout();
+            datePicker.ApplyTemplate();
+            var datePopup = datePicker.Template.FindName("PART_Popup", datePicker) as Popup
+                ?? throw new InvalidOperationException("The DatePicker template must expose PART_Popup.");
+            datePicker.IsDropDownOpen = true;
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.IsTrue(datePopup.IsOpen, $"DatePicker calendar popup must open in {theme}/{language}.");
+            Assert.IsNotNull(datePopup.Child, "The open DatePicker popup must contain its calendar surface.");
+            Assert.IsNotNull(datePicker.CalendarStyle,
+                "The DatePicker must pass its theme-aware Calendar style into the popup.");
+            Assert.AreSame(Application.Current.TryFindResource("Layal.CalendarPopup"), datePicker.CalendarStyle,
+                $"The open DatePicker popup must use the shared calendar style in {theme}/{language}.");
+        }
+        finally
+        {
+            datePicker.IsDropDownOpen = false;
+            pickerHost.Close();
+        }
     }
 
     private static double ContrastRatio(Color first, Color second)
