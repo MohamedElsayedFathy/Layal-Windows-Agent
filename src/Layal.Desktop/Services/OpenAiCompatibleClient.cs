@@ -572,11 +572,19 @@ public sealed class OpenAiCompatibleClient
 
     private static Uri BuildUri(string baseUrl, string endpoint)
     {
-        if (!Uri.TryCreate(baseUrl.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri) ||
+        var value = (baseUrl ?? string.Empty).Trim();
+        if (value.Length == 0 ||
+            !Uri.TryCreate(value.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri) ||
             (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
-            throw new ArgumentException("Base URL must be a valid HTTP or HTTPS URL.", nameof(baseUrl));
+            throw new ArgumentException("Base URL must be a valid absolute HTTP or HTTPS URL.", nameof(baseUrl));
         if (!string.IsNullOrEmpty(baseUri.UserInfo))
             throw new ArgumentException("Do not put usernames or passwords inside the base URL.", nameof(baseUrl));
+        if (!string.IsNullOrEmpty(baseUri.Query) || !string.IsNullOrEmpty(baseUri.Fragment))
+            throw new ArgumentException("Base URL must not contain a query string or fragment.", nameof(baseUrl));
+        if (baseUri.Scheme == Uri.UriSchemeHttp && !baseUri.IsLoopback)
+            throw new ArgumentException(
+                "Remote AI providers must use HTTPS so API keys and conversation data are encrypted in transit. HTTP is permitted only for a local loopback provider.",
+                nameof(baseUrl));
         return new Uri(baseUri, endpoint);
     }
 
