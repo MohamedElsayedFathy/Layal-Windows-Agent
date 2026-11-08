@@ -1697,7 +1697,7 @@ public partial class FloatingMascotWindow : Window
         {
             if (showFailureDialog)
             {
-                MessageBox.Show(
+                LayalDialogService.Show(
                     this,
                     IsArabic
                         ? "معاينة GLB اختيارية وتحتاج تفعيل حركة الشخصية وإعدادات حركة Windows، مع إيقاف وضع الأداء العالي."
@@ -1776,7 +1776,7 @@ public partial class FloatingMascotWindow : Window
                 UpdateLanguage();
                 if (showFailureDialog)
                 {
-                    MessageBox.Show(
+                    LayalDialogService.Show(
                         this,
                         IsArabic
                             ? "تعذر تحميل نموذج GLB التجريبي. عادت الشخصية إلى وضعها السابق. التفاصيل: " + ex.Message
