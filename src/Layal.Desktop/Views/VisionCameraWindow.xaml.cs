@@ -48,10 +48,7 @@ public partial class VisionCameraWindow : System.Windows.Window
         _isArabic = isArabic;
         _lifetimeToken = _lifetimeCancellation.Token;
         InitializeComponent();
-        Loaded += (_, _) => Layal.Services.WindowBackdropService.TryApply(
-            new System.Windows.Interop.WindowInteropHelper(this).Handle,
-            string.Equals(AppRuntime.Settings.ThemeMode, "dark", StringComparison.OrdinalIgnoreCase),
-            SystemParameters.HighContrast);
+        LayalWindowChrome.ApplyGlass(this, isArabic);
         ApplyLanguage();
         DiscoveredCamerasSelector.ItemsSource = _discoveredCameras;
         _previewTimer.Tick += PreviewTimer_Tick;
