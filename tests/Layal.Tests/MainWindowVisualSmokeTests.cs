@@ -920,19 +920,31 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("ChatInput",
             AutomationProperties.GetAutomationId(chatInput),
             "The chat editor must expose a stable UI Automation id for keyboard focus verification.");
-        Assert.AreEqual(AccessibilityView.Control,
-            AutomationProperties.GetAccessibilityView(chatInput),
-            "The chat editor must remain visible in the UI Automation control view.");
 
         var mainTabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
         mainTabs.ApplyTemplate();
         mainTabs.UpdateLayout();
-        var selectedContentHost = mainTabs.Template.FindName("PART_SelectedContentHost", mainTabs) as ContentPresenter
-            ?? throw new InvalidOperationException("The selected page content host was not found.");
-        Assert.AreEqual(AccessibilityView.Control,
-            AutomationProperties.GetAccessibilityView(selectedContentHost),
-            "The content-only navigation template must expose selected page controls to UI Automation.");
+        var tabPeer = UIElementAutomationPeer.CreatePeerForElement(mainTabs)
+            ?? throw new InvalidOperationException("The main navigation UI Automation peer was not created.");
+        var pendingPeers = new Stack<AutomationPeer>(tabPeer.GetChildren() ?? new List<AutomationPeer>());
+        var visitedPeers = new HashSet<AutomationPeer>();
+        var chatEditorExposed = false;
+        while (pendingPeers.Count > 0)
+        {
+            var peer = pendingPeers.Pop();
+            if (!visitedPeers.Add(peer))
+                continue;
+            if (string.Equals(peer.GetAutomationId(), "ChatInput", StringComparison.Ordinal))
+            {
+                chatEditorExposed = true;
+                break;
+            }
+            foreach (var child in peer.GetChildren() ?? new List<AutomationPeer>())
+                pendingPeers.Push(child);
+        }
+        Assert.IsTrue(chatEditorExposed,
+            "The content-only navigation peer must expose the selected chat editor to UI Automation.");
 
         var clipboardButton = window.FindName("ReadClipboardButton") as Button
             ?? throw new InvalidOperationException("ReadClipboardButton was not found.");
