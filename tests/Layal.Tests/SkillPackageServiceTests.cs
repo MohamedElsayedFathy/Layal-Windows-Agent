@@ -90,7 +90,7 @@ public sealed class SkillPackageServiceTests
         foreach (var reservedName in new[] { "con", "nul", "aux", "prn", "com1", "lpt1" })
         {
             var zipPath = CreateRawZip(temp.Path,
-                ("incoming/SKILL.md", $"---\\nname: {reservedName}\\ndescription: Reserved name.\\n---\\nBody"));
+                ("incoming/SKILL.md", $"---\nname: {reservedName}\ndescription: Reserved name.\n---\nBody"));
 
             Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportZip(zipPath, overwrite: false));
             Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, reservedName)),
