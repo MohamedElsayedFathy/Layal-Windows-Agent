@@ -444,7 +444,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var confirm = MessageBox.Show(this,
+            var confirm = LayalDialogService.Show(this,
                 IsArabic
                     ? "سيبدأ سياق دردشة مؤقت فارغ ولن تُحفظ رسائله الجديدة في سجل المحادثات المحلي. أثناء الوضع الخاص سيتم تعطيل تبويبي المهام والذاكرة ومنع بدء مهام وكيل جديدة أو الوصول للذاكرة الشخصية؛ البيانات المحفوظة سابقًا لن تُحذف وستعود بعد الخروج. قد تظل الرسائل التي ترسلها تصل إلى مزود الذكاء الاصطناعي وتخضع لسجلاته وسياسة احتفاظه. هل تريد المتابعة؟"
                     : "This starts a blank temporary chat and does not save its new messages in local chat history. While private mode is active, Tasks and Memory are disabled; new agent tasks and personal-memory access are blocked. Previously saved tasks and notes are preserved and become available again after exit. Messages may still be sent to the configured AI provider and remain subject to its own logging and retention policies. Continue?",
@@ -471,7 +471,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var exit = MessageBox.Show(this,
+        var exit = LayalDialogService.Show(this,
             IsArabic
                 ? "سيتم التخلص من رسائل المحادثة الخاصة غير المحفوظة واستعادة آخر محادثة محفوظة. المهام والملاحظات المحفوظة لم تُحذف وستصبح متاحة مجددًا. لا يمكن استرجاع ما أُرسل بالفعل إلى مزود خارجي. هل تريد المتابعة؟"
                 : "Unsaved private-chat messages will be discarded and the last saved conversation will be restored. Saved tasks and memory were preserved and will become available again. Data already sent to an external provider cannot be recalled. Continue?",
@@ -617,7 +617,7 @@ public partial class MainWindow : Window
     private void PrivacyShieldButton_Click(object sender, RoutedEventArgs e)
     {
         var enable = !AppRuntime.Settings.PrivacyShieldEnabled;
-        var confirm = MessageBox.Show(this,
+        var confirm = LayalDialogService.Show(this,
             enable
                 ? (IsArabic
                     ? "سيمنع الدرع بدء تسجيل الميكروفون وفتح الكاميرا وقص الشاشة وفحص العناصر وقراءة الحافظة. سيحاول إيقاف الالتقاطات الجارية وإغلاق الكاميرا وإلغاء أي طلب نشط؛ وقد يحتاج إيقاف بعض موارد النظام لحظات. لن تُحذف بيانات أُرسلت إلى مزود أو حُفظت سابقًا. هل تريد التفعيل؟"
@@ -2071,7 +2071,7 @@ public partial class MainWindow : Window
                 return true;
             }
 
-            var consent = MessageBox.Show(
+            var consent = LayalDialogService.Show(
                 this,
                 IsArabic
                     ? "سيجهّز Layal الشات والصوت على هذا الكمبيوتر. قد يصل التنزيل الأول إجمالًا إلى نحو 4 جيجابايت ويحتاج 8 جيجابايت مساحة فارغة على الأقل؛ يلزم الإنترنت أثناء التنزيل فقط. سنثبت Ollama الرسمي بعد التحقق من توقيعه وننزل نموذج الشات وموارد Whisper وPiper. ستبقى رسائلك والتسجيلات الصوتية على جهازك ولن تُرسل إلى مزود ذكاء اصطناعي خارجي في الوضع المحلي. هل توافق على التنزيل والتجهيز؟"
@@ -2592,7 +2592,7 @@ public partial class MainWindow : Window
               "F1 — Show this help\n\n" +
               "Use Tab to move forward and Shift+Tab to move backward. Use the arrow keys inside tab and list controls, Space to toggle checkboxes, and the arrow keys to adjust sliders. In the chat field, Enter sends the message.";
 
-        MessageBox.Show(
+        LayalDialogService.Show(
             this,
             message,
             IsArabic ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts",
@@ -3187,7 +3187,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             IsArabic ? $"هل تريد حذف اتصال API «{name}» وبيانات المصادقة المحفوظة؟" : $"Delete API connection '{name}' and its stored authentication data?",
             IsArabic ? "تأكيد حذف الاتصال" : "Confirm API connection deletion",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
@@ -3446,7 +3446,7 @@ public partial class MainWindow : Window
     {
         if (!AppRuntime.Settings.AutomaticLocationConsentConfirmed)
         {
-            var consent = MessageBox.Show(this,
+            var consent = LayalDialogService.Show(this,
                 IsArabic
                     ? "لإظهار الطقس والوقت المحلي، سيطلب Windows إذن الوصول إلى موقع تقريبي (دقة مستهدفة نحو كيلومتر واحد). عند الموافقة، ستُرسل الإحداثيات إلى Open-Meteo لجلب الطقس والمنطقة الزمنية. لا تحفظ ليال الإحداثيات في الإعدادات ولا ترسلها إلى مزود AI. يمكنك الرفض أو استخدام مدينة يدويًا بدلًا من ذلك. هل تريد المتابعة إلى طلب إذن Windows؟"
                     : "To show local weather and time, Windows will ask to access an approximate device location (target accuracy about 1 km). If allowed, coordinates are sent to Open-Meteo for weather and time-zone data. Layal does not save the coordinates in settings or send them to an AI provider. You can decline or use a city manually instead. Continue to the Windows permission request?",
@@ -3884,7 +3884,7 @@ public partial class MainWindow : Window
 
     private void DeleteKeyButton_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        var result = LayalDialogService.Show(
             IsArabic ? "هل تريد حذف مفتاح AI المحفوظ على حساب Windows الحالي؟" : "Delete the saved AI key for the current Windows user?",
             IsArabic ? "تأكيد حذف المفتاح" : "Confirm key deletion", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes) return;
@@ -4034,7 +4034,7 @@ public partial class MainWindow : Window
             }
         }
 
-        var microphoneConsent = MessageBox.Show(
+        var microphoneConsent = LayalDialogService.Show(
             this,
             useLocal
                 ? (IsArabic
@@ -4171,7 +4171,7 @@ public partial class MainWindow : Window
             var durationNote = recording.MaximumDurationReached
                 ? (IsArabic ? "\nوصل التسجيل إلى حد الدقيقتين؛ سيتم إرسال الجزء المسجل فقط." : "\nThe two-minute limit was reached; only the captured segment will be sent.")
                 : string.Empty;
-            var uploadConsent = MessageBox.Show(
+            var uploadConsent = LayalDialogService.Show(
                 this,
                 IsArabic
                     ? $"سيتم إرسال التسجيل إلى موفر API التالي لتحويله إلى نص:\n{host}{durationNote}\nلن يُحفظ الصوت الخام على القرص. هل تؤكد الإرسال؟"
@@ -4322,7 +4322,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(
+        var consent = LayalDialogService.Show(
             this,
             IsArabic
                 ? "سيظل الميكروفون نشطًا حتى تضغط الزر مرة ثانية أو Esc. سيُعالج التسجيل على هذا الجهاز باستخدام نماذج محلية؛ قد يُكتب ملف مؤقت ثم يحذفه التطبيق. لن يُرسل الصوت إلى خادم سحابي. بعد التحويل سيُرسل النص إلى نموذج الشات المحلي لتوليد الرد. هل تريد البدء؟"
@@ -4563,7 +4563,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var approved = MessageBox.Show(
+        var approved = LayalDialogService.Show(
             this,
             IsArabic
                 ? $"ستستخدم ليال الميكروفون باستمرار أثناء المحادثة، وسيُبث الصوت مباشرة إلى موفر Realtime التالي:\n{realtimeUri.GetLeftPart(UriPartial.Authority)}\nلن يُحفظ التسجيل الخام على القرص. قد تترتب تكلفة استخدام إضافية. يمكنك إيقاف الميكروفون في أي وقت بزر إيقاف المحادثة أو زر Esc. هل تريد البدء؟"
@@ -4776,7 +4776,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             IsArabic
                 ? "بعد موافقتك ستختفي نافذة ليال والماسكوت لمدة 5 ثوانٍ. حرّك المؤشر إلى العنصر المطلوب وثبّته عليه حتى تنتهي المهلة. ستُقرأ بيانات UI Automation محدودة فقط: النوع، ومعرّف الواجهة، والحدود، والحالة؛ لا يُقرأ اسم حقول الإدخال أو النصوص أو العناصر التي قد تحمل بيانات، ولا قيمة أي حقل. عناصر كلمات المرور تُرفض. لا تُلتقط صورة ولا تُنفذ نقرة أو كتابة. ستُضاف النتيجة إلى مسودة الشات ولن تُرسل إلا بعد ضغط إرسال. هل تريد المتابعة؟"
                 : "After you agree, both Layal's main window and mascot will hide for 5 seconds. Move the pointer to the target element and keep it there until the countdown ends. Only bounded UI Automation metadata is read: control type, AutomationId, bounds, and enabled state. Names of editable/text/data elements and all field values are deliberately not read; password controls are rejected. No screenshot, click, or keystroke occurs. The result is added to the chat draft and is not sent until you press Send. Continue?",
@@ -4901,7 +4901,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             IsArabic
                 ? "ستُلتقط الشاشة الموجودة أسفل المؤشر بعد إخفاء ليال مؤقتًا. ستظهر معاينة محلية لتحديد مستطيل. لن تُرسل الصورة إلى مزود الذكاء الاصطناعي حتى ترفقها ثم تضغط إرسال. قد تحتوي المنطقة المختارة على بيانات حساسة؛ راجعها قبل الإرسال. هل تريد المتابعة؟"
                 : "Layal will temporarily hide and capture the display under the pointer. A local preview lets you select a rectangle. The image will not be sent to the AI provider until you attach it and press Send. The selected region may contain sensitive information; review it before sending. Continue?",
@@ -5170,7 +5170,7 @@ public partial class MainWindow : Window
         var token = cancellation.Token;
         try
         {
-            var consent = MessageBox.Show(this,
+            var consent = LayalDialogService.Show(this,
                 IsArabic
                     ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك، وتُحوّل إلى PNG في الذاكرة للمعاينة والإرفاق. قد تحتوي الصورة على بيانات حساسة؛ راجع المعاينة قبل الإرسال. لن تتغير الحافظة ولن تُرسل الصورة إلى AI إلا إذا أرفقتها ثم ضغطت إرسال. هل تريد المتابعة؟"
                     : "With your consent, the current clipboard image will be read and encoded as PNG in memory for preview and attachment. It may contain sensitive data; review it before sending. The clipboard will not be modified and the image will not be sent to AI unless you attach it and press Send. Continue?",
@@ -5514,7 +5514,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             IsArabic
                 ? "ستظهر معاينة الكاميرا على جهازك. لا تُرسل صورة إلى مزود الذكاء الاصطناعي إلا عند ضغط تحليل، أو عند تفعيل التحليل التلقائي بموافقة منفصلة (لقطة كل 10 ثوانٍ). لن يُرسل فيديو خام. هل تريد فتح الكاميرا؟"
                 : "The camera preview will appear on this device. No image is sent to the AI provider unless you analyze a frame or separately enable automatic observation (one still every 10 seconds). Raw video is not sent. Open the camera?",
@@ -6411,7 +6411,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             IsArabic
                 ? "سيتم حذف كل المحادثات المحفوظة محليًا نهائيًا، بما فيها المحادثات السابقة. لا يمكن التراجع عن ذلك. هل تريد المتابعة؟"
                 : "This permanently deletes all locally saved conversations, including archived chats. This cannot be undone. Continue?",
@@ -6517,7 +6517,7 @@ public partial class MainWindow : Window
             try { record = AppRuntime.SkillPackageService.ImportZip(dialog.FileName, overwrite: false); }
             catch (SkillAlreadyExistsException duplicate)
             {
-                var answer = MessageBox.Show(
+                var answer = LayalDialogService.Show(
                     IsArabic ? $"توجد مهارة باسم {duplicate.SkillName}. هل تريد استبدال الحزمة الحالية؟" : $"A skill named {duplicate.SkillName} exists. Replace its package?",
                     IsArabic ? "مهارة موجودة" : "Skill already exists", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
@@ -6563,7 +6563,7 @@ public partial class MainWindow : Window
             try { record = await AppRuntime.SkillPackageService.ImportFromGitHubAsync(url, overwrite: false); }
             catch (SkillAlreadyExistsException duplicate)
             {
-                var answer = MessageBox.Show(this,
+                var answer = LayalDialogService.Show(this,
                     IsArabic ? $"توجد مهارة باسم {duplicate.SkillName}. هل تريد استبدال الحزمة الحالية؟" : $"A skill named {duplicate.SkillName} exists. Replace the existing package?",
                     IsArabic ? "مهارة موجودة" : "Skill already exists", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
@@ -7571,7 +7571,7 @@ public partial class MainWindow : Window
     {
         if (IsPrivateMemoryAccessBlocked()) return false;
         if (!MemoryEditorHasUnsavedChanges) return true;
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             IsArabic
                 ? "توجد تغييرات غير محفوظة في محرر الذاكرة. هل تريد تجاهلها والمتابعة؟"
                 : "The memory editor contains unsaved changes. Discard them and continue?",
@@ -7990,7 +7990,7 @@ public partial class MainWindow : Window
         }
 
         var shouldArchive = !note.IsArchived;
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             shouldArchive
                 ? (IsArabic
                     ? $"سيتم نقل «{note.Title}» إلى الأرشيف. لن تُحذف ويمكن استعادتها لاحقًا. هل تريد المتابعة؟"
@@ -8132,7 +8132,7 @@ public partial class MainWindow : Window
             var message = IsArabic
                 ? $"سيتم دمج {additions.Count} ملاحظة جديدة من الملف «{Path.GetFileName(dialog.FileName)}». سيتم تخطي {duplicateCount} ملاحظة بمعرّفات موجودة؛ لن تُستبدل أي ملاحظة حالية. تأكد من أنك تثق بمصدر الملف. محتوى JSON المستورد سيُحفظ مشفرًا محليًا.\n\n{previewTitles}\n\nهل تريد المتابعة؟"
                 : $"Merge {additions.Count} new notes from “{Path.GetFileName(dialog.FileName)}”. {duplicateCount} notes with existing IDs will be skipped; no existing note will be replaced. Only import a file you trust. Imported JSON content will be stored encrypted locally.\n\n{previewTitles}\n\nContinue?";
-            var confirm = MessageBox.Show(this, message,
+            var confirm = LayalDialogService.Show(this, message,
                 IsArabic ? "مراجعة دمج الذاكرة" : "Review memory merge",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
             if (confirm != MessageBoxResult.Yes) return;
@@ -8168,7 +8168,7 @@ public partial class MainWindow : Window
             DefaultExt = ".json"
         };
         if (dialog.ShowDialog(this) != true) return;
-        var confirm = MessageBox.Show(this,
+        var confirm = LayalDialogService.Show(this,
             IsArabic
                 ? "سيُصدّر JSON جميع الملاحظات النشطة والمؤرشفة دون تشفير. قد يحتوي على معلومات شخصية؛ احفظه محليًا في مكان موثوق ولا تشاركه إلا بعد مراجعته. هل تريد المتابعة؟"
                 : "This unencrypted JSON export includes all active and archived notes and may contain personal information. Store it in a trusted local location and review it before sharing. Continue?",
