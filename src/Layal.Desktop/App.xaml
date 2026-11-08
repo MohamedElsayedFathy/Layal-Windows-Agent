@@ -520,6 +520,62 @@
             <Setter Property="FontSize" Value="13" />
         </Style>
 
+        <Style TargetType="{x:Type DatePickerTextBox}">
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+        </Style>
+
+        <!-- Calendar sub-controls are separate visual elements inside the DatePicker popup. -->
+        <Style TargetType="{x:Type CalendarDayButton}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="MinWidth" Value="30" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.ListHover}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.ListSelected}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                </Trigger>
+                <Trigger Property="IsToday" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                </Trigger>
+                <Trigger Property="IsInactive" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Layal.Muted}" />
+                </Trigger>
+                <Trigger Property="IsBlackedOut" Value="True">
+                    <Setter Property="Opacity" Value="0.38" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type CalendarButton}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.ListHover}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="{x:Type DatePicker}">
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
