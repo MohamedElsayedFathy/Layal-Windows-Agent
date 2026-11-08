@@ -169,6 +169,7 @@ public sealed class GmailInboxWindow : Window
         DockPanel.SetDock(_summaryDraft, Dock.Right); footer.Children.Add(_summaryDraft);
         Grid.SetRow(footer, 4); root.Children.Add(footer);
         Content = root;
+        LayalWindowChrome.ApplyGlass(this, isArabic);
 
         _status.Text = _service.IsConnected
             ? (isArabic ? "متصل للقراءة فقط. اضغط تحديث لعرض الرسائل." : "Connected read-only. Press Refresh to list messages.")
