@@ -76,17 +76,29 @@
 
 ## Security hardening — Phase 2: skill package import hardening and workspace trust model
 
-**Status: skill-import implementation and adversarial tests are on this branch; the workspace section documents existing backup/restore safeguards.** This phase advances the open roadmap item for a threat model and automated security tests covering workspace/skill handling. The code changes in this PR are confined to `SkillPackageService` and its tests; `WorkspaceSnapshotService` is not modified here.
+**Status: merged into `main` by PR #133 (merge commit `4dc13a4570de31e22cf50e7f57ce19c26005cd7a`).** Skill-package ingestion hardening and its adversarial tests are complete. Workspace restore implementation was not changed in Phase 2 and is being addressed separately in Phase 3.
 
 - [x] Stage each selected skill ZIP once under the managed skill root, then validate and install those same staged bytes.
 - [x] Validate every local ZIP member, not only `SKILL.md`: reject rooted/traversal/Windows-special paths, reparse/special entries, duplicate or case-colliding paths, file/directory conflicts, ambiguous multiple `SKILL.md` files, more than 200 entries, files above 5 MiB, and expanded packages above 10 MiB.
 - [x] Revalidate managed package paths and their existing ancestor chain before reading skill content; reject index entries or package paths that escape the managed catalog or traverse reparse points.
 - [x] Add adversarial skill-import regressions for archive traversal, reserved ZIP paths and reserved skill metadata names (including index and read-record validation), alternate streams, ZIP path collisions, symbolic links, ambiguous metadata, entry-count and expanded-size limits, catalog ancestor links, and redirected package paths.
 - [x] Document trust boundaries, threats, mitigations, and residual risks in [the workspace/skills threat model](SECURITY_THREAT_MODEL_WORKSPACE_SKILLS_AR.md).
-- [ ] Pass Windows Release build, full C# suite, static project validation, and security/supply-chain workflows on the final PR head.
-- [ ] Run manual Windows acceptance for skill import/read and package replacement; separately verify the existing workspace backup/restore and reparse-point protections on Windows, then record the exact environment and evidence.
+- [x] Pass Windows Release build, full C# suite (610 passed, 0 failed, 0 skipped), static project validation, and security/supply-chain workflows on PR #133 head `e5404ead4ebb03ee4a173f7172c6105727ba499d`; Windows build run [42466831918](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42466831918), final acceptance run [42466832904](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42466832904), security run [42466831916](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42466831916).
+- [ ] Manually verify skill import/read and package replacement on a Windows desktop; manual screen-reader/High Contrast, multi-monitor DPI, signing, and legal gates remain independent.
 
 This phase does not enable skill script execution, provide a sandbox, or close release signing/license/manual-acceptance gates.
+
+## Security hardening — Phase 3: workspace backup and restore path safety
+
+**Status: automated implementation and CI complete on PR #134 head `c6d61643a55b32c3d9282c681e7231ba4f7fc71c`; manual Windows acceptance remains open.** Phase 3 closes a restore-path gap left explicit by Phase 2: an existing symbolic-link/junction ancestor could be followed when `RestoreWorkspaceFiles` created a missing workspace root before checking its ancestors.
+
+- [x] Remove the early workspace-root creation and validate every existing path component before creating the next directory component during restore.
+- [x] Create missing restore directories one component at a time, validate the created component, and track created directories for compensation rollback.
+- [x] Add Windows regression coverage proving restore refuses a linked ancestor before creating the missing workspace root, refuses a workspace root that is itself a reparse point (including a dangling directory symlink), still restores into a safe missing nested root, and removes newly created directories on a later-store rollback.
+- [x] Pass Windows Release build, 615 C# tests (0 failed, 0 skipped), static validation, and security/supply-chain workflows on PR #134 head `c6d61643a55b32c3d9282c681e7231ba4f7fc71c`; [Windows build run 42469874123](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42469874123), [final acceptance run 42469874062](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42469874062), and [security run 42469874061](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42469874061) all succeeded.
+- [ ] Add/record manual Windows evidence for a safe restore, refusal through a junction/symlink, no overwrite of existing files, and rollback on a failed store commit; multi-monitor/screen-reader acceptance, signing, and legal gates remain separate.
+
+The path checks reduce accidental and adversarial link traversal before directory creation, but they are not handle-relative filesystem operations and do not eliminate every same-user TOCTOU race. Backup JSON containing embedded file bytes remains unencrypted; signing and legal/release gates are unaffected.
 
 ## 0.6 — Native automation, API integrations, and safety hardening
 - [x] Read-only UI Automation inspection of a uniquely titled external window, with per-request approval, metadata-only output, a background worker, and an 8-second caller timeout; Windows runtime acceptance remains pending.
@@ -96,7 +108,7 @@ This phase does not enable skill script execution, provide a sandbox, or close r
 - [x] Verified API encoded-backslash guard and folded/literal skill-description parsing in Windows CI run 39765678941 on head fd2cb632: Release build passed and all 64 C# tests passed (0 failed, 0 skipped); this does not replace manual Windows acceptance.
 - [ ] General mouse/keyboard input, coordinate actions, screen capture approvals, and evidence-based post-action outcome checks.
 - [ ] More robust restricted process runner and recovery tests.
-- [ ] Threat model and automated security tests for workspace/skill handling.
+- [x] Phase 2 threat model and automated skill-import security tests; workspace restore path hardening continues in Phase 3.
 
 ## 0.7 — Voice and localization validation
 - [ ] STT/TTS providers and audio device controls.

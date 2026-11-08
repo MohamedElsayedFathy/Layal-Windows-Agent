@@ -333,6 +333,215 @@ public sealed class WorkspaceSnapshotServiceTests
     }
 
     [TestMethod]
+    public void RestoreRejectsLinkedAncestorBeforeCreatingMissingWorkspaceRoot()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores and Windows reparse-point behavior are validated on Windows.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source-workspace");
+        Directory.CreateDirectory(sourceWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "RESTORE_THROUGH_LINK_SENTINEL");
+
+        var backup = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi")),
+            sourceWorkspace).ExportJson(includeWorkspaceFileContents: true);
+
+        var realParent = Path.Combine(temp.Path, "real-parent");
+        var linkedParent = Path.Combine(temp.Path, "linked-parent");
+        Directory.CreateDirectory(realParent);
+        try
+        {
+            Directory.CreateSymbolicLink(linkedParent, realParent);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive("The test environment does not permit creation of a directory symbolic link.");
+        }
+
+        var requestedWorkspace = Path.Combine(linkedParent, "workspace");
+        var target = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi")),
+            requestedWorkspace);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => target.ImportJson(backup, restoreWorkspaceFiles: true));
+
+        Assert.IsFalse(Directory.Exists(Path.Combine(realParent, "workspace")),
+            "Restore must inspect existing ancestors before creating the missing workspace root.");
+        Assert.IsFalse(File.Exists(Path.Combine(realParent, "workspace", "report.txt")),
+            "No restored file may be written through a linked workspace ancestor.");
+    }
+
+    [TestMethod]
+    public void RestoreRejectsWorkspaceRootThatIsItselfAReparsePoint()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores and Windows reparse-point behavior are validated on Windows.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source-workspace");
+        Directory.CreateDirectory(sourceWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "RESTORE_ROOT_LINK_SENTINEL");
+        var backup = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi")),
+            sourceWorkspace).ExportJson(includeWorkspaceFileContents: true);
+
+        var outsideWorkspace = Path.Combine(temp.Path, "outside-workspace");
+        var linkedWorkspace = Path.Combine(temp.Path, "linked-workspace");
+        Directory.CreateDirectory(outsideWorkspace);
+        try
+        {
+            Directory.CreateSymbolicLink(linkedWorkspace, outsideWorkspace);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive("The test environment does not permit creation of a directory symbolic link.");
+        }
+
+        var target = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi")),
+            linkedWorkspace);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => target.ImportJson(backup, restoreWorkspaceFiles: true));
+        Assert.IsFalse(File.Exists(Path.Combine(outsideWorkspace, "report.txt")),
+            "A workspace root that is a reparse point must never receive restored files.");
+    }
+
+    [TestMethod]
+    public void RestoreRejectsDanglingDirectorySymbolicLinkAncestor()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores and Windows reparse-point behavior are validated on Windows.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source-workspace");
+        Directory.CreateDirectory(sourceWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "DANGLING_LINK_RESTORE_SENTINEL");
+        var backup = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi")),
+            sourceWorkspace).ExportJson(includeWorkspaceFileContents: true);
+
+        var missingLinkTarget = Path.Combine(temp.Path, "not-created-target");
+        var danglingParent = Path.Combine(temp.Path, "dangling-parent");
+        try
+        {
+            Directory.CreateSymbolicLink(danglingParent, missingLinkTarget);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive("The test environment does not permit creation of a directory symbolic link.");
+        }
+
+        var targetWorkspace = Path.Combine(danglingParent, "workspace");
+        var target = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi")),
+            targetWorkspace);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => target.ImportJson(backup, restoreWorkspaceFiles: true));
+        Assert.IsFalse(Directory.Exists(missingLinkTarget),
+            "Restore must reject the dangling reparse point instead of creating its missing target.");
+        Assert.IsFalse(Directory.Exists(targetWorkspace),
+            "Restore must not create a workspace directory through a dangling symbolic link.");
+    }
+
+    [TestMethod]
+    public void RestoreCreatesMissingWorkspaceAncestorsOneSafeDirectoryAtATime()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source-workspace");
+        Directory.CreateDirectory(sourceWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "SAFE_MISSING_ROOT_RESTORE");
+
+        var backup = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi")),
+            sourceWorkspace).ExportJson(includeWorkspaceFileContents: true);
+
+        var targetWorkspace = Path.Combine(temp.Path, "new-parent", "nested", "workspace");
+        var target = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi")),
+            targetWorkspace);
+
+        var result = target.ImportJson(backup, restoreWorkspaceFiles: true);
+
+        Assert.AreEqual(1, result.FilesRestored);
+        Assert.AreEqual("SAFE_MISSING_ROOT_RESTORE", File.ReadAllText(Path.Combine(targetWorkspace, "report.txt")));
+        Assert.IsTrue(Directory.Exists(Path.GetDirectoryName(targetWorkspace)!));
+    }
+
+    [TestMethod]
+    public void ImportFailureRollsBackNewlyCreatedWorkspaceRootAndAncestors()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source-workspace");
+        Directory.CreateDirectory(sourceWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "ROLLBACK_NEW_WORKSPACE_ROOT_SENTINEL");
+
+        var sourceTasks = new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi"));
+        sourceTasks.Upsert(new AgentTaskRecord
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Goal = "Restore into new workspace",
+            Status = "Completed",
+            Result = "Rollback if the second store fails"
+        });
+        var sourceMemory = new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi"));
+        _ = sourceMemory.Save("Imported memory", "This memory write is expected to fail.");
+        var backup = new WorkspaceSnapshotService(sourceTasks, sourceMemory, sourceWorkspace)
+            .ExportJson(includeWorkspaceFileContents: true);
+
+        var targetWorkspaceParent = Path.Combine(temp.Path, "created-workspace-parent");
+        var targetWorkspace = Path.Combine(targetWorkspaceParent, "nested", "workspace");
+        var targetTasks = new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi"));
+        var targetMemoryPath = Path.Combine(temp.Path, "target-memory.dpapi");
+        var targetMemory = new MemoryService(targetMemoryPath);
+        var retained = targetMemory.Save("Keep local", "Retain this note after the failed import.");
+        var target = new WorkspaceSnapshotService(targetTasks, targetMemory, targetWorkspace);
+
+        using (var memoryLease = new FileStream(
+                   targetMemoryPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            try
+            {
+                _ = target.ImportJson(backup, restoreWorkspaceFiles: true);
+                Assert.Fail("The locked DPAPI store should reject replacement.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Expected: task import, restored file, and newly created directories must roll back.
+            }
+        }
+
+        Assert.AreEqual(0, targetTasks.GetRecent(10).Count,
+            "The task imported before the memory-store failure must be rolled back.");
+        var remainingMemories = targetMemory.GetAll(includeArchived: true);
+        Assert.AreEqual(1, remainingMemories.Count);
+        Assert.AreEqual(retained.Id, remainingMemories.Single().Id);
+        Assert.IsFalse(Directory.Exists(targetWorkspace),
+            "The newly created workspace root must be removed when the later store commit fails.");
+        Assert.IsFalse(Directory.Exists(targetWorkspaceParent),
+            "All empty ancestors created solely for the failed restore must be removed.");
+        Assert.IsFalse(File.Exists(Path.Combine(targetWorkspace, "report.txt")),
+            "The restored file must be removed during compensating rollback.");
+    }
+
+    [TestMethod]
     public void ImportFailureInSecondProtectedStoreRollsBackFirstStoreAndRestoredFiles()
     {
         if (!OperatingSystem.IsWindows())
