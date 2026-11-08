@@ -81,9 +81,9 @@ internal static class LayalDialogService
         {
             CornerRadius = new CornerRadius(20),
             BorderThickness = new Thickness(1),
-            Padding = new Thickness(22),
-            Effect = highContrast ? null : ResourceEffect("Layal.CardShadow")
+            Padding = new Thickness(22)
         };
+        surface.SetResourceReference(Border.EffectProperty, "Layal.CardShadow");
         surface.SetResourceReference(Border.BackgroundProperty, highContrast ? "Layal.Panel" : "Layal.GlassFill");
         surface.SetResourceReference(Border.BorderBrushProperty, highContrast ? "Layal.Border" : "Layal.GlassBorderBrush");
 
