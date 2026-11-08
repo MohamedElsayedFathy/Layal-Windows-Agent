@@ -14,12 +14,16 @@ public sealed class SkillPackageService
     private readonly string _indexPath;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
     private static readonly Regex NamePattern = new("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$", RegexOptions.Compiled);
+    private const long MaximumArchiveBytes = 50L * 1024 * 1024;
+    private const int MaximumPackageEntries = 200;
+    private const long MaximumPackageEntryBytes = 5L * 1024 * 1024;
+    private const long MaximumPackageExpandedBytes = 10L * 1024 * 1024;
 
     public SkillPackageService(string root)
     {
         _root = Path.GetFullPath(root);
         Directory.CreateDirectory(_root);
-        EnsureNotReparsePoint(_root);
+        EnsureNoReparsePointsInExistingPath(_root);
         _indexPath = Path.Combine(_root, "skills-index.json");
     }
 
@@ -86,6 +90,15 @@ public sealed class SkillPackageService
 
             if (!string.Equals(expectedPackagePath, actualPackagePath, StringComparison.OrdinalIgnoreCase))
                 throw new JsonException("The skills index contains a package path outside its managed skill directory.");
+
+            try
+            {
+                EnsureNoReparsePointsInExistingPath(actualPackagePath);
+            }
+            catch (IOException ex)
+            {
+                throw new JsonException("The skills index references a package below a symbolic link or reparse point.", ex);
+            }
         }
 
         return records;
@@ -121,22 +134,77 @@ public sealed class SkillPackageService
 
     public SkillRecord ImportZip(string zipPath, bool overwrite)
     {
-        if (!File.Exists(zipPath)) throw new FileNotFoundException("Skill package was not found.", zipPath);
-        var info = new FileInfo(zipPath);
-        if (info.Length > 50 * 1024 * 1024) throw new InvalidOperationException("Skill package exceeds the 50 MB import limit.");
+        if (!File.Exists(zipPath))
+            throw new FileNotFoundException("Skill package was not found.", zipPath);
 
+        // Snapshot the user-selected archive once while its source handle is open. Validation and
+        // installation then consume exactly these staged bytes rather than reopening a mutable path.
+        var originalFileName = Path.GetFileName(zipPath);
+        var stagedArchive = StageImportArchive(zipPath);
+        try
+        {
+            return ImportStagedArchive(stagedArchive, originalFileName, overwrite);
+        }
+        finally
+        {
+            try { if (File.Exists(stagedArchive)) File.Delete(stagedArchive); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private string StageImportArchive(string sourcePath)
+    {
+        EnsureNoReparsePointsInExistingPath(_root);
+        var stagedPath = Path.Combine(_root, ".layal-skill-import-" + Guid.NewGuid().ToString("N") + ".zip");
+        try
+        {
+            using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var sourceLength = source.Length;
+            if (sourceLength <= 0 || sourceLength > MaximumArchiveBytes)
+                throw new InvalidOperationException("Skill package must be non-empty and no larger than the 50 MB import limit.");
+
+            using (var destination = new FileStream(
+                       stagedPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       bufferSize: 64 * 1024, options: FileOptions.WriteThrough))
+            {
+                var copied = CopyBounded(source, destination, MaximumArchiveBytes);
+                if (copied != sourceLength)
+                    throw new IOException("The skill package changed or ended unexpectedly while it was being staged.");
+                destination.Flush(flushToDisk: true);
+            }
+
+            EnsureNoReparsePointsInExistingPath(stagedPath);
+            return stagedPath;
+        }
+        catch
+        {
+            try { if (File.Exists(stagedPath)) File.Delete(stagedPath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            throw;
+        }
+    }
+
+    private SkillRecord ImportStagedArchive(string stagedArchive, string originalFileName, bool overwrite)
+    {
         string name;
         string description;
         string skillMarkdownEntry;
-        using (var archive = ZipFile.OpenRead(zipPath))
+        using (var archive = ZipFile.OpenRead(stagedArchive))
         {
+            ValidateSkillArchive(archive);
             var candidates = archive.Entries
-                .Where(e => e.FullName.Replace('\\', '/').Split('/').Last().Equals("SKILL.md", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(e => e.FullName.Count(c => c == '/' || c == '\\'))
-                .ThenBy(e => e.FullName.Length)
+                .Where(entry => !entry.FullName.EndsWith("/", StringComparison.Ordinal) &&
+                    entry.FullName.Split('/').Last().Equals("SKILL.md", StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            if (candidates.Count == 0) throw new InvalidOperationException("The ZIP does not contain a SKILL.md file.");
-            if (candidates[0].Length > 1_000_000) throw new InvalidOperationException("SKILL.md is unexpectedly large.");
+            if (candidates.Count == 0)
+                throw new InvalidOperationException("The ZIP does not contain a SKILL.md file.");
+            if (candidates.Count != 1)
+                throw new InvalidOperationException("The ZIP contains multiple SKILL.md files; import one unambiguous skill package at a time.");
+            if (candidates[0].Length > 1_000_000)
+                throw new InvalidOperationException("SKILL.md is unexpectedly large.");
+
             skillMarkdownEntry = candidates[0].FullName;
             var text = ReadEntryTextBounded(candidates[0], 1_000_000);
             (name, description) = ParseFrontMatter(text);
@@ -145,18 +213,18 @@ public sealed class SkillPackageService
         // Read strictly before changing any package files. A broken index must not be
         // interpreted as an empty catalog, or an existing package could be overwritten.
         var records = ReadIndexStrict();
-        var existing = records.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var existing = records.FirstOrDefault(skill => skill.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         if (existing is not null && !overwrite)
             throw new SkillAlreadyExistsException(name);
 
         var folder = Path.Combine(_root, name);
         Directory.CreateDirectory(folder);
-        EnsureNotReparsePoint(folder);
+        EnsureNoReparsePointsInExistingPath(folder);
 
         var target = Path.Combine(folder, name + ".zip");
         if (Directory.Exists(target))
             throw new IOException("The skill package target is a directory; refusing to replace it.");
-        EnsureNotReparsePoint(target);
+        EnsureNoReparsePointsInExistingPath(target);
 
         var temp = target + ".tmp-" + Guid.NewGuid().ToString("N");
         var previous = target + ".previous-" + Guid.NewGuid().ToString("N");
@@ -176,29 +244,35 @@ public sealed class SkillPackageService
             Name = name,
             Description = description,
             PackagePath = target,
-            OriginalFileName = Path.GetFileName(zipPath),
+            OriginalFileName = originalFileName,
             SkillMarkdownEntry = skillMarkdownEntry,
             ImportedAt = DateTimeOffset.Now,
-            ValidationStatus = "Metadata validated; package stored without extraction; scripts not executed"
+            ValidationStatus = "Archive paths and expanded sizes validated; package stored without extraction; scripts not executed"
         };
-        records.RemoveAll(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        records.RemoveAll(skill => skill.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         records.Add(record);
 
         try
         {
-            // Stage the package with a unique name. When replacing an existing package,
-            // retain the previous ZIP until the matching index update has succeeded.
-            File.Copy(zipPath, temp, overwrite: false);
+            EnsureNoReparsePointsInExistingPath(folder);
+            EnsureNoReparsePointsInExistingPath(stagedArchive);
             if (File.Exists(target) != hadPreviousPackage)
                 throw new IOException("The skill package changed during import; no package was replaced.");
+
             if (hadPreviousPackage)
             {
                 File.Move(target, previous, overwrite: false);
                 previousPackageMoved = true;
             }
 
+            // Both files are beneath the same managed root, so this is a same-volume move.
+            File.Move(stagedArchive, temp, overwrite: false);
+            if (!string.Equals(Path.GetPathRoot(Path.GetFullPath(temp)),
+                    Path.GetPathRoot(Path.GetFullPath(target)), StringComparison.OrdinalIgnoreCase))
+                throw new IOException("The staged skill package is not on the target volume.");
             File.Move(temp, target, overwrite: false);
             newPackageInstalled = true;
+            EnsureNoReparsePointsInExistingPath(target);
             SaveIndex(records);
         }
         catch (Exception importError)
@@ -242,6 +316,118 @@ public sealed class SkillPackageService
         return record;
     }
 
+    private static void ValidateSkillArchive(ZipArchive archive)
+    {
+        if (archive.Entries.Count is < 1 or > MaximumPackageEntries)
+            throw new InvalidOperationException("A skill package must contain between 1 and 200 entries.");
+
+        var paths = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        long declaredTotal = 0;
+        foreach (var entry in archive.Entries)
+        {
+            var rawPath = entry.FullName;
+            if (string.IsNullOrWhiteSpace(rawPath) || rawPath.Length > 2048 ||
+                rawPath.Contains('\\') || rawPath.StartsWith("/", StringComparison.Ordinal) ||
+                Path.IsPathRooted(rawPath) || Regex.IsMatch(rawPath, "^[A-Za-z]:"))
+                throw new InvalidOperationException("The skill archive contains an absolute, rooted, or non-canonical path.");
+
+            var isDirectory = rawPath.EndsWith("/", StringComparison.Ordinal);
+            var path = isDirectory ? rawPath[..^1] : rawPath;
+            if (path.Length == 0)
+                throw new InvalidOperationException("The skill archive contains an empty path.");
+            var segments = path.Split('/');
+            if (segments.Any(segment => segment.Length == 0 || segment is "." or ".."))
+                throw new InvalidOperationException("The skill archive contains an unsafe relative path.");
+
+            foreach (var segment in segments)
+            {
+                if (segment.Length > 255 || segment.EndsWith(" ", StringComparison.Ordinal) ||
+                    segment.EndsWith(".", StringComparison.Ordinal) ||
+                    segment.Any(character => character is '<' or '>' or '"' or '|' or '?' or '*' or ':' ||
+                        char.IsControl(character)))
+                    throw new InvalidOperationException("The skill archive contains a Windows-invalid path segment.");
+
+                var deviceStem = segment.Split('.')[0].TrimEnd(' ', '.');
+                if (deviceStem.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+                    deviceStem.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+                    deviceStem.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+                    deviceStem.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
+                    deviceStem.Equals("CONIN$", StringComparison.OrdinalIgnoreCase) ||
+                    deviceStem.Equals("CONOUT$", StringComparison.OrdinalIgnoreCase) ||
+                    IsNumberedWindowsDeviceName(deviceStem, "COM") ||
+                    IsNumberedWindowsDeviceName(deviceStem, "LPT"))
+                    throw new InvalidOperationException("The skill archive contains a reserved Windows device name.");
+            }
+
+            var unixMode = (entry.ExternalAttributes >> 16) & 0xF000;
+            if (unixMode == 0xA000)
+                throw new InvalidOperationException("Symbolic links are not allowed in imported skills.");
+            if (unixMode is not 0 and not 0x8000 and not 0x4000)
+                throw new InvalidOperationException("The skill archive contains an unsupported special filesystem entry.");
+            if (isDirectory && entry.Length != 0)
+                throw new InvalidOperationException("A skill archive directory entry cannot contain file data.");
+            if (unixMode == 0x4000 && !isDirectory || unixMode == 0x8000 && isDirectory)
+                throw new InvalidOperationException("The skill archive has inconsistent file/directory metadata.");
+
+            if (!isDirectory && entry.Length > MaximumPackageEntryBytes)
+                throw new InvalidOperationException("A skill package file exceeds the 5 MB per-file expanded-size limit.");
+            declaredTotal += entry.Length;
+            if (declaredTotal > MaximumPackageExpandedBytes)
+                throw new InvalidOperationException("The skill package exceeds the 10 MB total expanded-size limit.");
+
+            if (!paths.TryAdd(path, isDirectory))
+                throw new InvalidOperationException("The skill archive contains duplicate or case-colliding paths.");
+        }
+
+        foreach (var pair in paths)
+        {
+            var segments = pair.Key.Split('/');
+            for (var index = 1; index < segments.Length; index++)
+            {
+                var parent = string.Join("/", segments.Take(index));
+                if (paths.TryGetValue(parent, out var parentIsDirectory) && !parentIsDirectory)
+                    throw new InvalidOperationException("A skill archive file is also used as a parent directory.");
+            }
+
+            if (!pair.Value && paths.Keys.Any(candidate =>
+                    candidate.StartsWith(pair.Key + "/", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("A skill archive file conflicts with a nested package path.");
+        }
+
+        long actualTotal = 0;
+        foreach (var entry in archive.Entries.Where(item => !item.FullName.EndsWith("/", StringComparison.Ordinal)))
+        {
+            using var input = entry.Open();
+            var remaining = MaximumPackageExpandedBytes - actualTotal;
+            var actualLength = CopyBounded(input, Stream.Null, Math.Min(MaximumPackageEntryBytes, remaining));
+            if (actualLength != entry.Length)
+                throw new InvalidOperationException("A skill archive entry's expanded length does not match its ZIP metadata.");
+            actualTotal += actualLength;
+        }
+    }
+
+    private static bool IsNumberedWindowsDeviceName(string value, string prefix) =>
+        value.Length == prefix.Length + 1 &&
+        value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+        value[^1] is >= '1' and <= '9';
+
+    private string ResolveManagedPackagePath(SkillRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        if (string.IsNullOrWhiteSpace(record.Name) || !NamePattern.IsMatch(record.Name))
+            throw new InvalidOperationException("The skill record has an invalid managed package name.");
+
+        var expectedPath = Path.GetFullPath(Path.Combine(_root, record.Name, record.Name + ".zip"));
+        var actualPath = Path.GetFullPath(record.PackagePath ?? string.Empty);
+        if (!string.Equals(expectedPath, actualPath, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The skill record package path is outside its managed skill directory.");
+
+        EnsureNoReparsePointsInExistingPath(expectedPath);
+        if (!File.Exists(expectedPath))
+            throw new FileNotFoundException("Imported skill package is missing.", expectedPath);
+        return expectedPath;
+    }
+
     public async Task<SkillRecord> ImportFromGitHubAsync(string sourceUrl, bool overwrite, CancellationToken cancellationToken = default)
     {
         var source = ParseGitHubUrl(sourceUrl);
@@ -276,16 +462,24 @@ public sealed class SkillPackageService
 
     public string ReadSkillMarkdown(SkillRecord record, int maxCharacters = 12000)
     {
-        if (!File.Exists(record.PackagePath)) throw new FileNotFoundException("Imported skill package is missing.", record.PackagePath);
-        using var archive = ZipFile.OpenRead(record.PackagePath);
+        var packagePath = ResolveManagedPackagePath(record);
+        using var archive = ZipFile.OpenRead(packagePath);
+        ValidateSkillArchive(archive);
         var candidates = archive.Entries
-            .Where(e => e.FullName.Replace('\\', '/').Split('/').Last().Equals("SKILL.md", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(e => e.FullName.Count(c => c == '/' || c == '\\'))
-            .ThenBy(e => e.FullName.Length)
+            .Where(entry => !entry.FullName.EndsWith("/", StringComparison.Ordinal) &&
+                entry.FullName.Split('/').Last().Equals("SKILL.md", StringComparison.OrdinalIgnoreCase))
             .ToList();
-        var selected = candidates.FirstOrDefault(e => string.Equals(e.FullName, record.SkillMarkdownEntry, StringComparison.Ordinal)) ?? candidates.FirstOrDefault();
-        if (selected is null) throw new InvalidOperationException("No SKILL.md was found in the stored skill package.");
+        var selected = candidates.SingleOrDefault(entry =>
+            string.Equals(entry.FullName, record.SkillMarkdownEntry, StringComparison.Ordinal));
+        if (selected is null)
+            throw new InvalidOperationException("The stored skill package no longer contains its indexed SKILL.md entry.");
+
         var content = ReadEntryTextBounded(selected, 1_000_000);
+        var (packageName, packageDescription) = ParseFrontMatter(content);
+        if (!string.Equals(packageName, record.Name, StringComparison.Ordinal) ||
+            !string.Equals(packageDescription, record.Description, StringComparison.Ordinal))
+            throw new InvalidOperationException("The stored skill package metadata no longer matches the installed catalog entry.");
+
         return content.Length <= maxCharacters ? content : content[..maxCharacters] + "\n[skill text truncated by Layal]";
     }
 
@@ -545,19 +739,56 @@ public sealed class SkillPackageService
         ((value[0] == '"' && value[^1] == '"') || (value[0] == '\'' && value[^1] == '\''))
         ? value[1..^1] : value;
 
-    private static void EnsureNotReparsePoint(string path)
+    private static void EnsureNoReparsePointsInExistingPath(string path)
     {
-        if (!File.Exists(path) && !Directory.Exists(path)) return;
-        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
-            throw new IOException("The skill catalog contains a symbolic link or reparse point; refusing to follow it.");
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath)
+            ?? throw new IOException("The skill package path has no filesystem root.");
+        var current = root;
+        var segments = fullPath[root.Length..].Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries);
+
+        for (var index = 0; index < segments.Length; index++)
+        {
+            current = Path.Combine(current, segments[index]);
+            FileAttributes attributes;
+            try
+            {
+                attributes = File.GetAttributes(current);
+            }
+            catch (FileNotFoundException)
+            {
+                break;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                break;
+            }
+
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("The skill catalog path contains a symbolic link or reparse point; refusing to follow it.");
+            if (index < segments.Length - 1 && (attributes & FileAttributes.Directory) == 0)
+                throw new IOException("A skill catalog path component is not a directory.");
+        }
     }
 
     private void SaveIndex(List<SkillRecord> records)
     {
+        EnsureNoReparsePointsInExistingPath(_root);
+        EnsureNoReparsePointsInExistingPath(_indexPath);
         var temp = _indexPath + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
-            File.WriteAllText(temp, JsonSerializer.Serialize(records, JsonOptions));
+            using (var output = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(output))
+            {
+                writer.Write(JsonSerializer.Serialize(records, JsonOptions));
+                writer.Flush();
+                output.Flush(flushToDisk: true);
+            }
+
+            EnsureNoReparsePointsInExistingPath(_indexPath);
             if (File.Exists(_indexPath)) File.Replace(temp, _indexPath, null);
             else File.Move(temp, _indexPath);
         }
