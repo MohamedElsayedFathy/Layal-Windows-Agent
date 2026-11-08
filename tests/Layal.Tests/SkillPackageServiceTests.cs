@@ -345,6 +345,38 @@ public sealed class SkillPackageServiceTests
         Assert.AreEqual(0, handler.RequestedUris.Count);
     }
 
+
+    [TestMethod]
+    public void ExistingSkillIndexRecordsWithoutDigestFieldsRemainReadable()
+    {
+        using var temp = new TestTempDirectory();
+        var root = System.IO.Path.Combine(temp.Path, "installed");
+        var zipPath = CreateSkillZip(temp.Path, "legacy-skill", "Legacy skill.", "legacy body");
+        var service = new SkillPackageService(root);
+        var imported = service.ImportZip(zipPath, overwrite: false);
+
+        // Simulate the index shape written by versions before Phase 4.
+        var legacyRecord = new
+        {
+            imported.Name,
+            imported.Description,
+            imported.PackagePath,
+            imported.OriginalFileName,
+            imported.SkillMarkdownEntry,
+            imported.ImportedAt,
+            imported.ValidationStatus
+        };
+        File.WriteAllText(
+            System.IO.Path.Combine(root, "skills-index.json"),
+            System.Text.Json.JsonSerializer.Serialize(new[] { legacyRecord }));
+
+        var reloaded = new SkillPackageService(root).GetInstalled().Single();
+
+        Assert.AreEqual("local", reloaded.SourceType);
+        Assert.AreEqual(string.Empty, reloaded.PackageSha256);
+        StringAssert.Contains(new SkillPackageService(root).ReadSkillMarkdown(reloaded), "legacy body");
+    }
+
     [TestMethod]
     public void ReadSkillMarkdownRejectsPackageBytesThatDoNotMatchRecordedDigest()
     {
