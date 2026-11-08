@@ -1241,7 +1241,7 @@ public sealed class MainWindowVisualSmokeTests
         var dockItems = window.FindName("DockNavigationItems") as StackPanel
             ?? throw new InvalidOperationException("DockNavigationItems was not found.");
         Assert.AreEqual(expectedWritingDirection, dockItems.FlowDirection,
-            $"The bottom navigation dock must follow the selected writing direction for {language}.");
+            $"The navigation rail must follow the selected writing direction for {language}.");
         var historyPanel = window.FindName("ChatHistoryPanel") as Border
             ?? throw new InvalidOperationException("ChatHistoryPanel was not found.");
         Assert.AreEqual(expectedWritingDirection, historyPanel.FlowDirection,
@@ -1588,9 +1588,9 @@ public sealed class MainWindowVisualSmokeTests
             Assert.AreEqual(166, expandedDock.Width, 0.1,
                 "The expanded rail must restore the full navigation width.");
             dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
-            Assert.AreSame(chatTab, tabs.SelectedItem, "The first navigation destination must return to the primary chat page.");
+            Assert.AreSame(chatTab, tabs.SelectedItem, "The first rail destination must return to the primary chat page.");
             dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));
-            Assert.AreSame(homeTab, tabs.SelectedItem, "The overview destination must open the separate dashboard.");
+            Assert.AreSame(homeTab, tabs.SelectedItem, "The overview rail destination must open the separate dashboard.");
             Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
                 "Page navigation must not unexpectedly collapse the left navigation rail.");
             Assert.AreEqual(166, expandedDock.Width, 0.1);
