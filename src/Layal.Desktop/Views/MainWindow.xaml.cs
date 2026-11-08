@@ -2622,18 +2622,23 @@ public partial class MainWindow : Window
             if (!ChatInput.IsEnabled || !ChatInput.IsVisible)
                 return;
 
+            if (!IsActive)
+                Activate();
+
             MainTabs.UpdateLayout();
+            ChatInput.UpdateLayout();
             ChatInput.BringIntoView();
+            FocusManager.SetFocusedElement(this, ChatInput);
             Keyboard.Focus(ChatInput);
             ChatInput.Focus();
             ChatInput.CaretIndex = ChatInput.Text.Length;
         }
 
         // Selecting a TabItem replaces the content presenter asynchronously. Focus once now
-        // and once after WPF's Loaded/layout work so keyboard navigation lands in the editor,
-        // not on the top-level Window automation peer.
+        // and once after the current keyboard input has completed so WPF cannot restore focus
+        // to the original Window source at the end of PreviewKeyDown processing.
         FocusComposer();
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(FocusComposer));
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(FocusComposer));
     }
 
     private void DockChatButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ChatTab);
