@@ -18,9 +18,23 @@ public sealed class SkillPackageService
     private const int MaximumPackageEntries = 200;
     private const long MaximumPackageEntryBytes = 5L * 1024 * 1024;
     private const long MaximumPackageExpandedBytes = 10L * 1024 * 1024;
+    private static readonly HttpClient SharedGitHubHttpClient = CreateGitHubHttpClient();
+    private readonly HttpClient _githubHttpClient;
 
-    public SkillPackageService(string root)
+    private static HttpClient CreateGitHubHttpClient()
     {
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("LayalSkillImporter/0.4");
+        return client;
+    }
+
+    public SkillPackageService(string root) : this(root, SharedGitHubHttpClient) { }
+
+    public SkillPackageService(string root, HttpClient githubHttpClient)
+    {
+        _githubHttpClient = githubHttpClient ?? throw new ArgumentNullException(nameof(githubHttpClient));
+        if (_githubHttpClient.DefaultRequestHeaders.UserAgent.Count == 0)
+            _githubHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("LayalSkillImporter/0.4");
         _root = Path.GetFullPath(root);
         // Check existing ancestors before Directory.CreateDirectory so a linked parent cannot
         // cause the constructor itself to create the managed catalog outside its intended path.
@@ -75,6 +89,8 @@ public sealed class SkillPackageService
             var skillName = record.Name;
             if (!IsValidSkillName(skillName))
                 throw new JsonException("The skills index contains a missing or invalid skill name.");
+
+            ValidateSkillRecordProvenance(record);
 
             if (!names.Add(skillName))
                 throw new JsonException("The skills index contains duplicate skill names.");
@@ -135,7 +151,10 @@ public sealed class SkillPackageService
         catch (System.Security.SecurityException) { }
     }
 
-    public SkillRecord ImportZip(string zipPath, bool overwrite)
+    public SkillRecord ImportZip(string zipPath, bool overwrite) =>
+        ImportZipInternal(zipPath, overwrite, sourceProvenance: null);
+
+    private SkillRecord ImportZipInternal(string zipPath, bool overwrite, GitHubSourceProvenance? sourceProvenance)
     {
         if (!File.Exists(zipPath))
             throw new FileNotFoundException("Skill package was not found.", zipPath);
@@ -146,7 +165,7 @@ public sealed class SkillPackageService
         var stagedArchive = StageImportArchive(zipPath);
         try
         {
-            return ImportStagedArchive(stagedArchive, originalFileName, overwrite);
+            return ImportStagedArchive(stagedArchive, originalFileName, overwrite, sourceProvenance);
         }
         finally
         {
@@ -189,7 +208,11 @@ public sealed class SkillPackageService
         }
     }
 
-    private SkillRecord ImportStagedArchive(string stagedArchive, string originalFileName, bool overwrite)
+    private SkillRecord ImportStagedArchive(
+        string stagedArchive,
+        string originalFileName,
+        bool overwrite,
+        GitHubSourceProvenance? sourceProvenance)
     {
         string name;
         string description;
@@ -250,7 +273,17 @@ public sealed class SkillPackageService
             OriginalFileName = originalFileName,
             SkillMarkdownEntry = skillMarkdownEntry,
             ImportedAt = DateTimeOffset.Now,
-            ValidationStatus = "Archive paths and expanded sizes validated; package stored without extraction; scripts not executed"
+            PackageSha256 = ComputeSha256Hex(stagedArchive),
+            SourceType = sourceProvenance is null ? "local" : "github",
+            SourceRepository = sourceProvenance?.Repository,
+            SourceRef = sourceProvenance?.RefName,
+            SourceCommitSha = sourceProvenance?.CommitSha,
+            SourceArchiveSha256 = sourceProvenance?.ArchiveSha256,
+            SourceSkillPath = sourceProvenance?.SkillPath,
+            SourceResolvedAtUtc = sourceProvenance?.ResolvedAtUtc,
+            ValidationStatus = sourceProvenance is null
+                ? "Archive paths and expanded sizes validated; package SHA-256 recorded; scripts not executed"
+                : $"Archive paths validated; GitHub revision {sourceProvenance.CommitSha} pinned; package SHA-256 recorded; scripts not executed"
         };
         records.RemoveAll(skill => skill.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         records.Add(record);
@@ -422,6 +455,49 @@ public sealed class SkillPackageService
         NamePattern.IsMatch(value) &&
         !IsReservedWindowsDeviceName(value);
 
+    private static bool IsSha256Hash(string? value) =>
+        value is { Length: 64 } && value.All(Uri.IsHexDigit);
+
+    private static void ValidateSkillRecordProvenance(SkillRecord record)
+    {
+        if (!string.IsNullOrWhiteSpace(record.PackageSha256) && !IsSha256Hash(record.PackageSha256))
+            throw new JsonException("The skills index contains an invalid package SHA-256 digest.");
+
+        bool HasText(string? value) => !string.IsNullOrWhiteSpace(value);
+        if (string.Equals(record.SourceType, "local", StringComparison.Ordinal))
+        {
+            if (HasText(record.SourceRepository) || HasText(record.SourceRef) ||
+                HasText(record.SourceCommitSha) || HasText(record.SourceArchiveSha256) ||
+                HasText(record.SourceSkillPath) || record.SourceResolvedAtUtc is not null)
+                throw new JsonException("The skills index contains GitHub provenance fields on a local skill record.");
+            return;
+        }
+
+        if (!string.Equals(record.SourceType, "github", StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(record.PackageSha256) ||
+            string.IsNullOrWhiteSpace(record.SourceRepository) ||
+            !Regex.IsMatch(record.SourceRepository, "^[A-Za-z0-9-]{1,100}/[A-Za-z0-9._-]{1,100}$", RegexOptions.CultureInvariant) ||
+            string.IsNullOrWhiteSpace(record.SourceRef) || record.SourceRef.Length > 255 ||
+            record.SourceRef.Any(char.IsControl) ||
+            record.SourceCommitSha is not { Length: 40 } ||
+            !record.SourceCommitSha.All(Uri.IsHexDigit) ||
+            !IsSha256Hash(record.SourceArchiveSha256) ||
+            record.SourceSkillPath is null || record.SourceSkillPath.Length > 2048 ||
+            record.SourceSkillPath.StartsWith("/", StringComparison.Ordinal) ||
+            record.SourceSkillPath.Contains('\\') ||
+            (!string.IsNullOrEmpty(record.SourceSkillPath) &&
+             record.SourceSkillPath.Split('/').Any(segment => segment.Length == 0 || segment is "." or "..")) ||
+            record.SourceResolvedAtUtc is null ||
+            record.SourceResolvedAtUtc.Value.Offset != TimeSpan.Zero)
+            throw new JsonException("The skills index contains incomplete or invalid GitHub provenance metadata.");
+    }
+
+    private static string ComputeSha256Hex(string path)
+    {
+        using var input = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(input));
+    }
+
     private string ResolveManagedPackagePath(SkillRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
@@ -442,38 +518,44 @@ public sealed class SkillPackageService
     public async Task<SkillRecord> ImportFromGitHubAsync(string sourceUrl, bool overwrite, CancellationToken cancellationToken = default)
     {
         var source = ParseGitHubUrl(sourceUrl);
-        var defaultBranch = source.Branch ?? await TryGetDefaultBranchAsync(source.Owner, source.Repository, cancellationToken);
-        var branches = source.Branch is null
-            ? new[] { defaultBranch, "main", "master" }.Where(b => !string.IsNullOrWhiteSpace(b)).Select(b => b!).Distinct(StringComparer.Ordinal).ToArray()
-            : new[] { source.Branch! };
-        Exception? lastError = null;
-        foreach (var branch in branches.Distinct(StringComparer.Ordinal))
+        var requestedRef = source.Branch ?? await GetGitHubDefaultBranchAsync(source.Owner, source.Repository, cancellationToken);
+        var commitSha = await ResolveGitHubCommitShaAsync(source.Owner, source.Repository, requestedRef, cancellationToken);
+
+        var rawTemp = Path.Combine(Path.GetTempPath(), "layal-github-" + Guid.NewGuid().ToString("N") + ".zip");
+        var filteredTemp = Path.Combine(Path.GetTempPath(), "layal-skill-" + Guid.NewGuid().ToString("N") + ".zip");
+        try
         {
-            var rawTemp = Path.Combine(Path.GetTempPath(), "layal-github-" + Guid.NewGuid().ToString("N") + ".zip");
-            var filteredTemp = Path.Combine(Path.GetTempPath(), "layal-skill-" + Guid.NewGuid().ToString("N") + ".zip");
-            try
-            {
-                await DownloadGitHubArchiveAsync(source.Owner, source.Repository, branch, rawTemp, cancellationToken);
-                FilterSkillArchive(rawTemp, filteredTemp, source.SkillDirectory);
-                return ImportZip(filteredTemp, overwrite);
-            }
-            catch (HttpRequestException ex)
-            {
-                lastError = ex;
-                if (source.Branch is not null) throw;
-            }
-            finally
-            {
-                try { if (File.Exists(rawTemp)) File.Delete(rawTemp); } catch { }
-                try { if (File.Exists(filteredTemp)) File.Delete(filteredTemp); } catch { }
-            }
+            // Download by the resolved commit SHA, never by a branch name that can move.
+            await DownloadGitHubArchiveAsync(source.Owner, source.Repository, commitSha, rawTemp, cancellationToken);
+            var sourceArchiveSha256 = ComputeSha256Hex(rawTemp);
+            var selectedSkillPath = FilterSkillArchive(rawTemp, filteredTemp, source.SkillDirectory);
+            var provenance = new GitHubSourceProvenance(
+                $"{source.Owner}/{source.Repository}",
+                requestedRef,
+                commitSha,
+                sourceArchiveSha256,
+                selectedSkillPath,
+                DateTimeOffset.UtcNow);
+            return ImportZipInternal(filteredTemp, overwrite, provenance);
         }
-        throw new InvalidOperationException("Could not download the public GitHub repository on main or master branch.", lastError);
+        finally
+        {
+            try { if (File.Exists(rawTemp)) File.Delete(rawTemp); } catch { }
+            try { if (File.Exists(filteredTemp)) File.Delete(filteredTemp); } catch { }
+        }
     }
 
     public string ReadSkillMarkdown(SkillRecord record, int maxCharacters = 12000)
     {
         var packagePath = ResolveManagedPackagePath(record);
+        if (!string.IsNullOrWhiteSpace(record.PackageSha256))
+        {
+            if (!IsSha256Hash(record.PackageSha256))
+                throw new InvalidOperationException("The installed skill package has an invalid SHA-256 catalog value.");
+            var actualPackageSha256 = ComputeSha256Hex(packagePath);
+            if (!string.Equals(actualPackageSha256, record.PackageSha256, StringComparison.OrdinalIgnoreCase))
+                throw new IOException("The installed skill package no longer matches its recorded SHA-256 digest.");
+        }
         using var archive = ZipFile.OpenRead(packagePath);
         ValidateSkillArchive(archive);
         var candidates = archive.Entries
@@ -494,35 +576,77 @@ public sealed class SkillPackageService
         return content.Length <= maxCharacters ? content : content[..maxCharacters] + "\n[skill text truncated by Layal]";
     }
 
-    private static async Task<string?> TryGetDefaultBranchAsync(string owner, string repository, CancellationToken cancellationToken)
+    private async Task<string> GetGitHubDefaultBranchAsync(string owner, string repository, CancellationToken cancellationToken)
     {
-        try
-        {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("LayalSkillImporter", "0.3"));
-            using var response = await client.GetAsync($"https://api.github.com/repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}", cancellationToken);
-            if (!response.IsSuccessStatusCode) return null;
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            if (document.RootElement.TryGetProperty("default_branch", out var branch) && branch.ValueKind == JsonValueKind.String)
-                return branch.GetString();
-        }
-        catch { /* Fall back to common branch names if repository metadata cannot be read. */ }
-        return null;
+        var url = $"https://api.github.com/repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}";
+        using var response = await _githubHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(
+                $"GitHub repository metadata request failed with HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).",
+                null,
+                response.StatusCode);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        if (!document.RootElement.TryGetProperty("default_branch", out var branchElement) ||
+            branchElement.ValueKind != JsonValueKind.String ||
+            string.IsNullOrWhiteSpace(branchElement.GetString()))
+            throw new InvalidDataException("GitHub repository metadata did not contain a usable default branch.");
+
+        return branchElement.GetString()!;
     }
 
-    private static async Task DownloadGitHubArchiveAsync(string owner, string repository, string branch, string destination, CancellationToken cancellationToken)
+    private async Task<string> ResolveGitHubCommitShaAsync(
+        string owner,
+        string repository,
+        string requestedRef,
+        CancellationToken cancellationToken)
     {
-        if (branch.Contains('/') || branch.Contains('\\'))
-            throw new InvalidOperationException("For branches containing '/', use a GitHub directory URL whose branch is the first segment after tree/ or blob/.");
-        var url = $"https://codeload.github.com/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}/zip/refs/heads/{Uri.EscapeDataString(branch)}";
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("LayalSkillImporter", "0.3"));
-        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (string.IsNullOrWhiteSpace(requestedRef) || requestedRef.Length > 255 || requestedRef.Any(char.IsControl))
+            throw new InvalidOperationException("The selected GitHub branch or ref is invalid.");
+
+        var url =
+            $"https://api.github.com/repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}/commits/{Uri.EscapeDataString(requestedRef)}";
+        using var response = await _githubHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"GitHub archive download failed with HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).");
+            throw new HttpRequestException(
+                $"GitHub could not resolve the selected ref to a commit (HTTP {(int)response.StatusCode}: {response.ReasonPhrase}).",
+                null,
+                response.StatusCode);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        if (!document.RootElement.TryGetProperty("sha", out var shaElement) ||
+            shaElement.ValueKind != JsonValueKind.String)
+            throw new InvalidDataException("GitHub commit resolution did not return a commit SHA.");
+
+        var commitSha = shaElement.GetString();
+        if (commitSha is null || !Regex.IsMatch(commitSha, "^[0-9a-fA-F]{40}$", RegexOptions.CultureInvariant))
+            throw new InvalidDataException("GitHub returned an invalid commit SHA.");
+
+        return commitSha.ToLowerInvariant();
+    }
+
+    private async Task DownloadGitHubArchiveAsync(
+        string owner,
+        string repository,
+        string commitSha,
+        string destination,
+        CancellationToken cancellationToken)
+    {
+        if (!Regex.IsMatch(commitSha, "^[0-9a-f]{40}$", RegexOptions.CultureInvariant))
+            throw new InvalidOperationException("GitHub archive download requires a resolved 40-character commit SHA.");
+
+        var url = $"https://codeload.github.com/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}/zip/{commitSha}";
+        using var response = await _githubHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(
+                $"GitHub archive download failed with HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).",
+                null,
+                response.StatusCode);
         if (response.Content.Headers.ContentLength is > 50 * 1024 * 1024)
             throw new InvalidOperationException("GitHub skill archive exceeds the 50 MB download limit.");
+
         await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
         await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         var buffer = new byte[81920];
@@ -532,12 +656,13 @@ public sealed class SkillPackageService
             var read = await input.ReadAsync(buffer.AsMemory(), cancellationToken);
             if (read == 0) break;
             total += read;
-            if (total > 50L * 1024 * 1024) throw new InvalidOperationException("GitHub skill archive exceeded the 50 MB download limit.");
+            if (total > 50L * 1024 * 1024)
+                throw new InvalidOperationException("GitHub skill archive exceeded the 50 MB download limit.");
             await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
         }
     }
 
-    private static void FilterSkillArchive(string sourceZip, string destinationZip, string? desiredDirectory)
+    private static string FilterSkillArchive(string sourceZip, string destinationZip, string? desiredDirectory)
     {
         using var source = ZipFile.OpenRead(sourceZip);
         var entries = source.Entries.Where(e => !string.IsNullOrEmpty(e.FullName)).ToList();
@@ -608,6 +733,8 @@ public sealed class SkillPackageService
             if (actualTotal > 10L * 1024 * 1024)
                 throw new InvalidOperationException("The selected skill exceeds the 10 MB extracted-size limit.");
         }
+
+        return skillDirectory;
     }
 
     /// <summary>Read a compressed entry with a bound on bytes actually expanded, not only its ZIP header.</summary>
@@ -644,8 +771,14 @@ public sealed class SkillPackageService
 
     private static GitHubSkillSource ParseGitHubUrl(string sourceUrl)
     {
-        if (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Enter an HTTPS GitHub URL in repository, tree directory, or blob SKILL.md format.");
+        if (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps ||
+            !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) ||
+            !uri.IsDefaultPort ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            !string.IsNullOrEmpty(uri.Query) ||
+            !string.IsNullOrEmpty(uri.Fragment))
+            throw new InvalidOperationException("Enter a clean HTTPS GitHub URL without credentials, custom ports, query strings, or fragments.");
         var segments = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.UnescapeDataString).ToArray();
         if (segments.Length < 2 || segments.Any(s => s is "." or "..")) throw new InvalidOperationException("The GitHub URL does not contain an owner and repository.");
         var owner = segments[0];
@@ -669,6 +802,14 @@ public sealed class SkillPackageService
     }
 
     private sealed record GitHubSkillSource(string Owner, string Repository, string? Branch, string? SkillDirectory);
+
+    private sealed record GitHubSourceProvenance(
+        string Repository,
+        string RefName,
+        string CommitSha,
+        string ArchiveSha256,
+        string SkillPath,
+        DateTimeOffset ResolvedAtUtc);
 
     private static (string Name, string Description) ParseFrontMatter(string text)
     {

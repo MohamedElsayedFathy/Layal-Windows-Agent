@@ -139,3 +139,17 @@ The path checks reduce accidental and adversarial link traversal before director
 - [ ] Full tests and security review.
 - [ ] Installer, update/recovery, and uninstall tests.
 - [ ] Verified release artifacts and user documentation.
+
+
+## Security hardening — Phase 4: immutable GitHub skill source and package integrity
+
+**Scope:** close the source-revision gap recorded by the Phase 2 threat model without enabling script execution or claiming publisher identity.
+
+- [x] Resolve a user-selected GitHub branch (or repository default branch) through GitHub's commit API and download the archive using the returned immutable 40-character commit SHA; fail closed instead of guessing `main` or `master`.
+- [x] Persist the repository, requested ref, resolved commit SHA, selected skill directory, resolution timestamp, SHA-256 of the downloaded repository archive, and SHA-256 of the managed skill package.
+- [x] Verify the managed package SHA-256 before reading `SKILL.md`; preserve compatibility with older local index records that predate digest fields.
+- [x] Reject GitHub import URLs containing credentials, custom ports, query strings, or fragments; add deterministic HTTP-handler tests for commit resolution, default-branch selection, fail-closed behavior, provenance persistence, and tamper detection.
+- [ ] Pass Windows Release build, full C# regression suite, static validation, and security/supply-chain workflows on the same PR head.
+- [ ] Manually verify an import from a public GitHub repository and inspect the recorded commit/digest fields on a Windows desktop.
+
+The commit SHA makes the fetched Git tree reproducible for that import; the recorded archive digest identifies the exact archive bytes received, and the package digest detects later local modification. These values are not a GitHub publisher signature, provenance attestation, or guarantee that the skill's instructions are safe. Skill Markdown remains untrusted input and skill scripts remain unexecuted.
