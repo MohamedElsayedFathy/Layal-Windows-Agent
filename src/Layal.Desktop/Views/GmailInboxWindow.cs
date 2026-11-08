@@ -213,7 +213,7 @@ public sealed class GmailInboxWindow : Window
         try { clientId = GmailReadOnlyService.ValidateOAuthClientId(_clientId.Text); }
         catch (Exception ex) { _status.Text = ex.Message; return; }
 
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             _isArabic
                 ? "ستفتح صفحة Google الرسمية. ستطلب ليال gmail.readonly فقط. الرمز المتجدد سيُخزن مشفرًا محليًا. لا إرسال أو حذف أو تعديل للبريد، ولا مشاركة مع AI قبل إضافته لمسودة الشات ثم الضغط على إرسال. هل تريد المتابعة؟"
                 : "Google's official sign-in page will open. Layal requests gmail.readonly only. The refresh token is stored locally encrypted. Email cannot be sent, deleted, or modified; content is not shared with AI until it is added to the chat draft and you press Send. Continue?",
@@ -360,7 +360,7 @@ public sealed class GmailInboxWindow : Window
             : (_isArabic
                 ? "سيُنسخ نص البريد ومعاينات مرفقاته إلى مسودة الشات فقط. لن يُرسل شيء حتى تضغط «إرسال» بنفسك؛ عندها يصل المحتوى إلى مزود AI المحدد لديك ويُحفظ ضمن سجل المحادثة المحلي المعتاد، ويخضع لسياسة معالجة المزود واحتفاظه. راجع سياسة المزود وتأكد من توافقها مع قيود بيانات Google قبل الإرسال. هل تريد الإضافة؟"
                 : "The email text and attachment previews will be copied into the chat draft only. Nothing is sent until you press Send; then the content goes to your configured AI provider and is saved in normal local conversation history, under the provider's processing and retention terms. Review the provider's policy and confirm it complies with Google's data-use restrictions before sending. Add it?");
-        var answer = MessageBox.Show(this, prompt,
+        var answer = LayalDialogService.Show(this, prompt,
             prepareSummary
                 ? (_isArabic ? "تأكيد تجهيز طلب التلخيص" : "Confirm summary request draft")
                 : (_isArabic ? "تأكيد إضافة البريد للمسودة" : "Confirm add email to draft"),
@@ -376,7 +376,7 @@ public sealed class GmailInboxWindow : Window
 
     private void Disconnect_Click(object sender, RoutedEventArgs e)
     {
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             _isArabic
                 ? "سيُحذف الرمز المشفر من هذا الجهاز فقط. لإلغاء تفويض Google نهائيًا، أزل التطبيق من إعدادات أمان حساب Google. هل تريد الفصل؟"
                 : "The encrypted token will be deleted from this device only. To revoke Google's grant, remove the app from Google Account security settings. Disconnect?",
