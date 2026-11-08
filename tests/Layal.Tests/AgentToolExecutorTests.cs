@@ -1338,6 +1338,7 @@ public sealed class AgentToolExecutorTests
     public async Task ReadFileRejectsTargetReplacedBySymbolicLinkDuringApproval()
     {
         using var temp = new TestTempDirectory();
+        RequireFileSymbolicLinkCreationPermission(temp.Path);
         var workspace = System.IO.Path.Combine(temp.Path, "workspace");
         var outside = System.IO.Path.Combine(temp.Path, "outside.txt");
         Directory.CreateDirectory(workspace);
@@ -1361,6 +1362,7 @@ public sealed class AgentToolExecutorTests
     public async Task FileCreationRejectsParentReplacedBySymbolicLinkDuringApproval()
     {
         using var temp = new TestTempDirectory();
+        RequireDirectorySymbolicLinkCreationPermission(temp.Path);
         var workspace = System.IO.Path.Combine(temp.Path, "workspace");
         var originalParent = System.IO.Path.Combine(workspace, "sub");
         var outside = System.IO.Path.Combine(temp.Path, "outside");
@@ -1385,6 +1387,7 @@ public sealed class AgentToolExecutorTests
     public async Task ReplaceTextRejectsTargetReplacedBySymbolicLinkDuringApproval()
     {
         using var temp = new TestTempDirectory();
+        RequireFileSymbolicLinkCreationPermission(temp.Path);
         var workspace = System.IO.Path.Combine(temp.Path, "workspace");
         var outside = System.IO.Path.Combine(temp.Path, "outside.txt");
         Directory.CreateDirectory(workspace);
@@ -1404,6 +1407,56 @@ public sealed class AgentToolExecutorTests
 
         Assert.AreEqual("outside secret", File.ReadAllText(outside), "The outside target must remain unchanged.");
     }
+
+
+    private static void RequireFileSymbolicLinkCreationPermission(string root)
+    {
+        var target = Path.Combine(root, $"symlink-file-target-{Guid.NewGuid():N}.txt");
+        var link = Path.Combine(root, $"symlink-file-probe-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(target, "probe");
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+        }
+        catch (Exception exception) when (IsSymbolicLinkPrivilegeUnavailable(exception))
+        {
+            Assert.Inconclusive(
+                $"This race-condition test requires Windows symbolic-link creation permission. " +
+                $"Enable Developer Mode or grant the required privilege. Details: {exception.Message}");
+        }
+        finally
+        {
+            File.Delete(link);
+            File.Delete(target);
+        }
+    }
+
+    private static void RequireDirectorySymbolicLinkCreationPermission(string root)
+    {
+        var target = Path.Combine(root, $"symlink-directory-target-{Guid.NewGuid():N}");
+        var link = Path.Combine(root, $"symlink-directory-probe-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(target);
+        try
+        {
+            Directory.CreateSymbolicLink(link, target);
+        }
+        catch (Exception exception) when (IsSymbolicLinkPrivilegeUnavailable(exception))
+        {
+            Assert.Inconclusive(
+                $"This race-condition test requires Windows directory symbolic-link creation permission. " +
+                $"Enable Developer Mode or grant the required privilege. Details: {exception.Message}");
+        }
+        finally
+        {
+            if (Directory.Exists(link))
+                Directory.Delete(link);
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    private static bool IsSymbolicLinkPrivilegeUnavailable(Exception exception) =>
+        exception is NotSupportedException ||
+        ((exception is IOException or UnauthorizedAccessException) && (exception.HResult & 0xFFFF) == 1314);
 
     private static AgentToolExecutor CreateExecutor(string root, ApiConnectionService? apiConnections = null) =>
         new(root, new MemoryService(System.IO.Path.Combine(root, "memory.dpapi")), apiConnections);
