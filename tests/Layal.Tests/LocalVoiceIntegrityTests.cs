@@ -98,7 +98,7 @@ public sealed class LocalVoiceIntegrityTests
         {
             Directory.CreateSymbolicLink(Path.Combine(installRoot, "redirected"), outsideRoot);
         }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException or NotSupportedException)
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or NotSupportedException or System.Security.SecurityException)
         {
             Assert.Inconclusive("This Windows runner does not permit creating a directory symbolic link: " + ex.Message);
             return;
