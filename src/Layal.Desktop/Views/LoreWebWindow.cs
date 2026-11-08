@@ -349,6 +349,7 @@ public sealed class LoreWebWindow : Window
         root.Children.Add(_status);
 
         Content = root;
+        LayalWindowChrome.ApplyGlass(this, _isArabic);
         BuildGraph();
         UpdateCamera();
         _status.Text = _notes.Count == 0
