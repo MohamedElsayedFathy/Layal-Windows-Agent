@@ -586,8 +586,9 @@ public sealed class SkillPackageService
             var relative = full[prefix.Length..];
             if (string.IsNullOrWhiteSpace(relative)) continue;
             if (relative.Split('/').Any(part => part is "." or "..")) throw new InvalidOperationException("The skill archive contains an unsafe relative path.");
-            var newEntry = target.CreateEntry(relative, CompressionLevel.Optimal);
-            if (entry.FullName.EndsWith('/')) continue;
+            var isDirectory = entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\');
+            var newEntry = target.CreateEntry(isDirectory ? relative + "/" : relative, CompressionLevel.Optimal);
+            if (isDirectory) continue;
             using var input = entry.Open();
             using var destination = newEntry.Open();
             var remainingTotal = 10L * 1024 * 1024 - actualTotal;
