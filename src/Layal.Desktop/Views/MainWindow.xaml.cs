@@ -2718,7 +2718,7 @@ public partial class MainWindow : Window
     private void SetBottomDockExpanded(bool expanded)
     {
         _isBottomDockExpanded = expanded;
-        ToggleBottomDockButton.Content = expanded ? "\\uE711" : "\\uE700";
+        ToggleBottomDockButton.Content = expanded ? "\uE711" : "\uE700";
         ToggleBottomDockButton.ToolTip = expanded
             ? (IsArabic ? "طي شريط التنقل الجانبي" : "Collapse navigation rail")
             : (IsArabic ? "توسيع شريط التنقل الجانبي" : "Expand navigation rail");
