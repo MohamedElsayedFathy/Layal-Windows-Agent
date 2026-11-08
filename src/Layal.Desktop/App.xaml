@@ -6,53 +6,53 @@
     <Application.Resources>
         <services:TextDirectionConverter x:Key="Layal.TextDirectionConverter" />
 
-        <!-- Layal Calm Light design system: soft surfaces, strong text contrast, restrained accents. -->
-        <Color x:Key="Layal.Color.Background">#F4F7FC</Color>
-        <Color x:Key="Layal.Color.BackgroundEnd">#EEF3FB</Color>
-        <Color x:Key="Layal.Color.Surface">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.SurfaceRaised">#FAFBFF</Color>
-        <Color x:Key="Layal.Color.SurfaceHover">#EDF3FA</Color>
-        <Color x:Key="Layal.Color.Border">#DCE5F0</Color>
-        <Color x:Key="Layal.Color.Cyan">#087B8F</Color>
-        <Color x:Key="Layal.Color.Purple">#7563D6</Color>
-        <Color x:Key="Layal.Color.Text">#1C2940</Color>
-        <Color x:Key="Layal.Color.Muted">#4D5C75</Color>
-        <Color x:Key="Layal.Color.ScrollThumb">#9BAEC7</Color>
-        <Color x:Key="Layal.Color.Success">#177A57</Color>
-        <Color x:Key="Layal.Color.Warning">#946200</Color>
-        <Color x:Key="Layal.Color.Danger">#BD3C55</Color>
-        <Color x:Key="Layal.Color.Focus">#AFC8F7</Color>
-        <Color x:Key="Layal.Color.HeaderStart">#EAF5FF</Color>
+        <!-- Layal Soft Aurora design system: calm surfaces, pearl tones, indigo accents, and readable glass. -->
+        <Color x:Key="Layal.Color.Background">#F4F6FC</Color>
+        <Color x:Key="Layal.Color.BackgroundEnd">#EEF1FA</Color>
+        <Color x:Key="Layal.Color.Surface">#FCFDFF</Color>
+        <Color x:Key="Layal.Color.SurfaceRaised">#FCFCFF</Color>
+        <Color x:Key="Layal.Color.SurfaceHover">#F2F4FB</Color>
+        <Color x:Key="Layal.Color.Border">#E2E7F1</Color>
+        <Color x:Key="Layal.Color.Cyan">#536BC7</Color>
+        <Color x:Key="Layal.Color.Purple">#796BCB</Color>
+        <Color x:Key="Layal.Color.Text">#25314A</Color>
+        <Color x:Key="Layal.Color.Muted">#5F6B84</Color>
+        <Color x:Key="Layal.Color.ScrollThumb">#A2B0C9</Color>
+        <Color x:Key="Layal.Color.Success">#187A59</Color>
+        <Color x:Key="Layal.Color.Warning">#855A0C</Color>
+        <Color x:Key="Layal.Color.Danger">#B33C5A</Color>
+        <Color x:Key="Layal.Color.Focus">#B6C5F6</Color>
+        <Color x:Key="Layal.Color.HeaderStart">#F1F4FD</Color>
         <Color x:Key="Layal.Color.HeaderMiddle">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.HeaderEnd">#F3EFFF</Color>
+        <Color x:Key="Layal.Color.HeaderEnd">#F3F0FD</Color>
         <Color x:Key="Layal.Color.CardStart">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.CardEnd">#F9FBFF</Color>
-        <Color x:Key="Layal.Color.ButtonStart">#A3E3E7</Color>
-        <Color x:Key="Layal.Color.ButtonEnd">#C8C0F7</Color>
-        <Color x:Key="Layal.Color.BrandBorder">#B9E6EB</Color>
-        <Color x:Key="Layal.Color.BrandDot">#E8B451</Color>
+        <Color x:Key="Layal.Color.CardEnd">#FAFBFF</Color>
+        <Color x:Key="Layal.Color.ButtonStart">#D7DFFA</Color>
+        <Color x:Key="Layal.Color.ButtonEnd">#E4DDF8</Color>
+        <Color x:Key="Layal.Color.BrandBorder">#D8DDF3</Color>
+        <Color x:Key="Layal.Color.BrandDot">#D8B66D</Color>
         <Color x:Key="Layal.Color.DangerSurface">#FBECEF</Color>
         <Color x:Key="Layal.Color.DangerBorder">#E9C3CC</Color>
-        <Color x:Key="Layal.Color.NavSelected">#E2F2F6</Color>
-        <Color x:Key="Layal.Color.NavSelectedBorder">#C6E8ED</Color>
-        <Color x:Key="Layal.Color.NavHover">#F0F5FC</Color>
+        <Color x:Key="Layal.Color.NavSelected">#EAEDFC</Color>
+        <Color x:Key="Layal.Color.NavSelectedBorder">#D4DBF4</Color>
+        <Color x:Key="Layal.Color.NavHover">#F3F5FC</Color>
         <Color x:Key="Layal.Color.ListHover">#F0F6FC</Color>
-        <Color x:Key="Layal.Color.ListSelected">#E3F3F6</Color>
-        <Color x:Key="Layal.Color.InputFocus">#FBFDFF</Color>
-        <Color x:Key="Layal.Color.HoverSurface">#E8F5F7</Color>
+        <Color x:Key="Layal.Color.ListSelected">#EBEEFC</Color>
+        <Color x:Key="Layal.Color.InputFocus">#FCFDFF</Color>
+        <Color x:Key="Layal.Color.HoverSurface">#EEF0FC</Color>
         <Color x:Key="Layal.Color.MenuHover">#E8F5F7</Color>
         <Color x:Key="Layal.Color.MenuHoverText">#1C2940</Color>
-        <Color x:Key="Layal.Color.Shadow">#A8B9D6</Color>
+        <Color x:Key="Layal.Color.Shadow">#AAB8D3</Color>
         <!-- The aurora is intentionally more saturated so the frosted surfaces read as glass, not flat white cards. -->
-        <Color x:Key="Layal.Color.BackdropStart">#899DF4</Color>
-        <Color x:Key="Layal.Color.BackdropMiddle">#B09AEF</Color>
-        <Color x:Key="Layal.Color.BackdropEnd">#F1B4D2</Color>
-        <Color x:Key="Layal.Color.Glass">#99FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassStrong">#E0FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassBorder">#D0FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlowBlue">#98637AFB</Color>
-        <Color x:Key="Layal.Color.GlowViolet">#8E9A60F0</Color>
-        <Color x:Key="Layal.Color.GlowPink">#88EF78B9</Color>
+        <Color x:Key="Layal.Color.BackdropStart">#9CAAE0</Color>
+        <Color x:Key="Layal.Color.BackdropMiddle">#B7A9E4</Color>
+        <Color x:Key="Layal.Color.BackdropEnd">#E8C1D8</Color>
+        <Color x:Key="Layal.Color.Glass">#F0FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassStrong">#F7FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassBorder">#DCE3F0</Color>
+        <Color x:Key="Layal.Color.GlowBlue">#557E8FF0</Color>
+        <Color x:Key="Layal.Color.GlowViolet">#4F9A7DE8</Color>
+        <Color x:Key="Layal.Color.GlowPink">#40D67AAE</Color>
         <Color x:Key="Layal.Color.AccentStart">#4A66DE</Color>
         <Color x:Key="Layal.Color.AccentEnd">#7A50D4</Color>
         <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
@@ -139,7 +139,7 @@
             <GradientStop Color="#252446" Offset="1" />
         </LinearGradientBrush>
 
-        <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="18" ShadowDepth="3" Opacity="0.18" />
+        <DropShadowEffect x:Key="Layal.CardShadow" Color="{DynamicResource Layal.Color.Shadow}" BlurRadius="18" ShadowDepth="1" Opacity="0.10" />
 
         <!-- Shared high-visibility keyboard focus ring for controls without a custom focus state. -->
         <Style x:Key="Layal.KeyboardFocusVisual" TargetType="{x:Type Control}">
@@ -229,7 +229,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10"
+                                CornerRadius="12"
                                 Padding="{TemplateBinding Padding}"
                                 Effect="{DynamicResource Layal.CardShadow}"
                                 SnapsToDevicePixels="True">
@@ -280,7 +280,7 @@
                         <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="14" Padding="{TemplateBinding Padding}"
+                                CornerRadius="12" Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -325,7 +325,7 @@
                         <Border x:Name="TextBoxChrome" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10" SnapsToDevicePixels="True">
+                                CornerRadius="12" SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -359,7 +359,7 @@
                         <Border x:Name="PasswordChrome" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10" SnapsToDevicePixels="True">
+                                CornerRadius="12" SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -398,7 +398,7 @@
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="10" />
+                                    CornerRadius="12" />
                             <Grid Margin="{TemplateBinding Padding}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -444,7 +444,7 @@
                                 <Border Background="{DynamicResource Layal.GlassStrongFill}"
                                         BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="10"
+                                        CornerRadius="12"
                                         Padding="3"
                                         SnapsToDevicePixels="True">
                                     <ScrollViewer MaxHeight="{TemplateBinding MaxDropDownHeight}"
@@ -730,7 +730,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="ItemChrome" Background="{TemplateBinding Background}"
-                                BorderBrush="Transparent" BorderThickness="1" CornerRadius="10"
+                                BorderBrush="Transparent" BorderThickness="1" CornerRadius="12"
                                 Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                             <ContentPresenter />
                         </Border>
@@ -979,7 +979,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="CaptionChrome" Background="{TemplateBinding Background}" CornerRadius="10" SnapsToDevicePixels="True">
+                        <Border x:Name="CaptionChrome" Background="{TemplateBinding Background}" CornerRadius="12" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <ContentPresenter.Resources>
                                     <Style TargetType="TextBlock">
