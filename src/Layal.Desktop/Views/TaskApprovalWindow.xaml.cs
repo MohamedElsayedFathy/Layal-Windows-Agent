@@ -15,6 +15,10 @@ public sealed partial class TaskApprovalWindow : Window
     {
         _requestTaskCancellation = requestTaskCancellation ?? throw new ArgumentNullException(nameof(requestTaskCancellation));
         InitializeComponent();
+        Loaded += (_, _) => Layal.Services.WindowBackdropService.TryApply(
+            new System.Windows.Interop.WindowInteropHelper(this).Handle,
+            string.Equals(AppRuntime.Settings.ThemeMode, "dark", StringComparison.OrdinalIgnoreCase),
+            SystemParameters.HighContrast);
 
         Title = isArabic ? "موافقة مطلوبة من ليال" : "Layal requires approval";
         HeadingText.Text = string.IsNullOrWhiteSpace(title)
