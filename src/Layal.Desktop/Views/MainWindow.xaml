@@ -93,18 +93,21 @@
             <Button x:Name="CloseWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE8BB;" Click="CloseWindowButton_Click"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="إغلاق / Close" AutomationProperties.Name="إغلاق / Close" />
         </StackPanel>
-        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="16,0,16,84" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
+        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="14,0,14,88" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
             <TabItem x:Name="HomeTab" Header="نظرة عامة" Tag="&#xE80F;">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="18">
-                        <Grid Margin="0,0,0,20" MinHeight="176">
+                        <Border Style="{StaticResource Layal.PageHero}">
+                        <Grid Margin="0" MinHeight="176">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="190" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <TextBlock x:Name="HomeDescription" Text="هذه النسخة هي الأساس الأصلي لتطبيق Windows. ابدأ بربط نموذج حقيقي من الإعدادات." Foreground="{DynamicResource Layal.Muted}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,0"/>
+                                <TextBlock Text="LAYAL WORKSPACE  /  مساحة عملك" Style="{StaticResource Layal.SectionEyebrow}" />
+                                <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontWeight="SemiBold" Margin="0,0,0,8" Style="{StaticResource Layal.PageHeading}"/>
+                                <TextBlock x:Name="HomeDescription" Text="هذه النسخة هي الأساس الأصلي لتطبيق Windows. ابدأ بربط نموذج حقيقي من الإعدادات." TextWrapping="Wrap" Margin="0,0,0,0" Style="{StaticResource Layal.PageDescription}"/>
                             </StackPanel>
                             <Image x:Name="HomeLayalImage"
                                    Grid.Column="1" Width="176" Height="172"
@@ -113,19 +116,20 @@
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
                                    IsHitTestVisible="False" Focusable="False" />
                         </Grid>
+                        </Border>
 
 
                         <UniformGrid Columns="2" Rows="2" Margin="0,0,0,12">
-                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
+                            <Border Style="{StaticResource Layal.DashboardCard}">
                                 <StackPanel><TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardAiValue" Text="غير متصل" Foreground="{DynamicResource Layal.Warning}" Margin="0,8,0,0"/><TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
-                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
+                            <Border Style="{StaticResource Layal.DashboardCard}">
                                 <StackPanel><TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardMascotValue" Text="نافذة Windows أصلية" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardMascotHint" Text="اسحب ليال في سطح المكتب، وانقر مرتين لفتح الواجهة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
-                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
+                            <Border Style="{StaticResource Layal.DashboardCard}">
                                 <StackPanel><TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardToolsValue" Text="أداة آمنة متاحة" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
-                            <Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="20" Margin="5" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
+                            <Border Style="{StaticResource Layal.DashboardCard}">
                                 <StackPanel><TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardSkillsValue" Text="استيراد ZIP مع التحقق" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
                             </Border>
                         </UniformGrid>
@@ -140,10 +144,12 @@
                         <TextBlock x:Name="HomeResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="6,12,6,0" AutomationProperties.Name="نتيجة الإجراء" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                 </ScrollViewer>
+</Border>
             </TabItem>
 
             <TabItem x:Name="ChatTab" Header="الرئيسية" Tag="&#xE8BD;">
-                <Grid x:Name="ChatTabLayout" Margin="0" FlowDirection="LeftToRight">
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<Grid x:Name="ChatTabLayout" Margin="0" FlowDirection="LeftToRight">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Border x:Name="ChatHistoryPanel" Grid.Column="0" Width="270" Visibility="Collapsed" Opacity="0"
                             Margin="0,4,8,4" Padding="12" CornerRadius="22"
@@ -199,8 +205,8 @@
                                 <TextBlock Text="LAYAL  /  مساعد سطح المكتب" FlowDirection="RightToLeft"
                                            FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
                                            Margin="0,0,0,3"/>
-                                <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال" FontSize="25"
-                                           FontWeight="SemiBold"/>
+                                <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال"
+                                           FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}"/>
                             </StackPanel>
                             <TextBlock x:Name="ChatProviderStatus" DockPanel.Dock="Right" Text="لا يوجد اتصال مختبَر"
                                        Foreground="{DynamicResource Layal.Warning}" VerticalAlignment="Center"
@@ -428,13 +434,20 @@
                 </Grid>
                     </Grid>
                 </Grid>
+</Border>
             </TabItem>
 
             <TabItem x:Name="TasksTab" Header="المهام">
-                <Grid Margin="18">
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<Grid Margin="18">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock x:Name="TasksHeading" Text="مركز المهام" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                    <TextBlock x:Name="TasksDescription" Grid.Row="1" Text="اكتب مهمة. ستطلب ليال موافقتك قبل الأدوات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات." TextWrapping="Wrap" Foreground="{DynamicResource Layal.Muted}" Margin="0,0,0,12"/>
+                    <Border Style="{StaticResource Layal.PageHero}" Grid.Row="0" Grid.RowSpan="2">
+                        <StackPanel>
+                            <TextBlock Text="TASK STUDIO  /  مساحة تنفيذ آمنة" Style="{StaticResource Layal.SectionEyebrow}"/>
+                            <TextBlock x:Name="TasksHeading" Text="مركز المهام" FontWeight="SemiBold" Margin="0,0,0,10" Style="{StaticResource Layal.PageHeading}"/>
+                            <TextBlock x:Name="TasksDescription" Text="اكتب مهمة. ستطلب ليال موافقتك قبل الأدوات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات." TextWrapping="Wrap" Margin="0,0,0,12" Style="{StaticResource Layal.PageDescription}"/>
+                        </StackPanel>
+                    </Border>
                     <StackPanel Grid.Row="2" Margin="0,0,0,10">
                         <TextBox x:Name="TaskInput" MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="اكتب المهمة بالعربية أو الإنجليزية" AutomationProperties.Name="وصف المهمة / Task description" AutomationProperties.HelpText="صف المهمة التي تريد تنفيذها / Describe the task you want to perform. استخدم Tab للوصول إلى زر تنفيذ المهمة."/>
                         <WrapPanel Margin="0,8,0,0">
@@ -553,13 +566,20 @@
                         <TextBlock x:Name="TaskCopyStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="3,3,3,0" AutomationProperties.Name="حالة نسخ النتيجة" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                 </Grid>
+</Border>
             </TabItem>
 
             <TabItem x:Name="SkillsTab" Header="المهارات" Tag="&#xE8F1;">
-                <Grid Margin="18">
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<Grid Margin="18">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock x:Name="SkillsHeading" Text="مدير المهارات" FontSize="22" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="SkillsDescription" Grid.Row="1" Text="استورد ZIP أو رابط GitHub لمجلد مهارة. حدد حتى 3 مهارات لاستخدام نصوصها كمراجع فقط؛ السكربتات لا تُشغّل." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,7,0,12"/>
+                    <Border Style="{StaticResource Layal.PageHero}" Grid.Row="0" Grid.RowSpan="2">
+                        <StackPanel>
+                            <TextBlock Text="SKILL LIBRARY  /  مكتبة المهارات" Style="{StaticResource Layal.SectionEyebrow}"/>
+                            <TextBlock x:Name="SkillsHeading" Text="مدير المهارات" FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}"/>
+                            <TextBlock x:Name="SkillsDescription" Text="استورد ZIP أو رابط GitHub لمجلد مهارة. حدد حتى 3 مهارات لاستخدام نصوصها كمراجع فقط؛ السكربتات لا تُشغّل." TextWrapping="Wrap" Margin="0,7,0,12" Style="{StaticResource Layal.PageDescription}"/>
+                        </StackPanel>
+                    </Border>
                     <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" AutomationProperties.Name="المهارات المثبتة" AutomationProperties.HelpText="يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
                         <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FlowDirection="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" FlowDirection="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" FlowDirection="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
@@ -585,27 +605,40 @@
                         <TextBlock x:Name="SkillsResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,5,5,0" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                 </Grid>
+</Border>
             </TabItem>
 
             <TabItem x:Name="CamerasTab" Header="الكاميرات" Tag="&#xE722;">
-                <StackPanel Margin="20">
-                    <TextBlock x:Name="CamerasHeading" Text="الكاميرات والرؤية الحاسوبية" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <Border Background="{DynamicResource Layal.Panel}" CornerRadius="14" Padding="16" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<StackPanel Margin="20">
+                    <Border Style="{StaticResource Layal.PageHero}">
+                        <StackPanel>
+                            <TextBlock Text="VISION CENTER  /  مركز الرؤية" Style="{StaticResource Layal.SectionEyebrow}"/>
+                            <TextBlock x:Name="CamerasHeading" Text="الكاميرات والرؤية الحاسوبية" FontWeight="SemiBold" Margin="0,0,0,12" Style="{StaticResource Layal.PageHeading}"/>
+                            <TextBlock Text="مساحة موحدة لإدارة مصادر الرؤية وحالة الاتصال. ستظهر معاينة حقيقية فقط بعد ربط مصدر مصرح به." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Layal.DashboardCard}" Padding="22" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock x:Name="CameraStatus" Text="غير متصل — التكامل الحقيقي غير منفذ في إصدار الأساس" Foreground="{DynamicResource Layal.Warning}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="CameraDescription" Text="سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                            <TextBlock x:Name="CameraDescription" Text="سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا." TextWrapping="Wrap" Margin="0,10,0,0" Style="{StaticResource Layal.PageDescription}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
+</Border>
             </TabItem>
 
             <TabItem x:Name="MemoryTab" Header="الذاكرة" Tag="&#xE7C3;">
-                <Grid Margin="18">
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<Grid Margin="18">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                        <TextBlock x:Name="MemoryHeading" Text="الذاكرة الشخصية" FontSize="22" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="MemoryDescription" Text="ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ البحث الذي يشارك النتائج مع AI يتطلب موافقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                    </StackPanel>
+                    <Border Style="{StaticResource Layal.PageHero}" Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="PERSONAL KNOWLEDGE  /  المعرفة الشخصية" Style="{StaticResource Layal.SectionEyebrow}"/>
+                            <TextBlock x:Name="MemoryHeading" Text="الذاكرة الشخصية" FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}"/>
+                            <TextBlock x:Name="MemoryDescription" Text="ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ البحث الذي يشارك النتائج مع AI يتطلب موافقة." TextWrapping="Wrap" Margin="0,6,0,0" Style="{StaticResource Layal.PageDescription}"/>
+                        </StackPanel>
+                    </Border>
                     <StackPanel Grid.Row="1" Margin="0,0,0,10">
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -716,15 +749,20 @@
                                Text="لا تحفظ مفاتيح API أو كلمات المرور. تصدير JSON غير مشفر؛ الاستيراد يدمج الملاحظات الجديدة ولا يستبدل الموجود. مشاركة أي نتيجة مع AI تتطلب عرض النص الكامل وموافقتك."
                                Foreground="{DynamicResource Layal.Warning}" TextWrapping="Wrap" Margin="4,10,4,0"/>
                 </Grid>
+</Border>
             </TabItem>
 
             <TabItem x:Name="ApiIntegrationsTab" Header="تكاملات API" Tag="&#xE71B;">
-                <Grid Margin="18">
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<Grid Margin="18">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                        <TextBlock x:Name="ApiIntegrationsHeading" Text="ربط التطبيقات عبر API" FontSize="22" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="ApiIntegrationsDescription" Text="أضف عددًا كبيرًا من اتصالات REST/JSON وابحث بينها. يمكن تعيين اتصال متوافق مع OpenAI كـ API ليال السحابي الاختياري؛ هذا إعداد لمزود تستخدمه ليال وليس خادم API عامًا مستضافًا منها." Foreground="#63738A" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                    </StackPanel>
+                    <Border Style="{StaticResource Layal.PageHero}" Grid.Row="0">
+                        <StackPanel>
+                            <TextBlock Text="CONNECTED SERVICES  /  الخدمات المتصلة" Style="{StaticResource Layal.SectionEyebrow}"/>
+                            <TextBlock x:Name="ApiIntegrationsHeading" Text="ربط التطبيقات عبر API" FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}"/>
+                            <TextBlock x:Name="ApiIntegrationsDescription" Text="أضف عددًا كبيرًا من اتصالات REST/JSON وابحث بينها. يمكن تعيين اتصال متوافق مع OpenAI كـ API ليال السحابي الاختياري؛ هذا إعداد لمزود تستخدمه ليال وليس خادم API عامًا مستضافًا منها." TextWrapping="Wrap" Margin="0,6,0,0" Style="{StaticResource Layal.PageDescription}"/>
+                        </StackPanel>
+                    </Border>
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.82*"/><ColumnDefinition Width="1.18*"/></Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="0,0,12,0">
@@ -742,10 +780,10 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <Image Source="{Binding ImagePath}" Width="44" Height="44" Stretch="UniformToFill" Margin="0,0,8,0"/>
                                                 <StackPanel>
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#087B8F" TextWrapping="Wrap"/>
-                                                    <TextBlock Text="{Binding BaseUrl}" Foreground="#63738A" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="{Binding ModelId}" Foreground="#63738A" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"/>
-                                                    <TextBlock Text="API ليال الحالي / Current Layal API" FontSize="10" FontWeight="SemiBold" Foreground="#177A57" Margin="0,3,0,0">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding BaseUrl}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding ModelId}" Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                    <TextBlock Text="API ليال الحالي / Current Layal API" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Success}" Margin="0,3,0,0">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -764,7 +802,7 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                             <Button x:Name="NewApiConnectionButton" Content="إضافة اتصال جديد" Click="NewApiConnectionButton_Click" HorizontalAlignment="Stretch" Margin="0,8,0,0"/>
-                            <TextBlock x:Name="ApiConnectionsPrivacyNote" Text="لا تشارك مفتاح API داخل المحادثة. أدخله هنا؛ سيُحفظ مشفرًا على حساب Windows الحالي." Foreground="#946200" TextWrapping="Wrap" Margin="4,8,4,0"/>
+                            <TextBlock x:Name="ApiConnectionsPrivacyNote" Text="لا تشارك مفتاح API داخل المحادثة. أدخله هنا؛ سيُحفظ مشفرًا على حساب Windows الحالي." Foreground="{DynamicResource Layal.Warning}" TextWrapping="Wrap" Margin="4,8,4,0"/>
                         </StackPanel>
                         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
                             <StackPanel>
@@ -802,19 +840,27 @@
                                     <Button x:Name="SaveApiConnectionButton" Content="حفظ الاتصال" Click="SaveApiConnectionButton_Click"/>
                                     <Button x:Name="UseAsLayalApiButton" Content="استخدام هذا كـ API ليال" Click="UseAsLayalApiButton_Click"/>
                                     <Button x:Name="TestApiConnectionButton" Content="اختبار API" Click="TestApiConnectionButton_Click" Background="{StaticResource Layal.PrimaryButtonGradient}"/>
-                                    <Button x:Name="DeleteApiConnectionButton" Content="حذف الاتصال المحدد" Click="DeleteApiConnectionButton_Click" Background="#FBECEF" BorderBrush="#E9C3CC"/>
+                                    <Button x:Name="DeleteApiConnectionButton" Content="حذف الاتصال المحدد" Click="DeleteApiConnectionButton_Click" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
                                 </WrapPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
-                    <TextBlock x:Name="ApiConnectionsStatus" Grid.Row="2" Text="" Foreground="#177A57" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                    <TextBlock x:Name="ApiConnectionsStatus" Grid.Row="2" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0"/>
                 </Grid>
+</Border>
             </TabItem>
 
             <TabItem x:Name="SettingsTab" Header="الإعدادات" Tag="&#xE713;">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="20" MaxWidth="760" HorizontalAlignment="Stretch">
-                        <TextBlock x:Name="SettingsHeading" Text="الإعدادات والاتصال" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
+<ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20" MaxWidth="900" HorizontalAlignment="Stretch">
+                        <Border Style="{StaticResource Layal.PageHero}">
+                            <StackPanel>
+                                <TextBlock Text="PREFERENCES  /  التفضيلات" Style="{StaticResource Layal.SectionEyebrow}"/>
+                                <TextBlock x:Name="SettingsHeading" Text="الإعدادات والاتصال" FontWeight="SemiBold" Margin="0,0,0,12" Style="{StaticResource Layal.PageHeading}"/>
+                                <TextBlock Text="خصص تجربة Layal، وأدر مزودي الذكاء الاصطناعي والصوت والخصوصية واللغة من مكان واحد." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
                         <TextBlock x:Name="LanguageSettingLabel" Text="لغة الواجهة" FontWeight="SemiBold" Margin="4,8,4,0"/>
                         <WrapPanel><Button x:Name="ArabicLanguageButton" Content="العربية" Click="ArabicLanguageButton_Click"/><Button x:Name="EnglishLanguageButton" Content="English" Click="EnglishLanguageButton_Click"/></WrapPanel>
 
@@ -1001,6 +1047,7 @@
                         <TextBlock x:Name="SettingsLimitations" Text="المتصفح، والتحكم العام في Windows، والصوت، والبث الحقيقي للكاميرات ليست منفذة بعد في إصدار الأساس. لا يتم عرضها كوظائف مكتملة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="5,14,5,5"/>
                     </StackPanel>
                 </ScrollViewer>
+</Border>
             </TabItem>
         </controls:ContentOnlyTabControl>
 
