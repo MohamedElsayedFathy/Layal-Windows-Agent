@@ -39,14 +39,14 @@ public sealed class UiThemePaletteTests
         var light = UiThemePalette.Create(dark: false, highContrast: false);
         var dark = UiThemePalette.Create(dark: true, highContrast: false);
 
-        Assert.AreEqual(Color.FromRgb(244, 247, 252), ToColor(light, "Layal.Color.Background"));
-        Assert.AreEqual(Color.FromRgb(17, 21, 33), ToColor(dark, "Layal.Color.Background"));
+        Assert.AreEqual(Color.FromRgb(244, 246, 252), ToColor(light, "Layal.Color.Background"));
+        Assert.AreEqual(Color.FromRgb(17, 24, 39), ToColor(dark, "Layal.Color.Background"));
         Assert.AreNotEqual(ToColor(light, "Layal.Color.Background"), ToColor(dark, "Layal.Color.Background"));
-        Assert.AreEqual("#087B8F", light["Layal.Color.Cyan"]);
-        Assert.AreEqual("#76DFE8", dark["Layal.Color.Cyan"]);
-        Assert.AreEqual("#4D5C75", light["Layal.Color.Muted"]);
-        Assert.AreEqual("#899DF4", light["Layal.Color.BackdropStart"]);
-        Assert.AreEqual("#98637AFB", light["Layal.Color.GlowBlue"]);
+        Assert.AreEqual("#536BC7", light["Layal.Color.Cyan"]);
+        Assert.AreEqual("#83A3E9", dark["Layal.Color.Cyan"]);
+        Assert.AreEqual("#5F6B84", light["Layal.Color.Muted"]);
+        Assert.AreEqual("#9CAAE0", light["Layal.Color.BackdropStart"]);
+        Assert.AreEqual("#557E8FF0", light["Layal.Color.GlowBlue"]);
         Assert.AreEqual("#00FFFFFF", UiThemePalette.Create(dark: false, highContrast: true)["Layal.Color.GlowBlue"]);
         Assert.AreEqual("#00FFFFFF", UiThemePalette.Create(dark: true, highContrast: true)["Layal.Color.GlowPink"]);
     }
