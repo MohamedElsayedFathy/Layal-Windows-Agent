@@ -59,7 +59,7 @@ public sealed class LocalVoiceIntegrityTests
         Assert.AreEqual(Path.Combine(installRoot, "bin", "whisper-cli.exe"), verifiedPath);
 
         // Same-length replacement must be rejected; checking file size alone is insufficient.
-        await File.WriteAllTextAsync(verifiedPath!, "tampered-exe");
+        await File.WriteAllTextAsync(verifiedPath!, "damaged-exe");
         Assert.IsNull(await FindVerifiedWhisperExecutableAsync(archivePath, installRoot));
     }
 
