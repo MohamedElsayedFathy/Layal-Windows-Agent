@@ -605,7 +605,7 @@
                         <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
                                           Margin="0" SnapsToDevicePixels="True" FlowDirection="LeftToRight"
                                           AutomationProperties.Name="محتوى الصفحة الحالية / Current page content"
-                                          AutomationProperties.AccessibilityView="Control"/>
+/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
