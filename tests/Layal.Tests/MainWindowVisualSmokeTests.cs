@@ -917,6 +917,23 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(chatInput)),
             "Chat input must expose an accessible name.");
+        Assert.AreEqual("ChatInput",
+            AutomationProperties.GetAutomationId(chatInput),
+            "The chat editor must expose a stable UI Automation id for keyboard focus verification.");
+        Assert.AreEqual(AccessibilityView.Control,
+            AutomationProperties.GetAccessibilityView(chatInput),
+            "The chat editor must remain visible in the UI Automation control view.");
+
+        var mainTabs = window.FindName("MainTabs") as TabControl
+            ?? throw new InvalidOperationException("MainTabs was not found.");
+        mainTabs.ApplyTemplate();
+        mainTabs.UpdateLayout();
+        var selectedContentHost = mainTabs.Template.FindName("PART_SelectedContentHost", mainTabs) as ContentPresenter
+            ?? throw new InvalidOperationException("The selected page content host was not found.");
+        Assert.AreEqual(AccessibilityView.Control,
+            AutomationProperties.GetAccessibilityView(selectedContentHost),
+            "The content-only navigation template must expose selected page controls to UI Automation.");
+
         var clipboardButton = window.FindName("ReadClipboardButton") as Button
             ?? throw new InvalidOperationException("ReadClipboardButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
