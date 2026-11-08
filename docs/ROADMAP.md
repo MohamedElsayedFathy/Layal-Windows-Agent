@@ -90,13 +90,13 @@ This phase does not enable skill script execution, provide a sandbox, or close r
 
 ## Security hardening — Phase 3: workspace backup and restore path safety
 
-**Status: implementation and regression tests started on a feature branch; final Windows CI and manual acceptance pending.** Phase 3 closes a restore-path gap left explicit by Phase 2: an existing symbolic-link/junction ancestor could be followed when `RestoreWorkspaceFiles` created a missing workspace root before checking its ancestors.
+**Status: automated implementation and CI complete on PR #134 head `c6d61643a55b32c3d9282c681e7231ba4f7fc71c`; manual Windows acceptance remains open.** Phase 3 closes a restore-path gap left explicit by Phase 2: an existing symbolic-link/junction ancestor could be followed when `RestoreWorkspaceFiles` created a missing workspace root before checking its ancestors.
 
 - [x] Remove the early workspace-root creation and validate every existing path component before creating the next directory component during restore.
 - [x] Create missing restore directories one component at a time, validate the created component, and track created directories for compensation rollback.
-- [x] Add Windows regression coverage proving restore refuses a linked ancestor before creating the missing workspace root, refuses a workspace root that is itself a reparse point, and still restores into a safe missing nested root.
-- [ ] Pass Windows Release build, all C# tests, static validation, and security/supply-chain workflows on the final PR head.
-- [ ] Add/record manual Windows evidence for a safe restore, refusal through a junction/symlink, no overwrite of existing files, and rollback on a failed store commit.
+- [x] Add Windows regression coverage proving restore refuses a linked ancestor before creating the missing workspace root, refuses a workspace root that is itself a reparse point (including a dangling directory symlink), still restores into a safe missing nested root, and removes newly created directories on a later-store rollback.
+- [x] Pass Windows Release build, 615 C# tests (0 failed, 0 skipped), static validation, and security/supply-chain workflows on PR #134 head `c6d61643a55b32c3d9282c681e7231ba4f7fc71c`; [Windows build run 42469874123](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42469874123), [final acceptance run 42469874062](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42469874062), and [security run 42469874061](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42469874061) all succeeded.
+- [ ] Add/record manual Windows evidence for a safe restore, refusal through a junction/symlink, no overwrite of existing files, and rollback on a failed store commit; multi-monitor/screen-reader acceptance, signing, and legal gates remain separate.
 
 The path checks reduce accidental and adversarial link traversal before directory creation, but they are not handle-relative filesystem operations and do not eliminate every same-user TOCTOU race. Backup JSON containing embedded file bytes remains unencrypted; signing and legal/release gates are unaffected.
 
