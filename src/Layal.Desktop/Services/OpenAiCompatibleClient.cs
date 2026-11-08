@@ -25,7 +25,8 @@ public sealed class OpenAiCompatibleClient
     // Never let a 3xx response silently forward that request to a different origin.
     private static SocketsHttpHandler CreateProviderHttpHandler() => new()
     {
-        AllowAutoRedirect = false
+        AllowAutoRedirect = false,
+        UseCookies = false
     };
 
     private static HttpClient CreateProviderHttpClient(TimeSpan timeout) =>

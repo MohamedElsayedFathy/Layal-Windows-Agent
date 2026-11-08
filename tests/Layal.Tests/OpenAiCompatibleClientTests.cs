@@ -21,6 +21,8 @@ public sealed class OpenAiCompatibleClientTests
         using var handler = (SocketsHttpHandler)factory!.Invoke(null, null)!;
         Assert.IsFalse(handler.AllowAutoRedirect,
             "Provider requests must not be replayed to redirect destinations.");
+        Assert.IsFalse(handler.UseCookies,
+            "Provider cookies must not persist or be shared between API calls.");
     }
 
     [TestMethod]
