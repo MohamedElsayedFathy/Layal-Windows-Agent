@@ -88,8 +88,6 @@
 
 This phase does not enable skill script execution, provide a sandbox, or close release signing/license/manual-acceptance gates.
 
-This phase does not enable skill script execution, provide a sandbox, or close release signing/license/manual-acceptance gates.
-
 ## Security hardening — Phase 3: workspace backup and restore path safety
 
 **Status: implementation and regression tests started on a feature branch; final Windows CI and manual acceptance pending.** Phase 3 closes a restore-path gap left explicit by Phase 2: an existing symbolic-link/junction ancestor could be followed when `RestoreWorkspaceFiles` created a missing workspace root before checking its ancestors.
