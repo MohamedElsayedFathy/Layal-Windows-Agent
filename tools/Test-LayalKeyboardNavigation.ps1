@@ -107,39 +107,45 @@ try {
     $window.SetFocus()
     Start-Sleep -Milliseconds 250
 
+    # MainTabs retains its legacy item order (Overview, Chat, Tasks, Skills, Cameras, Memory, API, Settings)
+    # while the new Home route deliberately maps Ctrl+1 to Chat and Ctrl+2 to Overview.
+    $expectedTabIndices = @(2, 1, 3, 4, 5, 6, 7, 8)
+
     for ($number = 1; $number -le 8; $number++) {
+        $expectedTab = $expectedTabIndices[$number - 1]
         [System.Windows.Forms.SendKeys]::SendWait("^$number")
         Start-Sleep -Milliseconds 300
         $selected = Get-SelectedTabIndex -Items $tabItems
-        $ok = $selected -eq $number
+        $ok = $selected -eq $expectedTab
         $results.Add([pscustomobject]@{
             Test = "Ctrl+$number"
-            ExpectedTab = $number
+            ExpectedTab = $expectedTab
             SelectedTab = $selected
             Result = if ($ok) { "PASS" } else { "FAIL" }
             Details = "Top-row digit shortcut"
         })
-        if (-not $ok) { throw "Ctrl+$number selected tab $selected; expected tab $number." }
+        if (-not $ok) { throw "Ctrl+$number selected tab $selected; expected tab $expectedTab." }
     }
 
     for ($number = 1; $number -le 8; $number++) {
+        $expectedTab = $expectedTabIndices[$number - 1]
         $vk = [byte](0x60 + $number)
         Send-NumpadShortcut -VirtualKey $vk
         Start-Sleep -Milliseconds 300
         $selected = Get-SelectedTabIndex -Items $tabItems
-        $ok = $selected -eq $number
+        $ok = $selected -eq $expectedTab
         $results.Add([pscustomobject]@{
             Test = "Ctrl+NumPad$number"
-            ExpectedTab = $number
+            ExpectedTab = $expectedTab
             SelectedTab = $selected
             Result = if ($ok) { "PASS" } else { "FAIL" }
             Details = "Numeric keypad shortcut"
         })
-        if (-not $ok) { throw "Ctrl+NumPad$number selected tab $selected; expected tab $number." }
+        if (-not $ok) { throw "Ctrl+NumPad$number selected tab $selected; expected tab $expectedTab." }
     }
 
-    # Ctrl+2 must move keyboard focus into the message field, not merely change tabs.
-    [System.Windows.Forms.SendKeys]::SendWait("^2")
+    # Ctrl+1 is the real Home route and must move focus into the message field.
+    [System.Windows.Forms.SendKeys]::SendWait("^1")
     Start-Sleep -Milliseconds 350
     $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
     $focusName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
@@ -148,13 +154,13 @@ try {
     # Verify the focused element is an Edit control instead of depending on one exact translated label.
     $focusOk = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and ($focusControlType -eq "ControlType.Edit")
     $results.Add([pscustomobject]@{
-        Test = "Ctrl+2 focus target"
+        Test = "Ctrl+1 focus target"
         ExpectedTab = 2
         SelectedTab = (Get-SelectedTabIndex -Items $tabItems)
         Result = if ($focusOk) { "PASS" } else { "FAIL" }
         Details = "Focused element name: $focusName; control type: $focusControlType"
     })
-    if (-not $focusOk) { throw "Ctrl+2 did not focus the accessible message field; focused element was '$focusName' with control type '$focusControlType'." }
+    if (-not $focusOk) { throw "Ctrl+1 did not focus the accessible message field; focused element was '$focusName' with control type '$focusControlType'." }
 
     # F1 opens a modal help message. Confirm it exists, then close it without triggering another action.
     [System.Windows.Forms.SendKeys]::SendWait("{F1}")

@@ -1263,7 +1263,7 @@ public partial class MainWindow : Window
         KeyboardHelpButton.ToolTip = ar ? "F1 — عرض اختصارات لوحة المفاتيح" : "F1 — Show keyboard shortcuts";
         AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
         AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
-        AutomationProperties.SetName(MainTabs, ar ? "محتوى صفحات التطبيق" : "Application page content");
+        AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
         AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة." : "Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
         AutomationProperties.SetName(DockNavigationItems, ar ? "شريط التنقل السفلي" : "Bottom navigation dock");
         AutomationProperties.SetName(ChatHistoryList, ar ? "سجل المحادثات المحفوظة" : "Saved conversation history");
