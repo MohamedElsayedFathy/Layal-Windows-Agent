@@ -17,9 +17,20 @@ public sealed class OpenAiCompatibleClient
     private const int MaxSseLineCharacters = 64 * 1024;
     private const int MaxStreamedTextCharacters = 2 * 1024 * 1024;
 
-    private static readonly HttpClient SharedProbeClient = new() { Timeout = TimeSpan.FromSeconds(15) };
-    private static readonly HttpClient SharedChatClient = new() { Timeout = TimeSpan.FromSeconds(120) };
+    private static readonly HttpClient SharedProbeClient = CreateProviderHttpClient(TimeSpan.FromSeconds(15));
+    private static readonly HttpClient SharedChatClient = CreateProviderHttpClient(TimeSpan.FromSeconds(120));
     private readonly Func<TimeSpan, HttpClient> _clientFactory;
+
+    // Provider APIs may carry prompts, images, tool arguments and bearer credentials.
+    // Never let a 3xx response silently forward that request to a different origin.
+    private static SocketsHttpHandler CreateProviderHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false
+    };
+
+    private static HttpClient CreateProviderHttpClient(TimeSpan timeout) =>
+        new(CreateProviderHttpHandler()) { Timeout = timeout };
 
     // Reuse connection pools in production; tests can still inject short-lived deterministic clients.
     public OpenAiCompatibleClient() : this(timeout =>
@@ -572,11 +583,19 @@ public sealed class OpenAiCompatibleClient
 
     private static Uri BuildUri(string baseUrl, string endpoint)
     {
-        if (!Uri.TryCreate(baseUrl.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri) ||
+        var value = (baseUrl ?? string.Empty).Trim();
+        if (value.Length == 0 ||
+            !Uri.TryCreate(value.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri) ||
             (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
-            throw new ArgumentException("Base URL must be a valid HTTP or HTTPS URL.", nameof(baseUrl));
+            throw new ArgumentException("Base URL must be a valid absolute HTTP or HTTPS URL.", nameof(baseUrl));
         if (!string.IsNullOrEmpty(baseUri.UserInfo))
             throw new ArgumentException("Do not put usernames or passwords inside the base URL.", nameof(baseUrl));
+        if (!string.IsNullOrEmpty(baseUri.Query) || !string.IsNullOrEmpty(baseUri.Fragment))
+            throw new ArgumentException("Base URL must not contain a query string or fragment.", nameof(baseUrl));
+        if (baseUri.Scheme == Uri.UriSchemeHttp && !baseUri.IsLoopback)
+            throw new ArgumentException(
+                "Remote AI providers must use HTTPS so API keys and conversation data are encrypted in transit. HTTP is permitted only for a local loopback provider.",
+                nameof(baseUrl));
         return new Uri(baseUri, endpoint);
     }
 

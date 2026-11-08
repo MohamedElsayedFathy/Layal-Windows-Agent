@@ -21,9 +21,11 @@ public sealed class LocalVoiceService
     private const long WhisperArchiveSize = 7_982_101;
     private const string WhisperArchiveSha256 =
         "7d8be46ecd31828e1eb7a2ecdd0d6b314feafd82163038ab6092594b0a063539";
+    // Pin the model repository revision and its SHA-256 so a mutable "main" ref cannot
+    // silently change the model bytes between installs.
     private const string WhisperModelUrl =
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true";
-    private const string WhisperModelSha1 = "465707469ff3a37a2b9b8d8f89f2f99de7299dac";
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin";
+    private const string WhisperModelSha256 = "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe";
     private const long WhisperModelSize = 147_951_465;
 
     private const string PiperArchiveUrl =
@@ -88,15 +90,20 @@ public sealed class LocalVoiceService
     // cache must be verified in this process before local speech is advertised as ready.
     public bool IsReady => Volatile.Read(ref _ready) == 1;
 
+    private void InvalidateReadiness()
+    {
+        Volatile.Write(ref _ready, 0);
+        _whisperExecutable = null;
+        _piperExecutable = null;
+    }
+
     public async Task EnsureReadyAsync(
         IProgress<LocalAiProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         // A retry starts from an untrusted cache state. Never leave a prior success bit set
         // if revalidation, download, extraction or repair fails partway through this attempt.
-        Volatile.Write(ref _ready, 0);
-        _whisperExecutable = null;
-        _piperExecutable = null;
+        InvalidateReadiness();
 
         if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
             throw new PlatformNotSupportedException("Local voice setup currently requires 64-bit Windows.");
@@ -106,24 +113,23 @@ public sealed class LocalVoiceService
         Directory.CreateDirectory(TempRoot);
         CleanupStaleTemporaryArtifacts(TempRoot, DateTime.UtcNow);
 
-        _whisperExecutable = FindExecutable(Path.Combine(ToolsRoot, "whisper"), "whisper-cli.exe");
+        var whisperArchive = Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip");
+        await EnsureVerifiedFileAsync(
+            WhisperArchiveUrl, whisperArchive, WhisperArchiveSize, WhisperArchiveSha256, null,
+            "تنزيل محرك تحويل الكلام إلى نص (Whisper)…", progress, cancellationToken);
+
+        var whisperRoot = Path.Combine(ToolsRoot, "whisper");
+        _whisperExecutable = await FindVerifiedWhisperExecutableAsync(
+            whisperArchive, whisperRoot, cancellationToken);
         if (_whisperExecutable is null)
-        {
-            var archive = Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip");
-            await EnsureVerifiedFileAsync(
-                WhisperArchiveUrl, archive, WhisperArchiveSize, WhisperArchiveSha256, null,
-                "تنزيل محرك تحويل الكلام إلى نص (Whisper)…", progress, cancellationToken);
-            var destination = Path.Combine(ToolsRoot, "whisper");
-            SafeExtractZip(archive, destination);
-            _whisperExecutable = FindExecutable(destination, "whisper-cli.exe");
-            if (_whisperExecutable is null)
-                throw new InvalidOperationException("لم يحتوِ أرشيف Whisper الذي تم التحقق منه على whisper-cli.exe.");
-            TryDeleteFile(archive);
-        }
+            _whisperExecutable = await ExtractVerifiedWhisperArchiveAsync(
+                whisperArchive, whisperRoot, cancellationToken);
+        if (_whisperExecutable is null)
+            throw new InvalidOperationException("تعذر التحقق من محرك Whisper وملفاته المستخرجة من الأرشيف الموثوق؛ لم يتم تشغيله.");
 
         await EnsureVerifiedFileAsync(
-            WhisperModelUrl, WhisperModelPath, WhisperModelSize, null, WhisperModelSha1,
-            "تنزيل نموذج فهم الكلام العربي والإنجليزي (Whisper base)…", progress, cancellationToken);
+            WhisperModelUrl, WhisperModelPath, WhisperModelSize, WhisperModelSha256, null,
+            "تنزيل نموذج فهم الكلام العربي والإنجليزي (Whisper)…", progress, cancellationToken);
 
         var piperArchive = Path.Combine(Root, "piper-windows-amd64-2023.11.14-2.zip");
         await EnsureVerifiedFileAsync(
@@ -168,16 +174,16 @@ public sealed class LocalVoiceService
     public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
     {
         if (IsReady) return true;
-        Volatile.Write(ref _ready, 0);
-        _whisperExecutable = null;
-        _piperExecutable = null;
+        InvalidateReadiness();
 
         if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
             return false;
 
         try
         {
-            _whisperExecutable = FindExecutable(Path.Combine(ToolsRoot, "whisper"), "whisper-cli.exe");
+            var whisperArchive = Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip");
+            _whisperExecutable = await FindVerifiedWhisperExecutableAsync(
+                whisperArchive, Path.Combine(ToolsRoot, "whisper"), cancellationToken);
             if (_whisperExecutable is null)
                 return false;
 
@@ -188,9 +194,10 @@ public sealed class LocalVoiceService
             if (!File.Exists(_piperExecutable))
                 return false;
 
-            // The archive is only needed to repair a bad install. Older valid installs may
-            // have already deleted it, so validate installed files independently on startup.
-            if (!await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, null, WhisperModelSha1, cancellationToken) ||
+            // The retained, hash-pinned archive is the trust anchor for the extracted Whisper
+            // executable and sidecar DLLs. Legacy installs without it remain not-ready until the
+            // next user-approved setup downloads the archive for verification.
+            if (!await MatchesExpectedFileAsync(WhisperModelPath, WhisperModelSize, WhisperModelSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicModelPath, PiperVoiceSize, ArabicVoiceSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(ArabicConfigPath, ArabicVoiceConfigSize, ArabicVoiceConfigSha256, null, cancellationToken) ||
                 !await MatchesExpectedFileAsync(EnglishModelPath, PiperVoiceSize, EnglishVoiceSha256, null, cancellationToken) ||
@@ -224,6 +231,33 @@ public sealed class LocalVoiceService
             throw new InvalidOperationException("جهّز موارد الصوت المحلي أولًا من الإعدادات.");
         if (wavBytes.Length <= 44 || wavBytes.Length > MaximumAudioBytes)
             throw new InvalidOperationException("التسجيل الصوتي فارغ أو يتجاوز الحد المحلي المسموح.");
+
+        string? verifiedWhisperExecutable;
+        bool modelIsVerified;
+        try
+        {
+            verifiedWhisperExecutable = await FindVerifiedWhisperExecutableAsync(
+                Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip"),
+                Path.Combine(ToolsRoot, "whisper"),
+                cancellationToken);
+            modelIsVerified = await MatchesExpectedFileAsync(
+                WhisperModelPath, WhisperModelSize, WhisperModelSha256, null, cancellationToken);
+        }
+        catch
+        {
+            // An I/O, ACL, reparse-point or cancellation failure means integrity could not
+            // be established. Do not leave the service advertising stale readiness.
+            InvalidateReadiness();
+            throw;
+        }
+
+        if (verifiedWhisperExecutable is null ||
+            !string.Equals(Path.GetFullPath(verifiedWhisperExecutable), Path.GetFullPath(_whisperExecutable), StringComparison.OrdinalIgnoreCase) ||
+            !modelIsVerified)
+        {
+            InvalidateReadiness();
+            throw new InvalidOperationException("تم تغيير محرك Whisper أو ملف النموذج منذ آخر تحقق؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
+        }
 
         Directory.CreateDirectory(TempRoot);
         CleanupStaleTemporaryArtifacts(TempRoot, DateTime.UtcNow);
@@ -302,27 +336,30 @@ public sealed class LocalVoiceService
         var segments = SplitTextByLanguage(normalized);
         if (segments.Count == 0) return;
 
-        if (!await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken))
+        try
         {
-            Volatile.Write(ref _ready, 0);
-            throw new InvalidOperationException("اكتُشف تغيير في ملفات محرك النطق المحلي؛ أعد تجهيز الصوت قبل استخدامه.");
-        }
+            if (!await MatchesExpectedPiperInstallAsync(Path.Combine(ToolsRoot, "piper"), cancellationToken))
+                throw new InvalidOperationException("اكتُشف تغيير في ملفات محرك النطق المحلي؛ أعد تجهيز الصوت قبل استخدامه.");
 
-        // Validate every required voice before playing the first segment. This avoids speaking
-        // half a bilingual answer and then failing because the second language model is missing.
-        foreach (var isArabic in segments.Select(segment => segment.IsArabic).Distinct())
-        {
-            var modelPath = isArabic ? ArabicModelPath : EnglishModelPath;
-            var configPath = isArabic ? ArabicConfigPath : EnglishConfigPath;
-            var modelHash = isArabic ? ArabicVoiceSha256 : EnglishVoiceSha256;
-            var configHash = isArabic ? ArabicVoiceConfigSha256 : EnglishVoiceConfigSha256;
-            var configSize = isArabic ? ArabicVoiceConfigSize : EnglishVoiceConfigSize;
-            if (!await MatchesExpectedFileAsync(modelPath, PiperVoiceSize, modelHash, null, cancellationToken) ||
-                !await MatchesExpectedFileAsync(configPath, configSize, configHash, null, cancellationToken))
+            // Validate every required voice before playing the first segment. This avoids speaking
+            // half a bilingual answer and then failing because the second language model is missing.
+            foreach (var isArabic in segments.Select(segment => segment.IsArabic).Distinct())
             {
-                Volatile.Write(ref _ready, 0);
-                throw new InvalidOperationException("اكتُشف تغيير في موارد النطق المحلية؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
+                var modelPath = isArabic ? ArabicModelPath : EnglishModelPath;
+                var configPath = isArabic ? ArabicConfigPath : EnglishConfigPath;
+                var modelHash = isArabic ? ArabicVoiceSha256 : EnglishVoiceSha256;
+                var configHash = isArabic ? ArabicVoiceConfigSha256 : EnglishVoiceConfigSha256;
+                var configSize = isArabic ? ArabicVoiceConfigSize : EnglishVoiceConfigSize;
+                if (!await MatchesExpectedFileAsync(modelPath, PiperVoiceSize, modelHash, null, cancellationToken) ||
+                    !await MatchesExpectedFileAsync(configPath, configSize, configHash, null, cancellationToken))
+                    throw new InvalidOperationException("اكتُشف تغيير في موارد النطق المحلية؛ أعد تجهيز الصوت المحلي قبل استخدامه.");
             }
+        }
+        catch
+        {
+            // This also covers unreadable files and reparse-point detection exceptions.
+            InvalidateReadiness();
+            throw;
         }
 
         var lengthScale = VoiceDeliveryStylePolicy.GetLocalLengthScale(deliveryStyleId);
@@ -523,6 +560,199 @@ public sealed class LocalVoiceService
         return string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static async Task<string?> FindVerifiedWhisperExecutableAsync(
+        string archivePath,
+        string installRoot,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(installRoot) ||
+            (File.GetAttributes(installRoot) & FileAttributes.ReparsePoint) != 0)
+            return null;
+
+        await using var archiveStream = await OpenVerifiedWhisperArchiveAsync(archivePath, cancellationToken);
+        if (archiveStream is null)
+            return null;
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read, leaveOpen: true);
+        return await VerifyWhisperExtractedFilesAsync(archive, installRoot, cancellationToken);
+    }
+
+    private static Task<string?> ExtractVerifiedWhisperArchiveAsync(
+        string archivePath,
+        string installRoot,
+        CancellationToken cancellationToken) =>
+        ExtractVerifiedWhisperArchiveAsync(
+            archivePath,
+            installRoot,
+            Path.Combine(ToolsRoot, "whisper"),
+            WhisperArchiveSize,
+            WhisperArchiveSha256,
+            cancellationToken);
+
+    private static async Task<string?> ExtractVerifiedWhisperArchiveAsync(
+        string archivePath,
+        string installRoot,
+        string expectedInstallRoot,
+        long expectedArchiveSize,
+        string expectedArchiveSha256,
+        CancellationToken cancellationToken)
+    {
+        var expected = Path.GetFullPath(expectedInstallRoot).TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var actual = Path.GetFullPath(installRoot).TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("رفض التطبيق فك أرشيف Whisper خارج مجلد التثبيت المعتمد.");
+
+        // Hold the hash-verified archive open with FileShare.Read for the entire extraction
+        // and comparison, so it cannot be replaced between verification and use.
+        await using var archiveStream = await OpenVerifiedWhisperArchiveAsync(
+            archivePath, expectedArchiveSize, expectedArchiveSha256, cancellationToken);
+        if (archiveStream is null)
+            return null;
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read, leaveOpen: true);
+        DeleteWhisperInstallDirectory(actual, expected);
+        SafeExtractZip(archive, actual);
+        return await VerifyWhisperExtractedFilesAsync(archive, actual, cancellationToken);
+    }
+
+    private static Task<FileStream?> OpenVerifiedWhisperArchiveAsync(
+        string archivePath,
+        CancellationToken cancellationToken) =>
+        OpenVerifiedWhisperArchiveAsync(
+            archivePath, WhisperArchiveSize, WhisperArchiveSha256, cancellationToken);
+
+    private static async Task<FileStream?> OpenVerifiedWhisperArchiveAsync(
+        string archivePath,
+        long expectedArchiveSize,
+        string expectedArchiveSha256,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(archivePath) ||
+            (File.GetAttributes(archivePath) & FileAttributes.ReparsePoint) != 0)
+            return null;
+
+        var stream = new FileStream(
+            archivePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            bufferSize: 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        try
+        {
+            if (stream.Length != expectedArchiveSize)
+            {
+                await stream.DisposeAsync();
+                return null;
+            }
+
+            var actualHash = await SHA256.HashDataAsync(stream, cancellationToken);
+            var expectedHash = Convert.FromHexString(expectedArchiveSha256);
+            if (!CryptographicOperations.FixedTimeEquals(actualHash, expectedHash))
+            {
+                await stream.DisposeAsync();
+                return null;
+            }
+
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
+    }
+
+    private static async Task<string?> VerifyWhisperExtractedFilesAsync(
+        ZipArchive archive,
+        string installRoot,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(installRoot) ||
+            (File.GetAttributes(installRoot) & FileAttributes.ReparsePoint) != 0)
+            return null;
+
+        var expectedFiles = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
+        var executablePaths = new List<string>();
+        foreach (var entry in archive.Entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (entry.Name.Length == 0)
+                continue;
+
+            var relative = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
+            if (string.IsNullOrWhiteSpace(relative) ||
+                Path.IsPathRooted(relative) ||
+                relative.Split(Path.DirectorySeparatorChar).Any(part => part is "" or "." or "..") ||
+                relative.Contains(':') ||
+                ((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
+                return null;
+
+            var fullPath = Path.GetFullPath(Path.Combine(installRoot, relative));
+            var rootPrefix = Path.GetFullPath(installRoot).TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var normalized = Path.GetRelativePath(installRoot, fullPath).Replace(Path.DirectorySeparatorChar, '/');
+            if (!expectedFiles.TryAdd(normalized, entry))
+                return null;
+
+            if (string.Equals(Path.GetFileName(fullPath), "whisper-cli.exe", StringComparison.OrdinalIgnoreCase))
+                executablePaths.Add(fullPath);
+        }
+
+        if (expectedFiles.Count is 0 or > 512 || executablePaths.Count != 1)
+            return null;
+
+        var actualFiles = EnumerateFilesWithoutFollowingReparsePoints(installRoot)
+            .ToDictionary(
+                path => Path.GetRelativePath(installRoot, path).Replace(Path.DirectorySeparatorChar, '/'),
+                path => path,
+                StringComparer.OrdinalIgnoreCase);
+        if (actualFiles.Count != expectedFiles.Count ||
+            !actualFiles.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                .SetEquals(expectedFiles.Keys))
+            return null;
+
+        foreach (var pair in expectedFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var actualPath = actualFiles[pair.Key];
+            var attributes = File.GetAttributes(actualPath);
+            if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
+                return null;
+
+            var info = new FileInfo(actualPath);
+            if (info.Length != pair.Value.Length)
+                return null;
+
+            await using var archiveEntryStream = pair.Value.Open();
+            await using var installedStream = new FileStream(
+                actualPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                bufferSize: 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            var archiveHash = await SHA256.HashDataAsync(archiveEntryStream, cancellationToken);
+            var installedHash = await SHA256.HashDataAsync(installedStream, cancellationToken);
+            if (!CryptographicOperations.FixedTimeEquals(archiveHash, installedHash))
+                return null;
+        }
+
+        return executablePaths[0];
+    }
+
+
+    private static void DeleteWhisperInstallDirectory(string directory, string expectedRoot)
+    {
+        var expected = Path.GetFullPath(expectedRoot).TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var actual = Path.GetFullPath(directory).TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("رفض التطبيق حذف مسار خارج تثبيت Whisper المعتمد.");
+
+        if (Directory.Exists(actual))
+            DeleteDirectoryWithoutFollowingReparsePoints(actual);
+    }
+
     private static async Task<bool> MatchesExpectedPiperInstallAsync(string root, CancellationToken cancellationToken)
     {
         if (!Directory.Exists(root)) return false;
@@ -562,7 +792,7 @@ public sealed class LocalVoiceService
         {
             var attributes = File.GetAttributes(entry);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidOperationException("رفض التطبيق استخدام رابط رمزي أو reparse point داخل مجلد Piper.");
+                throw new InvalidOperationException("رفض التطبيق استخدام رابط رمزي أو reparse point داخل مجلد أدوات الصوت.");
 
             if ((attributes & FileAttributes.Directory) != 0)
             {
@@ -591,7 +821,7 @@ public sealed class LocalVoiceService
     {
         var attributes = File.GetAttributes(path);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
-            throw new InvalidOperationException("رفض التطبيق حذف مجلد تثبيت Piper الذي يمثل رابطًا رمزيًا.");
+            throw new InvalidOperationException("رفض التطبيق حذف مجلد تثبيت أدوات الصوت الذي يمثل رابطًا رمزيًا.");
 
         if ((attributes & FileAttributes.Directory) == 0)
         {
@@ -606,9 +836,14 @@ public sealed class LocalVoiceService
 
     private static void SafeExtractZip(string archivePath, string destination)
     {
+        using var archive = ZipFile.OpenRead(archivePath);
+        SafeExtractZip(archive, destination);
+    }
+
+    private static void SafeExtractZip(ZipArchive archive, string destination)
+    {
         Directory.CreateDirectory(destination);
         var fullRoot = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        using var archive = ZipFile.OpenRead(archivePath);
         foreach (var entry in archive.Entries)
         {
             var target = Path.GetFullPath(Path.Combine(destination, entry.FullName));
@@ -620,14 +855,6 @@ public sealed class LocalVoiceService
                 throw new InvalidOperationException("رفض التطبيق رابطًا رمزيًا داخل أرشيف أداة الصوت.");
         }
         archive.ExtractToDirectory(destination, overwriteFiles: true);
-    }
-
-    private static string? FindExecutable(string root, string name)
-    {
-        if (!Directory.Exists(root)) return null;
-        return Directory.EnumerateFiles(root, name, SearchOption.AllDirectories)
-            .OrderBy(path => path.Length)
-            .FirstOrDefault();
     }
 
     private static void ValidateVoiceConfig(string path, string expectedName)

@@ -12,6 +12,20 @@ namespace Layal.Tests;
 public sealed class OpenAiCompatibleClientTests
 {
     [TestMethod]
+    public void SharedProviderHandlerDoesNotFollowRedirects()
+    {
+        var factory = typeof(OpenAiCompatibleClient).GetMethod(
+            "CreateProviderHttpHandler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.IsNotNull(factory, "The production provider handler factory must exist.");
+
+        using var handler = (SocketsHttpHandler)factory!.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect,
+            "Provider requests must not be replayed to redirect destinations.");
+        Assert.IsFalse(handler.UseCookies,
+            "Provider cookies must not persist or be shared between API calls.");
+    }
+
+    [TestMethod]
     public async Task ProbeCallsModelsEndpointWithBearerAuthorization()
     {
         using var handler = new RecordingHandler(_ => JsonResponse("{\"data\":[]}"));
@@ -23,6 +37,48 @@ public sealed class OpenAiCompatibleClientTests
         Assert.AreEqual("https://provider.example/v1/models", handler.LastRequestUri?.AbsoluteUri);
         Assert.AreEqual("Bearer", handler.LastAuthorizationScheme);
         Assert.AreEqual("test-secret", handler.LastAuthorizationParameter);
+    }
+
+    [TestMethod]
+    public async Task ProbeRejectsRemoteHttpBeforeSendingApiKey()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse("{\"data\":[]}"));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var error = await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
+            client.ProbeAsync("http://provider.example/v1", "must-not-be-sent"));
+
+        StringAssert.Contains(error.Message, "HTTPS");
+        Assert.IsNull(handler.LastRequestUri, "A remote HTTP endpoint must be rejected before the API key or request is sent.");
+    }
+
+    [TestMethod]
+    public async Task ProbeAllowsLoopbackHttpForLocalProviders()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse("{\"data\":[]}"));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        var result = await client.ProbeAsync("http://127.0.0.1:11434/v1", "local-test-key");
+
+        StringAssert.Contains(result, "successful");
+        Assert.AreEqual("http://127.0.0.1:11434/v1/models", handler.LastRequestUri?.AbsoluteUri);
+        Assert.AreEqual("local-test-key", handler.LastAuthorizationParameter);
+    }
+
+    [TestMethod]
+    [DataRow("https://provider.example/v1?tenant=private")]
+    [DataRow("https://provider.example/v1#private-fragment")]
+    [DataRow("https://user:password@provider.example/v1")]
+    public async Task ProbeRejectsBaseUrlQueryFragmentAndEmbeddedCredentialsBeforeSendingCredentials(string baseUrl)
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse("{\"data\":[]}"));
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
+            client.ProbeAsync(baseUrl, "must-not-be-sent"));
+        Assert.IsNull(handler.LastRequestUri,
+            "An invalid provider base URL must be rejected before any request or API credential is sent.");
+        Assert.IsNull(handler.LastAuthorizationParameter);
     }
 
     [TestMethod]
