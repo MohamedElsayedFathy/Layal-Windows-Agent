@@ -282,8 +282,8 @@ internal static class LayalDialogService
     private static string GetIconGlyph(MessageBoxImage icon) =>
         icon switch
         {
-            MessageBoxImage.Error or MessageBoxImage.Hand or MessageBoxImage.Stop => "×",
-            MessageBoxImage.Warning or MessageBoxImage.Exclamation => "!",
+            MessageBoxImage.Error => "×",
+            MessageBoxImage.Warning => "!",
             MessageBoxImage.Question => "?",
             _ => "i"
         };
