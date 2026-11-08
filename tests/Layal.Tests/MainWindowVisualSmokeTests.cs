@@ -1717,6 +1717,23 @@ public sealed class MainWindowVisualSmokeTests
         var textBrush = Application.Current.TryFindResource("Layal.Text") as SolidColorBrush;
         var comboForeground = historySelector.Foreground as SolidColorBrush;
 
+        foreach (var popupType in new[] { typeof(ContextMenu), typeof(MenuItem), typeof(ToolTip), typeof(DatePicker) })
+        {
+            Assert.IsNotNull(Application.Current.TryFindResource(popupType) as Style,
+                $"Implicit {popupType.Name} style must be available in {theme}/{language}; transient surfaces must not fall back to native white styling.");
+        }
+
+        var calendarStyle = Application.Current.TryFindResource("Layal.CalendarPopup") as Style;
+        Assert.IsNotNull(calendarStyle, $"DatePicker calendar popup style must be available in {theme}/{language}.");
+        Assert.IsTrue(calendarStyle!.Setters.OfType<Setter>()
+                .Any(setter => setter.Property == Control.BackgroundProperty),
+            $"DatePicker calendar popup must have a theme-aware background in {theme}/{language}.");
+
+        var glassPopupBrush = Application.Current.TryFindResource("Layal.GlassStrongFill") as SolidColorBrush;
+        var glassBorderBrush = Application.Current.TryFindResource("Layal.GlassBorderBrush") as SolidColorBrush;
+        Assert.IsNotNull(glassPopupBrush, $"Glass popup fill must resolve in {theme}/{language}.");
+        Assert.IsNotNull(glassBorderBrush, $"Glass popup border must resolve in {theme}/{language}.");
+
         Assert.IsNotNull(panelBrush, $"Layal.Panel must resolve for {theme}/{language}.");
         Assert.IsNotNull(comboBackground, $"ComboBox background must use a solid theme surface for {theme}/{language}.");
         Assert.IsNotNull(textBrush, $"Layal.Text must resolve for {theme}/{language}.");
