@@ -149,16 +149,24 @@ try {
 
     # Ctrl+1 is the real Home route and must move focus into the message field.
     [System.Windows.Forms.SendKeys]::SendWait("^1")
-    Start-Sleep -Milliseconds 350
-    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-    $focusName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
-    $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
+    # UIA focus notifications can arrive after the WPF tab content has completed its layout.
+    # Poll the actual focused peer instead of sampling once during that transition.
+    $focusDeadline = (Get-Date).AddSeconds(3)
+    $focused = $null
+    $focusName = ""
+    $focusControlType = ""
+    do {
+        Start-Sleep -Milliseconds 100
+        $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+        $focusName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
+        $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
+        $focusReady = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and
+                      ($focusControlType -eq "ControlType.Edit")
+    } while (-not $focusReady -and (Get-Date) -lt $focusDeadline) }
     # The application exposes the accessible textbox name in localized form as "رسالة المحادثة".
     # Verify the focused element is an Edit control instead of depending on one exact translated label.
     $focusSection = Get-CurrentSectionStatus
-    $focusOk = ($focusSection -match $expectedSectionPatterns[0]) -and
-               ($focusName -match "Message|الرسالة|رسالة المحادثة") -and
-               ($focusControlType -eq "ControlType.Edit")
+    $focusOk = ($focusSection -match $expectedSectionPatterns[0]) -and $focusReady
     $results.Add([pscustomobject]@{
         Test = "Ctrl+1 focus target"
         ExpectedSection = "Chat / Home"
