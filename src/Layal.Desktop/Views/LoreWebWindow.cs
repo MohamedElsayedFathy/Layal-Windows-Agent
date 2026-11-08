@@ -115,25 +115,25 @@ public sealed class LoreWebWindow : Window
         legend.Inlines.Add(new Run
         {
             Text = isArabic ? "● نشطة" : "● Active",
-            Foreground = new SolidColorBrush(Color.FromRgb(55, 164, 181))
+            Foreground = GetThemeBrush("Layal.Success", Brushes.SeaGreen)
         });
         legend.Inlines.Add(new Run { Text = "   " });
         legend.Inlines.Add(new Run
         {
             Text = isArabic ? "● مؤرشفة" : "● Archived",
-            Foreground = new SolidColorBrush(Color.FromRgb(125, 132, 145))
+            Foreground = GetThemeBrush("Layal.Muted", Brushes.DimGray)
         });
         legend.Inlines.Add(new Run { Text = "   " });
         legend.Inlines.Add(new Run
         {
             Text = isArabic ? "━ روابط تقريبية" : "━ Inferred links",
-            Foreground = new SolidColorBrush(Color.FromRgb(95, 145, 165))
+            Foreground = GetThemeBrush("Layal.Cyan", Brushes.Teal)
         });
         legend.Inlines.Add(new Run { Text = "   " });
         legend.Inlines.Add(new Run
         {
             Text = isArabic ? "━ علاقات صريحة" : "━ Explicit relationships",
-            Foreground = new SolidColorBrush(Color.FromRgb(228, 157, 73))
+            Foreground = GetThemeBrush("Layal.DecorativeAmber", Brushes.Goldenrod)
         });
         AutomationProperties.SetName(legend, isArabic
             ? "مفتاح الألوان: الأزرق للملاحظات النشطة، والرمادي للمؤرشفة، والرمادي المزرق للروابط التقريبية، والذهبي للعلاقات التي حددها المستخدم."
