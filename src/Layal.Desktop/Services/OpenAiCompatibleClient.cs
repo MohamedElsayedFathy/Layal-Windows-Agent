@@ -17,9 +17,14 @@ public sealed class OpenAiCompatibleClient
     private const int MaxSseLineCharacters = 64 * 1024;
     private const int MaxStreamedTextCharacters = 2 * 1024 * 1024;
 
-    private static readonly HttpClient SharedProbeClient = new() { Timeout = TimeSpan.FromSeconds(15) };
-    private static readonly HttpClient SharedChatClient = new() { Timeout = TimeSpan.FromSeconds(120) };
+    private static readonly HttpClient SharedProbeClient = CreateProviderHttpClient(TimeSpan.FromSeconds(15));
+    private static readonly HttpClient SharedChatClient = CreateProviderHttpClient(TimeSpan.FromSeconds(120));
     private readonly Func<TimeSpan, HttpClient> _clientFactory;
+
+    // Provider APIs may carry prompts, images, tool arguments and bearer credentials.
+    // Never let a 3xx response silently forward that request to a different origin.
+    private static HttpClient CreateProviderHttpClient(TimeSpan timeout) =>
+        new(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = timeout };
 
     // Reuse connection pools in production; tests can still inject short-lived deterministic clients.
     public OpenAiCompatibleClient() : this(timeout =>
