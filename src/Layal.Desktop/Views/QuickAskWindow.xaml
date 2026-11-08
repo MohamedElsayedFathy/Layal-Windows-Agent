@@ -3,10 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Layal | Quick Ask" Width="560" Height="330" MinWidth="420" MinHeight="260" MaxHeight="680"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip"
-        Topmost="True" Background="{DynamicResource Layal.Background}" Foreground="{DynamicResource Layal.Text}"
+        Topmost="True" Background="Transparent" Foreground="{DynamicResource Layal.Text}"
         FontFamily="Segoe UI" FontSize="14" PreviewKeyDown="QuickAskWindow_PreviewKeyDown">
     <Border Margin="12" Padding="18" CornerRadius="18"
-            Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
+            Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+            Effect="{DynamicResource Layal.CardShadow}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>

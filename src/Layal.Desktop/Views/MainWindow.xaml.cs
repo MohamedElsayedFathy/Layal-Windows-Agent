@@ -14,7 +14,9 @@ using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
@@ -132,14 +134,22 @@ public partial class MainWindow : Window
     private bool _restoringProactiveCheckInInterval;
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
+    private bool _isBottomDockExpanded;
+    private bool _isChatHistoryPanelOpen;
+    private bool _isUiInitialized;
 
     public MainWindow()
     {
         InitializeComponent();
+        _isUiInitialized = true;
         AppRuntime.OpenTaskNotification = OpenTaskFromNotification;
         if (!Layal.App.SuppressStartupForTests)
             _globalHotkeyService = new GlobalHotkeyService(this, OpenQuickAskWindow, AppRuntime.Settings.QuickAskHotkeyPreset);
-        SourceInitialized += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateQuickAskHotkeyStatus));
+        SourceInitialized += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(new Action(UpdateQuickAskHotkeyStatus));
+            ApplyWindowBackdrop();
+        };
         // The chat is Layal's primary surface; Home remains available from the navigation rail.
         // Clock/date/weather live in the chat header so core context is visible immediately.
         MainTabs.SelectedItem = ChatTab;
@@ -434,7 +444,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var confirm = MessageBox.Show(this,
+            var confirm = LayalDialogService.Show(this,
                 IsArabic
                     ? "سيبدأ سياق دردشة مؤقت فارغ ولن تُحفظ رسائله الجديدة في سجل المحادثات المحلي. أثناء الوضع الخاص سيتم تعطيل تبويبي المهام والذاكرة ومنع بدء مهام وكيل جديدة أو الوصول للذاكرة الشخصية؛ البيانات المحفوظة سابقًا لن تُحذف وستعود بعد الخروج. قد تظل الرسائل التي ترسلها تصل إلى مزود الذكاء الاصطناعي وتخضع لسجلاته وسياسة احتفاظه. هل تريد المتابعة؟"
                     : "This starts a blank temporary chat and does not save its new messages in local chat history. While private mode is active, Tasks and Memory are disabled; new agent tasks and personal-memory access are blocked. Previously saved tasks and notes are preserved and become available again after exit. Messages may still be sent to the configured AI provider and remain subject to its own logging and retention policies. Continue?",
@@ -461,7 +471,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var exit = MessageBox.Show(this,
+        var exit = LayalDialogService.Show(this,
             IsArabic
                 ? "سيتم التخلص من رسائل المحادثة الخاصة غير المحفوظة واستعادة آخر محادثة محفوظة. المهام والملاحظات المحفوظة لم تُحذف وستصبح متاحة مجددًا. لا يمكن استرجاع ما أُرسل بالفعل إلى مزود خارجي. هل تريد المتابعة؟"
                 : "Unsaved private-chat messages will be discarded and the last saved conversation will be restored. Saved tasks and memory were preserved and will become available again. Data already sent to an external provider cannot be recalled. Continue?",
@@ -607,7 +617,7 @@ public partial class MainWindow : Window
     private void PrivacyShieldButton_Click(object sender, RoutedEventArgs e)
     {
         var enable = !AppRuntime.Settings.PrivacyShieldEnabled;
-        var confirm = MessageBox.Show(this,
+        var confirm = LayalDialogService.Show(this,
             enable
                 ? (IsArabic
                     ? "سيمنع الدرع بدء تسجيل الميكروفون وفتح الكاميرا وقص الشاشة وفحص العناصر وقراءة الحافظة. سيحاول إيقاف الالتقاطات الجارية وإغلاق الكاميرا وإلغاء أي طلب نشط؛ وقد يحتاج إيقاف بعض موارد النظام لحظات. لن تُحذف بيانات أُرسلت إلى مزود أو حُفظت سابقًا. هل تريد التفعيل؟"
@@ -838,6 +848,7 @@ public partial class MainWindow : Window
         ProactiveCheckInEnabledCheckBox.IsEnabled = !_incognitoMode;
         ProactiveCheckInIntervalSelector.IsEnabled = !_incognitoMode;
         ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
         NewConversationButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode && _chatCancellation is null;
         QuickAskButton.IsEnabled = !_incognitoMode;
@@ -978,6 +989,13 @@ public partial class MainWindow : Window
     private static System.Windows.Media.Brush ThemeBrush(string key, System.Windows.Media.Brush fallback) =>
         Application.Current.TryFindResource(key) as System.Windows.Media.Brush ?? fallback;
 
+    private void ApplyWindowBackdrop()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+            WindowBackdropService.TryApply(handle, IsDarkTheme, SystemParameters.HighContrast);
+    }
+
     private void ApplyTheme()
     {
         // Replace the theme brushes and gradients themselves, not only their source colors.
@@ -1017,6 +1035,8 @@ public partial class MainWindow : Window
         SetSolidBrush("Layal.DangerSurface", "Layal.Color.DangerSurface");
         SetSolidBrush("Layal.DangerBorder", "Layal.Color.DangerBorder");
         SetSolidBrush("Layal.HoverSurface", "Layal.Color.HoverSurface");
+        SetSolidBrush("Layal.MenuHover", "Layal.Color.MenuHover");
+        SetSolidBrush("Layal.MenuHoverText", "Layal.Color.MenuHoverText");
         SetSolidBrush("Layal.InputFocus", "Layal.Color.InputFocus");
         SetSolidBrush("Layal.ListHover", "Layal.Color.ListHover");
         SetSolidBrush("Layal.ListSelected", "Layal.Color.ListSelected");
@@ -1067,6 +1087,11 @@ public partial class MainWindow : Window
             ShadowDepth = 2,
             Opacity = 0.14
         };
+        var backdropBase = colors["Layal.Color.Background"];
+        Application.Current.Resources["Layal.AppBackdropWash"] = highContrast
+            ? new SolidColorBrush(SystemColors.WindowColor)
+            : new SolidColorBrush(Color.FromArgb(IsDarkTheme ? (byte)0x52 : (byte)0x40,
+                backdropBase.R, backdropBase.G, backdropBase.B));
 
         if (highContrast)
         {
@@ -1086,7 +1111,12 @@ public partial class MainWindow : Window
                 ShadowDepth = 0,
                 Opacity = 0
             };
+            Application.Current.Resources["Layal.AppBackdropWash"] = new SolidColorBrush(SystemColors.WindowColor);
         }
+
+        AppRuntime.Tray?.SetTheme(IsDarkTheme, highContrast);
+        LayalWindowChrome.RefreshAll(IsDarkTheme, highContrast);
+        ApplyWindowBackdrop();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -1192,12 +1222,16 @@ public partial class MainWindow : Window
         // Keep the root visual tree LTR: setting RTL on the entire Window mirrors glyphs and icons.
         // Apply RTL to input fields and Arabic text runs locally instead of flipping all visuals.
         FlowDirection = FlowDirection.LeftToRight;
-        // Mirror the navigation rail only. The native window and content surface remain LTR so
-        // icons, caption controls, and provider/model inputs do not get accidentally mirrored.
+        // Only the dock and chat-history surface follow the writing direction. The window,
+        // content canvas, caption controls, and technical fields remain left-to-right.
         MainTabs.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        SidebarOverlay.HorizontalAlignment = ar ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-        SidebarBrandRow.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        SidebarFooterPanel.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        DockNavigationItems.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        ChatHistoryPanel.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        ChatHistoryList.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        Grid.SetColumn(ChatHistoryPanel, ar ? 1 : 0);
+        Grid.SetColumn(ChatConversationSurface, ar ? 0 : 1);
+        ChatHistoryPanel.Margin = ar ? new Thickness(8, 4, 0, 4) : new Thickness(0, 4, 8, 4);
+        ChatHistoryPanelTransform.X = ar ? 10 : -10;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = MemoryCategoryInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         SpeechModelInput.FlowDirection = VoiceReplyModelInput.FlowDirection = FlowDirection.LeftToRight;
         TaskResult.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
@@ -1234,14 +1268,17 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
         AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
         AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
-        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم Ctrl مع الأرقام من 1 إلى 8 للتنقل بين التبويبات." : "Use Ctrl+1 through Ctrl+8 to switch tabs.");
+        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة." : "Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
+        AutomationProperties.SetName(DockNavigationItems, ar ? "شريط التنقل السفلي" : "Bottom navigation dock");
+        AutomationProperties.SetName(ChatHistoryList, ar ? "سجل المحادثات المحفوظة" : "Saved conversation history");
+        AutomationProperties.SetHelpText(ChatHistoryList, ar ? "اختر محادثة محفوظة لتحميلها في مساحة الشات." : "Choose a saved conversation to load into the chat.");
         AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
         AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
         AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
         AutomationProperties.SetName(ChatMessagesList, ar ? "رسائل المحادثة" : "Chat messages");
         AutomationProperties.SetHelpText(ChatMessagesList, ar ? "استخدم الأسهم لاستعراض الرسائل." : "Use the arrow keys to review messages.");
         AutomationProperties.SetName(ChatInput, ar ? "الرسالة" : "Message");
-        AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة واضغط Enter للإرسال. Ctrl+2 ينقل التركيز إلى هذا الحقل." : "Type a message and press Enter to send. Ctrl+2 focuses this field.");
+        AutomationProperties.SetHelpText(ChatInput, ar ? "اكتب رسالة واضغط Enter للإرسال. Ctrl+1 ينقل التركيز إلى هذا الحقل." : "Type a message and press Enter to send. Ctrl+1 focuses this field.");
         AutomationProperties.SetName(TaskInput, ar ? "وصف المهمة" : "Task description");
         AutomationProperties.SetHelpText(TaskInput, ar ? "اكتب المهمة ثم استخدم Tab للوصول إلى زر تنفيذ المهمة." : "Describe the task, then press Tab to reach Run task.");
         AutomationProperties.SetName(TaskEventsList, ar ? "سجل أحداث المهمة" : "Task event log");
@@ -1277,20 +1314,49 @@ public partial class MainWindow : Window
             TaskEvents.Add(UiLocalization.FormatTaskEvent(line, ar));
         RefreshRecentTasks();
 
-        HomeTab.Header = ar ? "⌂  الرئيسية" : "⌂  Home";
-        ChatTab.Header = ar ? "✦  المحادثة" : "✦  Chat";
+        HomeTab.Header = ar ? "⌂  نظرة عامة" : "⌂  Overview";
+        ChatTab.Header = ar ? "✦  الرئيسية" : "✦  Home";
         TasksTab.Header = ar ? "▣  المهام" : "▣  Tasks";
         SkillsTab.Header = ar ? "◇  المهارات" : "◇  Skills";
         CamerasTab.Header = ar ? "◉  الكاميرات" : "◉  Cameras";
         MemoryTab.Header = ar ? "▤  الذاكرة" : "▤  Memory";
         SettingsTab.Header = ar ? "⚙  الإعدادات" : "⚙  Settings";
-        System.Windows.Automation.AutomationProperties.SetName(HomeTab, ar ? "الرئيسية" : "Home");
-        System.Windows.Automation.AutomationProperties.SetName(ChatTab, ar ? "المحادثة" : "Chat");
+        System.Windows.Automation.AutomationProperties.SetName(HomeTab, ar ? "نظرة عامة" : "Overview");
+        System.Windows.Automation.AutomationProperties.SetName(ChatTab, ar ? "الرئيسية" : "Home");
         System.Windows.Automation.AutomationProperties.SetName(TasksTab, ar ? "المهام" : "Tasks");
         System.Windows.Automation.AutomationProperties.SetName(SkillsTab, ar ? "المهارات" : "Skills");
         System.Windows.Automation.AutomationProperties.SetName(CamerasTab, ar ? "الكاميرات" : "Cameras");
         System.Windows.Automation.AutomationProperties.SetName(MemoryTab, ar ? "الذاكرة" : "Memory");
         System.Windows.Automation.AutomationProperties.SetName(SettingsTab, ar ? "الإعدادات" : "Settings");
+        DockChatButton.Content = ar ? "✦  الرئيسية" : "✦  Home";
+        DockOverviewButton.Content = ar ? "⌂  نظرة عامة" : "⌂  Overview";
+        DockTasksButton.Content = ar ? "▣  المهام" : "▣  Tasks";
+        DockSkillsButton.Content = ar ? "◇  المهارات" : "◇  Skills";
+        DockCamerasButton.Content = ar ? "◉  الكاميرات" : "◉  Cameras";
+        DockMemoryButton.Content = ar ? "▤  الذاكرة" : "▤  Memory";
+        DockApiButton.Content = ar ? "⌘  تكاملات API" : "⌘  API";
+        DockSettingsButton.Content = ar ? "⚙  الإعدادات" : "⚙  Settings";
+        ToggleBottomDockButton.ToolTip = _isBottomDockExpanded
+            ? (ar ? "طي شريط التنقل" : "Collapse navigation dock")
+            : (ar ? "توسيع شريط التنقل" : "Expand navigation dock");
+        AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
+        ChatHistoryHeading.Text = ar ? "المحادثات السابقة" : "Previous conversations";
+        ToggleChatHistoryButton.Content = ar ? "سجل المحادثات" : "Chat history";
+        ToggleChatHistoryButton.ToolTip = ar ? "إظهار أو إخفاء سجل المحادثات" : "Show or hide chat history";
+        AutomationProperties.SetName(ToggleChatHistoryButton, _isChatHistoryPanelOpen
+            ? (ar ? "إخفاء سجل المحادثات" : "Hide chat history")
+            : (ar ? "إظهار سجل المحادثات" : "Show chat history"));
+        ChatHistoryEmptyStateText.Text = ar ? "لا توجد محادثات محفوظة بعد." : "No saved conversations yet.";
+        AutomationProperties.SetName(CloseChatHistoryButton, ar ? "إغلاق سجل المحادثات" : "Close chat history");
+        AutomationProperties.SetName(DockChatButton, ar ? "الرئيسية - المحادثة" : "Home - Chat");
+        AutomationProperties.SetName(DockOverviewButton, ar ? "نظرة عامة" : "Overview");
+        AutomationProperties.SetName(DockTasksButton, ar ? "المهام" : "Tasks");
+        AutomationProperties.SetName(DockSkillsButton, ar ? "المهارات" : "Skills");
+        AutomationProperties.SetName(DockCamerasButton, ar ? "الكاميرات" : "Cameras");
+        AutomationProperties.SetName(DockMemoryButton, ar ? "الذاكرة" : "Memory");
+        AutomationProperties.SetName(DockApiButton, ar ? "تكاملات API" : "API integrations");
+        AutomationProperties.SetName(DockSettingsButton, ar ? "الإعدادات" : "Settings");
+        UpdateDockSelection();
         System.Windows.Automation.AutomationProperties.SetName(LanguageButton, ar ? "تغيير لغة الواجهة" : "Change interface language");
         System.Windows.Automation.AutomationProperties.SetName(ThemeButton, ThemeButton.ToolTip as string ?? (ar ? "تغيير المظهر" : "Change theme"));
         System.Windows.Automation.AutomationProperties.SetName(ShowMascotButton, ar ? "إظهار الشخصية" : "Show mascot");
@@ -2009,7 +2075,7 @@ public partial class MainWindow : Window
                 return true;
             }
 
-            var consent = MessageBox.Show(
+            var consent = LayalDialogService.Show(
                 this,
                 IsArabic
                     ? "سيجهّز Layal الشات والصوت على هذا الكمبيوتر. قد يصل التنزيل الأول إجمالًا إلى نحو 4 جيجابايت ويحتاج 8 جيجابايت مساحة فارغة على الأقل؛ يلزم الإنترنت أثناء التنزيل فقط. سنثبت Ollama الرسمي بعد التحقق من توقيعه وننزل نموذج الشات وموارد Whisper وPiper. ستبقى رسائلك والتسجيلات الصوتية على جهازك ولن تُرسل إلى مزود ذكاء اصطناعي خارجي في الوضع المحلي. هل توافق على التنزيل والتجهيز؟"
@@ -2443,8 +2509,8 @@ public partial class MainWindow : Window
 
         TabItem? requestedTab = e.Key switch
         {
-            Key.D1 or Key.NumPad1 => HomeTab,
-            Key.D2 or Key.NumPad2 => ChatTab,
+            Key.D1 or Key.NumPad1 => ChatTab,
+            Key.D2 or Key.NumPad2 => HomeTab,
             Key.D3 or Key.NumPad3 => TasksTab,
             Key.D4 or Key.NumPad4 => SkillsTab,
             Key.D5 or Key.NumPad5 => CamerasTab,
@@ -2462,7 +2528,7 @@ public partial class MainWindow : Window
 
         if (requestedTab == ChatTab)
         {
-            ChatInput.Focus();
+            FocusChatComposerAfterNavigation();
         }
         else if (MainTabs.SelectedContent is DependencyObject content &&
                  FindFirstFocusableControl(content) is { } firstControl &&
@@ -2506,8 +2572,8 @@ public partial class MainWindow : Window
     {
         var message = IsArabic
             ? "اختصارات لوحة المفاتيح\n\n" +
-              "Ctrl+1 — الرئيسية\n" +
-              "Ctrl+2 — المحادثة (ينقل التركيز إلى حقل الرسالة)\n" +
+              "Ctrl+1 — المحادثة / الرئيسية\n" +
+              "Ctrl+2 — نظرة عامة\n" +
               "Ctrl+3 — المهام\n" +
               "Ctrl+4 — المهارات\n" +
               "Ctrl+5 — الكاميرات\n" +
@@ -2518,8 +2584,8 @@ public partial class MainWindow : Window
               "F1 — عرض هذه المساعدة\n\n" +
               "استخدم Tab للتنقل للأمام وShift+Tab للرجوع. استخدم الأسهم داخل قوائم التبويبات والقوائم، وSpace لتبديل مربعات الاختيار، والأسهم لتعديل أشرطة التمرير. في حقل المحادثة، Enter يرسل الرسالة."
             : "Keyboard shortcuts\n\n" +
-              "Ctrl+1 — Home\n" +
-              "Ctrl+2 — Chat (focuses the message field)\n" +
+              "Ctrl+1 — Home (Chat)\n" +
+              "Ctrl+2 — Overview\n" +
               "Ctrl+3 — Tasks\n" +
               "Ctrl+4 — Skills\n" +
               "Ctrl+5 — Cameras\n" +
@@ -2530,7 +2596,7 @@ public partial class MainWindow : Window
               "F1 — Show this help\n\n" +
               "Use Tab to move forward and Shift+Tab to move backward. Use the arrow keys inside tab and list controls, Space to toggle checkboxes, and the arrow keys to adjust sliders. In the chat field, Enter sends the message.";
 
-        MessageBox.Show(
+        LayalDialogService.Show(
             this,
             message,
             IsArabic ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts",
@@ -2542,9 +2608,253 @@ public partial class MainWindow : Window
     private void ArabicLanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage("ar");
     private void EnglishLanguageButton_Click(object sender, RoutedEventArgs e) => SetLanguage("en");
     private void ShowMascotButton_Click(object sender, RoutedEventArgs e) => AppRuntime.MascotWindow?.ShowAgain();
-    private void GoChatButton_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedItem = ChatTab;
-    private void GoSettingsButton_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedItem = SettingsTab;
-    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+    private void GoChatButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ChatTab);
+    private void GoSettingsButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(SettingsTab);
+
+    private void NavigateToTab(TabItem tab)
+    {
+        MainTabs.SelectedItem = tab;
+        UpdateDockSelection();
+        if (ReferenceEquals(tab, ChatTab))
+            FocusChatComposerAfterNavigation();
+    }
+
+    private void FocusChatComposerAfterNavigation()
+    {
+        void FocusComposer()
+        {
+            if (!ChatInput.IsEnabled || !ChatInput.IsVisible)
+                return;
+
+            if (!IsActive)
+                Activate();
+
+            MainTabs.UpdateLayout();
+            ChatInput.UpdateLayout();
+            ChatInput.BringIntoView();
+            FocusManager.SetFocusedElement(this, ChatInput);
+            Keyboard.Focus(ChatInput);
+            ChatInput.Focus();
+            ChatInput.CaretIndex = ChatInput.Text.Length;
+        }
+
+        // Selecting a TabItem replaces the content presenter asynchronously. Focus once now
+        // and once after the current keyboard input has completed so WPF cannot restore focus
+        // to the original Window source at the end of PreviewKeyDown processing.
+        FocusComposer();
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(FocusComposer));
+    }
+
+    private void DockChatButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ChatTab);
+    private void DockOverviewButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(HomeTab);
+    private void DockTasksButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(TasksTab);
+    private void DockSkillsButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(SkillsTab);
+    private void DockCamerasButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(CamerasTab);
+    private void DockMemoryButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(MemoryTab);
+    private void DockApiButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(ApiIntegrationsTab);
+    private void DockSettingsButton_Click(object sender, RoutedEventArgs e) => NavigateToTab(SettingsTab);
+
+    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // WPF can raise this event while InitializeComponent is still adding the first TabItem.
+        // The dock is declared after MainTabs, so its named controls do not exist yet at that point.
+        if (_isUiInitialized)
+        {
+            // The selected page changes inside a content-only template. Invalidate the peer
+            // cache so screen readers and UI Automation clients see the newly selected page.
+            UIElementAutomationPeer.FromElement(MainTabs)?.ResetChildrenCache();
+            UpdateDockSelection();
+        }
+    }
+
+    private void UpdateDockSelection()
+    {
+        var selected = MainTabs.SelectedItem;
+        var currentSection = ReferenceEquals(selected, ChatTab)
+            ? (IsArabic ? "المحادثة / الرئيسية" : "Home (Chat)")
+            : ReferenceEquals(selected, HomeTab)
+                ? (IsArabic ? "نظرة عامة" : "Overview")
+                : ReferenceEquals(selected, TasksTab)
+                    ? (IsArabic ? "المهام" : "Tasks")
+                    : ReferenceEquals(selected, SkillsTab)
+                        ? (IsArabic ? "المهارات" : "Skills")
+                        : ReferenceEquals(selected, CamerasTab)
+                            ? (IsArabic ? "الكاميرات" : "Cameras")
+                            : ReferenceEquals(selected, MemoryTab)
+                                ? (IsArabic ? "الذاكرة" : "Memory")
+                                : ReferenceEquals(selected, ApiIntegrationsTab)
+                                    ? (IsArabic ? "تكاملات API" : "API integrations")
+                                    : ReferenceEquals(selected, SettingsTab)
+                                        ? (IsArabic ? "الإعدادات" : "Settings")
+                                        : string.Empty;
+        AutomationProperties.SetHelpText(MainTabs, IsArabic
+            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
+            : $"Current section: {currentSection}. Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
+        var activeBrush = ThemeBrush("Layal.NavSelected", Brushes.Transparent);
+        var activeBorder = ThemeBrush("Layal.NavSelectedBorder", Brushes.Transparent);
+        void Set(Button button, bool active)
+        {
+            button.Background = active ? activeBrush : Brushes.Transparent;
+            button.BorderBrush = active ? activeBorder : Brushes.Transparent;
+            button.BorderThickness = active ? new Thickness(1) : new Thickness(0);
+        }
+
+        Set(DockChatButton, ReferenceEquals(selected, ChatTab));
+        Set(DockOverviewButton, ReferenceEquals(selected, HomeTab));
+        Set(DockTasksButton, ReferenceEquals(selected, TasksTab));
+        Set(DockSkillsButton, ReferenceEquals(selected, SkillsTab));
+        Set(DockCamerasButton, ReferenceEquals(selected, CamerasTab));
+        Set(DockMemoryButton, ReferenceEquals(selected, MemoryTab));
+        Set(DockApiButton, ReferenceEquals(selected, ApiIntegrationsTab));
+        Set(DockSettingsButton, ReferenceEquals(selected, SettingsTab));
+    }
+
+    private bool CanAnimateUi => !SystemParameters.HighContrast &&
+                                 SystemParameters.ClientAreaAnimation &&
+                                 !AppRuntime.Settings.PerformanceModeEnabled;
+
+    private void ToggleBottomDockButton_Click(object sender, RoutedEventArgs e) => SetBottomDockExpanded(!_isBottomDockExpanded);
+
+    private void SetBottomDockExpanded(bool expanded)
+    {
+        _isBottomDockExpanded = expanded;
+        ToggleBottomDockButton.Content = expanded ? "\uE711" : "\uE700";
+        ToggleBottomDockButton.ToolTip = expanded
+            ? (IsArabic ? "طي شريط التنقل" : "Collapse navigation dock")
+            : (IsArabic ? "توسيع شريط التنقل" : "Expand navigation dock");
+        AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
+
+        var currentWidth = Math.Max(0, DockExpandedSurface.ActualWidth);
+        var currentOpacity = DockExpandedSurface.Opacity;
+        DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+        DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
+
+        const double expandedWidth = 730;
+        if (!CanAnimateUi)
+        {
+            DockExpandedSurface.Width = expanded ? expandedWidth : 0;
+            DockExpandedSurface.Opacity = expanded ? 1 : 0;
+            DockExpandedSurface.IsHitTestVisible = expanded;
+            return;
+        }
+
+        var duration = TimeSpan.FromMilliseconds(190);
+        if (expanded)
+        {
+            DockExpandedSurface.IsHitTestVisible = true;
+            DockExpandedSurface.Width = 0;
+            DockExpandedSurface.Opacity = 0;
+            var width = new DoubleAnimation(0, expandedWidth, duration)
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            width.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+                DockExpandedSurface.Width = expandedWidth;
+            };
+            var opacity = new DoubleAnimation(0, 1, duration);
+            opacity.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
+                DockExpandedSurface.Opacity = 1;
+            };
+            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
+            DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+        else
+        {
+            DockExpandedSurface.Width = currentWidth;
+            DockExpandedSurface.Opacity = currentOpacity;
+            var width = new DoubleAnimation(currentWidth, 0, duration)
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+            };
+            var opacity = new DoubleAnimation(currentOpacity, 0, duration);
+            width.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+                DockExpandedSurface.Width = 0;
+                DockExpandedSurface.IsHitTestVisible = false;
+            };
+            opacity.Completed += (_, _) =>
+            {
+                DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
+                DockExpandedSurface.Opacity = 0;
+            };
+            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
+            DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+    }
+
+    private void ToggleChatHistoryButton_Click(object sender, RoutedEventArgs e) => SetChatHistoryPanelOpen(!_isChatHistoryPanelOpen);
+    private void CloseChatHistoryButton_Click(object sender, RoutedEventArgs e) => SetChatHistoryPanelOpen(false);
+
+    private void SetChatHistoryPanelOpen(bool open)
+    {
+        if (open == _isChatHistoryPanelOpen &&
+            (open ? ChatHistoryPanel.Visibility == Visibility.Visible : ChatHistoryPanel.Visibility == Visibility.Collapsed))
+            return;
+
+        _isChatHistoryPanelOpen = open;
+        AutomationProperties.SetName(ToggleChatHistoryButton, open
+            ? (IsArabic ? "إخفاء سجل المحادثات" : "Hide chat history")
+            : (IsArabic ? "إظهار سجل المحادثات" : "Show chat history"));
+        ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, null);
+        ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
+        if (open)
+        {
+            ChatHistoryPanel.Visibility = Visibility.Visible;
+            ChatHistoryPanelTransform.X = IsArabic ? 10 : -10;
+            if (!CanAnimateUi)
+            {
+                ChatHistoryPanel.Opacity = 1;
+                ChatHistoryPanelTransform.X = 0;
+                return;
+            }
+
+            ChatHistoryPanel.Opacity = 0;
+            var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(170));
+            fade.Completed += (_, _) =>
+            {
+                ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, null);
+                ChatHistoryPanel.Opacity = 1;
+            };
+            var slide = new DoubleAnimation(ChatHistoryPanelTransform.X, 0, TimeSpan.FromMilliseconds(170))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            slide.Completed += (_, _) =>
+            {
+                ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
+                ChatHistoryPanelTransform.X = 0;
+            };
+            ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, fade);
+            ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, slide);
+        }
+        else
+        {
+            if (ChatHistoryPanel.Visibility == Visibility.Collapsed)
+                return;
+            if (!CanAnimateUi)
+            {
+                ChatHistoryPanel.Opacity = 0;
+                ChatHistoryPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var fade = new DoubleAnimation(ChatHistoryPanel.Opacity, 0, TimeSpan.FromMilliseconds(150));
+            fade.Completed += (_, _) =>
+            {
+                ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, null);
+                ChatHistoryPanel.Opacity = 0;
+                ChatHistoryPanel.Visibility = Visibility.Collapsed;
+            };
+            var slide = new DoubleAnimation(ChatHistoryPanelTransform.X, IsArabic ? 10 : -10, TimeSpan.FromMilliseconds(150));
+            ChatHistoryPanel.BeginAnimation(UIElement.OpacityProperty, fade);
+            ChatHistoryPanelTransform.BeginAnimation(TranslateTransform.XProperty, slide);
+        }
+    }
 
     private void OpenNotepadButton_Click(object sender, RoutedEventArgs e)
     {
@@ -2881,7 +3191,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             IsArabic ? $"هل تريد حذف اتصال API «{name}» وبيانات المصادقة المحفوظة؟" : $"Delete API connection '{name}' and its stored authentication data?",
             IsArabic ? "تأكيد حذف الاتصال" : "Confirm API connection deletion",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
@@ -3140,7 +3450,7 @@ public partial class MainWindow : Window
     {
         if (!AppRuntime.Settings.AutomaticLocationConsentConfirmed)
         {
-            var consent = MessageBox.Show(this,
+            var consent = LayalDialogService.Show(this,
                 IsArabic
                     ? "لإظهار الطقس والوقت المحلي، سيطلب Windows إذن الوصول إلى موقع تقريبي (دقة مستهدفة نحو كيلومتر واحد). عند الموافقة، ستُرسل الإحداثيات إلى Open-Meteo لجلب الطقس والمنطقة الزمنية. لا تحفظ ليال الإحداثيات في الإعدادات ولا ترسلها إلى مزود AI. يمكنك الرفض أو استخدام مدينة يدويًا بدلًا من ذلك. هل تريد المتابعة إلى طلب إذن Windows؟"
                     : "To show local weather and time, Windows will ask to access an approximate device location (target accuracy about 1 km). If allowed, coordinates are sent to Open-Meteo for weather and time-zone data. Layal does not save the coordinates in settings or send them to an AI provider. You can decline or use a city manually instead. Continue to the Windows permission request?",
@@ -3578,7 +3888,7 @@ public partial class MainWindow : Window
 
     private void DeleteKeyButton_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        var result = LayalDialogService.Show(
             IsArabic ? "هل تريد حذف مفتاح AI المحفوظ على حساب Windows الحالي؟" : "Delete the saved AI key for the current Windows user?",
             IsArabic ? "تأكيد حذف المفتاح" : "Confirm key deletion", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes) return;
@@ -3728,7 +4038,7 @@ public partial class MainWindow : Window
             }
         }
 
-        var microphoneConsent = MessageBox.Show(
+        var microphoneConsent = LayalDialogService.Show(
             this,
             useLocal
                 ? (IsArabic
@@ -3865,7 +4175,7 @@ public partial class MainWindow : Window
             var durationNote = recording.MaximumDurationReached
                 ? (IsArabic ? "\nوصل التسجيل إلى حد الدقيقتين؛ سيتم إرسال الجزء المسجل فقط." : "\nThe two-minute limit was reached; only the captured segment will be sent.")
                 : string.Empty;
-            var uploadConsent = MessageBox.Show(
+            var uploadConsent = LayalDialogService.Show(
                 this,
                 IsArabic
                     ? $"سيتم إرسال التسجيل إلى موفر API التالي لتحويله إلى نص:\n{host}{durationNote}\nلن يُحفظ الصوت الخام على القرص. هل تؤكد الإرسال؟"
@@ -4016,7 +4326,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(
+        var consent = LayalDialogService.Show(
             this,
             IsArabic
                 ? "سيظل الميكروفون نشطًا حتى تضغط الزر مرة ثانية أو Esc. سيُعالج التسجيل على هذا الجهاز باستخدام نماذج محلية؛ قد يُكتب ملف مؤقت ثم يحذفه التطبيق. لن يُرسل الصوت إلى خادم سحابي. بعد التحويل سيُرسل النص إلى نموذج الشات المحلي لتوليد الرد. هل تريد البدء؟"
@@ -4048,6 +4358,7 @@ public partial class MainWindow : Window
             NewConversationButton.IsEnabled = false;
             ClearSavedChatHistoryButton.IsEnabled = false;
             ChatHistorySelector.IsEnabled = false;
+                ChatHistoryList.IsEnabled = false;
             UpdateVoiceConversationControls();
             UpdateSpeechToTextButton();
             SetChatActivityStatus(IsArabic
@@ -4127,6 +4438,7 @@ public partial class MainWindow : Window
                 NewConversationButton.IsEnabled = !_incognitoMode;
                 ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
                 ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
             }
             UpdateVoiceConversationControls();
             SetChatActivityStatus(IsArabic
@@ -4162,6 +4474,7 @@ public partial class MainWindow : Window
                 NewConversationButton.IsEnabled = !_incognitoMode;
                 ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
                 ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
                 RefreshProviderStatus();
             }
         }
@@ -4183,6 +4496,7 @@ public partial class MainWindow : Window
         NewConversationButton.IsEnabled = !_incognitoMode;
         ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
         ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
         SetChatActivityStatus(IsArabic ? "تم إلغاء التسجيل المحلي؛ لم يتم إرسال الصوت." : "Local recording cancelled; audio was not sent.");
         UpdateVoiceConversationControls();
         UpdateSpeechToTextButton();
@@ -4253,7 +4567,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var approved = MessageBox.Show(
+        var approved = LayalDialogService.Show(
             this,
             IsArabic
                 ? $"ستستخدم ليال الميكروفون باستمرار أثناء المحادثة، وسيُبث الصوت مباشرة إلى موفر Realtime التالي:\n{realtimeUri.GetLeftPart(UriPartial.Authority)}\nلن يُحفظ التسجيل الخام على القرص. قد تترتب تكلفة استخدام إضافية. يمكنك إيقاف الميكروفون في أي وقت بزر إيقاف المحادثة أو زر Esc. هل تريد البدء؟"
@@ -4284,6 +4598,7 @@ public partial class MainWindow : Window
         NewConversationButton.IsEnabled = false;
         ClearSavedChatHistoryButton.IsEnabled = false;
         ChatHistorySelector.IsEnabled = false;
+                ChatHistoryList.IsEnabled = false;
         SetChatActivityStatus(IsArabic ? "جارٍ الاتصال وتهيئة الميكروفون..." : "Connecting and preparing the microphone...");
 
         try
@@ -4338,6 +4653,7 @@ public partial class MainWindow : Window
                 NewConversationButton.IsEnabled = !_incognitoMode;
                 ClearSavedChatHistoryButton.IsEnabled = !_incognitoMode;
                 ChatHistorySelector.IsEnabled = !_incognitoMode;
+        ChatHistoryList.IsEnabled = !_incognitoMode;
                 UpdateSpeechToTextButton();
                 RefreshProviderStatus();
             }
@@ -4464,7 +4780,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             IsArabic
                 ? "بعد موافقتك ستختفي نافذة ليال والماسكوت لمدة 5 ثوانٍ. حرّك المؤشر إلى العنصر المطلوب وثبّته عليه حتى تنتهي المهلة. ستُقرأ بيانات UI Automation محدودة فقط: النوع، ومعرّف الواجهة، والحدود، والحالة؛ لا يُقرأ اسم حقول الإدخال أو النصوص أو العناصر التي قد تحمل بيانات، ولا قيمة أي حقل. عناصر كلمات المرور تُرفض. لا تُلتقط صورة ولا تُنفذ نقرة أو كتابة. ستُضاف النتيجة إلى مسودة الشات ولن تُرسل إلا بعد ضغط إرسال. هل تريد المتابعة؟"
                 : "After you agree, both Layal's main window and mascot will hide for 5 seconds. Move the pointer to the target element and keep it there until the countdown ends. Only bounded UI Automation metadata is read: control type, AutomationId, bounds, and enabled state. Names of editable/text/data elements and all field values are deliberately not read; password controls are rejected. No screenshot, click, or keystroke occurs. The result is added to the chat draft and is not sent until you press Send. Continue?",
@@ -4589,7 +4905,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             IsArabic
                 ? "ستُلتقط الشاشة الموجودة أسفل المؤشر بعد إخفاء ليال مؤقتًا. ستظهر معاينة محلية لتحديد مستطيل. لن تُرسل الصورة إلى مزود الذكاء الاصطناعي حتى ترفقها ثم تضغط إرسال. قد تحتوي المنطقة المختارة على بيانات حساسة؛ راجعها قبل الإرسال. هل تريد المتابعة؟"
                 : "Layal will temporarily hide and capture the display under the pointer. A local preview lets you select a rectangle. The image will not be sent to the AI provider until you attach it and press Send. The selected region may contain sensitive information; review it before sending. Continue?",
@@ -4858,7 +5174,7 @@ public partial class MainWindow : Window
         var token = cancellation.Token;
         try
         {
-            var consent = MessageBox.Show(this,
+            var consent = LayalDialogService.Show(this,
                 IsArabic
                     ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك، وتُحوّل إلى PNG في الذاكرة للمعاينة والإرفاق. قد تحتوي الصورة على بيانات حساسة؛ راجع المعاينة قبل الإرسال. لن تتغير الحافظة ولن تُرسل الصورة إلى AI إلا إذا أرفقتها ثم ضغطت إرسال. هل تريد المتابعة؟"
                     : "With your consent, the current clipboard image will be read and encoded as PNG in memory for preview and attachment. It may contain sensitive data; review it before sending. The clipboard will not be modified and the image will not be sent to AI unless you attach it and press Send. Continue?",
@@ -5202,7 +5518,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             IsArabic
                 ? "ستظهر معاينة الكاميرا على جهازك. لا تُرسل صورة إلى مزود الذكاء الاصطناعي إلا عند ضغط تحليل، أو عند تفعيل التحليل التلقائي بموافقة منفصلة (لقطة كل 10 ثوانٍ). لن يُرسل فيديو خام. هل تريد فتح الكاميرا؟"
                 : "The camera preview will appear on this device. No image is sent to the AI provider unless you analyze a frame or separately enable automatic observation (one still every 10 seconds). Raw video is not sent. Open the camera?",
@@ -5984,7 +6300,9 @@ public partial class MainWindow : Window
 
     private void ChatMessageContextMenu_Opening(object sender, RoutedEventArgs e)
     {
-        if (sender is ContextMenu menu && menu.Items.OfType<MenuItem>().FirstOrDefault() is { } copyItem)
+        if (sender is not ContextMenu menu) return;
+        menu.FlowDirection = IsArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        if (menu.Items.OfType<MenuItem>().FirstOrDefault() is { } copyItem)
             copyItem.Header = IsArabic ? "نسخ الرسالة" : "Copy message";
     }
 
@@ -6032,11 +6350,14 @@ public partial class MainWindow : Window
         _refreshingChatSessions = true;
         if (_incognitoMode)
         {
+            SetChatHistoryPanelOpen(false);
             try
             {
                 ChatConversations.Clear();
                 ChatHistorySelector.SelectedItem = null;
+                ChatHistoryList.SelectedItem = null;
                 ChatHistorySelector.IsEnabled = false;
+                ChatHistoryList.IsEnabled = false;
             }
             finally
             {
@@ -6050,8 +6371,11 @@ public partial class MainWindow : Window
             foreach (var conversation in AppRuntime.ChatSessionService.GetAll())
                 ChatConversations.Add(conversation);
             var id = string.IsNullOrWhiteSpace(selectedId) ? _currentConversationId : selectedId;
-            ChatHistorySelector.SelectedItem = ChatConversations.FirstOrDefault(c => c.Id == id)
+            var selectedConversation = ChatConversations.FirstOrDefault(c => c.Id == id)
                 ?? ChatConversations.FirstOrDefault();
+            ChatHistorySelector.SelectedItem = selectedConversation;
+            ChatHistoryList.SelectedItem = selectedConversation;
+            ChatHistoryList.IsEnabled = !_incognitoMode;
         }
         finally { _refreshingChatSessions = false; }
     }
@@ -6093,7 +6417,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             IsArabic
                 ? "سيتم حذف كل المحادثات المحفوظة محليًا نهائيًا، بما فيها المحادثات السابقة. لا يمكن التراجع عن ذلك. هل تريد المتابعة؟"
                 : "This permanently deletes all locally saved conversations, including archived chats. This cannot be undone. Continue?",
@@ -6112,12 +6436,29 @@ public partial class MainWindow : Window
 
     private void ChatHistorySelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        var selected = sender switch
+        {
+            ComboBox selector => selector.SelectedItem as ChatConversation,
+            ListBox list => list.SelectedItem as ChatConversation,
+            _ => null
+        };
+
+        if (sender is ListBox && !_refreshingChatSessions && !_incognitoMode)
+        {
+            _refreshingChatSessions = true;
+            try { ChatHistorySelector.SelectedItem = selected; }
+            finally { _refreshingChatSessions = false; }
+        }
+
         if (_incognitoMode)
         {
-            ChatHistorySelector.SelectedItem = null;
+            if (sender is ComboBox)
+                ChatHistorySelector.SelectedItem = null;
+            else if (sender is ListBox)
+                ChatHistoryList.SelectedItem = null;
             return;
         }
-        if (_refreshingChatSessions || ChatHistorySelector.SelectedItem is not ChatConversation selected)
+        if (_refreshingChatSessions || selected is null)
             return;
         if (string.Equals(selected.Id, _currentConversationId, StringComparison.Ordinal))
             return;
@@ -6182,7 +6523,7 @@ public partial class MainWindow : Window
             try { record = AppRuntime.SkillPackageService.ImportZip(dialog.FileName, overwrite: false); }
             catch (SkillAlreadyExistsException duplicate)
             {
-                var answer = MessageBox.Show(
+                var answer = LayalDialogService.Show(
                     IsArabic ? $"توجد مهارة باسم {duplicate.SkillName}. هل تريد استبدال الحزمة الحالية؟" : $"A skill named {duplicate.SkillName} exists. Replace its package?",
                     IsArabic ? "مهارة موجودة" : "Skill already exists", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
@@ -6228,7 +6569,7 @@ public partial class MainWindow : Window
             try { record = await AppRuntime.SkillPackageService.ImportFromGitHubAsync(url, overwrite: false); }
             catch (SkillAlreadyExistsException duplicate)
             {
-                var answer = MessageBox.Show(this,
+                var answer = LayalDialogService.Show(this,
                     IsArabic ? $"توجد مهارة باسم {duplicate.SkillName}. هل تريد استبدال الحزمة الحالية؟" : $"A skill named {duplicate.SkillName} exists. Replace the existing package?",
                     IsArabic ? "مهارة موجودة" : "Skill already exists", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
@@ -7236,7 +7577,7 @@ public partial class MainWindow : Window
     {
         if (IsPrivateMemoryAccessBlocked()) return false;
         if (!MemoryEditorHasUnsavedChanges) return true;
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             IsArabic
                 ? "توجد تغييرات غير محفوظة في محرر الذاكرة. هل تريد تجاهلها والمتابعة؟"
                 : "The memory editor contains unsaved changes. Discard them and continue?",
@@ -7655,7 +7996,7 @@ public partial class MainWindow : Window
         }
 
         var shouldArchive = !note.IsArchived;
-        var answer = MessageBox.Show(this,
+        var answer = LayalDialogService.Show(this,
             shouldArchive
                 ? (IsArabic
                     ? $"سيتم نقل «{note.Title}» إلى الأرشيف. لن تُحذف ويمكن استعادتها لاحقًا. هل تريد المتابعة؟"
@@ -7797,7 +8138,7 @@ public partial class MainWindow : Window
             var message = IsArabic
                 ? $"سيتم دمج {additions.Count} ملاحظة جديدة من الملف «{Path.GetFileName(dialog.FileName)}». سيتم تخطي {duplicateCount} ملاحظة بمعرّفات موجودة؛ لن تُستبدل أي ملاحظة حالية. تأكد من أنك تثق بمصدر الملف. محتوى JSON المستورد سيُحفظ مشفرًا محليًا.\n\n{previewTitles}\n\nهل تريد المتابعة؟"
                 : $"Merge {additions.Count} new notes from “{Path.GetFileName(dialog.FileName)}”. {duplicateCount} notes with existing IDs will be skipped; no existing note will be replaced. Only import a file you trust. Imported JSON content will be stored encrypted locally.\n\n{previewTitles}\n\nContinue?";
-            var confirm = MessageBox.Show(this, message,
+            var confirm = LayalDialogService.Show(this, message,
                 IsArabic ? "مراجعة دمج الذاكرة" : "Review memory merge",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
             if (confirm != MessageBoxResult.Yes) return;
@@ -7833,7 +8174,7 @@ public partial class MainWindow : Window
             DefaultExt = ".json"
         };
         if (dialog.ShowDialog(this) != true) return;
-        var confirm = MessageBox.Show(this,
+        var confirm = LayalDialogService.Show(this,
             IsArabic
                 ? "سيُصدّر JSON جميع الملاحظات النشطة والمؤرشفة دون تشفير. قد يحتوي على معلومات شخصية؛ احفظه محليًا في مكان موثوق ولا تشاركه إلا بعد مراجعته. هل تريد المتابعة؟"
                 : "This unencrypted JSON export includes all active and archived notes and may contain personal information. Store it in a trusted local location and review it before sharing. Continue?",

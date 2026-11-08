@@ -48,6 +48,7 @@ public partial class VisionCameraWindow : System.Windows.Window
         _isArabic = isArabic;
         _lifetimeToken = _lifetimeCancellation.Token;
         InitializeComponent();
+        LayalWindowChrome.ApplyGlass(this, isArabic);
         ApplyLanguage();
         DiscoveredCamerasSelector.ItemsSource = _discoveredCameras;
         _previewTimer.Tick += PreviewTimer_Tick;
@@ -268,7 +269,7 @@ public partial class VisionCameraWindow : System.Windows.Window
         if (_switchingSource || !PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
             return;
 
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             _isArabic
                 ? "سيُرسل التطبيق طلب اكتشاف ONVIF متعدد الإرسال إلى الشبكة المحلية لاكتشاف الأجهزة التي تعلن أنها كاميرات. لن يُجرّب كلمات مرور أو يفتح البث أثناء الفحص. لا تتابع إلا إذا كنت مخولًا بفحص هذه الشبكة. هل تريد المتابعة؟"
                 : "The app will send an ONVIF multicast discovery probe on the local network to find devices advertising camera services. It will not try passwords or open streams during discovery. Continue only if you are authorized to scan this network. Continue?",
@@ -372,7 +373,7 @@ public partial class VisionCameraWindow : System.Windows.Window
                 ? "تحذير: جزء من الاتصال يستخدم HTTP/RTSP غير المشفر وقد تكون بيانات الدخول أو الفيديو معرضة على الشبكة. "
                 : "Warning: HTTP/RTSP transport is unencrypted and credentials or video may be exposed on the network. ")
             : string.Empty;
-        var consent = MessageBox.Show(this,
+        var consent = LayalDialogService.Show(this,
             _isArabic
                 ? $"سيتم الاتصال بالكاميرا المحلية {cameraName} باستخدام بيانات الدخول التي أدخلتها" +
                   (camera is not null ? " وطلب عنوان بث ONVIF." : " وفتح عنوان RTSP الذي أدخلته.") +
@@ -673,7 +674,7 @@ public partial class VisionCameraWindow : System.Windows.Window
         }
         if (ContinuousObservationCheckBox.IsChecked == true)
         {
-            var answer = MessageBox.Show(this,
+            var answer = LayalDialogService.Show(this,
                 _isArabic
                     ? "سيُرسل إطار صورة ثابت إلى مزود الذكاء الاصطناعي كل 10 ثوانٍ أثناء تفعيل هذا الخيار. لن يُرسل بث الفيديو الخام، ويمكنك إيقاف التحليل في أي وقت. هل تريد المتابعة؟"
                     : "A still image will be sent to your AI provider every 10 seconds while this option is enabled. Raw video is not streamed, and you can stop this at any time. Continue?",

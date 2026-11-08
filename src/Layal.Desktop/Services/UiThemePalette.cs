@@ -47,6 +47,8 @@ public static class UiThemePalette
             ["Layal.Color.ListSelected"] = dark ? "#2C4155" : "#E3F3F6",
             ["Layal.Color.InputFocus"] = dark ? "#222E43" : "#FBFDFF",
             ["Layal.Color.HoverSurface"] = dark ? "#2C3B50" : "#E8F5F7",
+            ["Layal.Color.MenuHover"] = dark ? "#2C3B50" : "#E8F5F7",
+            ["Layal.Color.MenuHoverText"] = dark ? "#EDF2FF" : "#1C2940",
             ["Layal.Color.Shadow"] = dark ? "#080B13" : "#A8B9D6",
             // Glass design: dusk backdrop, translucent panels and one accent used for selection and primary actions.
             ["Layal.Color.BackdropStart"] = dark ? "#1F3463" : "#899DF4",
@@ -112,6 +114,8 @@ public static class UiThemePalette
             ["Layal.Color.ListSelected"] = window,
             ["Layal.Color.InputFocus"] = window,
             ["Layal.Color.HoverSurface"] = window,
+            ["Layal.Color.MenuHover"] = highlight,
+            ["Layal.Color.MenuHoverText"] = SystemColors.HighlightTextColor.ToString(),
             ["Layal.Color.Shadow"] = window,
             ["Layal.Color.BackdropStart"] = window,
             ["Layal.Color.BackdropMiddle"] = window,

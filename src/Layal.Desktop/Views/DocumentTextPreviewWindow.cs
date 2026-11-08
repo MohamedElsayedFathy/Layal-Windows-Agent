@@ -71,7 +71,7 @@ public sealed class DocumentTextPreviewWindow : Window
             Padding = new Thickness(12),
             FontFamily = new FontFamily("Consolas"),
             FontSize = 13,
-            Background = Application.Current.TryFindResource("Layal.Surface") as Brush ?? Brushes.White,
+            Background = Application.Current.TryFindResource("Layal.Panel") as Brush ?? Brushes.White,
             Foreground = Application.Current.TryFindResource("Layal.Text") as Brush ?? Brushes.Black
         };
         AutomationProperties.SetName(preview, isArabic ? "معاينة النص المستخرج من الملف" : "Extracted document text preview");
@@ -124,7 +124,19 @@ public sealed class DocumentTextPreviewWindow : Window
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
 
-        Content = root;
+        var glassSurface = new Border
+        {
+            Child = root,
+            Padding = new Thickness(8),
+            CornerRadius = new CornerRadius(18),
+            BorderThickness = new Thickness(1)
+        };
+        glassSurface.SetResourceReference(Border.EffectProperty, "Layal.CardShadow");
+        glassSurface.SetResourceReference(Border.BackgroundProperty, "Layal.GlassFill");
+        glassSurface.SetResourceReference(Border.BorderBrushProperty, "Layal.GlassBorderBrush");
+        Content = glassSurface;
+
+        LayalWindowChrome.ApplyGlass(this, isArabic);
     }
 
     private static string BuildDetails(DocumentTextExtractionResult extraction, bool isArabic)

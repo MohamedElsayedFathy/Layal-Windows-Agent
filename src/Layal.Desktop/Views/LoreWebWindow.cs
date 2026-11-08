@@ -349,6 +349,7 @@ public sealed class LoreWebWindow : Window
         root.Children.Add(_status);
 
         Content = root;
+        LayalWindowChrome.ApplyGlass(this, _isArabic);
         BuildGraph();
         UpdateCamera();
         _status.Text = _notes.Count == 0
@@ -846,7 +847,7 @@ public sealed class LoreWebWindow : Window
     private void UnlinkButton_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedNote is null || _linkTargetSelector.SelectedItem is not RelationshipTargetEntry target) return;
-        var confirm = MessageBox.Show(this,
+        var confirm = LayalDialogService.Show(this,
             _isArabic ? "إزالة العلاقة بين الملاحظتين؟ لن تُحذف أي ملاحظة." : "Remove the relationship between these notes? Neither note will be deleted.",
             _isArabic ? "إزالة العلاقة" : "Remove relationship",
             MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
@@ -884,7 +885,7 @@ public sealed class LoreWebWindow : Window
             : (_isArabic
                 ? $"ستتم استعادة «{entry.Note.Title}» إلى الملاحظات النشطة. هل تريد المتابعة؟"
                 : $"Restore “{entry.Note.Title}” to active memory? Continue?");
-        var confirm = MessageBox.Show(this, prompt,
+        var confirm = LayalDialogService.Show(this, prompt,
             shouldArchive
                 ? (_isArabic ? "تأكيد الأرشفة" : "Confirm archive")
                 : (_isArabic ? "تأكيد الاستعادة" : "Confirm restore"),
@@ -920,7 +921,7 @@ public sealed class LoreWebWindow : Window
         if (_noteList.SelectedItem is not NoteListEntry entry)
             return;
 
-        var confirm = MessageBox.Show(this,
+        var confirm = LayalDialogService.Show(this,
             _isArabic
                 ? $"سيتم حذف الملاحظة «{entry.Note.Title}» نهائيًا من الذاكرة المحلية المشفرة. لا يشمل ذلك نسخًا في المحادثات أو ملفات سبق تصديرها. هل تريد المتابعة؟"
                 : $"Permanently delete “{entry.Note.Title}” from encrypted local memory? This does not remove copies in chat history or previously exported files. Continue?",

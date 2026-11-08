@@ -247,6 +247,8 @@ public sealed class SavedRoutineManagerWindow : Window
         root.Children.Add(footer);
 
         Content = root;
+
+        LayalWindowChrome.ApplyGlass(this, _isArabic);
         RefreshList();
     }
 
@@ -426,6 +428,7 @@ public sealed class SavedRoutineManagerWindow : Window
         root.Children.Add(actions);
 
         confirmation.Content = root;
+        LayalWindowChrome.ApplyGlass(confirmation, _isArabic);
         confirmation.Loaded += (_, _) => cancelButton.Focus();
         return confirmation.ShowDialog() == true;
     }
@@ -438,7 +441,7 @@ public sealed class SavedRoutineManagerWindow : Window
             return;
         }
 
-        var confirmation = MessageBox.Show(
+        var confirmation = LayalDialogService.Show(
             this,
             _isArabic
                 ? $"هل تريد حذف الروتين «{selected.Record.Name}» من التخزين المحلي؟"

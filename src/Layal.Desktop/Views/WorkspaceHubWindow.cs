@@ -258,6 +258,7 @@ public sealed class WorkspaceHubWindow : Window
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         Grid.SetRow(_status, 3); root.Children.Add(_status);
         Content = root;
+        LayalWindowChrome.ApplyGlass(this, isArabic);
         RefreshIndex();
     }
 
@@ -454,7 +455,7 @@ public sealed class WorkspaceHubWindow : Window
                 var question = _isArabic
                     ? "سيُفتح مستكشف الملفات ليعرض العنصر المحدد فقط؛ لن يتم تشغيل الملف. هل تريد المتابعة؟\n\n" + entry.Path
                     : "File Explorer will reveal the selected item only; the file will not be executed. Continue?\n\n" + entry.Path;
-                if (MessageBox.Show(this, question, _isArabic ? "عرض العنصر في Explorer" : "Reveal item in Explorer",
+                if (LayalDialogService.Show(this, question, _isArabic ? "عرض العنصر في Explorer" : "Reveal item in Explorer",
                     MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
                     return;
                 try
@@ -492,7 +493,7 @@ public sealed class WorkspaceHubWindow : Window
         var warning = _isArabic
             ? "سيتم حفظ النص في ملف غير مشفّر خارج مخزن ليال المشفر. احفظه في مكان موثوق. هل تريد المتابعة؟"
             : "This exports text to an unencrypted file outside Layal's encrypted store. Save it somewhere trusted. Continue?";
-        if (MessageBox.Show(this, warning, _isArabic ? "تأكيد التصدير" : "Confirm export",
+        if (LayalDialogService.Show(this, warning, _isArabic ? "تأكيد التصدير" : "Confirm export",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
             return;
         try
@@ -515,7 +516,7 @@ public sealed class WorkspaceHubWindow : Window
         var question = _isArabic
             ? "سيُنقل الملف المحدد فقط من مساحة LayalWorkspace إلى سلة محذوفات Windows، وسيُزال رابطه من سجل المهمة. لن تُحذف المهمة أو بقية ملفاتها. هل تريد المتابعة؟\\n\\n" + relativePath
             : "Only this file will be moved from LayalWorkspace to the Windows Recycle Bin, and its task-history reference will be removed. The task and its other files will remain. Continue?\\n\\n" + relativePath;
-        if (MessageBox.Show(this, question,
+        if (LayalDialogService.Show(this, question,
             _isArabic ? "تأكيد حذف مخرج المهمة" : "Confirm task artifact removal",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
             return;
@@ -560,14 +561,14 @@ public sealed class WorkspaceHubWindow : Window
         var warning = _isArabic
             ? "سيُنشأ ملف JSON غير مشفّر يحتوي على سجل المهام ونصوص الذاكرة النشطة والمؤرشفة ومراجع الملفات. لا تُصدّر النسخة إلى مجلد مشترك أو سحابي غير موثوق. هل تريد المتابعة؟"
             : "This creates an unencrypted JSON file containing task history, active and archived memory text, and artifact references. Do not export it to an untrusted shared or cloud folder. Continue?";
-        if (MessageBox.Show(this, warning,
+        if (LayalDialogService.Show(this, warning,
             _isArabic ? "تنبيه خصوصية للنسخة الاحتياطية" : "Workspace backup privacy warning",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
             return;
 
         try
         {
-            var includeFileContents = MessageBox.Show(this,
+            var includeFileContents = LayalDialogService.Show(this,
                 _isArabic
                     ? "هل تريد تضمين محتوى الملفات الصغيرة الموجودة داخل LayalWorkspace؟ سيُضمَّن بحد أقصى 100 ملف، و1 ميجابايت لكل ملف، و4 ميجابايت إجمالًا. ملفات أكبر أو خارج الحدود ستظهر كبيانات وصفية فقط. ستحتوي نسخة JSON غير المشفّرة على محتوى الملفات نفسه؛ لا ترفعها أو تشاركها دون مراجعة."
                     : "Include small files from LayalWorkspace? The backup embeds at most 100 files, 1 MiB per file, and 4 MiB total. Larger or out-of-limit files remain metadata-only. The unencrypted JSON will contain the actual file contents; do not upload or share it without review.",
@@ -592,7 +593,7 @@ public sealed class WorkspaceHubWindow : Window
                       FormatFilePreviewList(embedded, isArabic: false) +
                       (omitted.Length > 0 ? "\n\nFiles whose content was omitted (metadata only):\n" + FormatFilePreviewList(omitted, isArabic: false, includeOmissionReason: true) : string.Empty) +
                       "\n\nSave the backup with these files?";
-                if (MessageBox.Show(this, review,
+                if (LayalDialogService.Show(this, review,
                     _isArabic ? "مراجعة محتويات النسخة" : "Review embedded backup files",
                     MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
                     return;
@@ -633,7 +634,7 @@ public sealed class WorkspaceHubWindow : Window
             var summary = _isArabic
                 ? $"النسخة المؤرخة {preview.ExportedAt.ToLocalTime():g} تحتوي على:\n• {preview.TaskCount} مهمة\n• {preview.MemoryCount} ملاحظة (بما فيها المؤرشفة)\n• {preview.FileManifestCount} سجل ملف/مجلد، منها {preview.FilesWithContent} ملفًا يحتوي النسخ الاحتياطي على محتواه\n\nالملفات ذات المحتوى المضمّن (لن تُكتب قبل موافقة منفصلة):\n{embeddedPreview}\n\nسيُدمج فقط ما لا يحمل معرّفًا موجودًا بالفعل. لن تُستبدل أو تُحذف أي مهمة أو ملاحظة حالية. لن تُستعاد الملفات في هذه الخطوة. قد يتضمن JSON نصوصًا ومحتوى ملفات خاصة غير مشفّرة. هل تريد دمج السجلات؟"
                 : $"Backup dated {preview.ExportedAt.ToLocalTime():g} contains:\n• {preview.TaskCount} tasks\n• {preview.MemoryCount} memories (including archived)\n• {preview.FileManifestCount} file/folder entries, including {preview.FilesWithContent} with embedded file contents\n\nFiles with embedded contents (nothing is written before separate consent):\n{embeddedPreview}\n\nOnly records with IDs not already present will be merged. Existing tasks and memories are never overwritten or deleted. No files will be restored in this step. The JSON may contain sensitive plaintext and file contents. Merge records?";
-            if (MessageBox.Show(this, summary,
+            if (LayalDialogService.Show(this, summary,
                 _isArabic ? "مراجعة واستعادة النسخة الاحتياطية" : "Review and restore workspace backup",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
                 return;
@@ -641,7 +642,7 @@ public sealed class WorkspaceHubWindow : Window
             var restoreFiles = false;
             if (preview.FilesWithContent > 0)
             {
-                restoreFiles = MessageBox.Show(this,
+                restoreFiles = LayalDialogService.Show(this,
                     _isArabic
                         ? $"تحتوي النسخة على محتوى {preview.FilesWithContent} ملف. هل تريد استعادة الملفات المضمنة إلى LayalWorkspace؟ لن يُستبدل أي ملف موجود؛ ستُتخطى المسارات الموجودة، وسيُرفض أي مسار غير آمن أو رابط رمزي."
                         : $"The backup contains {preview.FilesWithContent} embedded file(s). Restore these files into LayalWorkspace? Existing files will never be overwritten; existing paths are skipped, and unsafe paths or symbolic links are rejected.",

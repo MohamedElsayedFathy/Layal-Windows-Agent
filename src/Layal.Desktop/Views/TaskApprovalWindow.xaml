@@ -4,11 +4,12 @@
         Title="Layal requires approval"
         Width="620" MinWidth="420" MaxWidth="760" MaxHeight="720" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
-        Background="{DynamicResource Layal.Background}" Foreground="{DynamicResource Layal.Text}"
+        Background="Transparent" Foreground="{DynamicResource Layal.Text}"
         FontFamily="Segoe UI" FontSize="14"
         PreviewKeyDown="TaskApprovalWindow_PreviewKeyDown">
     <Border Margin="12" Padding="20" CornerRadius="18"
-            Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
+            Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+            Effect="{DynamicResource Layal.CardShadow}">
         <StackPanel>
             <TextBlock x:Name="HeadingText" FontSize="20" FontWeight="SemiBold"
                        TextWrapping="Wrap" AutomationProperties.Name="Approval action"/>

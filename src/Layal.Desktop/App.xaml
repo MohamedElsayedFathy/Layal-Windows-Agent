@@ -40,6 +40,8 @@
         <Color x:Key="Layal.Color.ListSelected">#E3F3F6</Color>
         <Color x:Key="Layal.Color.InputFocus">#FBFDFF</Color>
         <Color x:Key="Layal.Color.HoverSurface">#E8F5F7</Color>
+        <Color x:Key="Layal.Color.MenuHover">#E8F5F7</Color>
+        <Color x:Key="Layal.Color.MenuHoverText">#1C2940</Color>
         <Color x:Key="Layal.Color.Shadow">#A8B9D6</Color>
         <!-- The aurora is intentionally more saturated so the frosted surfaces read as glass, not flat white cards. -->
         <Color x:Key="Layal.Color.BackdropStart">#899DF4</Color>
@@ -75,6 +77,8 @@
         <SolidColorBrush x:Key="Layal.DangerSurface" Color="{DynamicResource Layal.Color.DangerSurface}" />
         <SolidColorBrush x:Key="Layal.DangerBorder" Color="{DynamicResource Layal.Color.DangerBorder}" />
         <SolidColorBrush x:Key="Layal.HoverSurface" Color="{DynamicResource Layal.Color.HoverSurface}" />
+        <SolidColorBrush x:Key="Layal.MenuHover" Color="{DynamicResource Layal.Color.MenuHover}" />
+        <SolidColorBrush x:Key="Layal.MenuHoverText" Color="{DynamicResource Layal.Color.MenuHoverText}" />
         <SolidColorBrush x:Key="Layal.InputFocus" Color="{DynamicResource Layal.Color.InputFocus}" />
         <SolidColorBrush x:Key="Layal.ListHover" Color="{DynamicResource Layal.Color.ListHover}" />
         <SolidColorBrush x:Key="Layal.ListSelected" Color="{DynamicResource Layal.Color.ListSelected}" />
@@ -82,6 +86,7 @@
         <SolidColorBrush x:Key="Layal.NavSelectedBorder" Color="{DynamicResource Layal.Color.NavSelectedBorder}" />
         <SolidColorBrush x:Key="Layal.NavHover" Color="{DynamicResource Layal.Color.NavHover}" />
         <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
+        <SolidColorBrush x:Key="Layal.AppBackdropWash" Color="#40F4F7FC" />
         <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />
         <SolidColorBrush x:Key="Layal.GlassBorderBrush" Color="{DynamicResource Layal.Color.GlassBorder}" />
         <RadialGradientBrush x:Key="Layal.GlowBlueBrush" RadiusX="0.5" RadiusY="0.5">
@@ -158,6 +163,81 @@
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
             <Setter Property="UseLayoutRounding" Value="True" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassFill}" />
+        </Style>
+
+        <!-- Popup surfaces are part of the same glass system as the main shell. -->
+        <Style TargetType="{x:Type ContextMenu}">
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ContextMenu}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="13"
+                                Padding="{TemplateBinding Padding}"
+                                Effect="{DynamicResource Layal.CardShadow}"
+                                SnapsToDevicePixels="True">
+                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type MenuItem}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.MenuHover}" />
+                    <Setter Property="Foreground" Value="{DynamicResource Layal.MenuHoverText}" />
+                </Trigger>
+                <Trigger Property="IsSubmenuOpen" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.MenuHover}" />
+                    <Setter Property="Foreground" Value="{DynamicResource Layal.MenuHoverText}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.48" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MaxWidth" Value="420" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToolTip}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}"
+                                Effect="{DynamicResource Layal.CardShadow}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter ContentSource="Content" RecognizesAccessKey="True" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="TextBlock">
@@ -361,8 +441,8 @@
                                    Focusable="False"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
                                    PopupAnimation="Fade">
-                                <Border Background="{DynamicResource Layal.Panel}"
-                                        BorderBrush="{DynamicResource Layal.Border}"
+                                <Border Background="{DynamicResource Layal.GlassStrongFill}"
+                                        BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                                         BorderThickness="1"
                                         CornerRadius="10"
                                         Padding="3"
@@ -428,6 +508,84 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- DatePicker calendars are transient popups too; keep them inside the same theme. -->
+        <Style x:Key="Layal.CalendarPopup" TargetType="{x:Type Calendar}">
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style TargetType="{x:Type DatePickerTextBox}">
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+        </Style>
+
+        <!-- Calendar sub-controls are separate visual elements inside the DatePicker popup. -->
+        <Style TargetType="{x:Type CalendarDayButton}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="MinWidth" Value="30" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.ListHover}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.ListSelected}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                </Trigger>
+                <Trigger Property="IsToday" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Layal.Cyan}" />
+                </Trigger>
+                <Trigger Property="IsInactive" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Layal.Muted}" />
+                </Trigger>
+                <Trigger Property="IsBlackedOut" Value="True">
+                    <Setter Property="Opacity" Value="0.38" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type CalendarButton}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Layal.ListHover}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="{x:Type DatePicker}">
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="CalendarStyle" Value="{StaticResource Layal.CalendarPopup}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
         </Style>
 
         <!-- Explicitly themed scrollbar template avoids the Windows default white thumb in dark mode. -->
@@ -593,6 +751,24 @@
             </Setter>
         </Style>
 
+        <!-- Content-only tab host: all section navigation is provided by the floating bottom dock. -->
+        <Style x:Key="Layal.ContentOnlyTabControl" TargetType="{x:Type TabControl}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TabControl}">
+                        <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
+                                          Margin="0" SnapsToDevicePixels="True" FlowDirection="LeftToRight"
+                                          AutomationProperties.Name="محتوى الصفحة الحالية / Current page content"
+/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Legacy rail resources remain for auxiliary windows; MainWindow now uses the floating bottom dock. -->
         <!-- Glass shell: a translucent sidebar (brand/footer overlays live in MainWindow, rows 88/156 are reserved for them)
              and a translucent content panel over the dusk backdrop. -->
         <Style TargetType="TabControl">

@@ -176,6 +176,7 @@ public sealed class GameModeSettingsWindow : Window
         root.Children.Add(buttons);
 
         Content = root;
+        LayalWindowChrome.ApplyGlass(this, isArabic);
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

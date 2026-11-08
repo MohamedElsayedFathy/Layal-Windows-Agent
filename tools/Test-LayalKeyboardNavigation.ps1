@@ -73,25 +73,30 @@ try {
         throw "Could not find the main Layal window and its accessible navigation TabControl."
     }
 
-    $tabItemCondition = New-Object System.Windows.Automation.PropertyCondition(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::TabItem)
-    $tabItems = $tabControl.FindAll([System.Windows.Automation.TreeScope]::Children, $tabItemCondition)
-    if ($tabItems.Count -ne 8) {
-        throw "Expected eight navigation tabs, found $($tabItems.Count)."
+    # The redesigned shell intentionally hides the TabControl header and exposes destinations
+    # through the compact bottom dock. Verify the active page through the live accessible status
+    # on MainTabs instead of expecting visual TabItem peers that no longer exist in the UI tree.
+    function Get-CurrentSectionStatus {
+        return [string]$tabControl.GetCurrentPropertyValue(
+            [System.Windows.Automation.AutomationElement]::HelpTextProperty)
     }
 
-    function Get-SelectedTabIndex {
-        param($Items)
-        for ($index = 0; $index -lt $Items.Count; $index++) {
-            try {
-                if ([bool]$Items[$index].GetCurrentPropertyValue(
-                    [System.Windows.Automation.SelectionItemPattern]::IsSelectedProperty)) {
-                    return $index + 1
-                }
-            } catch { }
-        }
-        return 0
+    $expectedSectionLabels = @(
+        "Chat / Home", "Overview", "Tasks", "Skills",
+        "Cameras", "Memory", "API integrations", "Settings"
+    )
+    $expectedSectionPatterns = @(
+        "(?i)(Home\s*\(Chat\)|Chat|المحادثة|الرئيسية)",
+        "(?i)(Overview|نظرة عامة)",
+        "(?i)(Tasks|المهام)",
+        "(?i)(Skills|المهارات)",
+        "(?i)(Cameras|الكاميرات)",
+        "(?i)(Memory|الذاكرة)",
+        "(?i)(API integrations|تكاملات API)",
+        "(?i)(Settings|الإعدادات)"
+    )
+    if ([string]::IsNullOrWhiteSpace((Get-CurrentSectionStatus))) {
+        throw "The main navigation does not expose the current page to UI Automation."
     }
 
     function Send-NumpadShortcut {
@@ -108,53 +113,95 @@ try {
     Start-Sleep -Milliseconds 250
 
     for ($number = 1; $number -le 8; $number++) {
+        $expectedSection = $expectedSectionLabels[$number - 1]
+        $expectedPattern = $expectedSectionPatterns[$number - 1]
         [System.Windows.Forms.SendKeys]::SendWait("^$number")
         Start-Sleep -Milliseconds 300
-        $selected = Get-SelectedTabIndex -Items $tabItems
-        $ok = $selected -eq $number
+        $selected = Get-CurrentSectionStatus
+        $ok = $selected -match $expectedPattern
         $results.Add([pscustomobject]@{
             Test = "Ctrl+$number"
-            ExpectedTab = $number
-            SelectedTab = $selected
+            ExpectedSection = $expectedSection
+            SelectedSection = $selected
             Result = if ($ok) { "PASS" } else { "FAIL" }
-            Details = "Top-row digit shortcut"
+            Details = "Top-row digit shortcut; verified through MainTabs UI Automation HelpText"
         })
-        if (-not $ok) { throw "Ctrl+$number selected tab $selected; expected tab $number." }
+        if (-not $ok) { throw "Ctrl+$number selected '$selected'; expected section '$expectedSection'." }
     }
 
     for ($number = 1; $number -le 8; $number++) {
+        $expectedSection = $expectedSectionLabels[$number - 1]
+        $expectedPattern = $expectedSectionPatterns[$number - 1]
         $vk = [byte](0x60 + $number)
         Send-NumpadShortcut -VirtualKey $vk
         Start-Sleep -Milliseconds 300
-        $selected = Get-SelectedTabIndex -Items $tabItems
-        $ok = $selected -eq $number
+        $selected = Get-CurrentSectionStatus
+        $ok = $selected -match $expectedPattern
         $results.Add([pscustomobject]@{
             Test = "Ctrl+NumPad$number"
-            ExpectedTab = $number
-            SelectedTab = $selected
+            ExpectedSection = $expectedSection
+            SelectedSection = $selected
             Result = if ($ok) { "PASS" } else { "FAIL" }
-            Details = "Numeric keypad shortcut"
+            Details = "Numeric keypad shortcut; verified through MainTabs UI Automation HelpText"
         })
-        if (-not $ok) { throw "Ctrl+NumPad$number selected tab $selected; expected tab $number." }
+        if (-not $ok) { throw "Ctrl+NumPad$number selected '$selected'; expected section '$expectedSection'." }
     }
 
-    # Ctrl+2 must move keyboard focus into the message field, not merely change tabs.
-    [System.Windows.Forms.SendKeys]::SendWait("^2")
-    Start-Sleep -Milliseconds 350
-    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-    $focusName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
-    $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
+    # Ctrl+1 is the real Home route and must move focus into the message field.
+    [System.Windows.Forms.SendKeys]::SendWait("^1")
+    # UIA focus notifications can arrive after the WPF tab content has completed its layout.
+    # Poll the actual focused peer instead of sampling once during that transition.
+    $focusDeadline = (Get-Date).AddSeconds(3)
+    $focused = $null
+    $focusName = ""
+    $focusControlType = ""
+    $focusAutomationId = ""
+    do {
+        Start-Sleep -Milliseconds 100
+        $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+        $focusName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
+        $focusControlType = if ($null -eq $focused) { "" } else { $focused.Current.ControlType.ProgrammaticName }
+        $focusAutomationId = if ($null -eq $focused) { "" } else { $focused.Current.AutomationId }
+        $focusReady = ($focusAutomationId -eq "ChatInput") -and
+                      ($focusControlType -eq "ControlType.Edit")
+    } while (-not $focusReady -and (Get-Date) -lt $focusDeadline)
     # The application exposes the accessible textbox name in localized form as "رسالة المحادثة".
     # Verify the focused element is an Edit control instead of depending on one exact translated label.
-    $focusOk = ($focusName -match "Message|الرسالة|رسالة المحادثة") -and ($focusControlType -eq "ControlType.Edit")
+    $editCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Edit)
+    $editPeers = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
+    $editDiagnostics = @()
+    foreach ($editPeer in $editPeers) {
+        try {
+            $editDiagnostics += [pscustomobject]@{
+                Name = $editPeer.Current.Name
+                AutomationId = $editPeer.Current.AutomationId
+                Enabled = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsEnabledProperty)
+                KeyboardFocusable = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsKeyboardFocusableProperty)
+                Offscreen = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
+                HasKeyboardFocus = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::HasKeyboardFocusProperty)
+            }
+        } catch {
+            $editDiagnostics += [pscustomobject]@{ Name = "stale Edit peer"; AutomationId = ""; Enabled = $false; KeyboardFocusable = $false; Offscreen = $true; HasKeyboardFocus = $false }
+        }
+    }
+    $editDiagnosticText = if ($editDiagnostics.Count -eq 0) {
+        "No Edit peers exposed below the main window."
+    } else {
+        ($editDiagnostics | ConvertTo-Json -Compress -Depth 4)
+    }
+
+    $focusSection = Get-CurrentSectionStatus
+    $focusOk = ($focusSection -match $expectedSectionPatterns[0]) -and $focusReady
     $results.Add([pscustomobject]@{
-        Test = "Ctrl+2 focus target"
-        ExpectedTab = 2
-        SelectedTab = (Get-SelectedTabIndex -Items $tabItems)
+        Test = "Ctrl+1 focus target"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = $focusSection
         Result = if ($focusOk) { "PASS" } else { "FAIL" }
-        Details = "Focused element name: $focusName; control type: $focusControlType"
+        Details = "Focused element name: $focusName; automation id: $focusAutomationId; control type: $focusControlType; Edit peers: $editDiagnosticText"
     })
-    if (-not $focusOk) { throw "Ctrl+2 did not focus the accessible message field; focused element was '$focusName' with control type '$focusControlType'." }
+    if (-not $focusOk) { throw "Ctrl+1 did not select Chat/Home and focus the accessible message field; page status was '$focusSection', focused element was '$focusName' (AutomationId='$focusAutomationId') with control type '$focusControlType'. UIA Edit peers: $editDiagnosticText" }
 
     # F1 opens a modal help message. Confirm it exists, then close it without triggering another action.
     [System.Windows.Forms.SendKeys]::SendWait("{F1}")
@@ -180,14 +227,152 @@ try {
     }
     $results.Add([pscustomobject]@{
         Test = "F1 help dialog"
-        ExpectedTab = 2
-        SelectedTab = (Get-SelectedTabIndex -Items $tabItems)
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
         Result = if ($helpFound) { "PASS" } else { "FAIL" }
         Details = "Keyboard help dialog visible: $helpFound"
     })
     if (-not $helpFound) { throw "F1 did not expose an accessible keyboard-help dialog." }
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Start-Sleep -Milliseconds 250
+
+    # Exercise the real floating navigation dock through UI Automation and keyboard input.
+    # Stable AutomationIds keep this test independent from Arabic/English display text.
+    [System.Windows.Forms.SendKeys]::SendWait("^1")
+    Start-Sleep -Milliseconds 250
+    $toggleCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+        "ToggleBottomDockButton")
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    if ($null -eq $toggleElement) {
+        throw "The floating dock toggle is not exposed to UI Automation."
+    }
+    $toggleElement.SetFocus()
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $toggleFocused = $null -ne $focused -and $focused.Current.AutomationId -eq "ToggleBottomDockButton"
+    $results.Add([pscustomobject]@{
+        Test = "Bottom dock toggle focus"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($toggleFocused) { "PASS" } else { "FAIL" }
+        Details = "AutomationId=$($toggleElement.Current.AutomationId); focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+    })
+    if (-not $toggleFocused) { throw "The bottom dock toggle could not receive keyboard focus." }
+
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Start-Sleep -Milliseconds 450
+    $dockChatCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+        "DockChatButton")
+    $dockChatElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $dockChatCondition)
+    $dockExpanded = $null -ne $dockChatElement -and
+        -not [bool]$dockChatElement.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
+    $results.Add([pscustomobject]@{
+        Test = "Space expands bottom dock"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($dockExpanded) { "PASS" } else { "FAIL" }
+        Details = "DockChatButton exposed and on-screen after Space: $dockExpanded"
+    })
+    if (-not $dockExpanded) { throw "Space did not expose the expanded navigation destinations." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $tabEntersDock = $null -ne $focused -and $focused.Current.AutomationId -eq "DockChatButton"
+    $results.Add([pscustomobject]@{
+        Test = "Tab enters bottom dock"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($tabEntersDock) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+    })
+    if (-not $tabEntersDock) { throw "Tab did not move from the dock toggle to the first navigation destination." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("+{TAB}")
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $reverseDockFocus = $null -ne $focused -and $focused.Current.AutomationId -eq "ToggleBottomDockButton"
+    $results.Add([pscustomobject]@{
+        Test = "Shift+Tab returns to dock toggle"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($reverseDockFocus) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+    })
+    if (-not $reverseDockFocus) { throw "Shift+Tab did not return focus to the bottom dock toggle." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+    Start-Sleep -Milliseconds 120
+    $expectedDockIds = @(
+        "DockChatButton", "DockOverviewButton", "DockTasksButton", "DockSkillsButton",
+        "DockCamerasButton", "DockMemoryButton", "DockApiButton", "DockSettingsButton"
+    )
+    $expectedDockNamePatterns = @(
+        "(?i)(Home\s*-\s*Chat|الرئيسية\s*-\s*المحادثة)",
+        "(?i)(Overview|نظرة عامة)",
+        "(?i)(Tasks|المهام)",
+        "(?i)(Skills|المهارات)",
+        "(?i)(Cameras|الكاميرات)",
+        "(?i)(Memory|الذاكرة)",
+        "(?i)(API integrations|تكاملات API)",
+        "(?i)(Settings|الإعدادات)"
+    )
+    for ($index = 0; $index -lt $expectedDockIds.Count; $index++) {
+        $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+        $focusedId = if ($null -eq $focused) { "" } else { $focused.Current.AutomationId }
+        $focusedName = if ($null -eq $focused) { "" } else { $focused.Current.Name }
+        $expectedId = $expectedDockIds[$index]
+        $expectedNamePattern = $expectedDockNamePatterns[$index]
+        $dockButtonOk = $focusedId -eq $expectedId -and $focusedName -match $expectedNamePattern
+        $results.Add([pscustomobject]@{
+            Test = "Tab dock destination $($index + 1)"
+            ExpectedSection = $expectedId
+            SelectedSection = (Get-CurrentSectionStatus)
+            Result = if ($dockButtonOk) { "PASS" } else { "FAIL" }
+            Details = "Focused AutomationId=$focusedId; Name=$focusedName; expected=$expectedId"
+        })
+        if (-not $dockButtonOk) {
+            throw "Tab order mismatch in bottom dock at destination $($index + 1): expected $expectedId, focused $focusedId ('$focusedName')."
+        }
+        if ($index -lt $expectedDockIds.Count - 1) {
+            [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+            Start-Sleep -Milliseconds 120
+        }
+    }
+
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Start-Sleep -Milliseconds 350
+    $selectedDockPage = Get-CurrentSectionStatus
+    $settingsSelected = $selectedDockPage -match "(?i)(Settings|الإعدادات)"
+    $results.Add([pscustomobject]@{
+        Test = "Space activates focused dock destination"
+        ExpectedSection = "Settings"
+        SelectedSection = $selectedDockPage
+        Result = if ($settingsSelected) { "PASS" } else { "FAIL" }
+        Details = "Focused Settings destination activated through Space."
+    })
+    if (-not $settingsSelected) { throw "Space did not navigate to the focused Settings destination; current page was '$selectedDockPage'." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("^1")
+    Start-Sleep -Milliseconds 250
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    if ($null -eq $toggleElement) { throw "The dock toggle disappeared after returning to Chat." }
+    $toggleElement.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Start-Sleep -Milliseconds 450
+    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+    $toggleName = if ($null -eq $toggleElement) { "" } else { $toggleElement.Current.Name }
+    $dockCollapsed = $toggleName -match "(?i)(Expand navigation dock|توسيع شريط التنقل)"
+    $results.Add([pscustomobject]@{
+        Test = "Space collapses bottom dock"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($dockCollapsed) { "PASS" } else { "FAIL" }
+        Details = "Dock toggle accessible name after collapse: $toggleName"
+    })
+    if (-not $dockCollapsed) { throw "Space did not collapse the navigation dock." }
 
     $results | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
     $summary = [pscustomobject]@{

@@ -6,7 +6,9 @@ using System.Reflection;
 using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -521,6 +523,9 @@ public sealed class MainWindowVisualSmokeTests
                 ((DispatcherTimer)proactiveTimerField.GetValue(window)!).IsEnabled,
                 "Proactive check-ins must return to their pre-Incognito state unless the feature is now disabled.");
             Assert.IsTrue(historySelector.IsEnabled, "Saved history selector should return after private chat.");
+            var historyList = (ListBox?)window.FindName("ChatHistoryList")
+                ?? throw new InvalidOperationException("ChatHistoryList was not found.");
+            Assert.IsTrue(historyList.IsEnabled, "The visible saved-history list should return after private chat.");
             Assert.IsTrue(tasksTab.IsEnabled, "Task workspace should return after private chat.");
             Assert.IsTrue(memoryTab.IsEnabled, "Memory workspace should return after private chat.");
             Assert.AreEqual(2, window.ChatMessages.Count, "Exiting private chat should restore the saved transcript.");
@@ -580,12 +585,20 @@ public sealed class MainWindowVisualSmokeTests
         AssertClockWeatherDashboard(window);
         var windowContent = window.Content as FrameworkElement
             ?? throw new InvalidOperationException("MainWindow content root was not found.");
+        var rootGrid = window.FindName("WindowRoot") as Grid
+            ?? throw new InvalidOperationException("WindowRoot was not found.");
+        Assert.IsTrue(window.Background is SolidColorBrush windowBrush && windowBrush.Color.A == 0,
+            "The window itself must allow the system desktop backdrop to show through.");
+        var washBrush = rootGrid.Background as SolidColorBrush
+            ?? throw new InvalidOperationException("The application backdrop wash must resolve to a solid brush.");
+        Assert.AreEqual(SystemParameters.HighContrast ? (byte)255 : (byte)0x40, washBrush.Color.A,
+            "Normal mode must use a translucent app wash; Windows High Contrast must use an opaque system surface.");
 
         var tabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
         Assert.AreSame(window.FindName("ChatTab"), tabs.SelectedItem,
             "The primary window must open directly into the glass chat view, not the legacy home dashboard.");
-        foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell", "SidebarOverlay", "SidebarBrandRow", "SidebarFooterPanel" })
+        foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell", "TopBarBrandRow", "BottomDockShell", "DockNavigationItems", "ChatHistoryPanel", "ChatHistoryList" })
             Assert.IsNotNull(window.FindName(visualSurface),
                 $"The updated layered-glass chat surface '{visualSurface}' must be present in the shipped UI.");
         var applyTheme = typeof(MainWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -593,7 +606,7 @@ public sealed class MainWindowVisualSmokeTests
         var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("ApplyLanguage was not found.");
 
-        var tabNames = new[] { "home", "chat", "tasks", "skills", "cameras", "memory", "api", "settings" };
+        var tabNames = new[] { "overview", "chat", "tasks", "skills", "cameras", "memory", "api", "settings" };
         Assert.AreEqual(tabNames.Length, tabs.Items.Count,
             "The visual audit must render every expected main section; the test must not silently skip a missing tab.");
 
@@ -667,7 +680,7 @@ public sealed class MainWindowVisualSmokeTests
             $"Window Width/Height DIPs after show: {window.Width:0}x{window.Height:0}",
             $"Actual client content DIPs: {windowContent.ActualWidth:0}x{windowContent.ActualHeight:0}",
             "Captures render the full WPF Window (including its own theme background) at 96 DPI multiplied by renderScale; this does not emulate physical monitor DPI or multi-monitor movement.",
-            "Coverage: 112 full-window images (7 sections x 2 themes x 2 languages x 4 render scales), plus 28 compact-window images (7 sections x 2 themes x 2 languages at 900x560 DIPs).",
+            "Coverage: 128 full-window images (8 sections x 2 themes x 2 languages x 4 render scales), plus 32 compact-window images (8 sections x 2 themes x 2 languages at 900x560 DIPs).",
             "Compact captures test window resizing only; they do not certify OS display scaling at 100%, 125%, 150%, or 175%."
         };
 
@@ -729,6 +742,22 @@ public sealed class MainWindowVisualSmokeTests
                 window.UpdateLayout();
                 window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
                 Keyboard.ClearFocus();
+
+                var expectedCurrentSection = tabNames[index] switch
+                {
+                    "overview" => language == "ar" ? "نظرة عامة" : "Overview",
+                    "chat" => language == "ar" ? "المحادثة / الرئيسية" : "Home (Chat)",
+                    "tasks" => language == "ar" ? "المهام" : "Tasks",
+                    "skills" => language == "ar" ? "المهارات" : "Skills",
+                    "cameras" => language == "ar" ? "الكاميرات" : "Cameras",
+                    "memory" => language == "ar" ? "الذاكرة" : "Memory",
+                    "api" => language == "ar" ? "تكاملات API" : "API integrations",
+                    "settings" => language == "ar" ? "الإعدادات" : "Settings",
+                    _ => throw new InvalidOperationException($"Unknown main section '{tabNames[index]}'.")
+                };
+                var navigationHelpText = AutomationProperties.GetHelpText(tabs);
+                Assert.IsTrue(navigationHelpText.Contains(expectedCurrentSection, StringComparison.OrdinalIgnoreCase),
+                    $"Main navigation UI Automation status must identify '{tabNames[index]}' after selection in {language}.");
 
                 if (tabNames[index] == "chat")
                 {
@@ -890,6 +919,35 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(chatInput)),
             "Chat input must expose an accessible name.");
+        Assert.AreEqual("ChatInput",
+            AutomationProperties.GetAutomationId(chatInput),
+            "The chat editor must expose a stable UI Automation id for keyboard focus verification.");
+
+        var mainTabs = window.FindName("MainTabs") as TabControl
+            ?? throw new InvalidOperationException("MainTabs was not found.");
+        mainTabs.ApplyTemplate();
+        mainTabs.UpdateLayout();
+        var tabPeer = UIElementAutomationPeer.CreatePeerForElement(mainTabs)
+            ?? throw new InvalidOperationException("The main navigation UI Automation peer was not created.");
+        var pendingPeers = new Stack<AutomationPeer>(tabPeer.GetChildren() ?? new List<AutomationPeer>());
+        var visitedPeers = new HashSet<AutomationPeer>();
+        var chatEditorExposed = false;
+        while (pendingPeers.Count > 0)
+        {
+            var peer = pendingPeers.Pop();
+            if (!visitedPeers.Add(peer))
+                continue;
+            if (string.Equals(peer.GetAutomationId(), "ChatInput", StringComparison.Ordinal))
+            {
+                chatEditorExposed = true;
+                break;
+            }
+            foreach (var child in peer.GetChildren() ?? new List<AutomationPeer>())
+                pendingPeers.Push(child);
+        }
+        Assert.IsTrue(chatEditorExposed,
+            "The content-only navigation peer must expose the selected chat editor to UI Automation.");
+
         var clipboardButton = window.FindName("ReadClipboardButton") as Button
             ?? throw new InvalidOperationException("ReadClipboardButton was not found.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
@@ -1018,6 +1076,21 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
+        foreach (var dockButtonName in new[]
+        {
+            "DockChatButton", "DockOverviewButton", "DockTasksButton", "DockSkillsButton",
+            "DockCamerasButton", "DockMemoryButton", "DockApiButton", "DockSettingsButton"
+        })
+        {
+            var dockButton = window.FindName(dockButtonName) as Button
+                ?? throw new InvalidOperationException($"{dockButtonName} was not found.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(
+                System.Windows.Automation.AutomationProperties.GetName(dockButton)),
+                $"Navigation destination '{dockButtonName}' must expose a localized accessible name.");
+        }
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            System.Windows.Automation.AutomationProperties.GetHelpText(window.FindName("ChatHistoryList") as DependencyObject)),
+            "The saved-history panel must explain how to resume a conversation.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
@@ -1164,18 +1237,25 @@ public sealed class MainWindowVisualSmokeTests
         var mainTabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
         Assert.AreEqual(expectedWritingDirection, mainTabs.FlowDirection,
-            $"The navigation shell must reflect the selected writing direction for {language}.");
-        var sidebar = window.FindName("SidebarOverlay") as Grid
-            ?? throw new InvalidOperationException("SidebarOverlay was not found.");
-        Assert.AreEqual(ar ? HorizontalAlignment.Right : HorizontalAlignment.Left, sidebar.HorizontalAlignment,
-            $"The brand/settings overlay must stay aligned with the navigation rail for {language}.");
-        foreach (var panelName in new[] { "SidebarBrandRow", "SidebarFooterPanel" })
-        {
-            var panel = window.FindName(panelName) as FrameworkElement
-                ?? throw new InvalidOperationException($"Expected RTL-aware sidebar panel '{panelName}' was not found.");
-            Assert.AreEqual(expectedWritingDirection, panel.FlowDirection,
-                $"Sidebar panel '{panelName}' has the wrong flow direction for {language}.");
-        }
+            $"The page host must retain the selected language flow direction for {language}.");
+        var dockItems = window.FindName("DockNavigationItems") as StackPanel
+            ?? throw new InvalidOperationException("DockNavigationItems was not found.");
+        Assert.AreEqual(expectedWritingDirection, dockItems.FlowDirection,
+            $"The bottom navigation dock must follow the selected writing direction for {language}.");
+        var historyPanel = window.FindName("ChatHistoryPanel") as Border
+            ?? throw new InvalidOperationException("ChatHistoryPanel was not found.");
+        Assert.AreEqual(expectedWritingDirection, historyPanel.FlowDirection,
+            $"The chat history panel must follow the selected writing direction for {language}.");
+        Assert.AreEqual(ar ? 1 : 0, Grid.GetColumn(historyPanel),
+            $"The saved-history panel must appear on the correct language side for {language}.");
+        var chatSurface = window.FindName("ChatConversationSurface") as Grid
+            ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
+        Assert.AreEqual(ar ? 0 : 1, Grid.GetColumn(chatSurface),
+            $"The main conversation surface must retain the opposite column for {language}.");
+        var dockHost = window.FindName("BottomDockHost") as Grid
+            ?? throw new InvalidOperationException("BottomDockHost was not found.");
+        Assert.AreEqual(VerticalAlignment.Bottom, dockHost.VerticalAlignment,
+            "The floating navigation host must stay anchored to the bottom of the application.");
 
         var taskResult = window.FindName("TaskResult") as TextBox
             ?? throw new InvalidOperationException("TaskResult was not found.");
@@ -1413,6 +1493,18 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("GoSettingsButton was not found.");
         var showMascot = window.FindName("ShowMascotButton") as Button
             ?? throw new InvalidOperationException("ShowMascotButton was not found.");
+        var dockChat = window.FindName("DockChatButton") as Button
+            ?? throw new InvalidOperationException("DockChatButton was not found.");
+        var dockOverview = window.FindName("DockOverviewButton") as Button
+            ?? throw new InvalidOperationException("DockOverviewButton was not found.");
+        var dockToggle = window.FindName("ToggleBottomDockButton") as Button
+            ?? throw new InvalidOperationException("ToggleBottomDockButton was not found.");
+        var expandedDock = window.FindName("DockExpandedSurface") as Border
+            ?? throw new InvalidOperationException("DockExpandedSurface was not found.");
+        var historyToggle = window.FindName("ToggleChatHistoryButton") as Button
+            ?? throw new InvalidOperationException("ToggleChatHistoryButton was not found.");
+        var historyPanel = window.FindName("ChatHistoryPanel") as Border
+            ?? throw new InvalidOperationException("ChatHistoryPanel was not found.");
         var alwaysOnTop = window.FindName("AlwaysOnTopCheckbox") as CheckBox
             ?? throw new InvalidOperationException("AlwaysOnTopCheckbox was not found.");
         var animations = window.FindName("AnimationsCheckbox") as CheckBox
@@ -1454,8 +1546,49 @@ public sealed class MainWindowVisualSmokeTests
         goSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goSettings));
         Assert.AreSame(settingsTab, tabs.SelectedItem, "The home settings shortcut must navigate to Settings.");
         goChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goChat));
-        Assert.AreSame(chatTab, tabs.SelectedItem, "The home chat shortcut must navigate to Chat.");
-        tabs.SelectedItem = homeTab;
+        Assert.AreSame(chatTab, tabs.SelectedItem, "The overview chat shortcut must navigate to Chat.");
+
+        // The bottom dock is compact on startup, expands on demand, and navigates to real pages.
+        var previousPerformanceMode = AppRuntime.Settings.PerformanceModeEnabled;
+        AppRuntime.Settings.PerformanceModeEnabled = true;
+        var bottomDockField = typeof(MainWindow).GetField("_isBottomDockExpanded", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Bottom dock expansion state was not found.");
+        var toggleHistory = typeof(MainWindow).GetMethod("SetChatHistoryPanelOpen", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Chat history panel method was not found.");
+        try
+        {
+            Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
+                "The bottom dock must start compact rather than occupying the conversation surface.");
+            Assert.AreEqual(0, expandedDock.Width, 0.1,
+                "The labeled navigation destinations must be collapsed on startup.");
+            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
+            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
+                "The dock toggle must expand the navigation destinations.");
+            Assert.AreEqual(730, expandedDock.Width, 0.1,
+                "The expanded dock must expose its complete navigation strip.");
+            dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
+            Assert.AreSame(chatTab, tabs.SelectedItem, "The first dock destination must return to the primary chat page.");
+            dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));
+            Assert.AreSame(homeTab, tabs.SelectedItem, "The overview destination must open the separate dashboard.");
+            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
+            Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
+                "The dock toggle must collapse the navigation destinations again.");
+            Assert.AreEqual(0, expandedDock.Width, 0.1);
+
+            Assert.AreEqual(Visibility.Collapsed, historyPanel.Visibility,
+                "Saved conversation history must not steal space from the chat until requested.");
+            historyToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, historyToggle));
+            Assert.AreEqual(Visibility.Visible, historyPanel.Visibility,
+                "The chat history toggle must show the collapsible side panel.");
+            toggleHistory.Invoke(window, new object[] { false });
+            Assert.AreEqual(Visibility.Collapsed, historyPanel.Visibility,
+                "Closing the history panel must return the full-width chat surface.");
+        }
+        finally
+        {
+            AppRuntime.Settings.PerformanceModeEnabled = previousPerformanceMode;
+            tabs.SelectedItem = homeTab;
+        }
 
         // Checkbox changes persist immediately and are reflected by the live mascot.
         alwaysOnTop.IsChecked = false;
@@ -1585,6 +1718,48 @@ public sealed class MainWindowVisualSmokeTests
         var textBrush = Application.Current.TryFindResource("Layal.Text") as SolidColorBrush;
         var comboForeground = historySelector.Foreground as SolidColorBrush;
 
+        foreach (var popupType in new[] { typeof(ContextMenu), typeof(MenuItem), typeof(ToolTip), typeof(DatePicker) })
+        {
+            Assert.IsNotNull(Application.Current.TryFindResource(popupType) as Style,
+                $"Implicit {popupType.Name} style must be available in {theme}/{language}; transient surfaces must not fall back to native white styling.");
+        }
+
+        var calendarStyle = Application.Current.TryFindResource("Layal.CalendarPopup") as Style;
+        Assert.IsNotNull(calendarStyle, $"DatePicker calendar popup style must be available in {theme}/{language}.");
+        Assert.IsTrue(calendarStyle!.Setters.OfType<Setter>()
+                .Any(setter => setter.Property == Control.BackgroundProperty),
+            $"DatePicker calendar popup must have a theme-aware background in {theme}/{language}.");
+
+        foreach (var calendarControlType in new[] { typeof(CalendarDayButton), typeof(CalendarButton), typeof(DatePickerTextBox) })
+        {
+            Assert.IsNotNull(Application.Current.TryFindResource(calendarControlType) as Style,
+                $"The DatePicker popup sub-control '{calendarControlType.Name}' must use Layal's theme resources in {theme}/{language}.");
+        }
+        var calendarDayStyle = (Style)Application.Current.TryFindResource(typeof(CalendarDayButton))!;
+        Assert.IsTrue(calendarDayStyle.Triggers.OfType<Trigger>()
+                .Any(trigger => trigger.Property == CalendarDayButton.IsSelectedProperty),
+            "Calendar day selection must have a dedicated visible selected state.");
+        Assert.IsTrue(calendarDayStyle.Triggers.OfType<Trigger>()
+                .Any(trigger => trigger.Property == CalendarDayButton.IsBlackedOutProperty),
+            "Unavailable calendar days must have a distinct disabled appearance.");
+
+        var glassPopupBrush = Application.Current.TryFindResource("Layal.GlassStrongFill") as SolidColorBrush;
+        var glassBorderBrush = Application.Current.TryFindResource("Layal.GlassBorderBrush") as SolidColorBrush;
+        var menuHoverBrush = Application.Current.TryFindResource("Layal.MenuHover") as SolidColorBrush;
+        var menuHoverTextBrush = Application.Current.TryFindResource("Layal.MenuHoverText") as SolidColorBrush;
+        Assert.IsNotNull(glassPopupBrush, $"Glass popup fill must resolve in {theme}/{language}.");
+        Assert.IsNotNull(glassBorderBrush, $"Glass popup border must resolve in {theme}/{language}.");
+        Assert.IsNotNull(menuHoverBrush, $"Menu selection background must resolve in {theme}/{language}.");
+        Assert.IsNotNull(menuHoverTextBrush, $"Menu selection text must resolve in {theme}/{language}.");
+
+        var highContrastPalette = UiThemePalette.Create(dark: theme == "dark", highContrast: true);
+        var expectedMenuHighlight = SystemColors.HighlightColor;
+        var expectedMenuHighlightText = SystemColors.HighlightTextColor;
+        Assert.AreEqual(expectedMenuHighlight, (Color)ColorConverter.ConvertFromString(highContrastPalette["Layal.Color.MenuHover"])!,
+            "High Contrast menu selection must use the active Windows highlight color.");
+        Assert.AreEqual(expectedMenuHighlightText, (Color)ColorConverter.ConvertFromString(highContrastPalette["Layal.Color.MenuHoverText"])!,
+            "High Contrast selected menu text must use the Windows highlight text color.");
+
         Assert.IsNotNull(panelBrush, $"Layal.Panel must resolve for {theme}/{language}.");
         Assert.IsNotNull(comboBackground, $"ComboBox background must use a solid theme surface for {theme}/{language}.");
         Assert.IsNotNull(textBrush, $"Layal.Text must resolve for {theme}/{language}.");
@@ -1594,12 +1769,136 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(textBrush.Color, comboForeground.Color,
             $"Chat history ComboBox text does not follow {theme}/{language} text resources.");
 
+        AssertTransientPopupOpenClose(
+            Window.GetWindow(historySelector)
+                ?? throw new InvalidOperationException("Chat history selector is not attached to a window."),
+            theme, language);
+
         Assert.IsTrue(ContrastRatio(text, background) >= 7.0,
             $"Primary text contrast must be at least 7:1 in {theme}/{language}.");
         Assert.IsTrue(ContrastRatio(muted, background) >= 4.5,
             $"Muted text contrast must be at least 4.5:1 in {theme}/{language}.");
         Assert.IsTrue(ContrastRatio(scrollThumb, background) >= 2.0,
             $"Scrollbar thumb contrast must be at least 2:1 in {theme}/{language}.");
+    }
+
+    private static void AssertTransientPopupOpenClose(
+        Window owner,
+        string theme,
+        string language)
+    {
+        var glassFill = Application.Current.TryFindResource("Layal.GlassStrongFill") as SolidColorBrush
+            ?? throw new InvalidOperationException("The glass popup fill must resolve before transient controls are opened.");
+        var dispatcher = owner.Dispatcher;
+
+        var contextTarget = new Button
+        {
+            Content = language == "ar" ? "هدف القائمة" : "Popup target",
+            MinWidth = 120,
+            MinHeight = 36
+        };
+        var comboProbe = new ComboBox { Width = 220, MinHeight = 36 };
+        comboProbe.Items.Add(new ComboBoxItem { Content = language == "ar" ? "اختيار أول" : "First option" });
+        comboProbe.Items.Add(new ComboBoxItem { Content = language == "ar" ? "اختيار ثانٍ" : "Second option" });
+        comboProbe.SelectedIndex = 0;
+        var datePicker = new DatePicker { SelectedDate = new DateTime(2026, 5, 12), Width = 260 };
+
+        var probeHost = new Window
+        {
+            Owner = owner,
+            Width = 330,
+            Height = 230,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+            ShowActivated = true,
+            ResizeMode = ResizeMode.NoResize,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(16),
+                Orientation = Orientation.Vertical,
+                Children = { contextTarget, comboProbe, datePicker }
+            }
+        };
+
+        try
+        {
+            probeHost.Show();
+            probeHost.UpdateLayout();
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var contextMenu = new ContextMenu
+            {
+                PlacementTarget = contextTarget,
+                Placement = PlacementMode.Bottom
+            };
+            contextMenu.Items.Add(new MenuItem
+            {
+                Header = language == "ar" ? "عنصر قائمة تجريبي" : "Transient menu item"
+            });
+            try
+            {
+                contextMenu.IsOpen = true;
+                dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Assert.IsTrue(contextMenu.IsOpen, $"ContextMenu must open in {theme}/{language}.");
+                Assert.IsNotNull(contextMenu.Template, "The context menu must resolve a WPF control template.");
+                Assert.AreEqual(glassFill.Color,
+                    (contextMenu.Background as SolidColorBrush)?.Color,
+                    $"ContextMenu must use the glass fill in {theme}/{language}.");
+            }
+            finally
+            {
+                contextMenu.IsOpen = false;
+            }
+
+            var toolTip = new ToolTip
+            {
+                PlacementTarget = contextTarget,
+                Content = language == "ar" ? "تلميح تجريبي" : "Transient tooltip"
+            };
+            try
+            {
+                toolTip.IsOpen = true;
+                dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Assert.IsTrue(toolTip.IsOpen, $"ToolTip must open in {theme}/{language}.");
+                Assert.AreEqual(glassFill.Color,
+                    (toolTip.Background as SolidColorBrush)?.Color,
+                    $"ToolTip must use the glass fill in {theme}/{language}.");
+            }
+            finally
+            {
+                toolTip.IsOpen = false;
+            }
+
+            comboProbe.ApplyTemplate();
+            var comboPopup = comboProbe.Template.FindName("PART_Popup", comboProbe) as Popup
+                ?? throw new InvalidOperationException("The themed ComboBox template must expose PART_Popup.");
+            comboProbe.IsDropDownOpen = true;
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.IsTrue(comboPopup.IsOpen, $"ComboBox popup must open in {theme}/{language}.");
+            var popupSurface = comboPopup.Child as Border
+                ?? throw new InvalidOperationException("The ComboBox popup must render through its glass Border surface.");
+            Assert.AreEqual(glassFill.Color,
+                (popupSurface.Background as SolidColorBrush)?.Color,
+                $"ComboBox popup must use the glass fill in {theme}/{language}.");
+            comboProbe.IsDropDownOpen = false;
+
+            datePicker.ApplyTemplate();
+            var datePopup = datePicker.Template.FindName("PART_Popup", datePicker) as Popup
+                ?? throw new InvalidOperationException("The DatePicker template must expose PART_Popup.");
+            datePicker.IsDropDownOpen = true;
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.IsTrue(datePopup.IsOpen, $"DatePicker calendar popup must open in {theme}/{language}.");
+            Assert.IsNotNull(datePopup.Child, "The open DatePicker popup must contain its calendar surface.");
+            Assert.IsNotNull(datePicker.CalendarStyle,
+                "The DatePicker must pass its theme-aware Calendar style into the popup.");
+            Assert.AreSame(Application.Current.TryFindResource("Layal.CalendarPopup"), datePicker.CalendarStyle,
+                $"The open DatePicker popup must use the shared calendar style in {theme}/{language}.");
+            datePicker.IsDropDownOpen = false;
+        }
+        finally
+        {
+            probeHost.Close();
+        }
     }
 
     private static double ContrastRatio(Color first, Color second)

@@ -159,6 +159,9 @@ function Invoke-Check {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     try {
         $detail = & $Action
+        if ($detail -is [bool] -and -not $detail) {
+            throw 'The acceptance action returned Boolean false.'
+        }
         if ($null -eq $detail) { $detail = 'Completed successfully.' }
         Add-CheckResult -Name $Name -Category $Category -Status 'PASS' -Details ([string]$detail) -DurationSeconds $timer.Elapsed.TotalSeconds
         return $true
@@ -187,7 +190,7 @@ function Invoke-PowerShellChild {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][string]$ScriptPath,
-        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Arguments,
         [Parameter(Mandatory = $true)][string]$LogDirectory
     )
     $resolvedScript = (Resolve-Path -LiteralPath $ScriptPath).Path
@@ -543,6 +546,13 @@ try {
         return "Parsed $($scripts.Count) PowerShell scripts with zero syntax errors."
     } | Out-Null
 
+    Invoke-Check -Name 'PowerShell acceptance primitive tests' -Category 'Static analysis' -Action {
+        $primitiveTest = Join-Path $Root 'tools/Test-LayalAcceptancePrimitives.ps1'
+        $primitiveLog = Join-Path $ReportDirectory 'powershell-acceptance-primitives'
+        $child = Invoke-PowerShellChild -Name 'Test-LayalAcceptancePrimitives' -ScriptPath $primitiveTest -Arguments @() -LogDirectory $primitiveLog
+        return "Acceptance result semantics passed. Log: $($child.StdoutPath)"
+    } | Out-Null
+
     $pythonChecks = @(
         @{ Name = 'Static project validation'; Script = 'tools/validate_project.py'; Args = @() }
         @{ Name = 'Distribution source validation'; Script = 'tools/validate_distribution.py'; Args = @() }
@@ -664,7 +674,7 @@ try {
             Invoke-Check -Name 'Keyboard navigation and shortcut acceptance' -Category 'Desktop integration' -Action {
                 Invoke-DesktopDiagnostic -Name 'keyboard-navigation' -ScriptName 'Test-LayalKeyboardNavigation.ps1' -Arguments ($common + @('-LogDirectory', (Join-Path $ReportDirectory 'keyboard-navigation'))) -SummaryRelativePath 'keyboard-summary.json' -ValidateSummary {
                     param($summary)
-                    if ($summary.Result -ne 'passed' -or $summary.Failed -ne 0 -or $summary.ShortcutCases -lt 18) { throw 'Keyboard navigation did not pass all expected cases.' }
+                    if ($summary.Result -ne 'passed' -or $summary.Failed -ne 0 -or $summary.ShortcutCases -lt 32) { throw 'Keyboard navigation did not pass all expected cases.' }
                     if ($summary.ManualScreenReaderAcceptance -ne 'pending' -or $summary.ManualHighContrastAcceptance -ne 'pending') { throw 'Automated keyboard tests must not claim manual accessibility acceptance.' }
                 }
             } | Out-Null

@@ -13,10 +13,11 @@ public sealed class TrayService : IDisposable
     private readonly Forms.ToolStripMenuItem _mascotItem;
     private readonly Forms.ToolStripMenuItem _exitItem;
     private readonly Drawing.Icon? _ownedIcon;
+    private readonly Drawing.Font _menuFont;
     private readonly NotificationActionSlot _reminderClickAction = new();
     private readonly ReminderNotificationQueue _reminderNotificationQueue = new();
 
-    public TrayService(Action showMain, Action showMascot, Action exit, string language)
+    public TrayService(Action showMain, Action showMascot, Action exit, string language, bool darkTheme = false, bool highContrast = false)
     {
         _menu = new Forms.ContextMenuStrip();
         _openItem = new Forms.ToolStripMenuItem();
@@ -26,6 +27,12 @@ public sealed class TrayService : IDisposable
         _mascotItem.Click += (_, _) => showMascot();
         _exitItem.Click += (_, _) => exit();
         _menu.Items.AddRange(new Forms.ToolStripItem[] { _openItem, _mascotItem, new Forms.ToolStripSeparator(), _exitItem });
+        _menu.ShowImageMargin = false;
+        _menu.ShowCheckMargin = false;
+        _menu.Padding = new Forms.Padding(6);
+        _menu.DropShadowEnabled = true;
+        _menuFont = new Drawing.Font("Segoe UI", 9F, Drawing.FontStyle.Regular, Drawing.GraphicsUnit.Point);
+        _menu.Font = _menuFont;
 
         Drawing.Icon trayIcon;
         try
@@ -62,6 +69,7 @@ public sealed class TrayService : IDisposable
         _icon.BalloonTipClicked += ReminderBalloonTipClicked;
         _icon.BalloonTipClosed += ReminderBalloonTipClosed;
         SetLanguage(language);
+        SetTheme(darkTheme, highContrast);
     }
 
     public void ShowReminderNotification(string reminderTitle, bool isArabic, Action? onClick = null)
@@ -154,9 +162,42 @@ public sealed class TrayService : IDisposable
     public void SetLanguage(string language)
     {
         var ar = language == "ar";
+        _menu.RightToLeft = ar ? Forms.RightToLeft.Yes : Forms.RightToLeft.No;
         _openItem.Text = ar ? "فتح ليال" : "Open Layal";
         _mascotItem.Text = ar ? "إظهار الشخصية" : "Show mascot";
         _exitItem.Text = ar ? "خروج" : "Exit";
+    }
+
+    /// <summary>Applies Layal's current theme to the Windows notification-area menu.</summary>
+    public void SetTheme(bool dark, bool highContrast)
+    {
+        if (_disposed) return;
+
+        var background = highContrast
+            ? Drawing.SystemColors.Menu
+            : dark ? Drawing.Color.FromArgb(31, 38, 56) : Drawing.Color.FromArgb(250, 252, 255);
+        var foreground = highContrast
+            ? Drawing.SystemColors.MenuText
+            : dark ? Drawing.Color.FromArgb(237, 242, 255) : Drawing.Color.FromArgb(28, 41, 64);
+        var border = highContrast
+            ? Drawing.SystemColors.MenuText
+            : dark ? Drawing.Color.FromArgb(73, 87, 112) : Drawing.Color.FromArgb(211, 223, 239);
+        var selected = highContrast
+            ? Drawing.SystemColors.Highlight
+            : dark ? Drawing.Color.FromArgb(55, 72, 96) : Drawing.Color.FromArgb(226, 241, 247);
+
+        _menu.BackColor = background;
+        _menu.ForeColor = foreground;
+        _menu.RenderMode = Forms.ToolStripRenderMode.Professional;
+        _menu.Renderer = new Forms.ToolStripProfessionalRenderer(
+            new LayalTrayMenuColorTable(background, border, selected));
+        foreach (Forms.ToolStripItem item in _menu.Items)
+        {
+            item.BackColor = background;
+            item.ForeColor = foreground;
+            item.Font = _menuFont;
+            item.Padding = new Forms.Padding(10, 7, 10, 7);
+        }
     }
 
     public void Dispose()
@@ -170,6 +211,38 @@ public sealed class TrayService : IDisposable
         _icon.Visible = false;
         _icon.Dispose();
         _menu.Dispose();
+        _menuFont.Dispose();
         _ownedIcon?.Dispose();
     }
+}
+
+internal sealed class LayalTrayMenuColorTable : Forms.ProfessionalColorTable
+{
+    private readonly Drawing.Color _background;
+    private readonly Drawing.Color _border;
+    private readonly Drawing.Color _selected;
+
+    public LayalTrayMenuColorTable(Drawing.Color background, Drawing.Color border, Drawing.Color selected)
+    {
+        _background = background;
+        _border = border;
+        _selected = selected;
+        UseSystemColors = false;
+    }
+
+    public override Drawing.Color ToolStripDropDownBackground => _background;
+    public override Drawing.Color ImageMarginGradientBegin => _background;
+    public override Drawing.Color ImageMarginGradientMiddle => _background;
+    public override Drawing.Color ImageMarginGradientEnd => _background;
+    public override Drawing.Color MenuBorder => _border;
+    public override Drawing.Color ToolStripBorder => _border;
+    public override Drawing.Color MenuItemSelected => _selected;
+    public override Drawing.Color MenuItemBorder => _border;
+    public override Drawing.Color MenuItemSelectedGradientBegin => _selected;
+    public override Drawing.Color MenuItemSelectedGradientEnd => _selected;
+    public override Drawing.Color MenuItemPressedGradientBegin => _selected;
+    public override Drawing.Color MenuItemPressedGradientMiddle => _selected;
+    public override Drawing.Color MenuItemPressedGradientEnd => _selected;
+    public override Drawing.Color SeparatorDark => _border;
+    public override Drawing.Color SeparatorLight => _border;
 }

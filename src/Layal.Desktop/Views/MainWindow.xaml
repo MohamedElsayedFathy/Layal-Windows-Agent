@@ -2,15 +2,16 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        xmlns:controls="clr-namespace:Layal.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Layal | ليال" Icon="pack://application:,,,/Layal;component/Assets/layal-tray.ico" Width="1320" Height="860" MinWidth="900" MinHeight="560"
-        Background="{DynamicResource Layal.Backdrop}" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
+        Background="Transparent" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
         Closing="Window_Closing" Loaded="MainWindow_Loaded" PreviewKeyDown="MainWindow_PreviewKeyDown">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
-    <Grid x:Name="WindowRoot">
+    <Grid x:Name="WindowRoot" Background="{DynamicResource Layal.AppBackdropWash}">
         <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/></Grid.RowDefinitions>
 
         <!-- Layered aurora glow behind the frosted panels: decorative only, never intercepts input. -->
@@ -29,6 +30,19 @@
                 
             </Ellipse>
         </Grid>
+        <StackPanel x:Name="TopBarBrandRow" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left"
+                    VerticalAlignment="Center" Margin="16,0,0,0" IsHitTestVisible="False">
+            <Border Width="30" Height="30" CornerRadius="10" Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,9,0">
+                <TextBlock Text="L" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Layal.OnAccent}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText" Text="Layal | ليال" FontSize="14" FontWeight="SemiBold"
+                           FlowDirection="LeftToRight" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="SubtitleText" Text="مساعد سطح المكتب" FontSize="10"
+                           Foreground="{DynamicResource Layal.Muted}" FlowDirection="LeftToRight"/>
+            </StackPanel>
+        </StackPanel>
         <!-- Custom caption: the empty area remains draggable; status indicators and caption buttons stay interactive. -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"
                     KeyboardNavigation.TabNavigation="Local">
@@ -52,6 +66,26 @@
                                        Foreground="{DynamicResource Layal.Text}" AutomationProperties.LiveSetting="Polite"/>
                         </StackPanel>
                     </Border>
+            <Border x:Name="ConnectionStatusShell" shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                    CornerRadius="10" Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                    BorderThickness="1" Padding="8,5" Margin="3" VerticalAlignment="Center">
+                <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}"
+                           FontSize="11" FontWeight="SemiBold" AutomationProperties.Name="حالة اتصال المزود"
+                           AutomationProperties.LiveSetting="Polite"/>
+            </Border>
+            <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="62"
+                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+            <Button x:Name="ThemeButton" Content="☾ Dark" Click="ThemeButton_Click" MinWidth="78"
+                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+            <Button x:Name="KeyboardHelpButton" Content="F1" Click="KeyboardHelpButton_Click" MinWidth="38"
+                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    ToolTip="اختصارات لوحة المفاتيح" AutomationProperties.Name="اختصارات لوحة المفاتيح"
+                    shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+            <Button x:Name="ShowMascotButton" Content="ليال" Click="ShowMascotButton_Click" MinWidth="48"
+                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
             <Button x:Name="MinimizeWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE921;" Click="MinimizeWindowButton_Click"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="تصغير / Minimize" AutomationProperties.Name="تصغير / Minimize" />
             <Button x:Name="MaximizeWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE922;" Click="MaximizeWindowButton_Click"
@@ -59,8 +93,8 @@
             <Button x:Name="CloseWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE8BB;" Click="CloseWindowButton_Click"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="إغلاق / Close" AutomationProperties.Name="إغلاق / Close" />
         </StackPanel>
-        <TabControl x:Name="MainTabs" Grid.Row="1" Margin="16,0,16,16" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
-            <TabItem x:Name="HomeTab" Header="الرئيسية" Tag="&#xE80F;">
+        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="16,0,16,84" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
+            <TabItem x:Name="HomeTab" Header="نظرة عامة" Tag="&#xE80F;">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="18">
                         <Grid Margin="0,0,0,20" MinHeight="176">
@@ -108,7 +142,50 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="ChatTab" Header="المحادثة" Tag="&#xE8BD;">
+            <TabItem x:Name="ChatTab" Header="الرئيسية" Tag="&#xE8BD;">
+                <Grid x:Name="ChatTabLayout" Margin="0" FlowDirection="LeftToRight">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="ChatHistoryPanel" Grid.Column="0" Width="270" Visibility="Collapsed" Opacity="0"
+                            Margin="0,4,8,4" Padding="12" CornerRadius="22"
+                            Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                            BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
+                        <Border.RenderTransform>
+                            <TranslateTransform x:Name="ChatHistoryPanelTransform" X="-10"/>
+                        </Border.RenderTransform>
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0" LastChildFill="True" Margin="3,2,3,10">
+                                <Button x:Name="CloseChatHistoryButton" DockPanel.Dock="Right" Content="×" Width="32" Height="30"
+                                        Padding="0" Click="CloseChatHistoryButton_Click"
+                                        AutomationProperties.Name="إغلاق سجل المحادثات / Close chat history"/>
+                                <TextBlock x:Name="ChatHistoryHeading" Text="المحادثات السابقة" FontSize="15"
+                                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <Grid Grid.Row="1">
+                                <ListBox x:Name="ChatHistoryList" ItemsSource="{Binding ChatConversations}"
+                                         SelectionChanged="ChatHistorySelector_SelectionChanged"
+                                         DisplayMemberPath="Title" Background="Transparent" BorderThickness="0"
+                                         Padding="2" AutomationProperties.Name="سجل المحادثات"
+                                         AutomationProperties.HelpText="اختر محادثة محفوظة لاستكمالها."/>
+                                <TextBlock x:Name="ChatHistoryEmptyStateText" Text="لا توجد محادثات محفوظة بعد."
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Layal.Muted}" TextAlignment="Center"
+                                           IsHitTestVisible="False">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ChatConversations.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <Grid x:Name="ChatConversationSurface" Grid.Column="1">
                 <Grid Margin="10">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Border Grid.Row="0" Margin="3,0,3,8" Padding="16,10" CornerRadius="22" Background="{DynamicResource Layal.GlassStrongFill}"
@@ -131,8 +208,12 @@
                         </DockPanel>
                         <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,4,0,0">
                             <ComboBox x:Name="ChatHistorySelector" ItemsSource="{Binding ChatConversations}" DisplayMemberPath="Title"
-                                      SelectionChanged="ChatHistorySelector_SelectionChanged" MinWidth="164" MaxWidth="260"
-                                      ToolTip="المحادثات المحفوظة" AutomationProperties.Name="المحادثات المحفوظة / Saved conversations" AutomationProperties.HelpText="اختر محادثة محفوظة لاستكمالها / Select a saved conversation to continue." VerticalContentAlignment="Center"/>
+                                      SelectionChanged="ChatHistorySelector_SelectionChanged" Visibility="Collapsed"
+                                      ToolTip="المحادثات المحفوظة" AutomationProperties.Name="المحادثات المحفوظة / Saved conversations"
+                                      AutomationProperties.HelpText="اختر محادثة محفوظة لاستكمالها / Select a saved conversation to continue."/>
+                            <Button x:Name="ToggleChatHistoryButton" Content="سجل المحادثات" Click="ToggleChatHistoryButton_Click"
+                                    ToolTip="إظهار أو إخفاء سجل المحادثات" MinWidth="118"
+                                    AutomationProperties.Name="إظهار سجل المحادثات"/>
                             <Button x:Name="CopyChatButton" Content="نسخ الشات" Click="CopyChatButton_Click"
                                     ToolTip="نسخ المحادثة كاملة إلى الحافظة"/>
                             <Button x:Name="NewConversationButton" Content="محادثة جديدة" Click="NewConversationButton_Click"/>
@@ -331,7 +412,7 @@
                             BorderThickness="1">
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="46" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+2 ينقلك إلى هذا الحقل."/>
+                        <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="46" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.AutomationId="ChatInput" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+1 ينقلك إلى هذا الحقل."/>
                         <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي فقط؛ لا يُرسل الصوت إلا بعد تأكيدك." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. لن يُرسل الصوت إلى المزود إلا بعد تأكيد منفصل، وسيظهر النص للمراجعة قبل الإرسال."/>
                         <Button x:Name="VoiceConversationButton" Grid.Column="2" Content="بدء المحادثة الصوتية" Click="VoiceConversationButton_Click" MinWidth="148"
                                 ToolTip="محادثة صوتية مباشرة: يستخدم الميكروفون ويبث الصوت إلى موفر Realtime حتى تضغط إيقاف."
@@ -344,6 +425,8 @@
                         <Button x:Name="CancelResponseButton" Grid.Column="5" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
                     </Border>
+                </Grid>
+                    </Grid>
                 </Grid>
             </TabItem>
 
@@ -919,37 +1002,52 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-        </TabControl>
+        </controls:ContentOnlyTabControl>
 
-        <!-- Sidebar overlay: brand on top and app controls at the bottom of the glass sidebar.
-             Row heights (88 / * / 156) and width (244) mirror the reserved areas in the TabControl template. -->
-        <Grid x:Name="SidebarOverlay" Grid.Row="1" Margin="16,0,16,16" Width="244" HorizontalAlignment="Left" KeyboardNavigation.TabNavigation="Local">
-            <Grid.RowDefinitions><RowDefinition Height="88"/><RowDefinition Height="*"/><RowDefinition Height="156"/></Grid.RowDefinitions>
-            <StackPanel x:Name="SidebarBrandRow" Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="22,0,12,0">
-                <Border Width="42" Height="42" CornerRadius="14" Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,12,0">
-                    <Grid>
-                        <TextBlock Text="L" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource Layal.OnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <Ellipse Width="7" Height="7" Fill="{DynamicResource Layal.DecorativeAmber}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"/>
-                    </Grid>
-                </Border>
-                <StackPanel VerticalAlignment="Center" Width="146">
-                    <TextBlock x:Name="TitleText" Text="Layal | ليال" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="SubtitleText" Text="وكيل ذكاء اصطناعي مستقل لسطح المكتب" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap" MaxHeight="30" Margin="0,2,0,0"/>
+        <!-- Compact floating navigation dock: always visible; labeled destinations expand on demand. -->
+        <Grid x:Name="BottomDockHost" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+              Margin="12,0,12,18" Panel.ZIndex="100" KeyboardNavigation.TabNavigation="Local">
+            <Border x:Name="BottomDockShell" Background="{DynamicResource Layal.GlassStrongFill}"
+                    BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                    CornerRadius="24" Padding="7" Effect="{DynamicResource Layal.CardShadow}">
+                <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight">
+                    <Button x:Name="ToggleBottomDockButton" Content="&#xE700;" FontFamily="Segoe MDL2 Assets"
+                            Width="44" Height="44" Padding="0" Margin="0,0,5,0"
+                            Background="{DynamicResource Layal.NavSelected}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                            Click="ToggleBottomDockButton_Click" ToolTip="توسيع قائمة التنقل"
+                            AutomationProperties.AutomationId="ToggleBottomDockButton" AutomationProperties.Name="توسيع شريط التنقل"/>
+                    <Border x:Name="DockExpandedSurface" Width="0" Opacity="0" ClipToBounds="True"
+                            IsHitTestVisible="False" VerticalAlignment="Center">
+                        <StackPanel x:Name="DockNavigationItems" Orientation="Horizontal" FlowDirection="LeftToRight">
+                            <Button x:Name="DockChatButton" Content="✦  الرئيسية" Click="DockChatButton_Click"
+                                    MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent"
+                                    ToolTip="العودة إلى المحادثة" AutomationProperties.AutomationId="DockChatButton" AutomationProperties.Name="الرئيسية - المحادثة"/>
+                            <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" Click="DockOverviewButton_Click"
+                                    MinWidth="100" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockOverviewButton" AutomationProperties.Name="نظرة عامة"/>
+                            <Button x:Name="DockTasksButton" Content="▣  المهام" Click="DockTasksButton_Click"
+                                    MinWidth="76" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockTasksButton" AutomationProperties.Name="المهام"/>
+                            <Button x:Name="DockSkillsButton" Content="◇  المهارات" Click="DockSkillsButton_Click"
+                                    MinWidth="84" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockSkillsButton" AutomationProperties.Name="المهارات"/>
+                            <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" Click="DockCamerasButton_Click"
+                                    MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockCamerasButton" AutomationProperties.Name="الكاميرات"/>
+                            <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" Click="DockMemoryButton_Click"
+                                    MinWidth="84" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockMemoryButton" AutomationProperties.Name="الذاكرة"/>
+                            <Button x:Name="DockApiButton" Content="⌘  API" Click="DockApiButton_Click"
+                                    MinWidth="68" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockApiButton" AutomationProperties.Name="تكاملات API"/>
+                            <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" Click="DockSettingsButton_Click"
+                                    MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockSettingsButton" AutomationProperties.Name="الإعدادات"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
-            </StackPanel>
-            <StackPanel x:Name="SidebarFooterPanel" Grid.Row="2" Margin="14,0,14,14" VerticalAlignment="Bottom">
-                <Border CornerRadius="11" Background="{DynamicResource Layal.Panel}" Padding="12,8" Margin="3,3,3,6" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
-                    <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}" FontSize="12" FontWeight="SemiBold" AutomationProperties.Name="حالة اتصال المزود" AutomationProperties.LiveSetting="Polite"/>
-                </Border>
-                <UniformGrid Columns="2">
-                    <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="82" Padding="6,6" Margin="3" FontSize="12" MinHeight="34"/>
-                    <Button x:Name="ThemeButton" Content="الوضع الداكن" Click="ThemeButton_Click" MinWidth="96" Padding="6,6" Margin="3" FontSize="12" MinHeight="34"/>
-                </UniformGrid>
-                <UniformGrid Columns="2">
-                    <Button x:Name="KeyboardHelpButton" Content="_اختصارات" Click="KeyboardHelpButton_Click" MinWidth="78" Padding="6,6" Margin="3" FontSize="12" MinHeight="34"/>
-                    <Button x:Name="ShowMascotButton" Content="إظهار الشخصية" Click="ShowMascotButton_Click" Padding="6,6" Margin="3" FontSize="12" MinHeight="34"/>
-                </UniformGrid>
-            </StackPanel>
+            </Border>
         </Grid>
 
     </Grid>
