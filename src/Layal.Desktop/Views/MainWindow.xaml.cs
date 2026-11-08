@@ -1035,6 +1035,8 @@ public partial class MainWindow : Window
         SetSolidBrush("Layal.DangerSurface", "Layal.Color.DangerSurface");
         SetSolidBrush("Layal.DangerBorder", "Layal.Color.DangerBorder");
         SetSolidBrush("Layal.HoverSurface", "Layal.Color.HoverSurface");
+        SetSolidBrush("Layal.MenuHover", "Layal.Color.MenuHover");
+        SetSolidBrush("Layal.MenuHoverText", "Layal.Color.MenuHoverText");
         SetSolidBrush("Layal.InputFocus", "Layal.Color.InputFocus");
         SetSolidBrush("Layal.ListHover", "Layal.Color.ListHover");
         SetSolidBrush("Layal.ListSelected", "Layal.Color.ListSelected");
