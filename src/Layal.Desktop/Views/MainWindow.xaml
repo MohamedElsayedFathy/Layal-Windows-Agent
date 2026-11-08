@@ -1015,35 +1015,35 @@
                             Width="44" Height="44" Padding="0" Margin="0,0,5,0"
                             Background="{DynamicResource Layal.NavSelected}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                             Click="ToggleBottomDockButton_Click" ToolTip="توسيع قائمة التنقل"
-                            AutomationProperties.Name="توسيع شريط التنقل"/>
+                            AutomationProperties.AutomationId="ToggleBottomDockButton" AutomationProperties.Name="توسيع شريط التنقل"/>
                     <Border x:Name="DockExpandedSurface" Width="0" Opacity="0" ClipToBounds="True"
                             IsHitTestVisible="False" VerticalAlignment="Center">
                         <StackPanel x:Name="DockNavigationItems" Orientation="Horizontal" FlowDirection="LeftToRight">
                             <Button x:Name="DockChatButton" Content="✦  الرئيسية" Click="DockChatButton_Click"
                                     MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
                                     Background="Transparent" BorderBrush="Transparent"
-                                    ToolTip="العودة إلى المحادثة" AutomationProperties.Name="الرئيسية - المحادثة"/>
+                                    ToolTip="العودة إلى المحادثة" AutomationProperties.AutomationId="DockChatButton" AutomationProperties.Name="الرئيسية - المحادثة"/>
                             <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" Click="DockOverviewButton_Click"
                                     MinWidth="100" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.Name="نظرة عامة"/>
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockOverviewButton" AutomationProperties.Name="نظرة عامة"/>
                             <Button x:Name="DockTasksButton" Content="▣  المهام" Click="DockTasksButton_Click"
                                     MinWidth="76" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.Name="المهام"/>
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockTasksButton" AutomationProperties.Name="المهام"/>
                             <Button x:Name="DockSkillsButton" Content="◇  المهارات" Click="DockSkillsButton_Click"
                                     MinWidth="84" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.Name="المهارات"/>
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockSkillsButton" AutomationProperties.Name="المهارات"/>
                             <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" Click="DockCamerasButton_Click"
                                     MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.Name="الكاميرات"/>
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockCamerasButton" AutomationProperties.Name="الكاميرات"/>
                             <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" Click="DockMemoryButton_Click"
                                     MinWidth="84" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.Name="الذاكرة"/>
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockMemoryButton" AutomationProperties.Name="الذاكرة"/>
                             <Button x:Name="DockApiButton" Content="⌘  API" Click="DockApiButton_Click"
                                     MinWidth="68" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.Name="تكاملات API"/>
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockApiButton" AutomationProperties.Name="تكاملات API"/>
                             <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" Click="DockSettingsButton_Click"
                                     MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.Name="الإعدادات"/>
+                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockSettingsButton" AutomationProperties.Name="الإعدادات"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
