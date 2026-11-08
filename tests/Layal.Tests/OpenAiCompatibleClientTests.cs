@@ -15,16 +15,11 @@ public sealed class OpenAiCompatibleClientTests
     public void SharedProviderHandlerDoesNotFollowRedirects()
     {
         var factory = typeof(OpenAiCompatibleClient).GetMethod(
-            "CreateProviderHttpClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        Assert.IsNotNull(factory, "The production provider HttpClient factory must exist.");
+            "CreateProviderHttpHandler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.IsNotNull(factory, "The production provider handler factory must exist.");
 
-        using var client = (HttpClient)factory!.Invoke(null, new object[] { TimeSpan.FromSeconds(15) })!;
-        var handlerField = typeof(HttpMessageInvoker).GetField(
-            "_handler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        Assert.IsNotNull(handlerField, "The HttpClient must expose its configured handler to this implementation-level test.");
-        var handler = handlerField!.GetValue(client);
-        Assert.IsInstanceOfType(handler, typeof(SocketsHttpHandler));
-        Assert.IsFalse(((SocketsHttpHandler)handler!).AllowAutoRedirect,
+        using var handler = (SocketsHttpHandler)factory!.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect,
             "Provider requests must not be replayed to redirect destinations.");
     }
 
