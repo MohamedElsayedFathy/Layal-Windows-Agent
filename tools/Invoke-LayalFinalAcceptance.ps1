@@ -190,7 +190,7 @@ function Invoke-PowerShellChild {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][string]$ScriptPath,
-        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Arguments,
         [Parameter(Mandatory = $true)][string]$LogDirectory
     )
     $resolvedScript = (Resolve-Path -LiteralPath $ScriptPath).Path
