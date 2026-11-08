@@ -505,6 +505,28 @@
             </Setter>
         </Style>
 
+        <!-- DatePicker calendars are transient popups too; keep them inside the same theme. -->
+        <Style x:Key="Layal.CalendarPopup" TargetType="{x:Type Calendar}">
+            <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style TargetType="{x:Type DatePicker}">
+            <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
+            <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="CalendarStyle" Value="{StaticResource Layal.CalendarPopup}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
+        </Style>
+
         <!-- Explicitly themed scrollbar template avoids the Windows default white thumb in dark mode. -->
         <Style TargetType="ScrollBar">
             <Setter Property="Background" Value="{DynamicResource Layal.PanelAlt}" />
