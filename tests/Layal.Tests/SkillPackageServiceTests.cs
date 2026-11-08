@@ -263,6 +263,13 @@ public sealed class SkillPackageServiceTests
         Assert.AreEqual(0, service.GetInstalled().Count);
         Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, "alpha-skill")));
         Assert.IsFalse(Directory.Exists(System.IO.Path.Combine(root, "bravo-skill")));
+
+        var explicitlySelected = await service.ImportFromGitHubAsync(
+            "https://github.com/acme/skills/tree/main/skills/alpha",
+            overwrite: false);
+        Assert.AreEqual("alpha-skill", explicitlySelected.Name);
+        Assert.AreEqual("skills/alpha", explicitlySelected.SourceSkillPath);
+        Assert.AreEqual(1, service.GetInstalled().Count);
     }
 
     [TestMethod]
@@ -365,7 +372,34 @@ public sealed class SkillPackageServiceTests
             service.ImportFromGitHubAsync("https://github.com/acme/skills/tree/main/sample-skill", overwrite: false));
 
         Assert.IsFalse(handler.RequestedUris.Any(uri =>
-            uri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase)));
+            uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+            uri.AbsolutePath.Contains("/zipball/", StringComparison.Ordinal)));
+        Assert.AreEqual(0, service.GetInstalled().Count);
+    }
+
+
+    [TestMethod]
+    public async Task GitHubImportRejectsInvalidResolvedCommitShaBeforeArchiveDownload()
+    {
+        using var temp = new TestTempDirectory();
+        var handler = new StubGitHubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                request.RequestUri.AbsolutePath.Equals("/repos/acme/skills/commits/main", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = "not-a-commit-sha" }), Encoding.UTF8, "application/json")
+                };
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var httpClient = new HttpClient(handler);
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"), httpClient);
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+            service.ImportFromGitHubAsync("https://github.com/acme/skills/tree/main/sample-skill", overwrite: false));
+
+        Assert.IsFalse(handler.RequestedUris.Any(uri =>
+            uri.AbsolutePath.Contains("/zipball/", StringComparison.Ordinal)));
         Assert.AreEqual(0, service.GetInstalled().Count);
     }
 
