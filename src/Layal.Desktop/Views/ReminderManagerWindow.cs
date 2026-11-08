@@ -217,6 +217,7 @@ public sealed class ReminderManagerWindow : Window
         root.Children.Add(footer);
 
         Content = root;
+        LayalWindowChrome.ApplyGlass(this, isArabic);
         RefreshList();
         AppendSchedulerStatus();
     }
