@@ -106,7 +106,7 @@ public sealed class LocalVoiceIntegrityTests
         Assert.IsNotNull(method, "The archive-backed Whisper integrity verifier must exist.");
         var result = method!.Invoke(null, new object?[] { archivePath, installRoot, CancellationToken.None });
         Assert.IsNotNull(result);
-        Assert.IsInstanceOfType(result, typeof(Task<string?>));
+        Assert.IsInstanceOfType(result, typeof(Task<string>));
         return await ((Task<string?>)result!);
     }
 
