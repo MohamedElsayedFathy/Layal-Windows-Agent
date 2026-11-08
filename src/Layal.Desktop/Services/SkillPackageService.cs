@@ -73,7 +73,7 @@ public sealed class SkillPackageService
                 throw new JsonException("The skills index contains a missing or invalid skill name.");
 
             var skillName = record.Name;
-            if (string.IsNullOrWhiteSpace(skillName) || !NamePattern.IsMatch(skillName))
+            if (!IsValidSkillName(skillName))
                 throw new JsonException("The skills index contains a missing or invalid skill name.");
 
             if (!names.Add(skillName))
@@ -351,14 +351,7 @@ public sealed class SkillPackageService
                     throw new InvalidOperationException("The skill archive contains a Windows-invalid path segment.");
 
                 var deviceStem = segment.Split('.')[0].TrimEnd(' ', '.');
-                if (deviceStem.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
-                    deviceStem.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
-                    deviceStem.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
-                    deviceStem.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
-                    deviceStem.Equals("CONIN$", StringComparison.OrdinalIgnoreCase) ||
-                    deviceStem.Equals("CONOUT$", StringComparison.OrdinalIgnoreCase) ||
-                    IsNumberedWindowsDeviceName(deviceStem, "COM") ||
-                    IsNumberedWindowsDeviceName(deviceStem, "LPT"))
+                if (IsReservedWindowsDeviceName(deviceStem))
                     throw new InvalidOperationException("The skill archive contains a reserved Windows device name.");
             }
 
@@ -414,10 +407,25 @@ public sealed class SkillPackageService
         value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
         value[^1] is >= '1' and <= '9';
 
+    private static bool IsReservedWindowsDeviceName(string value) =>
+        value.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("CONIN$", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("CONOUT$", StringComparison.OrdinalIgnoreCase) ||
+        IsNumberedWindowsDeviceName(value, "COM") ||
+        IsNumberedWindowsDeviceName(value, "LPT");
+
+    private static bool IsValidSkillName(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        NamePattern.IsMatch(value) &&
+        !IsReservedWindowsDeviceName(value);
+
     private string ResolveManagedPackagePath(SkillRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
-        if (string.IsNullOrWhiteSpace(record.Name) || !NamePattern.IsMatch(record.Name))
+        if (!IsValidSkillName(record.Name))
             throw new InvalidOperationException("The skill record has an invalid managed package name.");
 
         var expectedPath = Path.GetFullPath(Path.Combine(_root, record.Name, record.Name + ".zip"));
@@ -711,7 +719,8 @@ public sealed class SkillPackageService
             }
         }
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("SKILL.md front matter must contain a non-empty name field.");
-        if (!NamePattern.IsMatch(name)) throw new InvalidOperationException("Skill name must use lowercase letters, numbers, and hyphens.");
+        if (!IsValidSkillName(name))
+            throw new InvalidOperationException("Skill name must use lowercase letters, numbers, and hyphens, and cannot be a reserved Windows device name.");
         if (string.IsNullOrWhiteSpace(description)) throw new InvalidOperationException("SKILL.md front matter must contain a non-empty description field.");
         return (name, description);
     }
