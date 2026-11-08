@@ -42,6 +42,7 @@ Layal agent file tools and dotnet build/test operations are limited to `%USERPRO
 
 - tools/audit_nuget.py checks direct and transitive NuGet packages against current vulnerability advisories; CI fails on reported advisories or an unreadable audit report.
 - tools/validate_licenses.py with --manifest-only checks the curated third-party notices; passing --sbom cross-checks the generated CycloneDX package inventory.
+- [Workspace and skill threat model](docs/SECURITY_THREAT_MODEL_WORKSPACE_SKILLS_AR.md) records skill-import controls and the existing workspace backup/restore trust boundaries, mitigations, and residual risks. Phase 2 code changes harden skill package handling; workspace restore implementation is not changed by that PR.
 - The security workflow runs Gitleaks on the selected commit range and also invokes an explicit full-history scan across all fetched refs, uploading a SARIF report. Dependabot proposes weekly NuGet and GitHub Actions updates; updates still require review.
 - Third-party notices and known license texts are packaged with the installer and portable ZIP. Layal itself still has no declared project-wide license, and the source/redistribution rights for mascot/reference/tray assets remain unresolved. These are release blockers, not rights granted by third-party notices.
 
