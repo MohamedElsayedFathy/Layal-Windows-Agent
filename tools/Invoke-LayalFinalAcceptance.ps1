@@ -674,7 +674,7 @@ try {
             Invoke-Check -Name 'Keyboard navigation and shortcut acceptance' -Category 'Desktop integration' -Action {
                 Invoke-DesktopDiagnostic -Name 'keyboard-navigation' -ScriptName 'Test-LayalKeyboardNavigation.ps1' -Arguments ($common + @('-LogDirectory', (Join-Path $ReportDirectory 'keyboard-navigation'))) -SummaryRelativePath 'keyboard-summary.json' -ValidateSummary {
                     param($summary)
-                    if ($summary.Result -ne 'passed' -or $summary.Failed -ne 0 -or $summary.ShortcutCases -lt 18) { throw 'Keyboard navigation did not pass all expected cases.' }
+                    if ($summary.Result -ne 'passed' -or $summary.Failed -ne 0 -or $summary.ShortcutCases -lt 32) { throw 'Keyboard navigation did not pass all expected cases.' }
                     if ($summary.ManualScreenReaderAcceptance -ne 'pending' -or $summary.ManualHighContrastAcceptance -ne 'pending') { throw 'Automated keyboard tests must not claim manual accessibility acceptance.' }
                 }
             } | Out-Null
