@@ -1112,6 +1112,7 @@ public partial class MainWindow : Window
             Application.Current.Resources["Layal.AppBackdropWash"] = new SolidColorBrush(SystemColors.WindowColor);
         }
 
+        AppRuntime.Tray?.SetTheme(IsDarkTheme, highContrast);
         ApplyWindowBackdrop();
     }
 
