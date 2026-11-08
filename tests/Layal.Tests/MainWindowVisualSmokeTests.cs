@@ -741,6 +741,22 @@ public sealed class MainWindowVisualSmokeTests
                 window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
                 Keyboard.ClearFocus();
 
+                var expectedCurrentSection = tabNames[index] switch
+                {
+                    "overview" => language == "ar" ? "نظرة عامة" : "Overview",
+                    "chat" => language == "ar" ? "المحادثة / الرئيسية" : "Home (Chat)",
+                    "tasks" => language == "ar" ? "المهام" : "Tasks",
+                    "skills" => language == "ar" ? "المهارات" : "Skills",
+                    "cameras" => language == "ar" ? "الكاميرات" : "Cameras",
+                    "memory" => language == "ar" ? "الذاكرة" : "Memory",
+                    "api" => language == "ar" ? "تكاملات API" : "API integrations",
+                    "settings" => language == "ar" ? "الإعدادات" : "Settings",
+                    _ => throw new InvalidOperationException($"Unknown main section '{tabNames[index]}'.")
+                };
+                var navigationHelpText = AutomationProperties.GetHelpText(tabs);
+                Assert.IsTrue(navigationHelpText.Contains(expectedCurrentSection, StringComparison.OrdinalIgnoreCase),
+                    $"Main navigation UI Automation status must identify '{tabNames[index]}' after selection in {language}.");
+
                 if (tabNames[index] == "chat")
                 {
                     var expectedCopy = language == "ar" ? "نسخ الشات" : "Copy chat";
@@ -1029,9 +1045,18 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(homeTab)),
             "Navigation tabs must expose language-appropriate accessible names.");
-        Assert.IsFalse(string.IsNullOrWhiteSpace(
-            System.Windows.Automation.AutomationProperties.GetName(window.FindName("DockChatButton") as DependencyObject)),
-            "The primary chat destination must expose a localized accessible name.");
+        foreach (var dockButtonName in new[]
+        {
+            "DockChatButton", "DockOverviewButton", "DockTasksButton", "DockSkillsButton",
+            "DockCamerasButton", "DockMemoryButton", "DockApiButton", "DockSettingsButton"
+        })
+        {
+            var dockButton = window.FindName(dockButtonName) as Button
+                ?? throw new InvalidOperationException($"{dockButtonName} was not found.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(
+                System.Windows.Automation.AutomationProperties.GetName(dockButton)),
+                $"Navigation destination '{dockButtonName}' must expose a localized accessible name.");
+        }
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetHelpText(window.FindName("ChatHistoryList") as DependencyObject)),
             "The saved-history panel must explain how to resume a conversation.");
