@@ -139,3 +139,21 @@ The path checks reduce accidental and adversarial link traversal before director
 - [ ] Full tests and security review.
 - [ ] Installer, update/recovery, and uninstall tests.
 - [ ] Verified release artifacts and user documentation.
+
+
+## Security hardening — Phase 4: immutable GitHub skill source and package integrity
+
+**Scope:** close the source-revision gap recorded by the Phase 2 threat model without enabling script execution or claiming publisher identity.
+
+- [x] Resolve a user-selected GitHub branch (or repository default branch) through GitHub's commit API and download the archive using the returned immutable 40-character commit SHA; fail closed instead of guessing `main` or `master`.
+- [x] Persist the repository, requested ref, resolved commit SHA, selected skill directory, resolution timestamp, SHA-256 of the downloaded repository archive, and SHA-256 of the managed skill package.
+- [x] Verify the managed package SHA-256 before reading `SKILL.md`; preserve compatibility with older local index records that predate digest fields.
+- [x] Reject GitHub import URLs containing credentials, custom ports, query strings, or fragments. Regression tests cover commit resolution, default-branch selection, malformed commit SHA rejection, symlink rejection, provenance persistence, package tamper detection, legacy-index compatibility, and rejecting ambiguous repository-root imports unless an exact skill directory is supplied.
+- [x] Pass Windows Release build, static validation, the full C# regression suite (**624 passed, 0 failed, 0 skipped**), native input/DPI/keyboard/GLB checks, package build, and installer lifecycle on the final code commit: [Windows build #1370](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42474157425).
+- [x] Pass PowerShell final acceptance on the final code commit: [final acceptance #36](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42474157419). Final automated decision: PASS; manual/external gates remain open.
+- [x] Pass Gitleaks full-history scan, NuGet vulnerability audit, and license inventory workflow: [security checks #1054](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/42474157414).
+- [ ] Manually verify an import from a public GitHub repository and inspect the recorded commit/digest fields on a Windows desktop.
+
+The Release build completed with **8 warnings and 0 errors**; the reported warnings are in `WorkspaceHubWindow.cs`, `SafeBrowserDownloadServiceTests.cs`, `LocalAiServiceTests.cs`, and `GmailReadOnlyServiceTests.cs`, none of which are changed by this phase. The generated CI distribution passed installer lifecycle checks and verified 15 SHA-256 manifest entries; it is explicitly **unsigned**. The automated acceptance report therefore retains the decision **AUTOMATED PASS — FINAL ACCEPTANCE PENDING MANUAL / EXTERNAL GATES**.
+
+The commit SHA makes the fetched Git tree reproducible for that import; the recorded archive digest identifies the exact archive bytes received, and the package digest detects later local modification. These values are not a GitHub publisher signature, provenance attestation, or guarantee that the skill's instructions are safe. Skill Markdown remains untrusted input and skill scripts remain unexecuted.
