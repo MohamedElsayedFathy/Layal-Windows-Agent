@@ -443,6 +443,65 @@ public sealed class WorkspaceSnapshotServiceTests
     }
 
     [TestMethod]
+    public void ImportFailureRollsBackNewlyCreatedWorkspaceRootAndAncestors()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var sourceWorkspace = Path.Combine(temp.Path, "source-workspace");
+        Directory.CreateDirectory(sourceWorkspace);
+        File.WriteAllText(Path.Combine(sourceWorkspace, "report.txt"), "ROLLBACK_NEW_WORKSPACE_ROOT_SENTINEL");
+
+        var sourceTasks = new TaskHistoryService(Path.Combine(temp.Path, "source-tasks.dpapi"));
+        sourceTasks.Upsert(new AgentTaskRecord
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Goal = "Restore into new workspace",
+            Status = "Completed",
+            Result = "Rollback if the second store fails"
+        });
+        var sourceMemory = new MemoryService(Path.Combine(temp.Path, "source-memory.dpapi"));
+        _ = sourceMemory.Save("Imported memory", "This memory write is expected to fail.");
+        var backup = new WorkspaceSnapshotService(sourceTasks, sourceMemory, sourceWorkspace)
+            .ExportJson(includeWorkspaceFileContents: true);
+
+        var targetWorkspaceParent = Path.Combine(temp.Path, "created-workspace-parent");
+        var targetWorkspace = Path.Combine(targetWorkspaceParent, "nested", "workspace");
+        var targetTasks = new TaskHistoryService(Path.Combine(temp.Path, "target-tasks.dpapi"));
+        var targetMemoryPath = Path.Combine(temp.Path, "target-memory.dpapi");
+        var targetMemory = new MemoryService(targetMemoryPath);
+        var retained = targetMemory.Save("Keep local", "Retain this note after the failed import.");
+        var target = new WorkspaceSnapshotService(targetTasks, targetMemory, targetWorkspace);
+
+        using (var memoryLease = new FileStream(
+                   targetMemoryPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            try
+            {
+                _ = target.ImportJson(backup, restoreWorkspaceFiles: true);
+                Assert.Fail("The locked DPAPI store should reject replacement.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Expected: task import, restored file, and newly created directories must roll back.
+            }
+        }
+
+        Assert.AreEqual(0, targetTasks.GetRecent(10).Count,
+            "The task imported before the memory-store failure must be rolled back.");
+        var remainingMemories = targetMemory.GetAll(includeArchived: true);
+        Assert.AreEqual(1, remainingMemories.Count);
+        Assert.AreEqual(retained.Id, remainingMemories.Single().Id);
+        Assert.IsFalse(Directory.Exists(targetWorkspace),
+            "The newly created workspace root must be removed when the later store commit fails.");
+        Assert.IsFalse(Directory.Exists(targetWorkspaceParent),
+            "All empty ancestors created solely for the failed restore must be removed.");
+        Assert.IsFalse(File.Exists(Path.Combine(targetWorkspace, "report.txt")),
+            "The restored file must be removed during compensating rollback.");
+    }
+
+    [TestMethod]
     public void ImportFailureInSecondProtectedStoreRollsBackFirstStoreAndRestoredFiles()
     {
         if (!OperatingSystem.IsWindows())
