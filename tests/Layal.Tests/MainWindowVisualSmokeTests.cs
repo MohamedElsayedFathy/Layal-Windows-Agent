@@ -1417,11 +1417,17 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("ChatEmptyStateText was not found.");
         var chatWelcomePanel = window.FindName("ChatWelcomePanel") as Border
             ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
-        Assert.AreEqual(isArabic
+        var welcomeEyebrow = window.FindName("ChatWelcomeEyebrow") as TextBlock
+            ?? throw new InvalidOperationException("ChatWelcomeEyebrow was not found.");
+        var isCompact = welcomeEyebrow.Visibility == Visibility.Collapsed;
+        var expectedWelcomeCopy = isCompact
+            ? (isArabic ? "اكتب سؤالك أو اختر اقتراحًا." : "Choose a prompt or type your question.")
+            : (isArabic
                 ? "اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
-                : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.",
+                : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.");
+        Assert.AreEqual(expectedWelcomeCopy,
             BidiTextNormalizer.StripDirectionalControls(chatEmptyText.Text),
-            "Chat welcome copy must be localized in the selected language.");
+            "Chat welcome copy must match the selected language and available viewport height.");
         Assert.AreEqual(isArabic ? "حالة المحادثة الفارغة" : "Chat empty state",
             System.Windows.Automation.AutomationProperties.GetName(chatEmptyText));
         Assert.AreEqual(window.ChatMessages.Count == 0 ? Visibility.Visible : Visibility.Collapsed,
