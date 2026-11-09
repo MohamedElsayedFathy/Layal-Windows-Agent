@@ -781,6 +781,14 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+                if (tabNames[index] == "chat")
+                {
+                    var weatherCard = window.FindName("ClockWeatherCard") as Border
+                        ?? throw new InvalidOperationException("ClockWeatherCard was not found.");
+                    Assert.AreEqual(Visibility.Visible, weatherCard.Visibility,
+                        "The full-height chat layout must retain its clock and weather summary.");
+                    AssertPageHeroGradientTracksPalette($"{theme}/{language} full-size chat");
+                }
 
                 if (tabNames[index] == "tasks")
                 {
@@ -831,6 +839,36 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Compact content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Compact tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+                if (tabNames[index] == "chat")
+                {
+                    var chatSurface = window.FindName("ChatConversationSurface") as Grid
+                        ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
+                    var weatherCard = window.FindName("ClockWeatherCard") as Border
+                        ?? throw new InvalidOperationException("ClockWeatherCard was not found.");
+                    var welcomePanel = window.FindName("ChatWelcomePanel") as Border
+                        ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
+                    Assert.AreEqual(Visibility.Collapsed, weatherCard.Visibility,
+                        "The compact chat layout must free vertical space by hiding its secondary weather card.");
+                    Assert.AreEqual(Visibility.Visible, welcomePanel.Visibility,
+                        "The welcome canvas must remain visible at compact window size.");
+
+                    foreach (var suggestionName in new[]
+                    {
+                        "ChatSuggestionPlanButton",
+                        "ChatSuggestionSummaryButton",
+                        "ChatSuggestionIdeasButton"
+                    })
+                    {
+                        var suggestion = window.FindName(suggestionName) as Button
+                            ?? throw new InvalidOperationException($"{suggestionName} was not found.");
+                        Assert.IsTrue(suggestion.IsVisible && suggestion.ActualHeight >= 40,
+                            $"{suggestionName} must remain visible with a 40-DIP touch target in compact chat.");
+                        var bounds = suggestion.TransformToAncestor(chatSurface)
+                            .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
+                        Assert.IsTrue(bounds.Top >= -0.5 && bounds.Bottom <= chatSurface.ActualHeight + 0.5,
+                            $"{suggestionName} is clipped by the compact chat viewport ({theme}/{language}).");
+                    }
+                }
 
                 var compactPath = Path.Combine(outputDirectory, $"app-compact-{theme}-{language}-{tabNames[index]}-scale100.png");
                 SaveSnapshot(window, compactPath, 1.0, Application.Current.TryFindResource("Layal.Background") as Brush);
