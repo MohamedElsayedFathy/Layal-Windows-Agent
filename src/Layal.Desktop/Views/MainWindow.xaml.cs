@@ -136,6 +136,7 @@ public partial class MainWindow : Window
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
     private bool _isBottomDockExpanded = true;
     private bool? _chatCompactLayoutApplied;
+    private bool? _compactWindowChromeApplied;
     private bool _isChatHistoryPanelOpen;
     private bool _isUiInitialized;
 
@@ -1178,6 +1179,26 @@ public partial class MainWindow : Window
             : new Thickness(16, 9, 16, 9);
     }
 
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyCompactWindowChrome(e.NewSize.Width);
+
+    private void ApplyCompactWindowChrome(double availableWidth)
+    {
+        if (availableWidth <= 0)
+            return;
+
+        var compact = availableWidth < 1100;
+        if (_compactWindowChromeApplied == compact)
+            return;
+
+        _compactWindowChromeApplied = compact;
+        SubtitleText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        TitleText.MaxWidth = compact ? 170 : double.PositiveInfinity;
+        TitleText.FontSize = compact ? 14 : 15;
+        ConnectionStatusShell.MaxWidth = compact ? 150 : double.PositiveInfinity;
+        ConnectionStatusText.TextTrimming = TextTrimming.CharacterEllipsis;
+    }
+
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         _clockTimer.Start();
@@ -1206,6 +1227,7 @@ public partial class MainWindow : Window
         Height = Math.Min(Height, availableHeight);
         Left = Math.Clamp(Left, workArea.Left, workArea.Right - Width);
         Top = Math.Clamp(Top, workArea.Top, workArea.Bottom - Height);
+        ApplyCompactWindowChrome(ActualWidth > 0 ? ActualWidth : Width);
     }
 
     private void MainWindow_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
