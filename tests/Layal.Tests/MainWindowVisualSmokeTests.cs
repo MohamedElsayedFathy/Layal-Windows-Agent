@@ -596,6 +596,8 @@ public sealed class MainWindowVisualSmokeTests
 
         var tabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
+        window.UpdateLayout();
+        AssertNavigationRailDoesNotOverlapContent(window, "expanded initial layout");
         Assert.AreSame(window.FindName("ChatTab"), tabs.SelectedItem,
             "The primary window must open directly into the glass chat view, not the legacy home dashboard.");
         foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell", "TopBarBrandRow", "BottomDockShell", "DockNavigationItems", "ChatHistoryPanel", "ChatHistoryList" })
@@ -843,6 +845,7 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Compact content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Compact tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+                AssertNavigationRailDoesNotOverlapContent(window, $"compact {theme}/{language}/{tabNames[index]}");
                 if (tabNames[index] == "chat")
                 {
                     var windowRoot = window.FindName("WindowRoot") as Grid
@@ -1508,6 +1511,25 @@ public sealed class MainWindowVisualSmokeTests
         return null;
     }
 
+    private static void AssertNavigationRailDoesNotOverlapContent(MainWindow window, string layoutName)
+    {
+        var root = window.FindName("WindowRoot") as Grid
+            ?? throw new InvalidOperationException("WindowRoot was not found.");
+        var rail = window.FindName("BottomDockShell") as Border
+            ?? throw new InvalidOperationException("BottomDockShell was not found.");
+        var tabs = window.FindName("MainTabs") as FrameworkElement
+            ?? throw new InvalidOperationException("MainTabs was not found.");
+
+        var railBounds = rail.TransformToAncestor(root)
+            .TransformBounds(new Rect(0, 0, rail.ActualWidth, rail.ActualHeight));
+        var contentBounds = tabs.TransformToAncestor(root)
+            .TransformBounds(new Rect(0, 0, tabs.ActualWidth, tabs.ActualHeight));
+
+        Assert.IsTrue(railBounds.Right + 8 <= contentBounds.Left + 0.5,
+            $"The navigation rail must leave an 8-DIP content gutter and never cover workspace pages ({layoutName}). " +
+            $"RailRight={railBounds.Right:0.0}, ContentLeft={contentBounds.Left:0.0}.");
+    }
+
     private static void AssertPageHeroGradientTracksPalette(string mode)
     {
         var gradient = Application.Current.Resources["Layal.PageHeroGradient"] as LinearGradientBrush
@@ -1681,12 +1703,16 @@ public sealed class MainWindowVisualSmokeTests
                 "The compact navigation rail must hide its brand label.");
             Assert.AreEqual(Visibility.Collapsed, footerNote.Visibility,
                 "The compact navigation rail must hide its footer note.");
+            window.UpdateLayout();
+            AssertNavigationRailDoesNotOverlapContent(window, "collapsed navigation rail");
 
             dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
             Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
                 "The navigation rail toggle must restore the expanded layout.");
             Assert.AreEqual(166, expandedDock.Width, 0.1,
                 "The expanded rail must restore the full navigation width.");
+            window.UpdateLayout();
+            AssertNavigationRailDoesNotOverlapContent(window, "restored expanded navigation rail");
             dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
             Assert.AreSame(chatTab, tabs.SelectedItem, "The first navigation destination must return to the primary chat page.");
             dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));
