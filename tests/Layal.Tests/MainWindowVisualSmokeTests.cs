@@ -849,8 +849,8 @@ public sealed class MainWindowVisualSmokeTests
                         ?? throw new InvalidOperationException("WindowRoot was not found.");
                     var compactTitleText = window.FindName("TitleText") as TextBlock
                         ?? throw new InvalidOperationException("TitleText was not found.");
-                    var subtitle = window.FindName("SubcompactTitleText") as TextBlock
-                        ?? throw new InvalidOperationException("SubcompactTitleText was not found.");
+                    var subtitle = window.FindName("SubtitleText") as TextBlock
+                        ?? throw new InvalidOperationException("SubtitleText was not found.");
                     var connectionStatus = window.FindName("ConnectionStatusShell") as Border
                         ?? throw new InvalidOperationException("ConnectionStatusShell was not found.");
                     Assert.AreEqual(Visibility.Collapsed, subtitle.Visibility,
