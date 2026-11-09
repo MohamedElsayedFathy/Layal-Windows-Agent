@@ -1177,7 +1177,7 @@ public partial class MainWindow : Window
         ChatEmptyStateText.Margin = compact
             ? new Thickness(0, 0, 0, 2)
             : new Thickness(0, 0, 0, 11);
-        ChatEmptyStateText.MaxWidth = compact ? 560 : 560;
+        ChatEmptyStateText.MaxWidth = 560;
         ChatSuggestionPlanButton.Padding = compact
             ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
