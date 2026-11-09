@@ -871,10 +871,19 @@ public sealed class MainWindowVisualSmokeTests
                         ?? throw new InvalidOperationException("ClockWeatherCard was not found.");
                     var welcomePanel = window.FindName("ChatWelcomePanel") as Border
                         ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
+                    var welcomeEyebrow = window.FindName("ChatWelcomeEyebrow") as TextBlock
+                        ?? throw new InvalidOperationException("ChatWelcomeEyebrow was not found.");
+                    var emptyDescription = window.FindName("ChatEmptyStateText") as TextBlock
+                        ?? throw new InvalidOperationException("ChatEmptyStateText was not found.");
                     Assert.AreEqual(Visibility.Collapsed, weatherCard.Visibility,
                         "The compact chat layout must free vertical space by hiding its secondary weather card.");
                     Assert.AreEqual(Visibility.Visible, welcomePanel.Visibility,
                         "The welcome canvas must remain visible at compact window size.");
+                    Assert.AreEqual(Visibility.Collapsed, welcomeEyebrow.Visibility,
+                        "The secondary welcome eyebrow must collapse at compact size to protect the suggestion row.");
+                    Assert.IsTrue(emptyDescription.ActualHeight <= 22,
+                        $"The compact localized welcome description must stay on one short line ({theme}/{language}); " +
+                        $"actual height={emptyDescription.ActualHeight:0.0} DIP.");
 
                     foreach (var suggestionName in new[]
                     {
@@ -891,6 +900,11 @@ public sealed class MainWindowVisualSmokeTests
                             .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
                         Assert.IsTrue(bounds.Top >= -0.5 && bounds.Bottom <= chatSurface.ActualHeight + 0.5,
                             $"{suggestionName} is clipped by the compact chat viewport ({theme}/{language}).");
+                        var panelBounds = suggestion.TransformToAncestor(welcomePanel)
+                            .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
+                        Assert.IsTrue(panelBounds.Top >= -0.5 && panelBounds.Bottom <= welcomePanel.ActualHeight + 0.5,
+                            $"{suggestionName} is clipped inside the compact welcome card ({theme}/{language}). " +
+                            $"ButtonBottom={panelBounds.Bottom:0.0}, CardHeight={welcomePanel.ActualHeight:0.0}.");
                     }
                 }
 
