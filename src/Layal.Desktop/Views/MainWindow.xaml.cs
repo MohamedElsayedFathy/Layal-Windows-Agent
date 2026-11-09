@@ -1195,7 +1195,7 @@ public partial class MainWindow : Window
             return;
 
         // Four cards read comfortably on wide workspaces; two columns avoid compressed cards on compact windows.
-        var columns = e.NewSize.Width < 880 ? 2 : 4;
+        var columns = e.NewSize.Width <= 880 ? 2 : 4;
         if (metricsGrid.Columns != columns)
             metricsGrid.Columns = columns;
     }
