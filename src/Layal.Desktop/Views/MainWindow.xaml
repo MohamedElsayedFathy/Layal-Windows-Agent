@@ -7,7 +7,7 @@
         Title="Layal | ليال" Icon="pack://application:,,,/Layal;component/Assets/layal-tray.ico" Width="1380" Height="900" MinWidth="920" MinHeight="600"
         Background="Transparent" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
-        Closing="Window_Closing" Loaded="MainWindow_Loaded" PreviewKeyDown="MainWindow_PreviewKeyDown">
+        Closing="Window_Closing" Loaded="MainWindow_Loaded" SizeChanged="MainWindow_SizeChanged" PreviewKeyDown="MainWindow_PreviewKeyDown">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
