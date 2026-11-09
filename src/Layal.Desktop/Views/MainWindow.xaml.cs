@@ -1275,6 +1275,10 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
         AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم شريط التنقل الجانبي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة." : "Use the left navigation rail or Ctrl+1 through Ctrl+8 to choose a page.");
         AutomationProperties.SetName(DockNavigationItems, ar ? "شريط التنقل الجانبي" : "Left navigation rail");
+        ToggleBottomDockButton.ToolTip = _isBottomDockExpanded
+            ? (ar ? "طي شريط التنقل الجانبي" : "Collapse navigation rail")
+            : (ar ? "توسيع شريط التنقل الجانبي" : "Expand navigation rail");
+        AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
         AutomationProperties.SetName(ChatHistoryList, ar ? "سجل المحادثات المحفوظة" : "Saved conversation history");
         AutomationProperties.SetHelpText(ChatHistoryList, ar ? "اختر محادثة محفوظة لتحميلها في مساحة الشات." : "Choose a saved conversation to load into the chat.");
         AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
