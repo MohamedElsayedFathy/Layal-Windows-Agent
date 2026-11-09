@@ -451,9 +451,9 @@
                                        IsHitTestVisible="False" Focusable="False"/>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="YOUR AI DESK  /  مساعدتك الذكية"
+                                <TextBlock x:Name="ChatWelcomeEyebrow" Text="YOUR AI DESK  /  مساعدتك الذكية"
                                            Style="{StaticResource Layal.SectionEyebrow}"/>
-                                <TextBlock Text="نبدأ بإيه النهارده؟" FontSize="23" FontWeight="SemiBold"
+                                <TextBlock x:Name="ChatWelcomeTitle" Text="نبدأ بإيه النهارده؟" FontSize="23" FontWeight="SemiBold"
                                            Foreground="{DynamicResource Layal.Text}" Margin="0,0,0,7"/>
                                 <TextBlock x:Name="ChatEmptyStateText"
                                            Text="اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
