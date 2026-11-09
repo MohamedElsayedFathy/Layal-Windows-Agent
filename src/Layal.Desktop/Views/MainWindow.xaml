@@ -326,7 +326,7 @@
                     </Border>
 
                     <Border x:Name="ClockWeatherCard" Grid.Row="1" Background="{DynamicResource Layal.GlassFill}"
-                                                    CornerRadius="18" Padding="7,5" Margin="3,0,3,8"
+                                                    CornerRadius="15" Padding="5,3" Margin="3,0,3,6"
                                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                                                     Effect="{DynamicResource Layal.CardShadow}">
                                                 <Grid>
@@ -341,7 +341,7 @@
                                                                    FontSize="13" FontWeight="SemiBold"
                                                                    Foreground="{DynamicResource Layal.Muted}"/>
                                                         <TextBlock x:Name="ClockTimeText" Text="--:--:--"
-                                                                   FontSize="20" FontWeight="SemiBold" Margin="0,1,0,0"
+                                                                   FontSize="18" FontWeight="SemiBold" Margin="0,1,0,0"
                                                                    AutomationProperties.Name="الوقت المحلي"/>
                                                         <TextBlock x:Name="CurrentDateText" Text="جارٍ تحميل التاريخ"
                                                                    FontSize="10" TextWrapping="Wrap"
@@ -421,22 +421,63 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock x:Name="ChatEmptyStateText" Grid.Row="2"
-                               Text="ابدأ محادثتك مع ليال. اكتب سؤالك أو افتح أدوات المحادثة لإرفاق ملف أو صورة."
-                               FontSize="17" FontWeight="SemiBold" TextAlignment="Center" MaxWidth="540"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30"
-                               AutomationProperties.Name="Chat empty state"
-                               AutomationProperties.HelpText="تظهر الرسائل هنا بعد إرسال أو استقبال رسالة. افتح أدوات المحادثة للمرفقات والخصوصية.">
-                        <TextBlock.Style>
-                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                    <Border x:Name="ChatWelcomePanel" Grid.Row="2" Margin="18,12" Padding="28"
+                            Background="{DynamicResource Layal.GlassFill}"
+                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                            CornerRadius="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MaxWidth="860">
+                        <Border.Style>
+                            <Style TargetType="{x:Type Border}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding ChatMessages.Count}" Value="0">
-                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Visibility" Value="Visible"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                        </Border.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="112" Height="112" CornerRadius="34"
+                                    Background="{DynamicResource Layal.PageHeroGradient}"
+                                    BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                    VerticalAlignment="Center" Margin="0,0,24,0">
+                                <Image Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
+                                       Width="104" Height="104" Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       IsHitTestVisible="False" Focusable="False"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="YOUR AI DESK  /  مساعدتك الذكية"
+                                           Style="{StaticResource Layal.SectionEyebrow}"/>
+                                <TextBlock Text="نبدأ بإيه النهارده؟" FontSize="25" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Layal.Text}" Margin="0,0,0,7"/>
+                                <TextBlock x:Name="ChatEmptyStateText"
+                                           Text="اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
+                                           FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                           TextWrapping="Wrap" MaxWidth="560" Margin="0,0,0,16"
+                                           AutomationProperties.Name="Chat empty state"
+                                           AutomationProperties.HelpText="تظهر الرسائل هنا بعد إرسال أو استقبال رسالة."/>
+                                <WrapPanel>
+                                    <Button x:Name="ChatSuggestionPlanButton" Content="✦  ساعدني في التخطيط"
+                                            Tag="plan" Click="ChatSuggestionButton_Click"
+                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            AutomationProperties.Name="اقتراح بدء محادثة للتخطيط"/>
+                                    <Button x:Name="ChatSuggestionSummaryButton" Content="▤  لخّص لي محتوى"
+                                            Tag="summary" Click="ChatSuggestionButton_Click"
+                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            AutomationProperties.Name="اقتراح بدء محادثة للتلخيص"/>
+                                    <Button x:Name="ChatSuggestionIdeasButton" Content="◇  اقترح أفكارًا"
+                                            Tag="ideas" Click="ChatSuggestionButton_Click"
+                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            AutomationProperties.Name="اقتراح بدء محادثة لتوليد الأفكار"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                     <Border x:Name="ChatStatusShell" Grid.Row="3" Margin="3,0,3,6" CornerRadius="18"
                             Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                             BorderThickness="1" IsHitTestVisible="False"/>
