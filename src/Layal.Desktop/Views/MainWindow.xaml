@@ -1339,7 +1339,7 @@
                                 AutomationProperties.AutomationId="ToggleBottomDockButton"
                                 AutomationProperties.Name="طي شريط التنقل الجانبي"/>
                     </Grid>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                    <ScrollViewer x:Name="DockNavigationScrollViewer" Grid.Row="1" Width="166" VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled" Focusable="False">
                         <Border x:Name="DockExpandedSurface" Width="166" Opacity="1" ClipToBounds="True"
                                 IsHitTestVisible="True" VerticalAlignment="Top">
