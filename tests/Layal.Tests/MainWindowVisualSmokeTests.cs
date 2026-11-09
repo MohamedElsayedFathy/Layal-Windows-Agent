@@ -596,6 +596,8 @@ public sealed class MainWindowVisualSmokeTests
 
         var tabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
+        window.UpdateLayout();
+        AssertNavigationRailDoesNotOverlapContent(window, "expanded initial layout");
         Assert.AreSame(window.FindName("ChatTab"), tabs.SelectedItem,
             "The primary window must open directly into the glass chat view, not the legacy home dashboard.");
         foreach (var visualSurface in new[] { "AmbientGlassLayer", "ChatMessagesShell", "ChatStatusShell", "ChatComposerShell", "TopBarBrandRow", "BottomDockShell", "DockNavigationItems", "ChatHistoryPanel", "ChatHistoryList" })
@@ -781,6 +783,18 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+                if (tabNames[index] == "chat")
+                {
+                    var weatherCard = window.FindName("ClockWeatherCard") as Border
+                        ?? throw new InvalidOperationException("ClockWeatherCard was not found.");
+                    var subtitle = window.FindName("SubtitleText") as TextBlock
+                        ?? throw new InvalidOperationException("SubtitleText was not found.");
+                    Assert.AreEqual(Visibility.Visible, weatherCard.Visibility,
+                        "The full-height chat layout must retain its clock and weather summary.");
+                    Assert.AreEqual(Visibility.Visible, subtitle.Visibility,
+                        "The full-width title bar must retain its subtitle.");
+                    AssertPageHeroGradientTracksPalette($"{theme}/{language} full-size chat");
+                }
 
                 if (tabNames[index] == "tasks")
                 {
@@ -831,6 +845,54 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Compact content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Compact tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+                AssertNavigationRailDoesNotOverlapContent(window, $"compact {theme}/{language}/{tabNames[index]}");
+                if (tabNames[index] == "chat")
+                {
+                    var windowRoot = window.FindName("WindowRoot") as Grid
+                        ?? throw new InvalidOperationException("WindowRoot was not found.");
+                    var compactTitleText = window.FindName("TitleText") as TextBlock
+                        ?? throw new InvalidOperationException("TitleText was not found.");
+                    var subtitle = window.FindName("SubtitleText") as TextBlock
+                        ?? throw new InvalidOperationException("SubtitleText was not found.");
+                    var connectionStatus = window.FindName("ConnectionStatusShell") as Border
+                        ?? throw new InvalidOperationException("ConnectionStatusShell was not found.");
+                    Assert.AreEqual(Visibility.Collapsed, subtitle.Visibility,
+                        "The compact title bar must hide its secondary subtitle to avoid overlap.");
+                    var titleBounds = compactTitleText.TransformToAncestor(windowRoot)
+                        .TransformBounds(new Rect(0, 0, compactTitleText.ActualWidth, compactTitleText.ActualHeight));
+                    var statusBounds = connectionStatus.TransformToAncestor(windowRoot)
+                        .TransformBounds(new Rect(0, 0, connectionStatus.ActualWidth, connectionStatus.ActualHeight));
+                    Assert.IsTrue(titleBounds.Right + 4 <= statusBounds.Left,
+                        "The compact application title must not overlap the connection-status indicator.");
+
+                    var chatSurface = window.FindName("ChatConversationSurface") as Grid
+                        ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
+                    var weatherCard = window.FindName("ClockWeatherCard") as Border
+                        ?? throw new InvalidOperationException("ClockWeatherCard was not found.");
+                    var welcomePanel = window.FindName("ChatWelcomePanel") as Border
+                        ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
+                    Assert.AreEqual(Visibility.Collapsed, weatherCard.Visibility,
+                        "The compact chat layout must free vertical space by hiding its secondary weather card.");
+                    Assert.AreEqual(Visibility.Visible, welcomePanel.Visibility,
+                        "The welcome canvas must remain visible at compact window size.");
+
+                    foreach (var suggestionName in new[]
+                    {
+                        "ChatSuggestionPlanButton",
+                        "ChatSuggestionSummaryButton",
+                        "ChatSuggestionIdeasButton"
+                    })
+                    {
+                        var suggestion = window.FindName(suggestionName) as Button
+                            ?? throw new InvalidOperationException($"{suggestionName} was not found.");
+                        Assert.IsTrue(suggestion.IsVisible && suggestion.ActualHeight >= 40,
+                            $"{suggestionName} must remain visible with a 40-DIP touch target in compact chat.");
+                        var bounds = suggestion.TransformToAncestor(chatSurface)
+                            .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
+                        Assert.IsTrue(bounds.Top >= -0.5 && bounds.Bottom <= chatSurface.ActualHeight + 0.5,
+                            $"{suggestionName} is clipped by the compact chat viewport ({theme}/{language}).");
+                    }
+                }
 
                 var compactPath = Path.Combine(outputDirectory, $"app-compact-{theme}-{language}-{tabNames[index]}-scale100.png");
                 SaveSnapshot(window, compactPath, 1.0, Application.Current.TryFindResource("Layal.Background") as Brush);
@@ -1449,6 +1511,39 @@ public sealed class MainWindowVisualSmokeTests
         return null;
     }
 
+    private static void AssertNavigationRailDoesNotOverlapContent(MainWindow window, string layoutName)
+    {
+        var root = window.FindName("WindowRoot") as Grid
+            ?? throw new InvalidOperationException("WindowRoot was not found.");
+        var rail = window.FindName("BottomDockShell") as Border
+            ?? throw new InvalidOperationException("BottomDockShell was not found.");
+        var tabs = window.FindName("MainTabs") as FrameworkElement
+            ?? throw new InvalidOperationException("MainTabs was not found.");
+
+        var railBounds = rail.TransformToAncestor(root)
+            .TransformBounds(new Rect(0, 0, rail.ActualWidth, rail.ActualHeight));
+        var contentBounds = tabs.TransformToAncestor(root)
+            .TransformBounds(new Rect(0, 0, tabs.ActualWidth, tabs.ActualHeight));
+
+        Assert.IsTrue(railBounds.Right + 8 <= contentBounds.Left + 0.5,
+            $"The navigation rail must leave an 8-DIP content gutter and never cover workspace pages ({layoutName}). " +
+            $"RailRight={railBounds.Right:0.0}, ContentLeft={contentBounds.Left:0.0}.");
+    }
+
+    private static void AssertPageHeroGradientTracksPalette(string mode)
+    {
+        var gradient = Application.Current.Resources["Layal.PageHeroGradient"] as LinearGradientBrush
+            ?? throw new InvalidOperationException("Layal.PageHeroGradient was not refreshed for the active theme.");
+        Assert.AreEqual(3, gradient.GradientStops.Count,
+            $"The page hero gradient must retain its three-stop theme structure ({mode}).");
+        Assert.AreEqual((Color)Application.Current.Resources["Layal.Color.CardStart"], gradient.GradientStops[0].Color,
+            $"The page hero gradient must use the active card start color ({mode}).");
+        Assert.AreEqual((Color)Application.Current.Resources["Layal.Color.HeaderMiddle"], gradient.GradientStops[1].Color,
+            $"The page hero gradient must use the active header middle color ({mode}).");
+        Assert.AreEqual((Color)Application.Current.Resources["Layal.Color.CardEnd"], gradient.GradientStops[2].Color,
+            $"The page hero gradient must use the active card end color ({mode}).");
+    }
+
     private static void AssertThemeTogglePersistsLivePalette(MainWindow window, ComboBox historySelector)
     {
         var themeButton = window.FindName("ThemeButton") as Button
@@ -1467,8 +1562,9 @@ public sealed class MainWindowVisualSmokeTests
         applyTheme.Invoke(window, null);
         applyLanguage.Invoke(window, null);
 
-        Assert.AreEqual(Color.FromRgb(244, 246, 252), (Color)Application.Current.Resources["Layal.Color.Background"],
+        Assert.AreEqual(Color.FromRgb(244, 246, 250), (Color)Application.Current.Resources["Layal.Color.Background"],
             "The light background palette must be active before the toggle.");
+        AssertPageHeroGradientTracksPalette("light before toggle");
         Assert.AreEqual("☾ المظهر الداكن", BidiTextNormalizer.StripDirectionalControls(themeButton.Content as string),
             "In light mode, the button must offer switching to dark mode.");
         AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);
@@ -1477,8 +1573,9 @@ public sealed class MainWindowVisualSmokeTests
 
         Assert.AreEqual("dark", AppRuntime.Settings.ThemeMode,
             "Clicking the theme button must switch the selected theme to dark.");
-        Assert.AreEqual(Color.FromRgb(17, 24, 39), (Color)Application.Current.Resources["Layal.Color.Background"],
+        Assert.AreEqual(Color.FromRgb(16, 24, 39), (Color)Application.Current.Resources["Layal.Color.Background"],
             "Clicking the theme button must apply the dark resource palette.");
+        AssertPageHeroGradientTracksPalette("dark after toggle");
         Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode,
             "Clicking the theme button must persist dark mode in settings.json.");
         Assert.AreEqual("☀ المظهر الفاتح", BidiTextNormalizer.StripDirectionalControls(themeButton.Content as string),
@@ -1489,8 +1586,9 @@ public sealed class MainWindowVisualSmokeTests
 
         Assert.AreEqual("light", AppRuntime.Settings.ThemeMode,
             "Clicking the theme button again must restore the light theme.");
-        Assert.AreEqual(Color.FromRgb(244, 246, 252), (Color)Application.Current.Resources["Layal.Color.Background"],
+        Assert.AreEqual(Color.FromRgb(244, 246, 250), (Color)Application.Current.Resources["Layal.Color.Background"],
             "Switching back must restore the light resource palette.");
+        AssertPageHeroGradientTracksPalette("light after toggle");
         Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,
             "Switching back must persist light mode in settings.json.");
         AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);
@@ -1605,12 +1703,16 @@ public sealed class MainWindowVisualSmokeTests
                 "The compact navigation rail must hide its brand label.");
             Assert.AreEqual(Visibility.Collapsed, footerNote.Visibility,
                 "The compact navigation rail must hide its footer note.");
+            window.UpdateLayout();
+            AssertNavigationRailDoesNotOverlapContent(window, "collapsed navigation rail");
 
             dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
             Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
                 "The navigation rail toggle must restore the expanded layout.");
             Assert.AreEqual(166, expandedDock.Width, 0.1,
                 "The expanded rail must restore the full navigation width.");
+            window.UpdateLayout();
+            AssertNavigationRailDoesNotOverlapContent(window, "restored expanded navigation rail");
             dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
             Assert.AreSame(chatTab, tabs.SelectedItem, "The first navigation destination must return to the primary chat page.");
             dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));

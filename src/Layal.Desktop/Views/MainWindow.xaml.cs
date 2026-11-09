@@ -135,6 +135,8 @@ public partial class MainWindow : Window
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
     private bool _isBottomDockExpanded = true;
+    private bool? _chatCompactLayoutApplied;
+    private bool? _compactWindowChromeApplied;
     private bool _isChatHistoryPanelOpen;
     private bool _isUiInitialized;
 
@@ -1070,6 +1072,10 @@ public partial class MainWindow : Window
         Application.Current.Resources["Layal.CardGradient"] = MakeGradient(
             ("Layal.Color.CardStart", 0),
             ("Layal.Color.CardEnd", 1));
+        Application.Current.Resources["Layal.PageHeroGradient"] = MakeGradient(
+            ("Layal.Color.CardStart", 0),
+            ("Layal.Color.HeaderMiddle", 0.58),
+            ("Layal.Color.CardEnd", 1));
         Application.Current.Resources["Layal.PrimaryButtonGradient"] = MakeGradient(
             ("Layal.Color.ButtonStart", 0),
             ("Layal.Color.ButtonEnd", 1));
@@ -1119,6 +1125,93 @@ public partial class MainWindow : Window
         ApplyWindowBackdrop();
     }
 
+    private void ChatConversationSurface_Loaded(object sender, RoutedEventArgs e) =>
+        ApplyChatCompactLayout(ChatConversationSurface.ActualHeight);
+
+    private void ChatConversationSurface_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyChatCompactLayout(e.NewSize.Height);
+
+    private void ApplyChatCompactLayout(double availableHeight)
+    {
+        if (availableHeight <= 0 || ChatWelcomePanel is null || ClockWeatherCard is null)
+            return;
+
+        // The clock and weather remain available on the overview page. Hiding this
+        // secondary summary in a short chat viewport gives the welcome canvas and
+        // composer enough room instead of clipping suggestions below the fold.
+        var compact = availableHeight < 520;
+        if (_chatCompactLayoutApplied == compact)
+            return;
+
+        _chatCompactLayoutApplied = compact;
+        ClockWeatherCard.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+
+        ChatHeaderMascot.Width = compact ? 46 : 60;
+        ChatHeaderMascot.Height = compact ? 46 : 60;
+
+        ChatWelcomeAvatarShell.Width = compact ? 68 : 88;
+        ChatWelcomeAvatarShell.Height = compact ? 68 : 88;
+        ChatWelcomeAvatarShell.Margin = compact
+            ? new Thickness(0, 0, 12, 0)
+            : new Thickness(0, 0, 18, 0);
+        ChatWelcomeAvatarImage.Width = compact ? 62 : 82;
+        ChatWelcomeAvatarImage.Height = compact ? 62 : 82;
+
+        ChatWelcomePanel.Margin = compact
+            ? new Thickness(6, 2, 6, 2)
+            : new Thickness(12, 6, 12, 6);
+        ChatWelcomePanel.Padding = compact
+            ? new Thickness(12)
+            : new Thickness(18);
+        ChatEmptyStateText.FontSize = compact ? 12.5 : 13.5;
+        ChatEmptyStateText.Margin = compact
+            ? new Thickness(0, 0, 0, 6)
+            : new Thickness(0, 0, 0, 11);
+        ChatEmptyStateText.MaxWidth = compact ? 500 : 560;
+        ChatSuggestionPlanButton.Padding = compact
+            ? new Thickness(12, 7, 12, 7)
+            : new Thickness(16, 9, 16, 9);
+        ChatSuggestionSummaryButton.Padding = compact
+            ? new Thickness(12, 7, 12, 7)
+            : new Thickness(16, 9, 16, 9);
+        ChatSuggestionIdeasButton.Padding = compact
+            ? new Thickness(12, 7, 12, 7)
+            : new Thickness(16, 9, 16, 9);
+    }
+
+    private void BottomDockShell_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdateMainTabsNavigationMargin();
+
+    private void UpdateMainTabsNavigationMargin()
+    {
+        if (BottomDockShell.ActualWidth <= 0)
+            return;
+
+        const double contentGap = 12;
+        var left = BottomDockHost.Margin.Left + BottomDockShell.ActualWidth + contentGap;
+        MainTabs.Margin = new Thickness(Math.Ceiling(left), 10, 14, 12);
+    }
+
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyCompactWindowChrome(e.NewSize.Width);
+
+    private void ApplyCompactWindowChrome(double availableWidth)
+    {
+        if (availableWidth <= 0)
+            return;
+
+        var compact = availableWidth < 960;
+        if (_compactWindowChromeApplied == compact)
+            return;
+
+        _compactWindowChromeApplied = compact;
+        SubtitleText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        TitleText.MaxWidth = compact ? 170 : double.PositiveInfinity;
+        TitleText.FontSize = compact ? 14 : 15;
+        ConnectionStatusShell.MaxWidth = compact ? 150 : double.PositiveInfinity;
+        ConnectionStatusText.TextTrimming = TextTrimming.CharacterEllipsis;
+    }
+
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         _clockTimer.Start();
@@ -1147,6 +1240,9 @@ public partial class MainWindow : Window
         Height = Math.Min(Height, availableHeight);
         Left = Math.Clamp(Left, workArea.Left, workArea.Right - Width);
         Top = Math.Clamp(Top, workArea.Top, workArea.Bottom - Height);
+        ApplyCompactWindowChrome(ActualWidth > 0 ? ActualWidth : Width);
+        BottomDockShell.UpdateLayout();
+        UpdateMainTabsNavigationMargin();
     }
 
     private void MainWindow_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
@@ -2700,8 +2796,8 @@ public partial class MainWindow : Window
                                         ? (IsArabic ? "الإعدادات" : "Settings")
                                         : string.Empty;
         AutomationProperties.SetHelpText(MainTabs, IsArabic
-            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
-            : $"Current section: {currentSection}. Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
+            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل الجانبي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
+            : $"Current section: {currentSection}. Use the left navigation rail or Ctrl+1 through Ctrl+8 to choose a page.");
         var activeBrush = ThemeBrush("Layal.NavSelected", Brushes.Transparent);
         var activeBorder = ThemeBrush("Layal.NavSelectedBorder", Brushes.Transparent);
         void Set(Button button, bool active)
@@ -2738,9 +2834,7 @@ public partial class MainWindow : Window
 
         DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        MainTabs.Margin = expanded
-            ? new Thickness(214, 10, 14, 12)
-            : new Thickness(118, 10, 14, 12);
+        UpdateMainTabsNavigationMargin();
 
         var currentWidth = Math.Max(48, DockExpandedSurface.ActualWidth);
         DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
@@ -2755,6 +2849,8 @@ public partial class MainWindow : Window
             DockExpandedSurface.Width = targetWidth;
             DockExpandedSurface.Opacity = 1;
             DockExpandedSurface.IsHitTestVisible = true;
+            BottomDockShell.UpdateLayout();
+            UpdateMainTabsNavigationMargin();
             return;
         }
 
@@ -2770,6 +2866,8 @@ public partial class MainWindow : Window
         {
             DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
             DockExpandedSurface.Width = targetWidth;
+            BottomDockShell.UpdateLayout();
+            UpdateMainTabsNavigationMargin();
         };
 
         DockExpandedSurface.IsHitTestVisible = true;

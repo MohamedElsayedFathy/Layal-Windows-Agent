@@ -174,8 +174,8 @@ else:
         "AssertThemeTogglePersistsLivePalette(window, historySelector);",
         "private static void AssertThemeTogglePersistsLivePalette(",
         "ThemeButton_Click",
-        "Color.FromRgb(17, 24, 39)",
-        "Color.FromRgb(244, 246, 252)",
+        "Color.FromRgb(16, 24, 39)",
+        "Color.FromRgb(244, 246, 250)",
         'Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode,',
         'Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,',
         'AssertThemeContrastAndControlSurfaces("dark", "ar", historySelector);',
@@ -569,7 +569,7 @@ if "ChatMessageContextMenu_Opened" not in main_code:
 
 if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
     ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
-for expected_glass_color in ("#FFFFFFFF", "#F01E2940"):
+for expected_glass_color in ("#FFFFFFFF", "#F21B2940"):
     if expected_glass_color not in palette_code:
         ERRORS.append(f"Expected Soft Aurora card surface color '{expected_glass_color}' is missing from the theme palette")
 

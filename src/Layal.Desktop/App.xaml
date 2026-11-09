@@ -6,55 +6,55 @@
     <Application.Resources>
         <services:TextDirectionConverter x:Key="Layal.TextDirectionConverter" />
 
-        <!-- Layal Soft Aurora design system: calm surfaces, pearl tones, indigo accents, and readable glass. -->
-        <Color x:Key="Layal.Color.Background">#F4F6FC</Color>
-        <Color x:Key="Layal.Color.BackgroundEnd">#EEF1FA</Color>
+        <!-- Soft Aurora: neutral pearl/slate surfaces, blue-indigo primary actions, restrained lavender accents, and readable opaque glass. -->
+        <Color x:Key="Layal.Color.Background">#F4F6FA</Color>
+        <Color x:Key="Layal.Color.BackgroundEnd">#EFF2F8</Color>
         <Color x:Key="Layal.Color.Surface">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.SurfaceRaised">#FCFCFF</Color>
-        <Color x:Key="Layal.Color.SurfaceHover">#F2F4FB</Color>
-        <Color x:Key="Layal.Color.Border">#E2E7F1</Color>
-        <Color x:Key="Layal.Color.Cyan">#536BC7</Color>
-        <Color x:Key="Layal.Color.Purple">#796BCB</Color>
-        <Color x:Key="Layal.Color.Text">#25314A</Color>
-        <Color x:Key="Layal.Color.Muted">#5F6B84</Color>
-        <Color x:Key="Layal.Color.ScrollThumb">#A2B0C9</Color>
-        <Color x:Key="Layal.Color.Success">#187A59</Color>
-        <Color x:Key="Layal.Color.Warning">#855A0C</Color>
-        <Color x:Key="Layal.Color.Danger">#B33C5A</Color>
-        <Color x:Key="Layal.Color.Focus">#B6C5F6</Color>
-        <Color x:Key="Layal.Color.HeaderStart">#F1F4FD</Color>
-        <Color x:Key="Layal.Color.HeaderMiddle">#FCFDFF</Color>
-        <Color x:Key="Layal.Color.HeaderEnd">#F3F0FD</Color>
+        <Color x:Key="Layal.Color.SurfaceRaised">#F9FBFE</Color>
+        <Color x:Key="Layal.Color.SurfaceHover">#EDF2F8</Color>
+        <Color x:Key="Layal.Color.Border">#D8E0EB</Color>
+        <Color x:Key="Layal.Color.Cyan">#315EA8</Color>
+        <Color x:Key="Layal.Color.Purple">#6C56B3</Color>
+        <Color x:Key="Layal.Color.Text">#18283F</Color>
+        <Color x:Key="Layal.Color.Muted">#52637A</Color>
+        <Color x:Key="Layal.Color.ScrollThumb">#8493A8</Color>
+        <Color x:Key="Layal.Color.Success">#176B4D</Color>
+        <Color x:Key="Layal.Color.Warning">#7A4D08</Color>
+        <Color x:Key="Layal.Color.Danger">#A52740</Color>
+        <Color x:Key="Layal.Color.Focus">#2563EB</Color>
+        <Color x:Key="Layal.Color.HeaderStart">#F7F9FC</Color>
+        <Color x:Key="Layal.Color.HeaderMiddle">#FFFFFFFF</Color>
+        <Color x:Key="Layal.Color.HeaderEnd">#EFF2F8</Color>
         <Color x:Key="Layal.Color.CardStart">#FFFFFFFF</Color>
-        <Color x:Key="Layal.Color.CardEnd">#FFFAFBFF</Color>
-        <Color x:Key="Layal.Color.ButtonStart">#D7DFFA</Color>
-        <Color x:Key="Layal.Color.ButtonEnd">#E4DDF8</Color>
-        <Color x:Key="Layal.Color.BrandBorder">#D8DDF3</Color>
-        <Color x:Key="Layal.Color.BrandDot">#D8B66D</Color>
-        <Color x:Key="Layal.Color.DangerSurface">#FBECEF</Color>
-        <Color x:Key="Layal.Color.DangerBorder">#E9C8D1</Color>
-        <Color x:Key="Layal.Color.NavSelected">#EAEDFC</Color>
-        <Color x:Key="Layal.Color.NavSelectedBorder">#D4DBF4</Color>
-        <Color x:Key="Layal.Color.NavHover">#F3F5FC</Color>
-        <Color x:Key="Layal.Color.ListHover">#F3F5FC</Color>
-        <Color x:Key="Layal.Color.ListSelected">#EBEEFC</Color>
-        <Color x:Key="Layal.Color.InputFocus">#FCFDFF</Color>
-        <Color x:Key="Layal.Color.HoverSurface">#EEF0FC</Color>
-        <Color x:Key="Layal.Color.MenuHover">#EEF0FC</Color>
-        <Color x:Key="Layal.Color.MenuHoverText">#25314A</Color>
-        <Color x:Key="Layal.Color.Shadow">#AAB8D3</Color>
+        <Color x:Key="Layal.Color.CardEnd">#FFF9FBFE</Color>
+        <Color x:Key="Layal.Color.ButtonStart">#DCE7F8</Color>
+        <Color x:Key="Layal.Color.ButtonEnd">#E9E5F8</Color>
+        <Color x:Key="Layal.Color.BrandBorder">#C5D5EC</Color>
+        <Color x:Key="Layal.Color.BrandDot">#A8792B</Color>
+        <Color x:Key="Layal.Color.DangerSurface">#FCEDEF</Color>
+        <Color x:Key="Layal.Color.DangerBorder">#E7B8C1</Color>
+        <Color x:Key="Layal.Color.NavSelected">#E8EFFA</Color>
+        <Color x:Key="Layal.Color.NavSelectedBorder">#C5D5EC</Color>
+        <Color x:Key="Layal.Color.NavHover">#F1F5FA</Color>
+        <Color x:Key="Layal.Color.ListHover">#F1F5FA</Color>
+        <Color x:Key="Layal.Color.ListSelected">#E5EDFA</Color>
+        <Color x:Key="Layal.Color.InputFocus">#FFFFFF</Color>
+        <Color x:Key="Layal.Color.HoverSurface">#EDF2F8</Color>
+        <Color x:Key="Layal.Color.MenuHover">#E5EDFA</Color>
+        <Color x:Key="Layal.Color.MenuHoverText">#18283F</Color>
+        <Color x:Key="Layal.Color.Shadow">#7A899E</Color>
         <!-- Keep the ambient aurora restrained; the content surfaces remain the visual focus. -->
-        <Color x:Key="Layal.Color.BackdropStart">#9CAAE0</Color>
-        <Color x:Key="Layal.Color.BackdropMiddle">#B7A9E4</Color>
-        <Color x:Key="Layal.Color.BackdropEnd">#E8C1D8</Color>
-        <Color x:Key="Layal.Color.Glass">#F0FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassStrong">#F7FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassBorder">#DCE3F0</Color>
-        <Color x:Key="Layal.Color.GlowBlue">#557E8FF0</Color>
-        <Color x:Key="Layal.Color.GlowViolet">#4F9A7DE8</Color>
-        <Color x:Key="Layal.Color.GlowPink">#40D67AAE</Color>
-        <Color x:Key="Layal.Color.AccentStart">#5369C7</Color>
-        <Color x:Key="Layal.Color.AccentEnd">#7662C7</Color>
+        <Color x:Key="Layal.Color.BackdropStart">#E8EEF7</Color>
+        <Color x:Key="Layal.Color.BackdropMiddle">#EEF0F8</Color>
+        <Color x:Key="Layal.Color.BackdropEnd">#F4EDF3</Color>
+        <Color x:Key="Layal.Color.Glass">#F7FFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassStrong">#FCFFFFFF</Color>
+        <Color x:Key="Layal.Color.GlassBorder">#D6DFEA</Color>
+        <Color x:Key="Layal.Color.GlowBlue">#244B83D5</Color>
+        <Color x:Key="Layal.Color.GlowViolet">#1F8D78D0</Color>
+        <Color x:Key="Layal.Color.GlowPink">#18C47CA5</Color>
+        <Color x:Key="Layal.Color.AccentStart">#244F9C</Color>
+        <Color x:Key="Layal.Color.AccentEnd">#624CAD</Color>
         <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
 
         <SolidColorBrush x:Key="Layal.Background" Color="{DynamicResource Layal.Color.Background}" />
@@ -159,7 +159,7 @@
 
                 <Style TargetType="Window">
             <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
             <Setter Property="UseLayoutRounding" Value="True" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
@@ -196,9 +196,9 @@
         <Style TargetType="{x:Type MenuItem}">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="Margin" Value="2,1" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="Margin" Value="2,2" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Style.Triggers>
                 <Trigger Property="IsHighlighted" Value="True">
@@ -220,8 +220,8 @@
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="10,7" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="MaxWidth" Value="420" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -261,16 +261,16 @@
         </Style>
 
         <Style TargetType="Button">
-            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="Padding" Value="16,10" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="MinHeight" Value="40" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
@@ -280,7 +280,7 @@
                         <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="12" Padding="{TemplateBinding Padding}"
+                                CornerRadius="14" Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -309,7 +309,7 @@
 
         <Style TargetType="TextBox">
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
-            <Setter Property="Padding" Value="11,9" />
+            <Setter Property="Padding" Value="12,10" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
@@ -317,7 +317,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="SelectionBrush" Value="{DynamicResource Layal.Focus}" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -345,14 +345,14 @@
 
         <Style TargetType="PasswordBox">
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
-            <Setter Property="Padding" Value="11,9" />
+            <Setter Property="Padding" Value="12,10" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="PasswordBox">
@@ -380,9 +380,9 @@
         <Style TargetType="ComboBox">
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Setter Property="Margin" Value="4" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
@@ -677,7 +677,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Background" Value="{DynamicResource Layal.Panel}" />
-            <Setter Property="Padding" Value="12" />
+            <Setter Property="Padding" Value="14" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
@@ -714,14 +714,14 @@
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="6" />
+            <Setter Property="Padding" Value="8" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
         </Style>
 
         <Style TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="7" />
-            <Setter Property="Margin" Value="1,2" />
+            <Setter Property="Padding" Value="9" />
+            <Setter Property="Margin" Value="2,3" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -751,7 +751,7 @@
             </Setter>
         </Style>
 
-        <!-- Content-only tab host: all section navigation is provided by the floating bottom dock. -->
+        <!-- Content-only tab host: all section navigation is provided by the persistent left navigation rail. -->
         <Style x:Key="Layal.ContentOnlyTabControl" TargetType="{x:Type TabControl}">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -768,7 +768,7 @@
             </Setter>
         </Style>
 
-        <!-- Legacy rail resources remain for auxiliary windows; MainWindow now uses the floating bottom dock. -->
+        <!-- Legacy rail resources remain for auxiliary windows; MainWindow uses the persistent Soft Aurora navigation rail. -->
         <!-- Glass shell: a translucent sidebar (brand/footer overlays live in MainWindow, rows 88/156 are reserved for them)
              and a translucent content panel over the dusk backdrop. -->
         <Style TargetType="TabControl">
@@ -886,22 +886,22 @@
 
         <!-- Primary round action (send). White-on-accent text is explicit because string content would otherwise pick up the implicit TextBlock colour. -->
         <Style x:Key="Layal.AccentButton" TargetType="Button">
-            <Setter Property="Padding" Value="22,9" />
+            <Setter Property="Padding" Value="24,10" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.OnAccent}" />
             <Setter Property="Background" Value="{DynamicResource Layal.AccentGradient}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="MinHeight" Value="46" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="AccentChrome" Background="{TemplateBinding Background}" CornerRadius="22"
+                        <Border x:Name="AccentChrome" Background="{TemplateBinding Background}" CornerRadius="16"
                                 Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True">
@@ -932,7 +932,7 @@
         <!-- Rounded message field used by the chat composer. -->
         <Style x:Key="Layal.PillTextBox" TargetType="TextBox">
             <Setter Property="FocusVisualStyle" Value="{StaticResource Layal.KeyboardFocusVisual}" />
-            <Setter Property="Padding" Value="18,10" />
+            <Setter Property="Padding" Value="18,12" />
             <Setter Property="Margin" Value="4" />
             <Setter Property="Background" Value="{DynamicResource Layal.GlassStrongFill}" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Text}" />
@@ -940,13 +940,13 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="SelectionBrush" Value="{DynamicResource Layal.Focus}" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="15" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
                         <Border x:Name="PillChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="22" SnapsToDevicePixels="True">
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="18" SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" VerticalAlignment="Center" Focusable="False" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -1016,17 +1016,17 @@
             <Setter Property="Background" Value="{DynamicResource Layal.GlassFill}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="26" />
-            <Setter Property="Padding" Value="7" />
+            <Setter Property="CornerRadius" Value="24" />
+            <Setter Property="Padding" Value="10" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
         </Style>
         <Style x:Key="Layal.PageHero" TargetType="{x:Type Border}">
-            <Setter Property="Background" Value="{StaticResource Layal.PageHeroGradient}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.PageHeroGradient}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="22" />
-            <Setter Property="Padding" Value="22" />
-            <Setter Property="Margin" Value="0,0,0,16" />
+            <Setter Property="Padding" Value="20" />
+            <Setter Property="Margin" Value="0,0,0,14" />
             <Setter Property="Effect" Value="{DynamicResource Layal.CardShadow}" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
         </Style>
@@ -1034,8 +1034,8 @@
             <Setter Property="Background" Value="{DynamicResource Layal.CardGradient}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="20" />
-            <Setter Property="Padding" Value="20" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="18" />
             <Setter Property="Margin" Value="6" />
             <Setter Property="Effect" Value="{DynamicResource Layal.CardShadow}" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
@@ -1048,13 +1048,13 @@
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
         <Style x:Key="Layal.PageDescription" TargetType="{x:Type TextBlock}">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Muted}" />
             <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="LineHeight" Value="20" />
+            <Setter Property="LineHeight" Value="22" />
         </Style>
         <Style x:Key="Layal.SectionEyebrow" TargetType="{x:Type TextBlock}">
-            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontSize" Value="11.5" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{DynamicResource Layal.Cyan}" />
             <Setter Property="Margin" Value="0,0,0,8" />
