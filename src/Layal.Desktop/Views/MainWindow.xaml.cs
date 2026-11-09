@@ -135,6 +135,7 @@ public partial class MainWindow : Window
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
     private bool _isBottomDockExpanded = true;
+    private bool? _chatCompactLayoutApplied;
     private bool _isChatHistoryPanelOpen;
     private bool _isUiInitialized;
 
@@ -1121,6 +1122,60 @@ public partial class MainWindow : Window
         AppRuntime.Tray?.SetTheme(IsDarkTheme, highContrast);
         LayalWindowChrome.RefreshAll(IsDarkTheme, highContrast);
         ApplyWindowBackdrop();
+    }
+
+    private void ChatConversationSurface_Loaded(object sender, RoutedEventArgs e) =>
+        ApplyChatCompactLayout(ChatConversationSurface.ActualHeight);
+
+    private void ChatConversationSurface_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyChatCompactLayout(e.NewSize.Height);
+
+    private void ApplyChatCompactLayout(double availableHeight)
+    {
+        if (availableHeight <= 0 || ChatWelcomePanel is null || ClockWeatherCard is null)
+            return;
+
+        // The clock and weather remain available on the overview page. Hiding this
+        // secondary summary in a short chat viewport gives the welcome canvas and
+        // composer enough room instead of clipping suggestions below the fold.
+        var compact = availableHeight < 520;
+        if (_chatCompactLayoutApplied == compact)
+            return;
+
+        _chatCompactLayoutApplied = compact;
+        ClockWeatherCard.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+
+        ChatHeaderMascot.Width = compact ? 46 : 60;
+        ChatHeaderMascot.Height = compact ? 46 : 60;
+
+        ChatWelcomeAvatarShell.Width = compact ? 68 : 88;
+        ChatWelcomeAvatarShell.Height = compact ? 68 : 88;
+        ChatWelcomeAvatarShell.Margin = compact
+            ? new Thickness(0, 0, 12, 0)
+            : new Thickness(0, 0, 18, 0);
+        ChatWelcomeAvatarImage.Width = compact ? 62 : 82;
+        ChatWelcomeAvatarImage.Height = compact ? 62 : 82;
+
+        ChatWelcomePanel.Margin = compact
+            ? new Thickness(6, 2)
+            : new Thickness(12, 6);
+        ChatWelcomePanel.Padding = compact
+            ? new Thickness(12)
+            : new Thickness(18);
+        ChatEmptyStateText.FontSize = compact ? 12.5 : 13.5;
+        ChatEmptyStateText.Margin = compact
+            ? new Thickness(0, 0, 0, 6)
+            : new Thickness(0, 0, 0, 11);
+        ChatEmptyStateText.MaxWidth = compact ? 500 : 560;
+        ChatSuggestionPlanButton.Padding = compact
+            ? new Thickness(12, 7, 12, 7)
+            : new Thickness(16, 9, 16, 9);
+        ChatSuggestionSummaryButton.Padding = compact
+            ? new Thickness(12, 7, 12, 7)
+            : new Thickness(16, 9, 16, 9);
+        ChatSuggestionIdeasButton.Padding = compact
+            ? new Thickness(12, 7, 12, 7)
+            : new Thickness(16, 9, 16, 9);
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
