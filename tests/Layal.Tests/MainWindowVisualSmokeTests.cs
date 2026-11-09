@@ -1719,6 +1719,8 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("Your AI workspace", dockBrandSubtitle.Text);
         Assert.AreEqual("Your AI companion", dockFooterTitle.Text);
         Assert.AreEqual("Your chats and tools, together.", dockFooterDescription.Text);
+        Assert.IsInstanceOfType(dockChat.Content, typeof(StackPanel),
+            "Switching to English must preserve the modern Fluent icon-and-label navigation row.");
 
         languageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, languageButton));
         Assert.AreEqual("ar", AppRuntime.Settings.Language, "The header language button should switch English back to Arabic.");
@@ -1729,6 +1731,8 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("مساحة عملك الذكية", dockBrandSubtitle.Text);
         Assert.AreEqual("مساعدك الذكي", dockFooterTitle.Text);
         Assert.AreEqual("محادثاتك وأدواتك في مكان واحد.", dockFooterDescription.Text);
+        Assert.IsInstanceOfType(dockChat.Content, typeof(StackPanel),
+            "Switching back to Arabic must preserve the modern Fluent icon-and-label navigation row.");
 
         // Navigation entry points must select the real corresponding tabs.
         goSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goSettings));
@@ -1799,6 +1803,14 @@ public sealed class MainWindowVisualSmokeTests
                     "Expanded navigation destinations must use the full 152-DIP row width.");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(navigationButton)),
                     "Every navigation destination must retain a screen-reader name.");
+                var row = navigationButton.Content as StackPanel;
+                Assert.IsNotNull(row, "Expanded destinations must combine a Fluent icon tile and a readable label.");
+                Assert.IsInstanceOfType(row!.Children[0], typeof(Border));
+                var iconTile = (Border)row.Children[0];
+                Assert.AreEqual(10, iconTile.CornerRadius.TopLeft, 0.1);
+                var iconGlyph = iconTile.Child as TextBlock;
+                Assert.IsNotNull(iconGlyph);
+                StringAssert.Contains(iconGlyph!.FontFamily.Source, "Segoe Fluent Icons");
             }
 
             dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
@@ -1828,8 +1840,14 @@ public sealed class MainWindowVisualSmokeTests
                     "Compact navigation destinations must use 44-DIP icon-only targets.");
                 Assert.IsTrue(navigationButton.MinHeight >= 44,
                     "Compact navigation destinations must preserve a 44-DIP minimum touch target.");
-                Assert.IsFalse(navigationButton.Content?.ToString()?.Contains(' ') == true,
+                var iconTile = navigationButton.Content as Border;
+                Assert.IsNotNull(iconTile, "Compact navigation destinations must retain their colored icon tiles.");
+                Assert.IsInstanceOfType(iconTile!.Child, typeof(TextBlock));
+                var iconGlyph = (TextBlock)iconTile.Child;
+                Assert.IsFalse(string.IsNullOrWhiteSpace(iconGlyph.Text),
                     "Compact navigation buttons must show only their icon, never clipped labels.");
+                Assert.IsTrue(iconTile.Background is SolidColorBrush,
+                    "Each compact Fluent icon must retain a coordinated theme-aware color tile.");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(navigationButton.ToolTip?.ToString()),
                     "Every icon-only destination must provide a localized tooltip.");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(navigationButton)),

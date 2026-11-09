@@ -7,56 +7,72 @@
         <services:TextDirectionConverter x:Key="Layal.TextDirectionConverter" />
         <FontFamily x:Key="Layal.InterfaceFont">pack://application:,,,/Layal;component/Assets/Fonts/#Cairo</FontFamily>
 
-        <!-- Soft Aurora: neutral pearl/slate surfaces, blue-indigo primary actions, restrained lavender accents, and readable opaque glass. -->
-        <Color x:Key="Layal.Color.Background">#F4F6FA</Color>
-        <Color x:Key="Layal.Color.BackgroundEnd">#EFF2F8</Color>
+        <!-- Soft Aurora: pearl, sapphire and lavender surfaces; dark mode uses colored midnight blue, never black. -->
+        <Color x:Key="Layal.Color.Background">#F3F6FF</Color>
+        <Color x:Key="Layal.Color.BackgroundEnd">#E8EEFC</Color>
         <Color x:Key="Layal.Color.Surface">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.SurfaceRaised">#F9FBFE</Color>
-        <Color x:Key="Layal.Color.SurfaceHover">#EDF2F8</Color>
-        <Color x:Key="Layal.Color.Border">#D8E0EB</Color>
-        <Color x:Key="Layal.Color.Cyan">#315EA8</Color>
-        <Color x:Key="Layal.Color.Purple">#6C56B3</Color>
-        <Color x:Key="Layal.Color.Text">#18283F</Color>
-        <Color x:Key="Layal.Color.Muted">#52637A</Color>
-        <Color x:Key="Layal.Color.ScrollThumb">#8493A8</Color>
-        <Color x:Key="Layal.Color.Success">#176B4D</Color>
-        <Color x:Key="Layal.Color.Warning">#7A4D08</Color>
-        <Color x:Key="Layal.Color.Danger">#A52740</Color>
-        <Color x:Key="Layal.Color.Focus">#2563EB</Color>
-        <Color x:Key="Layal.Color.HeaderStart">#F7F9FC</Color>
-        <Color x:Key="Layal.Color.HeaderMiddle">#FFFFFFFF</Color>
-        <Color x:Key="Layal.Color.HeaderEnd">#EFF2F8</Color>
+        <Color x:Key="Layal.Color.SurfaceRaised">#FAFBFF</Color>
+        <Color x:Key="Layal.Color.SurfaceHover">#EEF2FF</Color>
+        <Color x:Key="Layal.Color.Border">#D5DCF0</Color>
+        <Color x:Key="Layal.Color.Cyan">#315FC1</Color>
+        <Color x:Key="Layal.Color.Purple">#7351B8</Color>
+        <Color x:Key="Layal.Color.Text">#1D2B49</Color>
+        <Color x:Key="Layal.Color.Muted">#53627D</Color>
+        <Color x:Key="Layal.Color.ScrollThumb">#8291AF</Color>
+        <Color x:Key="Layal.Color.Success">#17734F</Color>
+        <Color x:Key="Layal.Color.Warning">#8A5500</Color>
+        <Color x:Key="Layal.Color.Danger">#A8324A</Color>
+        <Color x:Key="Layal.Color.Focus">#4368D2</Color>
+        <Color x:Key="Layal.Color.HeaderStart">#FFF8FB</Color>
+        <Color x:Key="Layal.Color.HeaderMiddle">#F6F3FF</Color>
+        <Color x:Key="Layal.Color.HeaderEnd">#EDF4FF</Color>
         <Color x:Key="Layal.Color.CardStart">#FFFFFFFF</Color>
-        <Color x:Key="Layal.Color.CardEnd">#FFF9FBFE</Color>
-        <Color x:Key="Layal.Color.ButtonStart">#DCE7F8</Color>
-        <Color x:Key="Layal.Color.ButtonEnd">#E5EAF6</Color>
-        <Color x:Key="Layal.Color.BrandBorder">#C5D5EC</Color>
-        <Color x:Key="Layal.Color.BrandDot">#A8792B</Color>
+        <Color x:Key="Layal.Color.CardEnd">#F5F5FF</Color>
+        <Color x:Key="Layal.Color.ButtonStart">#DCE7FF</Color>
+        <Color x:Key="Layal.Color.ButtonEnd">#E9E0FB</Color>
+        <Color x:Key="Layal.Color.BrandBorder">#BCCBF0</Color>
+        <Color x:Key="Layal.Color.BrandDot">#D59A45</Color>
         <Color x:Key="Layal.Color.DangerSurface">#FCEDEF</Color>
-        <Color x:Key="Layal.Color.DangerBorder">#E7B8C1</Color>
-        <Color x:Key="Layal.Color.NavSelected">#E2ECFC</Color>
-        <Color x:Key="Layal.Color.NavSelectedBorder">#A3BCE8</Color>
-        <Color x:Key="Layal.Color.NavHover">#EBF2FD</Color>
-        <Color x:Key="Layal.Color.ListHover">#EBF2FD</Color>
-        <Color x:Key="Layal.Color.ListSelected">#DCE8FB</Color>
-        <Color x:Key="Layal.Color.InputFocus">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.HoverSurface">#EDF2F8</Color>
-        <Color x:Key="Layal.Color.MenuHover">#E5EDFA</Color>
-        <Color x:Key="Layal.Color.MenuHoverText">#18283F</Color>
-        <Color x:Key="Layal.Color.Shadow">#7A899E</Color>
-        <!-- Keep the ambient aurora restrained; the content surfaces remain the visual focus. -->
-        <Color x:Key="Layal.Color.BackdropStart">#E8EEF7</Color>
-        <Color x:Key="Layal.Color.BackdropMiddle">#EEF0F8</Color>
-        <Color x:Key="Layal.Color.BackdropEnd">#F4EDF3</Color>
-        <Color x:Key="Layal.Color.Glass">#F7FFFFFF</Color>
+        <Color x:Key="Layal.Color.DangerBorder">#E7BBC4</Color>
+        <Color x:Key="Layal.Color.NavSelected">#E2E9FF</Color>
+        <Color x:Key="Layal.Color.NavSelectedBorder">#B6C4F0</Color>
+        <Color x:Key="Layal.Color.NavHover">#ECF0FF</Color>
+        <Color x:Key="Layal.Color.ListHover">#ECF0FF</Color>
+        <Color x:Key="Layal.Color.ListSelected">#DBE5FF</Color>
+        <Color x:Key="Layal.Color.InputFocus">#FBFCFF</Color>
+        <Color x:Key="Layal.Color.HoverSurface">#EEF2FF</Color>
+        <Color x:Key="Layal.Color.MenuHover">#E9EDFF</Color>
+        <Color x:Key="Layal.Color.MenuHoverText">#1D2B49</Color>
+        <Color x:Key="Layal.Color.Shadow">#7A86A2</Color>
+        <!-- A calm three-color aurora, with enough tint to avoid a flat grey canvas. -->
+        <Color x:Key="Layal.Color.BackdropStart">#E3EEFF</Color>
+        <Color x:Key="Layal.Color.BackdropMiddle">#EFE9FF</Color>
+        <Color x:Key="Layal.Color.BackdropEnd">#E8F6F4</Color>
+        <Color x:Key="Layal.Color.Glass">#F5FFFFFF</Color>
         <Color x:Key="Layal.Color.GlassStrong">#FCFFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassBorder">#D6DFEA</Color>
-        <Color x:Key="Layal.Color.GlowBlue">#244B83D5</Color>
-        <Color x:Key="Layal.Color.GlowViolet">#1F8D78D0</Color>
-        <Color x:Key="Layal.Color.GlowPink">#18C47CA5</Color>
-        <Color x:Key="Layal.Color.AccentStart">#244F9C</Color>
-        <Color x:Key="Layal.Color.AccentEnd">#4B4E9F</Color>
+        <Color x:Key="Layal.Color.GlassBorder">#D0D9EF</Color>
+        <Color x:Key="Layal.Color.GlowBlue">#30487AE5</Color>
+        <Color x:Key="Layal.Color.GlowViolet">#258E62E6</Color>
+        <Color x:Key="Layal.Color.GlowPink">#20DA8EA7</Color>
+        <Color x:Key="Layal.Color.AccentStart">#3763C9</Color>
+        <Color x:Key="Layal.Color.AccentEnd">#7857C6</Color>
         <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
+        <Color x:Key="Layal.Color.IconChatBackground">#E4EBFF</Color>
+        <Color x:Key="Layal.Color.IconChatForeground">#315EC3</Color>
+        <Color x:Key="Layal.Color.IconOverviewBackground">#DDF5EF</Color>
+        <Color x:Key="Layal.Color.IconOverviewForeground">#197A68</Color>
+        <Color x:Key="Layal.Color.IconTasksBackground">#FFF0D8</Color>
+        <Color x:Key="Layal.Color.IconTasksForeground">#A85D0A</Color>
+        <Color x:Key="Layal.Color.IconSkillsBackground">#F0E8FF</Color>
+        <Color x:Key="Layal.Color.IconSkillsForeground">#7651B9</Color>
+        <Color x:Key="Layal.Color.IconCamerasBackground">#FFE7E9</Color>
+        <Color x:Key="Layal.Color.IconCamerasForeground">#B34855</Color>
+        <Color x:Key="Layal.Color.IconMemoryBackground">#DCF4FF</Color>
+        <Color x:Key="Layal.Color.IconMemoryForeground">#136B91</Color>
+        <Color x:Key="Layal.Color.IconApiBackground">#EDF5D9</Color>
+        <Color x:Key="Layal.Color.IconApiForeground">#4D6B23</Color>
+        <Color x:Key="Layal.Color.IconSettingsBackground">#E8EDF5</Color>
+        <Color x:Key="Layal.Color.IconSettingsForeground">#52617B</Color>
 
         <SolidColorBrush x:Key="Layal.Background" Color="{DynamicResource Layal.Color.Background}" />
         <SolidColorBrush x:Key="Layal.Panel" Color="{DynamicResource Layal.Color.Surface}" />
@@ -86,6 +102,22 @@
         <SolidColorBrush x:Key="Layal.NavSelected" Color="{DynamicResource Layal.Color.NavSelected}" />
         <SolidColorBrush x:Key="Layal.NavSelectedBorder" Color="{DynamicResource Layal.Color.NavSelectedBorder}" />
         <SolidColorBrush x:Key="Layal.NavHover" Color="{DynamicResource Layal.Color.NavHover}" />
+        <SolidColorBrush x:Key="Layal.Icon.ChatBackground" Color="{DynamicResource Layal.Color.IconChatBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.ChatForeground" Color="{DynamicResource Layal.Color.IconChatForeground}" />
+        <SolidColorBrush x:Key="Layal.Icon.OverviewBackground" Color="{DynamicResource Layal.Color.IconOverviewBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.OverviewForeground" Color="{DynamicResource Layal.Color.IconOverviewForeground}" />
+        <SolidColorBrush x:Key="Layal.Icon.TasksBackground" Color="{DynamicResource Layal.Color.IconTasksBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.TasksForeground" Color="{DynamicResource Layal.Color.IconTasksForeground}" />
+        <SolidColorBrush x:Key="Layal.Icon.SkillsBackground" Color="{DynamicResource Layal.Color.IconSkillsBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.SkillsForeground" Color="{DynamicResource Layal.Color.IconSkillsForeground}" />
+        <SolidColorBrush x:Key="Layal.Icon.CamerasBackground" Color="{DynamicResource Layal.Color.IconCamerasBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.CamerasForeground" Color="{DynamicResource Layal.Color.IconCamerasForeground}" />
+        <SolidColorBrush x:Key="Layal.Icon.MemoryBackground" Color="{DynamicResource Layal.Color.IconMemoryBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.MemoryForeground" Color="{DynamicResource Layal.Color.IconMemoryForeground}" />
+        <SolidColorBrush x:Key="Layal.Icon.ApiBackground" Color="{DynamicResource Layal.Color.IconApiBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.ApiForeground" Color="{DynamicResource Layal.Color.IconApiForeground}" />
+        <SolidColorBrush x:Key="Layal.Icon.SettingsBackground" Color="{DynamicResource Layal.Color.IconSettingsBackground}" />
+        <SolidColorBrush x:Key="Layal.Icon.SettingsForeground" Color="{DynamicResource Layal.Color.IconSettingsForeground}" />
         <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
         <SolidColorBrush x:Key="Layal.AppBackdropWash" Color="#40F4F7FC" />
         <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />

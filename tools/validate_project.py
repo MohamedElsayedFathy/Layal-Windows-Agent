@@ -569,7 +569,7 @@ if "ChatMessageContextMenu_Opened" not in main_code:
 
 if "Layal.Color.BackgroundEnd" not in app_text or "Layal.Color.BackgroundEnd" not in main_code:
     ERRORS.append("Theme-aware glass-style background gradient is not defined in both resources and runtime palette")
-for expected_glass_color in ("#FFFFFFFF", "#F21B2940"):
+for expected_glass_color in ("#FFFFFFFF", "#E82F416F"):
     if expected_glass_color not in palette_code:
         ERRORS.append(f"Expected Soft Aurora card surface color '{expected_glass_color}' is missing from the theme palette")
 

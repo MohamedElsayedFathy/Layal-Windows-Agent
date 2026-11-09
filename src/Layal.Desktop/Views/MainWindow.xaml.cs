@@ -1045,6 +1045,11 @@ public partial class MainWindow : Window
         SetSolidBrush("Layal.NavSelected", "Layal.Color.NavSelected");
         SetSolidBrush("Layal.NavSelectedBorder", "Layal.Color.NavSelectedBorder");
         SetSolidBrush("Layal.NavHover", "Layal.Color.NavHover");
+        foreach (var iconName in new[] { "Chat", "Overview", "Tasks", "Skills", "Cameras", "Memory", "Api", "Settings" })
+        {
+            SetSolidBrush($"Layal.Icon.{iconName}Background", $"Layal.Color.Icon{iconName}Background");
+            SetSolidBrush($"Layal.Icon.{iconName}Foreground", $"Layal.Color.Icon{iconName}Foreground");
+        }
         SetSolidBrush("Layal.GlassFill", "Layal.Color.Glass");
         SetSolidBrush("Layal.GlassStrongFill", "Layal.Color.GlassStrong");
         SetSolidBrush("Layal.GlassBorderBrush", "Layal.Color.GlassBorder");
@@ -1454,14 +1459,6 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetName(CamerasTab, ar ? "الكاميرات" : "Cameras");
         System.Windows.Automation.AutomationProperties.SetName(MemoryTab, ar ? "الذاكرة" : "Memory");
         System.Windows.Automation.AutomationProperties.SetName(SettingsTab, ar ? "الإعدادات" : "Settings");
-        DockChatButton.Content = ar ? "✦  الرئيسية" : "✦  Home";
-        DockOverviewButton.Content = ar ? "⌂  نظرة عامة" : "⌂  Overview";
-        DockTasksButton.Content = ar ? "▣  المهام" : "▣  Tasks";
-        DockSkillsButton.Content = ar ? "◇  المهارات" : "◇  Skills";
-        DockCamerasButton.Content = ar ? "◉  الكاميرات" : "◉  Cameras";
-        DockMemoryButton.Content = ar ? "▤  الذاكرة" : "▤  Memory";
-        DockApiButton.Content = ar ? "⌘  تكاملات API" : "⌘  API";
-        DockSettingsButton.Content = ar ? "⚙  الإعدادات" : "⚙  Settings";
         ToggleBottomDockButton.ToolTip = _isBottomDockExpanded
             ? (ar ? "طي شريط التنقل الجانبي" : "Collapse navigation rail")
             : (ar ? "توسيع شريط التنقل الجانبي" : "Expand navigation rail");
@@ -2871,14 +2868,14 @@ public partial class MainWindow : Window
 
         var destinations = new[]
         {
-            (Button: DockChatButton, Icon: "✦", Ar: "الرئيسية", En: "Home", AccessibleAr: "الرئيسية - المحادثة", AccessibleEn: "Home - Chat"),
-            (Button: DockOverviewButton, Icon: "⌂", Ar: "نظرة عامة", En: "Overview", AccessibleAr: "نظرة عامة", AccessibleEn: "Overview"),
-            (Button: DockTasksButton, Icon: "▣", Ar: "المهام", En: "Tasks", AccessibleAr: "المهام", AccessibleEn: "Tasks"),
-            (Button: DockSkillsButton, Icon: "◇", Ar: "المهارات", En: "Skills", AccessibleAr: "المهارات", AccessibleEn: "Skills"),
-            (Button: DockCamerasButton, Icon: "◉", Ar: "الكاميرات", En: "Cameras", AccessibleAr: "الكاميرات", AccessibleEn: "Cameras"),
-            (Button: DockMemoryButton, Icon: "▤", Ar: "الذاكرة", En: "Memory", AccessibleAr: "الذاكرة", AccessibleEn: "Memory"),
-            (Button: DockApiButton, Icon: "⌘", Ar: "تكاملات API", En: "API", AccessibleAr: "تكاملات API", AccessibleEn: "API integrations"),
-            (Button: DockSettingsButton, Icon: "⚙", Ar: "الإعدادات", En: "Settings", AccessibleAr: "الإعدادات", AccessibleEn: "Settings")
+            (Button: DockChatButton, Name: "Chat", Glyph: "\uE8BD", Ar: "الرئيسية", En: "Home", AccessibleAr: "الرئيسية - المحادثة", AccessibleEn: "Home - Chat"),
+            (Button: DockOverviewButton, Name: "Overview", Glyph: "\uE80F", Ar: "نظرة عامة", En: "Overview", AccessibleAr: "نظرة عامة", AccessibleEn: "Overview"),
+            (Button: DockTasksButton, Name: "Tasks", Glyph: "\uE9D5", Ar: "المهام", En: "Tasks", AccessibleAr: "المهام", AccessibleEn: "Tasks"),
+            (Button: DockSkillsButton, Name: "Skills", Glyph: "\uEA80", Ar: "المهارات", En: "Skills", AccessibleAr: "المهارات", AccessibleEn: "Skills"),
+            (Button: DockCamerasButton, Name: "Cameras", Glyph: "\uE722", Ar: "الكاميرات", En: "Cameras", AccessibleAr: "الكاميرات", AccessibleEn: "Cameras"),
+            (Button: DockMemoryButton, Name: "Memory", Glyph: "\uE8F1", Ar: "الذاكرة", En: "Memory", AccessibleAr: "الذاكرة", AccessibleEn: "Memory"),
+            (Button: DockApiButton, Name: "Api", Glyph: "\uE943", Ar: "تكاملات API", En: "API", AccessibleAr: "تكاملات API", AccessibleEn: "API integrations"),
+            (Button: DockSettingsButton, Name: "Settings", Glyph: "\uE713", Ar: "الإعدادات", En: "Settings", AccessibleAr: "الإعدادات", AccessibleEn: "Settings")
         };
 
         foreach (var destination in destinations)
@@ -2893,9 +2890,56 @@ public partial class MainWindow : Window
             destination.Button.HorizontalContentAlignment = expanded
                 ? HorizontalAlignment.Left
                 : HorizontalAlignment.Center;
-            destination.Button.Content = expanded
-                ? $"{destination.Icon}  {label}"
-                : destination.Icon;
+            var iconGlyph = new TextBlock
+            {
+                Text = destination.Glyph,
+                FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+                FontSize = 16,
+                FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            iconGlyph.SetResourceReference(TextBlock.ForegroundProperty, $"Layal.Icon.{destination.Name}Foreground");
+
+            var iconTile = new Border
+            {
+                Width = 30,
+                Height = 30,
+                CornerRadius = new CornerRadius(10),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = iconGlyph
+            };
+            iconTile.SetResourceReference(Border.BackgroundProperty, $"Layal.Icon.{destination.Name}Background");
+
+            if (expanded)
+            {
+                iconTile.Margin = ar ? new Thickness(10, 0, 0, 0) : new Thickness(0, 0, 10, 0);
+                var text = new TextBlock
+                {
+                    Text = label,
+                    FontSize = 13.5,
+                    TextWrapping = TextWrapping.NoWrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight
+                };
+                text.SetBinding(TextBlock.ForegroundProperty, new Binding(nameof(Button.Foreground)) { Source = destination.Button });
+                text.SetBinding(TextBlock.FontWeightProperty, new Binding(nameof(Button.FontWeight)) { Source = destination.Button });
+
+                var row = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                row.Children.Add(iconTile);
+                row.Children.Add(text);
+                destination.Button.Content = row;
+            }
+            else
+            {
+                destination.Button.Content = iconTile;
+            }
             destination.Button.ToolTip = label;
             AutomationProperties.SetName(destination.Button,
                 ar ? destination.AccessibleAr : destination.AccessibleEn);
