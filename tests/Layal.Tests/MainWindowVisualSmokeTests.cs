@@ -783,6 +783,13 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+                if (tabNames[index] == "overview")
+                {
+                    var metricsGrid = window.FindName("HomeMetricsGrid") as UniformGrid
+                        ?? throw new InvalidOperationException("HomeMetricsGrid was not found.");
+                    Assert.AreEqual(4, metricsGrid.Columns,
+                        $"The overview must use four metric cards per row at full width ({theme}/{language}).");
+                }
                 if (tabNames[index] == "chat")
                 {
                     var weatherCard = window.FindName("ClockWeatherCard") as Border
@@ -845,6 +852,13 @@ public sealed class MainWindowVisualSmokeTests
                     ?? throw new InvalidOperationException($"Compact content for tab '{tabNames[index]}' was not found.");
                 Assert.IsTrue(tabContent.ActualWidth > 0 && tabContent.ActualHeight > 0,
                     $"Compact tab '{tabNames[index]}' has an empty viewport for theme={theme}, language={language}.");
+                if (tabNames[index] == "overview")
+                {
+                    var metricsGrid = window.FindName("HomeMetricsGrid") as UniformGrid
+                        ?? throw new InvalidOperationException("HomeMetricsGrid was not found.");
+                    Assert.AreEqual(2, metricsGrid.Columns,
+                        $"The overview must switch to two metric cards per row on compact windows ({theme}/{language}).");
+                }
                 AssertNavigationRailDoesNotOverlapContent(window, $"compact {theme}/{language}/{tabNames[index]}");
                 if (tabNames[index] == "chat")
                 {
@@ -1699,6 +1713,27 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("DockBrandCopy was not found.");
         var footerNote = window.FindName("DockFooterNote") as Border
             ?? throw new InvalidOperationException("DockFooterNote was not found.");
+        var railShell = window.FindName("BottomDockShell") as Border
+            ?? throw new InvalidOperationException("BottomDockShell was not found.");
+        var brandMark = window.FindName("DockBrandMark") as Border
+            ?? throw new InvalidOperationException("DockBrandMark was not found.");
+        var workspaceHeading = window.FindName("DockWorkspaceHeading") as TextBlock
+            ?? throw new InvalidOperationException("DockWorkspaceHeading was not found.");
+        var personalHeading = window.FindName("DockPersonalHeading") as TextBlock
+            ?? throw new InvalidOperationException("DockPersonalHeading was not found.");
+        var navigationSeparator = window.FindName("DockNavigationSeparator") as Separator
+            ?? throw new InvalidOperationException("DockNavigationSeparator was not found.");
+        var navigationButtons = new[]
+        {
+            window.FindName("DockChatButton") as Button,
+            window.FindName("DockOverviewButton") as Button,
+            window.FindName("DockTasksButton") as Button,
+            window.FindName("DockSkillsButton") as Button,
+            window.FindName("DockCamerasButton") as Button,
+            window.FindName("DockMemoryButton") as Button,
+            window.FindName("DockApiButton") as Button,
+            window.FindName("DockSettingsButton") as Button
+        };
         var suggestionPlan = window.FindName("ChatSuggestionPlanButton") as Button
             ?? throw new InvalidOperationException("ChatSuggestionPlanButton was not found.");
         var chatInput = window.FindName("ChatInput") as TextBox
@@ -1713,6 +1748,20 @@ public sealed class MainWindowVisualSmokeTests
                 "The expanded navigation rail must show its brand label.");
             Assert.AreEqual(Visibility.Visible, footerNote.Visibility,
                 "The expanded navigation rail must show its footer note.");
+            Assert.AreEqual(Visibility.Visible, brandMark.Visibility);
+            Assert.AreEqual(Visibility.Visible, workspaceHeading.Visibility);
+            Assert.AreEqual(Visibility.Visible, personalHeading.Visibility);
+            Assert.AreEqual(Visibility.Visible, navigationSeparator.Visibility);
+            Assert.AreEqual(188, railShell.ActualWidth, 0.5,
+                "The expanded rail shell must equal its 166-DIP content body plus 22 DIP of padding and border.");
+            foreach (var navigationButton in navigationButtons)
+            {
+                Assert.IsNotNull(navigationButton);
+                Assert.AreEqual(152, navigationButton!.Width, 0.1,
+                    "Expanded navigation destinations must use the full 152-DIP row width.");
+                Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(navigationButton)),
+                    "Every navigation destination must retain a screen-reader name.");
+            }
 
             dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
             Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
@@ -1723,7 +1772,28 @@ public sealed class MainWindowVisualSmokeTests
                 "The compact navigation rail must hide its brand label.");
             Assert.AreEqual(Visibility.Collapsed, footerNote.Visibility,
                 "The compact navigation rail must hide its footer note.");
+            Assert.AreEqual(Visibility.Collapsed, brandMark.Visibility,
+                "The compact rail must hide the brand mark so it cannot force the shell wider than its icon rail.");
+            Assert.AreEqual(Visibility.Collapsed, workspaceHeading.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, personalHeading.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, navigationSeparator.Visibility);
             window.UpdateLayout();
+            Assert.AreEqual(70, railShell.ActualWidth, 0.5,
+                "The compact rail shell must equal its 48-DIP icon body plus 22 DIP of padding and border.");
+            foreach (var navigationButton in navigationButtons)
+            {
+                Assert.IsNotNull(navigationButton);
+                Assert.AreEqual(44, navigationButton!.Width, 0.1,
+                    "Compact navigation destinations must use 44-DIP icon-only targets.");
+                Assert.IsTrue(navigationButton.MinHeight >= 44,
+                    "Compact navigation destinations must preserve a 44-DIP minimum touch target.");
+                Assert.IsFalse(navigationButton.Content?.ToString()?.Contains(' ') == true,
+                    "Compact navigation buttons must show only their icon, never clipped labels.");
+                Assert.IsFalse(string.IsNullOrWhiteSpace(navigationButton.ToolTip?.ToString()),
+                    "Every icon-only destination must provide a localized tooltip.");
+                Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(navigationButton)),
+                    "Every icon-only destination must retain an accessible localized name.");
+            }
             AssertNavigationRailDoesNotOverlapContent(window, "collapsed navigation rail");
 
             dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
@@ -1732,6 +1802,13 @@ public sealed class MainWindowVisualSmokeTests
             Assert.AreEqual(166, expandedDock.Width, 0.1,
                 "The expanded rail must restore the full navigation width.");
             window.UpdateLayout();
+            Assert.AreEqual(188, railShell.ActualWidth, 0.5);
+            Assert.AreEqual(Visibility.Visible, brandMark.Visibility);
+            Assert.AreEqual(Visibility.Visible, workspaceHeading.Visibility);
+            Assert.AreEqual(Visibility.Visible, personalHeading.Visibility);
+            Assert.AreEqual(Visibility.Visible, navigationSeparator.Visibility);
+            foreach (var navigationButton in navigationButtons)
+                Assert.AreEqual(152, navigationButton!.Width, 0.1);
             AssertNavigationRailDoesNotOverlapContent(window, "restored expanded navigation rail");
             dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
             Assert.AreSame(chatTab, tabs.SelectedItem, "The first navigation destination must return to the primary chat page.");
