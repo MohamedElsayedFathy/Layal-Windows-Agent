@@ -2845,6 +2845,7 @@ public partial class MainWindow : Window
         var expanded = _isBottomDockExpanded;
         var ar = IsArabic;
 
+        DockNavigationScrollViewer.Width = expanded ? 166 : 48;
         DockBrandMark.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
