@@ -2700,8 +2700,8 @@ public partial class MainWindow : Window
                                         ? (IsArabic ? "الإعدادات" : "Settings")
                                         : string.Empty;
         AutomationProperties.SetHelpText(MainTabs, IsArabic
-            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
-            : $"Current section: {currentSection}. Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
+            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل الجانبي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
+            : $"Current section: {currentSection}. Use the left navigation rail or Ctrl+1 through Ctrl+8 to choose a page.");
         var activeBrush = ThemeBrush("Layal.NavSelected", Brushes.Transparent);
         var activeBorder = ThemeBrush("Layal.NavSelectedBorder", Brushes.Transparent);
         void Set(Button button, bool active)
