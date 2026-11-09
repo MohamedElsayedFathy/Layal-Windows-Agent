@@ -1262,8 +1262,10 @@ public sealed class MainWindowVisualSmokeTests
             $"The conversation surface must use the flexible star-sized column in {language}.");
         var dockHost = window.FindName("BottomDockHost") as Grid
             ?? throw new InvalidOperationException("BottomDockHost was not found.");
-        Assert.AreEqual(VerticalAlignment.Bottom, dockHost.VerticalAlignment,
-            "The floating navigation host must stay anchored to the bottom of the application.");
+        Assert.AreEqual(VerticalAlignment.Stretch, dockHost.VerticalAlignment,
+            "The persistent navigation rail must span the available application height.");
+        Assert.AreEqual(HorizontalAlignment.Left, dockHost.HorizontalAlignment,
+            "The persistent navigation rail must remain anchored to the left edge of the application.");
 
         var taskResult = window.FindName("TaskResult") as TextBox
             ?? throw new InvalidOperationException("TaskResult was not found.");
@@ -1335,9 +1337,21 @@ public sealed class MainWindowVisualSmokeTests
     private static void AssertEmptyStateLocalizationAndVisibility(MainWindow window, string language)
     {
         var isArabic = language == "ar";
-        AssertEmptyState(window, "ChatEmptyStateText", window.ChatMessages.Count,
-            isArabic ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة." : "No messages yet. Type a message below to start the conversation.",
-            isArabic ? "حالة المحادثة الفارغة" : "Chat empty state");
+        var chatEmptyText = window.FindName("ChatEmptyStateText") as TextBlock
+            ?? throw new InvalidOperationException("ChatEmptyStateText was not found.");
+        var chatWelcomePanel = window.FindName("ChatWelcomePanel") as Border
+            ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
+        Assert.AreEqual(isArabic
+                ? "اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
+                : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.",
+            BidiTextNormalizer.StripDirectionalControls(chatEmptyText.Text),
+            "Chat welcome copy must be localized in the selected language.");
+        Assert.AreEqual(isArabic ? "حالة المحادثة الفارغة" : "Chat empty state",
+            System.Windows.Automation.AutomationProperties.GetName(chatEmptyText));
+        Assert.AreEqual(window.ChatMessages.Count == 0 ? Visibility.Visible : Visibility.Collapsed,
+            chatWelcomePanel.Visibility,
+            "The chat welcome canvas must only appear while the conversation is empty.");
+        Assert.AreEqual(TextWrapping.Wrap, chatEmptyText.TextWrapping);
         AssertEmptyState(window, "TaskEventsEmptyStateText", window.TaskEvents.Count,
             isArabic ? "لا يوجد سجل نشاط بعد. ابدأ مهمة لعرض أحداث تنفيذها هنا." : "No task activity yet. Start a task to see its events here.",
             isArabic ? "حالة سجل المهام الفارغ" : "Task activity empty state");
@@ -1556,32 +1570,58 @@ public sealed class MainWindowVisualSmokeTests
         goChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goChat));
         Assert.AreSame(chatTab, tabs.SelectedItem, "The overview chat shortcut must navigate to Chat.");
 
-        // The bottom dock is compact on startup, expands on demand, and navigates to real pages.
+        // The persistent left rail starts expanded, supports compact mode, and navigates to real pages.
         var previousPerformanceMode = AppRuntime.Settings.PerformanceModeEnabled;
         AppRuntime.Settings.PerformanceModeEnabled = true;
         var bottomDockField = typeof(MainWindow).GetField("_isBottomDockExpanded", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Bottom dock expansion state was not found.");
+            ?? throw new InvalidOperationException("Navigation rail expansion state was not found.");
         var toggleHistory = typeof(MainWindow).GetMethod("SetChatHistoryPanelOpen", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Chat history panel method was not found.");
+        var brandCopy = window.FindName("DockBrandCopy") as StackPanel
+            ?? throw new InvalidOperationException("DockBrandCopy was not found.");
+        var footerNote = window.FindName("DockFooterNote") as Border
+            ?? throw new InvalidOperationException("DockFooterNote was not found.");
+        var suggestionPlan = window.FindName("ChatSuggestionPlanButton") as Button
+            ?? throw new InvalidOperationException("ChatSuggestionPlanButton was not found.");
         try
         {
+            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
+                "The navigation rail must start expanded so destinations are immediately visible.");
+            Assert.AreEqual(166, expandedDock.Width, 0.1,
+                "The expanded navigation rail must expose its labeled destinations.");
+            Assert.AreEqual(Visibility.Visible, brandCopy.Visibility,
+                "The expanded navigation rail must show its brand label.");
+            Assert.AreEqual(Visibility.Visible, footerNote.Visibility,
+                "The expanded navigation rail must show its footer note.");
+
+            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
             Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
-                "The bottom dock must start compact rather than occupying the conversation surface.");
-            Assert.AreEqual(0, expandedDock.Width, 0.1,
-                "The labeled navigation destinations must be collapsed on startup.");
+                "The navigation rail toggle must enter compact mode.");
+            Assert.AreEqual(48, expandedDock.Width, 0.1,
+                "The compact navigation rail must retain its icon destinations.");
+            Assert.AreEqual(Visibility.Collapsed, brandCopy.Visibility,
+                "The compact navigation rail must hide its brand label.");
+            Assert.AreEqual(Visibility.Collapsed, footerNote.Visibility,
+                "The compact navigation rail must hide its footer note.");
+
             dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
             Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
-                "The dock toggle must expand the navigation destinations.");
-            Assert.AreEqual(730, expandedDock.Width, 0.1,
-                "The expanded dock must expose its complete navigation strip.");
+                "The navigation rail toggle must restore the expanded layout.");
+            Assert.AreEqual(166, expandedDock.Width, 0.1,
+                "The expanded rail must restore the full navigation width.");
             dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
-            Assert.AreSame(chatTab, tabs.SelectedItem, "The first dock destination must return to the primary chat page.");
+            Assert.AreSame(chatTab, tabs.SelectedItem, "The first navigation destination must return to the primary chat page.");
             dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));
-            Assert.AreSame(homeTab, tabs.SelectedItem, "The overview destination must open the separate dashboard.");
-            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
-            Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
-                "The dock toggle must collapse the navigation destinations again.");
-            Assert.AreEqual(0, expandedDock.Width, 0.1);
+            Assert.AreSame(homeTab, tabs.SelectedItem, "The overview navigation destination must open the dashboard.");
+            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
+                "Page navigation must not unexpectedly collapse the left navigation rail.");
+            Assert.AreEqual(166, expandedDock.Width, 0.1);
+
+            // Prompt starters must provide usable, localized text in the composer.
+            suggestionPlan.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, suggestionPlan));
+            StringAssert.Contains(ChatInput.Text, "خطة واضحة");
+            Assert.AreEqual(ChatInput.Text.Length, ChatInput.CaretIndex);
+            ChatInput.Clear();
 
             Assert.AreEqual(Visibility.Collapsed, historyPanel.Visibility,
                 "Saved conversation history must not steal space from the chat until requested.");
