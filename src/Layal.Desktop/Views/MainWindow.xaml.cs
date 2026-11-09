@@ -1432,8 +1432,8 @@ public partial class MainWindow : Window
             ? "تُعلن هنا حالة إرسال الرد أو إيقافه أو فشله."
             : "Announces when a response starts, completes, is cancelled, or fails.");
         ChatEmptyStateText.Text = ar
-            ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة."
-            : "No messages yet. Type a message below to start the conversation.";
+            ? "اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
+            : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.";
         AutomationProperties.SetName(ChatEmptyStateText, ar ? "حالة المحادثة الفارغة" : "Chat empty state");
         AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "اكتب سؤالك أو اختر اقتراحًا لملء حقل الرسالة. ستظهر الرسائل هنا بعد الإرسال." : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.");
         ChatSuggestionPlanButton.Content = ar ? "✦  ساعدني في التخطيط" : "✦  Help me plan";
