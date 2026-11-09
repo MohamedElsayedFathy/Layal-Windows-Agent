@@ -1179,6 +1179,19 @@ public partial class MainWindow : Window
             : new Thickness(16, 9, 16, 9);
     }
 
+    private void BottomDockShell_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdateMainTabsNavigationMargin();
+
+    private void UpdateMainTabsNavigationMargin()
+    {
+        if (BottomDockShell.ActualWidth <= 0)
+            return;
+
+        const double contentGap = 12;
+        var left = BottomDockHost.Margin.Left + BottomDockShell.ActualWidth + contentGap;
+        MainTabs.Margin = new Thickness(Math.Ceiling(left), 10, 14, 12);
+    }
+
     private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e) =>
         ApplyCompactWindowChrome(e.NewSize.Width);
 
@@ -1228,6 +1241,8 @@ public partial class MainWindow : Window
         Left = Math.Clamp(Left, workArea.Left, workArea.Right - Width);
         Top = Math.Clamp(Top, workArea.Top, workArea.Bottom - Height);
         ApplyCompactWindowChrome(ActualWidth > 0 ? ActualWidth : Width);
+        BottomDockShell.UpdateLayout();
+        UpdateMainTabsNavigationMargin();
     }
 
     private void MainWindow_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
@@ -2819,9 +2834,7 @@ public partial class MainWindow : Window
 
         DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        MainTabs.Margin = expanded
-            ? new Thickness(214, 10, 14, 12)
-            : new Thickness(118, 10, 14, 12);
+        UpdateMainTabsNavigationMargin();
 
         var currentWidth = Math.Max(48, DockExpandedSurface.ActualWidth);
         DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
@@ -2836,6 +2849,8 @@ public partial class MainWindow : Window
             DockExpandedSurface.Width = targetWidth;
             DockExpandedSurface.Opacity = 1;
             DockExpandedSurface.IsHitTestVisible = true;
+            BottomDockShell.UpdateLayout();
+            UpdateMainTabsNavigationMargin();
             return;
         }
 
@@ -2851,6 +2866,8 @@ public partial class MainWindow : Window
         {
             DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
             DockExpandedSurface.Width = targetWidth;
+            BottomDockShell.UpdateLayout();
+            UpdateMainTabsNavigationMargin();
         };
 
         DockExpandedSurface.IsHitTestVisible = true;
