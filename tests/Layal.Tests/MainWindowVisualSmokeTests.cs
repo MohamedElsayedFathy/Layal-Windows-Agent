@@ -590,6 +590,12 @@ public sealed class MainWindowVisualSmokeTests
             Assert.AreEqual(40, captionButton.Height, 0.1,
                 $"{captionName} must meet the 40-DIP minimum control height.");
         }
+        var closeHistoryButton = window.FindName("CloseChatHistoryButton") as Button
+            ?? throw new InvalidOperationException("CloseChatHistoryButton was not found.");
+        Assert.AreEqual(40, closeHistoryButton.Width, 0.1,
+            "The chat history close action must meet the standardized 40-DIP touch target.");
+        Assert.AreEqual(40, closeHistoryButton.Height, 0.1,
+            "The chat history close action must meet the standardized 40-DIP touch target.");
         AssertInitialWindowFitsWorkArea(window);
         AssertClockWeatherDashboard(window);
         var windowContent = window.Content as FrameworkElement
