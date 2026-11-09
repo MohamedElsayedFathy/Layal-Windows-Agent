@@ -6,7 +6,7 @@
     <Application.Resources>
         <services:TextDirectionConverter x:Key="Layal.TextDirectionConverter" />
 
-        <!-- Layal Soft Aurora design system: calm surfaces, pearl tones, indigo accents, and readable glass. -->
+        <!-- Soft Aurora: neutral pearl/slate surfaces, blue-indigo primary actions, restrained lavender accents, and readable opaque glass. -->
         <Color x:Key="Layal.Color.Background">#F4F6FA</Color>
         <Color x:Key="Layal.Color.BackgroundEnd">#EFF2F8</Color>
         <Color x:Key="Layal.Color.Surface">#FFFFFF</Color>
