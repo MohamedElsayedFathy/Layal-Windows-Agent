@@ -1157,8 +1157,8 @@ public partial class MainWindow : Window
         ChatWelcomeAvatarImage.Height = compact ? 62 : 82;
 
         ChatWelcomePanel.Margin = compact
-            ? new Thickness(6, 2)
-            : new Thickness(12, 6);
+            ? new Thickness(6, 2, 6, 2)
+            : new Thickness(12, 6, 12, 6);
         ChatWelcomePanel.Padding = compact
             ? new Thickness(12)
             : new Thickness(18);
