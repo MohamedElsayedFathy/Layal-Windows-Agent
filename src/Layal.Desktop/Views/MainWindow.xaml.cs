@@ -1435,7 +1435,10 @@ public partial class MainWindow : Window
             ? "لا توجد رسائل هنا بعد. اكتب رسالة بالأسفل لبدء المحادثة."
             : "No messages yet. Type a message below to start the conversation.";
         AutomationProperties.SetName(ChatEmptyStateText, ar ? "حالة المحادثة الفارغة" : "Chat empty state");
-        AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "أرسل رسالة أو استقبل ردًا لتظهر الرسائل في هذه القائمة." : "Send or receive a message to populate this list.");
+        AutomationProperties.SetHelpText(ChatEmptyStateText, ar ? "اكتب سؤالك أو اختر اقتراحًا لملء حقل الرسالة. ستظهر الرسائل هنا بعد الإرسال." : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.");
+        ChatSuggestionPlanButton.Content = ar ? "✦  ساعدني في التخطيط" : "✦  Help me plan";
+        ChatSuggestionSummaryButton.Content = ar ? "▤  لخّص لي محتوى" : "▤  Summarize content";
+        ChatSuggestionIdeasButton.Content = ar ? "◇  اقترح أفكارًا" : "◇  Suggest ideas";
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
@@ -5906,6 +5909,33 @@ public partial class MainWindow : Window
             UpdateVisionAttachmentControls();
             RefreshProviderStatus();
         }
+    }
+
+    private void ChatSuggestionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button)
+            return;
+
+        var prompt = button.Tag?.ToString() switch
+        {
+            "plan" => IsArabic
+                ? "ساعدني في وضع خطة واضحة وقابلة للتنفيذ للهدف التالي: "
+                : "Help me create a clear, actionable plan for this goal: ",
+            "summary" => IsArabic
+                ? "لخّص المحتوى التالي في نقاط واضحة، مع إبراز أهم النتائج: "
+                : "Summarize the following content into clear points and highlight the key takeaways: ",
+            "ideas" => IsArabic
+                ? "اقترح أفكارًا عملية ومبتكرة بخصوص: "
+                : "Suggest practical and creative ideas for: ",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(prompt))
+            return;
+
+        ChatInput.Text = prompt;
+        ChatInput.Focus();
+        ChatInput.CaretIndex = ChatInput.Text.Length;
     }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
