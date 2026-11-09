@@ -1070,6 +1070,10 @@ public partial class MainWindow : Window
         Application.Current.Resources["Layal.CardGradient"] = MakeGradient(
             ("Layal.Color.CardStart", 0),
             ("Layal.Color.CardEnd", 1));
+        Application.Current.Resources["Layal.PageHeroGradient"] = MakeGradient(
+            ("Layal.Color.CardStart", 0),
+            ("Layal.Color.HeaderMiddle", 0.58),
+            ("Layal.Color.CardEnd", 1));
         Application.Current.Resources["Layal.PrimaryButtonGradient"] = MakeGradient(
             ("Layal.Color.ButtonStart", 0),
             ("Layal.Color.ButtonEnd", 1));
