@@ -2846,6 +2846,9 @@ public partial class MainWindow : Window
         var ar = IsArabic;
 
         DockNavigationScrollViewer.Width = expanded ? 166 : 48;
+        DockNavigationScrollViewer.VerticalScrollBarVisibility = expanded
+            ? ScrollBarVisibility.Auto
+            : ScrollBarVisibility.Hidden;
         DockBrandMark.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
