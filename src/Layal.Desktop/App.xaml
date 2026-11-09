@@ -23,7 +23,7 @@
         <Color x:Key="Layal.Color.Danger">#A52740</Color>
         <Color x:Key="Layal.Color.Focus">#2563EB</Color>
         <Color x:Key="Layal.Color.HeaderStart">#F7F9FC</Color>
-        <Color x:Key="Layal.Color.HeaderMiddle">#FFFFFF</Color>
+        <Color x:Key="Layal.Color.HeaderMiddle">#FFFFFFFF</Color>
         <Color x:Key="Layal.Color.HeaderEnd">#EFF2F8</Color>
         <Color x:Key="Layal.Color.CardStart">#FFFFFFFF</Color>
         <Color x:Key="Layal.Color.CardEnd">#FFF9FBFE</Color>
@@ -39,8 +39,8 @@
         <Color x:Key="Layal.Color.ListHover">#F1F5FA</Color>
         <Color x:Key="Layal.Color.ListSelected">#E5EDFA</Color>
         <Color x:Key="Layal.Color.InputFocus">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.HoverSurface">#F1F5FA</Color>
-        <Color x:Key="Layal.Color.MenuHover">#F1F5FA</Color>
+        <Color x:Key="Layal.Color.HoverSurface">#EDF2F8</Color>
+        <Color x:Key="Layal.Color.MenuHover">#E5EDFA</Color>
         <Color x:Key="Layal.Color.MenuHoverText">#18283F</Color>
         <Color x:Key="Layal.Color.Shadow">#7A899E</Color>
         <!-- Keep the ambient aurora restrained; the content surfaces remain the visual focus. -->
