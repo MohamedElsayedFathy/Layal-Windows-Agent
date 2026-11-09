@@ -93,58 +93,149 @@
             <Button x:Name="CloseWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE8BB;" Click="CloseWindowButton_Click"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="إغلاق / Close" AutomationProperties.Name="إغلاق / Close" />
         </StackPanel>
-        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="14,0,14,88" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
+        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="214,10,14,12" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
             <TabItem x:Name="HomeTab" Header="نظرة عامة" Tag="&#xE80F;">
                 <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
-<ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18">
-                        <Border Style="{StaticResource Layal.PageHero}">
-                        <Grid Margin="0" MinHeight="176">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="190" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock Text="LAYAL WORKSPACE  /  مساحة عملك" Style="{StaticResource Layal.SectionEyebrow}" />
-                                <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontWeight="SemiBold" Margin="0,0,0,8" Style="{StaticResource Layal.PageHeading}"/>
-                                <TextBlock x:Name="HomeDescription" Text="هذه النسخة هي الأساس الأصلي لتطبيق Windows. ابدأ بربط نموذج حقيقي من الإعدادات." TextWrapping="Wrap" Margin="0,0,0,0" Style="{StaticResource Layal.PageDescription}"/>
-                            </StackPanel>
-                            <Image x:Name="HomeLayalImage"
-                                   Grid.Column="1" Width="176" Height="172"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center"
-                                   Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
-                                   Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
-                                   IsHitTestVisible="False" Focusable="False" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid Margin="22">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Style="{StaticResource Layal.PageHero}" Padding="26" Margin="0,0,0,16">
+                                <Grid MinHeight="190">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="210"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" MaxWidth="700">
+                                        <TextBlock Text="YOUR AI DESK  /  مساحة عملك الذكية" Style="{StaticResource Layal.SectionEyebrow}"/>
+                                        <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontWeight="SemiBold"
+                                                   Margin="0,0,0,10" Style="{StaticResource Layal.PageHeading}"/>
+                                        <TextBlock x:Name="HomeDescription"
+                                                   Text="مساحة واحدة للمحادثة والمهام والذاكرة والأدوات. اربط مزود الذكاء الاصطناعي وابدأ من هنا."
+                                                   TextWrapping="Wrap" MaxWidth="620" Style="{StaticResource Layal.PageDescription}"/>
+                                        <WrapPanel Margin="0,16,0,0">
+                                            <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"
+                                                    Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="42" Padding="20,10"/>
+                                            <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"
+                                                    MinHeight="42" Padding="18,10"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" Width="190" Height="176" CornerRadius="30"
+                                            Background="{DynamicResource Layal.PageHeroGradient}"
+                                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Image x:Name="HomeLayalImage" Width="176" Height="172"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
+                                               Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                                               IsHitTestVisible="False" Focusable="False"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <Grid Grid.Row="1" Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                    <StackPanel>
+                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
+                                            <TextBlock Text="✦" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardAiValue" Text="غير متصل" FontSize="19" FontWeight="Bold"
+                                                   Foreground="{DynamicResource Layal.Warning}" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات"
+                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                    <StackPanel>
+                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
+                                            <TextBlock Text="◉" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardMascotValue" Text="نافذة Windows أصلية" FontSize="17" FontWeight="Bold"
+                                                   Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="CardMascotHint" Text="اسحب ليال على سطح المكتب، وانقر مرتين لفتح الواجهة."
+                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                    <StackPanel>
+                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
+                                            <TextBlock Text="⌘" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardToolsValue" Text="أداة آمنة متاحة" FontSize="17" FontWeight="Bold"
+                                                   Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه."
+                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="3" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                    <StackPanel>
+                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
+                                            <TextBlock Text="◇" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardSkillsValue" Text="استيراد ZIP مع التحقق" FontSize="17" FontWeight="Bold"
+                                                   Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها."
+                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Border Grid.Row="2" Style="{StaticResource Layal.DashboardCard}" Padding="18" Margin="4,0,4,14">
+                                <StackPanel>
+                                    <TextBlock Text="QUICK LAUNCH  /  وصول سريع" Style="{StaticResource Layal.SectionEyebrow}"/>
+                                    <TextBlock Text="ابدأ مباشرة" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Text="أوامر قصيرة تفتح لك أهم أجزاء مساحة العمل." FontSize="11"
+                                               Foreground="{DynamicResource Layal.Muted}" Margin="0,0,0,10"/>
+                                    <WrapPanel>
+                                        <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click"
+                                                Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="42" Padding="18,10"/>
+                                        <Button Content="فتح المهام" Click="DockTasksButton_Click" MinHeight="42" Padding="18,10"/>
+                                        <Button Content="فتح الذاكرة" Click="DockMemoryButton_Click" MinHeight="42" Padding="18,10"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Row="3" Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="18"
+                                    Padding="16" Margin="4,0,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="32" Height="32" CornerRadius="11" Background="{DynamicResource Layal.NavSelected}">
+                                        <TextBlock Text="i" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="ملاحظة حول حالة الميزات" FontSize="12" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="HomeCaveat"
+                                                   Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة."
+                                                   Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <TextBlock x:Name="HomeResult" Grid.Row="4" Text="" Foreground="{DynamicResource Layal.Success}"
+                                       TextWrapping="Wrap" Margin="6,12,6,0" AutomationProperties.Name="نتيجة الإجراء"
+                                       AutomationProperties.LiveSetting="Polite"/>
                         </Grid>
-                        </Border>
-
-
-                        <UniformGrid Columns="2" Rows="2" Margin="0,0,0,12">
-                            <Border Style="{StaticResource Layal.DashboardCard}">
-                                <StackPanel><TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardAiValue" Text="غير متصل" Foreground="{DynamicResource Layal.Warning}" Margin="0,8,0,0"/><TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource Layal.DashboardCard}">
-                                <StackPanel><TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardMascotValue" Text="نافذة Windows أصلية" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardMascotHint" Text="اسحب ليال في سطح المكتب، وانقر مرتين لفتح الواجهة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource Layal.DashboardCard}">
-                                <StackPanel><TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardToolsValue" Text="أداة آمنة متاحة" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource Layal.DashboardCard}">
-                                <StackPanel><TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="CardSkillsValue" Text="استيراد ZIP مع التحقق" Foreground="{DynamicResource Layal.Success}" Margin="0,8,0,0"/><TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel>
-                            </Border>
-                        </UniformGrid>
-                        <WrapPanel Margin="0,4,0,10">
-                            <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
-                            <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"/>
-                            <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"/>
-                        </WrapPanel>
-                        <Border Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="14" Padding="16" Margin="4,8,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}">
-                            <TextBlock x:Name="HomeCaveat" Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"/>
-                        </Border>
-                        <TextBlock x:Name="HomeResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="6,12,6,0" AutomationProperties.Name="نتيجة الإجراء" AutomationProperties.LiveSetting="Polite"/>
-                    </StackPanel>
-                </ScrollViewer>
-</Border>
+                    </ScrollViewer>
+                </Border>
             </TabItem>
 
             <TabItem x:Name="ChatTab" Header="الرئيسية" Tag="&#xE8BD;">
@@ -194,7 +285,7 @@
                     <Grid x:Name="ChatConversationSurface" Grid.Column="1">
                 <Grid Margin="10">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Border Grid.Row="0" Margin="3,0,3,8" Padding="16,10" CornerRadius="22" Background="{DynamicResource Layal.GlassStrongFill}"
+                    <Border Grid.Row="0" Margin="3,0,3,10" Padding="18,14" CornerRadius="24" Background="{DynamicResource Layal.PageHeroGradient}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -206,7 +297,7 @@
                                            FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
                                            Margin="0,0,0,3"/>
                                 <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال"
-                                           FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}"/>
+                                           FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}" Margin="0,0,0,3"/>
                             </StackPanel>
                             <TextBlock x:Name="ChatProviderStatus" DockPanel.Dock="Right" Text="لا يوجد اتصال مختبَر"
                                        Foreground="{DynamicResource Layal.Warning}" VerticalAlignment="Center"
@@ -235,7 +326,7 @@
                     </Border>
 
                     <Border x:Name="ClockWeatherCard" Grid.Row="1" Background="{DynamicResource Layal.GlassFill}"
-                                                    CornerRadius="18" Padding="10" Margin="3,0,3,6"
+                                                    CornerRadius="15" Padding="5,3" Margin="3,0,3,6"
                                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                                                     Effect="{DynamicResource Layal.CardShadow}">
                                                 <Grid>
@@ -250,11 +341,11 @@
                                                                    FontSize="13" FontWeight="SemiBold"
                                                                    Foreground="{DynamicResource Layal.Muted}"/>
                                                         <TextBlock x:Name="ClockTimeText" Text="--:--:--"
-                                                                   FontSize="26" FontWeight="SemiBold" Margin="0,3,0,0"
+                                                                   FontSize="18" FontWeight="SemiBold" Margin="0,1,0,0"
                                                                    AutomationProperties.Name="الوقت المحلي"/>
                                                         <TextBlock x:Name="CurrentDateText" Text="جارٍ تحميل التاريخ"
-                                                                   FontSize="13" TextWrapping="Wrap"
-                                                                   Foreground="{DynamicResource Layal.Muted}" Margin="0,2,0,0"
+                                                                   FontSize="10" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource Layal.Muted}" Margin="0,1,0,0"
                                                                    AutomationProperties.Name="التاريخ المحلي"/>
                                                     </StackPanel>
                                                     <Border Grid.Column="1" Width="1" Height="62"
@@ -298,14 +389,14 @@
                                                             AutomationProperties.HelpText="يجلب الطقس للمدينة المحددة في الإعدادات."/>
                                                 </Grid>
                                             </Border>
-                    <Border x:Name="ChatMessagesShell" Grid.Row="2" Margin="3,0,3,6" CornerRadius="22"
+                    <Border x:Name="ChatMessagesShell" Grid.Row="2" Margin="3,0,3,8" CornerRadius="24"
                             Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                             BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}" IsHitTestVisible="False"/>
-                    <ListBox x:Name="ChatMessagesList" Grid.Row="2" Margin="5,3,5,9" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="12" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
+                    <ListBox x:Name="ChatMessagesList" Grid.Row="2" Margin="5,3,5,9" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="18" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border x:Name="Bubble" Background="{DynamicResource Layal.GlassStrongFill}" CornerRadius="20" Padding="15,10" Margin="6,4"
-                                        BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1" MaxWidth="640" HorizontalAlignment="Left">
+                                <Border x:Name="Bubble" Background="{DynamicResource Layal.GlassStrongFill}" CornerRadius="20" Padding="18,13" Margin="8,6"
+                                        BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1" MaxWidth="780" HorizontalAlignment="Left">
                                     <Border.ContextMenu>
                                         <ContextMenu Opened="ChatMessageContextMenu_Opening">
                                             <MenuItem Header="نسخ الرسالة" Click="CopyChatMessage_Click"/>
@@ -330,25 +421,85 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock x:Name="ChatEmptyStateText" Grid.Row="2"
-                               Text="No messages yet. Type a message below to start the conversation."
-                               AutomationProperties.Name="Chat empty state"
-                               AutomationProperties.HelpText="The message list becomes populated after you send or receive a message.">
-                        <TextBlock.Style>
-                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Layal.EmptyStateText}">
+                    <Border x:Name="ChatWelcomePanel" Grid.Row="2" Margin="18,12" Padding="28"
+                            Background="{DynamicResource Layal.GlassFill}"
+                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                            CornerRadius="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MaxWidth="860">
+                        <Border.Style>
+                            <Style TargetType="{x:Type Border}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding ChatMessages.Count}" Value="0">
-                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Visibility" Value="Visible"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                        </Border.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="112" Height="112" CornerRadius="34"
+                                    Background="{DynamicResource Layal.PageHeroGradient}"
+                                    BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                    VerticalAlignment="Center" Margin="0,0,24,0">
+                                <Image Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
+                                       Width="104" Height="104" Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       IsHitTestVisible="False" Focusable="False"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="YOUR AI DESK  /  مساعدتك الذكية"
+                                           Style="{StaticResource Layal.SectionEyebrow}"/>
+                                <TextBlock Text="نبدأ بإيه النهارده؟" FontSize="25" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Layal.Text}" Margin="0,0,0,7"/>
+                                <TextBlock x:Name="ChatEmptyStateText"
+                                           Text="اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
+                                           FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                           TextWrapping="Wrap" MaxWidth="560" Margin="0,0,0,16"
+                                           AutomationProperties.Name="Chat empty state"
+                                           AutomationProperties.HelpText="تظهر الرسائل هنا بعد إرسال أو استقبال رسالة."/>
+                                <WrapPanel>
+                                    <Button x:Name="ChatSuggestionPlanButton" Content="✦  ساعدني في التخطيط"
+                                            Tag="plan" Click="ChatSuggestionButton_Click"
+                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            AutomationProperties.Name="اقتراح بدء محادثة للتخطيط"/>
+                                    <Button x:Name="ChatSuggestionSummaryButton" Content="▤  لخّص لي محتوى"
+                                            Tag="summary" Click="ChatSuggestionButton_Click"
+                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            AutomationProperties.Name="اقتراح بدء محادثة للتلخيص"/>
+                                    <Button x:Name="ChatSuggestionIdeasButton" Content="◇  اقترح أفكارًا"
+                                            Tag="ideas" Click="ChatSuggestionButton_Click"
+                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            AutomationProperties.Name="اقتراح بدء محادثة لتوليد الأفكار"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                     <Border x:Name="ChatStatusShell" Grid.Row="3" Margin="3,0,3,6" CornerRadius="18"
                             Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                             BorderThickness="1" IsHitTestVisible="False"/>
                     <StackPanel Grid.Row="3" Margin="10,3">
-                        <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,2">
+                        <Expander x:Name="ChatToolsExpander" IsExpanded="False" Margin="0,0,0,3"
+                                  Background="{DynamicResource Layal.Panel}"
+                                  BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                  AutomationProperties.Name="أدوات المحادثة والمرفقات"
+                                  AutomationProperties.HelpText="افتح هذه المنطقة للوصول إلى التقاط الشاشة والملفات والكاميرا والخصوصية والبريد.">
+                            <Expander.Header>
+                                <DockPanel LastChildFill="True">
+                                    <TextBlock DockPanel.Dock="Right" Text="⌄" FontSize="15" FontWeight="Bold"
+                                               Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="أدوات المحادثة والمرفقات" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="10"
+                                               Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
+                                </DockPanel>
+                            </Expander.Header>
+                            <Border Background="{DynamicResource Layal.GlassFill}" CornerRadius="14" Padding="8" Margin="4">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="120">
+                                    <WrapPanel HorizontalAlignment="Right">
+
                             <Button x:Name="QuickAskButton" Content="سؤال سريع" Click="QuickAskButton_Click" MinWidth="100"
                                     ToolTip="اسأل كتابةً من أي برنامج. الاختصار Alt+Shift+S."
                                     AutomationProperties.Name="سؤال سريع"
@@ -406,19 +557,26 @@
                             <TextBlock x:Name="DocumentAttachmentStatus" Text="لا يوجد ملف مرفق" VerticalAlignment="Center"
                                        MaxWidth="280" Margin="8,0,4,0" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
                                        AutomationProperties.Name="حالة الملف النصي المرفق" AutomationProperties.LiveSetting="Polite"/>
-                        </WrapPanel>
-                        <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية." FontSize="11" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0"/>
-                        <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+
+                                    </WrapPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </Expander>
+                        <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية."
+                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,2,4,0"/>
+                        <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}"
+                                   FontSize="10" TextWrapping="Wrap" Margin="4,0"
                                    AutomationProperties.Name="حالة المحادثة" AutomationProperties.LiveSetting="Polite"/>
-                        <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap"
+                        <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}"
+                                   FontSize="10" TextWrapping="Wrap" Margin="4,0"
                                    AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
-                    <Border x:Name="ChatComposerShell" Grid.Row="4" Margin="3,0,3,0" Padding="5,4" CornerRadius="22"
+                    <Border x:Name="ChatComposerShell" Grid.Row="4" Margin="3,2,3,0" Padding="10,8" CornerRadius="25"
                             Background="{DynamicResource Layal.GlassStrongFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                             BorderThickness="1">
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="46" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.AutomationId="ChatInput" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+1 ينقلك إلى هذا الحقل."/>
+                        <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="54" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.AutomationId="ChatInput" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+1 ينقلك إلى هذا الحقل."/>
                         <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي فقط؛ لا يُرسل الصوت إلا بعد تأكيدك." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. لن يُرسل الصوت إلى المزود إلا بعد تأكيد منفصل، وسيظهر النص للمراجعة قبل الإرسال."/>
                         <Button x:Name="VoiceConversationButton" Grid.Column="2" Content="بدء المحادثة الصوتية" Click="VoiceConversationButton_Click" MinWidth="148"
                                 ToolTip="محادثة صوتية مباشرة: يستخدم الميكروفون ويبث الصوت إلى موفر Realtime حتى تضغط إيقاف."
@@ -427,7 +585,7 @@
                                 Visibility="Collapsed" MinWidth="110"
                                 AutomationProperties.Name="كتم ميكروفون المحادثة الصوتية"
                                 AutomationProperties.HelpText="يكتم الميكروفون مؤقتًا دون إنهاء المحادثة؛ اضغط مرة أخرى لإعادة تشغيله."/>
-                        <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="4" Content="إرسال" Click="SendButton_Click" MinWidth="84"/>
+                        <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="4" Content="إرسال" Click="SendButton_Click" MinWidth="92" MinHeight="48"/>
                         <Button x:Name="CancelResponseButton" Grid.Column="5" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
                     </Border>
@@ -448,54 +606,94 @@
                             <TextBlock x:Name="TasksDescription" Text="اكتب مهمة. ستطلب ليال موافقتك قبل الأدوات التي تغيّر الملفات أو تفتح تطبيقات أو تشارك بيانات." TextWrapping="Wrap" Margin="0,0,0,12" Style="{StaticResource Layal.PageDescription}"/>
                         </StackPanel>
                     </Border>
-                    <StackPanel Grid.Row="2" Margin="0,0,0,10">
-                        <TextBox x:Name="TaskInput" MinHeight="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="اكتب المهمة بالعربية أو الإنجليزية" AutomationProperties.Name="وصف المهمة / Task description" AutomationProperties.HelpText="صف المهمة التي تريد تنفيذها / Describe the task you want to perform. استخدم Tab للوصول إلى زر تنفيذ المهمة."/>
-                        <WrapPanel Margin="0,8,0,0">
-                            <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click" Background="{DynamicResource Layal.PrimaryButtonGradient}"/>
-                            <Button x:Name="CancelAgentTaskButton" Content="إيقاف المهمة" Click="CancelAgentTaskButton_Click" IsEnabled="False" Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
-                            <Button x:Name="TaskOpenNotepadButton" Content="فتح المفكرة (اختبار)" Click="OpenNotepadButton_Click"/>
-                            <Button x:Name="ManageRemindersButton" Content="التذكيرات" Click="ManageRemindersButton_Click"
-                                    MinWidth="105" ToolTip="إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
-                                    AutomationProperties.Name="إدارة التذكيرات المحلية"
-                                    AutomationProperties.HelpText="أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."/>
-                            <Button x:Name="ManageRoutinesButton" Content="الروتينات" Click="ManageRoutinesButton_Click"
-                                    MinWidth="105" ToolTip="احفظ قوالب مشفرة؛ أدرجها في مسودة أو شغّلها بعد مراجعة الخطة والتأكيد."
-                                    AutomationProperties.Name="إدارة الروتينات المحفوظة"
-                                    AutomationProperties.HelpText="الروتينات قوالب نصية مشفرة محليًا وليست سكربتات؛ استخدام المسودة لا يشغّلها، والتشغيل يتطلب تأكيدًا إضافيًا وموافقة مستقلة لكل أداة."/>
-                            <Button x:Name="WorkspaceHubButton" Content="مساحة العمل" Click="WorkspaceHubButton_Click"
-                                    MinWidth="115" ToolTip="بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
-                                    AutomationProperties.Name="فتح مساحة عمل ليال الموحدة"
-                                    AutomationProperties.HelpText="يعرض المهام والملاحظات وبيانات الملفات محليًا. لا يقرأ محتوى الملفات تلقائيًا؛ التصدير غير مشفر بعد تأكيدك."/>
-                            <Button x:Name="GameModeButton" Content="وضع الألعاب" Click="GameModeButton_Click" MinWidth="110"
-                                    ToolTip="يفتح HUD يدويًا؛ الكشف التلقائي اختياري ويعتمد على اسم عملية النافذة الأمامية في قائمة سماح تحددها."
-                                    AutomationProperties.Name="تفعيل وضع الألعاب اليدوي"
-                                    AutomationProperties.HelpText="يفتح HUD فوق سطح المكتب ويوقف المتابعة الاستباقية فقط. التذكيرات التي أنشأتها تستمر كالمعتاد؛ لا يقرأ بيانات اللعبة ولا يتحكم بها."/>
-                            <Button x:Name="GameModeSettingsButton" Content="إعداد اكتشاف الألعاب" Click="ConfigureGameModeDetectionButton_Click" MinWidth="145"
-                                    ToolTip="اختياري ومغلق افتراضيًا؛ يطابق اسم عملية النافذة الأمامية مع قائمة سماح تحددها."
-                                    AutomationProperties.Name="إعداد الكشف التلقائي للألعاب"
-                                    AutomationProperties.HelpText="لا يقرأ عناوين النوافذ أو سطر الأوامر أو ذاكرة اللعبة ولا يحقن مدخلات. يتطلب قائمة سماح صريحة."/>
-                        </WrapPanel>
-                        <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,6,4,0"/>
-                        <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,5,4,0"/>
-                        <TextBlock x:Name="TaskSafeToolDescription" Text="الأدوات المتاحة محددة؛ لا يوجد وصول عام غير مقيد إلى سطر الأوامر أو الملفات." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,3,4,0"/>
-                        <WrapPanel Margin="4,8,4,0" VerticalAlignment="Center">
-                            <CheckBox x:Name="ProactiveCheckInEnabledCheckBox" Content="تذكيرات متابعة استباقية" Click="ProactiveCheckInEnabledCheckBox_Click"
-                                      VerticalAlignment="Center" Margin="0,0,10,0"
-                                      AutomationProperties.Name="تفعيل تذكيرات المتابعة المجدولة"
-                                      AutomationProperties.HelpText="إشعارات محلية في موعد تختاره. لا تراقب الشاشة أو التطبيقات ولا تستدعي نموذج AI في الخلفية."/>
-                            <ComboBox x:Name="ProactiveCheckInIntervalSelector" Width="130" MinHeight="28"
-                                      SelectionChanged="ProactiveCheckInIntervalSelector_SelectionChanged"
-                                      AutomationProperties.Name="الفاصل الزمني لتذكير المتابعة"
-                                      AutomationProperties.HelpText="اختر 15 أو 30 أو 60 أو 120 دقيقة بين إشعارات المتابعة.">
-                                <ComboBoxItem Content="15 دقيقة" Tag="15"/>
-                                <ComboBoxItem Content="30 دقيقة" Tag="30"/>
-                                <ComboBoxItem Content="60 دقيقة" Tag="60"/>
-                                <ComboBoxItem Content="120 دقيقة" Tag="120"/>
-                            </ComboBox>
-                        </WrapPanel>
-                        <TextBlock x:Name="ProactiveCheckInPrivacyNote" Text="الوضع الاستباقي هنا يرسل تذكيرًا محليًا فقط، ولا يفحص النوافذ أو الشاشة أو الملفات."
-                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,0"
-                                   AutomationProperties.Name="حدود خصوصية تذكيرات المتابعة"/>
+                    <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                        <Border Style="{StaticResource Layal.DashboardCard}" Padding="16" Margin="4,0,4,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="TASK COMPOSER  /  اكتب ما تريد إنجازه" Style="{StaticResource Layal.SectionEyebrow}"/>
+                                    <TextBox x:Name="TaskInput" MinHeight="88" TextWrapping="Wrap" AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto" Margin="0,5,12,0"
+                                             ToolTip="اكتب المهمة بالعربية أو الإنجليزية"
+                                             AutomationProperties.Name="وصف المهمة / Task description"
+                                             AutomationProperties.HelpText="صف المهمة التي تريد تنفيذها / Describe the task you want to perform. استخدم Tab للوصول إلى زر تنفيذ المهمة."/>
+                                    <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة."
+                                               Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="4,7,4,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="112">
+                                    <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click"
+                                            Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="46" Margin="3"/>
+                                    <Button x:Name="CancelAgentTaskButton" Content="إيقاف المهمة" Click="CancelAgentTaskButton_Click"
+                                            IsEnabled="False" MinHeight="40" Margin="3"
+                                            Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <Expander x:Name="TaskToolsExpander" IsExpanded="False" Margin="4,0,4,0"
+                                  Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                                  BorderThickness="1" AutomationProperties.Name="أدوات وإعدادات المهمة"
+                                  AutomationProperties.HelpText="أدوات Windows والتذكيرات والروتينات وإعدادات المتابعة الاستباقية.">
+                            <Expander.Header>
+                                <DockPanel>
+                                    <TextBlock Text="⌄" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="أدوات وإعدادات المهمة" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="10" Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
+                                </DockPanel>
+                            </Expander.Header>
+                            <Border Background="{DynamicResource Layal.GlassFill}" CornerRadius="14" Padding="10" Margin="4">
+                                <StackPanel>
+                                    <WrapPanel>
+                                        <Button x:Name="TaskOpenNotepadButton" Content="فتح المفكرة (اختبار)" Click="OpenNotepadButton_Click"/>
+                                        <Button x:Name="ManageRemindersButton" Content="التذكيرات" Click="ManageRemindersButton_Click"
+                                                MinWidth="105" ToolTip="إدارة تذكيرات محلية مشفرة؛ تظهر الإشعارات أثناء تشغيل ليال."
+                                                AutomationProperties.Name="إدارة التذكيرات المحلية"
+                                                AutomationProperties.HelpText="أنشئ تذكيرًا لمرة واحدة أو يوميًا أو أسبوعيًا. تُحفظ التذكيرات مشفرة محليًا ولا تُرسل لمزود AI."/>
+                                        <Button x:Name="ManageRoutinesButton" Content="الروتينات" Click="ManageRoutinesButton_Click"
+                                                MinWidth="105" ToolTip="احفظ قوالب مشفرة؛ أدرجها في مسودة أو شغّلها بعد مراجعة الخطة والتأكيد."
+                                                AutomationProperties.Name="إدارة الروتينات المحفوظة"
+                                                AutomationProperties.HelpText="الروتينات قوالب نصية مشفرة محليًا وليست سكربتات؛ استخدام المسودة لا يشغّلها، والتشغيل يتطلب تأكيدًا إضافيًا وموافقة مستقلة لكل أداة."/>
+                                        <Button x:Name="WorkspaceHubButton" Content="مساحة العمل" Click="WorkspaceHubButton_Click"
+                                                MinWidth="115" ToolTip="بحث محلي موحد في المهام والملاحظات وملفات LayalWorkspace."
+                                                AutomationProperties.Name="فتح مساحة عمل ليال الموحدة"
+                                                AutomationProperties.HelpText="يعرض المهام والملاحظات وبيانات الملفات محليًا. لا يقرأ محتوى الملفات تلقائيًا؛ التصدير غير مشفر بعد تأكيدك."/>
+                                        <Button x:Name="GameModeButton" Content="وضع الألعاب" Click="GameModeButton_Click" MinWidth="110"
+                                                ToolTip="يفتح HUD يدويًا؛ الكشف التلقائي اختياري ويعتمد على اسم عملية النافذة الأمامية في قائمة سماح تحددها."
+                                                AutomationProperties.Name="تفعيل وضع الألعاب اليدوي"
+                                                AutomationProperties.HelpText="يفتح HUD فوق سطح المكتب ويوقف المتابعة الاستباقية فقط. التذكيرات التي أنشأتها تستمر كالمعتاد؛ لا يقرأ بيانات اللعبة ولا يتحكم بها."/>
+                                        <Button x:Name="GameModeSettingsButton" Content="إعداد اكتشاف الألعاب" Click="ConfigureGameModeDetectionButton_Click" MinWidth="145"
+                                                ToolTip="اختياري ومغلق افتراضيًا؛ يطابق اسم عملية النافذة الأمامية مع قائمة سماح تحددها."
+                                                AutomationProperties.Name="إعداد الكشف التلقائي للألعاب"
+                                                AutomationProperties.HelpText="لا يقرأ عناوين النوافذ أو سطر الأوامر أو ذاكرة اللعبة ولا يحقن مدخلات. يتطلب قائمة سماح صريحة."/>
+                                    </WrapPanel>
+                                    <Separator Margin="4,10"/>
+                                    <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,2,4,0"/>
+                                    <TextBlock x:Name="TaskSafeToolDescription" Text="الأدوات المتاحة محددة؛ لا يوجد وصول عام غير مقيد إلى سطر الأوامر أو الملفات."
+                                               Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="4,3,4,0"/>
+                                    <WrapPanel Margin="4,10,4,0" VerticalAlignment="Center">
+                                        <CheckBox x:Name="ProactiveCheckInEnabledCheckBox" Content="تذكيرات متابعة استباقية"
+                                                  Click="ProactiveCheckInEnabledCheckBox_Click" VerticalAlignment="Center" Margin="0,0,10,0"
+                                                  AutomationProperties.Name="تفعيل تذكيرات المتابعة المجدولة"
+                                                  AutomationProperties.HelpText="إشعارات محلية في موعد تختاره. لا تراقب الشاشة أو التطبيقات ولا تستدعي نموذج AI في الخلفية."/>
+                                        <ComboBox x:Name="ProactiveCheckInIntervalSelector" Width="130" MinHeight="28"
+                                                  SelectionChanged="ProactiveCheckInIntervalSelector_SelectionChanged"
+                                                  AutomationProperties.Name="الفاصل الزمني لتذكير المتابعة"
+                                                  AutomationProperties.HelpText="اختر 15 أو 30 أو 60 أو 120 دقيقة بين إشعارات المتابعة.">
+                                            <ComboBoxItem Content="15 دقيقة" Tag="15"/>
+                                            <ComboBoxItem Content="30 دقيقة" Tag="30"/>
+                                            <ComboBoxItem Content="60 دقيقة" Tag="60"/>
+                                            <ComboBoxItem Content="120 دقيقة" Tag="120"/>
+                                        </ComboBox>
+                                    </WrapPanel>
+                                    <TextBlock x:Name="ProactiveCheckInPrivacyNote"
+                                               Text="الوضع الاستباقي هنا يرسل تذكيرًا محليًا فقط، ولا يفحص النوافذ أو الشاشة أو الملفات."
+                                               Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="4,6,4,0"
+                                               AutomationProperties.Name="حدود خصوصية تذكيرات المتابعة"/>
+                                </StackPanel>
+                            </Border>
+                        </Expander>
                     </StackPanel>
                     <Grid Grid.Row="3">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
@@ -580,8 +778,8 @@
                             <TextBlock x:Name="SkillsDescription" Text="استورد ZIP أو رابط GitHub لمجلد مهارة. حدد حتى 3 مهارات لاستخدام نصوصها كمراجع فقط؛ السكربتات لا تُشغّل." TextWrapping="Wrap" Margin="0,7,0,12" Style="{StaticResource Layal.PageDescription}"/>
                         </StackPanel>
                     </Border>
-                    <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" AutomationProperties.Name="المهارات المثبتة" AutomationProperties.HelpText="يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
-                        <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="11" Padding="12" Margin="3" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FlowDirection="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" FlowDirection="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" FlowDirection="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                    <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" AutomationProperties.Name="المهارات المثبتة" AutomationProperties.HelpText="يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1" Padding="10">
+                        <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="15" Margin="4" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FlowDirection="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" FlowDirection="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" FlowDirection="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
                     <TextBlock x:Name="SkillsEmptyStateText" Grid.Row="2"
                                Text="No skills installed. Import a ZIP or GitHub folder to get started."
@@ -608,24 +806,60 @@
 </Border>
             </TabItem>
 
-            <TabItem x:Name="CamerasTab" Header="الكاميرات" Tag="&#xE722;">
+            <TabItem x:Name="CamerasTab" Header="الكاميرات" Tag="&#xE714;">
                 <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
-<StackPanel Margin="20">
-                    <Border Style="{StaticResource Layal.PageHero}">
-                        <StackPanel>
-                            <TextBlock Text="VISION CENTER  /  مركز الرؤية" Style="{StaticResource Layal.SectionEyebrow}"/>
-                            <TextBlock x:Name="CamerasHeading" Text="الكاميرات والرؤية الحاسوبية" FontWeight="SemiBold" Margin="0,0,0,12" Style="{StaticResource Layal.PageHeading}"/>
-                            <TextBlock Text="مساحة موحدة لإدارة مصادر الرؤية وحالة الاتصال. ستظهر معاينة حقيقية فقط بعد ربط مصدر مصرح به." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource Layal.DashboardCard}" Padding="22" Margin="0,0,0,8">
-                        <StackPanel>
-                            <TextBlock x:Name="CameraStatus" Text="غير متصل — التكامل الحقيقي غير منفذ في إصدار الأساس" Foreground="{DynamicResource Layal.Warning}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="CameraDescription" Text="سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا." TextWrapping="Wrap" Margin="0,10,0,0" Style="{StaticResource Layal.PageDescription}"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-</Border>
+                    <Grid Margin="22">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0" Style="{StaticResource Layal.PageHero}" Padding="24">
+                            <StackPanel>
+                                <TextBlock Text="VISION CENTER  /  مركز الرؤية" Style="{StaticResource Layal.SectionEyebrow}"/>
+                                <TextBlock x:Name="CamerasHeading" Text="الكاميرات والرؤية الحاسوبية"
+                                           FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}"/>
+                                <TextBlock x:Name="CameraStatus" Text="غير متصل — التكامل الحقيقي غير منفذ في إصدار الأساس"
+                                           Foreground="{DynamicResource Layal.Warning}" FontWeight="SemiBold"
+                                           TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                <TextBlock x:Name="CamerasDescription"
+                                           Text="مساحة موحدة لإدارة مصادر الرؤية وحالة الاتصال. ستظهر معاينة حقيقية فقط بعد ربط مصدر مصرح به."
+                                           TextWrapping="Wrap" Margin="0,7,0,0" Style="{StaticResource Layal.PageDescription}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1" Margin="4,16,4,4" Background="{DynamicResource Layal.GlassFill}"
+                                BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                CornerRadius="24" Padding="24">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Width="78" Height="78" CornerRadius="26" Background="{DynamicResource Layal.NavSelected}"
+                                        BorderBrush="{DynamicResource Layal.NavSelectedBorder}" BorderThickness="1"
+                                        HorizontalAlignment="Center" Margin="0,10,0,16">
+                                    <TextBlock Text="◉" FontSize="38" Foreground="{DynamicResource Layal.Cyan}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Row="1" Text="لا يوجد مصدر كاميرا متصل حاليًا"
+                                           FontSize="19" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                           TextAlignment="Center" Margin="0,0,0,10"/>
+                                <StackPanel Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Center" MaxWidth="620">
+                                    <TextBlock x:Name="CameraDescription"
+                                               Text="سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا."
+                                               Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                               TextAlignment="Center" FontSize="12"/>
+                                    <Border Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="14"
+                                            Padding="14" Margin="0,18,0,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
+                                        <TextBlock Text="لن تظهر أي صورة أو بث إلا بعد إضافة مصدر حقيقي ومنح الإذن اللازم."
+                                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
+                                                   TextAlignment="Center" FontSize="11"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
             </TabItem>
 
             <TabItem x:Name="MemoryTab" Header="الذاكرة" Tag="&#xE7C3;">
@@ -639,7 +873,10 @@
                             <TextBlock x:Name="MemoryDescription" Text="ملاحظات تحفظها أنت. تُشفّر محليًا بحماية Windows DPAPI؛ البحث الذي يشارك النتائج مع AI يتطلب موافقة." TextWrapping="Wrap" Margin="0,6,0,0" Style="{StaticResource Layal.PageDescription}"/>
                         </StackPanel>
                     </Border>
-                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                    <Border Grid.Row="1" Background="{DynamicResource Layal.GlassFill}"
+                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                            CornerRadius="20" Padding="12" Margin="0,0,0,12">
+                        <StackPanel>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="34" ToolTip="بحث في الذاكرة"
@@ -677,12 +914,16 @@
                         <TextBlock x:Name="MemoryFilterNotice" Text="" Margin="4,4,4,0"
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
                                    AutomationProperties.LiveSetting="Polite"/>
-                    </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
-                        <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" AutomationProperties.Name="ملاحظات الذاكرة" AutomationProperties.HelpText="اختر ملاحظة لعرضها أو تعديلها." SelectionChanged="MemoryList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="6">
+                        <ListBox x:Name="MemoryList" Grid.Column="0" ItemsSource="{Binding MemoryNotes}" AutomationProperties.Name="ملاحظات الذاكرة" AutomationProperties.HelpText="اختر ملاحظة لعرضها أو تعديلها." SelectionChanged="MemoryList_SelectionChanged" Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1" Padding="8" Margin="0,0,8,0">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
+                                    <Border Background="{DynamicResource Layal.CardGradient}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                                            BorderThickness="1" CornerRadius="15" Padding="13" Margin="3">
                                     <StackPanel>
                                         <TextBlock Text="{Binding Title}"
                                                    FlowDirection="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
@@ -709,6 +950,7 @@
                                             </TextBlock>
                                         </WrapPanel>
                                     </StackPanel>
+                                    </Border>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -725,7 +967,10 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="12,0,0,0">
+                        <Border Grid.Column="1" Background="{DynamicResource Layal.GlassFill}"
+                                BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                CornerRadius="20" Padding="18" Margin="8,0,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="MemoryCategoryLabel" Text="التصنيف" Margin="0,0,0,4"/>
                                 <TextBox x:Name="MemoryCategoryInput" MinHeight="32" MaxLength="40" Text="General"
@@ -744,6 +989,7 @@
                                 <TextBlock x:Name="MemoryResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0" AutomationProperties.LiveSetting="Polite"/>
                             </StackPanel>
                         </ScrollViewer>
+                        </Border>
                     </Grid>
                     <TextBlock x:Name="MemoryPrivacyNote" Grid.Row="3"
                                Text="لا تحفظ مفاتيح API أو كلمات المرور. تصدير JSON غير مشفر؛ الاستيراد يدمج الملاحظات الجديدة ولا يستبدل الموجود. مشاركة أي نتيجة مع AI تتطلب عرض النص الكامل وموافقتك."
@@ -765,7 +1011,10 @@
                     </Border>
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="0.82*"/><ColumnDefinition Width="1.18*"/></Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                        <Border Grid.Column="0" Background="{DynamicResource Layal.GlassFill}"
+                                BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                CornerRadius="20" Padding="14" Margin="0,0,10,0">
+                        <StackPanel>
                             <TextBlock x:Name="ApiConnectionsListLabel" Text="التطبيقات المتصلة" FontWeight="SemiBold" Margin="4,0,4,5"/>
                             <TextBox x:Name="ApiConnectionSearchInput" MinHeight="32" Margin="0,0,0,6"
                                      ToolTip="ابحث بالاسم أو عنوان API أو التفاصيل"
@@ -773,7 +1022,7 @@
                                      AutomationProperties.HelpText="يبحث في اسم الاتصال وعنوان API والتفاصيل دون البحث في مفاتيح المصادقة."
                                      TextChanged="ApiConnectionSearchInput_TextChanged"/>
                             <ListBox x:Name="ApiConnectionList" ItemsSource="{Binding ApiConnections}" SelectionChanged="ApiConnectionList_SelectionChanged"
-                                     Background="#FFFFFF" BorderBrush="#DCE5F0" Padding="5" MinHeight="220">
+                                     Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" Padding="8" MinHeight="220">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
@@ -804,7 +1053,12 @@
                             <Button x:Name="NewApiConnectionButton" Content="إضافة اتصال جديد" Click="NewApiConnectionButton_Click" HorizontalAlignment="Stretch" Margin="0,8,0,0"/>
                             <TextBlock x:Name="ApiConnectionsPrivacyNote" Text="لا تشارك مفتاح API داخل المحادثة. أدخله هنا؛ سيُحفظ مشفرًا على حساب Windows الحالي." Foreground="{DynamicResource Layal.Warning}" TextWrapping="Wrap" Margin="4,8,4,0"/>
                         </StackPanel>
-                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                        </Border>
+
+                        <Border Grid.Column="1" Background="{DynamicResource Layal.GlassFill}"
+                                BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                                CornerRadius="20" Padding="18" Margin="10,0,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="ApiConnectionNameLabel" Text="اسم التطبيق / الاتصال" Margin="4,2,4,0"/>
                                 <TextBox x:Name="ApiConnectionNameInput" MinHeight="32" ToolTip="Notion, GitHub, CRM..." />
@@ -844,6 +1098,7 @@
                                 </WrapPanel>
                             </StackPanel>
                         </ScrollViewer>
+                        </Border>
                     </Grid>
                     <TextBlock x:Name="ApiConnectionsStatus" Grid.Row="2" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0"/>
                 </Grid>
@@ -1051,49 +1306,120 @@
             </TabItem>
         </controls:ContentOnlyTabControl>
 
-        <!-- Compact floating navigation dock: always visible; labeled destinations expand on demand. -->
-        <Grid x:Name="BottomDockHost" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-              Margin="12,0,12,18" Panel.ZIndex="100" KeyboardNavigation.TabNavigation="Local">
+        <!-- Persistent Soft Aurora navigation rail; expanded on first launch. -->
+        <Grid x:Name="BottomDockHost" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Stretch"
+              Margin="14,10,0,12" Panel.ZIndex="100" KeyboardNavigation.TabNavigation="Local">
             <Border x:Name="BottomDockShell" Background="{DynamicResource Layal.GlassStrongFill}"
                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                    CornerRadius="20" Padding="8" Effect="{DynamicResource Layal.CardShadow}">
-                <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight">
-                    <Button x:Name="ToggleBottomDockButton" Content="&#xE700;" FontFamily="Segoe MDL2 Assets"
-                            Width="44" Height="44" Padding="0" Margin="0,0,5,0"
-                            Background="{DynamicResource Layal.NavSelected}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
-                            Click="ToggleBottomDockButton_Click" ToolTip="توسيع قائمة التنقل"
-                            AutomationProperties.AutomationId="ToggleBottomDockButton" AutomationProperties.Name="توسيع شريط التنقل"/>
-                    <Border x:Name="DockExpandedSurface" Width="0" Opacity="0" ClipToBounds="True"
-                            IsHitTestVisible="False" VerticalAlignment="Center">
-                        <StackPanel x:Name="DockNavigationItems" Orientation="Horizontal" FlowDirection="LeftToRight">
-                            <Button x:Name="DockChatButton" Content="✦  الرئيسية" Click="DockChatButton_Click"
-                                    MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent"
-                                    ToolTip="العودة إلى المحادثة" AutomationProperties.AutomationId="DockChatButton" AutomationProperties.Name="الرئيسية - المحادثة"/>
-                            <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" Click="DockOverviewButton_Click"
-                                    MinWidth="100" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockOverviewButton" AutomationProperties.Name="نظرة عامة"/>
-                            <Button x:Name="DockTasksButton" Content="▣  المهام" Click="DockTasksButton_Click"
-                                    MinWidth="76" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockTasksButton" AutomationProperties.Name="المهام"/>
-                            <Button x:Name="DockSkillsButton" Content="◇  المهارات" Click="DockSkillsButton_Click"
-                                    MinWidth="84" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockSkillsButton" AutomationProperties.Name="المهارات"/>
-                            <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" Click="DockCamerasButton_Click"
-                                    MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockCamerasButton" AutomationProperties.Name="الكاميرات"/>
-                            <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" Click="DockMemoryButton_Click"
-                                    MinWidth="84" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockMemoryButton" AutomationProperties.Name="الذاكرة"/>
-                            <Button x:Name="DockApiButton" Content="⌘  API" Click="DockApiButton_Click"
-                                    MinWidth="68" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockApiButton" AutomationProperties.Name="تكاملات API"/>
-                            <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" Click="DockSettingsButton_Click"
-                                    MinWidth="92" Padding="10,8" Margin="2" FontSize="12" MinHeight="42"
-                                    Background="Transparent" BorderBrush="Transparent" AutomationProperties.AutomationId="DockSettingsButton" AutomationProperties.Name="الإعدادات"/>
+                    CornerRadius="24" Padding="10" Effect="{DynamicResource Layal.CardShadow}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Margin="3,3,3,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="38" Height="38" CornerRadius="13"
+                                Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,8,0">
+                            <TextBlock Text="L" FontSize="22" FontWeight="Bold"
+                                       Foreground="{DynamicResource Layal.OnAccent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel x:Name="DockBrandCopy" Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="LAYAL" FontSize="12" FontWeight="Bold"
+                                       Foreground="{DynamicResource Layal.Text}"/>
+                            <TextBlock Text="مساحة العمل الشخصية" FontSize="10"
+                                       Foreground="{DynamicResource Layal.Muted}"/>
+                        </StackPanel>
+                        <Button x:Name="ToggleBottomDockButton" Grid.Column="2" Content="&#xE711;"
+                                FontFamily="Segoe MDL2 Assets" Width="34" Height="34" Padding="0" Margin="4,0,0,0"
+                                Background="{DynamicResource Layal.NavSelected}"
+                                BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
+                                Click="ToggleBottomDockButton_Click" ToolTip="طي شريط التنقل الجانبي"
+                                AutomationProperties.AutomationId="ToggleBottomDockButton"
+                                AutomationProperties.Name="طي شريط التنقل الجانبي"/>
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <Border x:Name="DockExpandedSurface" Width="166" Opacity="1" ClipToBounds="True"
+                                IsHitTestVisible="True" VerticalAlignment="Top">
+                            <StackPanel x:Name="DockNavigationItems" Orientation="Vertical"
+                                        FlowDirection="LeftToRight" KeyboardNavigation.TabNavigation="Local">
+                                <TextBlock Text="WORKSPACE  /  مساحة العمل" FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
+                                <Button x:Name="DockChatButton" Content="✦  الرئيسية" Click="DockChatButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        ToolTip="العودة إلى المحادثة"
+                                        AutomationProperties.AutomationId="DockChatButton"
+                                        AutomationProperties.Name="الرئيسية - المحادثة"/>
+                                <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" Click="DockOverviewButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        AutomationProperties.AutomationId="DockOverviewButton"
+                                        AutomationProperties.Name="نظرة عامة"/>
+                                <Button x:Name="DockTasksButton" Content="▣  المهام" Click="DockTasksButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        AutomationProperties.AutomationId="DockTasksButton"
+                                        AutomationProperties.Name="المهام"/>
+                                <Button x:Name="DockSkillsButton" Content="◇  المهارات" Click="DockSkillsButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        AutomationProperties.AutomationId="DockSkillsButton"
+                                        AutomationProperties.Name="المهارات"/>
+                                <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" Click="DockCamerasButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        AutomationProperties.AutomationId="DockCamerasButton"
+                                        AutomationProperties.Name="الكاميرات"/>
+                                <Separator Margin="7,9"/>
+                                <TextBlock Text="PERSONAL TOOLS  /  أدواتك" FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
+                                <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" Click="DockMemoryButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        AutomationProperties.AutomationId="DockMemoryButton"
+                                        AutomationProperties.Name="الذاكرة"/>
+                                <Button x:Name="DockApiButton" Content="⌘  API" Click="DockApiButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        AutomationProperties.AutomationId="DockApiButton"
+                                        AutomationProperties.Name="تكاملات API"/>
+                                <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" Click="DockSettingsButton_Click"
+                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        AutomationProperties.AutomationId="DockSettingsButton"
+                                        AutomationProperties.Name="الإعدادات"/>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+                    <Border x:Name="DockFooterNote" Grid.Row="2" Margin="3,14,3,2" Padding="10"
+                            Background="{DynamicResource Layal.Panel}"
+                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
+                            CornerRadius="14">
+                        <StackPanel>
+                            <TextBlock Text="SOFT AURORA" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource Layal.Cyan}"/>
+                            <TextBlock Text="واجهة هادئة، ومساحة واضحة لكل مهمة."
+                                       FontSize="10" Foreground="{DynamicResource Layal.Muted}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
-                </StackPanel>
+                </Grid>
             </Border>
         </Grid>
 

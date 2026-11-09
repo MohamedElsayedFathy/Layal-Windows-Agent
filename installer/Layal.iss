@@ -4,7 +4,7 @@
 ; never delete encrypted user settings, conversations, tasks, memories, or skills.
 
 #ifndef AppVersion
-  #define AppVersion "0.5.2"
+  #define AppVersion "0.5.8"
 #endif
 
 #ifndef PublishDir
