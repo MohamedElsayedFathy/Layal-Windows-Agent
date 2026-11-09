@@ -61,7 +61,7 @@ public static class UiThemePalette
             ["Layal.Color.GlowViolet"] = dark ? "#2F8D78D8" : "#1F8D78D0",
             ["Layal.Color.GlowPink"] = dark ? "#22C47CA5" : "#18C47CA5",
             ["Layal.Color.AccentStart"] = dark ? "#315EB8" : "#244F9C",
-            ["Layal.Color.AccentEnd"] = dark ? "#6955B5" : "#624CAD",
+            ["Layal.Color.AccentEnd"] = dark ? "#5A63B2" : "#4B4E9F",
             ["Layal.Color.OnAccent"] = "#FFFFFF"
         };
 
