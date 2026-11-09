@@ -1140,42 +1140,52 @@ public partial class MainWindow : Window
         // secondary summary in a short chat viewport gives the welcome canvas and
         // composer enough room instead of clipping suggestions below the fold.
         var compact = availableHeight < 520;
+        ChatEmptyStateText.Text = compact
+            ? (IsArabic ? "اكتب سؤالك أو اختر اقتراحًا." : "Choose a prompt or type your question.")
+            : (IsArabic
+                ? "اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
+                : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.");
         if (_chatCompactLayoutApplied == compact)
             return;
 
         _chatCompactLayoutApplied = compact;
+        ChatWelcomeEyebrow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        ChatWelcomeTitle.FontSize = compact ? 21 : 23;
+        ChatWelcomeTitle.Margin = compact
+            ? new Thickness(0, 0, 0, 3)
+            : new Thickness(0, 0, 0, 7);
         ClockWeatherCard.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
 
         ChatHeaderMascot.Width = compact ? 46 : 60;
         ChatHeaderMascot.Height = compact ? 46 : 60;
 
-        ChatWelcomeAvatarShell.Width = compact ? 68 : 88;
-        ChatWelcomeAvatarShell.Height = compact ? 68 : 88;
+        ChatWelcomeAvatarShell.Width = compact ? 54 : 88;
+        ChatWelcomeAvatarShell.Height = compact ? 54 : 88;
         ChatWelcomeAvatarShell.Margin = compact
-            ? new Thickness(0, 0, 12, 0)
+            ? new Thickness(0, 0, 10, 0)
             : new Thickness(0, 0, 18, 0);
-        ChatWelcomeAvatarImage.Width = compact ? 62 : 82;
-        ChatWelcomeAvatarImage.Height = compact ? 62 : 82;
+        ChatWelcomeAvatarImage.Width = compact ? 50 : 82;
+        ChatWelcomeAvatarImage.Height = compact ? 50 : 82;
 
         ChatWelcomePanel.Margin = compact
-            ? new Thickness(6, 2, 6, 2)
+            ? new Thickness(4, 1, 4, 1)
             : new Thickness(12, 6, 12, 6);
         ChatWelcomePanel.Padding = compact
-            ? new Thickness(12)
+            ? new Thickness(8)
             : new Thickness(18);
-        ChatEmptyStateText.FontSize = compact ? 12.5 : 13.5;
+        ChatEmptyStateText.FontSize = compact ? 11.5 : 13.5;
         ChatEmptyStateText.Margin = compact
-            ? new Thickness(0, 0, 0, 6)
+            ? new Thickness(0, 0, 0, 2)
             : new Thickness(0, 0, 0, 11);
-        ChatEmptyStateText.MaxWidth = compact ? 500 : 560;
+        ChatEmptyStateText.MaxWidth = compact ? 560 : 560;
         ChatSuggestionPlanButton.Padding = compact
-            ? new Thickness(12, 7, 12, 7)
+            ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
         ChatSuggestionSummaryButton.Padding = compact
-            ? new Thickness(12, 7, 12, 7)
+            ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
         ChatSuggestionIdeasButton.Padding = compact
-            ? new Thickness(12, 7, 12, 7)
+            ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
     }
 
@@ -1539,6 +1549,7 @@ public partial class MainWindow : Window
         ChatSuggestionPlanButton.Content = ar ? "✦  ساعدني في التخطيط" : "✦  Help me plan";
         ChatSuggestionSummaryButton.Content = ar ? "▤  لخّص لي محتوى" : "▤  Summarize content";
         ChatSuggestionIdeasButton.Content = ar ? "◇  اقترح أفكارًا" : "◇  Suggest ideas";
+        ApplyChatCompactLayout(ChatConversationSurface.ActualHeight);
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
