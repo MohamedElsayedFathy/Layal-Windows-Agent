@@ -581,6 +581,15 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.MainWindow = window;
         window.Show();
         window.UpdateLayout();
+        foreach (var captionName in new[] { "MinimizeWindowButton", "MaximizeWindowButton", "CloseWindowButton" })
+        {
+            var captionButton = window.FindName(captionName) as Button
+                ?? throw new InvalidOperationException($"{captionName} was not found.");
+            Assert.AreEqual(44, captionButton.Width, 0.1,
+                $"{captionName} must use the standardized 44-DIP width.");
+            Assert.AreEqual(40, captionButton.Height, 0.1,
+                $"{captionName} must meet the 40-DIP minimum control height.");
+        }
         AssertInitialWindowFitsWorkArea(window);
         AssertClockWeatherDashboard(window);
         var windowContent = window.Content as FrameworkElement
