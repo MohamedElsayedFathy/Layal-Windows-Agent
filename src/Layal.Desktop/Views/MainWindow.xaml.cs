@@ -1187,7 +1187,7 @@ public partial class MainWindow : Window
         if (availableWidth <= 0)
             return;
 
-        var compact = availableWidth < 1100;
+        var compact = availableWidth < 960;
         if (_compactWindowChromeApplied == compact)
             return;
 
