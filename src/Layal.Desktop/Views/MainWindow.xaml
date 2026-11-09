@@ -120,9 +120,9 @@
                                                    Text="مساحة واحدة للمحادثة والمهام والذاكرة والأدوات. اربط مزود الذكاء الاصطناعي وابدأ من هنا."
                                                    TextWrapping="Wrap" MaxWidth="620" Style="{StaticResource Layal.PageDescription}"/>
                                         <WrapPanel Margin="0,16,0,0">
-                                            <Button x:Name="GoChatButton" Content="ابدأ محادثة" Click="GoChatButton_Click"
+                                            <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"
                                                     Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="42" Padding="20,10"/>
-                                            <Button x:Name="GoSettingsButton" Content="إعداد الاتصال" Click="GoSettingsButton_Click"
+                                            <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"
                                                     MinHeight="42" Padding="18,10"/>
                                         </WrapPanel>
                                     </StackPanel>
