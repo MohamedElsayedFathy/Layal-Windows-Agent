@@ -1,11 +1,13 @@
 # Layal — chat-first glass interface
 
+> **Historical design note:** This document records the earlier chat-first glass pass. Its floating bottom dock was superseded by the persistent, collapsible left navigation rail in the 0.5.8 workspace redesign. Use `SOFT_AURORA_DESIGN_SYSTEM_AR.md` as the current visual source of truth.
+
 ## Primary experience
 
 - The main window opens directly into the conversation. The chat page is the actual **Home** destination, not a separate dashboard that happens to open first.
 - The former dashboard remains available as **Overview**.
-- The content host has no permanent navigation rail. All eight existing sections remain available through the floating bottom dock.
-- The dock stays compact and visible at the bottom center. Pressing its menu control expands the labeled destinations; pressing it again collapses them.
+- Current mainline uses a persistent left navigation rail. The old bottom dock described by the original design pass is no longer current.
+- The current rail starts expanded, groups workspace and personal tools, and can collapse to a compact icon rail.
 - The dock follows Arabic/English direction and exposes localized accessible names. Keyboard shortcuts are Ctrl+1 for Chat/Home, Ctrl+2 for Overview, and Ctrl+3 through Ctrl+8 for the remaining sections.
 
 ## Conversation layout
@@ -17,7 +19,7 @@
 
 ## Visual system — Soft Aurora Workspace
 
-The adopted visual direction is **Soft Aurora Workspace**, combining calm light surfaces, pearl/lavender accents, and a clear workspace hierarchy.
+The adopted visual direction is **Soft Aurora Workspace**, combining calm neutral light surfaces, restrained blue-indigo accents, and a clear workspace hierarchy. Current colors and measurements are defined in `SOFT_AURORA_DESIGN_SYSTEM_AR.md`.
 
 - The default light palette uses neutral cool backgrounds, white/pearl surfaces, deep readable navy text, indigo primary actions, and restrained lavender/cyan support accents.
 - The dark palette follows the same hierarchy with deep navy surfaces and light readable text; both modes remain switchable and persisted through the existing settings store.
