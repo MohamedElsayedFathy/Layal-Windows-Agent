@@ -847,16 +847,16 @@ public sealed class MainWindowVisualSmokeTests
                 {
                     var windowRoot = window.FindName("WindowRoot") as Grid
                         ?? throw new InvalidOperationException("WindowRoot was not found.");
-                    var titleText = window.FindName("TitleText") as TextBlock
+                    var compactTitleText = window.FindName("TitleText") as TextBlock
                         ?? throw new InvalidOperationException("TitleText was not found.");
-                    var subtitle = window.FindName("SubtitleText") as TextBlock
-                        ?? throw new InvalidOperationException("SubtitleText was not found.");
+                    var subtitle = window.FindName("SubcompactTitleText") as TextBlock
+                        ?? throw new InvalidOperationException("SubcompactTitleText was not found.");
                     var connectionStatus = window.FindName("ConnectionStatusShell") as Border
                         ?? throw new InvalidOperationException("ConnectionStatusShell was not found.");
                     Assert.AreEqual(Visibility.Collapsed, subtitle.Visibility,
                         "The compact title bar must hide its secondary subtitle to avoid overlap.");
-                    var titleBounds = titleText.TransformToAncestor(windowRoot)
-                        .TransformBounds(new Rect(0, 0, titleText.ActualWidth, titleText.ActualHeight));
+                    var titleBounds = compactTitleText.TransformToAncestor(windowRoot)
+                        .TransformBounds(new Rect(0, 0, compactTitleText.ActualWidth, compactTitleText.ActualHeight));
                     var statusBounds = connectionStatus.TransformToAncestor(windowRoot)
                         .TransformBounds(new Rect(0, 0, connectionStatus.ActualWidth, connectionStatus.ActualHeight));
                     Assert.IsTrue(titleBounds.Right + 4 <= statusBounds.Left,
