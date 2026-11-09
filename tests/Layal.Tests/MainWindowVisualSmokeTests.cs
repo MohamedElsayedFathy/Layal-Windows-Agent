@@ -802,8 +802,9 @@ public sealed class MainWindowVisualSmokeTests
                 {
                     var metricsGrid = window.FindName("HomeMetricsGrid") as UniformGrid
                         ?? throw new InvalidOperationException("HomeMetricsGrid was not found.");
-                    Assert.AreEqual(4, metricsGrid.Columns,
-                        $"The overview must use four metric cards per row at full width ({theme}/{language}).");
+                    var expectedColumns = metricsGrid.ActualWidth <= 880 ? 2 : 4;
+                    Assert.AreEqual(expectedColumns, metricsGrid.Columns,
+                        $"The overview must follow its actual available width. Width={metricsGrid.ActualWidth:0.0} DIP, theme={theme}, language={language}.");
                 }
                 if (tabNames[index] == "chat")
                 {
@@ -871,6 +872,8 @@ public sealed class MainWindowVisualSmokeTests
                 {
                     var metricsGrid = window.FindName("HomeMetricsGrid") as UniformGrid
                         ?? throw new InvalidOperationException("HomeMetricsGrid was not found.");
+                    Assert.IsTrue(metricsGrid.ActualWidth <= 880,
+                        $"The compact overview must stay within the two-column breakpoint. Width={metricsGrid.ActualWidth:0.0} DIP.");
                     Assert.AreEqual(2, metricsGrid.Columns,
                         $"The overview must switch to two metric cards per row on compact windows ({theme}/{language}).");
                 }
@@ -1772,6 +1775,7 @@ public sealed class MainWindowVisualSmokeTests
             Assert.AreEqual(188, railShell.ActualWidth, 0.5,
                 "The expanded rail shell must equal its 166-DIP content body plus 22 DIP of padding and border.");
             Assert.AreEqual(166, navigationViewport.Width, 0.1);
+            Assert.AreEqual(ScrollBarVisibility.Auto, navigationViewport.VerticalScrollBarVisibility);
             foreach (var navigationButton in navigationButtons)
             {
                 Assert.IsNotNull(navigationButton);
@@ -1799,6 +1803,8 @@ public sealed class MainWindowVisualSmokeTests
             Assert.AreEqual(70, railShell.ActualWidth, 0.5,
                 "The compact rail shell must equal its 48-DIP icon body plus 22 DIP of padding and border.");
             Assert.AreEqual(48, navigationViewport.Width, 0.1);
+            Assert.AreEqual(ScrollBarVisibility.Hidden, navigationViewport.VerticalScrollBarVisibility,
+                "The compact rail must hide its vertical scrollbar so 44-DIP icons retain their full viewport width.");
             foreach (var navigationButton in navigationButtons)
             {
                 Assert.IsNotNull(navigationButton);
