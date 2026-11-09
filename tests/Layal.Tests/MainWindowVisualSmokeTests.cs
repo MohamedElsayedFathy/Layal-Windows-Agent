@@ -1449,6 +1449,20 @@ public sealed class MainWindowVisualSmokeTests
         return null;
     }
 
+    private static void AssertPageHeroGradientTracksPalette(string mode)
+    {
+        var gradient = Application.Current.Resources["Layal.PageHeroGradient"] as LinearGradientBrush
+            ?? throw new InvalidOperationException("Layal.PageHeroGradient was not refreshed for the active theme.");
+        Assert.AreEqual(3, gradient.GradientStops.Count,
+            $"The page hero gradient must retain its three-stop theme structure ({mode}).");
+        Assert.AreEqual((Color)Application.Current.Resources["Layal.Color.CardStart"], gradient.GradientStops[0].Color,
+            $"The page hero gradient must use the active card start color ({mode}).");
+        Assert.AreEqual((Color)Application.Current.Resources["Layal.Color.HeaderMiddle"], gradient.GradientStops[1].Color,
+            $"The page hero gradient must use the active header middle color ({mode}).");
+        Assert.AreEqual((Color)Application.Current.Resources["Layal.Color.CardEnd"], gradient.GradientStops[2].Color,
+            $"The page hero gradient must use the active card end color ({mode}).");
+    }
+
     private static void AssertThemeTogglePersistsLivePalette(MainWindow window, ComboBox historySelector)
     {
         var themeButton = window.FindName("ThemeButton") as Button
@@ -1469,6 +1483,7 @@ public sealed class MainWindowVisualSmokeTests
 
         Assert.AreEqual(Color.FromRgb(244, 246, 250), (Color)Application.Current.Resources["Layal.Color.Background"],
             "The light background palette must be active before the toggle.");
+        AssertPageHeroGradientTracksPalette("light before toggle");
         Assert.AreEqual("☾ المظهر الداكن", BidiTextNormalizer.StripDirectionalControls(themeButton.Content as string),
             "In light mode, the button must offer switching to dark mode.");
         AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);
@@ -1479,6 +1494,7 @@ public sealed class MainWindowVisualSmokeTests
             "Clicking the theme button must switch the selected theme to dark.");
         Assert.AreEqual(Color.FromRgb(16, 24, 39), (Color)Application.Current.Resources["Layal.Color.Background"],
             "Clicking the theme button must apply the dark resource palette.");
+        AssertPageHeroGradientTracksPalette("dark after toggle");
         Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode,
             "Clicking the theme button must persist dark mode in settings.json.");
         Assert.AreEqual("☀ المظهر الفاتح", BidiTextNormalizer.StripDirectionalControls(themeButton.Content as string),
@@ -1491,6 +1507,7 @@ public sealed class MainWindowVisualSmokeTests
             "Clicking the theme button again must restore the light theme.");
         Assert.AreEqual(Color.FromRgb(244, 246, 250), (Color)Application.Current.Resources["Layal.Color.Background"],
             "Switching back must restore the light resource palette.");
+        AssertPageHeroGradientTracksPalette("light after toggle");
         Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,
             "Switching back must persist light mode in settings.json.");
         AssertThemeContrastAndControlSurfaces("light", "ar", historySelector);
