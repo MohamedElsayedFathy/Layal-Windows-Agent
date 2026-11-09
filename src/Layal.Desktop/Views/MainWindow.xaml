@@ -1340,9 +1340,9 @@
                                 FontFamily="Segoe MDL2 Assets" Width="34" Height="34" Padding="0" Margin="4,0,0,0"
                                 Background="{DynamicResource Layal.NavSelected}"
                                 BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
-                                Click="ToggleBottomDockButton_Click" ToolTip="طي شريط التنقل"
+                                Click="ToggleBottomDockButton_Click" ToolTip="طي شريط التنقل الجانبي"
                                 AutomationProperties.AutomationId="ToggleBottomDockButton"
-                                AutomationProperties.Name="طي أو توسيع شريط التنقل"/>
+                                AutomationProperties.Name="طي شريط التنقل الجانبي"/>
                     </Grid>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled" Focusable="False">
