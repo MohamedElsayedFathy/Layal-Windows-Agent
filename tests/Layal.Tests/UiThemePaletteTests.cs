@@ -44,6 +44,10 @@ public sealed class UiThemePaletteTests
         Assert.AreNotEqual(ToColor(light, "Layal.Color.Background"), ToColor(dark, "Layal.Color.Background"));
         Assert.AreEqual("#315EA8", light["Layal.Color.Cyan"]);
         Assert.AreEqual("#91B6FF", dark["Layal.Color.Cyan"]);
+        Assert.AreEqual("#4B4E9F", light["Layal.Color.AccentEnd"]);
+        Assert.AreEqual("#5A63B2", dark["Layal.Color.AccentEnd"]);
+        Assert.AreEqual("#E5EAF6", light["Layal.Color.ButtonEnd"]);
+        Assert.AreEqual("#3D4662", dark["Layal.Color.ButtonEnd"]);
         Assert.AreEqual("#52637A", light["Layal.Color.Muted"]);
         Assert.AreEqual("#E8EEF7", light["Layal.Color.BackdropStart"]);
         Assert.AreEqual("#244B83D5", light["Layal.Color.GlowBlue"]);

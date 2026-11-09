@@ -1189,6 +1189,17 @@ public partial class MainWindow : Window
             : new Thickness(16, 9, 16, 9);
     }
 
+    private void HomeMetricsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Primitives.UniformGrid metricsGrid)
+            return;
+
+        // Four cards read comfortably on wide workspaces; two columns avoid compressed cards on compact windows.
+        var columns = e.NewSize.Width <= 880 ? 2 : 4;
+        if (metricsGrid.Columns != columns)
+            metricsGrid.Columns = columns;
+    }
+
     private void BottomDockShell_SizeChanged(object sender, SizeChangedEventArgs e) =>
         UpdateMainTabsNavigationMargin();
 
@@ -1732,6 +1743,7 @@ public partial class MainWindow : Window
         UpdateVisionAttachmentControls();
         UpdateDocumentAttachmentUi();
         UpdateCameraVisionIndicator();
+        ApplyNavigationRailPresentation();
 
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
         ManageRemindersButton.Content = ar ? "التذكيرات" : "Reminders";
@@ -2828,6 +2840,58 @@ public partial class MainWindow : Window
         Set(DockSettingsButton, ReferenceEquals(selected, SettingsTab));
     }
 
+    private void ApplyNavigationRailPresentation()
+    {
+        var expanded = _isBottomDockExpanded;
+        var ar = IsArabic;
+
+        DockNavigationScrollViewer.Width = expanded ? 166 : 48;
+        DockNavigationScrollViewer.VerticalScrollBarVisibility = expanded
+            ? ScrollBarVisibility.Auto
+            : ScrollBarVisibility.Hidden;
+        DockBrandMark.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        DockWorkspaceHeading.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        DockNavigationSeparator.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        DockPersonalHeading.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+
+        DockWorkspaceHeading.Text = ar ? "مساحة العمل" : "WORKSPACE";
+        DockPersonalHeading.Text = ar ? "أدوات شخصية" : "PERSONAL TOOLS";
+
+        var destinations = new[]
+        {
+            (Button: DockChatButton, Icon: "✦", Ar: "الرئيسية", En: "Home", AccessibleAr: "الرئيسية - المحادثة", AccessibleEn: "Home - Chat"),
+            (Button: DockOverviewButton, Icon: "⌂", Ar: "نظرة عامة", En: "Overview", AccessibleAr: "نظرة عامة", AccessibleEn: "Overview"),
+            (Button: DockTasksButton, Icon: "▣", Ar: "المهام", En: "Tasks", AccessibleAr: "المهام", AccessibleEn: "Tasks"),
+            (Button: DockSkillsButton, Icon: "◇", Ar: "المهارات", En: "Skills", AccessibleAr: "المهارات", AccessibleEn: "Skills"),
+            (Button: DockCamerasButton, Icon: "◉", Ar: "الكاميرات", En: "Cameras", AccessibleAr: "الكاميرات", AccessibleEn: "Cameras"),
+            (Button: DockMemoryButton, Icon: "▤", Ar: "الذاكرة", En: "Memory", AccessibleAr: "الذاكرة", AccessibleEn: "Memory"),
+            (Button: DockApiButton, Icon: "⌘", Ar: "تكاملات API", En: "API", AccessibleAr: "تكاملات API", AccessibleEn: "API integrations"),
+            (Button: DockSettingsButton, Icon: "⚙", Ar: "الإعدادات", En: "Settings", AccessibleAr: "الإعدادات", AccessibleEn: "Settings")
+        };
+
+        foreach (var destination in destinations)
+        {
+            var label = ar ? destination.Ar : destination.En;
+            destination.Button.Width = expanded ? 152 : 44;
+            destination.Button.MinHeight = 44;
+            destination.Button.Padding = expanded
+                ? new Thickness(12, 10, 12, 10)
+                : new Thickness(0);
+            destination.Button.FontSize = expanded ? 13.5 : 19;
+            destination.Button.HorizontalContentAlignment = expanded
+                ? HorizontalAlignment.Left
+                : HorizontalAlignment.Center;
+            destination.Button.Content = expanded
+                ? $"{destination.Icon}  {label}"
+                : destination.Icon;
+            destination.Button.ToolTip = label;
+            AutomationProperties.SetName(destination.Button,
+                ar ? destination.AccessibleAr : destination.AccessibleEn);
+        }
+    }
+
     private bool CanAnimateUi => !SystemParameters.HighContrast &&
                                  SystemParameters.ClientAreaAnimation &&
                                  !AppRuntime.Settings.PerformanceModeEnabled;
@@ -2837,14 +2901,13 @@ public partial class MainWindow : Window
     private void SetBottomDockExpanded(bool expanded)
     {
         _isBottomDockExpanded = expanded;
-        ToggleBottomDockButton.Content = expanded ? "\\uE711" : "\\uE700";
+        ToggleBottomDockButton.Content = expanded ? "\uE711" : "\uE700";
         ToggleBottomDockButton.ToolTip = expanded
             ? (IsArabic ? "طي شريط التنقل الجانبي" : "Collapse navigation rail")
             : (IsArabic ? "توسيع شريط التنقل الجانبي" : "Expand navigation rail");
         AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
 
-        DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        ApplyNavigationRailPresentation();
         UpdateMainTabsNavigationMargin();
 
         var currentWidth = Math.Max(48, DockExpandedSurface.ActualWidth);

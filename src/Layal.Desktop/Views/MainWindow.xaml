@@ -93,7 +93,7 @@
             <Button x:Name="CloseWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE8BB;" Click="CloseWindowButton_Click"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="إغلاق / Close" AutomationProperties.Name="إغلاق / Close" />
         </StackPanel>
-        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="270,10,14,12" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
+        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="214,10,14,12" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
             <TabItem x:Name="HomeTab" Header="نظرة عامة" Tag="&#xE80F;">
                 <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -139,14 +139,9 @@
                                 </Grid>
                             </Border>
 
-                            <Grid Grid.Row="1" Margin="0,0,0,14">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
+                            <UniformGrid x:Name="HomeMetricsGrid" Grid.Row="1" Columns="4" Margin="0,0,0,14"
+                                          SizeChanged="HomeMetricsGrid_SizeChanged">
+                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="✦" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -158,7 +153,7 @@
                                                    FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Grid.Column="1" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
+                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="◉" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -170,7 +165,7 @@
                                                    FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Grid.Column="2" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
+                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="⌘" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -182,7 +177,7 @@
                                                    FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Grid.Column="3" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
+                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="◇" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -194,7 +189,7 @@
                                                    FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                            </Grid>
+                            </UniformGrid>
 
                             <Border Grid.Row="2" Style="{StaticResource Layal.DashboardCard}" Padding="18" Margin="4,0,4,14">
                                 <StackPanel>
@@ -252,7 +247,7 @@
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                             <DockPanel Grid.Row="0" LastChildFill="True" Margin="3,2,3,10">
-                                <Button x:Name="CloseChatHistoryButton" DockPanel.Dock="Right" Content="×" Width="32" Height="30"
+                                <Button x:Name="CloseChatHistoryButton" DockPanel.Dock="Right" Content="×" Width="40" Height="40"
                                         Padding="0" Click="CloseChatHistoryButton_Click"
                                         AutomationProperties.Name="إغلاق سجل المحادثات / Close chat history"/>
                                 <TextBlock x:Name="ChatHistoryHeading" Text="المحادثات السابقة" FontSize="15"
@@ -1324,33 +1319,33 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Border Width="38" Height="38" CornerRadius="13"
-                                Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,8,0">
+                        <Border x:Name="DockBrandMark" Width="32" Height="32" CornerRadius="11"
+                                Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,6,0">
                             <TextBlock Text="L" FontSize="22" FontWeight="Bold"
                                        Foreground="{DynamicResource Layal.OnAccent}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <StackPanel x:Name="DockBrandCopy" Grid.Column="1" Width="100" VerticalAlignment="Center">
+                        <StackPanel x:Name="DockBrandCopy" Grid.Column="1" Width="78" VerticalAlignment="Center">
                             <TextBlock Text="LAYAL" FontSize="13.5" FontWeight="Bold" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource Layal.Text}"/>
                             <TextBlock Text="مساحة العمل الشخصية" FontSize="11.5" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource Layal.Muted}"/>
                         </StackPanel>
                         <Button x:Name="ToggleBottomDockButton" Grid.Column="2" Content="&#xE711;"
-                                FontFamily="Segoe MDL2 Assets" Width="34" Height="34" Padding="0" Margin="4,0,0,0"
+                                FontFamily="Segoe MDL2 Assets" Width="40" Height="40" Padding="0" Margin="0"
                                 Background="{DynamicResource Layal.NavSelected}"
                                 BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                                 Click="ToggleBottomDockButton_Click" ToolTip="طي شريط التنقل الجانبي"
                                 AutomationProperties.AutomationId="ToggleBottomDockButton"
                                 AutomationProperties.Name="طي شريط التنقل الجانبي"/>
                     </Grid>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                    <ScrollViewer x:Name="DockNavigationScrollViewer" Grid.Row="1" Width="166" VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled" Focusable="False">
                         <Border x:Name="DockExpandedSurface" Width="166" Opacity="1" ClipToBounds="True"
                                 IsHitTestVisible="True" VerticalAlignment="Top">
                             <StackPanel x:Name="DockNavigationItems" Orientation="Vertical"
                                         FlowDirection="LeftToRight" KeyboardNavigation.TabNavigation="Local">
-                                <TextBlock Text="WORKSPACE  /  مساحة العمل" FontSize="10.5" FontWeight="Bold"
+                                <TextBlock x:Name="DockWorkspaceHeading" Text="WORKSPACE  /  مساحة العمل" FontSize="10.5" FontWeight="Bold"
                                            Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
                                 <Button x:Name="DockChatButton" Content="✦  الرئيسية" Click="DockChatButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -1359,46 +1354,46 @@
                                         ToolTip="العودة إلى المحادثة"
                                         AutomationProperties.AutomationId="DockChatButton"
                                         AutomationProperties.Name="الرئيسية - المحادثة"/>
-                                <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" Click="DockOverviewButton_Click"
+                                <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" ToolTip="نظرة عامة" Click="DockOverviewButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockOverviewButton"
                                         AutomationProperties.Name="نظرة عامة"/>
-                                <Button x:Name="DockTasksButton" Content="▣  المهام" Click="DockTasksButton_Click"
+                                <Button x:Name="DockTasksButton" Content="▣  المهام" ToolTip="المهام" Click="DockTasksButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockTasksButton"
                                         AutomationProperties.Name="المهام"/>
-                                <Button x:Name="DockSkillsButton" Content="◇  المهارات" Click="DockSkillsButton_Click"
+                                <Button x:Name="DockSkillsButton" Content="◇  المهارات" ToolTip="المهارات" Click="DockSkillsButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockSkillsButton"
                                         AutomationProperties.Name="المهارات"/>
-                                <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" Click="DockCamerasButton_Click"
+                                <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" ToolTip="الكاميرات" Click="DockCamerasButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockCamerasButton"
                                         AutomationProperties.Name="الكاميرات"/>
-                                <Separator Margin="7,9"/>
-                                <TextBlock Text="PERSONAL TOOLS  /  أدواتك" FontSize="10.5" FontWeight="Bold"
+                                <Separator x:Name="DockNavigationSeparator" Margin="7,9"/>
+                                <TextBlock x:Name="DockPersonalHeading" Text="PERSONAL TOOLS  /  أدواتك" FontSize="10.5" FontWeight="Bold"
                                            Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
-                                <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" Click="DockMemoryButton_Click"
+                                <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" ToolTip="الذاكرة" Click="DockMemoryButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockMemoryButton"
                                         AutomationProperties.Name="الذاكرة"/>
-                                <Button x:Name="DockApiButton" Content="⌘  API" Click="DockApiButton_Click"
+                                <Button x:Name="DockApiButton" Content="⌘  API" ToolTip="تكاملات API" Click="DockApiButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockApiButton"
                                         AutomationProperties.Name="تكاملات API"/>
-                                <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" Click="DockSettingsButton_Click"
+                                <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" ToolTip="الإعدادات" Click="DockSettingsButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
@@ -1407,7 +1402,7 @@
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
-                    <Border x:Name="DockFooterNote" Grid.Row="2" Margin="3,14,3,2" Padding="10"
+                    <Border x:Name="DockFooterNote" Grid.Row="2" Width="160" Margin="3,14,3,2" Padding="10"
                             Background="{DynamicResource Layal.Panel}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                             CornerRadius="14">

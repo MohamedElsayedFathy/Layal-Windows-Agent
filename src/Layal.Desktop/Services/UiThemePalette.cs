@@ -35,7 +35,7 @@ public static class UiThemePalette
             ["Layal.Color.CardStart"] = dark ? "#F21B2940" : "#FFFFFFFF",
             ["Layal.Color.CardEnd"] = dark ? "#F224334A" : "#FFF9FBFE",
             ["Layal.Color.ButtonStart"] = dark ? "#354766" : "#DCE7F8",
-            ["Layal.Color.ButtonEnd"] = dark ? "#3D3D63" : "#E9E5F8",
+            ["Layal.Color.ButtonEnd"] = dark ? "#3D4662" : "#E5EAF6",
             ["Layal.Color.BrandBorder"] = dark ? "#526C91" : "#C5D5EC",
             ["Layal.Color.BrandDot"] = dark ? "#E4BF78" : "#A8792B",
             ["Layal.Color.DangerSurface"] = dark ? "#472632" : "#FCEDEF",
@@ -61,7 +61,7 @@ public static class UiThemePalette
             ["Layal.Color.GlowViolet"] = dark ? "#2F8D78D8" : "#1F8D78D0",
             ["Layal.Color.GlowPink"] = dark ? "#22C47CA5" : "#18C47CA5",
             ["Layal.Color.AccentStart"] = dark ? "#315EB8" : "#244F9C",
-            ["Layal.Color.AccentEnd"] = dark ? "#6955B5" : "#624CAD",
+            ["Layal.Color.AccentEnd"] = dark ? "#5A63B2" : "#4B4E9F",
             ["Layal.Color.OnAccent"] = "#FFFFFF"
         };
 
