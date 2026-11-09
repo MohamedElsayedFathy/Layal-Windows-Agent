@@ -134,7 +134,7 @@ public partial class MainWindow : Window
     private bool _restoringProactiveCheckInInterval;
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
-    private bool _isBottomDockExpanded;
+    private bool _isBottomDockExpanded = true;
     private bool _isChatHistoryPanelOpen;
     private bool _isUiInitialized;
 
@@ -1273,8 +1273,8 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(KeyboardHelpButton, ar ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts");
         AutomationProperties.SetHelpText(KeyboardHelpButton, ar ? "اضغط F1 لعرض اختصارات التنقل." : "Press F1 to review navigation shortcuts.");
         AutomationProperties.SetName(MainTabs, ar ? "التنقل الرئيسي" : "Main navigation");
-        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم شريط التنقل السفلي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة." : "Use the floating bottom dock or Ctrl+1 through Ctrl+8 to choose a page.");
-        AutomationProperties.SetName(DockNavigationItems, ar ? "شريط التنقل السفلي" : "Bottom navigation dock");
+        AutomationProperties.SetHelpText(MainTabs, ar ? "استخدم شريط التنقل الجانبي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة." : "Use the left navigation rail or Ctrl+1 through Ctrl+8 to choose a page.");
+        AutomationProperties.SetName(DockNavigationItems, ar ? "شريط التنقل الجانبي" : "Left navigation rail");
         AutomationProperties.SetName(ChatHistoryList, ar ? "سجل المحادثات المحفوظة" : "Saved conversation history");
         AutomationProperties.SetHelpText(ChatHistoryList, ar ? "اختر محادثة محفوظة لتحميلها في مساحة الشات." : "Choose a saved conversation to load into the chat.");
         AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
@@ -2723,73 +2723,51 @@ public partial class MainWindow : Window
     private void SetBottomDockExpanded(bool expanded)
     {
         _isBottomDockExpanded = expanded;
-        ToggleBottomDockButton.Content = expanded ? "\uE711" : "\uE700";
+        ToggleBottomDockButton.Content = expanded ? "\\uE711" : "\\uE700";
         ToggleBottomDockButton.ToolTip = expanded
-            ? (IsArabic ? "طي شريط التنقل" : "Collapse navigation dock")
-            : (IsArabic ? "توسيع شريط التنقل" : "Expand navigation dock");
+            ? (IsArabic ? "طي شريط التنقل الجانبي" : "Collapse navigation rail")
+            : (IsArabic ? "توسيع شريط التنقل الجانبي" : "Expand navigation rail");
         AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
 
-        var currentWidth = Math.Max(0, DockExpandedSurface.ActualWidth);
-        var currentOpacity = DockExpandedSurface.Opacity;
+        DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        MainTabs.Margin = expanded
+            ? new Thickness(214, 10, 14, 12)
+            : new Thickness(118, 10, 14, 12);
+
+        var currentWidth = Math.Max(48, DockExpandedSurface.ActualWidth);
         DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
         DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
 
-        const double expandedWidth = 730;
+        const double expandedWidth = 166;
+        const double collapsedWidth = 48;
+        var targetWidth = expanded ? expandedWidth : collapsedWidth;
+
         if (!CanAnimateUi)
         {
-            DockExpandedSurface.Width = expanded ? expandedWidth : 0;
-            DockExpandedSurface.Opacity = expanded ? 1 : 0;
-            DockExpandedSurface.IsHitTestVisible = expanded;
+            DockExpandedSurface.Width = targetWidth;
+            DockExpandedSurface.Opacity = 1;
+            DockExpandedSurface.IsHitTestVisible = true;
             return;
         }
 
         var duration = TimeSpan.FromMilliseconds(190);
-        if (expanded)
+        var width = new DoubleAnimation(currentWidth, targetWidth, duration)
         {
-            DockExpandedSurface.IsHitTestVisible = true;
-            DockExpandedSurface.Width = 0;
-            DockExpandedSurface.Opacity = 0;
-            var width = new DoubleAnimation(0, expandedWidth, duration)
+            EasingFunction = new CubicEase
             {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-            };
-            width.Completed += (_, _) =>
-            {
-                DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
-                DockExpandedSurface.Width = expandedWidth;
-            };
-            var opacity = new DoubleAnimation(0, 1, duration);
-            opacity.Completed += (_, _) =>
-            {
-                DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
-                DockExpandedSurface.Opacity = 1;
-            };
-            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
-            DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, opacity);
-        }
-        else
+                EasingMode = expanded ? EasingMode.EaseOut : EasingMode.EaseIn
+            }
+        };
+        width.Completed += (_, _) =>
         {
-            DockExpandedSurface.Width = currentWidth;
-            DockExpandedSurface.Opacity = currentOpacity;
-            var width = new DoubleAnimation(currentWidth, 0, duration)
-            {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-            };
-            var opacity = new DoubleAnimation(currentOpacity, 0, duration);
-            width.Completed += (_, _) =>
-            {
-                DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
-                DockExpandedSurface.Width = 0;
-                DockExpandedSurface.IsHitTestVisible = false;
-            };
-            opacity.Completed += (_, _) =>
-            {
-                DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
-                DockExpandedSurface.Opacity = 0;
-            };
-            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
-            DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, opacity);
-        }
+            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+            DockExpandedSurface.Width = targetWidth;
+        };
+
+        DockExpandedSurface.IsHitTestVisible = true;
+        DockExpandedSurface.Opacity = 1;
+        DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
     }
 
     private void ToggleChatHistoryButton_Click(object sender, RoutedEventArgs e) => SetChatHistoryPanelOpen(!_isChatHistoryPanelOpen);
