@@ -233,6 +233,15 @@
       "redistributionPermission": "This file preserves the upstream per-model license text and attribution statement. Legal clearance for the product's overall distribution remains a separate gate.",
       "sourceDescription": "Upstream license statement for the Rigged Figure model, copied into the repository so the license travels with the asset.",
       "evidence": "GitHub upstream model LICENSE.md; file is retained alongside src/Layal.Desktop/Assets/3D/RiggedFigure.glb."
+    },
+    {
+      "path": "src/Layal.Desktop/Assets/Fonts/Cairo[slnt,wght].ttf",
+      "status": "PROVENANCE_EVIDENCED_RIGHTS_REVIEW_REQUIRED",
+      "sourceUrl": "https://github.com/google/fonts/tree/main/ofl/cairo",
+      "licenseExpression": "OFL-1.1",
+      "licenseTextPath": "licenses/OFL-Cairo.txt",
+      "redistributionPermission": "SIL OFL 1.1 permits embedding and redistribution with the font and license notice; independent project release review remains pending.",
+      "evidence": "Downloaded unmodified Cairo[slnt,wght].ttf from the official Google Fonts repository on 2026-11-09. The font is included as a WPF Resource."
     }
   ],
   "packages": [

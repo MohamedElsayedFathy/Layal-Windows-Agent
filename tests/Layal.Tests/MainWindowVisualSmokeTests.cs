@@ -1669,6 +1669,14 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("DockChatButton was not found.");
         var dockOverview = window.FindName("DockOverviewButton") as Button
             ?? throw new InvalidOperationException("DockOverviewButton was not found.");
+        var dockBrandTitle = window.FindName("DockBrandTitle") as TextBlock
+            ?? throw new InvalidOperationException("DockBrandTitle was not found.");
+        var dockBrandSubtitle = window.FindName("DockBrandSubtitle") as TextBlock
+            ?? throw new InvalidOperationException("DockBrandSubtitle was not found.");
+        var dockFooterTitle = window.FindName("DockFooterTitle") as TextBlock
+            ?? throw new InvalidOperationException("DockFooterTitle was not found.");
+        var dockFooterDescription = window.FindName("DockFooterDescription") as TextBlock
+            ?? throw new InvalidOperationException("DockFooterDescription was not found.");
         var dockToggle = window.FindName("ToggleBottomDockButton") as Button
             ?? throw new InvalidOperationException("ToggleBottomDockButton was not found.");
         var expandedDock = window.FindName("DockExpandedSurface") as Border
@@ -1707,12 +1715,20 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("en", store.Load().Language, "The language change must survive reloading settings.json.");
         StringAssert.Contains(settingsTab.Header?.ToString() ?? string.Empty, "Settings",
             "Switching to English must update the settings tab label.");
+        Assert.AreEqual("Layal", dockBrandTitle.Text);
+        Assert.AreEqual("Your AI workspace", dockBrandSubtitle.Text);
+        Assert.AreEqual("Your AI companion", dockFooterTitle.Text);
+        Assert.AreEqual("Your chats and tools, together.", dockFooterDescription.Text);
 
         languageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, languageButton));
         Assert.AreEqual("ar", AppRuntime.Settings.Language, "The header language button should switch English back to Arabic.");
         Assert.AreEqual("ar", store.Load().Language, "Switching the language back must also persist.");
         StringAssert.Contains(settingsTab.Header?.ToString() ?? string.Empty, "الإعدادات",
             "Switching back to Arabic must update the settings tab label.");
+        Assert.AreEqual("ليال", dockBrandTitle.Text);
+        Assert.AreEqual("مساحة عملك الذكية", dockBrandSubtitle.Text);
+        Assert.AreEqual("مساعدك الذكي", dockFooterTitle.Text);
+        Assert.AreEqual("محادثاتك وأدواتك في مكان واحد.", dockFooterDescription.Text);
 
         // Navigation entry points must select the real corresponding tabs.
         goSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goSettings));

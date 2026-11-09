@@ -2828,6 +2828,10 @@ public partial class MainWindow : Window
             button.Background = active ? activeBrush : Brushes.Transparent;
             button.BorderBrush = active ? activeBorder : Brushes.Transparent;
             button.BorderThickness = active ? new Thickness(1) : new Thickness(0);
+            button.Foreground = active
+                ? ThemeBrush("Layal.Cyan", Brushes.SteelBlue)
+                : ThemeBrush("Layal.Text", Brushes.Black);
+            button.FontWeight = active ? FontWeights.Bold : FontWeights.Medium;
         }
 
         Set(DockChatButton, ReferenceEquals(selected, ChatTab));
@@ -2858,6 +2862,12 @@ public partial class MainWindow : Window
 
         DockWorkspaceHeading.Text = ar ? "مساحة العمل" : "WORKSPACE";
         DockPersonalHeading.Text = ar ? "أدوات شخصية" : "PERSONAL TOOLS";
+        DockBrandTitle.Text = ar ? "ليال" : "Layal";
+        DockBrandSubtitle.Text = ar ? "مساحة عملك الذكية" : "Your AI workspace";
+        DockFooterTitle.Text = ar ? "مساعدك الذكي" : "Your AI companion";
+        DockFooterDescription.Text = ar
+            ? "محادثاتك وأدواتك في مكان واحد."
+            : "Your chats and tools, together.";
 
         var destinations = new[]
         {
@@ -2875,7 +2885,7 @@ public partial class MainWindow : Window
         {
             var label = ar ? destination.Ar : destination.En;
             destination.Button.Width = expanded ? 152 : 44;
-            destination.Button.MinHeight = 44;
+            destination.Button.MinHeight = 48;
             destination.Button.Padding = expanded
                 ? new Thickness(12, 10, 12, 10)
                 : new Thickness(0);

@@ -28,6 +28,7 @@
   <ItemGroup>
     <Resource Include="Assets\layal-tray.ico" />
     <Resource Include="Assets\Characters\*.png" />
+    <Resource Include="Assets\Fonts\*.ttf" />
     <EmbeddedResource Include="Assets\3D\RiggedFigure.glb" LogicalName="Layal.Assets.3D.RiggedFigure.glb" />
     <Content Include="tessdata\*.traineddata" Link="tessdata\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Assets\3D\RiggedFigure-LICENSE.md" CopyToOutputDirectory="PreserveNewest" />

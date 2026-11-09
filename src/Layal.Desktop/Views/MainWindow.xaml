@@ -30,6 +30,9 @@
                 
             </Ellipse>
         </Grid>
+        <Border Grid.Row="0" Background="{DynamicResource Layal.HeaderGradient}"
+                BorderBrush="{DynamicResource Layal.Border}" BorderThickness="0,0,0,1"
+                IsHitTestVisible="False"/>
         <StackPanel x:Name="TopBarBrandRow" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left"
                     VerticalAlignment="Center" Margin="16,0,0,0" IsHitTestVisible="False">
             <Border Width="34" Height="34" CornerRadius="11" Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,9,0">
@@ -106,11 +109,11 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <Border Grid.Row="0" Style="{StaticResource Layal.PageHero}" Padding="26" Margin="0,0,0,16">
-                                <Grid MinHeight="190">
+                            <Border Grid.Row="0" Style="{StaticResource Layal.PageHero}" Padding="24" Margin="0,0,0,14">
+                                <Grid MinHeight="168">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="210"/>
+                                        <ColumnDefinition Width="188"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center" MaxWidth="700">
                                         <TextBlock Text="YOUR AI DESK  /  مساحة عملك الذكية" Style="{StaticResource Layal.SectionEyebrow}"/>
@@ -126,11 +129,11 @@
                                                     MinHeight="44" Padding="18,10"/>
                                         </WrapPanel>
                                     </StackPanel>
-                                    <Border Grid.Column="1" Width="190" Height="176" CornerRadius="30"
+                                    <Border Grid.Column="1" Width="168" Height="156" CornerRadius="24"
                                             Background="{DynamicResource Layal.PageHeroGradient}"
                                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                                             HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Image x:Name="HomeLayalImage" Width="176" Height="172"
+                                        <Image x:Name="HomeLayalImage" Width="158" Height="152"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
                                                Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
@@ -280,7 +283,7 @@
                     <Grid x:Name="ChatConversationSurface" Grid.Column="1" Loaded="ChatConversationSurface_Loaded" SizeChanged="ChatConversationSurface_SizeChanged">
                 <Grid Margin="8">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Border Grid.Row="0" Margin="3,0,3,7" Padding="16,10" CornerRadius="24" Background="{DynamicResource Layal.PageHeroGradient}"
+                    <Border Grid.Row="0" Margin="3,0,3,7" Padding="14,10" CornerRadius="18" Background="{DynamicResource Layal.PageHeroGradient}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -384,13 +387,13 @@
                                                             AutomationProperties.HelpText="يجلب الطقس للمدينة المحددة في الإعدادات."/>
                                                 </Grid>
                                             </Border>
-                    <Border x:Name="ChatMessagesShell" Grid.Row="2" Margin="3,0,3,8" CornerRadius="24"
+                    <Border x:Name="ChatMessagesShell" Grid.Row="2" Margin="3,0,3,8" CornerRadius="18"
                             Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                             BorderThickness="1" Effect="{DynamicResource Layal.CardShadow}" IsHitTestVisible="False"/>
                     <ListBox x:Name="ChatMessagesList" Grid.Row="2" Margin="5,3,5,9" ItemsSource="{Binding ChatMessages}" Background="Transparent" BorderThickness="0" Padding="18" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="رسائل المحادثة" AutomationProperties.HelpText="استخدم الأسهم لاستعراض رسائل المحادثة.">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border x:Name="Bubble" Background="{DynamicResource Layal.GlassStrongFill}" CornerRadius="20" Padding="18,13" Margin="8,6"
+                                <Border x:Name="Bubble" Background="{DynamicResource Layal.GlassStrongFill}" CornerRadius="16" Padding="17,12" Margin="7,5"
                                         BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1" MaxWidth="780" HorizontalAlignment="Left">
                                     <Border.ContextMenu>
                                         <ContextMenu Opened="ChatMessageContextMenu_Opening">
@@ -566,7 +569,7 @@
                                    FontSize="11.5" TextWrapping="Wrap" Margin="4,0"
                                    AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
-                    <Border x:Name="ChatComposerShell" Grid.Row="4" Margin="3,2,3,0" Padding="10,8" CornerRadius="25"
+                    <Border x:Name="ChatComposerShell" Grid.Row="4" Margin="3,2,3,0" Padding="10,8" CornerRadius="18"
                             Background="{DynamicResource Layal.GlassStrongFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                             BorderThickness="1">
                     <Grid>
@@ -1306,29 +1309,29 @@
               Margin="14,10,0,12" Panel.ZIndex="100" KeyboardNavigation.TabNavigation="Local">
             <Border x:Name="BottomDockShell" SizeChanged="BottomDockShell_SizeChanged" Background="{DynamicResource Layal.GlassStrongFill}"
                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                    CornerRadius="24" Padding="10" Effect="{DynamicResource Layal.CardShadow}">
+                    CornerRadius="20" Padding="10" Effect="{DynamicResource Layal.CardShadow}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Margin="3,3,3,14">
+                    <Grid Grid.Row="0" Margin="3,3,3,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Border x:Name="DockBrandMark" Width="32" Height="32" CornerRadius="11"
+                        <Border x:Name="DockBrandMark" Width="32" Height="32" CornerRadius="10"
                                 Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,6,0">
                             <TextBlock Text="L" FontSize="22" FontWeight="Bold"
                                        Foreground="{DynamicResource Layal.OnAccent}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <StackPanel x:Name="DockBrandCopy" Grid.Column="1" Width="78" VerticalAlignment="Center">
-                            <TextBlock Text="LAYAL" FontSize="13.5" FontWeight="Bold" TextTrimming="CharacterEllipsis"
+                        <StackPanel x:Name="DockBrandCopy" Grid.Column="1" Width="88" VerticalAlignment="Center">
+                            <TextBlock x:Name="DockBrandTitle" Text="ليال" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource Layal.Text}"/>
-                            <TextBlock Text="مساحة العمل الشخصية" FontSize="11.5" TextTrimming="CharacterEllipsis"
+                            <TextBlock x:Name="DockBrandSubtitle" Text="مساحة عملك الذكية" FontSize="11.5" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource Layal.Muted}"/>
                         </StackPanel>
                         <Button x:Name="ToggleBottomDockButton" Grid.Column="2" Content="&#xE711;"
@@ -1402,14 +1405,14 @@
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
-                    <Border x:Name="DockFooterNote" Grid.Row="2" Width="160" Margin="3,14,3,2" Padding="10"
+                    <Border x:Name="DockFooterNote" Grid.Row="2" Width="160" Margin="3,12,3,2" Padding="11"
                             Background="{DynamicResource Layal.Panel}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                             CornerRadius="14">
                         <StackPanel>
-                            <TextBlock Text="SOFT AURORA" FontSize="10.5" FontWeight="Bold"
+                            <TextBlock x:Name="DockFooterTitle" Text="مساعدك الذكي" FontSize="12.5" FontWeight="Bold"
                                        Foreground="{DynamicResource Layal.Cyan}"/>
-                            <TextBlock Text="واجهة هادئة، ومساحة واضحة لكل مهمة."
+                            <TextBlock x:Name="DockFooterDescription" Text="محادثاتك وأدواتك في مكان واحد."
                                        FontSize="11.5" Foreground="{DynamicResource Layal.Muted}"
                                        TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel>
