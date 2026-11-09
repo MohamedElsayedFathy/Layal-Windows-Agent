@@ -4,42 +4,42 @@
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         xmlns:controls="clr-namespace:Layal.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Layal | ليال" Icon="pack://application:,,,/Layal;component/Assets/layal-tray.ico" Width="1320" Height="860" MinWidth="900" MinHeight="560"
+        Title="Layal | ليال" Icon="pack://application:,,,/Layal;component/Assets/layal-tray.ico" Width="1380" Height="900" MinWidth="980" MinHeight="640"
         Background="Transparent" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
         Closing="Window_Closing" Loaded="MainWindow_Loaded" PreviewKeyDown="MainWindow_PreviewKeyDown">
     <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
+        <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
     <Grid x:Name="WindowRoot" Background="{DynamicResource Layal.AppBackdropWash}">
-        <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="52"/><RowDefinition Height="*"/></Grid.RowDefinitions>
 
         <!-- Layered aurora glow behind the frosted panels: decorative only, never intercepts input. -->
         <Grid x:Name="AmbientGlassLayer" Grid.Row="0" Grid.RowSpan="2"
               IsHitTestVisible="False" Focusable="False" ClipToBounds="True">
             <Ellipse Width="520" Height="520" HorizontalAlignment="Left" VerticalAlignment="Top"
-                     Margin="-190,-205,0,0" Fill="{DynamicResource Layal.GlowBlueBrush}" Opacity="0.54">
+                     Margin="-190,-205,0,0" Fill="{DynamicResource Layal.GlowBlueBrush}" Opacity="0.18">
                 
             </Ellipse>
             <Ellipse Width="440" Height="440" HorizontalAlignment="Right" VerticalAlignment="Top"
-                     Margin="0,-145,210,0" Fill="{DynamicResource Layal.GlowVioletBrush}" Opacity="0.46">
+                     Margin="0,-145,210,0" Fill="{DynamicResource Layal.GlowVioletBrush}" Opacity="0.15">
                 
             </Ellipse>
             <Ellipse Width="560" Height="560" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                     Margin="0,0,-195,-225" Fill="{DynamicResource Layal.GlowPinkBrush}" Opacity="0.38">
+                     Margin="0,0,-195,-225" Fill="{DynamicResource Layal.GlowPinkBrush}" Opacity="0.10">
                 
             </Ellipse>
         </Grid>
         <StackPanel x:Name="TopBarBrandRow" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left"
                     VerticalAlignment="Center" Margin="16,0,0,0" IsHitTestVisible="False">
-            <Border Width="30" Height="30" CornerRadius="10" Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,9,0">
-                <TextBlock Text="L" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Layal.OnAccent}"
+            <Border Width="34" Height="34" CornerRadius="11" Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,9,0">
+                <TextBlock Text="L" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Layal.OnAccent}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <StackPanel VerticalAlignment="Center">
-                <TextBlock x:Name="TitleText" Text="Layal | ليال" FontSize="14" FontWeight="SemiBold"
+                <TextBlock x:Name="TitleText" Text="Layal | ليال" FontSize="15" FontWeight="SemiBold"
                            FlowDirection="LeftToRight" TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="SubtitleText" Text="مساعد سطح المكتب" FontSize="10"
+                <TextBlock x:Name="SubtitleText" Text="مساعد سطح المكتب" FontSize="11.5"
                            Foreground="{DynamicResource Layal.Muted}" FlowDirection="LeftToRight"/>
             </StackPanel>
         </StackPanel>
@@ -52,7 +52,7 @@
                             AutomationProperties.Name="حالة الميكروفون للمحادثة الصوتية" AutomationProperties.LiveSetting="Polite">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Ellipse x:Name="VoiceConversationMicDot" Width="9" Height="9" Fill="{DynamicResource Layal.Danger}" Margin="0,0,7,0"/>
-                            <TextBlock x:Name="VoiceConversationMicStatus" Text="الميكروفون نشط" FontSize="12" FontWeight="SemiBold"
+                            <TextBlock x:Name="VoiceConversationMicStatus" Text="الميكروفون نشط" FontSize="13.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Layal.Text}" AutomationProperties.LiveSetting="Polite"/>
                         </StackPanel>
                     </Border>
@@ -62,7 +62,7 @@
                             AutomationProperties.Name="حالة كاميرا الرؤية" AutomationProperties.LiveSetting="Polite">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Ellipse x:Name="CameraVisionDot" Width="9" Height="9" Fill="{DynamicResource Layal.Danger}" Margin="0,0,7,0"/>
-                            <TextBlock x:Name="CameraVisionStatusText" Text="الكاميرا نشطة" FontSize="12" FontWeight="SemiBold"
+                            <TextBlock x:Name="CameraVisionStatusText" Text="الكاميرا نشطة" FontSize="13.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Layal.Text}" AutomationProperties.LiveSetting="Polite"/>
                         </StackPanel>
                     </Border>
@@ -70,21 +70,21 @@
                     CornerRadius="10" Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                     BorderThickness="1" Padding="8,5" Margin="3" VerticalAlignment="Center">
                 <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}"
-                           FontSize="11" FontWeight="SemiBold" AutomationProperties.Name="حالة اتصال المزود"
+                           FontSize="12.5" FontWeight="SemiBold" AutomationProperties.Name="حالة اتصال المزود"
                            AutomationProperties.LiveSetting="Polite"/>
             </Border>
             <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="62"
-                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    Padding="7,5" Margin="2" FontSize="12.5" MinHeight="40"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
             <Button x:Name="ThemeButton" Content="☾ Dark" Click="ThemeButton_Click" MinWidth="78"
-                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    Padding="7,5" Margin="2" FontSize="12.5" MinHeight="40"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
             <Button x:Name="KeyboardHelpButton" Content="F1" Click="KeyboardHelpButton_Click" MinWidth="38"
-                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    Padding="7,5" Margin="2" FontSize="12.5" MinHeight="40"
                     ToolTip="اختصارات لوحة المفاتيح" AutomationProperties.Name="اختصارات لوحة المفاتيح"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
             <Button x:Name="ShowMascotButton" Content="ليال" Click="ShowMascotButton_Click" MinWidth="48"
-                    Padding="7,5" Margin="2" FontSize="11" MinHeight="32"
+                    Padding="7,5" Margin="2" FontSize="12.5" MinHeight="40"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
             <Button x:Name="MinimizeWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE921;" Click="MinimizeWindowButton_Click"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="تصغير / Minimize" AutomationProperties.Name="تصغير / Minimize" />
@@ -121,9 +121,9 @@
                                                    TextWrapping="Wrap" MaxWidth="620" Style="{StaticResource Layal.PageDescription}"/>
                                         <WrapPanel Margin="0,16,0,0">
                                             <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"
-                                                    Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="42" Padding="20,10"/>
+                                                    Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="44" Padding="20,10"/>
                                             <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"
-                                                    MinHeight="42" Padding="18,10"/>
+                                                    MinHeight="44" Padding="18,10"/>
                                         </WrapPanel>
                                     </StackPanel>
                                     <Border Grid.Column="1" Width="190" Height="176" CornerRadius="30"
@@ -146,52 +146,52 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                <Border Grid.Column="0" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="✦" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
                                         <TextBlock x:Name="CardAiValue" Text="غير متصل" FontSize="19" FontWeight="Bold"
                                                    Foreground="{DynamicResource Layal.Warning}" Margin="0,4,0,0"/>
                                         <TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات"
-                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Grid.Column="1" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                <Border Grid.Column="1" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="◉" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
                                         <TextBlock x:Name="CardMascotValue" Text="نافذة Windows أصلية" FontSize="17" FontWeight="Bold"
                                                    Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
                                         <TextBlock x:Name="CardMascotHint" Text="اسحب ليال على سطح المكتب، وانقر مرتين لفتح الواجهة."
-                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Grid.Column="2" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                <Border Grid.Column="2" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="⌘" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
                                         <TextBlock x:Name="CardToolsValue" Text="أداة آمنة متاحة" FontSize="17" FontWeight="Bold"
                                                    Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
                                         <TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه."
-                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Grid.Column="3" Style="{StaticResource Layal.DashboardCard}" MinHeight="142" Padding="16">
+                                <Border Grid.Column="3" Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
                                     <StackPanel>
                                         <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
                                             <TextBlock Text="◇" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="12" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                        <TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
                                         <TextBlock x:Name="CardSkillsValue" Text="استيراد ZIP مع التحقق" FontSize="17" FontWeight="Bold"
                                                    Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
                                         <TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها."
-                                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -200,19 +200,19 @@
                                 <StackPanel>
                                     <TextBlock Text="QUICK LAUNCH  /  وصول سريع" Style="{StaticResource Layal.SectionEyebrow}"/>
                                     <TextBlock Text="ابدأ مباشرة" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                    <TextBlock Text="أوامر قصيرة تفتح لك أهم أجزاء مساحة العمل." FontSize="11"
+                                    <TextBlock Text="أوامر قصيرة تفتح لك أهم أجزاء مساحة العمل." FontSize="12.5"
                                                Foreground="{DynamicResource Layal.Muted}" Margin="0,0,0,10"/>
                                     <WrapPanel>
                                         <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click"
-                                                Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="42" Padding="18,10"/>
-                                        <Button Content="فتح المهام" Click="DockTasksButton_Click" MinHeight="42" Padding="18,10"/>
-                                        <Button Content="فتح الذاكرة" Click="DockMemoryButton_Click" MinHeight="42" Padding="18,10"/>
+                                                Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="44" Padding="18,10"/>
+                                        <Button Content="فتح المهام" Click="DockTasksButton_Click" MinHeight="44" Padding="18,10"/>
+                                        <Button Content="فتح الذاكرة" Click="DockMemoryButton_Click" MinHeight="44" Padding="18,10"/>
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>
 
                             <Border Grid.Row="3" Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="18"
-                                    Padding="16" Margin="4,0,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
+                                    Padding="18" Margin="4,0,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -223,10 +223,10 @@
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="ملاحظة حول حالة الميزات" FontSize="12" FontWeight="SemiBold"/>
+                                        <TextBlock Text="ملاحظة حول حالة الميزات" FontSize="13.5" FontWeight="SemiBold"/>
                                         <TextBlock x:Name="HomeCaveat"
                                                    Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة."
-                                                   Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                   Foreground="{DynamicResource Layal.Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -283,9 +283,9 @@
                         </Grid>
                     </Border>
                     <Grid x:Name="ChatConversationSurface" Grid.Column="1">
-                <Grid Margin="10">
+                <Grid Margin="8">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Border Grid.Row="0" Margin="3,0,3,10" Padding="18,14" CornerRadius="24" Background="{DynamicResource Layal.PageHeroGradient}"
+                    <Border Grid.Row="0" Margin="3,0,3,7" Padding="16,10" CornerRadius="24" Background="{DynamicResource Layal.PageHeroGradient}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -294,7 +294,7 @@
                         <DockPanel Grid.Row="0" LastChildFill="False">
                             <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,12,0">
                                 <TextBlock Text="LAYAL  /  مساعد سطح المكتب" FlowDirection="RightToLeft"
-                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
+                                           FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
                                            Margin="0,0,0,3"/>
                                 <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال"
                                            FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}" Margin="0,0,0,3"/>
@@ -318,7 +318,7 @@
                                     Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
                         </WrapPanel>
                     </Grid>
-                            <Image Grid.Column="1" Width="76" Height="76" Margin="10,0,0,0" VerticalAlignment="Center"
+                            <Image Grid.Column="1" Width="60" Height="60" Margin="10,0,0,0" VerticalAlignment="Center"
                                    Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
                                    IsHitTestVisible="False" Focusable="False" />
@@ -326,7 +326,7 @@
                     </Border>
 
                     <Border x:Name="ClockWeatherCard" Grid.Row="1" Background="{DynamicResource Layal.GlassFill}"
-                                                    CornerRadius="15" Padding="5,3" Margin="3,0,3,6"
+                                                    CornerRadius="14" Padding="4,1" Margin="3,0,3,4"
                                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                                                     Effect="{DynamicResource Layal.CardShadow}">
                                                 <Grid>
@@ -341,14 +341,14 @@
                                                                    FontSize="13" FontWeight="SemiBold"
                                                                    Foreground="{DynamicResource Layal.Muted}"/>
                                                         <TextBlock x:Name="ClockTimeText" Text="--:--:--"
-                                                                   FontSize="18" FontWeight="SemiBold" Margin="0,1,0,0"
+                                                                   FontSize="16" FontWeight="SemiBold" Margin="0,0,0,0"
                                                                    AutomationProperties.Name="الوقت المحلي"/>
                                                         <TextBlock x:Name="CurrentDateText" Text="جارٍ تحميل التاريخ"
-                                                                   FontSize="10" TextWrapping="Wrap"
+                                                                   FontSize="11.5" TextWrapping="Wrap"
                                                                    Foreground="{DynamicResource Layal.Muted}" Margin="0,1,0,0"
                                                                    AutomationProperties.Name="التاريخ المحلي"/>
                                                     </StackPanel>
-                                                    <Border Grid.Column="1" Width="1" Height="62"
+                                                    <Border Grid.Column="1" Width="1" Height="50"
                                                             Background="{DynamicResource Layal.Border}" Margin="8,0"/>
                                                     <Grid Grid.Column="2" Margin="10,0,10,0">
                                                         <Grid.ColumnDefinitions>
@@ -356,7 +356,7 @@
                                                             <ColumnDefinition Width="*"/>
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock x:Name="WeatherIconText" Grid.Column="0" Text="🌍"
-                                                                   FontSize="30" VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                   FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0"
                                                                    AutomationProperties.Name="رمز حالة الطقس"/>
                                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                             <TextBlock x:Name="WeatherSectionTitle" Text="الطقس"
@@ -364,27 +364,27 @@
                                                                        Foreground="{DynamicResource Layal.Muted}"/>
                                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                                 <TextBlock x:Name="WeatherTemperatureText" Text="—°C"
-                                                                           FontSize="22" FontWeight="SemiBold" Margin="0,2,8,0"
+                                                                           FontSize="18" FontWeight="SemiBold" Margin="0,1,8,0"
                                                                            AutomationProperties.Name="درجة الحرارة الحالية"/>
                                                                 <TextBlock x:Name="WeatherSummaryText" Text="سيتم تحديد موقعك تلقائيًا"
-                                                                           FontSize="13" VerticalAlignment="Center"
+                                                                           FontSize="12.5" VerticalAlignment="Center"
                                                                            TextWrapping="Wrap" MaxWidth="300"/>
                                                             </StackPanel>
                                                             <TextBlock x:Name="WeatherLocationText" Text="لم تُحدّد مدينة"
-                                                                       FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}"
                                                                        TextWrapping="Wrap" Margin="0,2,0,0"
                                                                        AutomationProperties.Name="مدينة الطقس"/>
                                                             <TextBlock x:Name="WeatherDetailsText" Text=""
-                                                                       FontSize="12" Foreground="{DynamicResource Layal.Muted}"
+                                                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}"
                                                                        TextWrapping="Wrap" Margin="0,2,0,0"/>
                                                             <TextBlock x:Name="WeatherUpdatedText" Text=""
-                                                                       FontSize="11" Foreground="{DynamicResource Layal.Muted}"
+                                                                       FontSize="10.5" Foreground="{DynamicResource Layal.Muted}"
                                                                        Margin="0,3,0,0"/>
                                                         </StackPanel>
                                                     </Grid>
                                                     <Button x:Name="RefreshWeatherButton" Grid.Column="3"
                                                             Content="تحديث الطقس" Click="RefreshWeatherButton_Click"
-                                                            VerticalAlignment="Center" Margin="4,0,0,0" MinWidth="92"
+                                                            VerticalAlignment="Center" Margin="4,0,0,0" MinWidth="82"
                                                             AutomationProperties.Name="تحديث حالة الطقس"
                                                             AutomationProperties.HelpText="يجلب الطقس للمدينة المحددة في الإعدادات."/>
                                                 </Grid>
@@ -403,7 +403,7 @@
                                         </ContextMenu>
                                     </Border.ContextMenu>
                                     <StackPanel>
-                                        <TextBlock x:Name="RoleText" Text="{Binding DisplayRole}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,0,4"/>
+                                        <TextBlock x:Name="RoleText" Text="{Binding DisplayRole}" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,0,4"/>
                                         <emoji:TextBlock x:Name="BodyText" Text="{Binding Content}" TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}"
                                                          FlowDirection="{Binding Direction}"
                                                          TextAlignment="{Binding Direction, Converter={StaticResource Layal.TextDirectionConverter}}"/>
@@ -421,11 +421,11 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <Border x:Name="ChatWelcomePanel" Grid.Row="2" Margin="18,12" Padding="28"
+                    <Border x:Name="ChatWelcomePanel" Grid.Row="2" Margin="12,6" Padding="18"
                             Background="{DynamicResource Layal.GlassFill}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                            CornerRadius="28" HorizontalAlignment="Center" VerticalAlignment="Center"
-                            MaxWidth="860">
+                            CornerRadius="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MaxWidth="820">
                         <Border.Style>
                             <Style TargetType="{x:Type Border}">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -441,38 +441,38 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Border Width="112" Height="112" CornerRadius="34"
+                            <Border Width="88" Height="88" CornerRadius="24"
                                     Background="{DynamicResource Layal.PageHeroGradient}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                                    VerticalAlignment="Center" Margin="0,0,24,0">
+                                    VerticalAlignment="Center" Margin="0,0,18,0">
                                 <Image Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
-                                       Width="104" Height="104" Stretch="Uniform"
+                                       Width="82" Height="82" Stretch="Uniform"
                                        RenderOptions.BitmapScalingMode="HighQuality"
                                        IsHitTestVisible="False" Focusable="False"/>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="YOUR AI DESK  /  مساعدتك الذكية"
                                            Style="{StaticResource Layal.SectionEyebrow}"/>
-                                <TextBlock Text="نبدأ بإيه النهارده؟" FontSize="25" FontWeight="SemiBold"
+                                <TextBlock Text="نبدأ بإيه النهارده؟" FontSize="23" FontWeight="SemiBold"
                                            Foreground="{DynamicResource Layal.Text}" Margin="0,0,0,7"/>
                                 <TextBlock x:Name="ChatEmptyStateText"
                                            Text="اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
-                                           FontSize="12" Foreground="{DynamicResource Layal.Muted}"
-                                           TextWrapping="Wrap" MaxWidth="560" Margin="0,0,0,16"
+                                           FontSize="11.5" Foreground="{DynamicResource Layal.Muted}"
+                                           TextWrapping="Wrap" MaxWidth="560" Margin="0,0,0,11"
                                            AutomationProperties.Name="Chat empty state"
                                            AutomationProperties.HelpText="تظهر الرسائل هنا بعد إرسال أو استقبال رسالة."/>
                                 <WrapPanel>
                                     <Button x:Name="ChatSuggestionPlanButton" Content="✦  ساعدني في التخطيط"
                                             Tag="plan" Click="ChatSuggestionButton_Click"
-                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            MinHeight="40" Padding="16,9" Margin="0,0,7,7"
                                             AutomationProperties.Name="اقتراح بدء محادثة للتخطيط"/>
                                     <Button x:Name="ChatSuggestionSummaryButton" Content="▤  لخّص لي محتوى"
                                             Tag="summary" Click="ChatSuggestionButton_Click"
-                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            MinHeight="40" Padding="16,9" Margin="0,0,7,7"
                                             AutomationProperties.Name="اقتراح بدء محادثة للتلخيص"/>
                                     <Button x:Name="ChatSuggestionIdeasButton" Content="◇  اقترح أفكارًا"
                                             Tag="ideas" Click="ChatSuggestionButton_Click"
-                                            MinHeight="40" Padding="14,8" Margin="0,0,7,7"
+                                            MinHeight="40" Padding="16,9" Margin="0,0,7,7"
                                             AutomationProperties.Name="اقتراح بدء محادثة لتوليد الأفكار"/>
                                 </WrapPanel>
                             </StackPanel>
@@ -491,8 +491,8 @@
                                 <DockPanel LastChildFill="True">
                                     <TextBlock DockPanel.Dock="Right" Text="⌄" FontSize="15" FontWeight="Bold"
                                                Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="أدوات المحادثة والمرفقات" FontSize="12" FontWeight="SemiBold"/>
-                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="10"
+                                    <TextBlock Text="أدوات المحادثة والمرفقات" FontSize="13.5" FontWeight="SemiBold"/>
+                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="11.5"
                                                Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
                                 </DockPanel>
                             </Expander.Header>
@@ -563,12 +563,12 @@
                             </Border>
                         </Expander>
                         <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية."
-                                   FontSize="10" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,2,4,0"/>
+                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,2,4,0"/>
                         <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}"
-                                   FontSize="10" TextWrapping="Wrap" Margin="4,0"
+                                   FontSize="11.5" TextWrapping="Wrap" Margin="4,0"
                                    AutomationProperties.Name="حالة المحادثة" AutomationProperties.LiveSetting="Polite"/>
                         <TextBlock x:Name="ChatCopyStatus" Text="" Foreground="{DynamicResource Layal.Success}"
-                                   FontSize="10" TextWrapping="Wrap" Margin="4,0"
+                                   FontSize="11.5" TextWrapping="Wrap" Margin="4,0"
                                    AutomationProperties.Name="حالة النسخ" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                     <Border x:Name="ChatComposerShell" Grid.Row="4" Margin="3,2,3,0" Padding="10,8" CornerRadius="25"
@@ -585,7 +585,7 @@
                                 Visibility="Collapsed" MinWidth="110"
                                 AutomationProperties.Name="كتم ميكروفون المحادثة الصوتية"
                                 AutomationProperties.HelpText="يكتم الميكروفون مؤقتًا دون إنهاء المحادثة؛ اضغط مرة أخرى لإعادة تشغيله."/>
-                        <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="4" Content="إرسال" Click="SendButton_Click" MinWidth="92" MinHeight="48"/>
+                        <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="4" Content="إرسال" Click="SendButton_Click" MinWidth="82" MinHeight="48"/>
                         <Button x:Name="CancelResponseButton" Grid.Column="5" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
                     </Border>
@@ -621,7 +621,7 @@
                                              AutomationProperties.Name="وصف المهمة / Task description"
                                              AutomationProperties.HelpText="صف المهمة التي تريد تنفيذها / Describe the task you want to perform. استخدم Tab للوصول إلى زر تنفيذ المهمة."/>
                                     <TextBlock x:Name="TaskSkillHint" Text="يمكنك تحديد حتى 3 مهارات في تبويب المهارات لاستخدامها كمراجع غير موثوقة."
-                                               Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="4,7,4,0"/>
+                                               Foreground="{DynamicResource Layal.Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="4,7,4,0"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="112">
                                     <Button x:Name="RunAgentTaskButton" Content="تنفيذ المهمة" Click="RunAgentTaskButton_Click"
@@ -639,8 +639,8 @@
                             <Expander.Header>
                                 <DockPanel>
                                     <TextBlock Text="⌄" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="أدوات وإعدادات المهمة" FontSize="12" FontWeight="SemiBold"/>
-                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="10" Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
+                                    <TextBlock Text="أدوات وإعدادات المهمة" FontSize="13.5" FontWeight="SemiBold"/>
+                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
                                 </DockPanel>
                             </Expander.Header>
                             <Border Background="{DynamicResource Layal.GlassFill}" CornerRadius="14" Padding="10" Margin="4">
@@ -671,13 +671,13 @@
                                     <Separator Margin="4,10"/>
                                     <TextBlock x:Name="TaskSafeToolTitle" Text="أدوات Windows المحدودة" FontWeight="SemiBold" Margin="4,2,4,0"/>
                                     <TextBlock x:Name="TaskSafeToolDescription" Text="الأدوات المتاحة محددة؛ لا يوجد وصول عام غير مقيد إلى سطر الأوامر أو الملفات."
-                                               Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="4,3,4,0"/>
+                                               Foreground="{DynamicResource Layal.Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="4,3,4,0"/>
                                     <WrapPanel Margin="4,10,4,0" VerticalAlignment="Center">
                                         <CheckBox x:Name="ProactiveCheckInEnabledCheckBox" Content="تذكيرات متابعة استباقية"
                                                   Click="ProactiveCheckInEnabledCheckBox_Click" VerticalAlignment="Center" Margin="0,0,10,0"
                                                   AutomationProperties.Name="تفعيل تذكيرات المتابعة المجدولة"
                                                   AutomationProperties.HelpText="إشعارات محلية في موعد تختاره. لا تراقب الشاشة أو التطبيقات ولا تستدعي نموذج AI في الخلفية."/>
-                                        <ComboBox x:Name="ProactiveCheckInIntervalSelector" Width="130" MinHeight="28"
+                                        <ComboBox x:Name="ProactiveCheckInIntervalSelector" Width="130" MinHeight="40"
                                                   SelectionChanged="ProactiveCheckInIntervalSelector_SelectionChanged"
                                                   AutomationProperties.Name="الفاصل الزمني لتذكير المتابعة"
                                                   AutomationProperties.HelpText="اختر 15 أو 30 أو 60 أو 120 دقيقة بين إشعارات المتابعة.">
@@ -689,7 +689,7 @@
                                     </WrapPanel>
                                     <TextBlock x:Name="ProactiveCheckInPrivacyNote"
                                                Text="الوضع الاستباقي هنا يرسل تذكيرًا محليًا فقط، ولا يفحص النوافذ أو الشاشة أو الملفات."
-                                               Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="4,6,4,0"
+                                               Foreground="{DynamicResource Layal.Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="4,6,4,0"
                                                AutomationProperties.Name="حدود خصوصية تذكيرات المتابعة"/>
                                 </StackPanel>
                             </Border>
@@ -735,7 +735,7 @@
                         <GroupBox Grid.Column="1" x:Name="RecentTasksGroup" Header="المهام السابقة" Foreground="{DynamicResource Layal.Text}" BorderBrush="{DynamicResource Layal.Border}" Background="{DynamicResource Layal.Panel}" Padding="8" Margin="6,0,0,0">
                             <Grid>
                                 <ListBox x:Name="RecentTasksList" ItemsSource="{Binding RecentTasks}" AutomationProperties.Name="المهام السابقة" AutomationProperties.HelpText="اختر مهمة سابقة لعرض تفاصيلها." SelectionChanged="RecentTasksList_SelectionChanged" Background="{DynamicResource Layal.Panel}" BorderBrush="{DynamicResource Layal.Border}" Padding="4">
-                                    <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FlowDirection="{Binding Goal, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Goal, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding DisplayStatus}" FlowDirection="{Binding DisplayStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding DisplayStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Cyan}" FontSize="11" Margin="0,4,0,0"/><TextBlock Text="{Binding DisplayUpdatedAt}" FlowDirection="{Binding DisplayUpdatedAt, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding DisplayUpdatedAt, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="10"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                                    <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Goal}" FlowDirection="{Binding Goal, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Goal, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap"/><TextBlock Text="{Binding DisplayStatus}" FlowDirection="{Binding DisplayStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding DisplayStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Cyan}" FontSize="12.5" Margin="0,4,0,0"/><TextBlock Text="{Binding DisplayUpdatedAt}" FlowDirection="{Binding DisplayUpdatedAt, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding DisplayUpdatedAt, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="11.5"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                                 </ListBox>
                                 <TextBlock x:Name="RecentTasksEmptyStateText"
                                            Text="No previous tasks yet."
@@ -779,7 +779,7 @@
                         </StackPanel>
                     </Border>
                     <ListBox x:Name="SkillsList" Grid.Row="2" SelectionMode="Extended" ItemsSource="{Binding InstalledSkills}" AutomationProperties.Name="المهارات المثبتة" AutomationProperties.HelpText="يمكن تحديد عدة مهارات باستخدام Ctrl أو Shift مع الأسهم." Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1" Padding="10">
-                        <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="15" Margin="4" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FlowDirection="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" FlowDirection="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" FlowDirection="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                        <ListBox.ItemTemplate><DataTemplate><Border Background="{DynamicResource Layal.CardGradient}" CornerRadius="16" Padding="15" Margin="4" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Name}" FlowDirection="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Name, Converter={StaticResource Layal.TextDirectionConverter}}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" FlowDirection="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding Description, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Text}" TextWrapping="Wrap" Margin="0,4,0,4"/><TextBlock Text="{Binding ValidationStatus}" FlowDirection="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" TextAlignment="{Binding ValidationStatus, Converter={StaticResource Layal.TextDirectionConverter}}" Foreground="{DynamicResource Layal.Muted}" FontSize="12.5" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
                     <TextBlock x:Name="SkillsEmptyStateText" Grid.Row="2"
                                Text="No skills installed. Import a ZIP or GitHub folder to get started."
@@ -798,7 +798,7 @@
                         <WrapPanel><Button x:Name="ImportSkillButton" Content="استيراد ZIP" Click="ImportSkillButton_Click"/><Button x:Name="RefreshSkillsButton" Content="تحديث القائمة" Click="RefreshSkillsButton_Click"/></WrapPanel>
                         <DockPanel Margin="0,7,0,0">
                             <Button x:Name="ImportGitHubSkillButton" Content="استيراد من GitHub" Click="ImportGitHubSkillButton_Click" DockPanel.Dock="Right"/>
-                            <TextBox x:Name="GitHubSkillUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://github.com/owner/repo/tree/main/path/to/skill" AutomationProperties.Name="رابط مستودع المهارة / Skill repository URL" AutomationProperties.HelpText="أدخل رابط مستودع أو مجلد يحتوي على SKILL.md / Enter a repository or folder containing SKILL.md."/>
+                            <TextBox x:Name="GitHubSkillUrlInput" FlowDirection="LeftToRight" MinHeight="40" ToolTip="https://github.com/owner/repo/tree/main/path/to/skill" AutomationProperties.Name="رابط مستودع المهارة / Skill repository URL" AutomationProperties.HelpText="أدخل رابط مستودع أو مجلد يحتوي على SKILL.md / Enter a repository or folder containing SKILL.md."/>
                         </DockPanel>
                         <TextBlock x:Name="SkillsResult" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="5,5,5,0" AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
@@ -848,12 +848,12 @@
                                     <TextBlock x:Name="CameraDescription"
                                                Text="سيُضاف اتصال RTSP/ONVIF ومعالجة الفيديو بعد إنشاء خدمة الكاميرات واختبارها على Windows مع جهاز مصرح به. لا يعرض هذا الإصدار بثًا وهميًا."
                                                Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
-                                               TextAlignment="Center" FontSize="12"/>
+                                               TextAlignment="Center" FontSize="13.5"/>
                                     <Border Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="14"
                                             Padding="14" Margin="0,18,0,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
                                         <TextBlock Text="لن تظهر أي صورة أو بث إلا بعد إضافة مصدر حقيقي ومنح الإذن اللازم."
                                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap"
-                                                   TextAlignment="Center" FontSize="11"/>
+                                                   TextAlignment="Center" FontSize="12.5"/>
                                     </Border>
                                 </StackPanel>
                             </Grid>
@@ -879,7 +879,7 @@
                         <StackPanel>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="34" ToolTip="بحث في الذاكرة"
+                            <TextBox x:Name="MemorySearchInput" Grid.Column="0" MinHeight="40" ToolTip="بحث في الذاكرة"
                                      KeyDown="MemorySearchInput_KeyDown"
                                      AutomationProperties.Name="البحث في الذاكرة / Search memory notes"
                                      AutomationProperties.HelpText="ابحث في العناوين والمحتوى والتصنيفات. اضغط Enter لتنفيذ البحث."/>
@@ -902,7 +902,7 @@
                                       AutomationProperties.Name="عرض الملاحظات المؤرشفة / Include archived notes"
                                       AutomationProperties.HelpText="أظهر الملاحظات المؤرشفة لعرضها واستعادتها."/>
                             <TextBlock x:Name="MemoryCategoryFilterLabel" Text="تصفية التصنيف" VerticalAlignment="Center" Margin="4,0,6,0"/>
-                            <ComboBox x:Name="MemoryCategoryFilter" MinWidth="150" MinHeight="30"
+                            <ComboBox x:Name="MemoryCategoryFilter" MinWidth="150" MinHeight="40"
                                       SelectionChanged="MemoryCategoryFilter_SelectionChanged"
                                       AutomationProperties.Name="تصفية الذاكرة حسب التصنيف / Filter memory by category"/>
                             <Button x:Name="ClearMemoryFiltersButton" Content="مسح عوامل التصفية" Click="ClearMemoryFiltersButton_Click"/>
@@ -930,12 +930,12 @@
                                                    TextAlignment="{Binding Title, Converter={StaticResource Layal.TextDirectionConverter}}"
                                                    TextWrapping="Wrap" Foreground="{DynamicResource Layal.Text}" />
                                         <WrapPanel Margin="0,3,0,0">
-                                            <TextBlock Text="{Binding Category}" FontSize="11"
+                                            <TextBlock Text="{Binding Category}" FontSize="12.5"
                                                        Foreground="{DynamicResource Layal.Muted}"/>
-                                            <TextBlock Text="  ·  " FontSize="11" Foreground="{DynamicResource Layal.Muted}"/>
-                                            <TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:g}}" FontSize="11"
+                                            <TextBlock Text="  ·  " FontSize="12.5" Foreground="{DynamicResource Layal.Muted}"/>
+                                            <TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:g}}" FontSize="12.5"
                                                        Foreground="{DynamicResource Layal.Muted}"/>
-                                            <TextBlock Text="  ·  مؤرشفة / Archived" FontSize="11"
+                                            <TextBlock Text="  ·  مؤرشفة / Archived" FontSize="12.5"
                                                        Foreground="{DynamicResource Layal.Warning}" Visibility="Collapsed">
                                                 <TextBlock.Style>
                                                     <Style TargetType="{x:Type TextBlock}">
@@ -973,12 +973,12 @@
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="MemoryCategoryLabel" Text="التصنيف" Margin="0,0,0,4"/>
-                                <TextBox x:Name="MemoryCategoryInput" MinHeight="32" MaxLength="40" Text="General"
+                                <TextBox x:Name="MemoryCategoryInput" MinHeight="40" MaxLength="40" Text="General"
                                          AutomationProperties.Name="تصنيف الملاحظة / Memory note category"
                                          AutomationProperties.LabeledBy="{Binding ElementName=MemoryCategoryLabel}"
                                          ToolTip="General, Work, Project..."/>
                                 <TextBlock x:Name="MemoryTitleLabel" Text="العنوان" Margin="0,10,0,4"/>
-                                <TextBox x:Name="MemoryTitleInput" MinHeight="32" MaxLength="120" AutomationProperties.Name="عنوان الملاحظة / Memory note title" AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"/>
+                                <TextBox x:Name="MemoryTitleInput" MinHeight="40" MaxLength="120" AutomationProperties.Name="عنوان الملاحظة / Memory note title" AutomationProperties.LabeledBy="{Binding ElementName=MemoryTitleLabel}"/>
                                 <TextBlock x:Name="MemoryContentLabel" Text="المحتوى" Margin="0,10,0,4"/>
                                 <TextBox x:Name="MemoryContentInput" MinHeight="160" MaxLength="12000" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="محتوى الملاحظة / Memory note content" AutomationProperties.LabeledBy="{Binding ElementName=MemoryContentLabel}"/>
                                 <WrapPanel Margin="0,10,0,0">
@@ -1016,7 +1016,7 @@
                                 CornerRadius="20" Padding="14" Margin="0,0,10,0">
                         <StackPanel>
                             <TextBlock x:Name="ApiConnectionsListLabel" Text="التطبيقات المتصلة" FontWeight="SemiBold" Margin="4,0,4,5"/>
-                            <TextBox x:Name="ApiConnectionSearchInput" MinHeight="32" Margin="0,0,0,6"
+                            <TextBox x:Name="ApiConnectionSearchInput" MinHeight="40" Margin="0,0,0,6"
                                      ToolTip="ابحث بالاسم أو عنوان API أو التفاصيل"
                                      AutomationProperties.Name="البحث في اتصالات API / Search API connections"
                                      AutomationProperties.HelpText="يبحث في اسم الاتصال وعنوان API والتفاصيل دون البحث في مفاتيح المصادقة."
@@ -1030,9 +1030,9 @@
                                                 <Image Source="{Binding ImagePath}" Width="44" Height="44" Stretch="UniformToFill" Margin="0,0,8,0"/>
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Cyan}" TextWrapping="Wrap"/>
-                                                    <TextBlock Text="{Binding BaseUrl}" Foreground="{DynamicResource Layal.Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="{Binding ModelId}" Foreground="{DynamicResource Layal.Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"/>
-                                                    <TextBlock Text="API ليال الحالي / Current Layal API" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Success}" Margin="0,3,0,0">
+                                                    <TextBlock Text="{Binding BaseUrl}" Foreground="{DynamicResource Layal.Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding ModelId}" Foreground="{DynamicResource Layal.Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                    <TextBlock Text="API ليال الحالي / Current Layal API" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Success}" Margin="0,3,0,0">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -1061,32 +1061,32 @@
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="ApiConnectionNameLabel" Text="اسم التطبيق / الاتصال" Margin="4,2,4,0"/>
-                                <TextBox x:Name="ApiConnectionNameInput" MinHeight="32" ToolTip="Notion, GitHub, CRM..." />
+                                <TextBox x:Name="ApiConnectionNameInput" MinHeight="40" ToolTip="Notion, GitHub, CRM..." />
                                 <TextBlock x:Name="ApiConnectionBaseUrlLabel" Text="عنوان API الأساسي (إجباري)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiConnectionBaseUrlInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="https://api.example.com/v1"/>
+                                <TextBox x:Name="ApiConnectionBaseUrlInput" FlowDirection="LeftToRight" MinHeight="40" ToolTip="https://api.example.com/v1"/>
                                 <TextBlock x:Name="ApiConnectionModelIdLabel" Text="معرّف النموذج (اختياري، مطلوب عند استخدامه كـ API ليال)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiConnectionModelIdInput" FlowDirection="LeftToRight" MinHeight="32" ToolTip="gpt-4.1-mini or provider model ID"/>
+                                <TextBox x:Name="ApiConnectionModelIdInput" FlowDirection="LeftToRight" MinHeight="40" ToolTip="gpt-4.1-mini or provider model ID"/>
                                 <TextBlock x:Name="ApiConnectionImageLabel" Text="صورة التطبيق (اختياري)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiConnectionImagePathInput" IsReadOnly="True" MinHeight="32" ToolTip="الصورة تُنسخ إلى مجلد بيانات ليال المحلي."/>
+                                <TextBox x:Name="ApiConnectionImagePathInput" IsReadOnly="True" MinHeight="40" ToolTip="الصورة تُنسخ إلى مجلد بيانات ليال المحلي."/>
                                 <WrapPanel Margin="0,4,0,0">
                                     <Button x:Name="ChooseApiImageButton" Content="اختيار صورة..." Click="ChooseApiImageButton_Click"/>
                                     <Button x:Name="ClearApiImageButton" Content="مسح الصورة" Click="ClearApiImageButton_Click"/>
                                 </WrapPanel>
                                 <TextBlock x:Name="ApiAuthTypeLabel" Text="طريقة المصادقة" Margin="4,8,4,0"/>
-                                <ComboBox x:Name="ApiAuthTypeComboBox" MinHeight="32" SelectedIndex="1">
+                                <ComboBox x:Name="ApiAuthTypeComboBox" MinHeight="40" SelectedIndex="1">
                                     <ComboBoxItem Content="بدون مصادقة / None" Tag="None"/>
                                     <ComboBoxItem Content="Bearer token" Tag="Bearer"/>
                                     <ComboBoxItem Content="Custom header (API key)" Tag="CustomHeader"/>
                                 </ComboBox>
                                 <TextBlock x:Name="ApiAuthHeaderNameLabel" Text="اسم ترويسة المصادقة (Custom header)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiAuthHeaderNameInput" FlowDirection="LeftToRight" Text="X-API-Key" MinHeight="32"/>
+                                <TextBox x:Name="ApiAuthHeaderNameInput" FlowDirection="LeftToRight" Text="X-API-Key" MinHeight="40"/>
                                 <TextBlock x:Name="ApiAuthSecretLabel" Text="Token / API key / header value" Margin="4,8,4,0"/>
-                                <PasswordBox x:Name="ApiAuthSecretInput" FlowDirection="LeftToRight" MinHeight="32"/>
+                                <PasswordBox x:Name="ApiAuthSecretInput" FlowDirection="LeftToRight" MinHeight="40"/>
                                 <TextBlock x:Name="ApiAdditionalHeadersLabel" Text="ترويسات HTTP إضافية غير سرية (JSON)" Margin="4,8,4,0"/>
                                 <TextBox x:Name="ApiAdditionalHeadersInput" FlowDirection="LeftToRight" MinHeight="58" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                                          ToolTip="Example additional header: Notion-Version"/>
                                 <TextBlock x:Name="ApiTestPathLabel" Text="مسار اختبار الاتصال (GET)، مثل health أو users/me" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiTestPathInput" FlowDirection="LeftToRight" MinHeight="32"/>
+                                <TextBox x:Name="ApiTestPathInput" FlowDirection="LeftToRight" MinHeight="40"/>
                                 <TextBlock x:Name="ApiInstructionsLabel" Text="التفاصيل وملاحظات API (اختياري، بدون أسرار)" Margin="4,8,4,0"/>
                                 <TextBox x:Name="ApiInstructionsInput" MinHeight="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                                          ToolTip="اكتب المسارات وطريقة الاستخدام التي تريد أن تعرفها ليال."/>
@@ -1176,13 +1176,13 @@
                         <TextBlock x:Name="VoiceReplySectionTitle" Text="صوت ليال" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد النصي، يُرسل النص إلى Realtime لتوليد صوت اصطناعي طفولي وناعم."/>
                         <TextBlock x:Name="AudioInputDeviceLabel" Text="الميكروفون المستخدم" Margin="4,8,4,0"/>
-                        <ComboBox x:Name="AudioInputDeviceSelector" MinHeight="32" MinWidth="260"
+                        <ComboBox x:Name="AudioInputDeviceSelector" MinHeight="40" MinWidth="260"
                                   DisplayMemberPath="Name" SelectedValuePath="Id"
                                   SelectionChanged="AudioInputDeviceSelector_SelectionChanged"
                                   AutomationProperties.Name="اختيار ميكروفون ليال"
                                   AutomationProperties.HelpText="اختر الميكروفون المستخدم للتسجيل والمحادثة المباشرة. لن يتم التبديل بصمت إلى جهاز آخر."/>
                         <TextBlock x:Name="AudioOutputDeviceLabel" Text="مخرج صوت ليال" Margin="4,8,4,0"/>
-                        <ComboBox x:Name="AudioOutputDeviceSelector" MinHeight="32" MinWidth="260"
+                        <ComboBox x:Name="AudioOutputDeviceSelector" MinHeight="40" MinWidth="260"
                                   DisplayMemberPath="Name" SelectedValuePath="Id"
                                   SelectionChanged="AudioOutputDeviceSelector_SelectionChanged"
                                   AutomationProperties.Name="اختيار مخرج صوت ليال"
@@ -1207,7 +1207,7 @@
                             <ComboBoxItem Tag="verse" Content="Verse"/>
                         </ComboBox>
                         <TextBlock x:Name="AssistantPersonaLabel" Text="نمط شخصية ليال" Margin="4,8,4,0"/>
-                        <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
+                        <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="AssistantPersonaSelector_SelectionChanged"
                                   AutomationProperties.Name="نمط شخصية ليال"
                                   AutomationProperties.HelpText="اختيار الأسلوب يغيّر طريقة الصياغة فقط ولا يغيّر قواعد الأمان أو الموافقات أو الصلاحيات.">
@@ -1219,7 +1219,7 @@
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.Name="حدود نمط الرد"/>
                         <TextBlock x:Name="VoiceDeliveryStyleLabel" Text="نبرة الإلقاء" Margin="4,6,4,0"/>
-                        <ComboBox x:Name="VoiceDeliveryStyleSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
+                        <ComboBox x:Name="VoiceDeliveryStyleSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="VoiceDeliveryStyleSelector_SelectionChanged"
                                   AutomationProperties.Name="نبرة الإلقاء الصوتي"
                                   AutomationProperties.HelpText="إعداد مستقل عن أسلوب النص واختيار الصوت. النطق المحلي يغيّر السرعة فقط؛ Realtime يطبق تعليمات النبرة.">
@@ -1244,7 +1244,7 @@
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="QuickAskHotkeyLabel" Text="اختصار السؤال السريع العالمي" Margin="4,8,4,0"/>
-                        <ComboBox x:Name="QuickAskHotkeySelector" MinHeight="32" MinWidth="240" SelectedValuePath="Tag"
+                        <ComboBox x:Name="QuickAskHotkeySelector" MinHeight="40" MinWidth="240" SelectedValuePath="Tag"
                                   SelectionChanged="QuickAskHotkeySelector_SelectionChanged"
                                   AutomationProperties.Name="اختصار السؤال السريع العالمي"
                                   AutomationProperties.HelpText="اختر أحد الاختصارات المقترحة. إذا كان الاختصار مستخدمًا من تطبيق آخر، يبقى زر السؤال السريع داخل ليال متاحًا.">
@@ -1256,7 +1256,7 @@
                                    TextWrapping="Wrap" Margin="4,3,4,8" AutomationProperties.LiveSetting="Polite"
                                    AutomationProperties.Name="حالة تسجيل اختصار السؤال السريع"/>
                         <TextBlock x:Name="ThemePresetLabel" Text="مجموعة ألوان الواجهة" Margin="4,5,4,0"/>
-                        <ComboBox x:Name="ThemePresetSelector" MinHeight="32" MinWidth="240" SelectedValuePath="Tag"
+                        <ComboBox x:Name="ThemePresetSelector" MinHeight="40" MinWidth="240" SelectedValuePath="Tag"
                                   SelectionChanged="ThemePresetSelector_SelectionChanged"
                                   AutomationProperties.Name="مجموعة ألوان الواجهة"
                                   AutomationProperties.HelpText="اختر Classic أو Ocean أو Forest أو Sunset. يمكن التبديل بين الفاتح والداكن بشكل مستقل، ويتقدم High Contrast الخاص بـ Windows على جميع المجموعات.">
@@ -1270,7 +1270,7 @@
                                    AutomationProperties.Name="ملاحظة أولوية التباين العالي"/>
                         <TextBlock x:Name="MascotSettingsTitle" Text="إعدادات الشخصية العائمة" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="CharacterDisplayModeLabel" Text="الشخصية المعروضة" Margin="4,6,4,0"/>
-                        <ComboBox x:Name="CharacterDisplayModeSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="32"
+                        <ComboBox x:Name="CharacterDisplayModeSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="CharacterDisplayModeSelector_SelectionChanged"
                                   AutomationProperties.Name="الشخصية المعروضة"
                                   AutomationProperties.HelpText="اختر عرض ليال أو الروبوت أو كليهما؛ لا يغيّر ذلك حالات الشخصية أو صلاحيات المساعد.">
@@ -1287,7 +1287,7 @@
                                   AutomationProperties.Name="تفعيل وضع الأداء للشخصية"
                                   AutomationProperties.HelpText="يقلل فحص تمرير النقرات إلى 30 مرة في الثانية تقريبًا، ويوقف مؤقتات الحركة والرمش ويغلق معاينة GLB الثقيلة. لا يغيّر تفضيل الحركة المحفوظ؛ يرجع السلوك السابق عند إيقاف الوضع."/>
                         <Button x:Name="PerformanceMetricsButton" Content="قياس أداء ليال الآن" Click="PerformanceMetricsButton_Click"
-                                MinHeight="32" HorizontalAlignment="Left" Margin="0,4,0,2"
+                                MinHeight="40" HorizontalAlignment="Left" Margin="0,4,0,2"
                                 AutomationProperties.Name="قياس موارد عملية ليال"
                                 AutomationProperties.HelpText="يقيس CPU والذاكرة وعدد الخيوط وعدادات GC للعملية الحالية فقط خلال ثانية واحدة. لا يقيس GPU ولا يجمع معلومات عن التطبيقات الأخرى."/>
                         <TextBlock x:Name="PerformanceMetricsStatus" Text="لم يتم أخذ عينة أداء بعد." TextWrapping="Wrap"
@@ -1331,9 +1331,9 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel x:Name="DockBrandCopy" Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="LAYAL" FontSize="12" FontWeight="Bold"
+                            <TextBlock Text="LAYAL" FontSize="13.5" FontWeight="Bold"
                                        Foreground="{DynamicResource Layal.Text}"/>
-                            <TextBlock Text="مساحة العمل الشخصية" FontSize="10"
+                            <TextBlock Text="مساحة العمل الشخصية" FontSize="11.5"
                                        Foreground="{DynamicResource Layal.Muted}"/>
                         </StackPanel>
                         <Button x:Name="ToggleBottomDockButton" Grid.Column="2" Content="&#xE711;"
@@ -1350,57 +1350,57 @@
                                 IsHitTestVisible="True" VerticalAlignment="Top">
                             <StackPanel x:Name="DockNavigationItems" Orientation="Vertical"
                                         FlowDirection="LeftToRight" KeyboardNavigation.TabNavigation="Local">
-                                <TextBlock Text="WORKSPACE  /  مساحة العمل" FontSize="9" FontWeight="Bold"
+                                <TextBlock Text="WORKSPACE  /  مساحة العمل" FontSize="10.5" FontWeight="Bold"
                                            Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
                                 <Button x:Name="DockChatButton" Content="✦  الرئيسية" Click="DockChatButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         ToolTip="العودة إلى المحادثة"
                                         AutomationProperties.AutomationId="DockChatButton"
                                         AutomationProperties.Name="الرئيسية - المحادثة"/>
                                 <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" Click="DockOverviewButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockOverviewButton"
                                         AutomationProperties.Name="نظرة عامة"/>
                                 <Button x:Name="DockTasksButton" Content="▣  المهام" Click="DockTasksButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockTasksButton"
                                         AutomationProperties.Name="المهام"/>
                                 <Button x:Name="DockSkillsButton" Content="◇  المهارات" Click="DockSkillsButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockSkillsButton"
                                         AutomationProperties.Name="المهارات"/>
                                 <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" Click="DockCamerasButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockCamerasButton"
                                         AutomationProperties.Name="الكاميرات"/>
                                 <Separator Margin="7,9"/>
-                                <TextBlock Text="PERSONAL TOOLS  /  أدواتك" FontSize="9" FontWeight="Bold"
+                                <TextBlock Text="PERSONAL TOOLS  /  أدواتك" FontSize="10.5" FontWeight="Bold"
                                            Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
                                 <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" Click="DockMemoryButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockMemoryButton"
                                         AutomationProperties.Name="الذاكرة"/>
                                 <Button x:Name="DockApiButton" Content="⌘  API" Click="DockApiButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockApiButton"
                                         AutomationProperties.Name="تكاملات API"/>
                                 <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" Click="DockSettingsButton_Click"
                                         Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="12" MinHeight="44"
+                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
                                         Background="Transparent" BorderBrush="Transparent"
                                         AutomationProperties.AutomationId="DockSettingsButton"
                                         AutomationProperties.Name="الإعدادات"/>
@@ -1412,10 +1412,10 @@
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                             CornerRadius="14">
                         <StackPanel>
-                            <TextBlock Text="SOFT AURORA" FontSize="9" FontWeight="Bold"
+                            <TextBlock Text="SOFT AURORA" FontSize="10.5" FontWeight="Bold"
                                        Foreground="{DynamicResource Layal.Cyan}"/>
                             <TextBlock Text="واجهة هادئة، ومساحة واضحة لكل مهمة."
-                                       FontSize="10" Foreground="{DynamicResource Layal.Muted}"
+                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}"
                                        TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
