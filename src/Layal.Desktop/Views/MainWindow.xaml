@@ -282,7 +282,7 @@
                             </Grid>
                         </Grid>
                     </Border>
-                    <Grid x:Name="ChatConversationSurface" Grid.Column="1">
+                    <Grid x:Name="ChatConversationSurface" Grid.Column="1" Loaded="ChatConversationSurface_Loaded" SizeChanged="ChatConversationSurface_SizeChanged">
                 <Grid Margin="8">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Border Grid.Row="0" Margin="3,0,3,7" Padding="16,10" CornerRadius="24" Background="{DynamicResource Layal.PageHeroGradient}"
@@ -318,7 +318,7 @@
                                     Background="{DynamicResource Layal.DangerSurface}" BorderBrush="{DynamicResource Layal.DangerBorder}"/>
                         </WrapPanel>
                     </Grid>
-                            <Image Grid.Column="1" Width="60" Height="60" Margin="10,0,0,0" VerticalAlignment="Center"
+                            <Image x:Name="ChatHeaderMascot" Grid.Column="1" Width="60" Height="60" Margin="10,0,0,0" VerticalAlignment="Center"
                                    Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
                                    IsHitTestVisible="False" Focusable="False" />
@@ -441,11 +441,11 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Border Width="88" Height="88" CornerRadius="24"
+                            <Border x:Name="ChatWelcomeAvatarShell" Width="88" Height="88" CornerRadius="24"
                                     Background="{DynamicResource Layal.PageHeroGradient}"
                                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                                     VerticalAlignment="Center" Margin="0,0,18,0">
-                                <Image Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
+                                <Image x:Name="ChatWelcomeAvatarImage" Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
                                        Width="82" Height="82" Stretch="Uniform"
                                        RenderOptions.BitmapScalingMode="HighQuality"
                                        IsHitTestVisible="False" Focusable="False"/>
