@@ -1230,6 +1230,11 @@ public partial class MainWindow : Window
         ChatHistoryList.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Grid.SetColumn(ChatHistoryPanel, ar ? 1 : 0);
         Grid.SetColumn(ChatConversationSurface, ar ? 0 : 1);
+        // The conversation must occupy the star-sized column in both writing directions.
+        // The saved-history panel stays in the Auto column so it only takes its own 270-DIP width
+        // while visible instead of reserving the flexible column when hidden.
+        ChatTabLayout.ColumnDefinitions[ar ? 0 : 1].Width = new GridLength(1, GridUnitType.Star);
+        ChatTabLayout.ColumnDefinitions[ar ? 1 : 0].Width = GridLength.Auto;
         ChatHistoryPanel.Margin = ar ? new Thickness(8, 4, 0, 4) : new Thickness(0, 4, 8, 4);
         ChatHistoryPanelTransform.X = ar ? 10 : -10;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = MemoryCategoryInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
