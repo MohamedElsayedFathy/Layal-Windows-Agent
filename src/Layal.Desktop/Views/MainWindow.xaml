@@ -247,7 +247,7 @@
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                             <DockPanel Grid.Row="0" LastChildFill="True" Margin="3,2,3,10">
-                                <Button x:Name="CloseChatHistoryButton" DockPanel.Dock="Right" Content="×" Width="32" Height="30"
+                                <Button x:Name="CloseChatHistoryButton" DockPanel.Dock="Right" Content="×" Width="40" Height="40"
                                         Padding="0" Click="CloseChatHistoryButton_Click"
                                         AutomationProperties.Name="إغلاق سجل المحادثات / Close chat history"/>
                                 <TextBlock x:Name="ChatHistoryHeading" Text="المحادثات السابقة" FontSize="15"
