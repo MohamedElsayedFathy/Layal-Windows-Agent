@@ -1021,7 +1021,7 @@
             <Setter Property="SnapsToDevicePixels" Value="True" />
         </Style>
         <Style x:Key="Layal.PageHero" TargetType="{x:Type Border}">
-            <Setter Property="Background" Value="{StaticResource Layal.PageHeroGradient}" />
+            <Setter Property="Background" Value="{DynamicResource Layal.PageHeroGradient}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Layal.GlassBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="22" />
