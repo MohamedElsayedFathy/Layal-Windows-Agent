@@ -1730,6 +1730,8 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("DockFooterNote was not found.");
         var railShell = window.FindName("BottomDockShell") as Border
             ?? throw new InvalidOperationException("BottomDockShell was not found.");
+        var navigationViewport = window.FindName("DockNavigationScrollViewer") as ScrollViewer
+            ?? throw new InvalidOperationException("DockNavigationScrollViewer was not found.");
         var brandMark = window.FindName("DockBrandMark") as Border
             ?? throw new InvalidOperationException("DockBrandMark was not found.");
         var workspaceHeading = window.FindName("DockWorkspaceHeading") as TextBlock
@@ -1769,6 +1771,7 @@ public sealed class MainWindowVisualSmokeTests
             Assert.AreEqual(Visibility.Visible, navigationSeparator.Visibility);
             Assert.AreEqual(188, railShell.ActualWidth, 0.5,
                 "The expanded rail shell must equal its 166-DIP content body plus 22 DIP of padding and border.");
+            Assert.AreEqual(166, navigationViewport.Width, 0.1);
             foreach (var navigationButton in navigationButtons)
             {
                 Assert.IsNotNull(navigationButton);
@@ -1795,6 +1798,7 @@ public sealed class MainWindowVisualSmokeTests
             window.UpdateLayout();
             Assert.AreEqual(70, railShell.ActualWidth, 0.5,
                 "The compact rail shell must equal its 48-DIP icon body plus 22 DIP of padding and border.");
+            Assert.AreEqual(48, navigationViewport.Width, 0.1);
             foreach (var navigationButton in navigationButtons)
             {
                 Assert.IsNotNull(navigationButton);
