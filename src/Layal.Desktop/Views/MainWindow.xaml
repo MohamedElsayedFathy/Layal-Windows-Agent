@@ -1402,7 +1402,7 @@
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
-                    <Border x:Name="DockFooterNote" Grid.Row="2" Margin="3,14,3,2" Padding="10"
+                    <Border x:Name="DockFooterNote" Grid.Row="2" Width="160" Margin="3,14,3,2" Padding="10"
                             Background="{DynamicResource Layal.Panel}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                             CornerRadius="14">
