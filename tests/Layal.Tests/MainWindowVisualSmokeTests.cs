@@ -1252,6 +1252,14 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
         Assert.AreEqual(ar ? 0 : 1, Grid.GetColumn(chatSurface),
             $"The main conversation surface must retain the opposite column for {language}.");
+        var chatLayout = window.FindName("ChatTabLayout") as Grid
+            ?? throw new InvalidOperationException("ChatTabLayout was not found.");
+        var historyColumnWidth = chatLayout.ColumnDefinitions[Grid.GetColumn(historyPanel)].Width;
+        var conversationColumnWidth = chatLayout.ColumnDefinitions[Grid.GetColumn(chatSurface)].Width;
+        Assert.AreEqual(GridUnitType.Auto, historyColumnWidth.GridUnitType,
+            $"The saved-history panel must use an auto-sized column in {language}.");
+        Assert.AreEqual(GridUnitType.Star, conversationColumnWidth.GridUnitType,
+            $"The conversation surface must use the flexible star-sized column in {language}.");
         var dockHost = window.FindName("BottomDockHost") as Grid
             ?? throw new InvalidOperationException("BottomDockHost was not found.");
         Assert.AreEqual(VerticalAlignment.Bottom, dockHost.VerticalAlignment,
