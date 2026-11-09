@@ -1583,6 +1583,8 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("DockFooterNote was not found.");
         var suggestionPlan = window.FindName("ChatSuggestionPlanButton") as Button
             ?? throw new InvalidOperationException("ChatSuggestionPlanButton was not found.");
+        var chatInput = window.FindName("ChatInput") as TextBox
+            ?? throw new InvalidOperationException("ChatInput was not found.");
         try
         {
             Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
@@ -1619,9 +1621,9 @@ public sealed class MainWindowVisualSmokeTests
 
             // Prompt starters must provide usable, localized text in the composer.
             suggestionPlan.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, suggestionPlan));
-            StringAssert.Contains(ChatInput.Text, "خطة واضحة");
-            Assert.AreEqual(ChatInput.Text.Length, ChatInput.CaretIndex);
-            ChatInput.Clear();
+            StringAssert.Contains(chatInput.Text, "خطة واضحة");
+            Assert.AreEqual(chatInput.Text.Length, chatInput.CaretIndex);
+            chatInput.Clear();
 
             Assert.AreEqual(Visibility.Collapsed, historyPanel.Visibility,
                 "Saved conversation history must not steal space from the chat until requested.");
