@@ -1346,8 +1346,8 @@ public partial class MainWindow : Window
         DockApiButton.Content = ar ? "⌘  تكاملات API" : "⌘  API";
         DockSettingsButton.Content = ar ? "⚙  الإعدادات" : "⚙  Settings";
         ToggleBottomDockButton.ToolTip = _isBottomDockExpanded
-            ? (ar ? "طي شريط التنقل" : "Collapse navigation dock")
-            : (ar ? "توسيع شريط التنقل" : "Expand navigation dock");
+            ? (ar ? "طي شريط التنقل الجانبي" : "Collapse navigation rail")
+            : (ar ? "توسيع شريط التنقل الجانبي" : "Expand navigation rail");
         AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
         ChatHistoryHeading.Text = ar ? "المحادثات السابقة" : "Previous conversations";
         ToggleChatHistoryButton.Content = ar ? "سجل المحادثات" : "Chat history";
