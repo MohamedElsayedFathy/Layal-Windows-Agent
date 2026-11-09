@@ -340,7 +340,7 @@ try {
         "DockCamerasButton", "DockMemoryButton", "DockApiButton", "DockSettingsButton"
     )
     $expectedDockNamePatterns = @(
-        "(?i)(Home\\s*-\\s*Chat|الرئيسية\\s*-\\s*المحادثة)",
+        "(?i)(Home\s*-\s*Chat|الرئيسية\s*-\s*المحادثة)",
         "(?i)(Overview|نظرة عامة)",
         "(?i)(Tasks|المهام)",
         "(?i)(Skills|المهارات)",
