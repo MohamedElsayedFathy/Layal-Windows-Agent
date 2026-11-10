@@ -602,12 +602,7 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("MainWindow content root was not found.");
         var rootGrid = window.FindName("WindowRoot") as Grid
             ?? throw new InvalidOperationException("WindowRoot was not found.");
-        Assert.IsTrue(window.Background is SolidColorBrush windowBrush && windowBrush.Color.A == 0,
-            "The window itself must allow the system desktop backdrop to show through.");
-        var washBrush = rootGrid.Background as SolidColorBrush
-            ?? throw new InvalidOperationException("The application backdrop wash must resolve to a solid brush.");
-        Assert.AreEqual(SystemParameters.HighContrast ? (byte)255 : (byte)0x40, washBrush.Color.A,
-            "Normal mode must use a translucent app wash; Windows High Contrast must use an opaque system surface.");
+        AssertOpaqueWindowShell(window, rootGrid, "initial window state");
 
         var tabs = window.FindName("MainTabs") as TabControl
             ?? throw new InvalidOperationException("MainTabs was not found.");
@@ -714,6 +709,7 @@ public sealed class MainWindowVisualSmokeTests
             window.UpdateLayout();
             AssertLanguageLayoutContracts(window, language);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            AssertOpaqueWindowShell(window, rootGrid, $"{theme}/{language}");
             AssertEmptyStateLocalizationAndVisibility(window, language);
             Assert.AreEqual(FlowDirection.LeftToRight, window.FlowDirection,
                 "The root window must not horizontally mirror icons or glyphs in RTL mode.");
@@ -1561,6 +1557,24 @@ public sealed class MainWindowVisualSmokeTests
         }
 
         return null;
+    }
+
+    private static void AssertOpaqueWindowShell(MainWindow window, Grid rootGrid, string state)
+    {
+        var expectedBackground = (Color)Application.Current.Resources["Layal.Color.Background"];
+        var windowBrush = window.Background as SolidColorBrush
+            ?? throw new InvalidOperationException($"The native window background must resolve to a solid brush ({state}).");
+        var rootBrush = rootGrid.Background as SolidColorBrush
+            ?? throw new InvalidOperationException($"The application shell background must resolve to a solid brush ({state}).");
+
+        Assert.AreEqual((byte)255, windowBrush.Color.A,
+            $"The native window surface must remain fully opaque ({state}).");
+        Assert.AreEqual(expectedBackground, windowBrush.Color,
+            $"The native window surface must follow the active theme ({state}).");
+        Assert.AreEqual((byte)255, rootBrush.Color.A,
+            $"The WPF client shell must remain fully opaque ({state}).");
+        Assert.AreEqual(expectedBackground, rootBrush.Color,
+            $"The WPF client shell must match the active theme surface ({state}).");
     }
 
     private static void AssertNavigationRailDoesNotOverlapContent(MainWindow window, string layoutName)
