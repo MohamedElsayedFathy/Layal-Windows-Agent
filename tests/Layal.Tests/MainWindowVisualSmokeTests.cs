@@ -947,6 +947,9 @@ public sealed class MainWindowVisualSmokeTests
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         }
 
+        // Exercise the live WPF shell, not only the pure palette values, for all named presets.
+        AssertOpaqueWindowShellAcrossNamedPresets(window, rootGrid, applyTheme);
+
         // Render the actual mascot Visual3D tree under representative task and social states.
         var mascot = new FloatingMascotWindow { ShowInTaskbar = false };
         AppRuntime.MascotWindow = mascot;
@@ -1557,6 +1560,45 @@ public sealed class MainWindowVisualSmokeTests
         }
 
         return null;
+    }
+
+    private static void AssertOpaqueWindowShellAcrossNamedPresets(
+        MainWindow window,
+        Grid rootGrid,
+        MethodInfo applyTheme)
+    {
+        var originalPreset = AppRuntime.Settings.ThemePreset;
+        var originalThemeMode = AppRuntime.Settings.ThemeMode;
+
+        try
+        {
+            foreach (var preset in new[] { "classic", "ocean", "forest", "sunset" })
+            foreach (var theme in new[] { "light", "dark" })
+            {
+                AppRuntime.Settings.ThemePreset = preset;
+                AppRuntime.Settings.ThemeMode = theme;
+                applyTheme.Invoke(window, null);
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                var state = $"{preset}/{theme}";
+                AssertOpaqueWindowShell(window, rootGrid, state);
+
+                var expectedBackground = (Color)Application.Current.Resources["Layal.Color.Background"];
+                var backdropBrush = Application.Current.TryFindResource("Layal.AppBackdropWash") as SolidColorBrush
+                    ?? throw new InvalidOperationException($"The application backdrop wash must resolve to a solid brush ({state}).");
+                Assert.AreEqual((byte)255, backdropBrush.Color.A,
+                    $"The application backdrop wash must remain fully opaque ({state}).");
+                Assert.AreEqual(expectedBackground, backdropBrush.Color,
+                    $"The application backdrop wash must match the selected preset ({state}).");
+            }
+        }
+        finally
+        {
+            AppRuntime.Settings.ThemePreset = originalPreset;
+            AppRuntime.Settings.ThemeMode = originalThemeMode;
+            applyTheme.Invoke(window, null);
+        }
     }
 
     private static void AssertOpaqueWindowShell(MainWindow window, Grid rootGrid, string state)
