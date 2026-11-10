@@ -3,6 +3,14 @@
 Layal's Windows application dependency graph currently includes the following NuGet packages.
 Resolved versions for the build are recorded in the generated CycloneDX SBOM.
 
+## Cairo font
+
+- Asset: `src/Layal.Desktop/Assets/Fonts/Cairo[slnt,wght].ttf` (variable Arabic and Latin font).
+- Source: Google Fonts, https://github.com/google/fonts/tree/main/ofl/cairo
+- License: SIL Open Font License 1.1; the font is embedded as a WPF resource and distributed with its license.
+- License text: `licenses/OFL-Cairo.txt`
+- Provenance is recorded in `docs/THIRD_PARTY_LICENSES.json`; project-wide rights review remains separate.
+
 ## Emoji.Wpf
 
 - Package: Emoji.Wpf version 0.3.4

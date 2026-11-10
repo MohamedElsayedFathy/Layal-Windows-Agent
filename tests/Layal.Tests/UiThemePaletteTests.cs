@@ -39,20 +39,51 @@ public sealed class UiThemePaletteTests
         var light = UiThemePalette.Create(dark: false, highContrast: false);
         var dark = UiThemePalette.Create(dark: true, highContrast: false);
 
-        Assert.AreEqual(Color.FromRgb(244, 246, 250), ToColor(light, "Layal.Color.Background"));
-        Assert.AreEqual(Color.FromRgb(16, 24, 39), ToColor(dark, "Layal.Color.Background"));
+        Assert.AreEqual(Color.FromRgb(243, 246, 255), ToColor(light, "Layal.Color.Background"));
+        Assert.AreEqual(Color.FromRgb(38, 52, 81), ToColor(dark, "Layal.Color.Background"));
         Assert.AreNotEqual(ToColor(light, "Layal.Color.Background"), ToColor(dark, "Layal.Color.Background"));
-        Assert.AreEqual("#315EA8", light["Layal.Color.Cyan"]);
-        Assert.AreEqual("#91B6FF", dark["Layal.Color.Cyan"]);
-        Assert.AreEqual("#4B4E9F", light["Layal.Color.AccentEnd"]);
-        Assert.AreEqual("#5A63B2", dark["Layal.Color.AccentEnd"]);
-        Assert.AreEqual("#E5EAF6", light["Layal.Color.ButtonEnd"]);
-        Assert.AreEqual("#3D4662", dark["Layal.Color.ButtonEnd"]);
-        Assert.AreEqual("#52637A", light["Layal.Color.Muted"]);
-        Assert.AreEqual("#E8EEF7", light["Layal.Color.BackdropStart"]);
-        Assert.AreEqual("#244B83D5", light["Layal.Color.GlowBlue"]);
+        Assert.AreEqual("#315FC1", light["Layal.Color.Cyan"]);
+        Assert.AreEqual("#9CCBFF", dark["Layal.Color.Cyan"]);
+        Assert.AreEqual("#E2E9FF", light["Layal.Color.NavSelected"]);
+        Assert.AreEqual("#B6C4F0", light["Layal.Color.NavSelectedBorder"]);
+        Assert.AreEqual("#3B4A73", dark["Layal.Color.NavSelected"]);
+        Assert.AreEqual("#8C9EF3", dark["Layal.Color.NavSelectedBorder"]);
+        Assert.AreEqual("#7857C6", light["Layal.Color.AccentEnd"]);
+        Assert.AreEqual("#4165B8", dark["Layal.Color.AccentStart"]);
+        Assert.AreEqual("#7052B4", dark["Layal.Color.AccentEnd"]);
+        Assert.AreEqual("#F5293A65", dark["Layal.Color.Glass"]);
+        Assert.AreEqual("#FC2D3B65", dark["Layal.Color.GlassStrong"]);
+        Assert.AreEqual("#E9E0FB", light["Layal.Color.ButtonEnd"]);
+        Assert.AreEqual("#604C83", dark["Layal.Color.ButtonEnd"]);
+        Assert.AreEqual("#53627D", light["Layal.Color.Muted"]);
+        Assert.AreEqual("#E3EEFF", light["Layal.Color.BackdropStart"]);
+        Assert.AreEqual("#30487AE5", light["Layal.Color.GlowBlue"]);
         Assert.AreEqual("#00FFFFFF", UiThemePalette.Create(dark: false, highContrast: true)["Layal.Color.GlowBlue"]);
         Assert.AreEqual("#00FFFFFF", UiThemePalette.Create(dark: true, highContrast: true)["Layal.Color.GlowPink"]);
+    }
+
+    [TestMethod]
+    public void DarkPaletteUsesColorfulMidnightSurfacesAndDistinctReadableFluentIconTiles()
+    {
+        var light = UiThemePalette.Create(dark: false, highContrast: false);
+        var dark = UiThemePalette.Create(dark: true, highContrast: false);
+        var iconNames = new[] { "Chat", "Overview", "Tasks", "Skills", "Cameras", "Memory", "Api", "Settings" };
+
+        Assert.AreEqual("#263451", dark["Layal.Color.Background"]);
+        Assert.AreEqual("#263C67", dark["Layal.Color.BackdropStart"]);
+        Assert.AreEqual("#403C70", dark["Layal.Color.BackdropMiddle"]);
+        Assert.AreEqual("#523B66", dark["Layal.Color.BackdropEnd"]);
+        Assert.AreNotEqual("#000000", dark["Layal.Color.Background"]);
+        Assert.AreEqual(iconNames.Length, iconNames.Select(name => light[$"Layal.Color.Icon{name}Foreground"]).Distinct().Count());
+
+        foreach (var name in iconNames)
+        foreach (var palette in new[] { light, dark })
+        {
+            var foreground = ToColor(palette, $"Layal.Color.Icon{name}Foreground");
+            var background = ToColor(palette, $"Layal.Color.Icon{name}Background");
+            Assert.IsTrue(ContrastRatio(foreground, background) >= 3.0,
+                $"The {name} Fluent icon must remain distinct from its coordinated color tile in both themes.");
+        }
     }
 
     [TestMethod]
