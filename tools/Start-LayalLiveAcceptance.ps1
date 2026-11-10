@@ -26,7 +26,7 @@ param(
 
     [switch]$RequireMixedDpiTransition,
 
-    [switch]$ConfirmDisposableProfile
+    [switch]$ConfirmIsolatedCurrentUserProfile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,16 +74,21 @@ if ($artifactUri.Scheme -ne 'https') {
     throw 'ArtifactReference must use HTTPS.'
 }
 
-if (-not $ConfirmDisposableProfile) {
-    throw 'Use a disposable Windows test account with no personal Layal data or secrets, then pass -ConfirmDisposableProfile to acknowledge that requirement.'
+if (-not $ConfirmIsolatedCurrentUserProfile) {
+    throw 'This runner supports the current Windows account only through an isolated data/workspace root. Pass -ConfirmIsolatedCurrentUserProfile to acknowledge that test state is separate from personal Layal data.'
 }
-if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
-    throw 'LOCALAPPDATA is unavailable; cannot verify a clean per-user Layal data area.'
+if (-not [string]::IsNullOrWhiteSpace($env:LAYAL_ACCEPTANCE_ROOT)) {
+    throw 'LAYAL_ACCEPTANCE_ROOT is already set in this shell. Remove that process environment variable and let this runner create a fresh isolated root.'
 }
-$localLayalData = Join-Path $env:LOCALAPPDATA 'Layal'
-if (Test-Path -LiteralPath $localLayalData) {
-    throw "Refusing to run against an account that already has Layal local data at $localLayalData. Use a fresh disposable Windows account."
+$localAppDataRoot = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+$documentsRoot = [Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments)
+if ([string]::IsNullOrWhiteSpace($localAppDataRoot) -or [string]::IsNullOrWhiteSpace($documentsRoot)) {
+    throw 'Windows LocalAppData or Documents known folders are unavailable; cannot verify isolation.'
 }
+$localLayalData = Join-Path $localAppDataRoot 'Layal'
+$personalWorkspace = Join-Path $documentsRoot 'LayalWorkspace'
+$existingPersonalLayalData = Test-Path -LiteralPath $localLayalData
+$existingPersonalWorkspace = Test-Path -LiteralPath $personalWorkspace
 if (Get-Process -Name 'Layal' -ErrorAction SilentlyContinue) {
     throw 'Close all existing Layal processes before running the isolated acceptance suite.'
 }
@@ -106,6 +111,12 @@ if (Test-Path -LiteralPath $sessionDirectory) {
     throw "Refusing to overwrite existing acceptance evidence: $sessionDirectory"
 }
 New-Item -ItemType Directory -Path $sessionDirectory -Force | Out-Null
+$isolatedAcceptanceRoot = Join-Path $sessionDirectory 'isolated-current-user-profile'
+if (Test-Path -LiteralPath $isolatedAcceptanceRoot) {
+    throw "Refusing to reuse an existing isolated acceptance data root: $isolatedAcceptanceRoot"
+}
+New-Item -ItemType Directory -Path $isolatedAcceptanceRoot -Force | Out-Null
+$env:LAYAL_ACCEPTANCE_ROOT = $isolatedAcceptanceRoot
 $startedAtLocal = [DateTimeOffset]::Now.ToString('o')
 
 $archiveHash = (Get-FileHash -LiteralPath $resolvedArchive -Algorithm SHA256).Hash.ToUpperInvariant()
@@ -186,6 +197,9 @@ Write-Host "Device ID: $DeviceId"
 Write-Host "Tested commit: $gitHead"
 Write-Host "Executable SHA-256: $executableHash"
 Write-Host "Evidence folder: $sessionDirectory"
+Write-Host "Isolated app data and workspace root: $isolatedAcceptanceRoot"
+Write-Host "Existing personal Layal data detected: $existingPersonalLayalData (left untouched)"
+Write-Host "Existing personal Layal workspace detected: $existingPersonalWorkspace (left untouched)"
 Write-Host 'The suite runs native UI tests and may move the Layal window or mouse. Do not use the desktop during the automated checks.'
 Write-Host 'Do not use real provider keys, private messages, or personal data during acceptance.'
 [void](Read-Host 'Close important desktop applications, ensure the correct test monitors are active, and press Enter to start')
@@ -360,6 +374,15 @@ $session = [pscustomobject]@{
         ArchiveHashMatchedManifest = $true
         ExtractedExecutableSHA256 = $executableHash
     }
+    ProfileIsolation = [pscustomobject]@{
+        Mode = 'SameWindowsUserWithIsolatedDataAndWorkspace'
+        IsolatedAcceptanceRoot = $isolatedAcceptanceRoot
+        ExistingPersonalLayalDataDetected = $existingPersonalLayalData
+        ExistingPersonalWorkspaceDetected = $existingPersonalWorkspace
+        PersonalDataRootIsUsed = $false
+        PersonalWorkspaceRootIsUsed = $false
+        WindowsReminderTaskSchedulerDisabled = $true
+    }
     Environment = [pscustomobject]@{
         WindowsCaption = [string]$operatingSystem.Caption
         WindowsVersion = [string]$operatingSystem.Version
@@ -381,6 +404,9 @@ $session = [pscustomobject]@{
     ManualReleaseGates = $manualGates
     Notes = @(
         'Passing diagnostics are limited to the checks and desktop session recorded by the scripts.',
+        'Portable app diagnostics use a fresh isolated data root and workspace under this session; the existing user Layal data and workspace are not used.',
+        'Windows Task Scheduler reminder synchronization is disabled in isolated acceptance mode.',
+        'Installer, upgrade, rollback, and uninstall acceptance are not covered by this isolated portable run and must not be performed against a personal profile.',
         'Screen reader, High Contrast, visual RTL/LTR, DPI-scale review, and human observation remain pending until reviewed with evidence.',
         'Do not copy this session into docs/RELEASE_GATE_EVIDENCE.json as APPROVED without completing the manual review and verifying the evidence paths.'
     )
@@ -395,6 +421,7 @@ Write-Host 'Manual Windows release acceptance: PENDING'
 Write-Host 'Release decision: NO-GO until manual gates and all other release blockers are reviewed.'
 Write-Host "Session manifest: $manifestPath"
 Write-Host "Manual checklist: $checklistPath"
+Remove-Item Env:\LAYAL_ACCEPTANCE_ROOT -ErrorAction SilentlyContinue
 
 if ($failedRuns.Count -gt 0) {
     Write-Error "One or more live diagnostics failed. Inspect the session manifest and per-test console logs in $sessionDirectory."

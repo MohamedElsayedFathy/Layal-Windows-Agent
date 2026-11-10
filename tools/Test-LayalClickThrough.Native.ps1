@@ -399,7 +399,11 @@ try {
         }
 
         Invoke-NativeAcceptanceCase "Dragged position is saved and restored after restart" {
-            $settingsPath=Join-Path $env:LOCALAPPDATA "Layal/settings.json"
+            $acceptanceRoot = [Environment]::GetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', 'Process')
+            if ([string]::IsNullOrWhiteSpace($acceptanceRoot)) {
+                throw 'LAYAL_ACCEPTANCE_ROOT is required; refusing to inspect the current user's personal Layal settings.'
+            }
+            $settingsPath=Join-Path $acceptanceRoot 'LocalAppData\Layal\settings.json'
             if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
                 throw "Expected settings file after completed drags: $settingsPath"
             }
