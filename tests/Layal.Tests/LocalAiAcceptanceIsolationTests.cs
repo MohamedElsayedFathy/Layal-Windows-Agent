@@ -31,7 +31,7 @@ public sealed class LocalAiAcceptanceIsolationTests
             Assert.IsFalse(await service.IsReadyAsync(),
                 "Acceptance must not connect to a user-installed Ollama server on loopback.");
 
-            await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                 () => service.EnsureReadyAsync(),
                 "Acceptance must not start Ollama, download an installer, or install models.");
         }

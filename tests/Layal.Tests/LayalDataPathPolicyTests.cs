@@ -54,7 +54,7 @@ public sealed class LayalDataPathPolicyTests
         var documents = Path.Combine(Path.GetTempPath(), "LayalPolicyTests", "Documents");
         var acceptanceRoot = Path.Combine(localAppData, "Layal");
 
-        Assert.ThrowsException<ArgumentException>(() =>
+        Assert.ThrowsExactly<ArgumentException>(() =>
             LayalDataPathPolicy.Resolve(acceptanceRoot, localAppData, documents));
     }
 
@@ -65,14 +65,14 @@ public sealed class LayalDataPathPolicyTests
         var documents = Path.Combine(Path.GetTempPath(), "LayalPolicyTests", "Documents");
         var acceptanceRoot = Path.Combine(documents, "LayalWorkspace");
 
-        Assert.ThrowsException<ArgumentException>(() =>
+        Assert.ThrowsExactly<ArgumentException>(() =>
             LayalDataPathPolicy.Resolve(acceptanceRoot, localAppData, documents));
     }
 
     [TestMethod]
     public void AcceptanceRootMustBeAbsolute()
     {
-        Assert.ThrowsException<ArgumentException>(() =>
+        Assert.ThrowsExactly<ArgumentException>(() =>
             LayalDataPathPolicy.Resolve("relative\\acceptance", Path.GetTempPath(), Path.GetTempPath()));
     }
 }
