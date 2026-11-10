@@ -119,7 +119,7 @@
         <SolidColorBrush x:Key="Layal.Icon.SettingsBackground" Color="{DynamicResource Layal.Color.IconSettingsBackground}" />
         <SolidColorBrush x:Key="Layal.Icon.SettingsForeground" Color="{DynamicResource Layal.Color.IconSettingsForeground}" />
         <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
-        <SolidColorBrush x:Key="Layal.AppBackdropWash" Color="#40F4F7FC" />
+        <SolidColorBrush x:Key="Layal.AppBackdropWash" Color="#FFF3F6FF" />
         <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />
         <SolidColorBrush x:Key="Layal.GlassBorderBrush" Color="{DynamicResource Layal.Color.GlassBorder}" />
         <RadialGradientBrush x:Key="Layal.GlowBlueBrush" RadiusX="0.5" RadiusY="0.5">

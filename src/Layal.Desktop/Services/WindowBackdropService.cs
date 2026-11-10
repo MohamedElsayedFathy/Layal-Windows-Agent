@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 namespace Layal.Services;
 
 /// <summary>
-/// Requests the Windows 11 system backdrop for the main WPF window.
-/// Failure is expected on unsupported Windows builds and is handled by the app's translucent
-/// WPF wash and glass surfaces, so this service never prevents the app from opening.
+/// Configures native frame details while keeping the main window surface fully app-owned.
+/// System backdrops are deliberately disabled so desktop composition cannot leak through
+/// the light or dark WPF client area.
 /// </summary>
 public static class WindowBackdropService
 {
@@ -15,12 +15,12 @@ public static class WindowBackdropService
     private const int DwmwaSystemBackdropType = 38;
 
     private const int DwmSystemBackdropTypeNone = 1;
-    private const int DwmSystemBackdropTypeTransientWindow = 3;
     private const int DwmWindowCornerPreferenceRound = 2;
 
     /// <summary>
-    /// Applies Windows' native system backdrop when the OS supports it.
+    /// Disables the native system backdrop and applies theme-aware frame details.
     /// Returns false for invalid handles, unsupported Windows builds, or a DWM rejection.
+    /// The application-owned WPF surface remains the visible background on every platform.
     /// </summary>
     public static bool TryApply(IntPtr windowHandle, bool dark, bool highContrast)
     {
@@ -29,10 +29,8 @@ public static class WindowBackdropService
 
         try
         {
-            var darkMode = dark ? 1 : 0;
-            var backdropType = highContrast
-                ? DwmSystemBackdropTypeNone
-                : DwmSystemBackdropTypeTransientWindow;
+            var darkMode = dark && !highContrast ? 1 : 0;
+            var backdropType = DwmSystemBackdropTypeNone;
             var cornerPreference = DwmWindowCornerPreferenceRound;
 
             var darkResult = DwmSetWindowAttribute(
