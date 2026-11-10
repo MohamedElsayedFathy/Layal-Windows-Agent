@@ -382,6 +382,7 @@ $session = [pscustomobject]@{
         PersonalDataRootIsUsed = $false
         PersonalWorkspaceRootIsUsed = $false
         WindowsReminderTaskSchedulerDisabled = $true
+        LocalAiLoopbackProbeAndSetupDisabled = $true
     }
     Environment = [pscustomobject]@{
         WindowsCaption = [string]$operatingSystem.Caption
