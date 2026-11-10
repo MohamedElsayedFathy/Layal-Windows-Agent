@@ -12,6 +12,6 @@ public sealed class WindowBackdropServiceTests
     {
         Assert.IsFalse(
             WindowBackdropService.TryApply(IntPtr.Zero, dark: false, highContrast: false),
-            "A missing native window handle must use the WPF glass fallback rather than calling DWM.");
+            "A missing native window handle must leave the fully opaque WPF shell in control.");
     }
 }
