@@ -32,6 +32,9 @@ $script:CommitSha = 'unavailable'
 $script:DotnetSdk = 'unavailable'
 $script:PythonVersion = 'unavailable'
 $previousInstallerOptIn = $env:LAYAL_ALLOW_INSTALLER_TESTS
+$previousAcceptanceRoot = [Environment]::GetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', 'Process')
+$script:OwnsAcceptanceRoot = $false
+$script:AcceptanceRoot = $null
 
 # These maps connect each documented requirement/feature to actual automated test assets.
 # Presence of a test file is evidence of test coverage intent, never proof that the complete
@@ -640,6 +643,21 @@ try {
     }
 
     if ($RunDesktopIntegration) {
+        if ([string]::IsNullOrWhiteSpace($previousAcceptanceRoot)) {
+            $script:AcceptanceRoot = Join-Path $ReportDirectory 'isolated-current-user-profile'
+            if (Test-Path -LiteralPath $script:AcceptanceRoot) {
+                throw "Refusing to reuse an existing isolated acceptance root: $($script:AcceptanceRoot)"
+            }
+            New-Item -ItemType Directory -Path $script:AcceptanceRoot -Force | Out-Null
+            [Environment]::SetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', $script:AcceptanceRoot, 'Process')
+            $script:OwnsAcceptanceRoot = $true
+        } else {
+            $script:AcceptanceRoot = [IO.Path]::GetFullPath($previousAcceptanceRoot)
+            if (-not (Test-Path -LiteralPath $script:AcceptanceRoot -PathType Container)) {
+                New-Item -ItemType Directory -Path $script:AcceptanceRoot -Force | Out-Null
+            }
+        }
+        Write-Host "Desktop integration isolated app data root: $($script:AcceptanceRoot)"
         $desktopReady = $true
         if ($env:GITHUB_ACTIONS -ne 'true' -and -not $ConfirmDisposableProfile) {
             Add-CheckResult -Name 'Desktop safety acknowledgement' -Category 'Safety' -Status 'BLOCKED' -Details 'Use -ConfirmDisposableProfile only from a disposable Windows account; tests manipulate desktop input and launch Layal.'
@@ -700,6 +718,11 @@ try {
         Add-CheckResult -Name 'Native desktop diagnostics' -Category 'Desktop integration' -Status 'SKIPPED' -Details 'Pass -RunDesktopIntegration to run mouse, keyboard, display/DPI, and GLB checks.'
     }
 
+    if ($script:OwnsAcceptanceRoot) {
+        [Environment]::SetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', $previousAcceptanceRoot, 'Process')
+        $script:OwnsAcceptanceRoot = $false
+    }
+
     if ($RunInstallerLifecycle) {
         if ($env:GITHUB_ACTIONS -ne 'true' -and -not $ConfirmDisposableProfile) {
             Add-CheckResult -Name 'Installer lifecycle safety acknowledgement' -Category 'Installer' -Status 'BLOCKED' -Details 'Install/upgrade/rollback/uninstall tests change installation files, registry entries, shortcuts, and scheduled tasks. Use CI or a disposable VM.'
@@ -732,6 +755,9 @@ catch {
     exit 1
 }
 finally {
+    if ($script:OwnsAcceptanceRoot) {
+        [Environment]::SetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', $previousAcceptanceRoot, 'Process')
+    }
     if ($null -ne $previousInstallerOptIn) {
         $env:LAYAL_ALLOW_INSTALLER_TESTS = $previousInstallerOptIn
     } elseif ($env:GITHUB_ACTIONS -ne 'true') {
