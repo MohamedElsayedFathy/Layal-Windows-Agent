@@ -108,6 +108,26 @@ public sealed class UiThemePaletteTests
     }
 
     [TestMethod]
+    public void WindowBackgroundColorStaysOpaqueAcrossEveryPresetAndAccessibilityMode()
+    {
+        foreach (var preset in new[] { "classic", "ocean", "forest", "sunset" })
+        foreach (var dark in new[] { false, true })
+        foreach (var highContrast in new[] { false, true })
+        {
+            var palette = UiThemePalette.Create(dark, highContrast, preset);
+            var background = ToColor(palette, "Layal.Color.Background");
+            var state = $"{preset}/{(dark ? "dark" : "light")}/highContrast={highContrast}";
+
+            Assert.AreEqual((byte)255, background.A,
+                $"The app-owned main-window background must be fully opaque for {state}.");
+
+            if (highContrast)
+                Assert.AreEqual(SystemColors.WindowColor, background,
+                    $"Windows High Contrast must own the window background for {state}.");
+        }
+    }
+
+    [TestMethod]
     public void EveryNamedPresetMeetsTextAndScrollbarContrastTargetsOnRenderedSurfaces()
     {
         var textSurfaceKeys = new[]
