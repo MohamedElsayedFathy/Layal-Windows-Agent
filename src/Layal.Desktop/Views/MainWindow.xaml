@@ -5,7 +5,7 @@
         xmlns:controls="clr-namespace:Layal.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Layal | ليال" Icon="pack://application:,,,/Layal;component/Assets/layal-tray.ico" Width="1380" Height="900" MinWidth="920" MinHeight="600"
-        Background="Transparent" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Layal.Background}" Foreground="{DynamicResource Layal.Text}" WindowStartupLocation="CenterScreen"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
         Closing="Window_Closing" Loaded="MainWindow_Loaded" SizeChanged="MainWindow_SizeChanged" PreviewKeyDown="MainWindow_PreviewKeyDown">
     <shell:WindowChrome.WindowChrome>
