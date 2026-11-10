@@ -104,8 +104,10 @@ jobs:
 
       - name: Keep device location opt-in during headless native acceptance
         shell: pwsh
+        env:
+          LAYAL_ACCEPTANCE_ROOT: ${{ github.workspace }}\artifacts\ci-acceptance-profile
         run: |
-          $settingsPath = Join-Path $env:LOCALAPPDATA "Layal\settings.json"
+          $settingsPath = Join-Path $env:LAYAL_ACCEPTANCE_ROOT "LocalAppData\Layal\settings.json"
           $settingsDirectory = Split-Path -Parent $settingsPath
           New-Item -ItemType Directory -Path $settingsDirectory -Force | Out-Null
           $settings = @{}
@@ -119,18 +121,24 @@ jobs:
 
       - name: Run native Windows desktop click-through integration
         shell: pwsh
+        env:
+          LAYAL_ACCEPTANCE_ROOT: ${{ github.workspace }}\artifacts\ci-acceptance-profile
         run: |
           & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance/click-through" -ClickThroughOnly
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run native Windows desktop mouse-drag integration
         shell: pwsh
+        env:
+          LAYAL_ACCEPTANCE_ROOT: ${{ github.workspace }}\artifacts\ci-acceptance-profile
         run: |
           & .\\tools\\Test-LayalClickThrough.Native.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -LogDirectory "artifacts/interactive-acceptance/drag" -DragOnly
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
  
       - name: Run Windows display and DPI topology smoke test
         shell: pwsh
+        env:
+          LAYAL_ACCEPTANCE_ROOT: ${{ github.workspace }}\artifacts\ci-acceptance-profile
         run: |
           & .\\tools\\Test-LayalDisplayDpi.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -ObserveSeconds 3 -LogDirectory "artifacts/display-dpi"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -145,6 +153,8 @@ jobs:
 
       - name: Run keyboard navigation acceptance
         shell: pwsh
+        env:
+          LAYAL_ACCEPTANCE_ROOT: ${{ github.workspace }}\artifacts\ci-acceptance-profile
         run: |
           & .\\tools\\Test-LayalKeyboardNavigation.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -LogDirectory "artifacts/keyboard-acceptance"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -156,6 +166,8 @@ jobs:
 
       - name: Run animated GLB preview integration
         shell: pwsh
+        env:
+          LAYAL_ACCEPTANCE_ROOT: ${{ github.workspace }}\artifacts\ci-acceptance-profile
         run: |
           & .\\tools\\Test-LayalGlbPreview.ps1 -LayalExePath ".\\src\\Layal.Desktop\\bin\\Release\\net10.0-windows10.0.19041.0\\Layal.exe" -LogDirectory "artifacts/glb-preview"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

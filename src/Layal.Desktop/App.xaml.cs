@@ -14,7 +14,10 @@ public partial class App : Application
     // launching a second tray agent/window set from the WPF dispatcher startup event.
     public static bool SuppressStartupForTests { get; set; }
 
-    private const string ActivateEventName = @"Local\Layal.Desktop.Activate";
+    private const string ActivateEventBaseName = @"Local\Layal.Desktop.Activate";
+    private const string SingleInstanceMutexBaseName = @"Local\Layal.Desktop.SingleInstance";
+    private string _activateEventName = ActivateEventBaseName;
+    private string _singleInstanceMutexName = SingleInstanceMutexBaseName;
     private EventWaitHandle? _activateEvent;
     private bool _ownsSingleInstanceMutex;
     private bool _isScheduledReminderLaunch;
@@ -29,7 +32,17 @@ public partial class App : Application
         _isScheduledReminderLaunch = e.Args.Any(argument =>
             string.Equals(argument, "--scheduled-reminder", StringComparison.Ordinal));
 
-        var dataRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Layal");
+        var dataPaths = LayalDataPathPolicy.Resolve(
+            Environment.GetEnvironmentVariable(LayalDataPathPolicy.AcceptanceRootEnvironmentVariable),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        var dataRoot = dataPaths.DataRoot;
+        if (dataPaths.IsolatedAcceptance)
+        {
+            var scope = LayalDataPathPolicy.GetAcceptanceScopeSuffix(dataPaths.AcceptanceRoot!);
+            _activateEventName = $"{ActivateEventBaseName}.Acceptance.{scope}";
+            _singleInstanceMutexName = $"{SingleInstanceMutexBaseName}.Acceptance.{scope}";
+        }
         Directory.CreateDirectory(dataRoot);
         _logDirectory = Path.Combine(dataRoot, "logs");
         RegisterGlobalExceptionLogging();
@@ -52,7 +65,11 @@ public partial class App : Application
         AppRuntime.ReminderService = new ReminderService(Path.Combine(dataRoot, "reminders.dpapi"));
         try
         {
-            AppRuntime.ReminderTaskSchedulerService = new ReminderTaskSchedulerService();
+            // The isolated live-acceptance mode must not create, replace, or delete the user's
+            // real Windows reminder task. Its dedicated data root has no production reminders.
+            AppRuntime.ReminderTaskSchedulerService = dataPaths.IsolatedAcceptance
+                ? null
+                : new ReminderTaskSchedulerService();
         }
         catch (Exception ex)
         {
@@ -69,7 +86,7 @@ public partial class App : Application
             AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
         // Normalize empty history placeholders to the persisted UI language when an old history is reopened.
         AppRuntime.ChatSessionService.SetDefaultTitle(AppRuntime.Settings.Language == "ar" ? "محادثة جديدة" : "New conversation");
-        AppRuntime.WorkspaceRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LayalWorkspace");
+        AppRuntime.WorkspaceRoot = dataPaths.WorkspaceRoot;
         AppRuntime.ApiConnectionService = new ApiConnectionService(Path.Combine(dataRoot, "api-connections.dpapi"));
         AppRuntime.BrowserAutomationService = new BrowserAutomationService(dataRoot);
         AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService, AppRuntime.ApiConnectionService, AppRuntime.BrowserAutomationService);
@@ -179,8 +196,8 @@ public partial class App : Application
         {
             // Create/open the signal before publishing the mutex. A losing launch can then notify
             // the owner even while its windows are still starting.
-            _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivateEventName);
-            _singleInstanceMutex = new Mutex(true, @"Local\Layal.Desktop.SingleInstance", out var createdNew);
+            _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, _activateEventName);
+            _singleInstanceMutex = new Mutex(true, _singleInstanceMutexName, out var createdNew);
             if (createdNew)
             {
                 _ownsSingleInstanceMutex = true;

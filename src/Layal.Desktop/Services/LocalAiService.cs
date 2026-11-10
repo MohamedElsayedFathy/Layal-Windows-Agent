@@ -16,8 +16,20 @@ public sealed class LocalAiService
 {
     public const string DefaultModelId = "qwen3.5:2b";
     public static readonly Uri ApiBaseUri = new("http://127.0.0.1:11434/");
-    public static string DataRoot => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Layal", "LocalAi");
+    public static string DataRoot
+    {
+        get
+        {
+            var paths = LayalDataPathPolicy.Resolve(
+                Environment.GetEnvironmentVariable(LayalDataPathPolicy.AcceptanceRootEnvironmentVariable),
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+            return Path.Combine(paths.DataRoot, "LocalAi");
+        }
+    }
+
+    private static bool IsIsolatedAcceptanceMode =>
+        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(LayalDataPathPolicy.AcceptanceRootEnvironmentVariable));
 
     private const string InstallerUrl = "https://ollama.com/download/OllamaSetup.exe";
     private const long MaximumInstallerBytes = 2L * 1024 * 1024 * 1024;
@@ -50,6 +62,9 @@ public sealed class LocalAiService
 
     public async Task<bool> IsReadyAsync(string? modelId = null, CancellationToken cancellationToken = default)
     {
+        // Live acceptance must not inspect or communicate with a user-installed Ollama service.
+        if (IsIsolatedAcceptanceMode) return false;
+
         var target = ValidateModelId(modelId ?? DefaultModelId);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(3));
@@ -80,6 +95,9 @@ public sealed class LocalAiService
         IProgress<LocalAiProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (IsIsolatedAcceptanceMode)
+            throw new InvalidOperationException("Local AI installation and model setup are disabled during isolated live acceptance.");
+
         var target = ValidateModelId(modelId ?? DefaultModelId);
         if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
             throw new PlatformNotSupportedException("Local AI setup currently requires 64-bit Windows.");
@@ -124,6 +142,9 @@ public sealed class LocalAiService
         Action<string> onDelta,
         CancellationToken cancellationToken = default)
     {
+        if (IsIsolatedAcceptanceMode)
+            throw new InvalidOperationException("Local AI chat is disabled during isolated live acceptance.");
+
         ArgumentNullException.ThrowIfNull(messages);
         ArgumentNullException.ThrowIfNull(onDelta);
         var target = ValidateModelId(modelId ?? DefaultModelId);

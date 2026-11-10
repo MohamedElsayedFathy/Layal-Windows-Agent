@@ -148,6 +148,9 @@ $script:AppProcess = $null
 $script:MascotHwnd = [IntPtr]::Zero
 $script:MouseButtonHeld = $false
 $script:FailureCount = 0
+$script:AcceptanceRootPrevious = [Environment]::GetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', 'Process')
+$script:OwnsAcceptanceRoot = $false
+$script:AcceptanceRoot = $null
 
 function Write-Result {
     param([string]$Name,[string]$Status,[string]$Detail)
@@ -275,6 +278,21 @@ for ($r=0;$r -lt 3;$r++) {
 [void]$form.Controls.Add($root)
 
 try {
+    if ([string]::IsNullOrWhiteSpace($script:AcceptanceRootPrevious)) {
+        $script:AcceptanceRoot = Join-Path $resolvedLogDirectory 'isolated-current-user-profile'
+        if (Test-Path -LiteralPath $script:AcceptanceRoot) {
+            throw "Refusing to reuse an existing isolated acceptance root: $($script:AcceptanceRoot)"
+        }
+        New-Item -ItemType Directory -Path $script:AcceptanceRoot -Force | Out-Null
+        [Environment]::SetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', $script:AcceptanceRoot, 'Process')
+        $script:OwnsAcceptanceRoot = $true
+    } else {
+        $script:AcceptanceRoot = [IO.Path]::GetFullPath($script:AcceptanceRootPrevious)
+        if (-not (Test-Path -LiteralPath $script:AcceptanceRoot -PathType Container)) {
+            New-Item -ItemType Directory -Path $script:AcceptanceRoot -Force | Out-Null
+        }
+    }
+    Write-Host "Isolated acceptance app data root: $($script:AcceptanceRoot)"
     $form.Show()
     [System.Windows.Forms.Application]::DoEvents()
     $script:AppProcess=Start-Process -FilePath $resolvedExe -WorkingDirectory (Split-Path -Parent $resolvedExe) -PassThru
@@ -399,7 +417,11 @@ try {
         }
 
         Invoke-NativeAcceptanceCase "Dragged position is saved and restored after restart" {
-            $settingsPath=Join-Path $env:LOCALAPPDATA "Layal/settings.json"
+            $acceptanceRoot = [Environment]::GetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', 'Process')
+            if ([string]::IsNullOrWhiteSpace($acceptanceRoot)) {
+                throw "LAYAL_ACCEPTANCE_ROOT is required; refusing to inspect the current user's personal Layal settings."
+            }
+            $settingsPath=Join-Path $script:AcceptanceRoot 'LocalAppData\Layal\settings.json'
             if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
                 throw "Expected settings file after completed drags: $settingsPath"
             }
@@ -449,6 +471,9 @@ catch {
     Write-Result -Name "Integration test setup/runtime" -Status "failed" -Detail $_.Exception.ToString()
 }
 finally {
+    if ($script:OwnsAcceptanceRoot) {
+        [Environment]::SetEnvironmentVariable('LAYAL_ACCEPTANCE_ROOT', $script:AcceptanceRootPrevious, 'Process')
+    }
     if ($script:MouseButtonHeld) { try { [void][LayalNativeInput]::LeftButtonUp() } catch {} }
     if ($script:AppProcess -and -not $script:AppProcess.HasExited) {
         try { Stop-Process -Id $script:AppProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
