@@ -49,7 +49,10 @@ public sealed class UiThemePaletteTests
         Assert.AreEqual("#3B4A73", dark["Layal.Color.NavSelected"]);
         Assert.AreEqual("#8C9EF3", dark["Layal.Color.NavSelectedBorder"]);
         Assert.AreEqual("#7857C6", light["Layal.Color.AccentEnd"]);
-        Assert.AreEqual("#8A65DB", dark["Layal.Color.AccentEnd"]);
+        Assert.AreEqual("#4165B8", dark["Layal.Color.AccentStart"]);
+        Assert.AreEqual("#7052B4", dark["Layal.Color.AccentEnd"]);
+        Assert.AreEqual("#F5293A65", dark["Layal.Color.Glass"]);
+        Assert.AreEqual("#FC2D3B65", dark["Layal.Color.GlassStrong"]);
         Assert.AreEqual("#E9E0FB", light["Layal.Color.ButtonEnd"]);
         Assert.AreEqual("#604C83", dark["Layal.Color.ButtonEnd"]);
         Assert.AreEqual("#53627D", light["Layal.Color.Muted"]);
