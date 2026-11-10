@@ -1099,10 +1099,8 @@ public partial class MainWindow : Window
             Opacity = 0.10
         };
         var backdropBase = colors["Layal.Color.Background"];
-        Application.Current.Resources["Layal.AppBackdropWash"] = highContrast
-            ? new SolidColorBrush(SystemColors.WindowColor)
-            : new SolidColorBrush(Color.FromArgb(IsDarkTheme ? (byte)0x52 : (byte)0x40,
-                backdropBase.R, backdropBase.G, backdropBase.B));
+        Application.Current.Resources["Layal.AppBackdropWash"] = new SolidColorBrush(Color.FromRgb(
+            backdropBase.R, backdropBase.G, backdropBase.B));
 
         if (highContrast)
         {
