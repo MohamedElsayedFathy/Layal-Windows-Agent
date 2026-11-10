@@ -98,6 +98,7 @@ if ($null -eq $pwshCommand -or [string]::IsNullOrWhiteSpace($pwshCommand.Source)
     throw 'PowerShell 7 (pwsh) is required to execute the isolated Windows acceptance scripts.'
 }
 $pwshPath = $pwshCommand.Source
+$resolvedScriptDirectory = $PSScriptRoot
 
 $sessionStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
