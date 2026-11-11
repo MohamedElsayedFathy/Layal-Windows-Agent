@@ -12,6 +12,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using Layal.Models;
 using Layal.Services;
@@ -552,6 +553,83 @@ public sealed class MainWindowVisualSmokeTests
     }
 
 
+    private static void AssertExpanderHeaderAutomationPeers(MainWindow window, string language)
+    {
+        var ar = string.Equals(language, "ar", StringComparison.Ordinal);
+        var tabs = window.FindName("MainTabs") as TabControl
+            ?? throw new InvalidOperationException("MainTabs was not found.");
+        var originalSelection = tabs.SelectedItem;
+
+        try
+        {
+            AssertHeader(
+                tabName: "ChatTab",
+                expanderName: "ChatToolsExpander",
+                expectedName: ar ? "أدوات المحادثة والمرفقات" : "Conversation tools and attachments");
+            AssertHeader(
+                tabName: "TasksTab",
+                expanderName: "TaskToolsExpander",
+                expectedName: ar ? "أدوات وإعدادات المهمة" : "Task tools and settings");
+        }
+        finally
+        {
+            tabs.SelectedItem = originalSelection;
+            tabs.UpdateLayout();
+            window.UpdateLayout();
+        }
+
+        void AssertHeader(string tabName, string expanderName, string expectedName)
+        {
+            tabs.SelectedItem = window.FindName(tabName)
+                ?? throw new InvalidOperationException($"{tabName} was not found.");
+            tabs.UpdateLayout();
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var expander = window.FindName(expanderName) as Expander
+                ?? throw new InvalidOperationException($"{expanderName} was not found.");
+            expander.ApplyTemplate();
+            window.UpdateLayout();
+
+            var headerTextName = expanderName == "ChatToolsExpander"
+                ? "ChatToolsHeaderText"
+                : "TaskToolsHeaderText";
+            var headerText = window.FindName(headerTextName) as TextBlock
+                ?? throw new InvalidOperationException($"{headerTextName} was not found.");
+            Assert.AreEqual(expectedName, headerText.Text,
+                $"{expanderName} visible header must match the active UI language.");
+
+            Assert.AreEqual(expectedName, AutomationProperties.GetName(expander),
+                $"{expanderName} itself must expose a localized accessible name.");
+
+            var hwnd = new WindowInteropHelper(window).Handle;
+            Assert.AreNotEqual(IntPtr.Zero, hwnd, "The main window must have an HWND for UI Automation.");
+            var automationRoot = AutomationElement.FromHandle(hwnd)
+                ?? throw new InvalidOperationException("UI Automation could not access the main window.");
+            var headerCondition = new PropertyCondition(
+                AutomationElement.AutomationIdProperty, "HeaderSite");
+            var headers = automationRoot.FindAll(TreeScope.Descendants, headerCondition);
+            var walker = TreeWalker.ControlViewWalker;
+
+            var matchingHeaders = headers
+                .Cast<AutomationElement>()
+                .Where(header =>
+                {
+                    var parent = walker.GetParent(header);
+                    return parent is not null &&
+                        string.Equals(parent.Current.AutomationId, expanderName, StringComparison.Ordinal);
+                })
+                .ToArray();
+
+            Assert.AreEqual(1, matchingHeaders.Length,
+                $"{expanderName} must expose exactly one generated HeaderSite button.");
+            Assert.AreEqual(expectedName, matchingHeaders[0].Current.Name,
+                $"{expanderName} HeaderSite button must expose the localized accessible name through UI Automation.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(matchingHeaders[0].Current.HelpText),
+                $"{expanderName} HeaderSite button must expose usage guidance through UI Automation.");
+        }
+    }
+
     private static void RenderAllStates()
     {
         using var temp = new TestTempDirectory();
@@ -703,6 +781,7 @@ public sealed class MainWindowVisualSmokeTests
             AppRuntime.Settings.Language = language;
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
+            AssertExpanderHeaderAutomationPeers(window, language);
             Assert.AreEqual(language == "ar" ? "قياس موارد ليال الآن" : "Measure Layal resources",
                 performanceMetricsButton.Content as string);
             Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(performanceMetricsButton)));
