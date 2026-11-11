@@ -1269,6 +1269,43 @@ public partial class MainWindow : Window
         ApplyCompactWindowChrome(ActualWidth > 0 ? ActualWidth : Width);
         BottomDockShell.UpdateLayout();
         UpdateMainTabsNavigationMargin();
+        UpdateExpanderHeaderAccessibility();
+    }
+
+    private void UpdateExpanderHeaderAccessibility()
+    {
+        var ar = IsArabic;
+
+        var chatName = ar ? "أدوات المحادثة والمرفقات" : "Conversation tools and attachments";
+        var chatHelp = ar
+            ? "افتح هذه المنطقة للوصول إلى التقاط الشاشة والملفات والكاميرا والخصوصية والبريد."
+            : "Expand this section to access screen capture, files, camera, privacy, and email tools.";
+        ChatToolsHeaderText.Text = chatName;
+        ChatToolsHeaderHintText.Text = ar ? "  •  أدوات اختيارية" : "  •  Optional tools";
+        SetExpanderHeaderAccessibility(ChatToolsExpander, chatName, chatHelp);
+
+        var taskName = ar ? "أدوات وإعدادات المهمة" : "Task tools and settings";
+        var taskHelp = ar
+            ? "أدوات Windows والتذكيرات والروتينات وإعدادات المتابعة الاستباقية."
+            : "Windows tools, reminders, routines, and proactive check-in settings.";
+        TaskToolsHeaderText.Text = taskName;
+        TaskToolsHeaderHintText.Text = ar ? "  •  أدوات اختيارية" : "  •  Optional tools";
+        SetExpanderHeaderAccessibility(TaskToolsExpander, taskName, taskHelp);
+    }
+
+    private static void SetExpanderHeaderAccessibility(Expander expander, string name, string helpText)
+    {
+        // WPF's default Expander template exposes its clickable HeaderSite as a separate Button
+        // automation element. Naming the Expander alone does not populate that child's Name.
+        AutomationProperties.SetName(expander, name);
+        AutomationProperties.SetHelpText(expander, helpText);
+
+        expander.ApplyTemplate();
+        if (expander.Template?.FindName("HeaderSite", expander) is DependencyObject headerSite)
+        {
+            AutomationProperties.SetName(headerSite, name);
+            AutomationProperties.SetHelpText(headerSite, helpText);
+        }
     }
 
     private void MainWindow_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
@@ -1741,6 +1778,7 @@ public partial class MainWindow : Window
         UpdateDocumentAttachmentUi();
         UpdateCameraVisionIndicator();
         ApplyNavigationRailPresentation();
+        UpdateExpanderHeaderAccessibility();
 
         TasksHeading.Text = ar ? "مركز المهام" : "Task center";
         ManageRemindersButton.Content = ar ? "التذكيرات" : "Reminders";

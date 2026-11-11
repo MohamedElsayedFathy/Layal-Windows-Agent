@@ -489,8 +489,8 @@
                                 <DockPanel LastChildFill="True">
                                     <TextBlock DockPanel.Dock="Right" Text="⌄" FontSize="15" FontWeight="Bold"
                                                Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="أدوات المحادثة والمرفقات" FontSize="13.5" FontWeight="SemiBold"/>
-                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="11.5"
+                                    <TextBlock x:Name="ChatToolsHeaderText" Text="أدوات المحادثة والمرفقات" FontSize="13.5" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="ChatToolsHeaderHintText" Text="  •  أدوات اختيارية" FontSize="11.5"
                                                Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
                                 </DockPanel>
                             </Expander.Header>
@@ -637,8 +637,8 @@
                             <Expander.Header>
                                 <DockPanel>
                                     <TextBlock Text="⌄" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="أدوات وإعدادات المهمة" FontSize="13.5" FontWeight="SemiBold"/>
-                                    <TextBlock Text="  •  أدوات اختيارية" FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
+                                    <TextBlock x:Name="TaskToolsHeaderText" Text="أدوات وإعدادات المهمة" FontSize="13.5" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TaskToolsHeaderHintText" Text="  •  أدوات اختيارية" FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" Margin="8,1,0,0"/>
                                 </DockPanel>
                             </Expander.Header>
                             <Border Background="{DynamicResource Layal.GlassFill}" CornerRadius="14" Padding="10" Margin="4">
