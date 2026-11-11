@@ -290,6 +290,7 @@ $script:FailureCount = 0
 $script:AppProcess = $null
 $script:MonitorList = @()
 $script:WindowHandle = [IntPtr]::Zero
+$script:WindowHandleChanges = New-Object System.Collections.Generic.List[object]
 $startedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
 
 function Add-Check {
@@ -309,11 +310,72 @@ function Get-MonitorByHandle {
 }
 
 function Get-WindowSample {
-    $window = [LayalDisplayDpiNative]::ReadWindow($script:WindowHandle)
+    # WPF may recreate a top-level HWND while the process remains alive. Re-enumerate
+    # the mascot window for every sample instead of trusting the startup HWND forever.
+    # A short bounded retry allows transient window recreation without hiding a real
+    # process exit or a persistently missing window.
+    $deadline = [DateTime]::UtcNow.AddSeconds(2)
+    $window = $null
+    $lastReadError = $null
+    $diagnostic = ""
+    $previousHandle = $script:WindowHandle
+
+    while ([DateTime]::UtcNow -lt $deadline -and $null -eq $window) {
+        $script:AppProcess.Refresh()
+        if ($script:AppProcess.HasExited) {
+            $exitCode = $script:AppProcess.ExitCode
+            throw ("Layal.exe process {0} exited during display/DPI observation with exit code {1}. Last HWND=0x{2:X}. Last read error: {3}" -f
+                $script:AppProcess.Id,$exitCode,$script:WindowHandle.ToInt64(),$lastReadError)
+        }
+
+        $candidateHandle = [LayalDisplayDpiNative]::FindVisibleMascotWindow($script:AppProcess.Id, [ref]$diagnostic)
+        if ($candidateHandle -ne [IntPtr]::Zero) {
+            $script:WindowHandle = $candidateHandle
+            try {
+                $window = [LayalDisplayDpiNative]::ReadWindow($script:WindowHandle)
+            }
+            catch {
+                $lastReadError = $_.Exception.ToString()
+                $window = $null
+            }
+        } else {
+            $lastReadError = "No visible floating mascot window matched the running process. Windows: $diagnostic"
+        }
+
+        if ($null -eq $window) {
+            Start-Sleep -Milliseconds 100
+        }
+    }
+
+    if ($null -eq $window) {
+        $script:AppProcess.Refresh()
+        if ($script:AppProcess.HasExited) {
+            $exitCode = $script:AppProcess.ExitCode
+            throw ("Layal.exe process {0} exited during display/DPI observation with exit code {1}. Last HWND=0x{2:X}. Last read error: {3}" -f
+                $script:AppProcess.Id,$exitCode,$script:WindowHandle.ToInt64(),$lastReadError)
+        }
+
+        $enumerationDetail = if ($diagnostic) { $diagnostic } else { "No matching windows were enumerated." }
+        $readDetail = if ($lastReadError) { $lastReadError } else { "No successful HWND read was completed." }
+        throw ("Layal.exe process {0} is still running, but no readable visible mascot HWND was found within 2 seconds. Last HWND=0x{1:X}. Window enumeration: {2}. Last read error: {3}" -f
+            $script:AppProcess.Id,$script:WindowHandle.ToInt64(),$enumerationDetail,$readDetail)
+    }
+
+    if ($previousHandle -ne [IntPtr]::Zero -and $script:WindowHandle -ne $previousHandle) {
+        $script:WindowHandleChanges.Add([pscustomobject]@{
+            TimestampLocal=(Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
+            ProcessId=$script:AppProcess.Id
+            PreviousHandle=("0x{0:X}" -f $previousHandle.ToInt64())
+            CurrentHandle=("0x{0:X}" -f $script:WindowHandle.ToInt64())
+        })
+    }
+
     $monitor = Get-MonitorByHandle -Handle ([long]$window.MonitorHandle)
     $device = if ($monitor) { [string]$monitor.DeviceName } else { "UNKNOWN" }
     return [pscustomobject]@{
         TimestampUtc=[DateTime]::UtcNow.ToString("o")
+        ProcessId=$script:AppProcess.Id
+        WindowHandle=("0x{0:X}" -f $script:WindowHandle.ToInt64())
         MonitorHandle=([long]$window.MonitorHandle)
         MonitorDevice=$device
         WindowDpi=[uint]$window.Dpi
@@ -542,6 +604,8 @@ finally {
         MonitorCount=$script:MonitorList.Count
         MonitorRecords=$monitorOutput
         WindowSampleCount=$capturedSamples.Count
+        WindowHandleReacquisitionCount=$script:WindowHandleChanges.Count
+        WindowHandleChanges=$script:WindowHandleChanges.ToArray()
         ObservedMonitorHandleCount=$uniqueMonitorHandles.Count
         ObservedWindowDpis=@($uniqueWindowDpis | Sort-Object)
         MonitorTransitionCount=$monitorTransitionCount
