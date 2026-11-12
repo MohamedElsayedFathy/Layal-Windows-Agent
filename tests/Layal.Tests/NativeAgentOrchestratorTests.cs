@@ -293,6 +293,38 @@ public sealed class NativeAgentOrchestratorTests
     }
 
     [TestMethod]
+    public async Task SixCreateCommandsFitTheCommandLimitIncludingVerificationActions()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var approvals = 0;
+        var commands = Enumerable.Range(1, 6)
+            .Select(index => $"create file file-{index}.txt with content Item {index}");
+        var goal = string.Join(Environment.NewLine, commands);
+
+        var task = await orchestrator.RunTaskAsync(
+            goal,
+            (_, _, _) => { approvals++; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("Completed", task.Status, task.Result);
+        Assert.AreEqual(12, approvals, "Six creates each require a separate creation and read-back approval.");
+        Assert.AreEqual(6, task.Artifacts.Count);
+        Assert.AreEqual(6, Directory.GetFiles(workspace, "*.txt", SearchOption.TopDirectoryOnly).Length);
+    }
+
+    [TestMethod]
     public async Task SequenceLongerThanSixCommandsIsRejectedBeforeApproval()
     {
         EnsureWindowsDpapi();
