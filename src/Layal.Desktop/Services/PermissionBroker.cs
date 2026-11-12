@@ -107,10 +107,12 @@ public static class PermissionRequestClassifier
         "read_text_file" => keepReadDataLocal
             ? PermissionActionCategory.Read | PermissionActionCategory.LocalProcessing
             : PermissionActionCategory.Read | PermissionActionCategory.ExternalShare,
-        "list_workspace_files" or "get_current_time" or "get_system_info" or "get_workspace_info" or "search_memory" or "list_app_api_connections" => PermissionActionCategory.Read,
+        "list_workspace_files" or "get_current_time" or "get_system_info" or "get_workspace_info" => PermissionActionCategory.Read,
+        "search_memory" or "list_app_api_connections" => PermissionActionCategory.Read | PermissionActionCategory.ExternalShare,
         "get_open_window_titles" or "inspect_window_controls" or "browser_read_page" => PermissionActionCategory.Read | PermissionActionCategory.ExternalShare,
         "create_text_file" or "replace_text_in_file" or "save_memory" => PermissionActionCategory.Modify,
-        "launch_allowed_program" or "open_notepad" or "open_url" or "activate_window" or "run_dotnet_build" or "run_dotnet_test" => PermissionActionCategory.Execute,
+        "launch_allowed_program" or "open_notepad" or "activate_window" or "run_dotnet_build" or "run_dotnet_test" => PermissionActionCategory.Execute,
+        "open_url" => PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare,
         "browser_navigate" or "web_search" or "fact_check_claim" => PermissionActionCategory.ExternalShare,
         "browser_click" => PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare,
         "browser_fill" => PermissionActionCategory.Modify | PermissionActionCategory.ExternalShare,
@@ -153,6 +155,7 @@ public static class PermissionRequestClassifier
         if (toolName == "browser_read_page") return "active Layal Edge page";
         if (toolName == "get_open_window_titles") return "open Windows window titles";
         if (toolName == "list_app_api_connections") return "saved API connection catalog";
+        if (toolName == "search_memory") return "local memory notes";
 
         var fields = toolName switch
         {
