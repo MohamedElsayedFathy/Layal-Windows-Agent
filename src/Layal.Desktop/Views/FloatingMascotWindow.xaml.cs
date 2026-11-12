@@ -103,7 +103,7 @@ public partial class FloatingMascotWindow : Window
     private double _rightPupilMoodY;
     private string _mood = "idle";
     private Point? _positionBeforeMainWindowOverlap;
-    private bool _mascotHiddenForMainWindowOverlap;
+    private bool _mascotSentBehindMainWindow;
     private bool _userRequestedMascotHidden;
     private bool _updatingMainWindowOverlap;
     private const int GwlExStyle = -20;
@@ -450,8 +450,7 @@ public partial class FloatingMascotWindow : Window
 
     private void UpdatePositionForMainWindowOverlap()
     {
-        if (_updatingMainWindowOverlap || _userRequestedMascotHidden ||
-            (!IsVisible && !_mascotHiddenForMainWindowOverlap))
+        if (_updatingMainWindowOverlap || _userRequestedMascotHidden || !IsVisible)
             return;
 
         var mainWindow = AppRuntime.MainWindow;
@@ -485,15 +484,19 @@ public partial class FloatingMascotWindow : Window
             {
                 Left = availablePosition.X;
                 Top = availablePosition.Y;
-                _mascotHiddenForMainWindowOverlap = false;
+                _mascotSentBehindMainWindow = false;
+                Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
                 Visibility = Visibility.Visible;
             }
             else
             {
-                // A maximized window can leave no safe slot; hide only for this overlap and
-                // restore the user's saved position as soon as the main window moves away.
-                _mascotHiddenForMainWindowOverlap = true;
-                Visibility = Visibility.Hidden;
+                // A maximized window can leave no safe slot; keep the mascot window alive
+                // for tray and UI automation, but place it behind the main window temporarily.
+                _mascotSentBehindMainWindow = true;
+                Topmost = false;
+                var handle = new WindowInteropHelper(this).Handle;
+                if (handle != IntPtr.Zero)
+                    SetWindowPos(handle, new IntPtr(1), 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
             }
         }
         finally
@@ -513,9 +516,12 @@ public partial class FloatingMascotWindow : Window
             Left = preferredPosition.X;
             Top = preferredPosition.Y;
             _positionBeforeMainWindowOverlap = null;
-            if (_mascotHiddenForMainWindowOverlap && !_userRequestedMascotHidden)
+            if (_mascotSentBehindMainWindow && !_userRequestedMascotHidden)
+            {
+                Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
                 Visibility = Visibility.Visible;
-            _mascotHiddenForMainWindowOverlap = false;
+            }
+            _mascotSentBehindMainWindow = false;
         }
         finally
         {
