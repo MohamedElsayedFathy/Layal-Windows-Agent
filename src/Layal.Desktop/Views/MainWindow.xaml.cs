@@ -1112,7 +1112,7 @@ public partial class MainWindow : Window
         // This preserves the clock/weather at normal window sizes while protecting
         // the three prompt buttons from being clipped by the conversation viewport.
         var compact = availableHeight < 520;
-        var dense = availableHeight < 760;
+        var dense = availableHeight < 900;
         var layoutMode = compact ? 2 : dense ? 1 : 0;
         ChatEmptyStateText.Text = dense
             ? (IsArabic ? "اكتب سؤالك أو اختر اقتراحًا." : "Choose a prompt or type your question.")
