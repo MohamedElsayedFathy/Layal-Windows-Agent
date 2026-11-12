@@ -49,6 +49,33 @@ public sealed class NativeCognitiveCoreTests
     [DataRow("don't open https://example.com")]
     [DataRow("don't list files")]
     [DataRow("show me how to list files")]
+    [TestMethod]
+    [DataRow("help", NativeIntent.Capabilities)]
+    [DataRow("what can you do", NativeIntent.Capabilities)]
+    [DataRow("ايه قدراتك", NativeIntent.Capabilities)]
+    public void ParserRecognizesExactCapabilityPrompts(string phrase, NativeIntent expected)
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        Assert.AreEqual(expected, parser.Parse(phrase).Intent);
+    }
+
+    [TestMethod]
+    [DataRow("Can you help me write a resume?")]
+    [DataRow("hello can you help me write a resume?")]
+    [DataRow("Hello, please explain this error")]
+    [DataRow("اهلا ممكن تساعدني اكتب سيرة ذاتية")]
+    public void ParserDoesNotSwallowCompoundHelpRequestsAsGreetingOrCapabilities(string phrase)
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        Assert.AreEqual(NativeIntent.Unknown, parser.Parse(phrase).Intent, phrase);
+    }
+
     public void ParserDoesNotTreatNegatedOrDescriptiveTextAsAnAction(string phrase)
     {
         using var temp = new TestTempDirectory();
