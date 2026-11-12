@@ -883,6 +883,18 @@ public sealed class MainWindowVisualSmokeTests
                 }
                 if (tabNames[index] == "chat")
                 {
+                    var welcomeEyebrow = window.FindName("ChatWelcomeEyebrow") as TextBlock
+                        ?? throw new InvalidOperationException("ChatWelcomeEyebrow was not found.");
+                    var welcomeTitle = window.FindName("ChatWelcomeTitle") as TextBlock
+                        ?? throw new InvalidOperationException("ChatWelcomeTitle was not found.");
+                    Assert.AreEqual(language == "ar" ? "مساحة ليال الذكية" : "YOUR AI DESK",
+                        BidiTextNormalizer.StripDirectionalControls(welcomeEyebrow.Text),
+                        $"Welcome eyebrow localization is incorrect for {theme}/{language}.");
+                    Assert.AreEqual(language == "ar" ? "نبدأ بإيه النهارده؟" : "What would you like to do today?",
+                        BidiTextNormalizer.StripDirectionalControls(welcomeTitle.Text),
+                        $"Welcome title localization is incorrect for {theme}/{language}.");
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(welcomeTitle)),
+                        "The welcome title must expose an accessible name.");
                     var weatherCard = window.FindName("ClockWeatherCard") as Border
                         ?? throw new InvalidOperationException("ClockWeatherCard was not found.");
                     var subtitle = window.FindName("SubtitleText") as TextBlock
