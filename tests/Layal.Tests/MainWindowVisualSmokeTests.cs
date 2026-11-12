@@ -914,7 +914,9 @@ public sealed class MainWindowVisualSmokeTests
                         var panelBounds = suggestion.TransformToAncestor(welcomePanel)
                             .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
                         Assert.IsTrue(panelBounds.Top >= -0.5 && panelBounds.Bottom <= welcomePanel.ActualHeight + 0.5,
-                            $"{suggestionName} is clipped inside the full welcome card ({theme}/{language}).");
+                            $"{suggestionName} is clipped inside the full welcome card ({theme}/{language}); " +
+                            $"buttonBottom={panelBounds.Bottom:0.0}, cardHeight={welcomePanel.ActualHeight:0.0}, " +
+                            $"chatHeight={chatSurface.ActualHeight:0.0}, layoutMode={(welcomePanel.Padding.Top < 18 ? "dense" : "normal")}.");
                     }
                     AssertPageHeroGradientTracksPalette($"{theme}/{language} full-size chat");
                 }
