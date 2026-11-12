@@ -67,7 +67,7 @@ public sealed class PermissionBroker
     }
 
     private static string FormatAuditEvent(string decision, PermissionRequest request) =>
-        $"Permission {decision}: actor=local user; tool={Sanitize(request.ToolName, 80)}; " +
+        $"Permission {decision}: time={DateTimeOffset.Now:O}; actor=local user; tool={Sanitize(request.ToolName, 80)}; " +
         $"category={request.Category}; target={Sanitize(request.Target, 200)}; " +
         $"reason={Sanitize(request.Reason, 120)}.";
 
