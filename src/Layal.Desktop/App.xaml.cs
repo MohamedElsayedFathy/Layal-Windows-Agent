@@ -90,7 +90,7 @@ public partial class App : Application
         AppRuntime.ApiConnectionService = new ApiConnectionService(Path.Combine(dataRoot, "api-connections.dpapi"));
         AppRuntime.BrowserAutomationService = new BrowserAutomationService(dataRoot);
         AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService, AppRuntime.ApiConnectionService, AppRuntime.BrowserAutomationService);
-        AppRuntime.AgentOrchestrator = new AgentOrchestrator(new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
+        AppRuntime.AgentOrchestrator = new AgentOrchestrator(new AgentModelClientRouter(new OpenAiCompatibleClient(), AppRuntime.LocalAiService), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
 
         AppRuntime.ExitAction = ShutdownLayal;
         AppRuntime.MainWindow = new MainWindow();
