@@ -1580,7 +1580,7 @@ public partial class MainWindow : Window
         ChatSuggestionPlanButton.Content = ar ? "✦  ساعدني في التخطيط" : "✦  Help me plan";
         ChatSuggestionSummaryButton.Content = ar ? "▤  لخّص لي محتوى" : "▤  Summarize content";
         ChatSuggestionIdeasButton.Content = ar ? "◇  اقترح أفكارًا" : "◇  Suggest ideas";
-        ApplyChatCompactLayout(ChatConversationSurface.ActualHeight);
+        ApplyChatCompactLayout(MainTabs.ActualHeight);
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
