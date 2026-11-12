@@ -28,7 +28,7 @@ public sealed class NativeLearningService
     public NativeLearningService(string path) =>
         _store = new ProtectedJsonStore<NativeLearningState>(path);
 
-    public bool TryTeachFromUtterance(string utterance, out string message)
+    public bool TryTeachFromUtterance(string utterance, out string message, string language = "ar")
     {
         message = string.Empty;
         if (string.IsNullOrWhiteSpace(utterance) || utterance.Length > 500)
@@ -43,7 +43,9 @@ public sealed class NativeLearningService
         var trigger = match.Groups["trigger"].Value.Trim().Trim('"', '\'', '«', '»');
         var command = match.Groups["command"].Value.Trim().Trim('"', '\'', '«', '»');
         TeachAlias(trigger, command);
-        message = $"تم حفظ الاختصار المحلي «{trigger}». سأستخدمه فقط عندما تطابق عبارتك هذا الاختصار، وسأنفذ الهدف إذا كان من الأوامر التي تدعمها نواة ليال الحالية.";
+        message = string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
+            ? $"Saved the local shortcut “{trigger}”. I will use it only when your phrase matches this shortcut, and I will run it only when its target is supported by Layal's current native core."
+            : $"تم حفظ الاختصار المحلي «{trigger}». سأستخدمه فقط عندما تطابق عبارتك هذا الاختصار، وسأنفذ الهدف إذا كان من الأوامر التي تدعمها نواة ليال الحالية.";
         return true;
     }
 

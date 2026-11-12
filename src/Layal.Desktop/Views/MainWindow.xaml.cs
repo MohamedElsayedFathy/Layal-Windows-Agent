@@ -45,7 +45,6 @@ public partial class MainWindow : Window
     private readonly GameModeAutoDismissalPolicy _gameModeAutoDismissalPolicy = new();
     private readonly ForegroundGameDetectionService _foregroundGameDetectionService = new();
     private readonly DispatcherTimer _gameModeDetectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
-    private bool _cameraAutomaticObservationRequest;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
     private readonly DispatcherTimer _reminderTimer = new() { Interval = TimeSpan.FromSeconds(15) };
@@ -87,7 +86,6 @@ public partial class MainWindow : Window
     private readonly LocalVoiceService _localVoiceService = new();
     // Used only when the user explicitly selects Test external API; never used by chat or task planning.
     private readonly OpenAiCompatibleClient _providerConnectionTester = new();
-    private bool _localAiReady = true;
     private bool _localVoiceReady;
     private bool _localVoiceSetupAttempted;
     private bool _localVoiceRecordingActive;
@@ -106,7 +104,6 @@ public partial class MainWindow : Window
     private byte[]? _pendingVisionImageBytes;
     private string? _pendingVisionContentType;
     private string? _pendingVisionFileName;
-    private string _lastCameraObservation = string.Empty;
     private CancellationTokenSource? _agentTaskCancellation;
     private string? _selectedMemoryId;
     private bool _selectedMemoryIsArchived;
@@ -117,9 +114,6 @@ public partial class MainWindow : Window
     private string _memoryEditorBaselineContent = string.Empty;
     private string _memoryEditorBaselineCategory = "General";
     private const int MaxMemoryBackupBytes = 2 * 1024 * 1024;
-    private bool _providerTestPassed;
-    private string? _testedBaseUrl;
-    private string? _testedModelId;
     private string _currentConversationId = string.Empty;
     private bool _refreshingChatSessions;
     private ICollectionView? _apiConnectionsView;
@@ -131,7 +125,7 @@ public partial class MainWindow : Window
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
     private bool _isBottomDockExpanded = true;
-    private bool? _chatCompactLayoutApplied;
+    private int? _chatWelcomeLayoutModeApplied;
     private bool? _compactWindowChromeApplied;
     private bool _isChatHistoryPanelOpen;
     private bool _isUiInitialized;
@@ -505,7 +499,6 @@ public partial class MainWindow : Window
         ChatMessages.Clear();
         ChatInput.Clear();
         ClearPendingChatAttachmentsForPrivateMode();
-        _lastCameraObservation = string.Empty;
         ChatConversations.Clear();
         ChatHistorySelector.SelectedItem = null;
         UpdateVisionAttachmentControls();
@@ -519,7 +512,6 @@ public partial class MainWindow : Window
     private void ExitPrivateChatMode()
     {
         ClearPendingChatAttachmentsForPrivateMode();
-        _lastCameraObservation = string.Empty;
         AppRuntime.ChatSessionService.EndTemporarySession();
         _incognitoMode = false;
         AppRuntime.IsPrivateChatActive = false;
@@ -718,7 +710,6 @@ public partial class MainWindow : Window
             UpdateDocumentAttachmentUi();
         }
 
-        _lastCameraObservation = string.Empty;
         UpdateVoiceConversationControls();
         UpdateCameraVisionIndicator();
     }
@@ -920,7 +911,7 @@ public partial class MainWindow : Window
         Task sendTask;
         try
         {
-            // Reuse the established chat context/provider pipeline while keeping Quick Ask silent.
+            // Reuse the native local conversation route while keeping Quick Ask silent.
             sendTask = SendMessageAsync(suppressVoiceReply: true);
         }
         finally
@@ -1107,9 +1098,12 @@ public partial class MainWindow : Window
     }
 
     private void ChatConversationSurface_Loaded(object sender, RoutedEventArgs e) =>
-        ApplyChatCompactLayout(ChatConversationSurface.ActualHeight);
+        ApplyChatCompactLayout(MainTabs.ActualHeight);
 
     private void ChatConversationSurface_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyChatCompactLayout(MainTabs.ActualHeight);
+
+    private void MainTabs_SizeChanged(object sender, SizeChangedEventArgs e) =>
         ApplyChatCompactLayout(e.NewSize.Height);
 
     private void ApplyChatCompactLayout(double availableHeight)
@@ -1117,22 +1111,30 @@ public partial class MainWindow : Window
         if (availableHeight <= 0 || ChatWelcomePanel is null || ClockWeatherCard is null)
             return;
 
-        // The clock and weather remain available on the overview page. Hiding this
-        // secondary summary in a short chat viewport gives the welcome canvas and
-        // composer enough room instead of clipping suggestions below the fold.
-        var compact = availableHeight < 520;
-        ChatEmptyStateText.Text = compact
+        // Measure the bounded tab viewport, not the chat surface's desired height.
+        // The chat content can measure taller than the visible window and be clipped by
+        // the page shell; using that unbounded height leaves the welcome card in full mode.
+        // MainTabs.SizeChanged keeps this responsive even when the chat child does not resize.
+        // Use a dense welcome card before hiding the secondary weather summary.
+        // The main window enforces a 600-DIP minimum height; after its caption,
+        // margins and navigation shell, the remaining tab viewport is roughly 530 DIPs.
+        // Use a viewport-relative breakpoint rather than the old child-height threshold.
+        var compact = availableHeight < 560;
+        var dense = availableHeight < 900;
+        var layoutMode = compact ? 2 : dense ? 1 : 0;
+        ChatEmptyStateText.Text = dense
             ? (IsArabic ? "اكتب سؤالك أو اختر اقتراحًا." : "Choose a prompt or type your question.")
             : (IsArabic
                 ? "اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
                 : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.");
-        if (_chatCompactLayoutApplied == compact)
+        if (_chatWelcomeLayoutModeApplied == layoutMode)
             return;
 
-        _chatCompactLayoutApplied = compact;
-        ChatWelcomeEyebrow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        ChatWelcomeTitle.FontSize = compact ? 21 : 23;
-        ChatWelcomeTitle.Margin = compact
+        _chatWelcomeLayoutModeApplied = layoutMode;
+        ChatWelcomeEyebrow.Visibility = dense ? Visibility.Collapsed : Visibility.Visible;
+        ChatEmptyStateText.Visibility = dense ? Visibility.Collapsed : Visibility.Visible;
+        ChatWelcomeTitle.FontSize = dense ? 21 : 23;
+        ChatWelcomeTitle.Margin = dense
             ? new Thickness(0, 0, 0, 3)
             : new Thickness(0, 0, 0, 7);
         ClockWeatherCard.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
@@ -1140,32 +1142,32 @@ public partial class MainWindow : Window
         ChatHeaderMascot.Width = compact ? 46 : 60;
         ChatHeaderMascot.Height = compact ? 46 : 60;
 
-        ChatWelcomeAvatarShell.Width = compact ? 54 : 88;
-        ChatWelcomeAvatarShell.Height = compact ? 54 : 88;
-        ChatWelcomeAvatarShell.Margin = compact
+        ChatWelcomeAvatarShell.Width = dense ? 54 : 88;
+        ChatWelcomeAvatarShell.Height = dense ? 54 : 88;
+        ChatWelcomeAvatarShell.Margin = dense
             ? new Thickness(0, 0, 10, 0)
             : new Thickness(0, 0, 18, 0);
-        ChatWelcomeAvatarImage.Width = compact ? 50 : 82;
-        ChatWelcomeAvatarImage.Height = compact ? 50 : 82;
+        ChatWelcomeAvatarImage.Width = dense ? 50 : 82;
+        ChatWelcomeAvatarImage.Height = dense ? 50 : 82;
 
-        ChatWelcomePanel.Margin = compact
+        ChatWelcomePanel.Margin = dense
             ? new Thickness(4, 1, 4, 1)
             : new Thickness(12, 6, 12, 6);
-        ChatWelcomePanel.Padding = compact
+        ChatWelcomePanel.Padding = dense
             ? new Thickness(8)
             : new Thickness(18);
-        ChatEmptyStateText.FontSize = compact ? 11.5 : 13.5;
-        ChatEmptyStateText.Margin = compact
+        ChatEmptyStateText.FontSize = dense ? 11.5 : 13.5;
+        ChatEmptyStateText.Margin = dense
             ? new Thickness(0, 0, 0, 2)
             : new Thickness(0, 0, 0, 11);
         ChatEmptyStateText.MaxWidth = 560;
-        ChatSuggestionPlanButton.Padding = compact
+        ChatSuggestionPlanButton.Padding = dense
             ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
-        ChatSuggestionSummaryButton.Padding = compact
+        ChatSuggestionSummaryButton.Padding = dense
             ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
-        ChatSuggestionIdeasButton.Padding = compact
+        ChatSuggestionIdeasButton.Padding = dense
             ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
     }
@@ -1415,7 +1417,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
         AutomationProperties.SetName(ChatHistoryList, ar ? "سجل المحادثات المحفوظة" : "Saved conversation history");
         AutomationProperties.SetHelpText(ChatHistoryList, ar ? "اختر محادثة محفوظة لتحميلها في مساحة الشات." : "Choose a saved conversation to load into the chat.");
-        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة نواة ليال المحلية" : "Layal native core status");
         AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
         AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
         AutomationProperties.SetName(ChatMessagesList, ar ? "رسائل المحادثة" : "Chat messages");
@@ -1545,11 +1547,20 @@ public partial class MainWindow : Window
             : "Text replies, planning, tasks, and alias learning run inside Layal's native core without an external AI model. Optional local speech requires Whisper/Piper resources only.";
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
+        ChatSectionEyebrow.Text = ar ? "LAYAL / مساعد سطح المكتب" : "LAYAL / DESKTOP ASSISTANT";
+        ChatSectionEyebrow.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        AutomationProperties.SetName(ChatSectionEyebrow, ChatSectionEyebrow.Text);
+        ChatWelcomeEyebrow.Text = ar ? "مساحة ليال الذكية" : "YOUR AI DESK";
+        ChatWelcomeTitle.Text = ar ? "نبدأ بإيه النهارده؟" : "What would you like to do today?";
+        AutomationProperties.SetName(ChatWelcomeTitle, ChatWelcomeTitle.Text);
+        AutomationProperties.SetHelpText(ChatWelcomeTitle, ar
+            ? "اختر اقتراحًا لملء حقل الرسالة أو اكتب سؤالك مباشرة."
+            : "Choose a prompt starter to fill the message field, or type your question.");
         ChatNotice.Text = ar
             ? "ليال ترد وتخطط وتنفذ من نواتها المحلية؛ لا يُستدعى نموذج محادثة أو مزود سحابي."
             : "Layal replies, plans, and executes through her native local core; no chat model or cloud provider is called.";
-        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اختبار اتصال API الاختياري" : "Optional API test status");
-        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة إعداد ملف اختبار API الاختياري" : "Optional API test profile status");
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة نواة ليال المحلية" : "Layal native core status");
+        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة الردود النصية والمهام المحلية" : "Local chat and task status");
         AutomationProperties.SetName(HomeResult, ar ? "نتيجة الإجراء" : "Action result");
         AutomationProperties.SetName(ChatCopyStatus, ar ? "حالة النسخ" : "Copy status");
         AutomationProperties.SetName(TaskCopyStatus, ar ? "حالة نسخ النتيجة" : "Result copy status");
@@ -1569,7 +1580,7 @@ public partial class MainWindow : Window
         ChatSuggestionPlanButton.Content = ar ? "✦  ساعدني في التخطيط" : "✦  Help me plan";
         ChatSuggestionSummaryButton.Content = ar ? "▤  لخّص لي محتوى" : "▤  Summarize content";
         ChatSuggestionIdeasButton.Content = ar ? "◇  اقترح أفكارًا" : "◇  Suggest ideas";
-        ApplyChatCompactLayout(ChatConversationSurface.ActualHeight);
+        ApplyChatCompactLayout(MainTabs.ActualHeight);
         NewConversationButton.Content = ar ? "محادثة جديدة" : "New conversation";
         ClearSavedChatHistoryButton.Content = ar ? "مسح السجل المحفوظ" : "Clear saved history";
         ChatHistorySelector.ToolTip = ar ? "المحادثات المحفوظة — اختر محادثة للمتابعة" : "Saved conversations — select one to resume";
@@ -1672,14 +1683,16 @@ public partial class MainWindow : Window
             ? "قراءة محدودة لاسم العنصر ونوعه وحدوده فقط. لا تُقرأ قيم الحقول ولا يُرسل شيء إلا بعد ضغط إرسال."
             : "Only the element name, type, and bounds are read. Field values are not read, and nothing is sent until you press Send.");
         CaptureScreenRegionButton.ToolTip = ar
-            ? "يخفي ليال مؤقتًا، ثم يعرض معاينة محلية للشاشة لتحديد مستطيل. لن يُرسل شيء حتى تضغط إرسال."
-            : "Temporarily hides Layal and shows a local screen preview for rectangle selection. Nothing is sent until you press Send.";
+            ? "يخفي ليال مؤقتًا ويعرض معاينة محلية لقص جزء من الشاشة. الرؤية المستقلة غير متاحة حاليًا؛ لن تُرسل الصورة إلى أي نموذج."
+            : "Temporarily hides Layal and shows a local screen preview for cropping. Independent vision is unavailable; the image will not be sent to any model.";
         AutomationProperties.SetName(CaptureScreenRegionButton, ar ? "التقاط وقص جزء من الشاشة" : "Capture and crop a screen region");
         AutomationProperties.SetHelpText(CaptureScreenRegionButton, ar
-            ? "التقاط صريح للشاشة التي يوجد عليها المؤشر، مع معاينة محلية قبل الإرفاق. لا تُرسل الصورة إلا عند الضغط على إرسال."
-            : "Explicitly captures the display under the pointer with a local crop preview before attachment. The image is not sent until you press Send.");
-        ChooseImageButton.Content = ar ? "إرفاق صورة/لقطة شاشة" : "Attach image/screenshot";
-        ChooseImageButton.ToolTip = ar ? "اختر صورة لإرسالها إلى النموذج مع سؤالك." : "Choose an image to send to the model with your question.";
+            ? "التقاط صريح للشاشة التي يوجد عليها المؤشر مع معاينة محلية. فهم الصور غير متاح في النواة المستقلة بعد؛ لن تُرسل اللقطة إلى أي نموذج."
+            : "Explicitly captures the display under the pointer for local preview. Image understanding is not yet available in the native core; the capture will not be sent to any model.");
+        ChooseImageButton.Content = ar ? "معاينة صورة محليًا" : "Preview image locally";
+        ChooseImageButton.ToolTip = ar
+            ? "اختر صورة لمعاينتها محليًا فقط؛ تحليل الصور المستقل غير متاح ولن تُرسل إلى أي نموذج."
+            : "Choose an image for local preview only; independent image analysis is unavailable and it will not be sent to any model.";
         ClearVisionImageButton.Content = ar ? "إزالة الصورة" : "Remove image";
         ChooseDocumentButton.Content = ar ? "إرفاق ملف نصي/PDF/Office" : "Attach text/PDF/Office file";
         ChooseDocumentButton.ToolTip = ar
@@ -1698,26 +1711,26 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(ReadClipboardButton, ar
             ? "قراءة نص الحافظة لا تغيّر محتواها ولا ترسله. الإرسال لا يحدث إلا بعد الضغط على إرسال."
             : "Reading clipboard text does not modify or transmit it. Nothing is sent until you press Send.");
-        PasteClipboardImageButton.Content = ar ? "إرفاق صورة الحافظة" : "Attach clipboard image";
+        PasteClipboardImageButton.Content = ar ? "معاينة صورة الحافظة محليًا" : "Preview clipboard image locally";
         PasteClipboardImageButton.ToolTip = ar
-            ? "بعد موافقتك، تُقرأ صورة الحافظة وتظهر كمعاينة محلية؛ لا يحدث إرسال تلقائي."
-            : "With your consent, read the clipboard image and show a local preview; nothing is sent automatically.";
-        AutomationProperties.SetName(PasteClipboardImageButton, ar ? "إرفاق صورة الحافظة بعد الموافقة" : "Attach clipboard image with consent");
+            ? "بعد موافقتك، تُقرأ صورة الحافظة وتظهر كمعاينة محلية فقط؛ لا يتوفر تحليل مستقل ولن تُرسل الصورة إلى أي نموذج."
+            : "With your consent, read the clipboard image for local preview only; independent analysis is unavailable and the image will not be sent to any model.";
+        AutomationProperties.SetName(PasteClipboardImageButton, ar ? "معاينة صورة الحافظة محليًا بعد الموافقة" : "Preview clipboard image locally with consent");
         AutomationProperties.SetHelpText(PasteClipboardImageButton, ar
-            ? "حد 40 مليون بكسل و10 ميجابايت. لا تُغيّر الحافظة ولا يُرسل شيء حتى تضغط إرسال."
-            : "40-million-pixel and 10 MB limits. The clipboard is not changed and nothing is sent until you press Send.");
+            ? "حد 40 مليون بكسل و10 ميجابايت. تُعرض الصورة محليًا فقط؛ فهم الصور المستقل غير متاح ولن تُرسل إلى أي نموذج."
+            : "40-million-pixel and 10 MB limits. The image is previewed locally only; independent vision is unavailable and it will not be sent to any model.");
         CameraVisionButton.Content = ar ? "فتح الكاميرا" : "Open camera";
         CameraVisionButton.ToolTip = ar
-            ? "معاينة الكاميرا محليًا وتحليل لقطة عند الطلب أو كل 10 ثوانٍ بموافقتك."
-            : "Preview locally and analyze a still on request or every 10 seconds with your consent.";
-        AutomationProperties.SetName(ChooseImageButton, ar ? "إرفاق صورة أو لقطة شاشة" : "Attach image or screenshot");
+            ? "معاينة الكاميرا محليًا فقط؛ تحليل الصور غير متاح في النواة المستقلة حاليًا، ولا تُرسل أي لقطة إلى نموذج."
+            : "Local camera preview only; image analysis is not yet available in the native core and no frame is sent to a model.";
+        AutomationProperties.SetName(ChooseImageButton, ar ? "معاينة صورة محليًا" : "Preview image locally");
         AutomationProperties.SetHelpText(ChooseImageButton, ar
-            ? "اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."
-            : "Choose an image file; it is sent to the AI provider only when you press Send.");
+            ? "تظل الصورة على الجهاز للمعاينة فقط. تحليل الصور المستقل غير متاح؛ لن تُرسل الصورة إلى أي نموذج."
+            : "The image remains on this device for preview only. Independent image analysis is unavailable; the image will not be sent to any model.");
         AutomationProperties.SetName(CameraVisionButton, ar ? "فتح كاميرا الرؤية" : "Open vision camera");
         AutomationProperties.SetHelpText(CameraVisionButton, ar
-            ? "يفتح معاينة الكاميرا بعد موافقتك. لا تُرسل اللقطات إلا عند التحليل اليدوي أو تفعيل التحليل التلقائي."
-            : "Opens the camera preview after consent. Frames are sent only for manual analysis or when automatic observation is enabled.");
+            ? "يفتح معاينة الكاميرا المحلية بعد موافقتك. التحليل اليدوي والتلقائي غير متاحين؛ لا تغادر أي لقطة الجهاز."
+            : "Opens a local camera preview after consent. Manual and automatic analysis are unavailable; no camera frame leaves this device.");
         UpdateVisionAttachmentControls();
         UpdateDocumentAttachmentUi();
         UpdateCameraVisionIndicator();
@@ -2105,7 +2118,6 @@ public partial class MainWindow : Window
     {
         try
         {
-            _localAiReady = true;
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync();
             UpdateLocalAiStatusText();
             RefreshProviderStatus();
@@ -2175,7 +2187,6 @@ public partial class MainWindow : Window
 
             // Text chat and task planning now run in Layal's own native core.
             // Only optional microphone/speaker resources are checked or downloaded here.
-            _localAiReady = true;
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync(setupToken);
             var needsVoice = includeVoice && !_localVoiceReady && (!_localVoiceSetupAttempted || retryVoice);
             if (!needsVoice)
@@ -3188,7 +3199,6 @@ public partial class MainWindow : Window
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         ModelInput.Text = AppRuntime.Settings.ModelId;
         ApiKeyInput.Clear();
-        _providerTestPassed = false;
         RefreshProviderStatus();
         SetAccessibleStatusText(ProviderActionStatus, IsArabic
             ? "تم تحديث إعداد API السحابي لليال. يظل الوضع المحلي هو الافتراضي؛ أوقفه من الإعدادات لاستخدام هذا المزود."
@@ -3373,8 +3383,7 @@ public partial class MainWindow : Window
             BaseUrlInput.Text = string.Empty;
             ModelInput.Text = string.Empty;
             ApiKeyInput.Clear();
-            _providerTestPassed = false;
-            RefreshProviderStatus();
+                RefreshProviderStatus();
         }
         ApiConnectionSearchInput.Clear();
         RefreshApiConnections();
@@ -3789,7 +3798,6 @@ public partial class MainWindow : Window
         }
 
         if (!string.IsNullOrWhiteSpace(submittedApiKey)) ApiKeyInput.Clear();
-        _providerTestPassed = false;
         if (!string.IsNullOrWhiteSpace(profileNameToRefresh))
             RefreshApiConnections(profileNameToRefresh);
         SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.");
@@ -3966,17 +3974,13 @@ public partial class MainWindow : Window
         try
         {
             var result = await _providerConnectionTester.ProbeAsync(baseUrl, key);
-            _providerTestPassed = true;
-            _testedBaseUrl = baseUrl.TrimEnd('/');
-            _testedModelId = ModelInput.Text.Trim();
-            var testSummary = IsArabic ? $"نجح الاختبار: {result}" : $"Test succeeded: {result}";
+                    var testSummary = IsArabic ? $"نجح الاختبار: {result}" : $"Test succeeded: {result}";
             SetAccessibleStatusText(ProviderActionStatus, UiLocalization.TranslateKnownFeedback(testSummary, IsArabic));
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
         catch (Exception ex)
         {
-            _providerTestPassed = false;
-            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("فشل اختبار الاتصال", "Connection test failed", ex, IsArabic));
+                SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("فشل اختبار الاتصال", "Connection test failed", ex, IsArabic));
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally
@@ -4667,8 +4671,8 @@ public partial class MainWindow : Window
 
         var consent = LayalDialogService.Show(this,
             IsArabic
-                ? "ستُلتقط الشاشة الموجودة أسفل المؤشر بعد إخفاء ليال مؤقتًا. ستظهر معاينة محلية لتحديد مستطيل. لن تُرسل الصورة إلى مزود الذكاء الاصطناعي حتى ترفقها ثم تضغط إرسال. قد تحتوي المنطقة المختارة على بيانات حساسة؛ راجعها قبل الإرسال. هل تريد المتابعة؟"
-                : "Layal will temporarily hide and capture the display under the pointer. A local preview lets you select a rectangle. The image will not be sent to the AI provider until you attach it and press Send. The selected region may contain sensitive information; review it before sending. Continue?",
+                ? "ستُلتقط الشاشة الموجودة أسفل المؤشر بعد إخفاء ليال مؤقتًا وتُعرض معاينة محلية لقص المنطقة المطلوبة. الرؤية المستقلة غير متاحة حاليًا؛ لن تُرسل اللقطة إلى أي نموذج. راجع المنطقة المختارة بحثًا عن بيانات حساسة قبل الاحتفاظ بها محليًا. هل تريد المتابعة؟"
+                : "Layal will temporarily hide and capture the display under the pointer for a local crop preview. Independent vision is unavailable; the capture will not be sent to any model. Review the selected region for sensitive data before keeping it locally. Continue?",
             IsArabic ? "موافقة على التقاط الشاشة" : "Confirm screen capture",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (consent != MessageBoxResult.Yes)
@@ -4936,8 +4940,8 @@ public partial class MainWindow : Window
         {
             var consent = LayalDialogService.Show(this,
                 IsArabic
-                    ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك، وتُحوّل إلى PNG في الذاكرة للمعاينة والإرفاق. قد تحتوي الصورة على بيانات حساسة؛ راجع المعاينة قبل الإرسال. لن تتغير الحافظة ولن تُرسل الصورة إلى AI إلا إذا أرفقتها ثم ضغطت إرسال. هل تريد المتابعة؟"
-                    : "With your consent, the current clipboard image will be read and encoded as PNG in memory for preview and attachment. It may contain sensitive data; review it before sending. The clipboard will not be modified and the image will not be sent to AI unless you attach it and press Send. Continue?",
+                    ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك وتُحوّل إلى PNG في الذاكرة للمعاينة المحلية فقط. قد تحتوي على بيانات حساسة؛ راجعها قبل الاحتفاظ بها. لن تتغير الحافظة ولن تُرسل الصورة إلى أي نموذج؛ تحليل الصور المستقل غير متاح حاليًا. هل تريد المتابعة؟"
+                    : "With your consent, the current clipboard image will be read and encoded as PNG in memory for local preview only. It may contain sensitive data; review it before keeping it. The clipboard will not be modified and the image will not be sent to any model; independent vision is not available yet. Continue?",
                 IsArabic ? "موافقة على قراءة صورة الحافظة" : "Confirm clipboard image read",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
             if (consent != MessageBoxResult.Yes)
@@ -4974,8 +4978,8 @@ public partial class MainWindow : Window
             _pendingVisionFileName = $"clipboard-image-{image.PixelWidth}x{image.PixelHeight}.png";
             UpdateVisionAttachmentControls();
             SetChatActivityStatus(IsArabic
-                ? $"تم إرفاق صورة الحافظة ({image.PixelWidth} × {image.PixelHeight} بكسل) للمعاينة. لم تُرسل؛ راجع السؤال واضغط إرسال."
-                : $"Clipboard image attached ({image.PixelWidth} × {image.PixelHeight} pixels) for preview. It has not been sent; review your prompt and press Send.");
+                ? $"صورة الحافظة ({image.PixelWidth} × {image.PixelHeight} بكسل) جاهزة للمعاينة المحلية فقط. لن تُرسل إلى أي نموذج؛ تحليل الصور غير متاح."
+                : $"Clipboard image ({image.PixelWidth} × {image.PixelHeight} pixels) is ready for local preview only. It will not be sent to any model; image analysis is unavailable.");
             ChatInput.Focus();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -5189,8 +5193,8 @@ public partial class MainWindow : Window
             _pendingVisionFileName = Path.GetFileName(dialog.FileName);
             UpdateVisionAttachmentControls();
             SetChatActivityStatus(IsArabic
-                ? "تم إرفاق الصورة محليًا. اكتب سؤالك واضغط إرسال لتحليلها."
-                : "Image attached locally. Ask a question and press Send to analyze it.");
+                ? "تم تجهيز الصورة للمعاينة المحلية فقط. تحليل الصور المستقل غير متاح ولن تُرسل إلى أي نموذج."
+                : "The image is ready for local preview only. Independent image analysis is unavailable; it will not be sent to any model.");
             ChatInput.Focus();
         }
         catch (Exception ex)
@@ -5242,7 +5246,7 @@ public partial class MainWindow : Window
 
         VisionAttachmentPreview.Visibility = hasImage && previewLoaded ? Visibility.Visible : Visibility.Collapsed;
         VisionAttachmentStatus.Text = hasImage
-            ? (IsArabic ? "جاهزة للإرسال: " : "Ready to send: ") + (_pendingVisionFileName ?? (IsArabic ? "صورة" : "image")) +
+            ? (IsArabic ? "معاينة محلية فقط: " : "Local preview only: ") + (_pendingVisionFileName ?? (IsArabic ? "صورة" : "image")) +
               (previewLoaded ? string.Empty : (IsArabic ? " (تعذرت المعاينة)" : " (preview unavailable)"))
             : (IsArabic ? "لا توجد صورة مرفقة" : "No image attached");
         ClearVisionImageButton.Visibility = hasImage ? Visibility.Visible : Visibility.Collapsed;
@@ -5280,8 +5284,8 @@ public partial class MainWindow : Window
 
         var consent = LayalDialogService.Show(this,
             IsArabic
-                ? "ستظهر معاينة الكاميرا على جهازك. لا تُرسل صورة إلى مزود الذكاء الاصطناعي إلا عند ضغط تحليل، أو عند تفعيل التحليل التلقائي بموافقة منفصلة (لقطة كل 10 ثوانٍ). لن يُرسل فيديو خام. هل تريد فتح الكاميرا؟"
-                : "The camera preview will appear on this device. No image is sent to the AI provider unless you analyze a frame or separately enable automatic observation (one still every 10 seconds). Raw video is not sent. Open the camera?",
+                ? "ستظهر معاينة الكاميرا على جهازك فقط. تحليل الصور غير متاح في النواة المستقلة حاليًا؛ أزرار التحليل والملاحظة التلقائية متوقفة، ولن تُرسل أي لقطة إلى نموذج أو جهة خارجية. هل تريد فتح المعاينة المحلية؟"
+                : "The camera preview stays on this device. Image analysis is not yet available in Layal's native core; analysis and automatic-observation controls are disabled, and no frame is sent to a model or external service. Open the local preview?",
             IsArabic ? "موافقة على تشغيل الكاميرا" : "Confirm camera access",
             MessageBoxButton.YesNo, MessageBoxImage.Information);
         if (consent != MessageBoxResult.Yes) return;
@@ -5301,7 +5305,6 @@ public partial class MainWindow : Window
         camera.AutomaticObservationChanged += CameraVisionWindow_AutomaticObservationChanged;
         camera.Closed += CameraVisionWindow_Closed;
         _cameraVisionWindow = camera;
-        _lastCameraObservation = string.Empty;
         UpdateCameraVisionIndicator();
         camera.Show();
     }
@@ -5401,9 +5404,6 @@ public partial class MainWindow : Window
 
     private void CameraVisionWindow_AutomaticObservationChanged(bool enabled)
     {
-        _lastCameraObservation = string.Empty;
-        if (!enabled && _cameraAutomaticObservationRequest)
-            _chatCancellation?.Cancel();
         UpdateCameraVisionIndicator();
         SetChatActivityStatus(enabled
             ? (IsArabic ? "التحليل البصري التلقائي نشط: لقطة كل 10 ثوانٍ." : "Automatic visual observation is active: one still every 10 seconds.")
@@ -5422,7 +5422,6 @@ public partial class MainWindow : Window
             _cameraVisionWindow.Closed -= CameraVisionWindow_Closed;
             _cameraVisionWindow = null;
         }
-        _lastCameraObservation = string.Empty;
         UpdateCameraVisionIndicator();
         if (IsLoaded)
             SetChatActivityStatus(IsArabic ? "تم إيقاف الكاميرا." : "Camera stopped.");

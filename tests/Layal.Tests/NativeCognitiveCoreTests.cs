@@ -8,7 +8,7 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class NativeCognitiveCoreTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("الساعة كام دلوقتي", NativeIntent.CurrentTime)]
     [DataRow("معلومات النظام", NativeIntent.SystemInfo)]
     [DataRow("اعرض الملفات", NativeIntent.ListWorkspaceFiles)]
@@ -38,7 +38,34 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual(NativeIntent.Unknown, parser.Parse("Please autonomously refactor my entire codebase").Intent);
     }
 
-    [DataTestMethod]
+    [TestMethod]
+    [DataRow("help", NativeIntent.Capabilities)]
+    [DataRow("what can you do", NativeIntent.Capabilities)]
+    [DataRow("ايه قدراتك", NativeIntent.Capabilities)]
+    public void ParserRecognizesExactCapabilityPrompts(string phrase, NativeIntent expected)
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        Assert.AreEqual(expected, parser.Parse(phrase).Intent);
+    }
+
+    [TestMethod]
+    [DataRow("Can you help me write a resume?")]
+    [DataRow("hello can you help me write a resume?")]
+    [DataRow("Hello, please explain this error")]
+    [DataRow("اهلا ممكن تساعدني اكتب سيرة ذاتية")]
+    public void ParserDoesNotSwallowCompoundHelpRequestsAsGreetingOrCapabilities(string phrase)
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        Assert.AreEqual(NativeIntent.Unknown, parser.Parse(phrase).Intent, phrase);
+    }
+
+    [TestMethod]
     [DataRow("لا تفتحي المفكرة")]
     [DataRow("من فضلك لا تفتحي المفكرة")]
     [DataRow("don't open notepad")]
@@ -58,7 +85,7 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual(NativeIntent.Unknown, parser.Parse(phrase).Intent, phrase);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("open notepad", "notepad")]
     [DataRow("launch calculator", "calculator")]
     [DataRow("start paint", "paint")]
@@ -146,4 +173,23 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual("الساعة كام", command);
         Assert.AreEqual(NativeIntent.CurrentTime, new NativeLanguageParser(reloaded).Parse("الوقت").Intent);
     }
+    [TestMethod]
+    public void EnglishConversationAcknowledgesUserTaughtAliasInEnglish()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The native learning store is protected with Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi"));
+        var engine = new NativeConversationEngine(
+            new NativeLanguageParser(learning),
+            learning,
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+
+        var response = engine.Respond("When I say \"time\", do what time is it", "en");
+
+        StringAssert.Contains(response, "Saved the local shortcut");
+        Assert.IsFalse(response.Contains("تم حفظ الاختصار المحلي", StringComparison.Ordinal));
+    }
+
 }

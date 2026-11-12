@@ -883,6 +883,26 @@ public sealed class MainWindowVisualSmokeTests
                 }
                 if (tabNames[index] == "chat")
                 {
+                    var chatSectionEyebrow = window.FindName("ChatSectionEyebrow") as TextBlock
+                        ?? throw new InvalidOperationException("ChatSectionEyebrow was not found.");
+                    Assert.AreEqual(language == "ar" ? "LAYAL / مساعد سطح المكتب" : "LAYAL / DESKTOP ASSISTANT",
+                        BidiTextNormalizer.StripDirectionalControls(chatSectionEyebrow.Text),
+                        $"Chat section eyebrow localization is incorrect for {theme}/{language}.");
+                    Assert.AreEqual(language == "ar" ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
+                        chatSectionEyebrow.FlowDirection,
+                        $"Chat section eyebrow direction is incorrect for {theme}/{language}.");
+                    var welcomeEyebrow = window.FindName("ChatWelcomeEyebrow") as TextBlock
+                        ?? throw new InvalidOperationException("ChatWelcomeEyebrow was not found.");
+                    var welcomeTitle = window.FindName("ChatWelcomeTitle") as TextBlock
+                        ?? throw new InvalidOperationException("ChatWelcomeTitle was not found.");
+                    Assert.AreEqual(language == "ar" ? "مساحة ليال الذكية" : "YOUR AI DESK",
+                        BidiTextNormalizer.StripDirectionalControls(welcomeEyebrow.Text),
+                        $"Welcome eyebrow localization is incorrect for {theme}/{language}.");
+                    Assert.AreEqual(language == "ar" ? "نبدأ بإيه النهارده؟" : "What would you like to do today?",
+                        BidiTextNormalizer.StripDirectionalControls(welcomeTitle.Text),
+                        $"Welcome title localization is incorrect for {theme}/{language}.");
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(welcomeTitle)),
+                        "The welcome title must expose an accessible name.");
                     var weatherCard = window.FindName("ClockWeatherCard") as Border
                         ?? throw new InvalidOperationException("ClockWeatherCard was not found.");
                     var subtitle = window.FindName("SubtitleText") as TextBlock
@@ -891,6 +911,40 @@ public sealed class MainWindowVisualSmokeTests
                         "The full-height chat layout must retain its clock and weather summary.");
                     Assert.AreEqual(Visibility.Visible, subtitle.Visibility,
                         "The full-width title bar must retain its subtitle.");
+
+                    var chatSurface = window.FindName("ChatConversationSurface") as Grid
+                        ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
+                    var mainTabsViewport = window.FindName("MainTabs") as TabControl
+                        ?? throw new InvalidOperationException("MainTabs was not found.");
+                    if (mainTabsViewport.ActualHeight < 900)
+                    {
+                        Assert.AreEqual(Visibility.Collapsed, welcomeEyebrow.Visibility,
+                            "The welcome card must switch to dense copy when the bounded tab viewport is shorter than 900 DIPs.");
+                    }
+                    var welcomePanel = window.FindName("ChatWelcomePanel") as Border
+                        ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
+                    foreach (var suggestionName in new[]
+                    {
+                        "ChatSuggestionPlanButton",
+                        "ChatSuggestionSummaryButton",
+                        "ChatSuggestionIdeasButton"
+                    })
+                    {
+                        var suggestion = window.FindName(suggestionName) as Button
+                            ?? throw new InvalidOperationException($"{suggestionName} was not found.");
+                        Assert.IsTrue(suggestion.IsVisible && suggestion.ActualHeight >= 40,
+                            $"{suggestionName} must remain visible with a 40-DIP touch target in the full chat layout.");
+                        var bounds = suggestion.TransformToAncestor(chatSurface)
+                            .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
+                        Assert.IsTrue(bounds.Top >= -0.5 && bounds.Bottom <= chatSurface.ActualHeight + 0.5,
+                            $"{suggestionName} is clipped by the full chat viewport ({theme}/{language}).");
+                        var panelBounds = suggestion.TransformToAncestor(welcomePanel)
+                            .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
+                        Assert.IsTrue(panelBounds.Top >= -0.5 && panelBounds.Bottom <= welcomePanel.ActualHeight + 0.5,
+                            $"{suggestionName} is clipped inside the full welcome card ({theme}/{language}); " +
+                            $"buttonBottom={panelBounds.Bottom:0.0}, cardHeight={welcomePanel.ActualHeight:0.0}, " +
+                            $"chatHeight={chatSurface.ActualHeight:0.0}, layoutMode={(welcomePanel.Padding.Top < 18 ? "dense" : "normal")}.");
+                    }
                     AssertPageHeroGradientTracksPalette($"{theme}/{language} full-size chat");
                 }
 
@@ -982,6 +1036,10 @@ public sealed class MainWindowVisualSmokeTests
                         ?? throw new InvalidOperationException("ChatWelcomeEyebrow was not found.");
                     var emptyDescription = window.FindName("ChatEmptyStateText") as TextBlock
                         ?? throw new InvalidOperationException("ChatEmptyStateText was not found.");
+                    var mainTabsViewport = window.FindName("MainTabs") as TabControl
+                        ?? throw new InvalidOperationException("MainTabs was not found.");
+                    Assert.IsTrue(mainTabsViewport.ActualHeight < 560,
+                        $"The compact acceptance window must exercise the compact tab viewport; actual height={mainTabsViewport.ActualHeight:0.0} DIPs.");
                     Assert.AreEqual(Visibility.Collapsed, weatherCard.Visibility,
                         "The compact chat layout must free vertical space by hiding its secondary weather card.");
                     Assert.AreEqual(Visibility.Visible, welcomePanel.Visibility,

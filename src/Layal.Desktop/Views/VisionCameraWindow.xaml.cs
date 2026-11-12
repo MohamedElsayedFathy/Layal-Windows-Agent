@@ -23,6 +23,8 @@ public partial class VisionCameraWindow : System.Windows.Window
     private VideoCapture? _capture;
     private bool _isNetworkCamera;
     private bool _switchingSource;
+    // Model-free image understanding is not implemented yet. Keep all frame-dispatch paths closed.
+    private static readonly bool NativeVisionAnalysisAvailable = false;
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(120) };
     private readonly DispatcherTimer _observationTimer = new() { Interval = TimeSpan.FromSeconds(10) };
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -61,20 +63,22 @@ public partial class VisionCameraWindow : System.Windows.Window
     {
         Title = _isArabic ? "الرؤية بالكاميرا" : "Camera vision";
         VisionPrivacyText.Text = _isArabic
-            ? "المعاينة محلية. لا تُرسل اللقطات إلى مزود الذكاء الاصطناعي إلا عند ضغط «حلّل اللقطة الحالية» أو تشغيل التحليل التلقائي. التحليل التلقائي يرسل صورة ثابتة كل 10 ثوانٍ، وليس بث فيديو. أوقفه أو أغلق الكاميرا في أي وقت. تعابير الوجه مؤشرات مرئية وليست دليلًا قاطعًا على المشاعر."
-            : "The preview stays local. Frames are sent to your AI provider only when you analyze one or enable automatic observation. Automatic mode sends one still image every 10 seconds, not a video stream. Turn it off or close the camera at any time. Facial expressions are visible cues, not proof of someone's feelings.";
-        ContinuousObservationCheckBox.Content = _isArabic ? "تحليل تلقائي كل 10 ثوانٍ" : "Analyze automatically every 10 seconds";
-        AnalyzeCurrentFrameButton.Content = _isArabic ? "حلّل اللقطة الحالية" : "Analyze current frame";
-        SpeakCameraObservationsCheckBox.Content = _isArabic ? "قراءة الملاحظات الصوتية تلقائيًا" : "Speak camera observations automatically";
-        AutomationProperties.SetName(SpeakCameraObservationsCheckBox, _isArabic ? "قراءة الملاحظات البصرية تلقائيًا بصوت ليال" : "Read visual observations aloud automatically");
+            ? "هذه نافذة معاينة محلية فقط. محرك الرؤية المستقل لم يُنفّذ بعد؛ لذلك أزرار التحليل والمسح والملاحظات الصوتية والتحليل الدوري متوقفة. لا تُرسل أي صورة أو لقطة إلى نموذج أو جهة خارجية. أغلق الكاميرا لإيقاف الالتقاط."
+            : "This window provides a local preview only. Layal's independent vision engine is not implemented yet, so analysis, scene scanning, spoken observations, and periodic analysis are disabled. No image or camera frame is sent to a model or external service. Close the camera to stop capture.";
+        ContinuousObservationCheckBox.Content = _isArabic ? "التحليل التلقائي غير متاح حاليًا" : "Automatic analysis unavailable";
+        AnalyzeCurrentFrameButton.Content = _isArabic ? "تحليل اللقطة غير متاح حاليًا" : "Frame analysis unavailable";
+        SpeakCameraObservationsCheckBox.Content = _isArabic ? "النطق التلقائي للملاحظات غير متاح" : "Automatic spoken observations unavailable";
+        ScanSurroundingsButton.Content = _isArabic ? "مسح المكان غير متاح حاليًا" : "Scene scan unavailable";
+        AutomationProperties.SetName(SpeakCameraObservationsCheckBox, _isArabic
+            ? "النطق التلقائي للملاحظات البصرية غير متاح"
+            : "Automatic spoken observations unavailable");
         AutomationProperties.SetHelpText(SpeakCameraObservationsCheckBox, _isArabic
-            ? "اختياري؛ تتحدث ليال عند ملاحظة تغير بصري إذا كانت الردود الصوتية مفعلة في الإعدادات."
-            : "Optional; Layal speaks when a visual change is detected if voice replies are enabled in Settings.");
-        ScanSurroundingsButton.Content = _isArabic ? "امسح المكان حول الكاميرا" : "Scan visible surroundings";
-        AutomationProperties.SetName(ScanSurroundingsButton, _isArabic ? "مسح المكان الظاهر حول الكاميرا" : "Scan visible surroundings around the camera");
+            ? "غير متاح حتى تنفيذ محرك الرؤية المستقل؛ لا يتم توليد ملاحظات بصرية."
+            : "Unavailable until independent vision is implemented; no visual observations are generated.");
+        AutomationProperties.SetName(ScanSurroundingsButton, _isArabic ? "مسح المكان غير متاح" : "Scene scanning unavailable");
         AutomationProperties.SetHelpText(ScanSurroundingsButton, _isArabic
-            ? "يلتقط صورة ثابتة ويطلب وصف البيئة والأشياء المرئية؛ لا ينفذ مسحًا ثلاثي الأبعاد."
-            : "Captures one still image and asks for a description of visible surroundings and objects; it does not perform 3D scanning.");
+            ? "غير متاح حتى تنفيذ تحليل المشهد المستقل؛ لا يُلتقط إطار لهذا الغرض ولا يُرسل شيء إلى نموذج."
+            : "Unavailable until independent scene analysis is implemented; no frame is captured for this purpose or sent to a model.");
         CloseCameraButton.Content = _isArabic ? "إيقاف الكاميرا" : "Stop camera";
         ScanNetworkCamerasButton.Content = _isArabic ? "فحص كاميرات الشبكة المحلية" : "Scan local network cameras";
         UseLocalCameraButton.Content = _isArabic ? "استخدام كاميرا الكمبيوتر" : "Use computer camera";
@@ -105,10 +109,14 @@ public partial class VisionCameraWindow : System.Windows.Window
             : "Requires valid credentials and ONVIF permission; authentication is never bypassed.");
         CameraStatusText.Text = _isArabic ? "جارٍ تهيئة الكاميرا..." : "Preparing camera...";
         AutomationProperties.SetName(CameraPreview, _isArabic ? "المعاينة المباشرة للكاميرا" : "Live camera preview");
-        AutomationProperties.SetName(ContinuousObservationCheckBox, _isArabic ? "تفعيل التحليل البصري التلقائي" : "Enable automatic visual observation");
+        AutomationProperties.SetName(ContinuousObservationCheckBox, _isArabic ? "التحليل البصري التلقائي غير متاح" : "Automatic visual analysis unavailable");
         AutomationProperties.SetHelpText(ContinuousObservationCheckBox, _isArabic
-            ? "يرسل لقطة ثابتة إلى مزود الذكاء الاصطناعي كل 10 ثوانٍ ما دامت الكاميرا والتحليل التلقائي نشطين."
-            : "Sends one still frame to the AI provider every 10 seconds while the camera and automatic observation remain active.");
+            ? "متوقف حاليًا؛ لا يوجد محرك رؤية مستقل، ولن تُلتقط لقطات للتحليل أو تُرسل إلى أي نموذج."
+            : "Currently disabled; no independent vision engine is available, and no frames are captured for analysis or sent to a model.");
+        AutomationProperties.SetName(AnalyzeCurrentFrameButton, _isArabic ? "تحليل اللقطة غير متاح" : "Frame analysis unavailable");
+        AutomationProperties.SetHelpText(AnalyzeCurrentFrameButton, _isArabic
+            ? "لا يوجد محرك رؤية مستقل؛ لا يتم تحليل اللقطة أو إرسالها إلى أي نموذج."
+            : "No independent vision engine is available; the frame is not analyzed or sent to any model.");
         AutomationProperties.SetName(CameraStatusText, _isArabic ? "حالة الكاميرا" : "Camera status");
     }
 
@@ -377,11 +385,11 @@ public partial class VisionCameraWindow : System.Windows.Window
             _isArabic
                 ? $"سيتم الاتصال بالكاميرا المحلية {cameraName} باستخدام بيانات الدخول التي أدخلتها" +
                   (camera is not null ? " وطلب عنوان بث ONVIF." : " وفتح عنوان RTSP الذي أدخلته.") +
-                  " ستظل المعاينة على هذا الكمبيوتر؛ لا تُرسل اللقطات إلى نموذج AI إلا عند تحليلها. لا تُحفظ بيانات الدخول. " +
+                  " ستظل المعاينة على هذا الكمبيوتر؛ لا تتوفر ميزة تحليل اللقطات ولا تُرسل إلى أي نموذج. لا تُحفظ بيانات الدخول. " +
                   transportWarning + "هل لديك صلاحية مشاهدة هذا البث وتريد المتابعة؟"
                 : $"The app will connect to local camera {cameraName} using the credentials you entered" +
                   (camera is not null ? " and request its ONVIF stream URI." : " and open the RTSP address you supplied.") +
-                  " Preview stays on this computer; frames are sent to AI only when analyzed. Credentials are not saved. " +
+                  " Preview stays on this computer; frame analysis is unavailable and no frame is sent to any model. Credentials are not saved. " +
                   transportWarning + "Are you authorized to view this stream and do you want to continue?",
             _isArabic ? "تأكيد اتصال بكاميرا الشبكة" : "Confirm network camera connection",
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
@@ -435,8 +443,8 @@ public partial class VisionCameraWindow : System.Windows.Window
             try { previous?.Release(); } catch { }
             previous?.Dispose();
             CameraStatusText.Text = _isArabic
-                ? "بث كاميرا الشبكة متصل محليًا؛ لم تُرسل أي لقطة إلى نموذج AI بعد."
-                : "Network camera stream connected locally; no frame has been sent to AI yet.";
+                ? "بث كاميرا الشبكة متصل للمعاينة المحلية فقط؛ الرؤية المستقلة غير متاحة ولن تُرسل أي لقطة إلى نموذج."
+                : "Network camera stream is connected for local preview only; independent vision is unavailable and no frame will be sent to a model.";
             _previewTimer.Start();
             CameraStatusChanged?.Invoke(true);
         }
@@ -562,8 +570,8 @@ public partial class VisionCameraWindow : System.Windows.Window
             try { previous?.Release(); } catch { }
             previous?.Dispose();
             CameraStatusText.Text = _isArabic
-                ? "كاميرا الكمبيوتر نشطة محليًا؛ لم تُرسل أي لقطة إلى نموذج AI بعد."
-                : "Computer camera is previewing locally; no frame has been sent to AI yet.";
+                ? "كاميرا الكمبيوتر تعمل للمعاينة المحلية فقط؛ الرؤية المستقلة غير متاحة ولن تُرسل أي لقطة إلى نموذج."
+                : "Computer camera is active for local preview only; independent vision is unavailable and no frame will be sent to a model.";
             _previewTimer.Start();
             CameraStatusChanged?.Invoke(true);
         }
@@ -653,6 +661,17 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void ObservationTimer_Tick(object? sender, EventArgs e)
     {
+        if (!NativeVisionAnalysisAvailable)
+        {
+            _observationTimer.Stop();
+            if (ContinuousObservationCheckBox.IsChecked == true)
+            {
+                ContinuousObservationCheckBox.IsChecked = false;
+                AutomaticObservationChanged?.Invoke(false);
+            }
+            return;
+        }
+
         if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
         {
             StopForPrivacyShield();
@@ -666,6 +685,17 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void ContinuousObservationCheckBox_Click(object sender, RoutedEventArgs e)
     {
+        if (!NativeVisionAnalysisAvailable)
+        {
+            ContinuousObservationCheckBox.IsChecked = false;
+            _observationTimer.Stop();
+            CameraStatusText.Text = _isArabic
+                ? "التحليل البصري التلقائي غير متاح؛ تظل معاينة الكاميرا محلية فقط."
+                : "Automatic visual analysis is unavailable; the camera preview remains local only.";
+            AutomaticObservationChanged?.Invoke(false);
+            return;
+        }
+
         if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
         {
             ContinuousObservationCheckBox.IsChecked = false;
@@ -676,8 +706,8 @@ public partial class VisionCameraWindow : System.Windows.Window
         {
             var answer = LayalDialogService.Show(this,
                 _isArabic
-                    ? "سيُرسل إطار صورة ثابت إلى مزود الذكاء الاصطناعي كل 10 ثوانٍ أثناء تفعيل هذا الخيار. لن يُرسل بث الفيديو الخام، ويمكنك إيقاف التحليل في أي وقت. هل تريد المتابعة؟"
-                    : "A still image will be sent to your AI provider every 10 seconds while this option is enabled. Raw video is not streamed, and you can stop this at any time. Continue?",
+                    ? "التحليل البصري التلقائي غير متاح في النواة المستقلة الحالية؛ لا يمكن تشغيل هذا الخيار ولن تُرسل أي لقطة إلى نموذج."
+                    : "Automatic visual analysis is unavailable in the current native core; this option cannot start and no frame will be sent to a model.",
                 _isArabic ? "موافقة على التحليل البصري التلقائي" : "Confirm automatic visual analysis",
                 MessageBoxButton.YesNo, MessageBoxImage.Information);
             if (answer != MessageBoxResult.Yes)
@@ -714,6 +744,13 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void AnalyzeCurrentFrameButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!NativeVisionAnalysisAvailable)
+        {
+            CameraStatusText.Text = _isArabic
+                ? "تحليل الصور غير متاح في النواة المستقلة الحالية؛ لم تُرسل أي لقطة."
+                : "Image analysis is unavailable in the current native core; no frame was sent.";
+            return;
+        }
         if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
         {
             StopForPrivacyShield();
@@ -730,6 +767,13 @@ public partial class VisionCameraWindow : System.Windows.Window
 
     private void ScanSurroundingsButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!NativeVisionAnalysisAvailable)
+        {
+            CameraStatusText.Text = _isArabic
+                ? "تحليل المشهد غير متاح في النواة المستقلة الحالية؛ لم تُرسل أي لقطة."
+                : "Scene analysis is unavailable in the current native core; no frame was sent.";
+            return;
+        }
         if (!PrivacyShieldPolicy.CanStartCapture(AppRuntime.Settings.PrivacyShieldEnabled, AppRuntime.IsExiting))
         {
             StopForPrivacyShield();
