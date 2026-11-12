@@ -124,22 +124,65 @@ public sealed class SavedRoutineServiceTests
     }
 
     [TestMethod]
-    public void RoutineExecutionPromptKeepsStepsOrderedAndRequiresPerActionApproval()
+    public void RoutineExecutionPromptContainsOnlyOrderedNativeCommands()
     {
         var routine = new SavedRoutineRecord
         {
             Name = "Release review",
             Goal = "Prepare a verified release.",
-            Steps = new() { "Inspect pending changes", "Run tests", "Summarize results" }
+            Steps = new()
+            {
+                "create file first.txt with content First",
+                "create file second.txt with content Second",
+                "read file first.txt"
+            }
         };
 
         var prompt = SavedRoutineService.BuildExecutionPrompt(routine);
-        StringAssert.Contains(prompt, "1. Inspect pending changes");
-        StringAssert.Contains(prompt, "2. Run tests");
-        StringAssert.Contains(prompt, "3. Summarize results");
-        StringAssert.Contains(prompt, "Obtain local approval before every tool");
-        StringAssert.Contains(prompt, "not scripts or permissions");
-        StringAssert.Contains(SavedRoutineService.BuildExecutionPrompt(routine, isArabic: true), "لا تجمع الموافقات");
+        Assert.AreEqual(string.Join(Environment.NewLine, routine.Steps), prompt);
+        Assert.IsFalse(prompt.Contains("Obtain local approval", StringComparison.Ordinal));
+        Assert.IsFalse(prompt.Contains("Routine:", StringComparison.Ordinal));
+
+        var review = SavedRoutineService.BuildExecutionReviewPrompt(routine);
+        StringAssert.Contains(review, "up to 6");
+        StringAssert.Contains(review, "separate approval");
+        StringAssert.Contains(review, "1. create file first.txt");
+        StringAssert.Contains(review, "2. create file second.txt");
+        StringAssert.Contains(review, "Native command payload:");
+        StringAssert.Contains(SavedRoutineService.BuildExecutionReviewPrompt(routine, isArabic: true), "موافقة منفصلة");
+    }
+
+    [TestMethod]
+    public void RoutineWithMoreThanSixStepsCannotStartNativeExecution()
+    {
+        var routine = new SavedRoutineRecord
+        {
+            Name = "Long routine",
+            Goal = "A descriptive goal.",
+            Steps = Enumerable.Range(1, 7)
+                .Select(index => $"create file file-{index}.txt with content Item {index}")
+                .ToList()
+        };
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SavedRoutineService.BuildExecutionPrompt(routine));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            SavedRoutineService.BuildExecutionReviewPrompt(routine));
+    }
+
+    [TestMethod]
+    public void RoutineWithoutSubStepsUsesItsGoalAsOneNativeCommandCandidate()
+    {
+        var routine = new SavedRoutineRecord
+        {
+            Name = "Read workspace",
+            Goal = "list files"
+        };
+
+        Assert.AreEqual("list files", SavedRoutineService.BuildExecutionPrompt(routine));
+        StringAssert.Contains(
+            SavedRoutineService.BuildExecutionReviewPrompt(routine),
+            "Native command payload:" + Environment.NewLine + "list files");
     }
 
     [TestMethod]

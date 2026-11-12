@@ -575,14 +575,10 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="54" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.AutomationId="ChatInput" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+1 ينقلك إلى هذا الحقل."/>
-                        <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي فقط؛ لا يُرسل الصوت إلا بعد تأكيدك." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. لن يُرسل الصوت إلى المزود إلا بعد تأكيد منفصل، وسيظهر النص للمراجعة قبل الإرسال."/>
+                        <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي وتحويل محلي عبر Whisper؛ لا يُرفع الصوت إلى خادم." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. يعالج Whisper الصوت محليًا، ثم يظهر النص للمراجعة قبل الإرسال إلى نواة ليال."/>
                         <Button x:Name="VoiceConversationButton" Grid.Column="2" Content="بدء المحادثة الصوتية" Click="VoiceConversationButton_Click" MinWidth="148"
-                                ToolTip="محادثة صوتية مباشرة: يستخدم الميكروفون ويبث الصوت إلى موفر Realtime حتى تضغط إيقاف."
-                                AutomationProperties.Name="بدء المحادثة الصوتية" AutomationProperties.HelpText="يُبث صوت الميكروفون مباشرة إلى موفر Realtime أثناء الجلسة. اضغط مرة أخرى لإيقاف الميكروفون والمحادثة."/>
-                        <Button x:Name="VoiceMuteButton" Grid.Column="3" Content="كتم الميكروفون" Click="VoiceMuteButton_Click"
-                                Visibility="Collapsed" MinWidth="110"
-                                AutomationProperties.Name="كتم ميكروفون المحادثة الصوتية"
-                                AutomationProperties.HelpText="يكتم الميكروفون مؤقتًا دون إنهاء المحادثة؛ اضغط مرة أخرى لإعادة تشغيله."/>
+                                ToolTip="محادثة صوتية محلية بالتناوب: اضغط للتسجيل ثم اضغط مرة ثانية لإرسال النص إلى نواة ليال."
+                                AutomationProperties.Name="التحدث إلى ليال محليًا" AutomationProperties.HelpText="يُعالج التسجيل على الجهاز عبر Whisper؛ لا يوجد بث صوتي أو اتصال بخدمة خارجية."/>
                         <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="4" Content="إرسال" Click="SendButton_Click" MinWidth="82" MinHeight="48"/>
                         <Button x:Name="CancelResponseButton" Grid.Column="5" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
@@ -1143,16 +1139,16 @@
                                    Foreground="{DynamicResource Layal.Success}" Margin="4,0,4,8"
                                    AutomationProperties.LiveSetting="Polite"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
-                        <TextBlock x:Name="LocalAiSectionTitle" Text="الشات والصوت المحليان (الافتراضي)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
-                        <CheckBox x:Name="UseLocalAiCheckbox" Content="استخدام الذكاء الاصطناعي المحلي دون مفتاح API"
+                        <TextBlock x:Name="LocalAiSectionTitle" Text="نواة ليال المستقلة والصوت الاختياري" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <CheckBox x:Name="UseLocalAiCheckbox" Content="المعالجة المحلية فقط (ثابت)" IsEnabled="False"
                                   IsChecked="True" Checked="LocalAiModeSettingChanged" Unchecked="LocalAiModeSettingChanged"
-                                  AutomationProperties.Name="وضع الذكاء الاصطناعي المحلي"
-                                  AutomationProperties.HelpText="الشات وتحويل الكلام والنطق يعملون على هذا الجهاز. ألغِ التحديد لاستخدام مزود سحابي تم إعداده في الأسفل."/>
+                                  AutomationProperties.Name="وضع الصوت المحلي"
+                                  AutomationProperties.HelpText="الردود والتخطيط والمهام وتحويل الصوت والنطق لا تستخدم مزود AI سحابيًا. موارد Whisper/Piper محلية واختيارية للصوت فقط."/>
                         <TextBlock x:Name="LocalAiDescription"
-                                   Text="أول مرة فقط: بعد موافقتك، سيُنزل Layal محرك Ollama ونموذج الشات وموارد الصوت المحلي. يحتاج الإعداد إنترنت ومساحة فارغة؛ بعد التنزيل تتم معالجة الرسائل والصوت على جهازك."
+                                   Text="الردود النصية وتنفيذ المهام يعملان دون تنزيل أي نموذج. يمكنك اختياريًا تنزيل Whisper وPiper للصوت فقط؛ لن يُستخدما للتفكير أو التخطيط أو اتخاذ القرارات."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,5"/>
-                        <Button x:Name="SetupLocalAiButton" Content="تجهيز الشات والصوت المحليين" Click="SetupLocalAiButton_Click"
-                                HorizontalAlignment="Left" AutomationProperties.Name="تجهيز الشات والصوت المحليين"/>
+                        <Button x:Name="SetupLocalAiButton" Content="تجهيز الصوت المحلي فقط" Click="SetupLocalAiButton_Click"
+                                HorizontalAlignment="Left" AutomationProperties.Name="تجهيز الصوت المحلي فقط"/>
                         <Button x:Name="CancelLocalAiSetupButton" Content="إلغاء التنزيل" Click="CancelLocalAiSetupButton_Click"
                                 HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,6,0,0"
                                 AutomationProperties.Name="إلغاء تنزيل موارد الذكاء الاصطناعي المحلي"
@@ -1161,18 +1157,16 @@
                                      Visibility="Collapsed" AutomationProperties.Name="تقدم إعداد الذكاء الاصطناعي المحلي"/>
                         <TextBlock x:Name="LocalAiStatusText" Text="لم يُنزّل أي نموذج بعد؛ لن يبدأ التنزيل قبل موافقتك."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,8"
-                                   AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة الشات والصوت المحليين"/>
+                                   AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة نواة ليال والصوت المحلي"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
-                        <TextBlock x:Name="ProviderSectionTitle" Text="مزود سحابي اختياري (OpenAI-compatible)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <TextBlock x:Name="ProviderSectionTitle" Text="اختبار اتصال API خارجي فقط (لا يستخدم للردود أو المهام)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
                         <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1" AutomationProperties.Name="عنوان API الأساسي / API base URL" AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}" AutomationProperties.HelpText="عنوان الخدمة الأساسية بصيغة HTTP أو HTTPS / HTTP or HTTPS base URL for the provider."/>
                         <TextBlock x:Name="ModelLabel" Text="معرّف النموذج" Margin="4,5,4,0"/>
                         <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto" AutomationProperties.Name="معرّف النموذج / Model ID" AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"/>
-                        <TextBlock x:Name="SpeechModelLabel" Text="نموذج تحويل الكلام السحابي (اختياري)" Margin="4,8,4,0"/>
-                        <TextBox x:Name="SpeechModelInput" FlowDirection="LeftToRight" Text="gpt-transcribe" AutomationProperties.Name="معرّف نموذج تحويل الكلام إلى نص / Speech-to-text model ID" AutomationProperties.LabeledBy="{Binding ElementName=SpeechModelLabel}" ToolTip="الافتراضي gpt-transcribe؛ تحقق من دعم موفر API للنموذج ونقطة النهاية."/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="VoiceReplySectionTitle" Text="صوت ليال" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
-                        <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد النصي، يُرسل النص إلى Realtime لتوليد صوت اصطناعي طفولي وناعم."/>
+                        <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد من نواة ليال، يمكن نطقه محليًا عبر Piper إذا كانت موارد الصوت جاهزة. لا يُرسل النص إلى أي خدمة صوتية."/>
                         <TextBlock x:Name="AudioInputDeviceLabel" Text="الميكروفون المستخدم" Margin="4,8,4,0"/>
                         <ComboBox x:Name="AudioInputDeviceSelector" MinHeight="40" MinWidth="260"
                                   DisplayMemberPath="Name" SelectedValuePath="Id"
@@ -1191,19 +1185,6 @@
                         <TextBlock x:Name="AudioDeviceStatus" Text="يُستخدم جهاز Windows الافتراضي حتى تختار جهازًا آخر."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة أجهزة الصوت"/>
-                        <TextBlock x:Name="VoiceReplyVoiceLabel" Text="نبرة الصوت السحابي (اختياري)" Margin="4,6,4,0"/>
-                        <ComboBox x:Name="VoiceReplyVoiceSelector" SelectedValuePath="Tag" SelectedValue="marin" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="صوت الرد السحابي">
-                            <ComboBoxItem Tag="marin" Content="Marin — موصى به"/>
-                            <ComboBoxItem Tag="cedar" Content="Cedar — موصى به"/>
-                            <ComboBoxItem Tag="alloy" Content="Alloy"/>
-                            <ComboBoxItem Tag="ash" Content="Ash"/>
-                            <ComboBoxItem Tag="ballad" Content="Ballad"/>
-                            <ComboBoxItem Tag="coral" Content="Coral"/>
-                            <ComboBoxItem Tag="echo" Content="Echo"/>
-                            <ComboBoxItem Tag="sage" Content="Sage"/>
-                            <ComboBoxItem Tag="shimmer" Content="Shimmer"/>
-                            <ComboBoxItem Tag="verse" Content="Verse"/>
-                        </ComboBox>
                         <TextBlock x:Name="AssistantPersonaLabel" Text="نمط شخصية ليال" Margin="4,8,4,0"/>
                         <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="AssistantPersonaSelector_SelectionChanged"
@@ -1220,19 +1201,17 @@
                         <ComboBox x:Name="VoiceDeliveryStyleSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="VoiceDeliveryStyleSelector_SelectionChanged"
                                   AutomationProperties.Name="نبرة الإلقاء الصوتي"
-                                  AutomationProperties.HelpText="إعداد مستقل عن أسلوب النص واختيار الصوت. النطق المحلي يغيّر السرعة فقط؛ Realtime يطبق تعليمات النبرة.">
+                                  AutomationProperties.HelpText="إعداد سرعة النطق المحلي عبر Piper فقط؛ لا يتصل بأي خدمة صوتية خارجية.">
                             <ComboBoxItem Tag="natural" Content="طبيعية وعفوية"/>
                             <ComboBoxItem Tag="gentle" Content="هادئة ولطيفة"/>
                             <ComboBoxItem Tag="bright" Content="مشرقة وحيوية باعتدال"/>
                             <ComboBoxItem Tag="clear" Content="واضحة ومتزنة"/>
                         </ComboBox>
-                        <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="في الوضع المحلي يتغير إيقاع النطق فقط لأن نموذج Piper الحالي لا يوفّر تغييرًا عاطفيًا أو صوتيًا؛ في الوضع السحابي تُرسل تعليمات نبرة منفصلة عن معرّف الصوت."
+                        <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="يتغير إيقاع النطق المحلي فقط عبر Piper. لا يوجد مسار نطق سحابي أو تعليمات تُرسل إلى مزود خارجي."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.Name="حدود نبرة الإلقاء"/>
-                        <TextBlock x:Name="VoiceReplyModelLabel" Text="معرّف نموذج الصوت السحابي (Realtime؛ اختياري)" Margin="4,8,4,0"/>
-                        <TextBox x:Name="VoiceReplyModelInput" FlowDirection="LeftToRight" Text="gpt-realtime-2.1-mini" AutomationProperties.Name="معرّف نموذج الرد الصوتي" AutomationProperties.LabeledBy="{Binding ElementName=VoiceReplyModelLabel}"/>
-                        <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك؛ عند اختيار المزود السحابي قد تُطبق رسوم." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
-                        <Button x:Name="TestVoiceReplyButton" Content="تجربة صوت ليال" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يختبر الصوت محليًا في الوضع المحلي، أو يستخدم موفر Realtime عند اختيار الوضع السحابي."/>
+                        <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper بعد تجهيز موارده؛ لا يتم إرسال نص الرد إلى خدمة صوتية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
+                        <Button x:Name="TestVoiceReplyButton" Content="تجربة صوت ليال" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يختبر النطق المحلي عبر Piper فقط؛ لا يُرسل نص إلى أي خدمة."/>
 
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>

@@ -18,18 +18,14 @@ public sealed class UserSettings
     public string ProviderBaseUrl { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
     public bool UseLocalAi { get; set; } = true;
-    public string LocalAiModelId { get; set; } = Layal.Services.LocalAiService.DefaultModelId;
-    public string SpeechToTextModelId { get; set; } = "gpt-transcribe";
     public bool VoiceRepliesEnabled { get; set; } = true;
-    public string VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini";
-    public string VoiceReplyId { get; set; } = "marin";
     /// <summary>Stable WinMM microphone selection; Windows default is used until the user chooses a device.</summary>
     public string AudioInputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
     /// <summary>Stable WinMM playback selection; Windows default is used until the user chooses a device.</summary>
     public string AudioOutputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
     /// <summary>Conversational response style only; never changes safety rules, tool permissions, or confirmation requirements.</summary>
     public string AssistantPersona { get; set; } = "warm";
-    /// <summary>Independent speech delivery style; local Piper applies pace only, cloud Realtime receives style instructions.</summary>
+    /// <summary>Optional local Piper speech delivery pace; never changes generated text or task permissions.</summary>
     public string VoiceDeliveryStyleId { get; set; } = Layal.Services.VoiceDeliveryStylePolicy.DefaultStyle;
     /// <summary>Which existing artwork is displayed by the floating mascot: Layal, robot, or both.</summary>
     public string MascotCharacterDisplayMode { get; set; } = Layal.Services.CharacterDisplayModePolicy.DefaultMode;
@@ -67,11 +63,7 @@ public sealed class UserSettings
         ProviderBaseUrl = ProviderBaseUrl,
         ModelId = ModelId,
         UseLocalAi = UseLocalAi,
-        LocalAiModelId = LocalAiModelId,
-        SpeechToTextModelId = SpeechToTextModelId,
         VoiceRepliesEnabled = VoiceRepliesEnabled,
-        VoiceReplyModelId = VoiceReplyModelId,
-        VoiceReplyId = VoiceReplyId,
         AudioInputDeviceId = AudioInputDeviceId,
         AudioOutputDeviceId = AudioOutputDeviceId,
         AssistantPersona = AssistantPersona,
@@ -107,11 +99,7 @@ public sealed class UserSettings
         ProviderBaseUrl = source.ProviderBaseUrl;
         ModelId = source.ModelId;
         UseLocalAi = source.UseLocalAi;
-        LocalAiModelId = source.LocalAiModelId;
-        SpeechToTextModelId = source.SpeechToTextModelId;
         VoiceRepliesEnabled = source.VoiceRepliesEnabled;
-        VoiceReplyModelId = source.VoiceReplyModelId;
-        VoiceReplyId = source.VoiceReplyId;
         AudioInputDeviceId = source.AudioInputDeviceId;
         AudioOutputDeviceId = source.AudioOutputDeviceId;
         AssistantPersona = source.AssistantPersona;

@@ -17,7 +17,6 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(string.Empty, settings.ProviderBaseUrl);
         Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.IsTrue(settings.UseLocalAi);
-        Assert.AreEqual(LocalAiService.DefaultModelId, settings.LocalAiModelId);
         Assert.IsTrue(settings.MascotAlwaysOnTop);
         Assert.IsTrue(settings.MascotAnimationsEnabled);
         Assert.AreEqual(1.0, settings.MascotScale, 0.0001);
@@ -74,7 +73,7 @@ public sealed class SettingsStoreTests
     }
 
     [TestMethod]
-    public void InvalidLocalModelIdPreservesOtherSettingsAndUsesSafeModelDefault()
+    public void LegacyLocalModelSettingIsIgnoredWithoutAffectingOtherSettings()
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
@@ -87,7 +86,6 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("https://provider.example/v1", settings.ProviderBaseUrl);
         Assert.AreEqual("saved-model", settings.ModelId);
         Assert.IsFalse(settings.UseLocalAi);
-        Assert.AreEqual(LocalAiService.DefaultModelId, settings.LocalAiModelId);
         Assert.AreEqual(1.25, settings.MascotScale, 0.0001);
     }
 
@@ -119,7 +117,6 @@ public sealed class SettingsStoreTests
             ThemeMode = "dark",
             ThemePreset = "ocean",
             AssistantPersona = "focused",
-            VoiceReplyId = "shimmer",
             VoiceDeliveryStyleId = "gentle",
             MascotCharacterDisplayMode = "robot",
             QuickAskHotkeyPreset = "AltShiftQ",
@@ -127,7 +124,6 @@ public sealed class SettingsStoreTests
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "test-model",
             UseLocalAi = false,
-            LocalAiModelId = "qwen3.5:2b",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
             PerformanceModeEnabled = true,
@@ -152,13 +148,11 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("AltShiftQ", reloaded.QuickAskHotkeyPreset);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
         Assert.AreEqual("focused", reloaded.AssistantPersona);
-        Assert.AreEqual("shimmer", reloaded.VoiceReplyId, "A valid user's selected voice must not be silently replaced during load.");
         Assert.AreEqual("gentle", reloaded.VoiceDeliveryStyleId);
         Assert.AreEqual("robot", reloaded.MascotCharacterDisplayMode);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
         Assert.IsFalse(reloaded.UseLocalAi);
-        Assert.AreEqual("qwen3.5:2b", reloaded.LocalAiModelId);
         Assert.IsFalse(reloaded.MascotAlwaysOnTop);
         Assert.IsFalse(reloaded.MascotAnimationsEnabled);
         Assert.IsTrue(reloaded.PerformanceModeEnabled);
@@ -188,11 +182,7 @@ public sealed class SettingsStoreTests
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "old-model",
             UseLocalAi = false,
-            LocalAiModelId = "qwen3.5:2b",
-            SpeechToTextModelId = "old-transcriber",
             VoiceRepliesEnabled = false,
-            VoiceReplyModelId = "old-voice-model",
-            VoiceReplyId = "marin",
             AssistantPersona = "professional",
             VoiceDeliveryStyleId = "bright",
             MascotCharacterDisplayMode = "layal",
@@ -223,10 +213,7 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(candidate.UseAutomaticLocation);
         Assert.IsTrue(candidate.AutomaticLocationConsentConfirmed);
         Assert.IsFalse(candidate.UseLocalAi);
-        Assert.AreEqual("qwen3.5:2b", candidate.LocalAiModelId);
-        Assert.AreEqual("old-transcriber", candidate.SpeechToTextModelId);
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
-        Assert.AreEqual("old-voice-model", candidate.VoiceReplyModelId);
         Assert.AreEqual("professional", candidate.AssistantPersona);
         Assert.AreEqual("bright", candidate.VoiceDeliveryStyleId);
         Assert.AreEqual("layal", candidate.MascotCharacterDisplayMode);
@@ -251,7 +238,6 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("new-model", target.ModelId);
         Assert.AreEqual("en", target.Language);
         Assert.AreEqual("dark", target.ThemeMode);
-        Assert.AreEqual("marin", target.VoiceReplyId);
         Assert.AreEqual("professional", target.AssistantPersona);
         Assert.AreEqual("bright", target.VoiceDeliveryStyleId);
         Assert.AreEqual("layal", target.MascotCharacterDisplayMode);

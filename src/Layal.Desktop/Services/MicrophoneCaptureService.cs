@@ -1,25 +1,14 @@
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using NAudio.Wave;
 
 namespace Layal.Services;
 
-/// <summary>Manual, bounded microphone capture and transcription. Raw audio stays in memory only.</summary>
-public sealed class SpeechToTextService : IDisposable
+/// <summary>Manual, bounded microphone capture only. Raw audio stays in memory; no network or transcription API is available here.</summary>
+public sealed class MicrophoneCaptureService : IDisposable
 {
     public const int MaximumRecordingSeconds = 120;
-    public const int MaximumTranscriptionResponseBytes = 2 * 1024 * 1024;
-    public const int MaximumTranscriptCharacters = 100_000;
     public static readonly TimeSpan MaximumRecordingDuration = TimeSpan.FromSeconds(MaximumRecordingSeconds);
     private const int SampleRate = 16000;
     private const int MaxPcmBytes = SampleRate * 2 * MaximumRecordingSeconds;
-    private const string TranscriptionPrompt =
-        "Transcribe exactly what is spoken. Preserve Egyptian Arabic colloquial phrasing and any English words or code-switching; do not translate or formalize the Arabic. " +
-        "اكتب العامية المصرية كما نُطقت دون تحويلها إلى الفصحى، واحتفظ بالكلمات الإنجليزية كما قيلت.";
-
-    private static readonly HttpClient SharedHttpClient = new() { Timeout = TimeSpan.FromSeconds(90) };
-    private readonly Func<HttpClient> _httpClientFactory;
     private readonly object _sync = new();
     private WaveIn? _capture;
     private MemoryStream? _audioBuffer;
@@ -29,8 +18,7 @@ public sealed class SpeechToTextService : IDisposable
     private bool _maximumDurationReached;
     private int _recordedPcmBytes;
 
-    public SpeechToTextService(Func<HttpClient>? httpClientFactory = null) =>
-        _httpClientFactory = httpClientFactory ?? (() => SharedHttpClient);
+    public MicrophoneCaptureService() { }
 
     public bool IsRecording { get { lock (_sync) return _isRecording; } }
 
@@ -175,98 +163,6 @@ public sealed class SpeechToTextService : IDisposable
         }
         try { writer?.Dispose(); } catch { /* A discard must remain safe. */ }
         ClearAndDisposeStream(audioBuffer);
-    }
-
-    public static Uri BuildTranscriptionUri(string baseUrl)
-    {
-        if (!Uri.TryCreate((baseUrl ?? string.Empty).Trim(), UriKind.Absolute, out var baseUri) ||
-            (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
-            throw new InvalidOperationException("Configure a valid HTTP or HTTPS AI provider URL before using speech input.");
-        if (!string.IsNullOrEmpty(baseUri.UserInfo))
-            throw new InvalidOperationException("The provider URL must not contain a username or password.");
-        if (!string.IsNullOrEmpty(baseUri.Query) || !string.IsNullOrEmpty(baseUri.Fragment))
-            throw new InvalidOperationException("The provider base URL must not contain a query string or fragment.");
-        if (baseUri.Scheme == Uri.UriSchemeHttp && !baseUri.IsLoopback)
-            throw new InvalidOperationException("Microphone audio can only be sent over HTTPS. Plain HTTP is allowed only for a local loopback provider.");
-        return new Uri(new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/", UriKind.Absolute), "audio/transcriptions");
-    }
-
-    public async Task<string> TranscribeAsync(
-        string baseUrl, string apiKey, string modelId, byte[] wavBytes, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(wavBytes);
-        if (wavBytes.Length <= 44) throw new ArgumentException("A non-empty WAV recording is required.", nameof(wavBytes));
-        if (wavBytes.Length > 25 * 1024 * 1024)
-            throw new ArgumentException("The WAV recording exceeds the provider's 25 MB upload limit.", nameof(wavBytes));
-        if (string.IsNullOrWhiteSpace(apiKey))
-            throw new InvalidOperationException("Save or enter a valid API key in Settings before transcribing speech.");
-        if (string.IsNullOrWhiteSpace(modelId))
-            throw new InvalidOperationException("Configure the speech-to-text model ID in Settings.");
-
-        var endpoint = BuildTranscriptionUri(baseUrl);
-        var client = _httpClientFactory() ?? throw new InvalidOperationException("The speech HTTP client is unavailable.");
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
-        using var multipart = new MultipartFormDataContent();
-        var fileContent = new ByteArrayContent(wavBytes);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
-        multipart.Add(fileContent, "file", "recording.wav");
-        multipart.Add(new StringContent(modelId.Trim(), Encoding.UTF8), "model");
-        multipart.Add(new StringContent("json", Encoding.UTF8), "response_format");
-        multipart.Add(new StringContent("ar", Encoding.UTF8), "languages[]");
-        multipart.Add(new StringContent("en", Encoding.UTF8), "languages[]");
-        multipart.Add(new StringContent(TranscriptionPrompt, Encoding.UTF8), "prompt");
-        request.Content = multipart;
-
-        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var detail = (int)response.StatusCode == 404
-                ? "The provider may not support /audio/transcriptions or the configured speech model ID."
-                : (int)response.StatusCode is 401 or 403
-                    ? "Check the provider API key and speech-model permissions."
-                    : "Check the provider configuration and try again.";
-            throw new InvalidOperationException($"Speech transcription failed (HTTP {(int)response.StatusCode}). {detail}");
-        }
-
-        using var document = await ReadBoundedJsonAsync(
-            response.Content,
-            MaximumTranscriptionResponseBytes,
-            cancellationToken);
-        if (!document.RootElement.TryGetProperty("text", out var transcript) || transcript.ValueKind != JsonValueKind.String)
-            throw new InvalidOperationException("The speech provider returned an invalid transcription response.");
-        var text = transcript.GetString()?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(text))
-            throw new InvalidOperationException("No speech was recognized. Try speaking more clearly or reducing background noise.");
-        if (text.Length > MaximumTranscriptCharacters)
-            throw new InvalidOperationException("The speech provider returned a transcript that exceeds the local display limit.");
-        return text;
-    }
-
-    private static async Task<JsonDocument> ReadBoundedJsonAsync(
-        HttpContent content,
-        int maximumBytes,
-        CancellationToken cancellationToken)
-    {
-        if (content.Headers.ContentLength is long declaredLength && declaredLength > maximumBytes)
-            throw new InvalidDataException("The speech provider response exceeded the local size limit.");
-
-        await using var source = await content.ReadAsStreamAsync(cancellationToken);
-        using var buffer = new MemoryStream(Math.Min(maximumBytes, 16 * 1024));
-        var chunk = new byte[8 * 1024];
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var read = await source.ReadAsync(chunk.AsMemory(), cancellationToken);
-            if (read == 0)
-                break;
-            if (buffer.Length + read > maximumBytes)
-                throw new InvalidDataException("The speech provider response exceeded the local size limit.");
-            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
-        }
-
-        buffer.Position = 0;
-        return await JsonDocument.ParseAsync(buffer, cancellationToken: cancellationToken);
     }
 
     private void Capture_DataAvailable(object? sender, WaveInEventArgs e)

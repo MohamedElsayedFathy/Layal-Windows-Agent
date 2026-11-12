@@ -37,6 +37,8 @@ $script:OwnsAcceptanceRoot = $false
 $script:AcceptanceRoot = $null
 
 # These maps connect each documented requirement/feature to actual automated test assets.
+# Native-core migration removed provider-backed Realtime/STT paths. Current mappings point to
+# the local Whisper/Piper tests and native parser/orchestrator suites instead of deleted suites.
 # Presence of a test file is evidence of test coverage intent, never proof that the complete
 # acceptance criterion passed; manual and external gates remain explicit in the report.
 $script:RequirementSuiteMap = @{
@@ -46,16 +48,16 @@ $script:RequirementSuiteMap = @{
     'LAYAL-004' = @('tests/Layal.Tests/MainWindowVisualSmokeTests.cs', 'tests/Layal.Tests/NotificationActionSlotTests.cs')
     'LAYAL-005' = @('tests/Layal.Tests/CharacterExpressionMapTests.cs', 'tests/Layal.Tests/CharacterDisplayModePolicyTests.cs', 'tests/Layal.Tests/MascotEffectStyleResolverTests.cs', 'tests/Layal.Tests/MascotPerformancePolicyTests.cs')
     'LAYAL-006' = @('tests/Layal.Tests/UiLocalizationTests.cs', 'tests/Layal.Tests/BidiTextNormalizerTests.cs', 'tests/Layal.Tests/TextDirectionConverterTests.cs')
-    'LAYAL-007' = @('tests/Layal.Tests/SpeechToTextServiceTests.cs', 'tests/Layal.Tests/LocalVoiceIntegrityTests.cs', 'tests/Layal.Tests/LocalVoiceLanguageSegmentationTests.cs')
-    'LAYAL-008' = @('tests/Layal.Tests/VoiceConversationServiceTests.cs', 'tests/Layal.Tests/VoiceDeliveryStylePolicyTests.cs', 'tests/Layal.Tests/LayalSpeechServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs', 'tests/Layal.Tests/AudioDeviceSettingsTests.cs')
-    'LAYAL-009' = @('tests/Layal.Tests/PrivacyShieldPolicyTests.cs', 'tests/Layal.Tests/VoiceConversationServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs')
+    'LAYAL-007' = @('tests/Layal.Tests/LocalVoiceServiceTests.cs', 'tests/Layal.Tests/LocalVoiceIntegrityTests.cs', 'tests/Layal.Tests/LocalVoiceLanguageSegmentationTests.cs')
+    'LAYAL-008' = @('tests/Layal.Tests/LocalVoiceServiceTests.cs', 'tests/Layal.Tests/VoiceDeliveryStylePolicyTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs', 'tests/Layal.Tests/AudioDeviceSettingsTests.cs')
+    'LAYAL-009' = @('tests/Layal.Tests/PrivacyShieldPolicyTests.cs', 'tests/Layal.Tests/LocalVoiceServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs')
     'LAYAL-010' = @('tests/Layal.Tests/OpenAiCompatibleClientTests.cs', 'tests/Layal.Tests/LocalAiServiceTests.cs')
     'LAYAL-011' = @('tests/Layal.Tests/OpenAiCompatibleClientTests.cs', 'tests/Layal.Tests/LocalAiServiceTests.cs')
-    'LAYAL-012' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/LocalAiServiceTests.cs')
-    'LAYAL-013' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskHistoryArtifactTests.cs')
+    'LAYAL-012' = @('tests/Layal.Tests/NativeCognitiveCoreTests.cs', 'tests/Layal.Tests/NativeAgentOrchestratorTests.cs', 'tests/Layal.Tests/LocalAiServiceTests.cs')
+    'LAYAL-013' = @('tests/Layal.Tests/NativeCognitiveCoreTests.cs', 'tests/Layal.Tests/NativeAgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskHistoryArtifactTests.cs')
     'LAYAL-014' = @('tests/Layal.Tests/TaskApprovalWindowTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs', 'tests/Layal.Tests/AgentToolExecutorTests.cs')
     'LAYAL-015' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/AgentToolExecutorEditFidelityTests.cs', 'tests/Layal.Tests/WorkspaceArtifactServiceTests.cs', 'tests/Layal.Tests/WorkspaceSnapshotServiceTests.cs')
-    'LAYAL-016' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/AgentOrchestratorTests.cs')
+    'LAYAL-016' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/NativeAgentOrchestratorTests.cs')
     'LAYAL-017' = @('tests/Layal.Tests/WindowsUiAutomationServiceTests.cs')
     'LAYAL-018' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/BrowserAutomationShutdownTests.cs')
     'LAYAL-019' = @('tests/Layal.Tests/SafeBrowserDownloadServiceTests.cs', 'tests/Layal.Tests/SafeBrowserUploadServiceTests.cs')
@@ -78,12 +80,13 @@ $script:RequirementSuiteMap = @{
     'LAYAL-036' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs', 'tests/Layal.Tests/SkillPackageServiceTests.cs')
     'LAYAL-037' = @('tests/Layal.Tests/MainWindowVisualSmokeTests.cs', 'tests/Layal.Tests/UiLocalizationTests.cs', 'tools/Test-LayalKeyboardNavigation.ps1')
     'LAYAL-038' = @('tests/Layal.Tests/ApiConnectionServiceTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs')
+    'LAYAL-039' = @('tests/Layal.Tests/NativeCognitiveCoreTests.cs', 'tests/Layal.Tests/NativeAgentOrchestratorTests.cs')
 }
 $script:AyoSuiteMap = @{
-    'AYO-01' = @('tests/Layal.Tests/SpeechToTextServiceTests.cs', 'tests/Layal.Tests/VoiceConversationServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs', 'tests/Layal.Tests/LocalVoiceLanguageSegmentationTests.cs')
+    'AYO-01' = @('tests/Layal.Tests/LocalVoiceServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs', 'tests/Layal.Tests/LocalVoiceLanguageSegmentationTests.cs')
     'AYO-02' = @('tests/Layal.Tests/QuickAskWindowTests.cs', 'tests/Layal.Tests/QuickAskRequestPolicyTests.cs')
     'AYO-03' = @('tests/Layal.Tests/GlobalHotkeyServiceTests.cs', 'tests/Layal.Tests/QuickAskWindowTests.cs')
-    'AYO-04' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskApprovalWindowTests.cs')
+    'AYO-04' = @('tests/Layal.Tests/NativeAgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskApprovalWindowTests.cs')
     'AYO-05' = @('tests/Layal.Tests/ScreenRegionCaptureServiceTests.cs', 'tests/Layal.Tests/PrivacyShieldPolicyTests.cs')
     'AYO-06' = @('tests/Layal.Tests/ScreenRegionCaptureServiceTests.cs', 'tests/Layal.Tests/MainWindowVisualSmokeTests.cs')
     'AYO-07' = @('tests/Layal.Tests/WindowsUiAutomationServiceTests.cs')
@@ -91,7 +94,7 @@ $script:AyoSuiteMap = @{
     'AYO-09' = @('tests/Layal.Tests/DocumentTextExtractionServiceTests.cs')
     'AYO-10' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/OpenAiCompatibleClientTests.cs')
     'AYO-11' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/BrowserAutomationShutdownTests.cs')
-    'AYO-12' = @('tests/Layal.Tests/AgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskHistoryArtifactTests.cs')
+    'AYO-12' = @('tests/Layal.Tests/NativeAgentOrchestratorTests.cs', 'tests/Layal.Tests/TaskHistoryArtifactTests.cs')
     'AYO-13' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/AgentToolExecutorEditFidelityTests.cs', 'tests/Layal.Tests/WorkspaceArtifactServiceTests.cs')
     'AYO-14' = @('tests/Layal.Tests/AgentToolExecutorTests.cs')
     'AYO-15' = @('tests/Layal.Tests/BrowserAutomationServiceTests.cs', 'tests/Layal.Tests/SafeBrowserDownloadServiceTests.cs', 'tests/Layal.Tests/SafeBrowserUploadServiceTests.cs')
@@ -112,7 +115,7 @@ $script:AyoSuiteMap = @{
     'AYO-30' = @('tests/Layal.Tests/MascotPerformancePolicyTests.cs', 'tests/Layal.Tests/PerformanceMetricsServiceTests.cs')
     'AYO-31' = @('tests/Layal.Tests/ClipboardReadPolicyTests.cs', 'tests/Layal.Tests/ClipboardImageAttachmentEncoderTests.cs')
     'AYO-32' = @('tests/Layal.Tests/ChatSessionServiceTests.cs', 'tests/Layal.Tests/PrivateChatModePolicyTests.cs')
-    'AYO-33' = @('tests/Layal.Tests/PrivacyShieldPolicyTests.cs', 'tests/Layal.Tests/VoiceConversationServiceTests.cs')
+    'AYO-33' = @('tests/Layal.Tests/PrivacyShieldPolicyTests.cs', 'tests/Layal.Tests/LocalVoiceServiceTests.cs')
 }
 
 function Resolve-AutomatedEvidence {
