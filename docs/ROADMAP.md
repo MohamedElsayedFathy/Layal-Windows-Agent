@@ -1,5 +1,23 @@
 # Layal implementation roadmap
 
+## Master development roadmap execution — 2026-11-12
+
+The user-supplied Arabic master roadmap is tracked separately from this source-milestone roadmap. Its repository baseline was stale: current `main` is `6beb0c909ecab29171395c071012cbb863b4f182` (PR #155), not the November 9 commit named in that document.
+
+| Package/status | Source | Automated verification | Practical acceptance | Documented acceptance |
+|---|---|---|---|---|
+| Phase -1 / UI-00: opaque Soft Aurora window, DWM backdrop disabled, theme contrast and glass opacity | Present on `main`; related changes were merged before the current baseline (including PRs #146–147). Do not reapply them without a newly verified gap. | Windows CI on the PR #155 source head passed Release checks and 652/652 C# tests; visual smoke covered automated RTL/LTR, theme, and scale scenarios. | Still pending on the target desktop: inspect the complete window in light/dark mode, resize/drag/title controls, and check real RTL/LTR and DPI behavior. CI screenshots are not physical-device acceptance. | Pending until the practical acceptance record and evidence are attached.
+| Phase 0: refresh baseline and reconcile status | Baseline refreshed to `6beb0c909ecab29171395c071012cbb863b4f182`; PR #155 is merged. The repository audit is recorded in `docs/TECHNICAL_REVIEW_2026-11-12_AR.md`. | Windows CI: 652/652 C# tests; 18/18 Python checks; security, supply-chain, and automated acceptance runs passed on PR #155 source head `0a7832aeea87884647543b559e2a330dc33f0c24`, which is an ancestor of current `main`. | Hardware-dependent checks remain pending: Narrator/NVDA, Windows High Contrast, physical multi-monitor/DPI transitions, and live peripherals. | Updated source baseline and this roadmap status are recorded; manual evidence remains open.
+
+### Architecture decision to resolve before model-runtime work
+
+The supplied master roadmap describes a local model as Layal's primary cognitive engine. Current `main` intentionally has no conversational LLM in the text or task path and fails closed on unsupported requests. Reconcile the desired local-model behavior, model-independent interfaces, privacy controls, and approval policy before Phase 2 changes. Do not describe the future local-model architecture as current behavior.
+
+### Next package gate
+
+Close Phase -1/UI-00 practical acceptance on a real Windows desktop and record its environment, commit, RTL/LTR screenshots, supported window sizes, DPI, and retained interactions before starting the next package. Keep this work on a separate branch and leave `main` unchanged until the user approves a merge.
+
+## 0.5.8 — Native model-independent cognitive core (merged to main)
 ## 0.5.8 — Native model-independent cognitive core (merged to main)
 - [x] Route text chat and Quick Ask through `NativeConversationEngine`; no hosted/local chat model is called.
 - [x] Route supported tasks and saved command routines through `NativeLanguageParser` and `NativeAgentOrchestrator`.
