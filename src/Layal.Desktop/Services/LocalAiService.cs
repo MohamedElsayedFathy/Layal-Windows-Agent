@@ -251,8 +251,10 @@ public sealed class LocalAiService : IAgentModelClient
         {
             Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json")
         };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromMinutes(2));
         using var response = await _agentApiClient.SendAsync(
-            httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            httpRequest, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
         if (!response.IsSuccessStatusCode)
         {
             var detail = await ReadBoundedAgentErrorAsync(response.Content, cancellationToken);
@@ -260,7 +262,7 @@ public sealed class LocalAiService : IAgentModelClient
                 $"Local Ollama agent request failed (HTTP {(int)response.StatusCode}). {detail}");
         }
 
-        var root = await ReadBoundedAgentJsonAsync(response.Content, cancellationToken);
+        var root = await ReadBoundedAgentJsonAsync(response.Content, timeout.Token);
         var message = root["message"] as JsonObject
             ?? throw new InvalidOperationException("Ollama returned no assistant message for the local agent.");
 
