@@ -215,8 +215,8 @@ public sealed class SavedRoutineManagerWindow : Window
         };
         AutomationProperties.SetName(runButton, isArabic ? "تشغيل الروتين بعد التأكيد" : "Run routine after confirmation");
         AutomationProperties.SetHelpText(runButton, isArabic
-            ? "يعرض الخطة كاملة في نافذة قابلة للتمرير. لن يبدأ التشغيل إلا بعد تأكيدك؛ وتظهر موافقة منفصلة قبل كل أداة أو أثر."
-            : "Shows the complete plan in a scrollable confirmation window. Execution starts only after you confirm; each tool or side effect still requires separate approval.");
+            ? "يعرض الخطة كاملة قبل التنفيذ. استخدم حتى 6 أوامر محلية معروفة، أمرًا واحدًا في كل سطر. تُحلل كلها قبل البدء، وتظهر موافقة منفصلة لكل أداة أو أثر. الخطوات الوصفية غير المدعومة لن تُنفذ."
+            : "Shows the complete plan before execution. Use up to six known native commands, one per line. All are parsed before starting, with separate approval for every tool or side effect. Unsupported descriptive steps will not run.");
         runButton.Click += RunButton_Click;
 
         var deleteButton = new Button
@@ -338,7 +338,9 @@ public sealed class SavedRoutineManagerWindow : Window
         }
         catch (InvalidOperationException ex)
         {
-            _status.Text = ex.Message;
+            _status.Text = _isArabic
+                ? "لا يمكن تشغيل هذا الروتين محليًا: الحد الأقصى 6 أوامر مدعومة. قسّمه إلى روتينات أصغر، وتأكد أن كل سطر أمر معروف لليال. " + ex.Message
+                : ex.Message;
             return;
         }
 
