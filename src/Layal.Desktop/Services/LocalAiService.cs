@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Layal.Models;
 
 namespace Layal.Services;
@@ -12,7 +13,7 @@ public sealed record LocalAiProgress(string Message, double? Percent = null);
 /// Runs local chat through Ollama's loopback-only API. The local mode never uses an
 /// API key and never makes model requests to a remote AI endpoint.
 /// </summary>
-public sealed class LocalAiService
+public sealed class LocalAiService : IAgentModelClient
 {
     public const string DefaultModelId = "qwen3.5:2b";
     public static readonly Uri ApiBaseUri = new("http://127.0.0.1:11434/");
@@ -46,6 +47,15 @@ public sealed class LocalAiService
         ConnectTimeout = TimeSpan.FromSeconds(20),
         PooledConnectionLifetime = TimeSpan.FromMinutes(5)
     }) { Timeout = Timeout.InfiniteTimeSpan };
+
+    private const int MaximumAgentResponseBytes = 4 * 1024 * 1024;
+    private readonly HttpClient _agentApiClient;
+
+    public LocalAiService() : this(ApiClient) { }
+
+    /// <summary>Injectable HTTP transport for deterministic local-agent protocol tests.</summary>
+    public LocalAiService(HttpClient agentApiClient) =>
+        _agentApiClient = agentApiClient ?? throw new ArgumentNullException(nameof(agentApiClient));
 
     public static string ValidateModelId(string? modelId)
     {
@@ -203,6 +213,320 @@ public sealed class LocalAiService
         if (result.Length == 0)
             throw new InvalidOperationException("أعاد نموذج الشات المحلي ردًا فارغًا. جرّب إرسال الرسالة مرة أخرى.");
         return result;
+    }
+
+    public async Task<AgentTurnResult> AgentTurnAsync(
+        AgentModelRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Provider != AgentModelProvider.Local)
+            throw new InvalidOperationException("The local Ollama client only accepts local-provider requests.");
+        if (!string.IsNullOrWhiteSpace(request.BaseUrl) || !string.IsNullOrWhiteSpace(request.ApiKey))
+            throw new InvalidOperationException("Local agent requests must not contain a remote provider URL or API key.");
+        if (IsIsolatedAcceptanceMode)
+            throw new InvalidOperationException("Local AI agent tasks are disabled during isolated live acceptance.");
+        ArgumentNullException.ThrowIfNull(request.Messages);
+        ArgumentNullException.ThrowIfNull(request.ToolDefinitions);
+        if (request.Messages.Count == 0)
+            throw new ArgumentException("At least one agent message is required.", nameof(request));
+        if (request.ToolDefinitions.Count == 0)
+            throw new ArgumentException("At least one tool definition is required.", nameof(request));
+
+        var model = ValidateModelId(request.Model);
+        var payload = new JsonObject
+        {
+            ["model"] = model,
+            ["messages"] = NormalizeOllamaMessages(request.Messages),
+            ["tools"] = JsonNode.Parse(request.ToolDefinitions.ToJsonString())!.AsArray(),
+            ["stream"] = false,
+            ["options"] = new JsonObject
+            {
+                ["num_ctx"] = 8192,
+                ["num_predict"] = 2048
+            }
+        };
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(ApiBaseUri, "api/chat"))
+        {
+            Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json")
+        };
+        using var response = await _agentApiClient.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await ReadBoundedAgentErrorAsync(response.Content, cancellationToken);
+            throw new InvalidOperationException(
+                $"Local Ollama agent request failed (HTTP {(int)response.StatusCode}). {detail}");
+        }
+
+        var root = await ReadBoundedAgentJsonAsync(response.Content, cancellationToken);
+        var message = root["message"] as JsonObject
+            ?? throw new InvalidOperationException("Ollama returned no assistant message for the local agent.");
+
+        var content = GetJsonString(message["content"]);
+        var calls = new List<AgentToolCall>();
+        var normalizedCalls = new JsonArray();
+        if (message["tool_calls"] is JsonArray returnedCalls)
+        {
+            foreach (var item in returnedCalls)
+            {
+                if (item is not JsonObject call || call["function"] is not JsonObject function)
+                    throw new InvalidOperationException("Ollama returned a malformed tool call; the task was stopped safely.");
+
+                var name = GetJsonString(function["name"]);
+                if (string.IsNullOrWhiteSpace(name))
+                    throw new InvalidOperationException("Ollama returned a tool call without a function name; the task was stopped safely.");
+
+                var arguments = ParseToolArguments(function["arguments"]);
+                var argumentsJson = arguments.ToJsonString();
+                var id = "ollama_" + Guid.NewGuid().ToString("N");
+                calls.Add(new AgentToolCall(id, name, argumentsJson));
+                normalizedCalls.Add(new JsonObject
+                {
+                    ["id"] = id,
+                    ["type"] = "function",
+                    ["function"] = new JsonObject
+                    {
+                        ["name"] = name,
+                        ["arguments"] = argumentsJson
+                    }
+                });
+            }
+        }
+
+        var assistantMessage = new JsonObject
+        {
+            ["role"] = "assistant",
+            ["content"] = content
+        };
+        if (normalizedCalls.Count > 0)
+            assistantMessage["tool_calls"] = normalizedCalls;
+
+        return new AgentTurnResult(assistantMessage, content, calls);
+    }
+
+    public async Task ValidateToolCallingAsync(
+        AgentModelProvider provider,
+        string model,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (provider != AgentModelProvider.Local)
+            throw new InvalidOperationException("Ollama can only validate the local provider.");
+
+        var probeTools = new JsonArray
+        {
+            new JsonObject
+            {
+                ["type"] = "function",
+                ["function"] = new JsonObject
+                {
+                    ["name"] = "layal_tool_call_probe",
+                    ["description"] = "Capability check only. Do not perform any external action.",
+                    ["parameters"] = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new JsonObject(),
+                        ["additionalProperties"] = false
+                    }
+                }
+            }
+        };
+        var probeMessages = new JsonArray
+        {
+            new JsonObject
+            {
+                ["role"] = "system",
+                ["content"] = "You are checking structured tool-calling capability. Call the only available function exactly once. Do not answer in prose."
+            },
+            new JsonObject
+            {
+                ["role"] = "user",
+                ["content"] = "Call the capability-check function now with an empty argument object."
+            }
+        };
+
+        var result = await AgentTurnAsync(
+            new AgentModelRequest(AgentModelProvider.Local, model, probeMessages, probeTools),
+            cancellationToken);
+        if (!result.ToolCalls.Any(call =>
+                string.Equals(call.Name, "layal_tool_call_probe", StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException(
+                $"The local model '{ValidateModelId(model)}' did not return a structured tool call during the capability check. " +
+                "This model/runtime combination cannot safely run Layal agent tasks yet. Choose an Ollama model that passes tool calling and retry. " +
+                "No cloud provider or API key was used as a fallback.");
+        }
+    }
+
+    private static JsonArray NormalizeOllamaMessages(JsonArray messages)
+    {
+        var toolNamesById = new Dictionary<string, string>(StringComparer.Ordinal);
+        var normalized = new JsonArray();
+
+        foreach (var source in messages)
+        {
+            if (source is not JsonObject message)
+                throw new InvalidOperationException("The local agent conversation contains an invalid message.");
+
+            var role = GetJsonString(message["role"]);
+            if (role is not ("system" or "user" or "assistant" or "tool"))
+                throw new InvalidOperationException("The local agent conversation contains an unsupported message role.");
+
+            var target = new JsonObject
+            {
+                ["role"] = role,
+                ["content"] = GetJsonString(message["content"])
+            };
+
+            if (role == "assistant" && message["tool_calls"] is JsonArray sourceCalls)
+            {
+                var targetCalls = new JsonArray();
+                foreach (var sourceCall in sourceCalls)
+                {
+                    if (sourceCall is not JsonObject call || call["function"] is not JsonObject function)
+                        throw new InvalidOperationException("The local agent conversation contains a malformed assistant tool call.");
+
+                    var id = GetJsonString(call["id"]);
+                    var name = GetJsonString(function["name"]);
+                    if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
+                        throw new InvalidOperationException("A local assistant tool call is missing its ID or function name.");
+
+                    var arguments = ParseToolArguments(function["arguments"]);
+                    toolNamesById[id] = name;
+                    targetCalls.Add(new JsonObject
+                    {
+                        ["function"] = new JsonObject
+                        {
+                            ["name"] = name,
+                            ["arguments"] = arguments
+                        }
+                    });
+                }
+
+                target["tool_calls"] = targetCalls;
+            }
+            else if (role == "tool")
+            {
+                var callId = GetJsonString(message["tool_call_id"]);
+                if (string.IsNullOrWhiteSpace(callId) || !toolNamesById.TryGetValue(callId, out var toolName))
+                    throw new InvalidOperationException("A local tool result is not linked to a preceding assistant tool call.");
+
+                target["tool_name"] = toolName;
+            }
+
+            normalized.Add(target);
+        }
+
+        return normalized;
+    }
+
+    private static JsonObject ParseToolArguments(JsonNode? arguments)
+    {
+        if (arguments is JsonObject objectArguments)
+            return (JsonObject)objectArguments.DeepClone();
+
+        if (arguments is JsonValue value && value.TryGetValue<string>(out var raw))
+        {
+            try
+            {
+                return JsonNode.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw) as JsonObject
+                    ?? throw new InvalidOperationException("A local tool call's arguments must be a JSON object.");
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException("A local tool call returned invalid JSON arguments.", ex);
+            }
+        }
+
+        if (arguments is null)
+            return new JsonObject();
+
+        throw new InvalidOperationException("A local tool call's arguments must be a JSON object.");
+    }
+
+    private static string GetJsonString(JsonNode? value) =>
+        value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var result)
+            ? result ?? string.Empty
+            : string.Empty;
+
+    private static async Task<JsonObject> ReadBoundedAgentJsonAsync(
+        HttpContent content,
+        CancellationToken cancellationToken)
+    {
+        if (content.Headers.ContentLength > MaximumAgentResponseBytes)
+            throw new InvalidOperationException("The local model response exceeded Layal's 4 MB safety limit.");
+
+        await using var input = await content.ReadAsStreamAsync(cancellationToken);
+        using var output = new MemoryStream();
+        var buffer = new byte[16 * 1024];
+        try
+        {
+            while (true)
+            {
+                var remaining = MaximumAgentResponseBytes + 1 - (int)output.Length;
+                var read = await input.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, remaining)), cancellationToken);
+                if (read == 0) break;
+                if (output.Length + read > MaximumAgentResponseBytes)
+                    throw new InvalidOperationException("The local model response exceeded Layal's 4 MB safety limit.");
+                output.Write(buffer, 0, read);
+            }
+
+            var bytes = output.ToArray();
+            try
+            {
+                return JsonNode.Parse(bytes, documentOptions: new JsonDocumentOptions { MaxDepth = 64 }) as JsonObject
+                    ?? throw new InvalidOperationException("Ollama returned an invalid local-agent response.");
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException("Ollama returned invalid JSON for the local agent.", ex);
+            }
+            finally
+            {
+                Array.Clear(bytes, 0, bytes.Length);
+            }
+        }
+        finally
+        {
+            Array.Clear(buffer, 0, buffer.Length);
+            if (output.TryGetBuffer(out var segment) && segment.Array is not null)
+                Array.Clear(segment.Array, segment.Offset, segment.Count);
+        }
+    }
+
+    private static async Task<string> ReadBoundedAgentErrorAsync(
+        HttpContent content,
+        CancellationToken cancellationToken)
+    {
+        await using var input = await content.ReadAsStreamAsync(cancellationToken);
+        using var output = new MemoryStream();
+        var buffer = new byte[4096];
+        try
+        {
+            while (output.Length < 32 * 1024)
+            {
+                var read = await input.ReadAsync(
+                    buffer.AsMemory(0, (int)Math.Min(buffer.Length, 32 * 1024 - output.Length)),
+                    cancellationToken);
+                if (read == 0) break;
+                output.Write(buffer, 0, read);
+            }
+            var detail = Encoding.UTF8.GetString(output.ToArray());
+            return Truncate(detail, 800);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException(cancellationToken);
+            return "No bounded error details were available from the local Ollama service.";
+        }
+        finally
+        {
+            Array.Clear(buffer, 0, buffer.Length);
+            if (output.TryGetBuffer(out var segment) && segment.Array is not null)
+                Array.Clear(segment.Array, segment.Offset, segment.Count);
+        }
     }
 
     private async Task PullModelAsync(string modelId, IProgress<LocalAiProgress>? progress, CancellationToken cancellationToken)
