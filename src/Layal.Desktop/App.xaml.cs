@@ -94,7 +94,6 @@ public partial class App : Application
         AppRuntime.NativeLanguageParser = new NativeLanguageParser(AppRuntime.NativeLearningService);
         AppRuntime.NativeConversationEngine = new NativeConversationEngine(AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.MemoryService);
         AppRuntime.NativeAgentOrchestrator = new NativeAgentOrchestrator(AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.AgentToolExecutor, AppRuntime.TaskHistoryService);
-        AppRuntime.AgentOrchestrator = new AgentOrchestrator(new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor, AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
 
         AppRuntime.ExitAction = ShutdownLayal;
         AppRuntime.MainWindow = new MainWindow();
