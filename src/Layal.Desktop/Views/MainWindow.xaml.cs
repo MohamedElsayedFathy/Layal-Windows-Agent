@@ -1111,7 +1111,7 @@ public partial class MainWindow : Window
         // Use a dense welcome card before hiding the secondary weather summary.
         // This preserves the clock/weather at normal window sizes while protecting
         // the three prompt buttons from being clipped by the conversation viewport.
-        var compact = availableHeight < 520;
+        var compact = availableHeight < 650;
         var dense = availableHeight < 900;
         var layoutMode = compact ? 2 : dense ? 1 : 0;
         ChatEmptyStateText.Text = dense
