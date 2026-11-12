@@ -2225,9 +2225,9 @@ public partial class MainWindow : Window
             UseLocalAiCheckbox.IsEnabled = false;
             CancelLocalAiSetupButton.Visibility = Visibility.Visible;
             CancelLocalAiSetupButton.IsEnabled = true;
-            LocalAiProgressBar.Visibility = Visibility.Visible;
-            LocalAiProgressBar.IsIndeterminate = true;
-            LocalAiProgressBar.Value = 0;
+            LocalSpeechProgressBar.Visibility = Visibility.Visible;
+            LocalSpeechProgressBar.IsIndeterminate = true;
+            LocalSpeechProgressBar.Value = 0;
 
             // Text chat and task planning now run in Layal's own native core.
             // Only optional microphone/speaker resources are checked or downloaded here.
@@ -2258,17 +2258,17 @@ public partial class MainWindow : Window
                 return true;
             }
 
-            var progress = new Progress<LocalAiProgress>(state =>
+            var progress = new Progress<LocalSpeechProgress>(state =>
             {
                 LocalAiStatusText.Text = state.Message;
                 if (state.Percent.HasValue)
                 {
-                    LocalAiProgressBar.IsIndeterminate = false;
-                    LocalAiProgressBar.Value = Math.Clamp(state.Percent.Value, 0, 100);
+                    LocalSpeechProgressBar.IsIndeterminate = false;
+                    LocalSpeechProgressBar.Value = Math.Clamp(state.Percent.Value, 0, 100);
                 }
                 else
                 {
-                    LocalAiProgressBar.IsIndeterminate = true;
+                    LocalSpeechProgressBar.IsIndeterminate = true;
                 }
             });
 
@@ -2310,8 +2310,8 @@ public partial class MainWindow : Window
         }
         finally
         {
-            LocalAiProgressBar.Visibility = Visibility.Collapsed;
-            LocalAiProgressBar.IsIndeterminate = false;
+            LocalSpeechProgressBar.Visibility = Visibility.Collapsed;
+            LocalSpeechProgressBar.IsIndeterminate = false;
             CancelLocalAiSetupButton.Visibility = Visibility.Collapsed;
             CancelLocalAiSetupButton.IsEnabled = true;
             SetupLocalAiButton.IsEnabled = priorButtonEnabled;
