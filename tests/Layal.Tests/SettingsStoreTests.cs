@@ -182,7 +182,6 @@ public sealed class SettingsStoreTests
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "old-model",
             UseLocalAi = false,
-            LocalAiModelId = "qwen3.5:2b",
             VoiceRepliesEnabled = false,
             AssistantPersona = "professional",
             VoiceDeliveryStyleId = "bright",
