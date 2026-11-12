@@ -1,5 +1,19 @@
 # Layal implementation roadmap
 
+## 0.5.8 — Native model-independent cognitive core (merged to main)
+- [x] Route text chat and Quick Ask through `NativeConversationEngine`; no hosted/local chat model is called.
+- [x] Route supported tasks and saved command routines through `NativeLanguageParser` and `NativeAgentOrchestrator`.
+- [x] Bound plans to a maximum of six explicit command lines; parse the complete sequence before the first side effect and require fresh approval for consequential actions.
+- [x] Verify created files by a separately approved local read-back and keep external launches/navigation unverified until observed.
+- [x] Persist explicit user-taught aliases and bounded outcome signals locally; this is not model-weight training or open-ended self-learning.
+- [x] Keep Whisper/Piper optional and restricted to local speech input/output; never use them for text reasoning or task planning.
+- [x] Fail closed for unsupported intents and independent vision; no fallback to Ollama, Qwen, or a hosted chat model.
+- [x] Merge PR #154 to `main` at `debf137129f6324b939f6c9100f7441d6d18a8d1`; close model-dependent PR #153 without merging.
+- [x] Windows CI on main: Release build/static checks and 644/644 C# tests passed; security and supply-chain checks passed.
+- [ ] Implement broader language understanding, adaptive planning/recovery, independent native vision, and evaluated statistical learning without an external cognitive-model dependency.
+- [ ] Complete physical Windows accessibility (Narrator/NVDA and High Contrast), multi-monitor/DPI, signing, and asset/license acceptance before public release.
+
+
 ## 0.1 — Native foundation
 - [x] WPF application skeleton and startup wiring.
 - [x] Transparent floating mascot and tray actions.
@@ -125,8 +139,9 @@ The path checks reduce accidental and adversarial link traversal before director
 - [ ] MCP client configuration, tool discovery, and permissions.
 
 ## 0.10 — Camera and vision
-- [x] Initial image understanding for user-selected files and local webcam still frames, including a one-shot visible-surroundings description and explicit provider failure messaging; model/device acceptance remains pending.
-- [x] Local ONVIF discovery and authenticated RTSP/RTSPS preview using user-supplied credentials, restricted to private IP endpoints; hardware acceptance remains pending.
+- [ ] Independent native image understanding, still-frame analysis, scene descriptions, and automatic visual observations; the old provider-backed image route is disabled in the native-core milestone.
+- [x] User-selected image, clipboard image, and screen-crop local preview without forwarding image bytes to any model.
+- [x] Local webcam and ONVIF/RTSP/RTSPS preview using user-supplied authorized credentials, restricted to private IP endpoints; hardware acceptance remains pending.
 - [ ] Raw-video inference, room mapping/3D scanning, object tracking, recording, event retention, and measured resource limits.
 - [ ] Authorized hardware test suite.
 
