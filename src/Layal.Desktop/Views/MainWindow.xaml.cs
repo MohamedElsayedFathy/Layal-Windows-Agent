@@ -1098,9 +1098,12 @@ public partial class MainWindow : Window
     }
 
     private void ChatConversationSurface_Loaded(object sender, RoutedEventArgs e) =>
-        ApplyChatCompactLayout(ChatConversationSurface.ActualHeight);
+        ApplyChatCompactLayout(MainTabs.ActualHeight);
 
     private void ChatConversationSurface_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyChatCompactLayout(MainTabs.ActualHeight);
+
+    private void MainTabs_SizeChanged(object sender, SizeChangedEventArgs e) =>
         ApplyChatCompactLayout(e.NewSize.Height);
 
     private void ApplyChatCompactLayout(double availableHeight)
@@ -1108,9 +1111,11 @@ public partial class MainWindow : Window
         if (availableHeight <= 0 || ChatWelcomePanel is null || ClockWeatherCard is null)
             return;
 
+        // Measure the bounded tab viewport, not the chat surface's desired height.
+        // The chat content can measure taller than the visible window and be clipped by
+        // the page shell; using that unbounded height leaves the welcome card in full mode.
+        // MainTabs.SizeChanged keeps this responsive even when the chat child does not resize.
         // Use a dense welcome card before hiding the secondary weather summary.
-        // This preserves the clock/weather at normal window sizes while protecting
-        // the three prompt buttons from being clipped by the conversation viewport.
         var compact = availableHeight < 520;
         var dense = availableHeight < 900;
         var layoutMode = compact ? 2 : dense ? 1 : 0;
