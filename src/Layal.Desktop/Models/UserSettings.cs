@@ -18,7 +18,6 @@ public sealed class UserSettings
     public string ProviderBaseUrl { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
     public bool UseLocalAi { get; set; } = true;
-    public string LocalAiModelId { get; set; } = Layal.Services.LocalAiService.DefaultModelId;
     public string SpeechToTextModelId { get; set; } = "gpt-transcribe";
     public bool VoiceRepliesEnabled { get; set; } = true;
     public string VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini";
@@ -67,7 +66,6 @@ public sealed class UserSettings
         ProviderBaseUrl = ProviderBaseUrl,
         ModelId = ModelId,
         UseLocalAi = UseLocalAi,
-        LocalAiModelId = LocalAiModelId,
         SpeechToTextModelId = SpeechToTextModelId,
         VoiceRepliesEnabled = VoiceRepliesEnabled,
         VoiceReplyModelId = VoiceReplyModelId,
@@ -107,7 +105,6 @@ public sealed class UserSettings
         ProviderBaseUrl = source.ProviderBaseUrl;
         ModelId = source.ModelId;
         UseLocalAi = source.UseLocalAi;
-        LocalAiModelId = source.LocalAiModelId;
         SpeechToTextModelId = source.SpeechToTextModelId;
         VoiceRepliesEnabled = source.VoiceRepliesEnabled;
         VoiceReplyModelId = source.VoiceReplyModelId;
