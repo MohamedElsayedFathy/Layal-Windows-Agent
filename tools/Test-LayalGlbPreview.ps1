@@ -21,6 +21,15 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class LayalGlbPreviewNative
+{
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool ShowWindow(IntPtr hwnd, int command);
+}
+'@
 
 $resolvedLogDirectory = [IO.Path]::GetFullPath($LogDirectory)
 New-Item -ItemType Directory -Path $resolvedLogDirectory -Force | Out-Null
@@ -140,11 +149,27 @@ function Read-PreviewHelpText {
     }
 }
 
+function Minimize-MainLayalWindow {
+    $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+    $mainWindowHandle = [IntPtr]::Zero
+    while ([DateTime]::UtcNow -lt $deadline -and $mainWindowHandle -eq [IntPtr]::Zero) {
+        $process.Refresh()
+        $mainWindowHandle = $process.MainWindowHandle
+        if ($mainWindowHandle -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 100 }
+    }
+    if ($mainWindowHandle -eq [IntPtr]::Zero) {
+        throw "Could not identify the main Layal window for isolated GLB preview acceptance."
+    }
+    [void][LayalGlbPreviewNative]::ShowWindow($mainWindowHandle, 6)
+    Start-Sleep -Milliseconds 500
+}
+
 try {
     $env:LAYAL_GLB_PREVIEW_TEST = "1"
     # Use an explicit command-line flag as well as the inherited environment variable so test mode
     # cannot be lost if the process is started under a differently-scoped environment.
     $process = Start-Process -FilePath $resolvedExe -ArgumentList "--glb-preview-test" -PassThru
+    Minimize-MainLayalWindow
     $deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
     $preview = $null
     while ((Get-Date) -lt $deadline -and $null -eq $preview) {
@@ -241,3 +266,4 @@ finally {
         $env:LAYAL_GLB_PREVIEW_TEST = $previousTestFlag
     }
 }
+
