@@ -666,71 +666,51 @@ for required in (
     if required not in localization_test_text:
         ERRORS.append(f"Bilingual localization test coverage is missing: {required}")
 
-# Voice-reply regression gate: protect the AI voice disclosure, secure Realtime endpoint, and auto-speech wiring.
-voice_service_path = ROOT / "src/Layal.Desktop/Services/LayalSpeechService.cs"
-voice_test_path = ROOT / "tests/Layal.Tests/LayalSpeechServiceTests.cs"
-voice_docs_path = ROOT / "docs/VOICE_REPLY_AR.md"
+# Local speech gate: Piper playback and Whisper transcription must remain local-only.
 voice_settings_path = ROOT / "src/Layal.Desktop/Models/UserSettings.cs"
-voice_service_text = voice_service_path.read_text(encoding="utf-8") if voice_service_path.is_file() else ""
-voice_test_text = voice_test_path.read_text(encoding="utf-8") if voice_test_path.is_file() else ""
-voice_docs_text = voice_docs_path.read_text(encoding="utf-8") if voice_docs_path.is_file() else ""
+voice_tests_path = ROOT / "tests/Layal.Tests/LocalVoiceServiceTests.cs"
 voice_settings_text = voice_settings_path.read_text(encoding="utf-8") if voice_settings_path.is_file() else ""
-if not voice_service_text:
-    ERRORS.append("Layal Realtime voice service is missing")
-else:
-    for required in (
-        'public const string DefaultModelId = "gpt-realtime-2.1-mini";',
-        '"response.output_audio.delta"',
-        '"audio/pcm"',
-        'ClientWebSocket',
-        'Array.Clear(pcm, 0, pcm.Length)',
-        'Read the user\'s supplied text aloud exactly as written',
-        'distinctly childlike and feminine',
-        'young-girl character',
-        'robotic, evenly timed cadence',
-        'vary naturally',
-    ):
-        if required not in voice_service_text:
-            ERRORS.append(f"Layal voice service is missing required behavior: {required}")
-if not voice_test_text:
-    ERRORS.append("Layal voice reply unit tests are missing")
+voice_tests_text = voice_tests_path.read_text(encoding="utf-8") if voice_tests_path.is_file() else ""
+if not voice_tests_text:
+    ERRORS.append("Local Piper/Whisper speech unit tests are missing")
 for required in (
-    "BuildRealtimeUri_RejectsRemoteHttpAndEmbeddedCredentials",
-    "PrepareTextForSpeech_RemovesMarkupAndLinksButKeepsVisibleText",
-    "SplitTextForSpeech_ProducesBoundedNonEmptyChunks",
-    "IsSupportedVoice_OnlyAcceptsKnownVoicePresets",
+    "LocalVoiceSpeechPreparationRemovesMarkupAndUrlsWithoutChangingVisibleWords",
+    "LocalVoiceCleanupDeletesOnlyOldGeneratedAudioAndTranscriptFiles",
+    "LocalVoiceCleanupFailsClosedWhenItCannotDeleteAStaleAudioArtifact",
+    "VoiceResourcesUseTheIsolatedLayalDataRoot",
 ):
-    if required not in voice_test_text:
-        ERRORS.append(f"Layal voice reply test coverage is missing: {required}")
+    if required not in voice_tests_text:
+        ERRORS.append(f"Local speech regression coverage is missing: {required}")
 for required in (
     'x:Name="VoiceReplyCheckbox"',
-    'x:Name="VoiceReplyModelInput"',
-    'x:Name="VoiceReplyVoiceSelector"',
     'x:Name="VoiceReplyDisclosureText"',
     'Click="TestVoiceReplyButton_Click"',
 ):
     if required not in ui_xaml:
-        ERRORS.append(f"Layal voice reply control is missing from MainWindow.xaml: {required}")
+        ERRORS.append(f"Local voice reply control is missing from MainWindow.xaml: {required}")
 for required in (
     "_localVoiceService.SpeakAsync(",
     "VoiceReplySettingChanged",
-    "VoiceReplyVoiceSelector_SelectionChanged",
     "TestVoiceReplyButton_Click",
     "VoiceRepliesEnabled",
 ):
     if required not in ui_code:
-        ERRORS.append(f"Layal voice reply runtime wiring is missing: {required}")
-for required in (
-    "VoiceRepliesEnabled { get; set; } = true",
-    'VoiceReplyModelId { get; set; } = "gpt-realtime-2.1-mini"',
-    'VoiceReplyId { get; set; } = "marin"',
-):
-    if required not in voice_settings_text:
-        ERRORS.append(f"Layal voice reply defaults are missing: {required}")
+        ERRORS.append(f"Local voice reply runtime wiring is missing: {required}")
+if "VoiceRepliesEnabled { get; set; } = true" not in voice_settings_text:
+    ERRORS.append("Local voice reply default is missing from UserSettings")
 if "synthetic voice is not a human recording" not in ui_code or "ليس صوت إنسان" not in ui_code:
     ERRORS.append("Local synthetic voice disclosure is missing")
-if not voice_docs_text:
-    ERRORS.append("Layal voice reply usage/privacy documentation is missing")
+for forbidden in (
+    "LayalSpeechService",
+    "VoiceConversationService",
+    "SpeechToTextService",
+    "gpt-realtime",
+    "audio/transcriptions",
+    "new ClientWebSocket",
+):
+    combined = ui_code + ui_xaml + voice_settings_text
+    if forbidden in combined:
+        ERRORS.append(f"Cloud speech dependency remains in the active app: {forbidden}")
 
 # The main cognitive paths must be owned by Layal; only optional local speech assets are retained.
 local_ai_path = ROOT / "src/Layal.Desktop/Services/LocalAiService.cs"
@@ -776,9 +756,6 @@ for forbidden in (
     "_localAiService.ChatStreamAsync(",
     "_aiClient.ChatStreamAsync(",
     "AppRuntime.AgentOrchestrator.RunTaskAsync(",
-    "new VoiceConversationService",
-    "_speechToText.TranscribeAsync(",
-    "_layalSpeech.SpeakAsync(",
 ):
     if forbidden in ui_code:
         ERRORS.append(f"Model-backed chat/task/voice fallback is still active: {forbidden}")
@@ -799,7 +776,6 @@ for required in (
     if required not in local_tests_text:
         ERRORS.append(f"Local voice regression test is missing: {required}")
 
-# The full-duplex Realtime implementation remains in the repository for reference/tests,
 # but the active conversation UI must not instantiate it or send microphone/text to it.
 voice_conversation_path = ROOT / "src/Layal.Desktop/Services/VoiceConversationService.cs"
 voice_conversation_test_path = ROOT / "tests/Layal.Tests/VoiceConversationServiceTests.cs"
