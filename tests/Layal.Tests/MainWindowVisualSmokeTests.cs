@@ -2279,7 +2279,7 @@ public sealed class MainWindowVisualSmokeTests
         }
         else
         {
-            Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window when a safe slot is available.");
+            Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
             Assert.IsTrue(mascot.Topmost, "ShowAgain must restore the persisted always-on-top preference when unobstructed.");
         }
 
