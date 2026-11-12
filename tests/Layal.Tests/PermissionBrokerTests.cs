@@ -49,6 +49,21 @@ public sealed class PermissionBrokerTests
     }
 
     [TestMethod]
+    public void ExternalDisclosuresAreClassifiedAndUnrecognizedToolsStayUnknown()
+    {
+        var empty = new JsonObject();
+        var openUrl = PermissionRequestClassifier.Create("open_url", JsonNode.Parse("""{"url":"https://example.test/"}""")!.AsObject(), false, "Open website", "details");
+        var memory = PermissionRequestClassifier.Create("search_memory", empty, false, "Share memory with AI", "details");
+        var apiCatalog = PermissionRequestClassifier.Create("list_app_api_connections", empty, false, "Share API catalog matches", "details");
+        var futureTool = PermissionRequestClassifier.Create("future_tool", empty, false, "Review future action", "details");
+
+        Assert.AreEqual(PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare, openUrl.Category);
+        Assert.AreEqual(PermissionActionCategory.Read | PermissionActionCategory.ExternalShare, memory.Category);
+        Assert.AreEqual(PermissionActionCategory.Read | PermissionActionCategory.ExternalShare, apiCatalog.Category);
+        Assert.AreEqual(PermissionActionCategory.Unknown, futureTool.Category);
+    }
+
+    [TestMethod]
     public async Task BrokerPassesExactPromptAndAuditsDecisionWithoutLoggingSensitiveDetails()
     {
         var broker = new PermissionBroker();
