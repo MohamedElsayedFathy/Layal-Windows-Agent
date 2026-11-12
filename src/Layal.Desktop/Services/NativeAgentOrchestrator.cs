@@ -67,6 +67,7 @@ public sealed class NativeAgentOrchestrator
         _history.Upsert(task);
         var verified = false;
         var intentName = "Unknown";
+        var outputs = new List<string>();
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -127,7 +128,6 @@ public sealed class NativeAgentOrchestrator
             foreach (var step in plan)
                 Log("Planned: " + step.Description);
 
-            var outputs = new List<string>();
             foreach (var step in plan)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -192,6 +192,18 @@ public sealed class NativeAgentOrchestrator
                 ? "Native task completed with the available result verified."
                 : "Native action was dispatched, but its external outcome still needs observation.");
             _learning.RecordExperience(intentName, task.Status, verified);
+            _history.Upsert(task);
+            return task;
+        }
+        catch (AgentToolExecutionException ex)
+        {
+            task.Status = "Failed";
+            var previousOutputs = outputs.Count == 0
+                ? string.Empty
+                : string.Join(Environment.NewLine + Environment.NewLine, outputs) + Environment.NewLine + Environment.NewLine;
+            task.Result = previousOutputs + ex.Output;
+            Log(ex.Message + " The task stopped; no dependent command was started.");
+            _learning.RecordExperience(intentName, task.Status, verified: false);
             _history.Upsert(task);
             return task;
         }
