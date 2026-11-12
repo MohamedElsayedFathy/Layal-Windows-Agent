@@ -1079,6 +1079,8 @@ public sealed class MainWindowVisualSmokeTests
 
     private static void AssertKeyboardAccessibility(MainWindow window, Button primaryButton, TextBox chatInput)
     {
+        AssertCaptionControlsFollowKeyboardTabOrder(window);
+        AssertScrollBarTemplateAccessibleNames();
         var focusStyle = Application.Current.TryFindResource("Layal.KeyboardFocusVisual") as Style;
         Assert.IsNotNull(focusStyle, "The shared keyboard-focus visual resource must be defined.");
         AssertStyleUsesKeyboardFocusRing(primaryButton.Style, focusStyle!, "Button");
@@ -1280,6 +1282,79 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
+    }
+
+    private static void AssertCaptionControlsFollowKeyboardTabOrder(MainWindow window)
+    {
+        var languageButton = window.FindName("LanguageButton") as Button
+            ?? throw new InvalidOperationException("LanguageButton was not found.");
+        var themeButton = window.FindName("ThemeButton") as Button
+            ?? throw new InvalidOperationException("ThemeButton was not found.");
+
+        Assert.IsTrue(languageButton.IsEnabled && languageButton.Focusable && languageButton.IsTabStop,
+            "The language button must be enabled and reachable by keyboard.");
+        Assert.IsTrue(themeButton.IsEnabled && themeButton.Focusable && themeButton.IsTabStop,
+            "The theme button must be enabled and reachable by keyboard.");
+
+        var previousFocus = Keyboard.FocusedElement as UIElement;
+        try
+        {
+            Assert.IsTrue(languageButton.Focus(), "WPF could not place keyboard focus on LanguageButton.");
+            Assert.AreSame(languageButton, Keyboard.FocusedElement,
+                "LanguageButton.Focus() must establish actual WPF keyboard focus before testing Tab.");
+
+            Assert.IsTrue(languageButton.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)),
+                "Tab navigation must advance from LanguageButton.");
+            Assert.AreSame(themeButton, Keyboard.FocusedElement,
+                "Tab from LanguageButton must focus the adjacent ThemeButton.");
+
+            Assert.IsTrue(themeButton.MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous)),
+                "Reverse Tab navigation must move back from ThemeButton.");
+            Assert.AreSame(languageButton, Keyboard.FocusedElement,
+                "Shift+Tab from ThemeButton must return to LanguageButton.");
+        }
+        finally
+        {
+            if (previousFocus is not null && previousFocus.IsVisible && previousFocus.IsEnabled)
+                previousFocus.Focus();
+        }
+    }
+
+    private static void AssertScrollBarTemplateAccessibleNames()
+    {
+        var scrollBarStyle = Application.Current.TryFindResource(typeof(ScrollBar)) as Style
+            ?? throw new InvalidOperationException("The application ScrollBar style was not found.");
+        var scrollBar = new ScrollBar
+        {
+            Orientation = Orientation.Vertical,
+            Minimum = 0,
+            Maximum = 100,
+            ViewportSize = 10,
+            Width = 10,
+            Height = 160,
+            Style = scrollBarStyle
+        };
+
+        scrollBar.ApplyTemplate();
+        scrollBar.Measure(new Size(10, 160));
+        scrollBar.Arrange(new Rect(0, 0, 10, 160));
+        scrollBar.UpdateLayout();
+
+        var track = scrollBar.Template?.FindName("PART_Track", scrollBar) as Track
+            ?? throw new InvalidOperationException("The themed ScrollBar template did not create PART_Track.");
+        var pageUp = track.DecreaseRepeatButton as RepeatButton
+            ?? throw new InvalidOperationException("The ScrollBar page-up control was not created.");
+        var pageDown = track.IncreaseRepeatButton as RepeatButton
+            ?? throw new InvalidOperationException("The ScrollBar page-down control was not created.");
+
+        Assert.AreEqual("تمرير الصفحة لأعلى / Scroll page up", AutomationProperties.GetName(pageUp),
+            "The ScrollBar page-up control must expose a useful bilingual UI Automation name.");
+        Assert.AreEqual("تمرير الصفحة لأسفل / Scroll page down", AutomationProperties.GetName(pageDown),
+            "The ScrollBar page-down control must expose a useful bilingual UI Automation name.");
+        Assert.IsFalse(pageUp.Focusable || pageUp.IsTabStop,
+            "The scroll track page-up primitive must remain outside keyboard Tab order.");
+        Assert.IsFalse(pageDown.Focusable || pageDown.IsTabStop,
+            "The scroll track page-down primitive must remain outside keyboard Tab order.");
     }
 
     private static void AssertAccessibleStatusRegions(MainWindow window)
