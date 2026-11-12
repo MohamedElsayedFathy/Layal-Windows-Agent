@@ -176,9 +176,6 @@ public sealed class WorkspaceHubWindow : Window
         AutomationProperties.SetHelpText(_artifactList, isArabic
             ? "حدد ملفًا واحدًا ثم انقله إلى سلة محذوفات Windows. لن يُحذف شيء قبل التأكيد."
             : "Select one file to move it to the Windows Recycle Bin. Nothing is deleted before confirmation.");
-        _artifactList.SelectionChanged += (_, _) =>
-            _deleteArtifactButton.IsEnabled = _items.SelectedItem is WorkspaceEntry { Kind: "task" } &&
-                _artifactList.SelectedItem is string;
         artifactsPanel.Children.Add(_artifactList);
 
         _deleteArtifactButton = new Button
@@ -196,6 +193,9 @@ public sealed class WorkspaceHubWindow : Window
             : "Verifies that the file remains inside LayalWorkspace and is not reached through a reparse point, then asks for confirmation.");
         _deleteArtifactButton.Click += DeleteArtifactButton_Click;
         artifactsPanel.Children.Add(_deleteArtifactButton);
+        _artifactList.SelectionChanged += (_, _) =>
+            _deleteArtifactButton.IsEnabled = _items.SelectedItem is WorkspaceEntry { Kind: "task" } &&
+                _artifactList.SelectedItem is string;
         Grid.SetRow(artifactsPanel, 1); right.Children.Add(artifactsPanel);
 
         var note = new TextBlock
