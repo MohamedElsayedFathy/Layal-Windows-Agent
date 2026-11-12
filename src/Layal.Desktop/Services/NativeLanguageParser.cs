@@ -36,10 +36,10 @@ public sealed class NativeLanguageParser
         @"^\s*(?:ابحث|ابحثي|دور|دوري)\s+(?:عن|على)\s+(?<query>.+?)\s*$|^\s*search\s+for\s+(?<query>.+?)\s*$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex OpenUrlPattern = new(
-        @"(?:افتح|افتحي|open)\s+(?<url>https?://[^\s]+)",
+        @"^\s*(?:افتح|افتحي|open)\s+(?<url>https?://[^\s]+)\s*$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    private static readonly Regex ListDirectoryPattern = new(
-        @"(?:في|داخل|بداخل|under)\s+(?<directory>[A-Za-z0-9_.\\/-]+)\s*$",
+    private static readonly Regex ListFilesPattern = new(
+        @"^\s*(?:اعرض\s+الملفات|اعرضي\s+الملفات|قائمة\s+الملفات|قائمه\s+الملفات|list\s+files|show\s+files)(?:\s+(?:في|داخل|بداخل|under)\s+(?<directory>[A-Za-z0-9_.\\/-]+))?\s*$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex BuildPattern = new(
         @"^\s*(?:ابني|ابنيلي|build)\s+(?<path>[^\s]+\.(?:sln|csproj))\s*$",
@@ -122,10 +122,12 @@ public sealed class NativeLanguageParser
                 Title: saveMemory.Groups["title"].Value.Trim(),
                 Content: saveMemory.Groups["content"].Value.Trim());
 
-        if (ContainsAny(normalized, "اعرض الملفات", "اعرضي الملفات", "قائمه الملفات", "قائمة الملفات", "list files", "show files"))
+        var listFiles = ListFilesPattern.Match(original);
+        if (listFiles.Success)
         {
-            var directoryMatch = ListDirectoryPattern.Match(original);
-            var directory = directoryMatch.Success ? directoryMatch.Groups["directory"].Value.Trim() : string.Empty;
+            var directory = listFiles.Groups["directory"].Success
+                ? listFiles.Groups["directory"].Value.Trim()
+                : string.Empty;
             return new NativeCommand(NativeIntent.ListWorkspaceFiles, original, Directory: directory);
         }
 
@@ -136,15 +138,26 @@ public sealed class NativeLanguageParser
         return new NativeCommand(NativeIntent.Unknown, original);
     }
 
-    private static string? ResolveProgram(string normalized)
-    {
-        if (ContainsAny(normalized, "افتحي الحاسبه", "افتح الحاسبه", "افتح الاله الحاسبه", "calculator")) return "calculator";
-        if (ContainsAny(normalized, "افتحي المفكره", "افتح المفكره", "notepad")) return "notepad";
-        if (ContainsAny(normalized, "افتحي الرسام", "افتح الرسام", "paint")) return "paint";
-        if (ContainsAny(normalized, "افتحي مستكشف الملفات", "افتح مستكشف الملفات", "file explorer")) return "file_explorer";
-        if (ContainsAny(normalized, "افتحي مدير المهام", "افتح مدير المهام", "task manager")) return "task_manager";
-        return null;
-    }
+    private static string? ResolveProgram(string normalized) =>
+        normalized switch
+        {
+            "افتحي الحاسبه" or "افتح الحاسبه" or "افتحي الاله الحاسبه" or "افتح الاله الحاسبه" or
+                "شغلي الحاسبه" or "شغل الحاسبه" or "open calculator" or "launch calculator" or "start calculator"
+                => "calculator",
+            "افتحي المفكره" or "افتح المفكره" or "شغلي المفكره" or "شغل المفكره" or
+                "open notepad" or "launch notepad" or "start notepad"
+                => "notepad",
+            "افتحي الرسام" or "افتح الرسام" or "شغلي الرسام" or "شغل الرسام" or
+                "open paint" or "launch paint" or "start paint"
+                => "paint",
+            "افتحي مستكشف الملفات" or "افتح مستكشف الملفات" or
+                "open file explorer" or "launch file explorer" or "start file explorer"
+                => "file_explorer",
+            "افتحي مدير المهام" or "افتح مدير المهام" or
+                "open task manager" or "launch task manager" or "start task manager"
+                => "task_manager",
+            _ => null
+        };
 
     private static bool IsGreeting(string normalized)
     {
