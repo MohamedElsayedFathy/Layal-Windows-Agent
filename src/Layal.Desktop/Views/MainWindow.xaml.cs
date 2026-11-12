@@ -85,6 +85,8 @@ public partial class MainWindow : Window
     private string? _pendingDocumentNotice;
     private readonly MicrophoneCaptureService _microphoneCapture = new();
     private readonly LocalVoiceService _localVoiceService = new();
+    // Used only when the user explicitly selects Test external API; never used by chat or task planning.
+    private readonly OpenAiCompatibleClient _providerConnectionTester = new();
     private bool _localAiReady = true;
     private bool _localVoiceReady;
     private bool _localVoiceSetupAttempted;
@@ -1497,7 +1499,7 @@ public partial class MainWindow : Window
         HomeHeading.Text = ar ? "أهلًا، أنا ليال" : "Hello, I'm Layal";
         HomeDescription.Text = ar
             ? "هذه النسخة هي أساس Windows الأصلي. اربط نموذجًا متوافقًا من الإعدادات لتفعيل المحادثة الحقيقية."
-            : "This is the native Windows foundation. Configure a compatible model provider to enable real AI chat.";
+            : "Layal’s native text chat and supported tasks work without an external model. Optional API profiles are tested only when you explicitly request it.";
         ClockSectionTitle.Text = ar ? "الوقت والتاريخ" : "Time & date";
         WeatherSectionTitle.Text = ar ? "الطقس" : "Weather";
         RefreshWeatherButton.Content = ar ? "تحديث الطقس" : "Refresh weather";
@@ -1524,8 +1526,8 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(RefreshWeatherButton, ar ? "تحديث حالة الطقس" : "Refresh weather");
         UpdateClockDisplay();
         UpdateWeatherDisplay();
-        CardAiTitle.Text = ar ? "اتصال الذكاء الاصطناعي" : "AI connection";
-        CardAiHint.Text = ar ? "أدخل عنوان API والمفتاح من الإعدادات" : "Configure an API endpoint and key in Settings.";
+        CardAiTitle.Text = ar ? "نواة ليال المستقلة" : "Layal native core";
+        CardAiHint.Text = ar ? "المحادثة والمهام تعملان دون نموذج خارجي." : "Chat and tasks work without an external model.";
         CardMascotTitle.Text = ar ? "الشخصية العائمة" : "Floating mascot";
         CardMascotValue.Text = ar ? "نافذة Windows أصلية" : "Native Windows window";
         CardMascotHint.Text = ar ? "اسحب ليال على سطح المكتب، وانقر مرتين لفتح الواجهة." : "Drag Layal on the desktop; double-click to open the main UI.";
@@ -1537,7 +1539,7 @@ public partial class MainWindow : Window
         CardSkillsHint.Text = ar ? "فحص SKILL.md؛ لا تُشغَّل سكربتات المهارة." : "SKILL.md validation; skill scripts are never executed.";
         OpenNotepadButton.Content = ar ? "فتح المفكرة (اختبار فعلي)" : "Launch Notepad (real test)";
         GoChatButton.Content = ar ? "فتح المحادثة" : "Open chat";
-        GoSettingsButton.Content = ar ? "إعداد اتصال AI" : "Configure AI";
+        GoSettingsButton.Content = ar ? "إعدادات الاتصال" : "Connection settings";
         HomeCaveat.Text = ar
             ? "الردود النصية والتخطيط والمهام والتعلم من الاختصارات تعمل داخل نواة ليال المحلية دون نموذج ذكاء اصطناعي خارجي. الصوت المحلي اختياري ويحتاج موارد Whisper/Piper فقط."
             : "Text replies, planning, tasks, and alias learning run inside Layal's native core without an external AI model. Optional local speech requires Whisper/Piper resources only.";
@@ -1546,8 +1548,8 @@ public partial class MainWindow : Window
         ChatNotice.Text = ar
             ? "ليال ترد وتخطط وتنفذ من نواتها المحلية؛ لا يُستدعى نموذج محادثة أو مزود سحابي."
             : "Layal replies, plans, and executes through her native local core; no chat model or cloud provider is called.";
-        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال المزود" : "Provider connection status");
-        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة إعداد الاتصال" : "Provider configuration status");
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اختبار اتصال API الاختياري" : "Optional API test status");
+        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة إعداد ملف اختبار API الاختياري" : "Optional API test profile status");
         AutomationProperties.SetName(HomeResult, ar ? "نتيجة الإجراء" : "Action result");
         AutomationProperties.SetName(ChatCopyStatus, ar ? "حالة النسخ" : "Copy status");
         AutomationProperties.SetName(TaskCopyStatus, ar ? "حالة نسخ النتيجة" : "Result copy status");
@@ -1886,7 +1888,7 @@ public partial class MainWindow : Window
         ProviderSectionTitle.Text = ar ? "اختبار اتصال API خارجي (لا يدخل في تفكير ليال أو ردودها)" : "External API connectivity test (not used by Layal for reasoning or replies)";
         ArabicLanguageButton.Content = "العربية";
         EnglishLanguageButton.Content = "English";
-        ProviderSectionTitle.Text = ar ? "محرك الذكاء الاصطناعي (بروتوكول OpenAI-compatible)" : "AI model endpoint (OpenAI-compatible protocol)";
+        ProviderSectionTitle.Text = ar ? "اختبار اتصال API خارجي (لا يدخل في تفكير ليال أو ردودها)" : "External API connectivity test (not used for chat, reasoning, or task execution)";
         EndpointLabel.Text = ar ? "عنوان API الأساسي (Base URL)" : "API base URL";
         ModelLabel.Text = ar ? "معرّف النموذج" : "Model ID";
         ApiKeyLabel.Text = ar ? "مفتاح API / Unified API Key" : "API key / Unified API key";
@@ -3964,7 +3966,7 @@ public partial class MainWindow : Window
         ProviderActionStatus.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
         try
         {
-            var result = await _aiClient.ProbeAsync(baseUrl, key);
+            var result = await _providerConnectionTester.ProbeAsync(baseUrl, key);
             _providerTestPassed = true;
             _testedBaseUrl = baseUrl.TrimEnd('/');
             _testedModelId = ModelInput.Text.Trim();
