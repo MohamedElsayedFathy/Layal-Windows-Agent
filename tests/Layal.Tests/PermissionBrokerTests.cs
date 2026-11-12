@@ -87,6 +87,7 @@ public sealed class PermissionBrokerTests
         Assert.AreEqual("secret document body", receivedDetails);
         Assert.AreEqual(2, events.Count);
         StringAssert.Contains(events[0], "Permission requested");
+        StringAssert.Contains(events[0], "time=");
         StringAssert.Contains(events[0], "actor=local user");
         StringAssert.Contains(events[1], "Permission approved");
         StringAssert.Contains(events[1], "target=draft.md");
