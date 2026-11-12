@@ -1143,16 +1143,16 @@
                                    Foreground="{DynamicResource Layal.Success}" Margin="4,0,4,8"
                                    AutomationProperties.LiveSetting="Polite"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
-                        <TextBlock x:Name="LocalAiSectionTitle" Text="الشات والصوت المحليان (الافتراضي)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
-                        <CheckBox x:Name="UseLocalAiCheckbox" Content="استخدام الذكاء الاصطناعي المحلي دون مفتاح API"
+                        <TextBlock x:Name="LocalAiSectionTitle" Text="نواة ليال المستقلة والصوت الاختياري" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <CheckBox x:Name="UseLocalAiCheckbox" Content="استخدام موارد الصوت المحلية بدل الصوت السحابي"
                                   IsChecked="True" Checked="LocalAiModeSettingChanged" Unchecked="LocalAiModeSettingChanged"
-                                  AutomationProperties.Name="وضع الذكاء الاصطناعي المحلي"
-                                  AutomationProperties.HelpText="الشات وتحويل الكلام والنطق يعملون على هذا الجهاز. ألغِ التحديد لاستخدام مزود سحابي تم إعداده في الأسفل."/>
+                                  AutomationProperties.Name="وضع الصوت المحلي"
+                                  AutomationProperties.HelpText="الردود النصية والمهام تستخدم نواة ليال المستقلة دائمًا. هذا الخيار يحدد فقط معالجة الميكروفون والصوت محليًا بدلًا من مزود صوت سحابي."/>
                         <TextBlock x:Name="LocalAiDescription"
-                                   Text="أول مرة فقط: بعد موافقتك، سيُنزل Layal محرك Ollama ونموذج الشات وموارد الصوت المحلي. يحتاج الإعداد إنترنت ومساحة فارغة؛ بعد التنزيل تتم معالجة الرسائل والصوت على جهازك."
+                                   Text="الردود النصية وتنفيذ المهام يعملان دون تنزيل أي نموذج. يمكنك اختياريًا تنزيل Whisper وPiper للصوت فقط؛ لن يُستخدما للتفكير أو التخطيط أو اتخاذ القرارات."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,5"/>
-                        <Button x:Name="SetupLocalAiButton" Content="تجهيز الشات والصوت المحليين" Click="SetupLocalAiButton_Click"
-                                HorizontalAlignment="Left" AutomationProperties.Name="تجهيز الشات والصوت المحليين"/>
+                        <Button x:Name="SetupLocalAiButton" Content="تجهيز الصوت المحلي فقط" Click="SetupLocalAiButton_Click"
+                                HorizontalAlignment="Left" AutomationProperties.Name="تجهيز الصوت المحلي فقط"/>
                         <Button x:Name="CancelLocalAiSetupButton" Content="إلغاء التنزيل" Click="CancelLocalAiSetupButton_Click"
                                 HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,6,0,0"
                                 AutomationProperties.Name="إلغاء تنزيل موارد الذكاء الاصطناعي المحلي"
@@ -1161,7 +1161,7 @@
                                      Visibility="Collapsed" AutomationProperties.Name="تقدم إعداد الذكاء الاصطناعي المحلي"/>
                         <TextBlock x:Name="LocalAiStatusText" Text="لم يُنزّل أي نموذج بعد؛ لن يبدأ التنزيل قبل موافقتك."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,8"
-                                   AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة الشات والصوت المحليين"/>
+                                   AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة نواة ليال والصوت المحلي"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="ProviderSectionTitle" Text="مزود سحابي اختياري (OpenAI-compatible)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
