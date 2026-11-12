@@ -883,6 +883,14 @@ public sealed class MainWindowVisualSmokeTests
                 }
                 if (tabNames[index] == "chat")
                 {
+                    var chatSectionEyebrow = window.FindName("ChatSectionEyebrow") as TextBlock
+                        ?? throw new InvalidOperationException("ChatSectionEyebrow was not found.");
+                    Assert.AreEqual(language == "ar" ? "LAYAL / مساعد سطح المكتب" : "LAYAL / DESKTOP ASSISTANT",
+                        BidiTextNormalizer.StripDirectionalControls(chatSectionEyebrow.Text),
+                        $"Chat section eyebrow localization is incorrect for {theme}/{language}.");
+                    Assert.AreEqual(language == "ar" ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
+                        chatSectionEyebrow.FlowDirection,
+                        $"Chat section eyebrow direction is incorrect for {theme}/{language}.");
                     var welcomeEyebrow = window.FindName("ChatWelcomeEyebrow") as TextBlock
                         ?? throw new InvalidOperationException("ChatWelcomeEyebrow was not found.");
                     var welcomeTitle = window.FindName("ChatWelcomeTitle") as TextBlock
