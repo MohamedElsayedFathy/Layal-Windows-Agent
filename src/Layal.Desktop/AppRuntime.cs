@@ -24,7 +24,6 @@ public static class AppRuntime
     public static AgentToolExecutor AgentToolExecutor { get; set; } = null!;
     public static ApiConnectionService ApiConnectionService { get; set; } = null!;
     public static BrowserAutomationService BrowserAutomationService { get; set; } = null!;
-    public static AgentOrchestrator AgentOrchestrator { get; set; } = null!;
     public static NativeLearningService NativeLearningService { get; set; } = null!;
     public static NativeLanguageParser NativeLanguageParser { get; set; } = null!;
     public static NativeConversationEngine NativeConversationEngine { get; set; } = null!;
