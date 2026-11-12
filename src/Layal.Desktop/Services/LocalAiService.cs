@@ -39,7 +39,8 @@ public sealed class LocalAiService : IAgentModelClient
     {
         ConnectTimeout = TimeSpan.FromSeconds(4),
         UseProxy = false,
-        Proxy = null
+        Proxy = null,
+        AllowAutoRedirect = false
     }) { Timeout = Timeout.InfiniteTimeSpan };
 
     private static readonly HttpClient DownloadClient = new(new SocketsHttpHandler
