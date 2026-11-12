@@ -1036,6 +1036,10 @@ public sealed class MainWindowVisualSmokeTests
                         ?? throw new InvalidOperationException("ChatWelcomeEyebrow was not found.");
                     var emptyDescription = window.FindName("ChatEmptyStateText") as TextBlock
                         ?? throw new InvalidOperationException("ChatEmptyStateText was not found.");
+                    var mainTabsViewport = window.FindName("MainTabs") as TabControl
+                        ?? throw new InvalidOperationException("MainTabs was not found.");
+                    Assert.IsTrue(mainTabsViewport.ActualHeight < 560,
+                        $"The compact acceptance window must exercise the compact tab viewport; actual height={mainTabsViewport.ActualHeight:0.0} DIPs.");
                     Assert.AreEqual(Visibility.Collapsed, weatherCard.Visibility,
                         "The compact chat layout must free vertical space by hiding its secondary weather card.");
                     Assert.AreEqual(Visibility.Visible, welcomePanel.Visibility,
