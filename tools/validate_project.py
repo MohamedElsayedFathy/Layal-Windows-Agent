@@ -778,16 +778,29 @@ for required in (
 ):
     if required not in ui_xaml:
         ERRORS.append(f"Local AI setup UI is missing: {required}")
+# Layal's text conversation and task engine must be model-independent.
+# Legacy Ollama code may remain for migration/testing, but the main chat/task UI
+# must route through the native core and must not call a model completion API.
 for required in (
-    'EnsureLocalAiSetupAsync',
-    '_localAiService.ChatStreamAsync',
-    '_localVoiceService.TranscribeAsync',
-    '_localVoiceService.SpeakAsync',
-    'LocalVoiceConversationButton_ClickAsync',
+    'AppRuntime.NativeConversationEngine.Respond(',
+    'AppRuntime.NativeAgentOrchestrator.RunTaskAsync(',
     'LocalAiModeSettingChanged',
 ):
     if required not in ui_code:
-        ERRORS.append(f"Local-first chat/voice UI wiring is missing: {required}")
+        ERRORS.append(f"Native cognitive-core UI wiring is missing: {required}")
+for forbidden in (
+    '_localAiService.ChatStreamAsync(',
+    '_aiClient.ChatStreamAsync(',
+    'AppRuntime.AgentOrchestrator.RunTaskAsync(',
+):
+    if forbidden in ui_code:
+        ERRORS.append(f"Legacy model-backed chat/task path is still active: {forbidden}")
+if 'EnsureLocalAiSetupAsync' not in ui_code:
+    ERRORS.append("Optional local speech setup wiring is missing")
+if '_localVoiceService.TranscribeAsync' not in ui_code or '_localVoiceService.SpeakAsync' not in ui_code:
+    ERRORS.append("Local speech resource execution is missing")
+if 'LocalVoiceConversationButton_ClickAsync' not in ui_code:
+    ERRORS.append("Local speech conversation UI wiring is missing")
 if not local_tests_text:
     ERRORS.append("Local AI service unit tests are missing")
 for required in (
@@ -963,10 +976,14 @@ for required in (
 ):
     if required not in camera_code_text:
         ERRORS.append(f"Camera/network discovery flow is missing: {required}")
-if "SpeakAutomaticObservations" not in camera_code_text or "SpeakAutomaticObservations == true" not in ui_code:
-    ERRORS.append("Spoken camera observations must remain an explicit opt-in")
-if "ScanSurroundingsRequested" not in ui_code or "CameraVisionWindow_ScanSurroundingsRequested" not in ui_code:
-    ERRORS.append("Main chat does not route one-shot surroundings scans to image analysis")
+# The native-core milestone deliberately blocks model-backed image analysis until
+# Layal has an owned vision implementation. Do not silently fall back to a provider.
+if "Computer vision is not yet implemented in Layal's independent core." not in ui_code:
+    ERRORS.append("Native vision must clearly report that model-free image analysis is not implemented")
+if "PrivacyShieldPolicy.ClearCapturedBuffer(imageBytes)" not in ui_code:
+    ERRORS.append("Blocked native image analysis must clear the captured image buffer")
+if "AnalyzeVisionImageCoreAsync(" in ui_code or "_aiClient.AnalyzeImageAsync(" in ui_code:
+    ERRORS.append("Main chat still contains a model-backed image-analysis execution path")
 
 
 # Home dashboard clock/date and configurable current weather.
