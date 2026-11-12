@@ -811,35 +811,31 @@ for required in (
     if required not in local_tests_text:
         ERRORS.append(f"Local AI regression test is missing: {required}")
 
-# Protect the full-duplex voice conversation path without coupling it to a replacement chat framework.
+# The full-duplex Realtime implementation remains in the repository for reference/tests,
+# but the active conversation UI must not instantiate it or send microphone/text to it.
 voice_conversation_path = ROOT / "src/Layal.Desktop/Services/VoiceConversationService.cs"
 voice_conversation_test_path = ROOT / "tests/Layal.Tests/VoiceConversationServiceTests.cs"
 voice_conversation_text = voice_conversation_path.read_text(encoding="utf-8") if voice_conversation_path.is_file() else ""
 voice_conversation_test_text = voice_conversation_test_path.read_text(encoding="utf-8") if voice_conversation_test_path.is_file() else ""
-if not voice_conversation_text:
-    ERRORS.append("Full-duplex Realtime voice conversation service is missing")
-for required in (
-    'input_audio_buffer.append',
-    'input_audio_buffer.speech_started',
-    'conversation.item.truncate',
-    'audio_end_ms = audioEndMs',
-    'interrupt_response = true',
-    'create_response = true',
-    'new WaveIn',
-    'new BufferedWaveProvider',
-    'RaiseTranscript("user", userTranscript)',
-    'RaiseTranscript("assistant", responseTranscript)',
+if not voice_conversation_text or not voice_conversation_test_text:
+    ERRORS.append("Archived Realtime voice implementation/tests are missing")
+for forbidden in (
+    "new VoiceConversationService()",
+    "service.RunAsync(",
+    "_speechToText.TranscribeAsync(",
+    "_layalSpeech.SpeakAsync(",
 ):
-    if required not in voice_conversation_text:
-        ERRORS.append(f"Live voice conversation behavior is missing: {required}")
-if not voice_conversation_test_text:
-    ERRORS.append("Live voice conversation configuration tests are missing")
+    if forbidden in ui_code:
+        ERRORS.append(f"Cloud/model-backed speech fallback is still active: {forbidden}")
 for required in (
-    "BuildSessionUpdate_EnablesServerVadAndAutomaticInterruption",
-    "BuildSessionUpdate_RejectsBlankModelAndUnsupportedVoice",
+    "VoiceConversationButton_Click",
+    "LocalVoiceConversationButton_ClickAsync",
+    "await LocalVoiceConversationButton_ClickAsync();",
+    "_localVoiceService.TranscribeAsync(",
+    "_localVoiceService.SpeakAsync(",
 ):
-    if required not in voice_conversation_test_text:
-        ERRORS.append(f"Live voice conversation regression coverage is missing: {required}")
+    if required not in ui_code:
+        ERRORS.append(f"Native local speech wiring is missing: {required}")
 for required in (
     'x:Name="VoiceConversationButton"',
     'x:Name="VoiceConversationIndicator"',
@@ -847,17 +843,7 @@ for required in (
     'x:Name="VoiceConversationMicStatus"',
 ):
     if required not in ui_xaml:
-        ERRORS.append(f"Live voice conversation UI is missing: {required}")
-for required in (
-    "VoiceConversationButton_Click",
-    "VoiceConversationService_StatusChanged",
-    "VoiceConversationService_TranscriptReceived",
-    "VoiceConversationService.BuildSessionUpdate",
-    "_voiceConversationCancellation?.Cancel()",
-    "VoiceConversationStatusMessage",
-):
-    if required not in ui_code and required != "VoiceConversationService.BuildSessionUpdate":
-        ERRORS.append(f"Live voice conversation UI wiring is missing: {required}")
+        ERRORS.append(f"Local voice conversation UI is missing: {required}")
 
 # Vision: user-selected images and opt-in still-frame camera observation.
 vision_client_path = ROOT / "src/Layal.Desktop/Services/OpenAiCompatibleClient.cs"
