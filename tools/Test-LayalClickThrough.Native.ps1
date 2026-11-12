@@ -61,6 +61,7 @@ public static class LayalNativeInput
     [DllImport("user32.dll", SetLastError=true)]
     private static extern uint SendInput(uint count, Input[] inputs, int size);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll", SetLastError=true)] private static extern bool ShowWindow(IntPtr hwnd, int command);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
     [DllImport("user32.dll", SetLastError=true)] private static extern uint GetDpiForWindow(IntPtr hwnd);
 
@@ -68,6 +69,7 @@ public static class LayalNativeInput
     public static uint ProcessIdForWindow(IntPtr hwnd) { GetWindowThreadProcessId(hwnd, out uint pid); return pid; }
     public static double DpiScaleForWindow(IntPtr hwnd) { uint dpi = GetDpiForWindow(hwnd); return dpi == 0 ? 1.0 : dpi / 96.0; }
     public static bool Visible(IntPtr hwnd) => IsWindowVisible(hwnd);
+    public static bool MinimizeWindow(IntPtr hwnd) => hwnd != IntPtr.Zero && ShowWindow(hwnd, 6);
     public static long ExtendedStyle(IntPtr hwnd) => IntPtr.Size == 8 ? GetWindowLongPtr64(hwnd, -20).ToInt64() : GetWindowLong32(hwnd, -20);
     public static string DescribeWindowAt(int x, int y) {
         IntPtr hwnd = WindowFromPoint(new NativePoint { X=x, Y=y });
@@ -384,6 +386,19 @@ try {
         }
 
     if (-not $ClickThroughOnly) {
+        # Drag acceptance is about the independent mascot window. Minimize the main
+        # application surface so collision avoidance does not intentionally place the
+        # mascot behind a full-screen window between drag cycles.
+        $script:AppProcess.Refresh()
+        $mainWindowHwnd = $script:AppProcess.MainWindowHandle
+        if ($mainWindowHwnd -eq [IntPtr]::Zero) {
+            throw "Could not identify the main Layal window before the drag acceptance cycles."
+        }
+        if (-not [LayalNativeInput]::MinimizeWindow($mainWindowHwnd)) {
+            throw "Could not minimize the main Layal window before mascot drag acceptance."
+        }
+        Pump-Messages 500
+
         $dragVectors = @(@{X=42;Y=28}, @{X=-31;Y=21}, @{X=27;Y=-26})
         for ($dragIndex=0; $dragIndex -lt $dragVectors.Count; $dragIndex++) {
             $iteration=$dragIndex+1
