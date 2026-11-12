@@ -776,25 +776,30 @@ for required in (
     if required not in local_tests_text:
         ERRORS.append(f"Local voice regression test is missing: {required}")
 
-# but the active conversation UI must not instantiate it or send microphone/text to it.
-voice_conversation_path = ROOT / "src/Layal.Desktop/Services/VoiceConversationService.cs"
-voice_conversation_test_path = ROOT / "tests/Layal.Tests/VoiceConversationServiceTests.cs"
-voice_conversation_text = voice_conversation_path.read_text(encoding="utf-8") if voice_conversation_path.is_file() else ""
-voice_conversation_test_text = voice_conversation_test_path.read_text(encoding="utf-8") if voice_conversation_test_path.is_file() else ""
-if not voice_conversation_text or not voice_conversation_test_text:
-    ERRORS.append("Archived Realtime voice implementation/tests are missing")
-for forbidden in (
-    "new VoiceConversationService()",
-    "service.RunAsync(",
-    "_speechToText.TranscribeAsync(",
-    "_layalSpeech.SpeakAsync(",
+# Microphone capture is a local-only primitive; transcription and playback live in LocalVoiceService.
+microphone_capture_path = ROOT / "src/Layal.Desktop/Services/MicrophoneCaptureService.cs"
+microphone_capture_text = microphone_capture_path.read_text(encoding="utf-8") if microphone_capture_path.is_file() else ""
+if not microphone_capture_text:
+    ERRORS.append("Local microphone capture service is missing")
+for required in (
+    "public sealed class MicrophoneCaptureService",
+    "MaximumRecordingSeconds = 120",
+    "StartRecording(",
+    "StopRecordingAsync(",
+    "CancelRecording(",
+    "WaveIn",
 ):
-    if forbidden in ui_code:
-        ERRORS.append(f"Cloud/model-backed speech fallback is still active: {forbidden}")
+    if required not in microphone_capture_text:
+        ERRORS.append(f"Local microphone capture behavior is missing: {required}")
+for forbidden in ("HttpClient", "TranscribeAsync", "audio/transcriptions", "ClientWebSocket", "SendAsync("):
+    if forbidden in microphone_capture_text:
+        ERRORS.append(f"Microphone capture service must not perform network speech processing: {forbidden}")
 for required in (
     "VoiceConversationButton_Click",
     "LocalVoiceConversationButton_ClickAsync",
     "await LocalVoiceConversationButton_ClickAsync();",
+    "_microphoneCapture.StartRecording(",
+    "_microphoneCapture.StopRecordingAsync(",
     "_localVoiceService.TranscribeAsync(",
     "_localVoiceService.SpeakAsync(",
 ):
