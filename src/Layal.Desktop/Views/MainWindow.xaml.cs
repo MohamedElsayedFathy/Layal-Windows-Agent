@@ -1629,23 +1629,6 @@ public partial class MainWindow : Window
             : "Layal's synthetic voice is not a human recording. Speech is generated locally with Piper; reply text is not sent to a voice service.";
         TestVoiceReplyButton.Content = ar ? "تجربة صوت ليال" : "Test Layal voice";
         TestVoiceReplyButton.ToolTip = ar ? "يجرب نطق Piper المحلي فقط؛ لا يُرسل نص إلى أي خدمة." : "Previews local Piper speech only; no text is sent to a service.";
-        foreach (ComboBoxItem voiceItem in VoiceReplyVoiceSelector.Items)
-        {
-            voiceItem.Content = (voiceItem.Tag?.ToString() ?? string.Empty).ToLowerInvariant() switch
-            {
-                "marin" => ar ? "Marin — موصى به" : "Marin — recommended",
-                "cedar" => ar ? "Cedar — موصى به" : "Cedar — recommended",
-                "alloy" => "Alloy",
-                "ash" => "Ash",
-                "ballad" => "Ballad",
-                "coral" => "Coral",
-                "echo" => "Echo",
-                "sage" => "Sage",
-                "shimmer" => "Shimmer",
-                "verse" => "Verse",
-                _ => voiceItem.Tag?.ToString() ?? string.Empty
-            };
-        }
         AssistantPersonaLabel.Text = ar ? "أسلوب صياغة الرد" : "Text response style";
         AssistantPersonaDisclosure.Text = ar
             ? "يتحكم في صياغة النص فقط. اختيارات نبرة الإلقاء والصوت منفصلة عنه، ولا تتغير الهوية أو حدود الأمان أو الصلاحيات."
