@@ -191,6 +191,10 @@ public sealed class NativeAgentOrchestrator
             Log(task.Status == "Completed"
                 ? "Native task completed with the available result verified."
                 : "Native action was dispatched, but its external outcome still needs observation.");
+            // A tool dispatch is not proof that an external application or website
+            // reached the requested state. Keep that outcome explicitly unverified.
+            if (plan.Any(step => step.RequiresExternalOutcomeCheck))
+                verified = false;
             _learning.RecordExperience(intentName, task.Status, verified);
             _history.Upsert(task);
             return task;
