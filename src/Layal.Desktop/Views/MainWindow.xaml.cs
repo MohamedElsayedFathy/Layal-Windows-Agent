@@ -125,7 +125,7 @@ public partial class MainWindow : Window
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
     private bool _isBottomDockExpanded = true;
-    private bool? _chatCompactLayoutApplied;
+    private int? _chatWelcomeLayoutModeApplied;
     private bool? _compactWindowChromeApplied;
     private bool _isChatHistoryPanelOpen;
     private bool _isUiInitialized;
@@ -1108,22 +1108,24 @@ public partial class MainWindow : Window
         if (availableHeight <= 0 || ChatWelcomePanel is null || ClockWeatherCard is null)
             return;
 
-        // The clock and weather remain available on the overview page. Hiding this
-        // secondary summary in a short chat viewport gives the welcome canvas and
-        // composer enough room instead of clipping suggestions below the fold.
+        // Use a dense welcome card before hiding the secondary weather summary.
+        // This preserves the clock/weather at normal window sizes while protecting
+        // the three prompt buttons from being clipped by the conversation viewport.
         var compact = availableHeight < 520;
-        ChatEmptyStateText.Text = compact
+        var dense = availableHeight < 760;
+        var layoutMode = compact ? 2 : dense ? 1 : 0;
+        ChatEmptyStateText.Text = dense
             ? (IsArabic ? "اكتب سؤالك أو اختر اقتراحًا." : "Choose a prompt or type your question.")
             : (IsArabic
                 ? "اكتب سؤالك مباشرة، أو اختر نقطة بداية وسأساعدك في تطويرها."
                 : "Type a question or choose a prompt starter to fill the message field. Messages appear here after sending.");
-        if (_chatCompactLayoutApplied == compact)
+        if (_chatWelcomeLayoutModeApplied == layoutMode)
             return;
 
-        _chatCompactLayoutApplied = compact;
-        ChatWelcomeEyebrow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        ChatWelcomeTitle.FontSize = compact ? 21 : 23;
-        ChatWelcomeTitle.Margin = compact
+        _chatWelcomeLayoutModeApplied = layoutMode;
+        ChatWelcomeEyebrow.Visibility = dense ? Visibility.Collapsed : Visibility.Visible;
+        ChatWelcomeTitle.FontSize = dense ? 21 : 23;
+        ChatWelcomeTitle.Margin = dense
             ? new Thickness(0, 0, 0, 3)
             : new Thickness(0, 0, 0, 7);
         ClockWeatherCard.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
@@ -1131,32 +1133,32 @@ public partial class MainWindow : Window
         ChatHeaderMascot.Width = compact ? 46 : 60;
         ChatHeaderMascot.Height = compact ? 46 : 60;
 
-        ChatWelcomeAvatarShell.Width = compact ? 54 : 88;
-        ChatWelcomeAvatarShell.Height = compact ? 54 : 88;
-        ChatWelcomeAvatarShell.Margin = compact
+        ChatWelcomeAvatarShell.Width = dense ? 54 : 88;
+        ChatWelcomeAvatarShell.Height = dense ? 54 : 88;
+        ChatWelcomeAvatarShell.Margin = dense
             ? new Thickness(0, 0, 10, 0)
             : new Thickness(0, 0, 18, 0);
-        ChatWelcomeAvatarImage.Width = compact ? 50 : 82;
-        ChatWelcomeAvatarImage.Height = compact ? 50 : 82;
+        ChatWelcomeAvatarImage.Width = dense ? 50 : 82;
+        ChatWelcomeAvatarImage.Height = dense ? 50 : 82;
 
-        ChatWelcomePanel.Margin = compact
+        ChatWelcomePanel.Margin = dense
             ? new Thickness(4, 1, 4, 1)
             : new Thickness(12, 6, 12, 6);
-        ChatWelcomePanel.Padding = compact
+        ChatWelcomePanel.Padding = dense
             ? new Thickness(8)
             : new Thickness(18);
-        ChatEmptyStateText.FontSize = compact ? 11.5 : 13.5;
-        ChatEmptyStateText.Margin = compact
+        ChatEmptyStateText.FontSize = dense ? 11.5 : 13.5;
+        ChatEmptyStateText.Margin = dense
             ? new Thickness(0, 0, 0, 2)
             : new Thickness(0, 0, 0, 11);
         ChatEmptyStateText.MaxWidth = 560;
-        ChatSuggestionPlanButton.Padding = compact
+        ChatSuggestionPlanButton.Padding = dense
             ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
-        ChatSuggestionSummaryButton.Padding = compact
+        ChatSuggestionSummaryButton.Padding = dense
             ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
-        ChatSuggestionIdeasButton.Padding = compact
+        ChatSuggestionIdeasButton.Padding = dense
             ? new Thickness(8, 5, 8, 5)
             : new Thickness(16, 9, 16, 9);
     }
