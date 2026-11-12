@@ -329,14 +329,28 @@ public sealed class SavedRoutineManagerWindow : Window
             _status.Text = _isArabic ? "اختر روتينًا أولًا." : "Select a routine first.";
             return;
         }
-        var prompt = SavedRoutineService.BuildExecutionPrompt(selected.Record, _isArabic);
-        if (!ConfirmRun(prompt))
+        string commandSequence;
+        string reviewPrompt;
+        try
+        {
+            commandSequence = SavedRoutineService.BuildExecutionPrompt(selected.Record, _isArabic);
+            reviewPrompt = SavedRoutineService.BuildExecutionReviewPrompt(selected.Record, _isArabic);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _status.Text = ex.Message;
+            return;
+        }
+
+        if (!ConfirmRun(reviewPrompt))
         {
             _status.Text = _isArabic ? "لم يتم تشغيل الروتين؛ لم يبدأ أي إجراء." : "The routine was not started; no action was performed.";
             return;
         }
 
-        RunPrompt = prompt;
+        // Send only native commands to the orchestrator. The human-readable confirmation
+        // must never be mistaken for a command or parsed as an instruction.
+        RunPrompt = commandSequence;
         DialogResult = true;
         Close();
     }
