@@ -49,6 +49,16 @@ public sealed class LocalAgentToolCallingTests
         Assert.AreEqual("The local task completed.", task.Result);
         Assert.AreEqual(3, handler.Requests.Count, "Expected capability check, one tool call, and final response.");
 
+        using (var taskRequest = JsonDocument.Parse(handler.Requests[1].Body))
+        {
+            var systemPrompt = taskRequest.RootElement.GetProperty("messages")[0].GetProperty("content").GetString();
+            Assert.IsNotNull(systemPrompt);
+            StringAssert.Contains(systemPrompt, "Autonomous task execution protocol");
+            StringAssert.Contains(systemPrompt, "inspect its exact result");
+            StringAssert.Contains(systemPrompt, "verify the requested outcome");
+            StringAssert.Contains(systemPrompt, "Never bypass, assume, hide, or pre-approve consent");
+        }
+
         foreach (var request in handler.Requests)
         {
             Assert.AreEqual("http://127.0.0.1:11434/api/chat", request.Uri?.AbsoluteUri);
