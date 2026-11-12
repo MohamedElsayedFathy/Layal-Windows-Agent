@@ -727,8 +727,8 @@ for required in (
 ):
     if required not in voice_settings_text:
         ERRORS.append(f"Layal voice reply defaults are missing: {required}")
-if "AI-generated" not in ui_code or "ليس صوت إنسان" not in ui_xaml:
-    ERRORS.append("AI-generated voice disclosure is missing")
+if "synthetic voice is not a human recording" not in ui_code or "ليس صوت إنسان" not in ui_code:
+    ERRORS.append("Local synthetic voice disclosure is missing")
 if not voice_docs_text:
     ERRORS.append("Layal voice reply usage/privacy documentation is missing")
 
