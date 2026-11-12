@@ -2347,7 +2347,6 @@ public partial class MainWindow : Window
         ChatProviderStatus.Text = IsArabic
             ? "الردود النصية والمهام تعمل من نواة ليال دون مزود AI."
             : "Text replies and tasks run through Layal's core without an AI provider.";
-        NormalizeBidiTextInTree();
         var currentConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
         if (IsLoaded)
             NotifyLiveRegion(ConnectionStatusText);
@@ -4616,54 +4615,32 @@ public partial class MainWindow : Window
     {
         if (VoiceConversationButton is null) return;
         var active = _voiceConversationCancellation is not null;
-        if (AppRuntime.Settings.UseLocalAi)
-        {
-            VoiceConversationButton.Content = _localVoiceRecordingActive
-                ? (IsArabic ? "إنهاء الكلام وإرسال" : "Finish speaking & send")
-                : active
-                    ? (IsArabic ? "جارٍ تحويل الصوت المحلي…" : "Transcribing local voice…")
-                    : (IsArabic ? "التحدث إلى ليال محليًا" : "Talk to Layal locally");
-            VoiceConversationButton.ToolTip = _localVoiceRecordingActive
-                ? (IsArabic ? "اضغط لإيقاف الميكروفون وتحويل التسجيل محليًا وإرسال النص للشات." : "Stop the microphone, transcribe locally, and send the text to chat.")
-                : active
-                    ? (IsArabic ? "اضغط لإلغاء تحويل الصوت المحلي، أو اضغط Esc." : "Cancel local transcription, or press Esc.")
-                    : (IsArabic ? "محادثة صوتية بالتناوب: اضغط للتسجيل ثم اضغط مرة ثانية للإرسال. الصوت لا يغادر الجهاز." : "Turn-based local voice: press to record, then press again to send. Audio stays on this device.");
-        }
-        else
-        {
-            VoiceConversationButton.Content = active
-                ? (IsArabic ? "إيقاف المحادثة الصوتية" : "Stop voice conversation")
-                : (IsArabic ? "بدء المحادثة الصوتية" : "Start voice conversation");
-            VoiceConversationButton.ToolTip = active
-                ? (IsArabic ? "اضغط لإيقاف البث الصوتي وإغلاق الميكروفون فورًا، أو اضغط Esc." : "Stop audio streaming and close the microphone, or press Esc.")
-                : (IsArabic ? "تبدأ بث الميكروفون إلى موفر Realtime بعد موافقتك. يمكن إيقافه في أي وقت." : "Streams microphone audio to your Realtime provider after confirmation. You can stop at any time.");
-        }
-
+        VoiceConversationButton.Content = _localVoiceRecordingActive
+            ? (IsArabic ? "إنهاء الكلام وإرسال" : "Finish speaking & send")
+            : active
+                ? (IsArabic ? "جارٍ تحويل الصوت المحلي…" : "Transcribing local voice…")
+                : (IsArabic ? "التحدث إلى ليال محليًا" : "Talk to Layal locally");
+        VoiceConversationButton.ToolTip = _localVoiceRecordingActive
+            ? (IsArabic ? "اضغط لإيقاف الميكروفون وتحويل التسجيل محليًا وإرسال النص إلى نواة ليال." : "Stop the microphone, transcribe locally, and send the text to Layal's native core.")
+            : active
+                ? (IsArabic ? "اضغط لإلغاء تحويل الصوت المحلي، أو اضغط Esc." : "Cancel local transcription, or press Esc.")
+                : (IsArabic ? "محادثة صوتية بالتناوب: اضغط للتسجيل ثم اضغط مرة ثانية للإرسال. الرد يصدر من نواة ليال المحلية." : "Turn-based local voice: press to record, then press again to send. Replies come from Layal's native core.");
         AutomationProperties.SetName(VoiceConversationButton, VoiceConversationButton.Content?.ToString() ?? string.Empty);
         AutomationProperties.SetHelpText(VoiceConversationButton, IsArabic
-            ? "وضع الصوت الحالي يظهر في مؤشر الميكروفون أعلى النافذة. في الوضع المحلي اضغط للتسجيل ومرة ثانية لإرسال الكلام."
-            : "The microphone indicator appears in the window header. Local mode uses press-to-record and press-again-to-send.");
-        var liveService = _voiceConversationService;
-        var liveMuteAvailable = liveService is not null && !AppRuntime.Settings.UseLocalAi &&
-                                _voiceConversationCancellation is not null;
-        VoiceMuteButton.Visibility = liveMuteAvailable ? Visibility.Visible : Visibility.Collapsed;
-        VoiceMuteButton.Content = liveService?.IsMicrophoneMuted == true
-            ? (IsArabic ? "تشغيل الميكروفون" : "Unmute microphone")
-            : (IsArabic ? "كتم الميكروفون" : "Mute microphone");
-        AutomationProperties.SetName(VoiceMuteButton, VoiceMuteButton.Content?.ToString() ?? string.Empty);
-        AutomationProperties.SetHelpText(VoiceMuteButton, IsArabic
-            ? "يكتم الصوت الملتقط مؤقتًا دون إنهاء المحادثة، والضغط مرة أخرى يعيد الميكروفون."
-            : "Temporarily mutes captured microphone audio without ending the conversation. Press again to unmute.");
-
-        var micActive = _voiceConversationStatus is VoiceConversationStatus.Listening or
-            VoiceConversationStatus.UserSpeaking or VoiceConversationStatus.AssistantSpeaking;
-        VoiceConversationIndicator.Visibility = _voiceConversationStatus == VoiceConversationStatus.Stopped
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+            ? "اضغط للتسجيل ومرة ثانية لإرسال الكلام إلى نواة ليال المستقلة. لا يوجد بث صوتي سحابي."
+            : "Press to record and press again to send speech to Layal's native core. There is no cloud audio stream.");
+        VoiceMuteButton.Visibility = Visibility.Collapsed;
+        VoiceConversationIndicator.Visibility = _localVoiceRecordingActive || active
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         VoiceConversationMicDot.Fill = ThemeBrush(
-            micActive ? "Layal.Danger" : "Layal.Warning",
-            micActive ? System.Windows.Media.Brushes.Firebrick : System.Windows.Media.Brushes.DarkGoldenrod);
-        VoiceConversationMicStatus.Text = VoiceConversationIndicatorMessage(_voiceConversationStatus);
+            _localVoiceRecordingActive || active ? "Layal.Danger" : "Layal.Warning",
+            _localVoiceRecordingActive || active ? System.Windows.Media.Brushes.Firebrick : System.Windows.Media.Brushes.DarkGoldenrod);
+        VoiceConversationMicStatus.Text = _localVoiceRecordingActive
+            ? (IsArabic ? "الميكروفون نشط محليًا" : "Microphone active locally")
+            : active
+                ? (IsArabic ? "جارٍ التحويل محليًا" : "Transcribing locally")
+                : (IsArabic ? "الميكروفون متوقف" : "Microphone off");
         VoiceConversationButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled ||
             _voiceConversationCancellation is not null || _localVoiceRecordingActive;
     }
