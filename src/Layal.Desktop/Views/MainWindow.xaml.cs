@@ -920,7 +920,7 @@ public partial class MainWindow : Window
         Task sendTask;
         try
         {
-            // Reuse the established chat context/provider pipeline while keeping Quick Ask silent.
+            // Reuse the native local conversation route while keeping Quick Ask silent.
             sendTask = SendMessageAsync(suppressVoiceReply: true);
         }
         finally
@@ -1672,14 +1672,16 @@ public partial class MainWindow : Window
             ? "قراءة محدودة لاسم العنصر ونوعه وحدوده فقط. لا تُقرأ قيم الحقول ولا يُرسل شيء إلا بعد ضغط إرسال."
             : "Only the element name, type, and bounds are read. Field values are not read, and nothing is sent until you press Send.");
         CaptureScreenRegionButton.ToolTip = ar
-            ? "يخفي ليال مؤقتًا، ثم يعرض معاينة محلية للشاشة لتحديد مستطيل. لن يُرسل شيء حتى تضغط إرسال."
-            : "Temporarily hides Layal and shows a local screen preview for rectangle selection. Nothing is sent until you press Send.";
+            ? "يخفي ليال مؤقتًا ويعرض معاينة محلية لقص جزء من الشاشة. الرؤية المستقلة غير متاحة حاليًا؛ لن تُرسل الصورة إلى أي نموذج."
+            : "Temporarily hides Layal and shows a local screen preview for cropping. Independent vision is unavailable; the image will not be sent to any model.";
         AutomationProperties.SetName(CaptureScreenRegionButton, ar ? "التقاط وقص جزء من الشاشة" : "Capture and crop a screen region");
         AutomationProperties.SetHelpText(CaptureScreenRegionButton, ar
-            ? "التقاط صريح للشاشة التي يوجد عليها المؤشر، مع معاينة محلية قبل الإرفاق. لا تُرسل الصورة إلا عند الضغط على إرسال."
-            : "Explicitly captures the display under the pointer with a local crop preview before attachment. The image is not sent until you press Send.");
-        ChooseImageButton.Content = ar ? "إرفاق صورة/لقطة شاشة" : "Attach image/screenshot";
-        ChooseImageButton.ToolTip = ar ? "اختر صورة لإرسالها إلى النموذج مع سؤالك." : "Choose an image to send to the model with your question.";
+            ? "التقاط صريح للشاشة التي يوجد عليها المؤشر مع معاينة محلية. فهم الصور غير متاح في النواة المستقلة بعد؛ لن تُرسل اللقطة إلى أي نموذج."
+            : "Explicitly captures the display under the pointer for local preview. Image understanding is not yet available in the native core; the capture will not be sent to any model.");
+        ChooseImageButton.Content = ar ? "معاينة صورة محليًا" : "Preview image locally";
+        ChooseImageButton.ToolTip = ar
+            ? "اختر صورة لمعاينتها محليًا فقط؛ تحليل الصور المستقل غير متاح ولن تُرسل إلى أي نموذج."
+            : "Choose an image for local preview only; independent image analysis is unavailable and it will not be sent to any model.";
         ClearVisionImageButton.Content = ar ? "إزالة الصورة" : "Remove image";
         ChooseDocumentButton.Content = ar ? "إرفاق ملف نصي/PDF/Office" : "Attach text/PDF/Office file";
         ChooseDocumentButton.ToolTip = ar
@@ -1698,26 +1700,26 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(ReadClipboardButton, ar
             ? "قراءة نص الحافظة لا تغيّر محتواها ولا ترسله. الإرسال لا يحدث إلا بعد الضغط على إرسال."
             : "Reading clipboard text does not modify or transmit it. Nothing is sent until you press Send.");
-        PasteClipboardImageButton.Content = ar ? "إرفاق صورة الحافظة" : "Attach clipboard image";
+        PasteClipboardImageButton.Content = ar ? "معاينة صورة الحافظة محليًا" : "Preview clipboard image locally";
         PasteClipboardImageButton.ToolTip = ar
-            ? "بعد موافقتك، تُقرأ صورة الحافظة وتظهر كمعاينة محلية؛ لا يحدث إرسال تلقائي."
-            : "With your consent, read the clipboard image and show a local preview; nothing is sent automatically.";
-        AutomationProperties.SetName(PasteClipboardImageButton, ar ? "إرفاق صورة الحافظة بعد الموافقة" : "Attach clipboard image with consent");
+            ? "بعد موافقتك، تُقرأ صورة الحافظة وتظهر كمعاينة محلية فقط؛ لا يتوفر تحليل مستقل ولن تُرسل الصورة إلى أي نموذج."
+            : "With your consent, read the clipboard image for local preview only; independent analysis is unavailable and the image will not be sent to any model.";
+        AutomationProperties.SetName(PasteClipboardImageButton, ar ? "معاينة صورة الحافظة محليًا بعد الموافقة" : "Preview clipboard image locally with consent");
         AutomationProperties.SetHelpText(PasteClipboardImageButton, ar
-            ? "حد 40 مليون بكسل و10 ميجابايت. لا تُغيّر الحافظة ولا يُرسل شيء حتى تضغط إرسال."
-            : "40-million-pixel and 10 MB limits. The clipboard is not changed and nothing is sent until you press Send.");
+            ? "حد 40 مليون بكسل و10 ميجابايت. تُعرض الصورة محليًا فقط؛ فهم الصور المستقل غير متاح ولن تُرسل إلى أي نموذج."
+            : "40-million-pixel and 10 MB limits. The image is previewed locally only; independent vision is unavailable and it will not be sent to any model.");
         CameraVisionButton.Content = ar ? "فتح الكاميرا" : "Open camera";
         CameraVisionButton.ToolTip = ar
-            ? "معاينة الكاميرا محليًا وتحليل لقطة عند الطلب أو كل 10 ثوانٍ بموافقتك."
-            : "Preview locally and analyze a still on request or every 10 seconds with your consent.";
-        AutomationProperties.SetName(ChooseImageButton, ar ? "إرفاق صورة أو لقطة شاشة" : "Attach image or screenshot");
+            ? "معاينة الكاميرا محليًا فقط؛ تحليل الصور غير متاح في النواة المستقلة حاليًا، ولا تُرسل أي لقطة إلى نموذج."
+            : "Local camera preview only; image analysis is not yet available in the native core and no frame is sent to a model.";
+        AutomationProperties.SetName(ChooseImageButton, ar ? "معاينة صورة محليًا" : "Preview image locally");
         AutomationProperties.SetHelpText(ChooseImageButton, ar
-            ? "اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."
-            : "Choose an image file; it is sent to the AI provider only when you press Send.");
+            ? "تظل الصورة على الجهاز للمعاينة فقط. تحليل الصور المستقل غير متاح؛ لن تُرسل الصورة إلى أي نموذج."
+            : "The image remains on this device for preview only. Independent image analysis is unavailable; the image will not be sent to any model.");
         AutomationProperties.SetName(CameraVisionButton, ar ? "فتح كاميرا الرؤية" : "Open vision camera");
         AutomationProperties.SetHelpText(CameraVisionButton, ar
-            ? "يفتح معاينة الكاميرا بعد موافقتك. لا تُرسل اللقطات إلا عند التحليل اليدوي أو تفعيل التحليل التلقائي."
-            : "Opens the camera preview after consent. Frames are sent only for manual analysis or when automatic observation is enabled.");
+            ? "يفتح معاينة الكاميرا المحلية بعد موافقتك. التحليل اليدوي والتلقائي غير متاحين؛ لا تغادر أي لقطة الجهاز."
+            : "Opens a local camera preview after consent. Manual and automatic analysis are unavailable; no camera frame leaves this device.");
         UpdateVisionAttachmentControls();
         UpdateDocumentAttachmentUi();
         UpdateCameraVisionIndicator();
@@ -4667,8 +4669,8 @@ public partial class MainWindow : Window
 
         var consent = LayalDialogService.Show(this,
             IsArabic
-                ? "ستُلتقط الشاشة الموجودة أسفل المؤشر بعد إخفاء ليال مؤقتًا. ستظهر معاينة محلية لتحديد مستطيل. لن تُرسل الصورة إلى مزود الذكاء الاصطناعي حتى ترفقها ثم تضغط إرسال. قد تحتوي المنطقة المختارة على بيانات حساسة؛ راجعها قبل الإرسال. هل تريد المتابعة؟"
-                : "Layal will temporarily hide and capture the display under the pointer. A local preview lets you select a rectangle. The image will not be sent to the AI provider until you attach it and press Send. The selected region may contain sensitive information; review it before sending. Continue?",
+                ? "ستُلتقط الشاشة الموجودة أسفل المؤشر بعد إخفاء ليال مؤقتًا وتُعرض معاينة محلية لقص المنطقة المطلوبة. الرؤية المستقلة غير متاحة حاليًا؛ لن تُرسل اللقطة إلى أي نموذج. راجع المنطقة المختارة بحثًا عن بيانات حساسة قبل الاحتفاظ بها محليًا. هل تريد المتابعة؟"
+                : "Layal will temporarily hide and capture the display under the pointer for a local crop preview. Independent vision is unavailable; the capture will not be sent to any model. Review the selected region for sensitive data before keeping it locally. Continue?",
             IsArabic ? "موافقة على التقاط الشاشة" : "Confirm screen capture",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (consent != MessageBoxResult.Yes)
@@ -4936,8 +4938,8 @@ public partial class MainWindow : Window
         {
             var consent = LayalDialogService.Show(this,
                 IsArabic
-                    ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك، وتُحوّل إلى PNG في الذاكرة للمعاينة والإرفاق. قد تحتوي الصورة على بيانات حساسة؛ راجع المعاينة قبل الإرسال. لن تتغير الحافظة ولن تُرسل الصورة إلى AI إلا إذا أرفقتها ثم ضغطت إرسال. هل تريد المتابعة؟"
-                    : "With your consent, the current clipboard image will be read and encoded as PNG in memory for preview and attachment. It may contain sensitive data; review it before sending. The clipboard will not be modified and the image will not be sent to AI unless you attach it and press Send. Continue?",
+                    ? "ستُقرأ صورة الحافظة الحالية بعد موافقتك وتُحوّل إلى PNG في الذاكرة للمعاينة المحلية فقط. قد تحتوي على بيانات حساسة؛ راجعها قبل الاحتفاظ بها. لن تتغير الحافظة ولن تُرسل الصورة إلى أي نموذج؛ تحليل الصور المستقل غير متاح حاليًا. هل تريد المتابعة؟"
+                    : "With your consent, the current clipboard image will be read and encoded as PNG in memory for local preview only. It may contain sensitive data; review it before keeping it. The clipboard will not be modified and the image will not be sent to any model; independent vision is not available yet. Continue?",
                 IsArabic ? "موافقة على قراءة صورة الحافظة" : "Confirm clipboard image read",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
             if (consent != MessageBoxResult.Yes)
@@ -4974,8 +4976,8 @@ public partial class MainWindow : Window
             _pendingVisionFileName = $"clipboard-image-{image.PixelWidth}x{image.PixelHeight}.png";
             UpdateVisionAttachmentControls();
             SetChatActivityStatus(IsArabic
-                ? $"تم إرفاق صورة الحافظة ({image.PixelWidth} × {image.PixelHeight} بكسل) للمعاينة. لم تُرسل؛ راجع السؤال واضغط إرسال."
-                : $"Clipboard image attached ({image.PixelWidth} × {image.PixelHeight} pixels) for preview. It has not been sent; review your prompt and press Send.");
+                ? $"صورة الحافظة ({image.PixelWidth} × {image.PixelHeight} بكسل) جاهزة للمعاينة المحلية فقط. لن تُرسل إلى أي نموذج؛ تحليل الصور غير متاح."
+                : $"Clipboard image ({image.PixelWidth} × {image.PixelHeight} pixels) is ready for local preview only. It will not be sent to any model; image analysis is unavailable.");
             ChatInput.Focus();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -5189,8 +5191,8 @@ public partial class MainWindow : Window
             _pendingVisionFileName = Path.GetFileName(dialog.FileName);
             UpdateVisionAttachmentControls();
             SetChatActivityStatus(IsArabic
-                ? "تم إرفاق الصورة محليًا. اكتب سؤالك واضغط إرسال لتحليلها."
-                : "Image attached locally. Ask a question and press Send to analyze it.");
+                ? "تم تجهيز الصورة للمعاينة المحلية فقط. تحليل الصور المستقل غير متاح ولن تُرسل إلى أي نموذج."
+                : "The image is ready for local preview only. Independent image analysis is unavailable; it will not be sent to any model.");
             ChatInput.Focus();
         }
         catch (Exception ex)
@@ -5242,7 +5244,7 @@ public partial class MainWindow : Window
 
         VisionAttachmentPreview.Visibility = hasImage && previewLoaded ? Visibility.Visible : Visibility.Collapsed;
         VisionAttachmentStatus.Text = hasImage
-            ? (IsArabic ? "جاهزة للإرسال: " : "Ready to send: ") + (_pendingVisionFileName ?? (IsArabic ? "صورة" : "image")) +
+            ? (IsArabic ? "معاينة محلية فقط: " : "Local preview only: ") + (_pendingVisionFileName ?? (IsArabic ? "صورة" : "image")) +
               (previewLoaded ? string.Empty : (IsArabic ? " (تعذرت المعاينة)" : " (preview unavailable)"))
             : (IsArabic ? "لا توجد صورة مرفقة" : "No image attached");
         ClearVisionImageButton.Visibility = hasImage ? Visibility.Visible : Visibility.Collapsed;
@@ -5280,8 +5282,8 @@ public partial class MainWindow : Window
 
         var consent = LayalDialogService.Show(this,
             IsArabic
-                ? "ستظهر معاينة الكاميرا على جهازك. لا تُرسل صورة إلى مزود الذكاء الاصطناعي إلا عند ضغط تحليل، أو عند تفعيل التحليل التلقائي بموافقة منفصلة (لقطة كل 10 ثوانٍ). لن يُرسل فيديو خام. هل تريد فتح الكاميرا؟"
-                : "The camera preview will appear on this device. No image is sent to the AI provider unless you analyze a frame or separately enable automatic observation (one still every 10 seconds). Raw video is not sent. Open the camera?",
+                ? "ستظهر معاينة الكاميرا على جهازك فقط. تحليل الصور غير متاح في النواة المستقلة حاليًا؛ أزرار التحليل والملاحظة التلقائية متوقفة، ولن تُرسل أي لقطة إلى نموذج أو جهة خارجية. هل تريد فتح المعاينة المحلية؟"
+                : "The camera preview stays on this device. Image analysis is not yet available in Layal's native core; analysis and automatic-observation controls are disabled, and no frame is sent to a model or external service. Open the local preview?",
             IsArabic ? "موافقة على تشغيل الكاميرا" : "Confirm camera access",
             MessageBoxButton.YesNo, MessageBoxImage.Information);
         if (consent != MessageBoxResult.Yes) return;

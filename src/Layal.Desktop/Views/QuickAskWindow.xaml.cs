@@ -50,8 +50,8 @@ public partial class QuickAskWindow : Window
         Title = _isArabic ? "ليال | سؤال سريع" : "Layal | Quick Ask";
         HeadingText.Text = _isArabic ? "سؤال سريع" : "Quick Ask";
         HintText.Text = _isArabic
-            ? "اكتب سؤالك. يستخدم Layal سياق المحادثة وإعدادات المزود الحالية؛ لا يتم التقاط الشاشة أو إرفاق ملفات تلقائيًا."
-            : "Type a question using Layal's current chat context and provider settings; no screen capture or files are attached automatically.";
+            ? "اكتب سؤالك. تعالج ليال السؤال من خلال نواتها المحلية وسياق المحادثة؛ لا تُلتقط الشاشة أو تُرفق ملفات تلقائيًا."
+            : "Ask through Layal's native local core and current chat context; no screen captures or files are attached automatically.";
         QuestionInput.FlowDirection = _isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         QuestionInput.TextAlignment = _isArabic ? TextAlignment.Right : TextAlignment.Left;
         AutomationProperties.SetName(QuestionInput, _isArabic ? "سؤالك" : "Your question");

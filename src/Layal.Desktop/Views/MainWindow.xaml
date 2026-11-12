@@ -72,8 +72,8 @@
             <Border x:Name="ConnectionStatusShell" shell:WindowChrome.IsHitTestVisibleInChrome="True"
                     CornerRadius="10" Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
                     BorderThickness="1" Padding="8,5" Margin="3" VerticalAlignment="Center">
-                <TextBlock x:Name="ConnectionStatusText" Text="AI: Not connected" Foreground="{DynamicResource Layal.Warning}"
-                           FontSize="12.5" FontWeight="SemiBold" AutomationProperties.Name="حالة اتصال المزود"
+                <TextBlock x:Name="ConnectionStatusText" Text="النواة المحلية جاهزة" Foreground="{DynamicResource Layal.Success}"
+                           FontSize="12.5" FontWeight="SemiBold" AutomationProperties.Name="حالة نواة ليال المحلية"
                            AutomationProperties.LiveSetting="Polite"/>
             </Border>
             <Button x:Name="LanguageButton" Content="English" Click="LanguageButton_Click" MinWidth="62"
@@ -297,9 +297,9 @@
                                 <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال"
                                            FontWeight="SemiBold" Style="{StaticResource Layal.PageHeading}" Margin="0,0,0,3"/>
                             </StackPanel>
-                            <TextBlock x:Name="ChatProviderStatus" DockPanel.Dock="Right" Text="لا يوجد اتصال مختبَر"
-                                       Foreground="{DynamicResource Layal.Warning}" VerticalAlignment="Center"
-                                       TextWrapping="Wrap" MaxWidth="190" AutomationProperties.Name="حالة اتصال المزود"/>
+                            <TextBlock x:Name="ChatProviderStatus" DockPanel.Dock="Right" Text="الردود تعمل من النواة المحلية"
+                                       Foreground="{DynamicResource Layal.Success}" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" MaxWidth="190" AutomationProperties.Name="حالة نواة ليال المحلية"/>
                         </DockPanel>
                         <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,4,0,0">
                             <ComboBox x:Name="ChatHistorySelector" ItemsSource="{Binding ChatConversations}" DisplayMemberPath="Title"
@@ -517,15 +517,15 @@
                             <Button x:Name="CaptureScreenRegionButton" Content="قص جزء من الشاشة" Click="CaptureScreenRegionButton_Click"
                                     ToolTip="يلتقط الشاشة الموجودة على الشاشة الحالية بعد موافقتك، ويعرض معاينة لقص منطقة قبل الإرفاق."
                                     MinWidth="135" AutomationProperties.Name="التقاط وقص جزء من الشاشة"
-                                    AutomationProperties.HelpText="يُلتقط المحتوى محليًا بعد موافقتك، وتظهر معاينة لتحديد مستطيل. لا تُرسل الصورة إلا عند الضغط على إرسال."/>
+                                    AutomationProperties.HelpText="يُلتقط المحتوى محليًا بعد موافقتك وتظهر معاينة لتحديد مستطيل. مسار الرؤية المستقل غير متاح حاليًا؛ لن تُرسل الصورة إلى أي نموذج."/>
                             <Button x:Name="InspectHoveredElementButton" Content="السؤال عن عنصر" Click="InspectHoveredElementButton_Click"
                                     ToolTip="بعد موافقتك، اقرأ اسم ونوع عنصر Windows أسفل المؤشر محليًا دون التقاط الشاشة."
                                     MinWidth="120" AutomationProperties.Name="فحص عنصر أسفل المؤشر"
                                     AutomationProperties.HelpText="تُقرأ خصائص واجهة محدودة فقط بعد موافقتك. لا تُقرأ قيم الحقول ولا تُرسل النتيجة إلا بعد ضغط إرسال."/>
-                            <Button x:Name="ChooseImageButton" Content="إرفاق صورة/لقطة شاشة" Click="ChooseImageButton_Click"
-                                    ToolTip="اختر صورة لإرسالها إلى النموذج مع سؤالك." MinWidth="150"
-                                    AutomationProperties.Name="إرفاق صورة أو لقطة شاشة"
-                                    AutomationProperties.HelpText="اختر ملف صورة؛ لا يُرسل إلى مزود الذكاء الاصطناعي إلا عند الضغط على إرسال."/>
+                            <Button x:Name="ChooseImageButton" Content="معاينة صورة محليًا" Click="ChooseImageButton_Click"
+                                    ToolTip="اختر صورة لمعاينتها محليًا؛ فهم الصور المستقل غير متاح بعد." MinWidth="150"
+                                    AutomationProperties.Name="معاينة صورة محليًا"
+                                    AutomationProperties.HelpText="تظل الصورة على الجهاز للمعاينة فقط. تحليل الصورة المستقل غير متاح؛ لن تُرسل الصورة إلى أي نموذج حتى عند الضغط على إرسال."/>
                             <Button x:Name="ClearVisionImageButton" Content="إزالة الصورة" Click="ClearVisionImageButton_Click"
                                     Visibility="Collapsed" MinWidth="90" ToolTip="إزالة الصورة المرفقة قبل الإرسال."/>
                             <Button x:Name="ReadClipboardButton" Content="قراءة الحافظة" Click="ReadClipboardButton_Click"
@@ -535,7 +535,7 @@
                             <Button x:Name="PasteClipboardImageButton" Content="إرفاق صورة الحافظة" Click="PasteClipboardImageButton_Click"
                                     MinWidth="140" ToolTip="قراءة صورة الحافظة بعد موافقتك وإرفاقها للمراجعة فقط."
                                     AutomationProperties.Name="إرفاق صورة الحافظة بعد الموافقة"
-                                    AutomationProperties.HelpText="تُقرأ الصورة بعد تأكيدك وتُحوّل إلى PNG محليًا بحد 40 مليون بكسل و10 ميجابايت. لا تُرسل إلا عند الضغط على إرسال."/>
+                                    AutomationProperties.HelpText="تُقرأ الصورة بعد تأكيدك وتُحوّل إلى PNG محليًا بحد 40 مليون بكسل و10 ميجابايت للمعاينة فقط. تحليل الصور المستقل غير متاح؛ لن تُرسل الصورة إلى أي نموذج."/>
                             <Button x:Name="ChooseDocumentButton" Content="إرفاق صورة/OCR/PDF/Office" Click="ChooseDocumentButton_Click"
                                     MinWidth="160" ToolTip="يقرأ الصور والصفحات الممسوحة محليًا بتقنية OCR، ثم يعرض معاينة قبل الإرفاق؛ لا يُرسل شيء تلقائيًا."
                                     AutomationProperties.Name="اختيار صورة أو PDF أو ملف لمراجعته وإرفاقه"
@@ -560,7 +560,7 @@
                                 </ScrollViewer>
                             </Border>
                         </Expander>
-                        <TextBlock x:Name="ChatNotice" Text="تحتاج إلى عنوان API ومفتاح صحيح من الإعدادات لإرسال رسائل حقيقية."
+                        <TextBlock x:Name="ChatNotice" Text="الردود النصية والمهام المدعومة تعمل من نواة ليال المحلية دون نموذج محادثة."
                                    FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,2,4,0"/>
                         <TextBlock x:Name="ChatActivityStatus" Text="" Foreground="{DynamicResource Layal.Muted}"
                                    FontSize="11.5" TextWrapping="Wrap" Margin="4,0"
