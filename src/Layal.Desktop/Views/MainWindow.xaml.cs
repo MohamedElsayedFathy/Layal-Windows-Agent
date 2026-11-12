@@ -86,7 +86,7 @@ public partial class MainWindow : Window
     private string? _pendingDocumentNotice;
     private readonly SpeechToTextService _speechToText = new();
     private readonly LayalSpeechService _layalSpeech = new();
-    private readonly LocalAiService _localAiService = new();
+    private readonly LocalAiService _localAiService = AppRuntime.LocalAiService;
     private readonly LocalVoiceService _localVoiceService = new();
     private bool _localAiReady;
     private bool _localVoiceReady;
@@ -7532,15 +7532,28 @@ public partial class MainWindow : Window
 
             return;
         }
-        var key = AppRuntime.SecretStore.Load();
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            SetAccessibleStatusText(TaskResult, IsArabic ? "لا يوجد مفتاح API محفوظ. افتح الإعدادات واختبر الاتصال أولًا." : "No saved API key. Configure and test the provider in Settings first.");
+        if (_agentTaskCancellation is not null) return;
 
+        // Agent execution follows the same explicit local/cloud choice as chat.
+        // Local mode never reads or forwards the saved cloud API key.
+        var useLocalAi = AppRuntime.Settings.UseLocalAi;
+        if (useLocalAi && !await EnsureLocalAiSetupAsync(includeVoice: false))
+        {
+            SetAccessibleStatusText(TaskResult, IsArabic
+                ? "لم تبدأ المهمة لأن إعداد نموذج الوكيل المحلي لم يكتمل أو تم إلغاؤه."
+                : "The task did not start because local agent-model setup was incomplete or cancelled.");
+            return;
+        }
+
+        var key = useLocalAi ? string.Empty : AppRuntime.SecretStore.Load() ?? string.Empty;
+        if (!useLocalAi && string.IsNullOrWhiteSpace(key))
+        {
+            SetAccessibleStatusText(TaskResult, IsArabic
+                ? "لا يوجد مفتاح API محفوظ. استخدم الوضع المحلي أو اضبط المزود السحابي من الإعدادات."
+                : "No saved API key. Use local mode or configure the cloud provider in Settings.");
             MainTabs.SelectedItem = SettingsTab;
             return;
         }
-        if (_agentTaskCancellation is not null) return;
 
         var selectedSkills = SkillsList.SelectedItems.Cast<SkillRecord>().Take(3).ToList();
         if (SkillsList.SelectedItems.Count > 3)
@@ -7569,10 +7582,18 @@ public partial class MainWindow : Window
         var finalMood = "error";
         try
         {
+            AddTaskEvent(useLocalAi
+                ? (IsArabic
+                    ? $"مصدر التنفيذ: النموذج المحلي {AppRuntime.Settings.LocalAiModelId}. لن يتم استخدام مزود سحابي."
+                    : $"Execution provider: local model {AppRuntime.Settings.LocalAiModelId}. No cloud provider will be used.")
+                : (IsArabic
+                    ? $"مصدر التنفيذ: المزود السحابي والنموذج {AppRuntime.Settings.ModelId}."
+                    : $"Execution provider: cloud model {AppRuntime.Settings.ModelId}."));
+
             var record = await AppRuntime.AgentOrchestrator.RunTaskAsync(
                 goal,
-                AppRuntime.Settings.ProviderBaseUrl,
-                AppRuntime.Settings.ModelId,
+                useLocalAi ? string.Empty : AppRuntime.Settings.ProviderBaseUrl,
+                useLocalAi ? AppRuntime.Settings.LocalAiModelId : AppRuntime.Settings.ModelId,
                 key,
                 selectedSkills,
                 ConfirmToolActionAsync,
@@ -7580,7 +7601,8 @@ public partial class MainWindow : Window
                 cancellation.Token,
                 AppRuntime.Settings.Language,
                 AppRuntime.Settings.AssistantPersona,
-                stopAfterToolFailureOrDecline);
+                stopAfterToolFailureOrDecline,
+                useLocalAi);
 
             SetAccessibleStatusText(TaskResult, UiLocalization.FormatTaskResult(record, IsArabic));
             finalMood = record.Status switch
