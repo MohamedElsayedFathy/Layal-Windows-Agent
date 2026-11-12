@@ -114,7 +114,7 @@ public static class UiLocalization
     {
         var permission = Regex.Match(
             message,
-            @"^Permission (?<decision>requested|approved|denied|cancelled): actor=local user; tool=(?<tool>.*?); category=(?<category>.*?); target=(?<target>.*?); reason=(?<reason>.*)\.$");
+            @"^Permission (?<decision>requested|approved|denied|cancelled): time=(?<time>[^;]+); actor=local user; tool=(?<tool>.*?); category=(?<category>.*?); target=(?<target>.*?); reason=(?<reason>.*)\.$");
         if (permission.Success && isArabic)
         {
             var decision = permission.Groups["decision"].Value switch
@@ -128,7 +128,7 @@ public static class UiLocalization
                 .Split(", ", StringSplitOptions.RemoveEmptyEntries)
                 .Select(LocalizePermissionCategory));
             var reason = LocalizeApprovalTitle(permission.Groups["reason"].Value, isArabic: true);
-            return $"{decision}: المستخدم المحلي؛ الأداة={permission.Groups["tool"].Value}؛ الفئة={categories}؛ الهدف={permission.Groups["target"].Value}؛ السبب={reason}.";
+            return $"{decision}: الوقت={permission.Groups["time"].Value}؛ المستخدم المحلي؛ الأداة={permission.Groups["tool"].Value}؛ الفئة={categories}؛ الهدف={permission.Groups["target"].Value}؛ السبب={reason}.";
         }
 
         if (message.StartsWith("Task accepted;", StringComparison.Ordinal))
