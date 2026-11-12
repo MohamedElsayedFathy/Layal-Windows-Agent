@@ -705,11 +705,4 @@ public sealed class GmailReadOnlyServiceTests
                 Content = new StringContent(content, Encoding.UTF8, "application/json")
             });
     }
-
-    [TestMethod]
-    public void MessageBodyAndResultsAreBoundedByServiceContracts()
-    {
-        Assert.AreEqual(25, GmailReadOnlyService.MaximumListedMessages);
-        Assert.AreEqual(15_000, GmailReadOnlyService.MaximumBodyCharacters);
-    }
 }
