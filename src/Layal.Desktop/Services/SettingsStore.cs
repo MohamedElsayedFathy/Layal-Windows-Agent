@@ -125,28 +125,6 @@ public sealed class SettingsStore
         settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();
         settings.ModelId = (settings.ModelId ?? string.Empty).Trim();
 
-        try
-        {
-            settings.LocalAiModelId = string.IsNullOrWhiteSpace(settings.LocalAiModelId)
-                ? LocalAiService.DefaultModelId
-                : LocalAiService.ValidateModelId(settings.LocalAiModelId);
-        }
-        catch (InvalidOperationException)
-        {
-            // An invalid local model identifier should only reset that preference.
-            settings.LocalAiModelId = LocalAiService.DefaultModelId;
-        }
-
-        settings.SpeechToTextModelId = string.IsNullOrWhiteSpace(settings.SpeechToTextModelId)
-            ? "gpt-transcribe"
-            : settings.SpeechToTextModelId.Trim();
-        settings.VoiceReplyModelId = string.IsNullOrWhiteSpace(settings.VoiceReplyModelId)
-            ? LayalSpeechService.DefaultModelId
-            : settings.VoiceReplyModelId.Trim();
-        settings.VoiceReplyId = LayalSpeechService.IsSupportedVoice(settings.VoiceReplyId)
-            ? settings.VoiceReplyId.Trim().ToLowerInvariant()
-            : LayalSpeechService.DefaultVoiceId;
-
         settings.ProactiveCheckInIntervalMinutes = settings.ProactiveCheckInIntervalMinutes is 15 or 30 or 60 or 120
             ? settings.ProactiveCheckInIntervalMinutes
             : 60;
