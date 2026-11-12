@@ -257,7 +257,7 @@ public sealed class LocalAiService : IAgentModelClient
             httpRequest, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
         if (!response.IsSuccessStatusCode)
         {
-            var detail = await ReadBoundedAgentErrorAsync(response.Content, cancellationToken);
+            var detail = await ReadBoundedAgentErrorAsync(response.Content, timeout.Token);
             throw new InvalidOperationException(
                 $"Local Ollama agent request failed (HTTP {(int)response.StatusCode}). {detail}");
         }
@@ -457,7 +457,8 @@ public sealed class LocalAiService : IAgentModelClient
         HttpContent content,
         CancellationToken cancellationToken)
     {
-        if (content.Headers.ContentLength > MaximumAgentResponseBytes)
+        if (content.Headers.ContentLength.HasValue &&
+            content.Headers.ContentLength.Value > MaximumAgentResponseBytes)
             throw new InvalidOperationException("The local model response exceeded Layal's 4 MB safety limit.");
 
         await using var input = await content.ReadAsStreamAsync(cancellationToken);
