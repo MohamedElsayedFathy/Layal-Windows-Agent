@@ -134,8 +134,8 @@ public sealed class SavedRoutineService
     }
 
     /// <summary>
-    /// Builds the machine-readable native command sequence. Saved descriptions are never treated
-    /// as scripts; every line must independently match a supported NativeLanguageParser intent.
+    /// Builds the raw candidate command sequence for the native orchestrator. Saved descriptions are never
+    /// treated as scripts; the orchestrator must validate every line against its supported intent rules.
     /// </summary>
     public static string BuildExecutionPrompt(SavedRoutineRecord routine, bool isArabic = false)
     {
