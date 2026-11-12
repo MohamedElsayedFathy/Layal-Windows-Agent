@@ -1484,6 +1484,8 @@ public sealed class AgentToolExecutor
         var stderr = await stderrTask;
         var output = $"Command: dotnet {verb} \"{relativeProjectFile}\" --configuration {configuration}{Environment.NewLine}Exit code: {process.ExitCode}{Environment.NewLine}--- STDOUT ---{Environment.NewLine}{stdout}{Environment.NewLine}--- STDERR ---{Environment.NewLine}{stderr}";
         report($"dotnet {verb} finished with exit code {process.ExitCode}.");
+        if (process.ExitCode != 0)
+            throw new AgentToolExecutionException($"dotnet {verb} failed with exit code {process.ExitCode}.", process.ExitCode, output);
         return output;
     }
 
@@ -1704,3 +1706,17 @@ public static class WindowInventory
 }
 
 public sealed record WebSourceCandidate(string Title, string Url, string Host);
+
+/// <summary>Preserves a failed tool's structured status and bounded diagnostic output.</summary>
+public sealed class AgentToolExecutionException : InvalidOperationException
+{
+    public int ExitCode { get; }
+    public string Output { get; }
+
+    public AgentToolExecutionException(string message, int exitCode, string output)
+        : base(message)
+    {
+        ExitCode = exitCode;
+        Output = output ?? string.Empty;
+    }
+}
