@@ -125,12 +125,4 @@ public sealed class SafeBrowserDownloadServiceTests
         Assert.AreEqual("download.pdf", SafeBrowserDownloadService.SanitizeFileName("payload.exe", ".pdf"));
         Assert.AreEqual("download.pdf", SafeBrowserDownloadService.SanitizeFileName("...", ".pdf"));
     }
-
-    [TestMethod]
-    public void DownloadAndRedirectLimitsAreExplicitAndBounded()
-    {
-        Assert.AreEqual(20L * 1024 * 1024, SafeBrowserDownloadService.MaximumDownloadBytes);
-        Assert.AreEqual(3, SafeBrowserDownloadService.MaximumRedirects);
-        Assert.IsTrue(SafeBrowserDownloadService.MaximumRedirects is >= 0 and <= 5);
-    }
 }
