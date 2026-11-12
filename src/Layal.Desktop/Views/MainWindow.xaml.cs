@@ -1885,10 +1885,9 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(UseLocalAiCheckbox, ar
             ? "الردود والتخطيط والمهام تستخدم نواة ليال المستقلة دائمًا. موارد الصوت المحلية اختيارية."
             : "Replies, planning, and tasks always use Layal's native core. Local speech resources are optional.");
-        ProviderSectionTitle.Text = ar ? "اختبار اتصال API خارجي (لا يدخل في تفكير ليال أو ردودها)" : "External API connectivity test (not used by Layal for reasoning or replies)";
+        ProviderSectionTitle.Text = ar ? "اختبار اتصال API خارجي (لا يدخل في تفكير ليال أو ردودها أو تنفيذ مهامها)" : "External API connectivity test (not used by Layal for chat, reasoning, or task execution)";
         ArabicLanguageButton.Content = "العربية";
         EnglishLanguageButton.Content = "English";
-        ProviderSectionTitle.Text = ar ? "اختبار اتصال API خارجي (لا يدخل في تفكير ليال أو ردودها)" : "External API connectivity test (not used for chat, reasoning, or task execution)";
         EndpointLabel.Text = ar ? "عنوان API الأساسي (Base URL)" : "API base URL";
         ModelLabel.Text = ar ? "معرّف النموذج" : "Model ID";
         ApiKeyLabel.Text = ar ? "مفتاح API / Unified API Key" : "API key / Unified API key";
