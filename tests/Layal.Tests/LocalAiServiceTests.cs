@@ -23,7 +23,7 @@ public sealed class LocalAiServiceTests
 
         var reply = conversation.Respond("hello", "en");
 
-        StringAssert.Contains(reply, "native local core");
+        StringAssert.Contains(reply, "local native core");
     }
 
     [TestMethod]
