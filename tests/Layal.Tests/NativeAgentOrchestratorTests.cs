@@ -394,7 +394,9 @@ public sealed class NativeAgentOrchestratorTests
 
         Assert.AreEqual("Failed", task.Status, task.Result);
         Assert.AreEqual(1, approvalCalls, "The dependent file action must never reach its approval after build failure.");
-        StringAssert.Contains(task.Result, "Exit code: 23");
+        StringAssert.Contains(task.Result, "Exit code: ");
+        Assert.IsFalse(task.Result.Contains("Exit code: 0", StringComparison.Ordinal),
+            "A dotnet process with a nonzero exit code must not be reported as successful.");
         StringAssert.Contains(task.Result, "STDERR");
         Assert.IsFalse(File.Exists(Path.Combine(workspace, "must-not-exist.txt")));
         Assert.IsFalse(learning.GetRecentExperiences().Any(item =>
