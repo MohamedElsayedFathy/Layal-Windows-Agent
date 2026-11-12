@@ -123,6 +123,9 @@ public static class LayalDisplayDpiNative
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hwnd);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool ShowWindow(IntPtr hwnd, int command);
+
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
 
@@ -206,6 +209,8 @@ public static class LayalDisplayDpiNative
         }
         return monitors.ToArray();
     }
+
+    public static bool MinimizeMainWindow(IntPtr hwnd) => hwnd != IntPtr.Zero && ShowWindow(hwnd, 6);
 
     public static IntPtr FindVisibleMascotWindow(int processId, out string diagnostic)
     {
@@ -292,6 +297,21 @@ $script:MonitorList = @()
 $script:WindowHandle = [IntPtr]::Zero
 $script:WindowHandleChanges = New-Object System.Collections.Generic.List[object]
 $startedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff zzz")
+
+function Minimize-MainLayalWindow {
+    $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+    $mainWindowHwnd = [IntPtr]::Zero
+    while ([DateTime]::UtcNow -lt $deadline -and $mainWindowHwnd -eq [IntPtr]::Zero) {
+        $script:AppProcess.Refresh()
+        $mainWindowHwnd = $script:AppProcess.MainWindowHandle
+        if ($mainWindowHwnd -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 100 }
+    }
+    if ($mainWindowHwnd -eq [IntPtr]::Zero) {
+        throw "Could not identify the main Layal window for isolated display/DPI acceptance."
+    }
+    [void][LayalDisplayDpiNative]::MinimizeMainWindow($mainWindowHwnd)
+    Start-Sleep -Milliseconds 500
+}
 
 function Add-Check {
     param([string]$Name,[ValidateSet("passed","failed","info","not-run")][string]$Result,[string]$Detail)
@@ -430,6 +450,7 @@ try {
     }
 
     $script:AppProcess = Start-Process -FilePath $resolvedExe -WorkingDirectory (Split-Path -Parent $resolvedExe) -PassThru
+    Minimize-MainLayalWindow
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $diagnostic = ""
     while ([DateTime]::UtcNow -lt $deadline -and $script:WindowHandle -eq [IntPtr]::Zero) {
