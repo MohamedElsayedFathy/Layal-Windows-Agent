@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -402,6 +403,57 @@ public sealed class NativeAgentOrchestratorTests
         Assert.IsFalse(learning.GetRecentExperiences().Any(item =>
             item.Intent == "BuildProject" && item.Verified),
             "A nonzero process exit must never be recorded as a verified success.");
+    }
+
+    [TestMethod]
+    public async Task ExternalProgramLaunchIsNotRecordedAsVerifiedBeforeObservation()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+
+        var task = await orchestrator.RunTaskAsync(
+            "open notepad",
+            (_, _, _) => Task.FromResult(true),
+            _ => { },
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("CompletedWithWarnings", task.Status, task.Result);
+        Assert.IsTrue(task.Result.Contains("external outcome still needs observation", StringComparison.OrdinalIgnoreCase));
+
+        var experience = learning.GetRecentExperiences(1).Single();
+        Assert.AreEqual(nameof(NativeIntent.LaunchProgram), experience.Intent);
+        Assert.IsFalse(experience.Verified,
+            "Dispatching a program launch is not evidence that the requested external application state was observed.");
+
+        const string marker = "Process ID:";
+        var markerIndex = task.Result.IndexOf(marker, StringComparison.Ordinal);
+        if (markerIndex >= 0)
+        {
+            var processText = task.Result[(markerIndex + marker.Length)..].TrimStart();
+            var processIdText = processText.Split(new[] { '.', ' ', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (int.TryParse(processIdText, out var processId))
+            {
+                try
+                {
+                    using var launched = Process.GetProcessById(processId);
+                    launched.Kill(entireProcessTree: true);
+                    launched.WaitForExit(5_000);
+                }
+                catch (ArgumentException) { }
+                catch (InvalidOperationException) { }
+                catch (System.ComponentModel.Win32Exception) { }
+            }
+        }
     }
 
     private static void EnsureWindowsDpapi()
