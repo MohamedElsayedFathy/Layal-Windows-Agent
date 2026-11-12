@@ -4490,8 +4490,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // There is intentionally no cloud Realtime fallback. Whisper transcribes locally
-        // and the response is produced by Layal's NativeConversationEngine.
+        // Whisper performs local transcription; the native core generates the reply.
         await LocalVoiceConversationButton_ClickAsync();
     }
 
