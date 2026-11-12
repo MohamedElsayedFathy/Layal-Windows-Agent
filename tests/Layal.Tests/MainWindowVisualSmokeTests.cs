@@ -2459,9 +2459,13 @@ public sealed class MainWindowVisualSmokeTests
             Path.Combine(root, "sessions.dpapi"), AppRuntime.ChatHistoryStore, "Visual smoke");
         AppRuntime.WorkspaceRoot = Path.Combine(root, "workspace");
         AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService);
-        AppRuntime.AgentOrchestrator = new AgentOrchestrator(
-            new OpenAiCompatibleClient(), AppRuntime.AgentToolExecutor,
-            AppRuntime.SkillPackageService, AppRuntime.TaskHistoryService);
+        AppRuntime.NativeLearningService = new NativeLearningService(Path.Combine(root, "native-learning.dpapi"));
+        AppRuntime.NativeLanguageParser = new NativeLanguageParser(AppRuntime.NativeLearningService);
+        AppRuntime.NativeConversationEngine = new NativeConversationEngine(
+            AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.MemoryService);
+        AppRuntime.NativeAgentOrchestrator = new NativeAgentOrchestrator(
+            AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService,
+            AppRuntime.AgentToolExecutor, AppRuntime.TaskHistoryService);
         AppRuntime.IsExiting = false;
         AppRuntime.IsPrivateChatActive = false;
     }
