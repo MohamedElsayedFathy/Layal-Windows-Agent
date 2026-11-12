@@ -891,6 +891,31 @@ public sealed class MainWindowVisualSmokeTests
                         "The full-height chat layout must retain its clock and weather summary.");
                     Assert.AreEqual(Visibility.Visible, subtitle.Visibility,
                         "The full-width title bar must retain its subtitle.");
+
+                    var chatSurface = window.FindName("ChatConversationSurface") as Grid
+                        ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
+                    var welcomePanel = window.FindName("ChatWelcomePanel") as Border
+                        ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
+                    foreach (var suggestionName in new[]
+                    {
+                        "ChatSuggestionPlanButton",
+                        "ChatSuggestionSummaryButton",
+                        "ChatSuggestionIdeasButton"
+                    })
+                    {
+                        var suggestion = window.FindName(suggestionName) as Button
+                            ?? throw new InvalidOperationException($"{suggestionName} was not found.");
+                        Assert.IsTrue(suggestion.IsVisible && suggestion.ActualHeight >= 40,
+                            $"{suggestionName} must remain visible with a 40-DIP touch target in the full chat layout.");
+                        var bounds = suggestion.TransformToAncestor(chatSurface)
+                            .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
+                        Assert.IsTrue(bounds.Top >= -0.5 && bounds.Bottom <= chatSurface.ActualHeight + 0.5,
+                            $"{suggestionName} is clipped by the full chat viewport ({theme}/{language}).");
+                        var panelBounds = suggestion.TransformToAncestor(welcomePanel)
+                            .TransformBounds(new Rect(0, 0, suggestion.ActualWidth, suggestion.ActualHeight));
+                        Assert.IsTrue(panelBounds.Top >= -0.5 && panelBounds.Bottom <= welcomePanel.ActualHeight + 0.5,
+                            $"{suggestionName} is clipped inside the full welcome card ({theme}/{language}).");
+                    }
                     AssertPageHeroGradientTracksPalette($"{theme}/{language} full-size chat");
                 }
 
