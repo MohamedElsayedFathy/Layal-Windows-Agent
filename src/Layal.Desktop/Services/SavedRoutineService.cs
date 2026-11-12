@@ -147,7 +147,7 @@ public sealed class SavedRoutineService
 
         // The goal is descriptive when separate steps exist; only the steps become commands.
         // With no sub-steps, the goal itself is the single candidate command.
-        var commands = steps.Count == 0 ? new[] { routine.Goal.Trim() } : steps;
+        IEnumerable<string> commands = steps.Count == 0 ? new[] { routine.Goal.Trim() } : steps;
         if (commands.Any(string.IsNullOrWhiteSpace))
             throw new InvalidOperationException("A native routine command cannot be empty.");
         return string.Join(Environment.NewLine, commands);
@@ -166,9 +166,9 @@ public sealed class SavedRoutineService
             ? $"سيتم تمرير الأوامر التالية إلى نواة ليال المحلية بالترتيب (حتى {MaximumExecutableSteps} أوامر). يجب أن يطابق كل سطر قدرة محلية معروفة. سيتم تحليل كل الأوامر قبل أول إجراء، وستظهر موافقة منفصلة لكل أداة أو أثر. إذا كان سطر غير مدعوم فلن يبدأ أي إجراء."
             : $"The following commands will be sent to Layal's native core in order (up to {MaximumExecutableSteps}). Every line must match a known native capability. All commands are parsed before the first action, and each tool or side effect requires separate approval. If any command is unsupported, no action will start.";
         var description = $"Routine: {routine.Name}" + Environment.NewLine + "Goal: " + routine.Goal;
+        IEnumerable<string> reviewSteps = steps.Count == 0 ? new[] { routine.Goal.Trim() } : steps;
         var numbered = string.Join(Environment.NewLine,
-            (steps.Count == 0 ? new[] { routine.Goal.Trim() } : steps)
-                .Select((step, index) => $"{index + 1}. {step}"));
+            reviewSteps.Select((step, index) => $"{index + 1}. {step}"));
         return heading + Environment.NewLine + description + Environment.NewLine + Environment.NewLine +
             rules + Environment.NewLine + Environment.NewLine + numbered +
             Environment.NewLine + Environment.NewLine + "Native command payload:" + Environment.NewLine + commands;
