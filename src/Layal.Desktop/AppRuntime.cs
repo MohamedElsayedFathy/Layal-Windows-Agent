@@ -25,6 +25,10 @@ public static class AppRuntime
     public static ApiConnectionService ApiConnectionService { get; set; } = null!;
     public static BrowserAutomationService BrowserAutomationService { get; set; } = null!;
     public static AgentOrchestrator AgentOrchestrator { get; set; } = null!;
+    public static NativeLearningService NativeLearningService { get; set; } = null!;
+    public static NativeLanguageParser NativeLanguageParser { get; set; } = null!;
+    public static NativeConversationEngine NativeConversationEngine { get; set; } = null!;
+    public static NativeAgentOrchestrator NativeAgentOrchestrator { get; set; } = null!;
     public static string WorkspaceRoot { get; set; } = string.Empty;
     public static MainWindow? MainWindow { get; set; }
     public static FloatingMascotWindow? MascotWindow { get; set; }
