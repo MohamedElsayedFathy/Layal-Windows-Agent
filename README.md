@@ -8,7 +8,9 @@ Mascot: the official **Layal** character (Layal plus her robot assistant) uses a
 
 Version 0.5.0 replaced the previous dark palette with a light, low-glare visual system and refreshed the mascot shell and expressions. Version 0.5.1 added the master requirement register, repeatable Windows verification script, source/release hygiene checks, and Windows GitHub Actions build workflow. Version 0.5.2 adds an automated C# test project for settings normalization/persistence, skill ZIP validation and duplicate handling, DPAPI-backed memory behavior, tool permission/path boundaries, and OpenAI-compatible HTTP response parsing. The HTTP client now accepts an injectable client factory so provider behavior can be tested without calling a real service. Native compilation and test execution still require a Windows host/CI with the .NET 10 SDK.
 
-See [README_AR.md](README_AR.md) for Arabic setup details and limitations. See [docs/REVIEW_AND_DESIGN_UPDATE.md](docs/REVIEW_AND_DESIGN_UPDATE.md) for the review summary and [docs/STATIC_CHECKS.md](docs/STATIC_CHECKS.md) for the exact verification boundary.
+The native cognitive core was merged to `main` in PR #154; the older Ollama/Qwen tool-calling PR #153 was closed without merging. The November 12 review fixes task verification evidence, bilingual status messages, and model-free local image/camera preview safeguards. See [the technical review](docs/TECHNICAL_REVIEW_2026-11-12_AR.md) and the updated [vision limitations guide](docs/VISION_AR.md). Windows CI on the main baseline passed 644/644 C# tests; review-branch changes must still pass their own Windows CI before merge.
+
+See [README_AR.md](README_AR.md) for Arabic setup details and limitations. See [docs/REVIEW_AND_DESIGN_UPDATE.md](docs/REVIEW_AND_DESIGN_UPDATE.md) for the previous visual review and [docs/STATIC_CHECKS.md](docs/STATIC_CHECKS.md) for the exact verification boundary.
 
 ## Build
 
