@@ -1415,7 +1415,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
         AutomationProperties.SetName(ChatHistoryList, ar ? "سجل المحادثات المحفوظة" : "Saved conversation history");
         AutomationProperties.SetHelpText(ChatHistoryList, ar ? "اختر محادثة محفوظة لتحميلها في مساحة الشات." : "Choose a saved conversation to load into the chat.");
-        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اتصال الذكاء الاصطناعي" : "AI connection status");
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة نواة ليال المحلية" : "Layal native core status");
         AutomationProperties.SetName(ChatHistorySelector, ar ? "المحادثات المحفوظة" : "Saved conversations");
         AutomationProperties.SetHelpText(ChatHistorySelector, ar ? "اختر محادثة محفوظة لاستكمالها." : "Choose a saved conversation to resume it.");
         AutomationProperties.SetName(ChatMessagesList, ar ? "رسائل المحادثة" : "Chat messages");
@@ -1548,8 +1548,8 @@ public partial class MainWindow : Window
         ChatNotice.Text = ar
             ? "ليال ترد وتخطط وتنفذ من نواتها المحلية؛ لا يُستدعى نموذج محادثة أو مزود سحابي."
             : "Layal replies, plans, and executes through her native local core; no chat model or cloud provider is called.";
-        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة اختبار اتصال API الاختياري" : "Optional API test status");
-        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة إعداد ملف اختبار API الاختياري" : "Optional API test profile status");
+        AutomationProperties.SetName(ConnectionStatusText, ar ? "حالة نواة ليال المحلية" : "Layal native core status");
+        AutomationProperties.SetName(ChatProviderStatus, ar ? "حالة الردود النصية والمهام المحلية" : "Local chat and task status");
         AutomationProperties.SetName(HomeResult, ar ? "نتيجة الإجراء" : "Action result");
         AutomationProperties.SetName(ChatCopyStatus, ar ? "حالة النسخ" : "Copy status");
         AutomationProperties.SetName(TaskCopyStatus, ar ? "حالة نسخ النتيجة" : "Result copy status");
