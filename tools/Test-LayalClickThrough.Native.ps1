@@ -175,6 +175,20 @@ function Pump-Messages {
     }
     [System.Windows.Forms.Application]::DoEvents()
 }
+function Minimize-MainLayalWindow {
+    $deadline=[DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+    $mainWindowHwnd=[IntPtr]::Zero
+    while ([DateTime]::UtcNow -lt $deadline -and $mainWindowHwnd -eq [IntPtr]::Zero) {
+        $script:AppProcess.Refresh()
+        $mainWindowHwnd=$script:AppProcess.MainWindowHandle
+        if ($mainWindowHwnd -eq [IntPtr]::Zero) { Pump-Messages 100 }
+    }
+    if ($mainWindowHwnd -eq [IntPtr]::Zero) {
+        throw "Could not identify the main Layal window for isolated mascot acceptance."
+    }
+    [void][LayalNativeInput]::MinimizeWindow($mainWindowHwnd)
+    Pump-Messages 500
+}
 function Get-MascotRect {
     $rect=[LayalNativeInput]::GetRect($script:MascotHwnd)
     return @{Left=$rect[0];Top=$rect[1];Width=($rect[2]-$rect[0]);Height=($rect[3]-$rect[1]);Right=$rect[2];Bottom=$rect[3]}
@@ -298,6 +312,7 @@ try {
     $form.Show()
     [System.Windows.Forms.Application]::DoEvents()
     $script:AppProcess=Start-Process -FilePath $resolvedExe -WorkingDirectory (Split-Path -Parent $resolvedExe) -PassThru
+    Minimize-MainLayalWindow
     $deadline=[DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     while ([DateTime]::UtcNow -lt $deadline -and $script:MascotHwnd -eq [IntPtr]::Zero) {
         Pump-Messages 100
@@ -386,19 +401,6 @@ try {
         }
 
     if (-not $ClickThroughOnly) {
-        # Drag acceptance is about the independent mascot window. Minimize the main
-        # application surface so collision avoidance does not intentionally place the
-        # mascot behind a full-screen window between drag cycles.
-        $script:AppProcess.Refresh()
-        $mainWindowHwnd = $script:AppProcess.MainWindowHandle
-        if ($mainWindowHwnd -eq [IntPtr]::Zero) {
-            throw "Could not identify the main Layal window before the drag acceptance cycles."
-        }
-        if (-not [LayalNativeInput]::MinimizeWindow($mainWindowHwnd)) {
-            throw "Could not minimize the main Layal window before mascot drag acceptance."
-        }
-        Pump-Messages 500
-
         $dragVectors = @(@{X=42;Y=28}, @{X=-31;Y=21}, @{X=27;Y=-26})
         for ($dragIndex=0; $dragIndex -lt $dragVectors.Count; $dragIndex++) {
             $iteration=$dragIndex+1
@@ -454,6 +456,7 @@ try {
             }
             $script:AppProcess=Start-Process -FilePath $resolvedExe -WorkingDirectory (Split-Path -Parent $resolvedExe) -PassThru
             $script:MascotHwnd=[IntPtr]::Zero
+            Minimize-MainLayalWindow
             $deadline=[DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
             $windowDiagnostic=$null
             while ([DateTime]::UtcNow -lt $deadline -and $script:MascotHwnd -eq [IntPtr]::Zero) {
