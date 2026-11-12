@@ -165,7 +165,7 @@ public sealed class NativeAgentOrchestrator
                     var verification = await _tools.ExecuteAsync(
                         step.VerifyToolName, step.VerifyArgumentsJson ?? "{}", confirm, Log, cancellationToken, keepReadDataLocal: true);
                     var passed = !IsDeclined(verification) &&
-                        (step.ExpectedText is null || verification.Contains(step.ExpectedText, StringComparison.Ordinal));
+                        (step.ExpectedText is null || MatchesExactReadBackContent(verification, step.ExpectedText));
                     if (!passed)
                     {
                         task.Status = "CompletedWithWarnings";
@@ -339,6 +339,23 @@ public sealed class NativeAgentOrchestrator
     private static bool IsDeclined(string output) =>
         output.StartsWith("User declined", StringComparison.OrdinalIgnoreCase) ||
         output.StartsWith("WEB SEARCH NOT SHARED", StringComparison.OrdinalIgnoreCase);
+
+    private static bool MatchesExactReadBackContent(string verification, string expected)
+    {
+        const string startMarker = "----- BEGIN UNTRUSTED FILE DATA -----\n";
+        const string endMarker = "\n----- END UNTRUSTED FILE DATA -----";
+        var contentStart = verification.IndexOf(startMarker, StringComparison.Ordinal);
+        if (contentStart < 0)
+            return false;
+
+        contentStart += startMarker.Length;
+        var contentEnd = verification.LastIndexOf(endMarker, StringComparison.Ordinal);
+        if (contentEnd < contentStart)
+            return false;
+
+        var actual = verification.Substring(contentStart, contentEnd - contentStart);
+        return string.Equals(actual, expected, StringComparison.Ordinal);
+    }
 
     private static string UnsupportedIntentMessage(string language) =>
         string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
