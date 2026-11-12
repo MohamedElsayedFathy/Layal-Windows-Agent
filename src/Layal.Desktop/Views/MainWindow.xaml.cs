@@ -86,9 +86,8 @@ public partial class MainWindow : Window
     private string? _pendingDocumentNotice;
     private readonly SpeechToTextService _speechToText = new();
     private readonly LayalSpeechService _layalSpeech = new();
-    private readonly LocalAiService _localAiService = new();
     private readonly LocalVoiceService _localVoiceService = new();
-    private bool _localAiReady;
+    private bool _localAiReady = true;
     private bool _localVoiceReady;
     private bool _localVoiceSetupAttempted;
     private bool _localVoiceRecordingActive;
@@ -2149,25 +2148,27 @@ public partial class MainWindow : Window
     private void UpdateLocalAiStatusText()
     {
         if (LocalAiStatusText is null) return;
-        LocalAiStatusText.Text = _localAiReady && _localVoiceReady
-            ? (IsArabic ? "الشات والصوت المحليان جاهزان. لا حاجة لمفتاح API." : "Local chat and voice are ready. No API key is required.")
-            : _localAiReady
-                ? (IsArabic ? "الشات المحلي جاهز؛ موارد الصوت تحتاج تجهيزًا. يمكنك استخدام الشات الآن." : "Local chat is ready; speech resources still need setup. You can chat now.")
-                : (IsArabic ? "لم يُجهّز الشات المحلي بعد؛ لن يبدأ التنزيل قبل موافقتك." : "Local chat is not set up. Downloads will not begin until you consent.");
+        LocalAiStatusText.Text = _localVoiceReady
+            ? (IsArabic
+                ? "نواة ليال النصية والمهام جاهزة دون أي نموذج خارجي. موارد الصوت المحلي جاهزة أيضًا."
+                : "Layal's text and task core is ready without an external model. Local speech resources are ready too.")
+            : (IsArabic
+                ? "نواة ليال النصية والمهام جاهزة دون تنزيل نماذج. الصوت المحلي اختياري ويحتاج تجهيز Whisper/Piper فقط."
+                : "Layal's text and task core is ready without model downloads. Local speech is optional and only needs Whisper/Piper resources.");
     }
 
     private async Task RefreshLocalAiStatusAsync()
     {
         try
         {
-            _localAiReady = await _localAiService.IsReadyAsync(AppRuntime.Settings.LocalAiModelId);
+            _localAiReady = true;
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync();
             UpdateLocalAiStatusText();
             RefreshProviderStatus();
         }
         catch (Exception ex)
         {
-            LocalAiStatusText.Text = (IsArabic ? "تعذر فحص المحرك المحلي: " : "Could not inspect local engine: ") + ex.Message;
+            LocalAiStatusText.Text = (IsArabic ? "تعذر فحص موارد الصوت المحلي: " : "Could not inspect local speech resources: ") + ex.Message;
         }
     }
 
@@ -2188,8 +2189,8 @@ public partial class MainWindow : Window
         ApplyLanguage();
         RefreshProviderStatus();
         SetAccessibleStatusText(ProviderActionStatus, AppRuntime.Settings.UseLocalAi
-            ? (IsArabic ? "تم تفعيل الوضع المحلي؛ لا يُطلب مفتاح API للشات والصوت الأساسيين." : "Local mode enabled; basic chat and voice do not require an API key.")
-            : (IsArabic ? "تم اختيار الوضع السحابي الاختياري؛ أدخل إعدادات المزود إذا أردت استخدامه." : "Optional cloud mode selected; configure its provider to use it."));
+            ? (IsArabic ? "الصوت المحلي اختياري؛ الردود النصية والمهام لا تستخدم أي نموذج." : "Local speech is optional; text replies and tasks do not use any model.")
+            : (IsArabic ? "تم اختيار إدخال/إخراج صوتي سحابي اختياري؛ الردود النصية والمهام تظل بالنواة المحلية." : "Optional cloud speech selected; text replies and tasks still use the native core."));
     }
 
     private async void SetupLocalAiButton_Click(object sender, RoutedEventArgs e)
@@ -2231,10 +2232,13 @@ public partial class MainWindow : Window
             LocalAiProgressBar.Visibility = Visibility.Visible;
             LocalAiProgressBar.IsIndeterminate = true;
             LocalAiProgressBar.Value = 0;
-            _localAiReady = await _localAiService.IsReadyAsync(AppRuntime.Settings.LocalAiModelId, setupToken);
+
+            // Text chat and task planning now run in Layal's own native core.
+            // Only optional microphone/speaker resources are checked or downloaded here.
+            _localAiReady = true;
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync(setupToken);
             var needsVoice = includeVoice && !_localVoiceReady && (!_localVoiceSetupAttempted || retryVoice);
-            if (_localAiReady && !needsVoice)
+            if (!needsVoice)
             {
                 UpdateLocalAiStatusText();
                 RefreshProviderStatus();
@@ -2244,18 +2248,18 @@ public partial class MainWindow : Window
             var consent = LayalDialogService.Show(
                 this,
                 IsArabic
-                    ? "سيجهّز Layal الشات والصوت على هذا الكمبيوتر. قد يصل التنزيل الأول إجمالًا إلى نحو 4 جيجابايت ويحتاج 8 جيجابايت مساحة فارغة على الأقل؛ يلزم الإنترنت أثناء التنزيل فقط. سنثبت Ollama الرسمي بعد التحقق من توقيعه وننزل نموذج الشات وموارد Whisper وPiper. ستبقى رسائلك والتسجيلات الصوتية على جهازك ولن تُرسل إلى مزود ذكاء اصطناعي خارجي في الوضع المحلي. هل توافق على التنزيل والتجهيز؟"
-                    : "Layal will set up chat and speech on this computer. The first download may total about 4 GB and needs at least 8 GB free disk space; internet is needed during setup. The official Ollama installer is signature-checked before launch, then the chat and Whisper/Piper speech resources are downloaded. In local mode your messages and microphone audio are processed on this device, not uploaded to a remote AI provider. Approve download and setup?",
-                IsArabic ? "موافقة على تجهيز الذكاء الاصطناعي المحلي" : "Approve local AI setup",
+                    ? "المحادثة النصية وتنفيذ المهام يعملان بالفعل بنواة ليال المحلية ولا يحتاجان إلى Ollama أو Qwen أو مفتاح API. هذا التنزيل اختياري للصوت فقط: Whisper لتحويل الكلام إلى نص وPiper لنطق الردود. قد يحتاج تنزيل موارد الصوت إلى إنترنت ومساحة إضافية. لن تُستخدم هذه النماذج للتفكير أو اتخاذ القرارات أو تنفيذ المهام. هل توافق على تجهيز الصوت المحلي؟"
+                    : "Text chat and task execution already run in Layal's native local core and do not need Ollama, Qwen, or an API key. This optional download is for speech only: Whisper for speech-to-text and Piper for speech output. It needs internet and additional disk space. These models will not be used for reasoning, decisions, or task execution. Approve local speech setup?",
+                IsArabic ? "موافقة على تجهيز الصوت المحلي فقط" : "Approve local speech-only setup",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information,
                 MessageBoxResult.No);
             if (consent != MessageBoxResult.Yes)
             {
                 LocalAiStatusText.Text = IsArabic
-                    ? "تم إلغاء الإعداد؛ لم يبدأ تنزيل أي مورد جديد."
-                    : "Setup cancelled; no new resources were downloaded.";
-                return false;
+                    ? "تم إلغاء تجهيز الصوت؛ نواة المحادثة والمهام تظل جاهزة ولا تحتاج تنزيلًا."
+                    : "Speech setup was cancelled; the conversation and task core remain ready and need no downloads.";
+                return true;
             }
 
             var progress = new Progress<LocalAiProgress>(state =>
@@ -2272,45 +2276,38 @@ public partial class MainWindow : Window
                 }
             });
 
-            if (!_localAiReady)
+            _localVoiceSetupAttempted = true;
+            try
             {
-                await _localAiService.EnsureReadyAsync(AppRuntime.Settings.LocalAiModelId, progress, setupToken);
-                _localAiReady = true;
+                await _localVoiceService.EnsureReadyAsync(progress, setupToken);
+                _localVoiceReady = _localVoiceService.IsReady;
             }
-
-            if (needsVoice)
+            catch (OperationCanceledException) when (setupCancellation.IsCancellationRequested)
             {
-                _localVoiceSetupAttempted = true;
-                try
-                {
-                    await _localVoiceService.EnsureReadyAsync(progress, setupToken);
-                    _localVoiceReady = _localVoiceService.IsReady;
-                }
-                catch (OperationCanceledException) when (setupCancellation?.IsCancellationRequested == true)
-                {
-                    throw;
-                }
-                catch (Exception voiceError)
-                {
-                    _localVoiceReady = false;
-                    LocalAiStatusText.Text = (IsArabic
-                        ? "الشات المحلي جاهز، لكن تجهيز الصوت لم يكتمل. أعد محاولة تجهيز الصوت من الإعدادات. التفاصيل: "
-                        : "Local chat is ready, but speech setup did not complete. Retry setup from Settings. Details: ") + voiceError.Message;
-                }
+                throw;
+            }
+            catch (Exception voiceError)
+            {
+                _localVoiceReady = false;
+                LocalAiStatusText.Text = (IsArabic
+                    ? "نواة النص والمهام جاهزة، لكن تجهيز الصوت لم يكتمل. التفاصيل: "
+                    : "The native text and task core is ready, but speech setup did not complete. Details: ") + voiceError.Message;
             }
 
             UpdateLocalAiStatusText();
             RefreshProviderStatus();
-            return _localAiReady;
+            return true;
         }
         catch (OperationCanceledException) when (setupCancellation?.IsCancellationRequested == true)
         {
-            LocalAiStatusText.Text = IsArabic ? "تم إيقاف إعداد الذكاء الاصطناعي المحلي." : "Local AI setup cancelled.";
+            LocalAiStatusText.Text = IsArabic
+                ? "تم إيقاف تجهيز الصوت المحلي. نواة النص والمهام لم تتأثر."
+                : "Local speech setup cancelled. The text and task core is unaffected.";
             return false;
         }
         catch (Exception ex)
         {
-            LocalAiStatusText.Text = (IsArabic ? "تعذر تجهيز الشات المحلي: " : "Could not set up local chat: ") + ex.Message;
+            LocalAiStatusText.Text = (IsArabic ? "تعذر تجهيز الصوت المحلي: " : "Could not set up local speech: ") + ex.Message;
             SetAccessibleStatusText(ProviderActionStatus, LocalAiStatusText.Text);
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             return false;
@@ -2337,49 +2334,26 @@ public partial class MainWindow : Window
 
     private void RefreshProviderStatus()
     {
-        if (AppRuntime.Settings.UseLocalAi)
-        {
-            UpdateLocalAiStatusText();
-            ConnectionStatusText.Text = _localAiReady
-                ? (IsArabic ? "AI: محلي وجاهز" : "AI: Local and ready")
-                : (IsArabic ? "AI: يحتاج تجهيز محلي" : "AI: Local setup needed");
-            ConnectionStatusText.Foreground = ThemeBrush(
-                _localAiReady ? "Layal.Success" : "Layal.Warning",
-                _localAiReady ? System.Windows.Media.Brushes.ForestGreen : System.Windows.Media.Brushes.DarkGoldenrod);
-            CardAiValue.Text = _localAiReady
-                ? (IsArabic ? "الشات المحلي جاهز" : "Local chat ready")
-                : (IsArabic ? "بانتظار تجهيز محلي" : "Local setup pending");
-            CardAiValue.Foreground = ConnectionStatusText.Foreground;
-            CardAiHint.Text = _localVoiceReady
-                ? (IsArabic ? "الشات والصوت على جهازك؛ لا يلزم مفتاح API." : "Chat and voice run on this device; no API key required.")
-                : (IsArabic ? "وافق على تجهيز المحرك والنماذج من الإعدادات." : "Approve engine and model setup in Settings.");
-            ChatProviderStatus.Text = _localAiReady
-                ? (IsArabic ? "الشات يعمل محليًا على جهازك" : "Chat runs locally on this device")
-                : (IsArabic ? "اضغط تجهيز الشات والصوت ووافق على التنزيل" : "Set up local chat and voice and approve the download");
-            return;
-        }
-
-        var previousConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
-        var hasKey = !string.IsNullOrWhiteSpace(AppRuntime.SecretStore?.Load());
-        var hasConfig = Uri.TryCreate(AppRuntime.Settings.ProviderBaseUrl, UriKind.Absolute, out var uri) &&
-                        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
-                        !string.IsNullOrWhiteSpace(AppRuntime.Settings.ModelId);
-        var ready = hasKey && hasConfig;
-        var tested = ready && _providerTestPassed && string.Equals(_testedBaseUrl, AppRuntime.Settings.ProviderBaseUrl, StringComparison.OrdinalIgnoreCase)
-                     && string.Equals(_testedModelId, AppRuntime.Settings.ModelId, StringComparison.Ordinal);
-        ConnectionStatusText.Text = tested ? (IsArabic ? "AI: الاتصال مختبَر" : "AI: Connection tested")
-            : ready ? (IsArabic ? "AI: الإعداد محفوظ؛ غير مختبَر" : "AI: Configured; not tested")
-            : (IsArabic ? "AI: غير متصل" : "AI: Not connected");
-        ConnectionStatusText.Foreground = tested ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
-        CardAiValue.Text = tested ? (IsArabic ? "تم اختبار الاتصال" : "Connection tested") : ready ? (IsArabic ? "إعداد محفوظ — لم يُختبر" : "Configured — not tested") : (IsArabic ? "غير متصل" : "Not connected");
-        CardAiValue.Foreground = tested ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen) : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
-        ChatProviderStatus.Text = tested ? (IsArabic ? "تم اختبار نقطة الاتصال في هذه الجلسة" : "Endpoint tested in this session")
-            : ready ? (IsArabic ? "إعداد محفوظ؛ اختبر الاتصال" : "Configured; test connection")
-            : (IsArabic ? "لا يوجد اتصال مختبَر" : "Not connected/tested");
-
+        UpdateLocalAiStatusText();
+        ConnectionStatusText.Text = IsArabic
+            ? "النواة المعرفية المستقلة جاهزة"
+            : "Native cognitive core ready";
+        ConnectionStatusText.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
+        CardAiValue.Text = IsArabic ? "نواة ليال جاهزة" : "Layal core ready";
+        CardAiValue.Foreground = ConnectionStatusText.Foreground;
+        CardAiHint.Text = _localVoiceReady
+            ? (IsArabic
+                ? "النص والمهام محليان؛ موارد الصوت المحلية جاهزة اختياريًا."
+                : "Text and tasks are native/local; optional local speech resources are ready.")
+            : (IsArabic
+                ? "النص والمهام لا يحتاجان نماذج. يمكن تجهيز الصوت وحده من الإعدادات."
+                : "Text and tasks need no models. Speech can be set up separately in Settings.");
+        ChatProviderStatus.Text = IsArabic
+            ? "الردود النصية والمهام تعمل من نواة ليال دون مزود AI."
+            : "Text replies and tasks run through Layal's core without an AI provider.";
         NormalizeBidiTextInTree();
         var currentConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
-        if (IsLoaded && !string.Equals(previousConnectionStatus, currentConnectionStatus, StringComparison.Ordinal))
+        if (IsLoaded)
             NotifyLiveRegion(ConnectionStatusText);
     }
 
