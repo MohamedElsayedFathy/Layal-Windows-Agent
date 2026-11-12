@@ -2,7 +2,9 @@
 
 ## Current source milestone — 0.5.8 native cognitive core (2026-11-12)
 
-**Current main:** commit `debf137129f6324b939f6c9100f7441d6d18a8d1`, merged from [PR #154](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/154). PR #153 (Ollama/Qwen tool-calling) was closed without merging because a local LLM would still violate the model-independent cognitive architecture. This status describes the current source tree, not a signed/public release.
+**Current main (2026-11-12):** commit `6beb0c909ecab29171395c071012cbb863b4f182`, merged from [PR #155](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/155), following [PR #154](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/154). The PR #155 source head `0a7832aeea87884647543b559e2a330dc33f0c24` is an ancestor of this main commit; only the review-document refresh followed the tested source head. Its Windows CI recorded **652/652 C# tests passing**, and security/supply-chain and automated acceptance runs passed (see [the technical review](TECHNICAL_REVIEW_2026-11-12_AR.md)). This status describes the current source tree, not a signed/public release.
+
+**Architecture boundary:** the current 0.5.8 source routes text conversation and task planning through a bounded deterministic native core and does not call a local or hosted chat LLM. The newly supplied master development roadmap instead names a local model as Layal's primary cognitive engine. This is a future architecture decision to reconcile before model-runtime work; neither behavior should be described as implemented by the other.
 
 | Capability | Current implementation | Honest boundary |
 |---|---|---|
