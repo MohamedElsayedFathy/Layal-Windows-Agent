@@ -29,7 +29,7 @@ public sealed class LocalAiServiceTests
     [TestMethod]
     public void MicrophoneCaptureHasBoundedRecordingAndNoNetworkTranscriptionApi()
     {
-        Assert.AreEqual(120, MicrophoneCaptureService.MaximumRecordingSeconds);
+        Assert.AreEqual(TimeSpan.FromMinutes(2), MicrophoneCaptureService.MaximumRecordingDuration);
         Assert.IsNotNull(typeof(MicrophoneCaptureService).GetMethod("StartRecording"));
         Assert.IsNotNull(typeof(MicrophoneCaptureService).GetMethod("StopRecordingAsync"));
         Assert.IsNull(typeof(MicrophoneCaptureService).GetMethod("TranscribeAsync"));
