@@ -17,7 +17,7 @@ public sealed class NativeAgentOrchestrator
 {
     private const int MaximumPlanSteps = 6;
     private static readonly Regex ExplicitGoalSequenceSeparator = new(
-        @"[;؛\r\n]+",
+        @"[\r\n]+",
         RegexOptions.CultureInvariant);
     private static readonly Regex NaturalGoalSequenceSeparator = new(
         @"\s+(?:ثم|وبعدين|بعد\s+كده|وبعد\s+كده|وبعدها|then|and\s+then|after\s+that)\s+",
@@ -224,7 +224,7 @@ public sealed class NativeAgentOrchestrator
             .ToList();
         if (explicitCommands.Count > 1)
         {
-            // A semicolon/newline is an explicit sequence boundary. Empty or unsupported
+            // A line break is an explicit sequence boundary. Empty or unsupported
             // segments invalidate the complete plan before any operation is approved.
             return explicitCommands.Any(string.IsNullOrWhiteSpace)
                 ? new List<string>()
