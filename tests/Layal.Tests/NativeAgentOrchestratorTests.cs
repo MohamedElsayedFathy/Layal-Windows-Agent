@@ -463,6 +463,45 @@ public sealed class NativeAgentOrchestratorTests
             Assert.Inconclusive("The native task history, memory, and learning stores use Windows DPAPI.");
     }
     [TestMethod]
+    public async Task FileReadBackRejectsContentThatOnlyContainsTheExpectedText()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var filePath = Path.Combine(workspace, "evidence.txt");
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var tampered = false;
+
+        var task = await orchestrator.RunTaskAsync(
+            "create file evidence.txt with content Verified value",
+            (_, _, _) => Task.FromResult(true),
+            message =>
+            {
+                if (!tampered && message.Contains("Verifying the intended result locally:", StringComparison.Ordinal))
+                {
+                    File.AppendAllText(filePath, " extra content");
+                    tampered = true;
+                }
+            },
+            CancellationToken.None,
+            "en");
+
+        Assert.IsTrue(tampered, "The test must alter the created file immediately before its verification read.");
+        Assert.AreEqual("CompletedWithWarnings", task.Status, task.Result);
+        Assert.IsTrue(task.Result.Contains("could not be verified", StringComparison.OrdinalIgnoreCase));
+        var experience = learning.GetRecentExperiences(1).Single();
+        Assert.IsFalse(experience.Verified,
+            "A read-back containing the expected phrase plus extra data must not count as exact verification.");
+    }
+
+    [TestMethod]
     public async Task VerifiedCreateFollowedByReadKeepsTheWholeSequenceVerified()
     {
         EnsureWindowsDpapi();
