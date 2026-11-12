@@ -190,7 +190,7 @@ public sealed class NativeAgentOrchestratorTests
         var events = new System.Collections.Generic.List<string>();
 
         var task = await orchestrator.RunTaskAsync(
-            "create file first.txt with content First value then create file second.txt with content Second value",
+            "create file first.txt with content First value\ncreate file second.txt with content Second value",
             (title, _, _) => { approvals.Add(title); return Task.FromResult(true); },
             events.Add,
             CancellationToken.None,
@@ -222,7 +222,7 @@ public sealed class NativeAgentOrchestratorTests
         var approvalCalls = 0;
 
         var task = await orchestrator.RunTaskAsync(
-            "create file sentence.txt with content First then second",
+            "create file sentence.txt with content First then list files",
             (_, _, _) => { approvalCalls++; return Task.FromResult(true); },
             _ => { },
             CancellationToken.None,
@@ -230,7 +230,9 @@ public sealed class NativeAgentOrchestratorTests
 
         Assert.AreEqual("Completed", task.Status, task.Result);
         Assert.AreEqual(2, approvalCalls, "One create approval and one read-back approval are expected.");
-        Assert.AreEqual("First then second", File.ReadAllText(Path.Combine(workspace, "sentence.txt")));
+        Assert.AreEqual("First then list files", File.ReadAllText(Path.Combine(workspace, "sentence.txt")));
+        Assert.AreEqual(1, Directory.GetFiles(workspace, "*", SearchOption.AllDirectories).Length,
+            "A natural-language connector inside literal file content must never trigger another command.");
     }
 
     [TestMethod]
