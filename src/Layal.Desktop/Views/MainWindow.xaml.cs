@@ -1581,7 +1581,6 @@ public partial class MainWindow : Window
         SendButton.Content = ar ? "إرسال" : "Send";
         CancelResponseButton.Content = ar ? "إيقاف" : "Stop";
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
-        SpeechModelLabel.Text = ar ? "التحويل المحلي عبر Whisper فقط" : "Local Whisper speech transcription only";
         VoiceReplySectionTitle.Text = ar ? "صوت ليال" : "Layal voice";
         AudioInputDeviceLabel.Text = ar ? "الميكروفون المستخدم" : "Input microphone";
         AudioOutputDeviceLabel.Text = ar ? "مخرج صوت ليال" : "Layal audio output";
@@ -1596,8 +1595,6 @@ public partial class MainWindow : Window
             : "Select the speaker or audio output used for Layal's spoken replies and live conversations.");
         AutomationProperties.SetName(RefreshAudioDevicesButton, ar ? "تحديث قائمة أجهزة الصوت" : "Refresh audio devices");
         VoiceReplyCheckbox.Content = ar ? "نطق الردود بصوت Piper المحلي (اختياري)" : "Speak replies with optional local Piper voice";
-        VoiceReplyVoiceLabel.Text = ar ? "النطق المحلي يستخدم صوت Piper المثبت" : "Local playback uses the installed Piper voice";
-        VoiceReplyModelLabel.Text = ar ? "لا يحتاج النطق المحلي إلى معرّف نموذج" : "Local speech does not need a model ID";
         VoiceReplyDisclosureText.Text = ar
             ? "صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper؛ لا يُرسل نص الرد إلى أي خدمة صوتية."
             : "Layal's synthetic voice is not a human recording. Speech is generated locally with Piper; reply text is not sent to a voice service.";
@@ -2173,9 +2170,9 @@ public partial class MainWindow : Window
             UseLocalAiCheckbox.IsEnabled = false;
             CancelLocalAiSetupButton.Visibility = Visibility.Visible;
             CancelLocalAiSetupButton.IsEnabled = true;
-            LocalSpeechProgressBar.Visibility = Visibility.Visible;
-            LocalSpeechProgressBar.IsIndeterminate = true;
-            LocalSpeechProgressBar.Value = 0;
+            LocalAiProgressBar.Visibility = Visibility.Visible;
+            LocalAiProgressBar.IsIndeterminate = true;
+            LocalAiProgressBar.Value = 0;
 
             // Text chat and task planning now run in Layal's own native core.
             // Only optional microphone/speaker resources are checked or downloaded here.
@@ -2211,12 +2208,12 @@ public partial class MainWindow : Window
                 LocalAiStatusText.Text = state.Message;
                 if (state.Percent.HasValue)
                 {
-                    LocalSpeechProgressBar.IsIndeterminate = false;
-                    LocalSpeechProgressBar.Value = Math.Clamp(state.Percent.Value, 0, 100);
+                    LocalAiProgressBar.IsIndeterminate = false;
+                    LocalAiProgressBar.Value = Math.Clamp(state.Percent.Value, 0, 100);
                 }
                 else
                 {
-                    LocalSpeechProgressBar.IsIndeterminate = true;
+                    LocalAiProgressBar.IsIndeterminate = true;
                 }
             });
 
@@ -2258,8 +2255,8 @@ public partial class MainWindow : Window
         }
         finally
         {
-            LocalSpeechProgressBar.Visibility = Visibility.Collapsed;
-            LocalSpeechProgressBar.IsIndeterminate = false;
+            LocalAiProgressBar.Visibility = Visibility.Collapsed;
+            LocalAiProgressBar.IsIndeterminate = false;
             CancelLocalAiSetupButton.Visibility = Visibility.Collapsed;
             CancelLocalAiSetupButton.IsEnabled = true;
             SetupLocalAiButton.IsEnabled = priorButtonEnabled;
