@@ -643,6 +643,7 @@
                                 <Track.DecreaseRepeatButton>
                                     <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
                                                   Style="{x:Null}" Focusable="False" IsTabStop="False"
+                                                  AutomationProperties.Name="تمرير الصفحة لأعلى / Scroll page up"
                                                   Background="Transparent" BorderThickness="0" />
                                 </Track.DecreaseRepeatButton>
                                 <Track.Thumb>
@@ -673,6 +674,7 @@
                                 <Track.IncreaseRepeatButton>
                                     <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
                                                   Style="{x:Null}" Focusable="False" IsTabStop="False"
+                                                  AutomationProperties.Name="تمرير الصفحة لأسفل / Scroll page down"
                                                   Background="Transparent" BorderThickness="0" />
                                 </Track.IncreaseRepeatButton>
                             </Track>
