@@ -914,6 +914,13 @@ public sealed class MainWindowVisualSmokeTests
 
                     var chatSurface = window.FindName("ChatConversationSurface") as Grid
                         ?? throw new InvalidOperationException("ChatConversationSurface was not found.");
+                    var mainTabsViewport = window.FindName("MainTabs") as TabControl
+                        ?? throw new InvalidOperationException("MainTabs was not found.");
+                    if (mainTabsViewport.ActualHeight < 900)
+                    {
+                        Assert.AreEqual(Visibility.Collapsed, welcomeEyebrow.Visibility,
+                            "The welcome card must switch to dense copy when the bounded tab viewport is shorter than 900 DIPs.");
+                    }
                     var welcomePanel = window.FindName("ChatWelcomePanel") as Border
                         ?? throw new InvalidOperationException("ChatWelcomePanel was not found.");
                     foreach (var suggestionName in new[]
