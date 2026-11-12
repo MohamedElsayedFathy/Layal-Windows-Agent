@@ -45,7 +45,6 @@ public partial class MainWindow : Window
     private readonly GameModeAutoDismissalPolicy _gameModeAutoDismissalPolicy = new();
     private readonly ForegroundGameDetectionService _foregroundGameDetectionService = new();
     private readonly DispatcherTimer _gameModeDetectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
-    private bool _cameraAutomaticObservationRequest;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _weatherRefreshTimer = new() { Interval = TimeSpan.FromMinutes(30) };
     private readonly DispatcherTimer _reminderTimer = new() { Interval = TimeSpan.FromSeconds(15) };
@@ -87,7 +86,6 @@ public partial class MainWindow : Window
     private readonly LocalVoiceService _localVoiceService = new();
     // Used only when the user explicitly selects Test external API; never used by chat or task planning.
     private readonly OpenAiCompatibleClient _providerConnectionTester = new();
-    private bool _localAiReady = true;
     private bool _localVoiceReady;
     private bool _localVoiceSetupAttempted;
     private bool _localVoiceRecordingActive;
@@ -117,7 +115,6 @@ public partial class MainWindow : Window
     private string _memoryEditorBaselineContent = string.Empty;
     private string _memoryEditorBaselineCategory = "General";
     private const int MaxMemoryBackupBytes = 2 * 1024 * 1024;
-    private bool _providerTestPassed;
     private string? _testedBaseUrl;
     private string? _testedModelId;
     private string _currentConversationId = string.Empty;
@@ -2107,7 +2104,6 @@ public partial class MainWindow : Window
     {
         try
         {
-            _localAiReady = true;
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync();
             UpdateLocalAiStatusText();
             RefreshProviderStatus();
@@ -2177,7 +2173,6 @@ public partial class MainWindow : Window
 
             // Text chat and task planning now run in Layal's own native core.
             // Only optional microphone/speaker resources are checked or downloaded here.
-            _localAiReady = true;
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync(setupToken);
             var needsVoice = includeVoice && !_localVoiceReady && (!_localVoiceSetupAttempted || retryVoice);
             if (!needsVoice)
@@ -3190,7 +3185,6 @@ public partial class MainWindow : Window
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         ModelInput.Text = AppRuntime.Settings.ModelId;
         ApiKeyInput.Clear();
-        _providerTestPassed = false;
         RefreshProviderStatus();
         SetAccessibleStatusText(ProviderActionStatus, IsArabic
             ? "تم تحديث إعداد API السحابي لليال. يظل الوضع المحلي هو الافتراضي؛ أوقفه من الإعدادات لاستخدام هذا المزود."
@@ -3375,8 +3369,7 @@ public partial class MainWindow : Window
             BaseUrlInput.Text = string.Empty;
             ModelInput.Text = string.Empty;
             ApiKeyInput.Clear();
-            _providerTestPassed = false;
-            RefreshProviderStatus();
+                RefreshProviderStatus();
         }
         ApiConnectionSearchInput.Clear();
         RefreshApiConnections();
@@ -3791,7 +3784,6 @@ public partial class MainWindow : Window
         }
 
         if (!string.IsNullOrWhiteSpace(submittedApiKey)) ApiKeyInput.Clear();
-        _providerTestPassed = false;
         if (!string.IsNullOrWhiteSpace(profileNameToRefresh))
             RefreshApiConnections(profileNameToRefresh);
         SetAccessibleStatusText(ProviderActionStatus, IsArabic ? "تم حفظ الإعدادات. لم يتم تأكيد الاتصال حتى الآن؛ استخدم اختبار الاتصال." : "Settings saved. Connectivity is not confirmed yet; run the connection test.");
@@ -3968,7 +3960,6 @@ public partial class MainWindow : Window
         try
         {
             var result = await _providerConnectionTester.ProbeAsync(baseUrl, key);
-            _providerTestPassed = true;
             _testedBaseUrl = baseUrl.TrimEnd('/');
             _testedModelId = ModelInput.Text.Trim();
             var testSummary = IsArabic ? $"نجح الاختبار: {result}" : $"Test succeeded: {result}";
@@ -3977,8 +3968,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _providerTestPassed = false;
-            SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("فشل اختبار الاتصال", "Connection test failed", ex, IsArabic));
+                SetAccessibleStatusText(ProviderActionStatus, UiLocalization.FormatTechnicalError("فشل اختبار الاتصال", "Connection test failed", ex, IsArabic));
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
         }
         finally
@@ -5404,8 +5394,6 @@ public partial class MainWindow : Window
     private void CameraVisionWindow_AutomaticObservationChanged(bool enabled)
     {
         _lastCameraObservation = string.Empty;
-        if (!enabled && _cameraAutomaticObservationRequest)
-            _chatCancellation?.Cancel();
         UpdateCameraVisionIndicator();
         SetChatActivityStatus(enabled
             ? (IsArabic ? "التحليل البصري التلقائي نشط: لقطة كل 10 ثوانٍ." : "Automatic visual observation is active: one still every 10 seconds.")
