@@ -9,7 +9,7 @@ using Layal.Models;
 namespace Layal.Services;
 
 /// <summary>Client for OpenAI-compatible chat completions, including optional tool/function calling.</summary>
-public sealed class OpenAiCompatibleClient
+public sealed class OpenAiCompatibleClient : IAgentModelClient
 {
     private const int MaxJsonResponseBytes = 4 * 1024 * 1024;
     private const int MaxErrorResponseBytes = 32 * 1024;
@@ -312,6 +312,36 @@ public sealed class OpenAiCompatibleClient
                 .Where(part => !string.IsNullOrEmpty(part)));
         }
         return string.Empty;
+    }
+
+    public Task<AgentTurnResult> AgentTurnAsync(AgentModelRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Provider != AgentModelProvider.Cloud)
+            throw new InvalidOperationException("OpenAI-compatible requests can only handle the cloud provider.");
+        if (string.IsNullOrWhiteSpace(request.BaseUrl))
+            throw new InvalidOperationException("A cloud provider base URL is required.");
+        if (request.Messages is null || request.ToolDefinitions is null)
+            throw new ArgumentException("Agent messages and tool definitions are required.", nameof(request));
+
+        return AgentTurnAsync(
+            request.BaseUrl,
+            request.Model,
+            request.ApiKey ?? string.Empty,
+            request.Messages,
+            request.ToolDefinitions,
+            cancellationToken);
+    }
+
+    public Task ValidateToolCallingAsync(
+        AgentModelProvider provider,
+        string model,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (provider != AgentModelProvider.Cloud)
+            throw new InvalidOperationException("OpenAI-compatible client cannot validate a local provider.");
+        return Task.CompletedTask;
     }
 
     /// <summary>Sends a tool-capable agent turn. The provider must implement OpenAI-compatible tool calling.</summary>
