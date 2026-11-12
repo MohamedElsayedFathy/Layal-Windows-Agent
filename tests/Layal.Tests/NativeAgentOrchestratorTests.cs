@@ -428,7 +428,7 @@ public sealed class NativeAgentOrchestratorTests
             "en");
 
         Assert.AreEqual("CompletedWithWarnings", task.Status, task.Result);
-        Assert.IsTrue(task.Result.Contains("external outcome still needs observation", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(task.Result, "النتيجة الخارجية");
 
         var experience = learning.GetRecentExperiences(1).Single();
         Assert.AreEqual(nameof(NativeIntent.LaunchProgram), experience.Intent);
