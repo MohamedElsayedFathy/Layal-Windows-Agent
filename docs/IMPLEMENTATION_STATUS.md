@@ -2,7 +2,7 @@
 
 ## Current source milestone — 0.5.8 native cognitive core (2026-11-12)
 
-**Branch/PR:** `feat/native-cognitive-core` / [PR #154](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/154). This status describes the feature branch, not the protected `main` branch or a released installer.
+**Current main:** commit `debf137129f6324b939f6c9100f7441d6d18a8d1`, merged from [PR #154](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/154). PR #153 (Ollama/Qwen tool-calling) was closed without merging because a local LLM would still violate the model-independent cognitive architecture. This status describes the current source tree, not a signed/public release.
 
 | Capability | Current implementation | Honest boundary |
 |---|---|---|
@@ -14,7 +14,7 @@
 | Vision | The independent text/task path refuses image analysis rather than sending selected images to a conversational provider. | Independent vision processing has not been implemented. |
 | External APIs | Provider settings and REST/JSON connection catalog remain separate from the native conversation and task planner. | The native planner does not currently autonomously orchestrate arbitrary app APIs. |
 
-**Verification boundary:** the preceding CI run for the initial native-core commit reported Windows Release build success, 611/611 tests passed, successful NuGet/license and secret scans, and a failed final acceptance gate because its traceability map referenced four test files removed by the migration. The mapping has been corrected and focused native-orchestrator tests have been added on the feature branch. The new commit is undergoing a fresh Windows CI run; do not treat this as passed until that run completes. Manual Windows interaction, real microphone/speaker testing, accessibility/screen-reader acceptance, code signing, and license/asset clearance remain open.
+**Verification on the merged main commit:** [Windows build run 43235178129](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/43235178129) completed successfully. The Windows Release build and static checks passed; the TRX report records **644/644 C# tests passed, 0 failed**. Native Windows click-through and mouse-drag integration, display/DPI smoke, keyboard-navigation acceptance, GLB preview, unsigned installer lifecycle, and artifact integrity steps passed in that run. [Security/supply-chain run 43235177944](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/43235177944) passed Gitleaks full-history scan, NuGet vulnerability audit, and license-inventory validation. [Full Windows acceptance run 43233640577](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/43233640577) passed on the exact PR #154 source head that was merged to main. These results do not replace physical-device acceptance. Narrator/NVDA and live Windows High Contrast acceptance, physical multi-monitor/DPI transitions, certificate-backed signing, project/asset rights clearance, and the final release decision remain open.
 
 The matrix below is the historical 0.5.7 baseline and is superseded where it conflicts with the current 0.5.8 milestone above. It is retained as history rather than evidence of current branch behavior.
 
