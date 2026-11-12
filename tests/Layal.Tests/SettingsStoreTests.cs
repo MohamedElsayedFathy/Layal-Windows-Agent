@@ -17,7 +17,6 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(string.Empty, settings.ProviderBaseUrl);
         Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.IsTrue(settings.UseLocalAi);
-        Assert.AreEqual(LocalAiService.DefaultModelId, settings.LocalAiModelId);
         Assert.IsTrue(settings.MascotAlwaysOnTop);
         Assert.IsTrue(settings.MascotAnimationsEnabled);
         Assert.AreEqual(1.0, settings.MascotScale, 0.0001);
@@ -74,7 +73,7 @@ public sealed class SettingsStoreTests
     }
 
     [TestMethod]
-    public void InvalidLocalModelIdPreservesOtherSettingsAndUsesSafeModelDefault()
+    public void LegacyLocalModelSettingIsIgnoredWithoutAffectingOtherSettings()
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(System.IO.Path.Combine(temp.Path, "settings.json"),
@@ -87,7 +86,6 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("https://provider.example/v1", settings.ProviderBaseUrl);
         Assert.AreEqual("saved-model", settings.ModelId);
         Assert.IsFalse(settings.UseLocalAi);
-        Assert.AreEqual(LocalAiService.DefaultModelId, settings.LocalAiModelId);
         Assert.AreEqual(1.25, settings.MascotScale, 0.0001);
     }
 
@@ -127,7 +125,6 @@ public sealed class SettingsStoreTests
             ProviderBaseUrl = "https://provider.example/v1",
             ModelId = "test-model",
             UseLocalAi = false,
-            LocalAiModelId = "qwen3.5:2b",
             MascotAlwaysOnTop = false,
             MascotAnimationsEnabled = false,
             PerformanceModeEnabled = true,
@@ -158,7 +155,6 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
         Assert.IsFalse(reloaded.UseLocalAi);
-        Assert.AreEqual("qwen3.5:2b", reloaded.LocalAiModelId);
         Assert.IsFalse(reloaded.MascotAlwaysOnTop);
         Assert.IsFalse(reloaded.MascotAnimationsEnabled);
         Assert.IsTrue(reloaded.PerformanceModeEnabled);
@@ -223,7 +219,6 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(candidate.UseAutomaticLocation);
         Assert.IsTrue(candidate.AutomaticLocationConsentConfirmed);
         Assert.IsFalse(candidate.UseLocalAi);
-        Assert.AreEqual("qwen3.5:2b", candidate.LocalAiModelId);
         Assert.AreEqual("old-transcriber", candidate.SpeechToTextModelId);
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
         Assert.AreEqual("old-voice-model", candidate.VoiceReplyModelId);
