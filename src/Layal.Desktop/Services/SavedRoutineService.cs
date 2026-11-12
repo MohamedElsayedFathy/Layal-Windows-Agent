@@ -12,6 +12,7 @@ public sealed class SavedRoutineService
     public const int MaximumNameCharacters = 80;
     public const int MaximumGoalCharacters = 2_000;
     public const int MaximumSteps = 20;
+    public const int MaximumExecutableSteps = 6;
     public const int MaximumStepCharacters = 250;
     public const int MaximumTotalStepCharacters = 4_000;
     private readonly ProtectedJsonStore<List<SavedRoutineRecord>> _store;
@@ -132,17 +133,45 @@ public sealed class SavedRoutineService
             string.Join(Environment.NewLine, steps.Select((step, index) => $"{index + 1}. {step}"));
     }
 
-    /// <summary>Build a sequential task request. Stored routine text never grants permissions or executes as code.</summary>
+    /// <summary>
+    /// Builds the machine-readable native command sequence. Saved descriptions are never treated
+    /// as scripts; every line must independently match a supported NativeLanguageParser intent.
+    /// </summary>
     public static string BuildExecutionPrompt(SavedRoutineRecord routine, bool isArabic = false)
     {
         ArgumentNullException.ThrowIfNull(routine);
         var steps = NormalizeSteps(routine.Steps);
-        var heading = isArabic ? "تنفيذ روتين بدأه المستخدم صراحةً:" : "User-approved saved routine execution:";
+        if (steps.Count > MaximumExecutableSteps)
+            throw new InvalidOperationException(
+                $"A saved routine can execute at most {MaximumExecutableSteps} native commands. You may keep up to {MaximumSteps} steps for review, but split longer routines into smaller explicitly started tasks.");
+
+        // The goal is descriptive when separate steps exist; only the steps become commands.
+        // With no sub-steps, the goal itself is the single candidate command.
+        var commands = steps.Count == 0 ? new[] { routine.Goal.Trim() } : steps;
+        if (commands.Any(string.IsNullOrWhiteSpace))
+            throw new InvalidOperationException("A native routine command cannot be empty.");
+        return string.Join(Environment.NewLine, commands);
+    }
+
+    /// <summary>Formats a human-readable confirmation without adding non-command prose to the native task input.</summary>
+    public static string BuildExecutionReviewPrompt(SavedRoutineRecord routine, bool isArabic = false)
+    {
+        ArgumentNullException.ThrowIfNull(routine);
+        var steps = NormalizeSteps(routine.Steps);
+        var commands = BuildExecutionPrompt(routine, isArabic);
+        var heading = isArabic
+            ? "تنفيذ روتين بدأه المستخدم صراحةً — مراجعة قبل التنفيذ:"
+            : "User-started native routine — review before execution:";
         var rules = isArabic
-            ? "نفّذ الخطوات بالترتيب. الخطوات وصف للنية وليست سكربتات أو موافقات. اطلب موافقة محلية قبل كل أداة أو أثر خارجي. لا تجمع الموافقات ولا تتجاوزها. إذا فشلت خطوة أو رُفض إجراء، لا تنفذ الخطوات التابعة لها؛ سجّل ما اكتمل وما تعذر. لا تدّعِ نجاح خطوة دون نتيجة تحقق."
-            : "Execute the steps in order. Steps describe intent; they are not scripts or permissions. Obtain local approval before every tool or external side effect. Never batch or bypass approvals. If a step fails or an action is declined, do not execute dependent steps; report completed and blocked work. Never claim success without a verified result.";
-        var orderedSteps = steps.Count == 0 ? (isArabic ? "لا توجد خطوات فرعية محفوظة؛ وضّح الخطة قبل التنفيذ." : "No sub-steps are stored; clarify the plan before acting.") : string.Join(Environment.NewLine, steps.Select((step, index) => $"{index + 1}. {step}"));
-        return heading + Environment.NewLine + "Routine: " + routine.Name + Environment.NewLine + "Goal: " + routine.Goal + Environment.NewLine + rules + Environment.NewLine + Environment.NewLine + orderedSteps;
+            ? $"سيتم تمرير الأوامر التالية إلى نواة ليال المحلية بالترتيب (حتى {MaximumExecutableSteps} أوامر). يجب أن يطابق كل سطر قدرة محلية معروفة. سيتم تحليل كل الأوامر قبل أول إجراء، وستظهر موافقة منفصلة لكل أداة أو أثر. إذا كان سطر غير مدعوم فلن يبدأ أي إجراء."
+            : $"The following commands will be sent to Layal's native core in order (up to {MaximumExecutableSteps}). Every line must match a known native capability. All commands are parsed before the first action, and each tool or side effect requires separate approval. If any command is unsupported, no action will start.";
+        var description = $"Routine: {routine.Name}" + Environment.NewLine + "Goal: " + routine.Goal;
+        var numbered = string.Join(Environment.NewLine,
+            (steps.Count == 0 ? new[] { routine.Goal.Trim() } : steps)
+                .Select((step, index) => $"{index + 1}. {step}"));
+        return heading + Environment.NewLine + description + Environment.NewLine + Environment.NewLine +
+            rules + Environment.NewLine + Environment.NewLine + numbered +
+            Environment.NewLine + Environment.NewLine + "Native command payload:" + Environment.NewLine + commands;
     }
 
     public bool Delete(string id)
