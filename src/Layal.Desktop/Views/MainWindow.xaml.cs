@@ -78,7 +78,6 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _screenCaptureCancellation;
     private CancellationTokenSource? _clipboardReadCancellation;
     private CancellationTokenSource? _hoveredElementInspectionCancellation;
-    private readonly OpenAiCompatibleClient _aiClient = new();
     private readonly DocumentTextExtractionService _documentTextExtractionService = new();
     private CancellationTokenSource? _documentExtractionCancellation;
     private string? _pendingDocumentText;
@@ -107,7 +106,6 @@ public partial class MainWindow : Window
     private string? _pendingVisionFileName;
     private string _lastCameraObservation = string.Empty;
     private CancellationTokenSource? _agentTaskCancellation;
-    private bool _stopAgentTaskAfterToolFailure;
     private string? _selectedMemoryId;
     private bool _selectedMemoryIsArchived;
     private DateTimeOffset? _selectedMemoryUpdatedAt;
@@ -6367,7 +6365,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _stopAgentTaskAfterToolFailure = true;
             TaskInput.Text = window.RunPrompt;
             MainTabs.SelectedItem = TasksTab;
             RunAgentTaskButton_Click(RunAgentTaskButton, new RoutedEventArgs(Button.ClickEvent, RunAgentTaskButton));
@@ -6709,7 +6706,6 @@ public partial class MainWindow : Window
 
     private async void RunAgentTaskButton_Click(object sender, RoutedEventArgs e)
     {
-        _stopAgentTaskAfterToolFailure = false;
 
         if (!PrivateChatModePolicy.CanStartAgentTask(_incognitoMode))
         {
