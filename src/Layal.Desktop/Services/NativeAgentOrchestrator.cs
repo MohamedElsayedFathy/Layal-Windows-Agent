@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Layal.Models;
@@ -15,6 +16,9 @@ namespace Layal.Services;
 public sealed class NativeAgentOrchestrator
 {
     private const int MaximumPlanSteps = 6;
+    private static readonly Regex GoalSequenceSeparator = new(
+        @"\s+(?:ثم|وبعدين|بعد\s+كده|وبعد\s+كده|وبعدها|then|and\s+then|after\s+that)\s+|[;؛\r\n]+",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private readonly NativeLanguageParser _parser;
     private readonly NativeLearningService _learning;
     private readonly AgentToolExecutor _tools;
@@ -78,22 +82,46 @@ public sealed class NativeAgentOrchestrator
                 return task;
             }
 
-            var command = _parser.Parse(goal);
-            intentName = command.Intent.ToString();
-            var plan = CreatePlan(command);
+            var commandTexts = SplitGoalSequence(goal);
+            if (commandTexts.Count == 0)
+                throw new InvalidOperationException("The command sequence is empty or contains a dangling separator. Nothing was executed.");
+            if (commandTexts.Count > MaximumPlanSteps)
+                throw new InvalidOperationException($"The native planner supports at most {MaximumPlanSteps} explicit commands per task. Nothing was executed.");
+
+            // Parse and plan the complete sequence before the first tool is called. One unknown
+            // segment invalidates the whole sequence, so a partially understood goal cannot
+            // trigger an earlier side effect.
+            var commands = commandTexts.Select(text => _parser.Parse(text)).ToList();
+            intentName = commands.Count == 1
+                ? commands[0].Intent.ToString()
+                : "Sequence";
+            var plan = new List<NativePlanStep>();
+            foreach (var command in commands)
+            {
+                var commandPlan = CreatePlan(command);
+                if (commandPlan.Count == 0)
+                {
+                    plan.Clear();
+                    break;
+                }
+                plan.AddRange(commandPlan);
+            }
+
             if (plan.Count == 0)
             {
                 task.Status = "Failed";
                 task.Result = UnsupportedIntentMessage(interfaceLanguage);
-                Log("No deterministic intent rule matched. Nothing was executed and no model fallback was attempted.");
+                Log("At least one command has no verified native plan. The complete sequence was rejected before execution; no model fallback was attempted.");
                 _learning.RecordExperience(intentName, task.Status, verified: false);
                 _history.Upsert(task);
                 return task;
             }
 
             if (plan.Count > MaximumPlanSteps)
-                throw new InvalidOperationException("The native planner produced more than the permitted number of steps.");
+                throw new InvalidOperationException($"The native planner supports at most {MaximumPlanSteps} plan steps. Nothing was executed.");
 
+            if (commands.Count > 1)
+                Log($"Parsed the complete request into {commands.Count} explicit commands; every command matched a native rule.");
             Log($"Native plan created: {plan.Count} bounded step(s).");
             foreach (var step in plan)
                 Log("Planned: " + step.Description);
@@ -184,6 +212,16 @@ public sealed class NativeAgentOrchestrator
             _history.Upsert(task);
             return task;
         }
+    }
+
+    private static List<string> SplitGoalSequence(string goal)
+    {
+        var commands = GoalSequenceSeparator.Split(goal)
+            .Select(command => command.Trim())
+            .ToList();
+        return commands.Count == 0 || commands.Any(string.IsNullOrWhiteSpace)
+            ? new List<string>()
+            : commands;
     }
 
     private static List<NativePlanStep> CreatePlan(NativeCommand command)
