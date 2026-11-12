@@ -106,7 +106,8 @@ public sealed class AgentToolExecutor
         string argumentsJson,
         Func<string, string, CancellationToken, Task<bool>> confirm,
         Action<string> report,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool keepReadDataLocal = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         JsonObject args;
@@ -123,7 +124,7 @@ public sealed class AgentToolExecutor
                 GetString(args, "path"),
                 GetOptionalInt(args, "start_character", 0, 0, int.MaxValue),
                 GetOptionalInt(args, "max_characters", MaxReadChunkChars, 1, MaxReadChunkChars),
-                confirm, report, cancellationToken),
+                confirm, report, cancellationToken, keepReadDataLocal),
             "create_text_file" => await CreateTextFileAsync(GetString(args, "path"), GetString(args, "content"), confirm, report, cancellationToken),
             "replace_text_in_file" => await ReplaceTextAsync(GetString(args, "path"), GetString(args, "old_text"), GetString(args, "new_text"), confirm, report, cancellationToken),
             "open_notepad" => await LaunchAllowedProgramAsync("notepad", confirm, report, cancellationToken),
@@ -263,7 +264,7 @@ public sealed class AgentToolExecutor
         expected.LastWriteTimeUtc == actual.LastWriteTimeUtc &&
         string.Equals(expected.Sha256, actual.Sha256, StringComparison.Ordinal);
 
-    private async Task<string> ReadTextFileAsync(string relativePath, int startCharacter, int maxCharacters, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
+    private async Task<string> ReadTextFileAsync(string relativePath, int startCharacter, int maxCharacters, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token, bool keepReadDataLocal)
     {
         var path = ResolvePath(relativePath);
         if (!File.Exists(path)) throw new FileNotFoundException("The requested workspace file does not exist.", relativePath);
@@ -278,13 +279,17 @@ public sealed class AgentToolExecutor
         var relative = Path.GetRelativePath(_workspaceRoot, path);
         var requestedEnd = Math.Min(preview.Text.Length, checked(startCharacter + maxCharacters));
         var approvalDetails =
-            $"Read and send '{relative}' to the configured AI provider? The file content is not shown or shared before approval.\n\n"
+            (keepReadDataLocal
+                ? $"Read '{relative}' into Layal's local native cognitive core? The file content will remain on this device and will not be sent to an AI provider.\n\n"
+                : $"Read and send '{relative}' to the configured AI provider? The file content is not shown or shared before approval.\n\n")
             + $"Requested character range: {startCharacter} to {Math.Max(startCharacter, requestedEnd) - 1} of {preview.Text.Length}\n"
             + $"Size: {preview.Length} bytes (limit {MaxReadBytes} bytes)\n"
             + $"SHA-256: {preview.Sha256}\n\n"
             + "Only this slice will be returned. Every next slice requires a separate approval. The file must remain byte-for-byte unchanged while you approve.";
-        if (!await confirm("Read and share file", approvalDetails, token))
-            return "User declined to share this file with the configured AI provider. No file content was returned.";
+        if (!await confirm(keepReadDataLocal ? "Read file locally" : "Read and share file", approvalDetails, token))
+            return keepReadDataLocal
+                ? "User declined local file reading. No file content was returned."
+                : "User declined to share this file with the configured AI provider. No file content was returned.";
 
         token.ThrowIfCancellationRequested();
         if (!File.Exists(path))
