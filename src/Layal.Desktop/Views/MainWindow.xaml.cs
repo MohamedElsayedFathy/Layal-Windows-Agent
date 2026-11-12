@@ -1607,7 +1607,7 @@ public partial class MainWindow : Window
         SendButton.Content = ar ? "إرسال" : "Send";
         CancelResponseButton.Content = ar ? "إيقاف" : "Stop";
         ChatInput.ToolTip = ar ? "اكتب رسالة ثم اضغط Enter" : "Type a message and press Enter";
-        SpeechModelLabel.Text = ar ? "نموذج تحويل الكلام السحابي (اختياري)" : "Cloud speech-to-text model (optional)";
+        SpeechModelLabel.Text = ar ? "التحويل المحلي عبر Whisper فقط" : "Local Whisper speech transcription only";
         VoiceReplySectionTitle.Text = ar ? "صوت ليال" : "Layal voice";
         AudioInputDeviceLabel.Text = ar ? "الميكروفون المستخدم" : "Input microphone";
         AudioOutputDeviceLabel.Text = ar ? "مخرج صوت ليال" : "Layal audio output";
@@ -1625,8 +1625,8 @@ public partial class MainWindow : Window
         VoiceReplyVoiceLabel.Text = ar ? "النطق المحلي يستخدم صوت Piper المثبت" : "Local playback uses the installed Piper voice";
         VoiceReplyModelLabel.Text = ar ? "لا يحتاج النطق المحلي إلى معرّف نموذج" : "Local speech does not need a model ID";
         VoiceReplyDisclosureText.Text = ar
-            ? "صوت ليال اصطناعي وليس صوت إنسان. في الوضع المحلي يُولّد النطق على جهازك دون إرسال الرد إلى خادم صوت؛ قد تُطبق رسوم عند اختيار المزود السحابي."
-            : "Layal's AI-generated voice is synthetic, not a human recording. Local mode synthesizes speech on this device; cloud voice may incur provider charges.";
+            ? "صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper؛ لا يُرسل نص الرد إلى أي خدمة صوتية."
+            : "Layal's synthetic voice is not a human recording. Speech is generated locally with Piper; reply text is not sent to a voice service.";
         TestVoiceReplyButton.Content = ar ? "تجربة صوت ليال" : "Test Layal voice";
         TestVoiceReplyButton.ToolTip = ar ? "يجرب نطق Piper المحلي فقط؛ لا يُرسل نص إلى أي خدمة." : "Previews local Piper speech only; no text is sent to a service.";
         foreach (ComboBoxItem voiceItem in VoiceReplyVoiceSelector.Items)
@@ -1666,8 +1666,8 @@ public partial class MainWindow : Window
             : "Text style is independent from delivery style and voice identity; it never changes safety rules, confirmations, or tool permissions.");
         VoiceDeliveryStyleLabel.Text = ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style";
         VoiceDeliveryStyleDisclosure.Text = ar
-            ? "طبيعية أو هادئة أو مشرقة أو واضحة. محليًا يتغير الإيقاع فقط؛ سحابيًا تُرسل تعليمات نبرة مستقلة. لا يتغير معرّف الصوت."
-            : "Natural, gentle, bright, or clear. Local mode changes pace only; cloud mode sends separate delivery instructions. The voice ID stays unchanged.";
+            ? "طبيعية أو هادئة أو مشرقة أو واضحة. النطق المحلي عبر Piper يغيّر الإيقاع فقط؛ لا توجد تعليمات صوتية تُرسل إلى خادم."
+            : "Natural, gentle, bright, or clear. Local Piper speech changes pace only; no voice instructions are sent to a server.";
         AutomationProperties.SetName(VoiceDeliveryStyleSelector, ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style");
         AutomationProperties.SetHelpText(VoiceDeliveryStyleSelector, ar
             ? "اختيار مستقل عن أسلوب النص وهوية الصوت. لا يغيّر قواعد الأمان أو صلاحيات الأدوات."
@@ -1689,11 +1689,11 @@ public partial class MainWindow : Window
             ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
             : "Read replies aloud. Local mode synthesizes speech on this device after local voice resources are prepared.");
         SpeechModelInput.ToolTip = ar
-            ? "يستخدم في الوضع السحابي فقط؛ تحقق من دعم موفر API لنقطة /audio/transcriptions والنموذج."
-            : "Used only in cloud mode; confirm the provider supports /audio/transcriptions and this model.";
+            ? "حقل قديم غير مستخدم؛ تحويل الميكروفون في المحادثة محلي عبر Whisper."
+            : "Legacy field not used; microphone transcription in chat runs locally with Whisper.";
         AutomationProperties.SetName(SpeechModelInput, ar ? "معرّف نموذج تحويل الكلام إلى نص" : "Speech-to-text model ID");
         AutomationProperties.SetHelpText(SpeechModelInput, ar
-            ? "اسم نموذج الصوت لدى مزودك، وليس بالضرورة معرّف نموذج المحادثة."
+            ? "هذا الحقل مخفي وغير مستخدم في النواة المستقلة."
             : "The speech model supported by your provider; it may differ from your chat model.");
         AutomationProperties.SetName(SpeechToTextButton, ar ? "تسجيل صوت وتحويله إلى نص" : "Record speech and transcribe it");
         AutomationProperties.SetHelpText(SpeechToTextButton, AppRuntime.Settings.UseLocalAi
@@ -1893,8 +1893,8 @@ public partial class MainWindow : Window
         ApiIntegrationsTab.Header = ar ? "تكاملات API" : "API integrations";
         ApiIntegrationsHeading.Text = ar ? "ربط التطبيقات عبر API" : "Connect applications through APIs";
         ApiIntegrationsDescription.Text = ar
-            ? "أضف عددًا كبيرًا من اتصالات REST/JSON وابحث بينها. يمكن تعيين اتصال متوافق مع OpenAI كـ API ليال السحابي الاختياري. هذا اتصال بمزود تستخدمه ليال وليس خادم API عامًا تستضيفه."
-            : "Add and search a large catalog of REST/JSON connections. An OpenAI-compatible connection can be selected as Layal's optional cloud AI provider; this configures a provider Layal uses, not a public API server hosted by Layal.";
+            ? "أضف اتصالات REST/JSON للتكاملات الخارجية. كتالوج هذه الاتصالات منفصل عن نواة ليال؛ لن يستخدمها لتوليد الردود أو التخطيط أو اتخاذ القرارات."
+            : "Add REST/JSON connections for external integrations. This catalog is separate from Layal's native core and is not used to generate replies, plan, or make decisions.";
         ApiConnectionsListLabel.Text = ar ? "التطبيقات المتصلة" : "Connected applications";
         ApiConnectionSearchInput.ToolTip = ar ? "ابحث بالاسم أو عنوان API أو التفاصيل" : "Search by name, API URL, or details";
         System.Windows.Automation.AutomationProperties.SetName(ApiConnectionSearchInput, ar ? "البحث في اتصالات API" : "Search API connections");
@@ -2005,8 +2005,8 @@ public partial class MainWindow : Window
         System.Windows.Automation.AutomationProperties.SetHelpText(MascotOpacitySlider, ar ? "عدّل القيمة باستخدام الأسهم بعد الوصول إلى شريط التمرير." : "Use the arrow keys to adjust this slider when focused.");
         ApplyMascotSettingsButton.Content = ar ? "تطبيق إعدادات الشخصية" : "Apply mascot settings";
         SettingsLimitations.Text = ar
-            ? "الوضع الافتراضي يوفر الشات وتحويل الكلام والنطق محليًا بعد موافقتك وتنزيل الموارد. المهام المتقدمة وتحليل الصور وبعض التكاملات ما زالت تحتاج مزودًا سحابيًا اختياريًا. يعمل التسجيل المحلي على جهازك ولا يُرفع إلى مزود صوت."
-            : "The default mode provides local chat, speech recognition, and speech synthesis after you consent to downloading resources. Advanced agent tasks, image analysis, and some integrations still need an optional cloud provider. Local microphone audio is not uploaded to a speech service.";
+            ? "الردود النصية والمهام المحددة تعمل من نواة ليال المستقلة دون نموذج محادثة. الفهم العام والتدريب الإحصائي والرؤية الحاسوبية المستقلة ما زالت قيد التنفيذ. موارد الصوت المحلية اختيارية ولا تُستخدم للتفكير أو القرارات."
+            : "Text replies and supported tasks run through Layal's native core without a chat model. General open-ended understanding, statistical training, and native computer vision remain under development. Optional local speech resources are not used for reasoning or decisions.";
         WindowInspectionCheckbox.Content = ar ? "السماح بفحص النوافذ وعناصر الواجهة وتنفيذ فعل واحد بموافقة" : "Allow window/UI inspection and one approved control action";
         MemoryHeading.Text = ar ? "الذاكرة الشخصية" : "Personal memory";
         LoreWebButton.Content = ar ? "خريطة الذاكرة 3D" : "3D memory web";
@@ -2347,7 +2347,6 @@ public partial class MainWindow : Window
         ChatProviderStatus.Text = IsArabic
             ? "الردود النصية والمهام تعمل من نواة ليال دون مزود AI."
             : "Text replies and tasks run through Layal's core without an AI provider.";
-        var currentConnectionStatus = BidiTextNormalizer.StripDirectionalControls(ConnectionStatusText.Text);
         if (IsLoaded)
             NotifyLiveRegion(ConnectionStatusText);
     }
@@ -4603,7 +4602,7 @@ public partial class MainWindow : Window
     private string VoiceConversationStatusMessage(VoiceConversationStatus status) =>
         status switch
         {
-            VoiceConversationStatus.Connecting => IsArabic ? "جارٍ الاتصال بموفر Realtime قبل تشغيل الميكروفون..." : "Connecting to Realtime before activating the microphone...",
+            VoiceConversationStatus.Connecting => IsArabic ? "جارٍ تجهيز تحويل الصوت المحلي..." : "Preparing local speech transcription...",
             VoiceConversationStatus.Listening => IsArabic ? "الميكروفون نشط — تحدث إلى ليال في أي وقت." : "Microphone active — speak to Layal at any time.",
             VoiceConversationStatus.UserSpeaking => IsArabic ? "ليال بتسمعك الآن..." : "Layal is listening to you...",
             VoiceConversationStatus.AssistantSpeaking => IsArabic ? "ليال بترد — تقدر تقاطعها بالكلام." : "Layal is responding — speak to interrupt.",
