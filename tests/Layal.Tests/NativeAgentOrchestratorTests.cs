@@ -341,7 +341,7 @@ public sealed class NativeAgentOrchestratorTests
         var approvalCalled = false;
         var commands = Enumerable.Range(1, 7)
             .Select(index => $"create file file-{index}.txt with content Item {index}");
-        var goal = string.Join(" then ", commands);
+        var goal = string.Join(Environment.NewLine, commands);
 
         var task = await orchestrator.RunTaskAsync(
             goal,
@@ -354,6 +354,52 @@ public sealed class NativeAgentOrchestratorTests
         Assert.IsFalse(approvalCalled);
         Assert.AreEqual(0, Directory.GetFiles(workspace, "*", SearchOption.AllDirectories).Length);
         StringAssert.Contains(task.Result, "at most 6 explicit commands");
+    }
+
+    [TestMethod]
+    public async Task NonzeroDotnetBuildExitStopsDependentCommandsAndMarksTaskFailed()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "failing.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <NuGetAudit>false</NuGetAudit>
+                <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+              </PropertyGroup>
+              <Target Name="FailNativeBuild" BeforeTargets="CoreCompile">
+                <Exec Command="cmd /c exit 23" />
+              </Target>
+            </Project>
+            """);
+
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var approvalCalls = 0;
+        var task = await orchestrator.RunTaskAsync(
+            "build failing.csproj" + Environment.NewLine +
+            "create file must-not-exist.txt with content This must not run",
+            (_, _, _) => { approvalCalls++; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("Failed", task.Status, task.Result);
+        Assert.AreEqual(1, approvalCalls, "The dependent file action must never reach its approval after build failure.");
+        StringAssert.Contains(task.Result, "Exit code: 23");
+        StringAssert.Contains(task.Result, "STDERR");
+        Assert.IsFalse(File.Exists(Path.Combine(workspace, "must-not-exist.txt")));
+        Assert.IsFalse(learning.GetRecentExperiences().Any(item =>
+            item.Intent == "BuildProject" && item.Verified),
+            "A nonzero process exit must never be recorded as a verified success.");
     }
 
     private static void EnsureWindowsDpapi()
