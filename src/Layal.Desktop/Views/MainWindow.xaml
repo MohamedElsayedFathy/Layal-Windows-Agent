@@ -291,7 +291,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <DockPanel Grid.Row="0" LastChildFill="False">
                             <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,12,0">
-                                <TextBlock Text="LAYAL  /  مساعد سطح المكتب" FlowDirection="RightToLeft"
+                                <TextBlock x:Name="ChatSectionEyebrow" Text="LAYAL / مساعد سطح المكتب" FlowDirection="RightToLeft"
                                            FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
                                            Margin="0,0,0,3"/>
                                 <TextBlock x:Name="ChatHeading" Text="المحادثة مع ليال"
