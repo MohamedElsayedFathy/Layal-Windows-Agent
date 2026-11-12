@@ -8,7 +8,7 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class NativeCognitiveCoreTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("الساعة كام دلوقتي", NativeIntent.CurrentTime)]
     [DataRow("معلومات النظام", NativeIntent.SystemInfo)]
     [DataRow("اعرض الملفات", NativeIntent.ListWorkspaceFiles)]
@@ -38,7 +38,7 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual(NativeIntent.Unknown, parser.Parse("Please autonomously refactor my entire codebase").Intent);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("لا تفتحي المفكرة")]
     [DataRow("من فضلك لا تفتحي المفكرة")]
     [DataRow("don't open notepad")]
@@ -58,7 +58,7 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual(NativeIntent.Unknown, parser.Parse(phrase).Intent, phrase);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("open notepad", "notepad")]
     [DataRow("launch calculator", "calculator")]
     [DataRow("start paint", "paint")]
