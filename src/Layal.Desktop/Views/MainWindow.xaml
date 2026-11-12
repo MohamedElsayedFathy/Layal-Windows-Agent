@@ -96,7 +96,7 @@
             <Button x:Name="CloseWindowButton" Style="{StaticResource Layal.CaptionButton}" Content="&#xE8BB;" Click="CloseWindowButton_Click"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="إغلاق / Close" AutomationProperties.Name="إغلاق / Close" />
         </StackPanel>
-        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="214,10,14,12" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs.">
+        <controls:ContentOnlyTabControl x:Name="MainTabs" Grid.Row="1" Margin="214,10,14,12" Style="{StaticResource Layal.ContentOnlyTabControl}" Background="Transparent" BorderBrush="Transparent" KeyboardNavigation.TabNavigation="Local" SelectionChanged="MainTabs_SelectionChanged" AutomationProperties.Name="التنقل الرئيسي / Main navigation" AutomationProperties.HelpText="استخدم Ctrl+1 إلى Ctrl+8 للتنقل بين التبويبات / Use Ctrl+1 to Ctrl+8 to navigate the tabs." SizeChanged="MainTabs_SizeChanged">
             <TabItem x:Name="HomeTab" Header="نظرة عامة" Tag="&#xE80F;">
                 <Border Style="{StaticResource Layal.PageCanvas}" Margin="0,2,0,2">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
