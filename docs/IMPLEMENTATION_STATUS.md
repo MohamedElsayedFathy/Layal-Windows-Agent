@@ -1,5 +1,24 @@
 # Layal implementation status register
 
+## Current source milestone — 0.5.8 native cognitive core (2026-11-12)
+
+**Branch/PR:** `feat/native-cognitive-core` / [PR #154](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/154). This status describes the feature branch, not the protected `main` branch or a released installer.
+
+| Capability | Current implementation | Honest boundary |
+|---|---|---|
+| Text conversation | `NativeConversationEngine` handles supported intents, greetings, identity/capabilities, time/date, local memory retrieval, and extractive document summaries without calling an LLM endpoint. | Finite patterns and templates only; no open-ended language understanding or generative responses. |
+| Task decisions and execution | `NativeLanguageParser` and `NativeAgentOrchestrator` select bounded plans and call the existing allow-listed `AgentToolExecutor`; local approvals remain mandatory for consequential actions. | The current planner handles a bounded set of single-action goals, plus the explicit create-file/read-back verification sequence. It is not a general multi-step planner. |
+| Learning | `NativeLearningService` stores explicit user-taught aliases and bounded verified/unverified execution outcomes in the protected local store. | This is rule/experience persistence, not training or fine-tuning model weights, not self-directed skill acquisition, and not proof of improving general reasoning. |
+| Memory and documents | Memory search stays local; document extraction and summaries operate locally. | Summaries select source sentences; they do not paraphrase or infer beyond the document. |
+| Voice | Optional local Whisper/Piper resources provide speech recognition/synthesis after separate setup. | These are still trained speech models, but are not called by text reasoning or task planning. Speech quality and live microphone/speaker acceptance remain device-dependent. |
+| Vision | The independent text/task path refuses image analysis rather than sending selected images to a conversational provider. | Independent vision processing has not been implemented. |
+| External APIs | Provider settings and REST/JSON connection catalog remain separate from the native conversation and task planner. | The native planner does not currently autonomously orchestrate arbitrary app APIs. |
+
+**Verification boundary:** the preceding CI run for the initial native-core commit reported Windows Release build success, 611/611 tests passed, successful NuGet/license and secret scans, and a failed final acceptance gate because its traceability map referenced four test files removed by the migration. The mapping has been corrected and focused native-orchestrator tests have been added on the feature branch. The new commit is undergoing a fresh Windows CI run; do not treat this as passed until that run completes. Manual Windows interaction, real microphone/speaker testing, accessibility/screen-reader acceptance, code signing, and license/asset clearance remain open.
+
+The matrix below is the historical 0.5.7 baseline and is superseded where it conflicts with the current 0.5.8 milestone above. It is retained as history rather than evidence of current branch behavior.
+
+
 **Pre-audit main baseline (2026-10-29).** The protected `main` branch was at `8f0c9346992347faaaf3783e74510ad28605444a` and the desktop project declared version `0.5.7`. The Windows build passed on that baseline ([run 40683297849](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/40683297849)); security and supply-chain checks also passed ([run 40683297932](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/40683297932)). These are automated evidence only. Manual interactive Windows acceptance, screen-reader/high-contrast checks, physical multi-monitor/DPI transitions, and asset/license closure remain pending; a successful CI run does not make the release decision GO.
 
 The matrix below is a traceability register. Implemented source, automated verification, real-provider/device behavior, and manual Windows acceptance are separate claims.
