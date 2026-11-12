@@ -10,8 +10,10 @@ using NAudio.Wave;
 
 namespace Layal.Services;
 
+public sealed record LocalSpeechProgress(string Message, double? Percent = null);
+
 /// <summary>
-/// Local-only speech recognition and speech synthesis. Whisper and Piper execute as local
+/// Optional local speech recognition and speech synthesis. Whisper and Piper execute as local
 /// processes; temporary microphone and generated audio files are deleted after use.
 /// </summary>
 public sealed class LocalVoiceService
@@ -71,7 +73,20 @@ public sealed class LocalVoiceService
         PooledConnectionLifetime = TimeSpan.FromMinutes(5)
     }) { Timeout = Timeout.InfiniteTimeSpan };
 
-    private static string Root => LocalAiService.DataRoot;
+    public static string DataRoot
+    {
+        get
+        {
+            var paths = LayalDataPathPolicy.Resolve(
+                Environment.GetEnvironmentVariable(LayalDataPathPolicy.AcceptanceRootEnvironmentVariable),
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+            // Keep the existing on-disk directory so previously downloaded speech resources remain usable.
+            return Path.Combine(paths.DataRoot, "LocalAi");
+        }
+    }
+
+    private static string Root => DataRoot;
     private static string ToolsRoot => Path.Combine(Root, "tools");
     private static string ModelsRoot => Path.Combine(Root, "speech-models");
     private static string TempRoot => Path.Combine(Root, "temp");
@@ -98,7 +113,7 @@ public sealed class LocalVoiceService
     }
 
     public async Task EnsureReadyAsync(
-        IProgress<LocalAiProgress>? progress = null,
+        IProgress<LocalSpeechProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         // A retry starts from an untrusted cache state. Never leave a prior success bit set
@@ -168,7 +183,7 @@ public sealed class LocalVoiceService
         ValidateVoiceConfig(ArabicConfigPath, "ar_JO-kareem-medium");
         ValidateVoiceConfig(EnglishConfigPath, "en_US-lessac-medium");
         Volatile.Write(ref _ready, 1);
-        progress?.Report(new LocalAiProgress("أصبح تحويل الكلام والنطق متاحين محليًا على جهازك."));
+        progress?.Report(new LocalSpeechProgress("أصبح تحويل الكلام والنطق متاحين محليًا على جهازك."));
     }
 
     public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
@@ -490,7 +505,7 @@ public sealed class LocalVoiceService
         string? expectedSha256,
         string? expectedSha1,
         string progressMessage,
-        IProgress<LocalAiProgress>? progress,
+        IProgress<LocalSpeechProgress>? progress,
         CancellationToken cancellationToken)
     {
         if (await MatchesExpectedFileAsync(destination, expectedSize, expectedSha256, expectedSha1, cancellationToken))
@@ -500,7 +515,7 @@ public sealed class LocalVoiceService
         var temporary = destination + ".download";
         try
         {
-            progress?.Report(new LocalAiProgress(progressMessage));
+            progress?.Report(new LocalSpeechProgress(progressMessage));
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromMinutes(20));
             using var response = await DownloadClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
@@ -525,7 +540,7 @@ public sealed class LocalVoiceService
                     if (downloaded > expectedSize)
                         throw new InvalidOperationException("تجاوز الملف الذي يتم تنزيله الحجم المتوقع؛ أُلغي لتجنب تخزين ملف غير موثوق.");
                     await output.WriteAsync(buffer.AsMemory(0, count), timeout.Token);
-                    progress?.Report(new LocalAiProgress(progressMessage, Math.Clamp(downloaded * 100d / expectedSize, 0d, 100d)));
+                    progress?.Report(new LocalSpeechProgress(progressMessage, Math.Clamp(downloaded * 100d / expectedSize, 0d, 100d)));
                 }
             }
             finally { Array.Clear(buffer); }
