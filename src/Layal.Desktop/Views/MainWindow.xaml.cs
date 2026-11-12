@@ -1539,6 +1539,12 @@ public partial class MainWindow : Window
             : "Text replies, planning, tasks, and alias learning run inside Layal's native core without an external AI model. Optional local speech requires Whisper/Piper resources only.";
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
+        ChatWelcomeEyebrow.Text = ar ? "مساحة ليال الذكية" : "YOUR AI DESK";
+        ChatWelcomeTitle.Text = ar ? "نبدأ بإيه النهارده؟" : "What would you like to do today?";
+        AutomationProperties.SetName(ChatWelcomeTitle, ChatWelcomeTitle.Text);
+        AutomationProperties.SetHelpText(ChatWelcomeTitle, ar
+            ? "اختر اقتراحًا لملء حقل الرسالة أو اكتب سؤالك مباشرة."
+            : "Choose a prompt starter to fill the message field, or type your question.");
         ChatNotice.Text = ar
             ? "ليال ترد وتخطط وتنفذ من نواتها المحلية؛ لا يُستدعى نموذج محادثة أو مزود سحابي."
             : "Layal replies, plans, and executes through her native local core; no chat model or cloud provider is called.";
