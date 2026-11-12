@@ -38,6 +38,58 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual(NativeIntent.Unknown, parser.Parse("Please autonomously refactor my entire codebase").Intent);
     }
 
+    [DataTestMethod]
+    [DataRow("لا تفتحي المفكرة")]
+    [DataRow("من فضلك لا تفتحي المفكرة")]
+    [DataRow("don't open notepad")]
+    [DataRow("I don't want to start paint")]
+    [DataRow("The word notepad appears in this sentence")]
+    [DataRow("Could you tell me how to open calculator?")]
+    [DataRow("please open https://example.com")]
+    [DataRow("don't open https://example.com")]
+    [DataRow("don't list files")]
+    [DataRow("show me how to list files")]
+    public void ParserDoesNotTreatNegatedOrDescriptiveTextAsAnAction(string phrase)
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        Assert.AreEqual(NativeIntent.Unknown, parser.Parse(phrase).Intent, phrase);
+    }
+
+    [DataTestMethod]
+    [DataRow("open notepad", "notepad")]
+    [DataRow("launch calculator", "calculator")]
+    [DataRow("start paint", "paint")]
+    [DataRow("open file explorer", "file_explorer")]
+    [DataRow("launch task manager", "task_manager")]
+    [DataRow("افتحي المفكرة", "notepad")]
+    [DataRow("افتحي الحاسبة", "calculator")]
+    public void ParserRecognizesOnlyExplicitAllowListedLaunchCommands(string phrase, string expectedProgram)
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        var command = parser.Parse(phrase);
+
+        Assert.AreEqual(NativeIntent.LaunchProgram, command.Intent);
+        Assert.AreEqual(expectedProgram, command.ProgramId);
+    }
+
+    [TestMethod]
+    public void ParserRequiresAnExplicitOpenVerbForUrls()
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        Assert.AreEqual(NativeIntent.OpenUrl, parser.Parse("open https://example.com").Intent);
+        Assert.AreEqual(NativeIntent.Unknown, parser.Parse("Please consider https://example.com as a reference.").Intent);
+        Assert.AreEqual(NativeIntent.Unknown, parser.Parse("do not open https://example.com").Intent);
+    }
+
     [TestMethod]
     public void ConversationRespondsWithoutNeedingAProviderOrModel()
     {
