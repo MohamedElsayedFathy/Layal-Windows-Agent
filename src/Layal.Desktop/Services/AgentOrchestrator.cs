@@ -9,12 +9,12 @@ public sealed class AgentOrchestrator
     private const int MaxModelRounds = 8;
     private const int MaxToolCalls = 12;
     private const int MaxToolResultChars = 24_000;
-    private readonly OpenAiCompatibleClient _client;
+    private readonly IAgentModelClient _client;
     private readonly AgentToolExecutor _tools;
     private readonly SkillPackageService _skills;
     private readonly TaskHistoryService _history;
 
-    public AgentOrchestrator(OpenAiCompatibleClient client, AgentToolExecutor tools, SkillPackageService skills, TaskHistoryService history)
+    public AgentOrchestrator(IAgentModelClient client, AgentToolExecutor tools, SkillPackageService skills, TaskHistoryService history)
     {
         _client = client;
         _tools = tools;
@@ -33,7 +33,8 @@ public sealed class AgentOrchestrator
         CancellationToken cancellationToken,
         string interfaceLanguage = "ar",
         string assistantPersona = "warm",
-        bool stopAfterToolFailureOrDecline = false)
+        bool stopAfterToolFailureOrDecline = false,
+        bool useLocalAi = false)
     {
         var task = new AgentTaskRecord { Goal = goal.Trim(), Status = "Running" };
         var lastPersist = DateTimeOffset.MinValue;
@@ -54,7 +55,9 @@ public sealed class AgentOrchestrator
         }
 
         _history.Upsert(task);
-        Log("Task accepted; building a bounded execution plan through the configured model.");
+        Log(useLocalAi
+            ? "Task accepted; preparing a bounded execution plan through the local Ollama model."
+            : "Task accepted; preparing a bounded execution plan through the configured cloud model.");
         var systemPrompt = LayalIdentity.ForInterfaceLanguage(interfaceLanguage, assistantPersona);
         var messages = new JsonArray
         {
@@ -62,17 +65,32 @@ public sealed class AgentOrchestrator
             new JsonObject { ["role"] = "user", ["content"] = BuildUserTask(goal, selectedSkills) }
         };
         var toolDefinitions = _tools.GetToolDefinitions();
+        var provider = useLocalAi ? AgentModelProvider.Local : AgentModelProvider.Cloud;
         var toolCount = 0;
         var completedToolCalls = 0;
         var hadToolErrorsOrDeclinedActions = false;
 
         try
         {
+            if (useLocalAi)
+            {
+                Log("Verifying that the selected local model can return structured tool calls; no tools will be executed during this check.");
+                await _client.ValidateToolCallingAsync(provider, model, cancellationToken);
+                Log("Local tool-calling capability check passed.");
+            }
+
             for (var round = 1; round <= MaxModelRounds; round++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Log($"Requesting model turn {round}/{MaxModelRounds}.");
-                var turn = await _client.AgentTurnAsync(baseUrl, model, apiKey, messages, toolDefinitions, cancellationToken);
+                var request = new AgentModelRequest(
+                    provider,
+                    model,
+                    messages,
+                    toolDefinitions,
+                    useLocalAi ? null : baseUrl,
+                    useLocalAi ? null : apiKey);
+                var turn = await _client.AgentTurnAsync(request, cancellationToken);
                 if (turn.ToolCalls.Count == 0)
                 {
                     if (string.IsNullOrWhiteSpace(turn.Content))
