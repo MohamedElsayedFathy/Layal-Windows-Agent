@@ -22,6 +22,7 @@ public static class AppRuntime
     public static ProtectedJsonStore<List<ChatMessage>> ChatHistoryStore { get; set; } = null!;
     public static ChatSessionService ChatSessionService { get; set; } = null!;
     public static AgentToolExecutor AgentToolExecutor { get; set; } = null!;
+    public static LocalAiService LocalAiService { get; set; } = new();
     public static ApiConnectionService ApiConnectionService { get; set; } = null!;
     public static BrowserAutomationService BrowserAutomationService { get; set; } = null!;
     public static AgentOrchestrator AgentOrchestrator { get; set; } = null!;
