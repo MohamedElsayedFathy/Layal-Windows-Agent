@@ -172,6 +172,100 @@ public sealed class NativeAgentOrchestratorTests
         Assert.IsFalse(File.Exists(Path.Combine(workspace, "notes.txt")));
     }
 
+    [TestMethod]
+    public async Task ExplicitCommandSequenceIsFullyPlannedAndEachFileIsVerified()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var approvals = new System.Collections.Generic.List<string>();
+        var events = new System.Collections.Generic.List<string>();
+
+        var task = await orchestrator.RunTaskAsync(
+            "create file first.txt with content First value then create file second.txt with content Second value",
+            (title, _, _) => { approvals.Add(title); return Task.FromResult(true); },
+            events.Add,
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("Completed", task.Status, task.Result);
+        Assert.AreEqual(4, approvals.Count, "Each create and each local read-back must receive a separate approval.");
+        Assert.AreEqual("First value", File.ReadAllText(Path.Combine(workspace, "first.txt")));
+        Assert.AreEqual("Second value", File.ReadAllText(Path.Combine(workspace, "second.txt")));
+        CollectionAssert.AreEquivalent(new[] { "first.txt", "second.txt" }, task.Artifacts.ToArray());
+        Assert.AreEqual(2, events.Count(item => item.Contains("Local verification passed", StringComparison.Ordinal)));
+        Assert.IsTrue(events.Any(item => item.Contains("complete request into 2 explicit commands", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task UnknownCommandInSequenceRejectsWholePlanBeforeFirstSideEffect()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var approvalCalled = false;
+
+        var task = await orchestrator.RunTaskAsync(
+            "create file first.txt with content First value then do something outside native capabilities",
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("Failed", task.Status);
+        Assert.IsFalse(approvalCalled, "All commands must be parsed before the first approval or side effect.");
+        Assert.IsFalse(File.Exists(Path.Combine(workspace, "first.txt")));
+        Assert.AreEqual(0, task.Artifacts.Count);
+    }
+
+    [TestMethod]
+    public async Task SequenceLongerThanSixCommandsIsRejectedBeforeApproval()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var approvalCalled = false;
+        var commands = Enumerable.Range(1, 7)
+            .Select(index => $"create file file-{index}.txt with content Item {index}");
+        var goal = string.Join(" then ", commands);
+
+        var task = await orchestrator.RunTaskAsync(
+            goal,
+            (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("Failed", task.Status);
+        Assert.IsFalse(approvalCalled);
+        Assert.AreEqual(0, Directory.GetFiles(workspace, "*", SearchOption.AllDirectories).Length);
+        StringAssert.Contains(task.Result, "at most 6 explicit commands");
+    }
+
     private static void EnsureWindowsDpapi()
     {
         if (!OperatingSystem.IsWindows())
