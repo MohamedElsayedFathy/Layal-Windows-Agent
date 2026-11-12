@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Layal.Models;
 
@@ -111,6 +112,25 @@ public static class UiLocalization
 
     private static string FormatTaskEventMessage(string message, bool isArabic)
     {
+        var permission = Regex.Match(
+            message,
+            @"^Permission (?<decision>requested|approved|denied|cancelled): time=(?<time>[^;]+); actor=local user; tool=(?<tool>.*?); category=(?<category>.*?); target=(?<target>.*?); reason=(?<reason>.*)\.$");
+        if (permission.Success && isArabic)
+        {
+            var decision = permission.Groups["decision"].Value switch
+            {
+                "requested" => "طُلب الإذن",
+                "approved" => "تمت الموافقة",
+                "denied" => "رُفض الإذن",
+                _ => "أُلغي طلب الإذن"
+            };
+            var categories = string.Join(" و", permission.Groups["category"].Value
+                .Split(", ", StringSplitOptions.RemoveEmptyEntries)
+                .Select(LocalizePermissionCategory));
+            var reason = LocalizeApprovalTitle(permission.Groups["reason"].Value, isArabic: true);
+            return $"{decision}: الوقت={permission.Groups["time"].Value}؛ المستخدم المحلي؛ الأداة={permission.Groups["tool"].Value}؛ الفئة={categories}؛ الهدف={permission.Groups["target"].Value}؛ السبب={reason}.";
+        }
+
         if (message.StartsWith("Task accepted;", StringComparison.Ordinal))
             return isArabic ? "تم قبول المهمة؛ يجري إعداد خطة تنفيذ محدودة باستخدام النموذج." : "Task accepted; building a bounded execution plan through the configured model.";
 
@@ -188,6 +208,20 @@ public static class UiLocalization
 
         return FormatKnownTaskResult(message, isArabic);
     }
+
+    private static string LocalizePermissionCategory(string category) => category switch
+    {
+        "Read" => "قراءة",
+        "LocalProcessing" => "معالجة محلية",
+        "Modify" => "تعديل",
+        "Execute" => "تنفيذ",
+        "ExternalShare" => "مشاركة خارجية",
+        "PublishOrUpload" => "نشر أو رفع",
+        "Delete" => "حذف",
+        "SystemChange" => "تغيير النظام",
+        "Unknown" => "غير مصنف",
+        _ => category
+    };
 
     public static string LocalizeApprovalTitle(string title, bool isArabic)
     {
@@ -408,3 +442,4 @@ public static class UiLocalization
         return value;
     }
 }
+

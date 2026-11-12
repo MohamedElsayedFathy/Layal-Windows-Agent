@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -67,7 +68,7 @@ public sealed class ApiToolApprovalTests
         });
         var executor = new AgentToolExecutor(temp.Path, new MemoryService(Path.Combine(temp.Path, "memory.dpapi")), connections);
         var approvalCount = 0;
-        var reportCount = 0;
+        var reportEvents = new List<string>();
         var args = JsonSerializer.Serialize(new
         {
             connection_name = "Demo CRM",
@@ -84,14 +85,20 @@ public sealed class ApiToolApprovalTests
                 StringAssert.Contains(preview, "/v1/contacts?limit=5");
                 Assert.IsFalse(preview.Contains("never-shared-token", StringComparison.Ordinal));
                 return Task.FromResult(true);
-            }, _ => reportCount++, CancellationToken.None);
+            }, reportEvents.Add, CancellationToken.None);
 
         Assert.AreEqual(1, approvalCount);
         Assert.AreEqual(1, handler.RequestCount);
         Assert.AreEqual("https://crm.example.test/v1/contacts?limit=5", handler.LastRequestUri?.AbsoluteUri);
         Assert.AreEqual("Bearer", handler.LastAuthScheme);
         Assert.AreEqual("never-shared-token", handler.LastAuthValue);
-        Assert.AreEqual(1, reportCount);
+        Assert.AreEqual(3, reportEvents.Count);
+        StringAssert.Contains(reportEvents[0], "Permission requested");
+        StringAssert.Contains(reportEvents[0], "category=Read, ExternalShare");
+        StringAssert.Contains(reportEvents[1], "Permission approved");
+        StringAssert.Contains(reportEvents[2], "External API request to 'Demo CRM' returned HTTP 201");
+        Assert.IsFalse(string.Join(Environment.NewLine, reportEvents).Contains("never-shared-token", StringComparison.Ordinal));
+        Assert.IsFalse(string.Join(Environment.NewLine, reportEvents).Contains("{\"limit\":5}", StringComparison.Ordinal));
         StringAssert.Contains(result, "HTTP 201 Created");
         Assert.IsFalse(result.Contains("never-shared-token", StringComparison.Ordinal));
 
@@ -278,3 +285,4 @@ public sealed class ApiToolApprovalTests
         }
     }
 }
+

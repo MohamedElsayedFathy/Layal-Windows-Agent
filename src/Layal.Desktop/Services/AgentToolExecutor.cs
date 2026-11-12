@@ -44,6 +44,7 @@ public sealed class AgentToolExecutor
     private readonly BrowserAutomationService? _browser;
     private readonly SafeBrowserDownloadService _browserDownloads;
     private readonly SafeBrowserUploadService _browserUploads;
+    private readonly PermissionBroker _permissionBroker;
     private readonly TimeSpan _processTimeout;
 
     public AgentToolExecutor(
@@ -60,6 +61,7 @@ public sealed class AgentToolExecutor
         _memory = memory;
         _apiConnections = apiConnections;
         _browser = browser;
+        _permissionBroker = new PermissionBroker();
         _browserDownloads = new SafeBrowserDownloadService(_workspaceRoot);
         _browserUploads = new SafeBrowserUploadService(_workspaceRoot);
         Directory.CreateDirectory(_workspaceRoot);
@@ -109,10 +111,19 @@ public sealed class AgentToolExecutor
         CancellationToken cancellationToken,
         bool keepReadDataLocal = false)
     {
+        ArgumentNullException.ThrowIfNull(confirm);
+        ArgumentNullException.ThrowIfNull(report);
         cancellationToken.ThrowIfCancellationRequested();
         JsonObject args;
         try { args = JsonNode.Parse(argumentsJson) as JsonObject ?? throw new JsonException("Arguments must be a JSON object."); }
         catch (JsonException ex) { throw new InvalidOperationException("Tool arguments were invalid JSON: " + ex.Message); }
+
+        Task<bool> RequestApprovalAsync(string title, string details, CancellationToken token) =>
+            _permissionBroker.RequestAsync(
+                PermissionRequestClassifier.Create(name, args, keepReadDataLocal, title, details),
+                confirm,
+                report,
+                token);
 
         return name switch
         {
@@ -124,32 +135,32 @@ public sealed class AgentToolExecutor
                 GetString(args, "path"),
                 GetOptionalInt(args, "start_character", 0, 0, int.MaxValue),
                 GetOptionalInt(args, "max_characters", MaxReadChunkChars, 1, MaxReadChunkChars),
-                confirm, report, cancellationToken, keepReadDataLocal),
-            "create_text_file" => await CreateTextFileAsync(GetString(args, "path"), GetString(args, "content"), confirm, report, cancellationToken),
-            "replace_text_in_file" => await ReplaceTextAsync(GetString(args, "path"), GetString(args, "old_text"), GetString(args, "new_text"), confirm, report, cancellationToken),
-            "open_notepad" => await LaunchAllowedProgramAsync("notepad", confirm, report, cancellationToken),
-            "launch_allowed_program" => await LaunchAllowedProgramAsync(GetString(args, "program"), confirm, report, cancellationToken),
-            "open_url" => await OpenUrlAsync(GetString(args, "url"), confirm, cancellationToken),
-            "browser_navigate" => await BrowserNavigateAsync(GetString(args, "url"), confirm, report, cancellationToken),
-            "browser_read_page" => await BrowserReadPageAsync(confirm, report, cancellationToken),
-            "web_search" => await WebSearchAsync(GetString(args, "query"), "Search the live web", confirm, report, cancellationToken),
-            "fact_check_claim" => await FactCheckClaimAsync(GetString(args, "claim"), confirm, report, cancellationToken),
-            "browser_click" => await BrowserClickAsync(GetString(args, "selector"), confirm, report, cancellationToken),
-            "browser_fill" => await BrowserFillAsync(GetString(args, "selector"), GetString(args, "text"), confirm, report, cancellationToken),
-            "browser_download" => await BrowserDownloadAsync(GetString(args, "selector"), confirm, report, cancellationToken),
-            "browser_upload_file" => await BrowserUploadAsync(GetString(args, "selector"), GetString(args, "path"), confirm, report, cancellationToken),
-            "get_open_window_titles" => await GetWindowTitlesAsync(confirm, cancellationToken),
-            "activate_window" => await ActivateWindowAsync(GetString(args, "title"), confirm, cancellationToken),
-            "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), confirm, report, cancellationToken),
-            "click_ui_control" => await InvokeWindowControlAsync(GetString(args, "window_title"), GetString(args, "control_type"), GetString(args, "automation_id"), confirm, report, cancellationToken),
-            "fill_ui_text" => await FillUiTextAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetString(args, "text"), confirm, report, cancellationToken),
-            "set_ui_checkbox" => await SetUiCheckboxAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetBoolean(args, "checked"), confirm, report, cancellationToken),
-            "list_app_api_connections" => await ListAppApiConnectionsAsync(GetString(args, "query"), confirm, cancellationToken),
-            "call_app_api" => await CallAppApiAsync(GetString(args, "connection_name"), GetString(args, "method"), GetString(args, "path"), GetString(args, "query_json"), GetString(args, "body_json"), confirm, report, cancellationToken),
-            "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
-            "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), confirm, report, cancellationToken),
-            "search_memory" => await SearchMemoryAsync(GetString(args, "query"), confirm, cancellationToken),
-            "save_memory" => await SaveMemoryAsync(GetString(args, "title"), GetString(args, "content"), confirm, cancellationToken),
+                RequestApprovalAsync, report, cancellationToken, keepReadDataLocal),
+            "create_text_file" => await CreateTextFileAsync(GetString(args, "path"), GetString(args, "content"), RequestApprovalAsync, report, cancellationToken),
+            "replace_text_in_file" => await ReplaceTextAsync(GetString(args, "path"), GetString(args, "old_text"), GetString(args, "new_text"), RequestApprovalAsync, report, cancellationToken),
+            "open_notepad" => await LaunchAllowedProgramAsync("notepad", RequestApprovalAsync, report, cancellationToken),
+            "launch_allowed_program" => await LaunchAllowedProgramAsync(GetString(args, "program"), RequestApprovalAsync, report, cancellationToken),
+            "open_url" => await OpenUrlAsync(GetString(args, "url"), RequestApprovalAsync, cancellationToken),
+            "browser_navigate" => await BrowserNavigateAsync(GetString(args, "url"), RequestApprovalAsync, report, cancellationToken),
+            "browser_read_page" => await BrowserReadPageAsync(RequestApprovalAsync, report, cancellationToken),
+            "web_search" => await WebSearchAsync(GetString(args, "query"), "Search the live web", RequestApprovalAsync, report, cancellationToken),
+            "fact_check_claim" => await FactCheckClaimAsync(GetString(args, "claim"), RequestApprovalAsync, report, cancellationToken),
+            "browser_click" => await BrowserClickAsync(GetString(args, "selector"), RequestApprovalAsync, report, cancellationToken),
+            "browser_fill" => await BrowserFillAsync(GetString(args, "selector"), GetString(args, "text"), RequestApprovalAsync, report, cancellationToken),
+            "browser_download" => await BrowserDownloadAsync(GetString(args, "selector"), RequestApprovalAsync, report, cancellationToken),
+            "browser_upload_file" => await BrowserUploadAsync(GetString(args, "selector"), GetString(args, "path"), RequestApprovalAsync, report, cancellationToken),
+            "get_open_window_titles" => await GetWindowTitlesAsync(RequestApprovalAsync, cancellationToken),
+            "activate_window" => await ActivateWindowAsync(GetString(args, "title"), RequestApprovalAsync, cancellationToken),
+            "inspect_window_controls" => await InspectWindowControlsAsync(GetString(args, "window_title"), RequestApprovalAsync, report, cancellationToken),
+            "click_ui_control" => await InvokeWindowControlAsync(GetString(args, "window_title"), GetString(args, "control_type"), GetString(args, "automation_id"), RequestApprovalAsync, report, cancellationToken),
+            "fill_ui_text" => await FillUiTextAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetString(args, "text"), RequestApprovalAsync, report, cancellationToken),
+            "set_ui_checkbox" => await SetUiCheckboxAsync(GetString(args, "window_title"), GetString(args, "automation_id"), GetBoolean(args, "checked"), RequestApprovalAsync, report, cancellationToken),
+            "list_app_api_connections" => await ListAppApiConnectionsAsync(GetString(args, "query"), RequestApprovalAsync, cancellationToken),
+            "call_app_api" => await CallAppApiAsync(GetString(args, "connection_name"), GetString(args, "method"), GetString(args, "path"), GetString(args, "query_json"), GetString(args, "body_json"), RequestApprovalAsync, report, cancellationToken),
+            "run_dotnet_build" => await RunDotnetAsync("build", GetString(args, "project_file"), GetString(args, "configuration"), RequestApprovalAsync, report, cancellationToken),
+            "run_dotnet_test" => await RunDotnetAsync("test", GetString(args, "project_file"), GetString(args, "configuration"), RequestApprovalAsync, report, cancellationToken),
+            "search_memory" => await SearchMemoryAsync(GetString(args, "query"), RequestApprovalAsync, cancellationToken),
+            "save_memory" => await SaveMemoryAsync(GetString(args, "title"), GetString(args, "content"), RequestApprovalAsync, cancellationToken),
             _ => throw new InvalidOperationException($"Tool '{name}' is not registered.")
         };
     }
@@ -1720,3 +1731,4 @@ public sealed class AgentToolExecutionException : InvalidOperationException
         Output = output ?? string.Empty;
     }
 }
+
