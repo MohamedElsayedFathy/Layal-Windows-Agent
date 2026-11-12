@@ -2241,11 +2241,16 @@ public partial class MainWindow : Window
                 return true;
             }
 
+            var consentMessage = includeVoice
+                ? (IsArabic
+                    ? "سيجهّز Layal الشات والصوت على هذا الكمبيوتر. قد يصل التنزيل الأول إجمالًا إلى نحو 4 جيجابايت ويحتاج 8 جيجابايت مساحة فارغة على الأقل؛ يلزم الإنترنت أثناء التنزيل فقط. سنثبت Ollama الرسمي بعد التحقق من توقيعه وننزل نموذج الشات وموارد Whisper وPiper. ستبقى رسائلك والتسجيلات الصوتية على جهازك ولن تُرسل إلى مزود ذكاء اصطناعي خارجي في الوضع المحلي. هل توافق على التنزيل والتجهيز؟"
+                    : "Layal will set up chat and speech on this computer. The first download may total about 4 GB and needs at least 8 GB free disk space; internet is needed during setup. The official Ollama installer is signature-checked before launch, then the chat and Whisper/Piper speech resources are downloaded. In local mode your messages and microphone audio are processed on this device, not uploaded to a remote AI provider. Approve download and setup?")
+                : (IsArabic
+                    ? "سيجهّز Layal نموذج الشات المحلي على هذا الكمبيوتر لتشغيل المهام دون مفتاح API. قد يحتاج تنزيل النموذج إلى عدة جيجابايت واتصال بالإنترنت أثناء التنزيل فقط. سنثبت Ollama الرسمي بعد التحقق من توقيعه إذا لم يكن مثبتًا. ستُرسل طلبات المهام إلى خدمة Ollama المحلية على هذا الجهاز فقط، ولن يتم تحويلها تلقائيًا إلى مزود سحابي. هل توافق على التنزيل والتجهيز؟"
+                    : "Layal will set up the local chat model on this computer so agent tasks can run without an API key. The model download may require several gigabytes and internet access during setup only. The official Ollama installer is signature-checked before launch if it is not already installed. Agent requests will go only to this device's local Ollama service and will not automatically fall back to a cloud provider. Approve download and setup?");
             var consent = LayalDialogService.Show(
                 this,
-                IsArabic
-                    ? "سيجهّز Layal الشات والصوت على هذا الكمبيوتر. قد يصل التنزيل الأول إجمالًا إلى نحو 4 جيجابايت ويحتاج 8 جيجابايت مساحة فارغة على الأقل؛ يلزم الإنترنت أثناء التنزيل فقط. سنثبت Ollama الرسمي بعد التحقق من توقيعه وننزل نموذج الشات وموارد Whisper وPiper. ستبقى رسائلك والتسجيلات الصوتية على جهازك ولن تُرسل إلى مزود ذكاء اصطناعي خارجي في الوضع المحلي. هل توافق على التنزيل والتجهيز؟"
-                    : "Layal will set up chat and speech on this computer. The first download may total about 4 GB and needs at least 8 GB free disk space; internet is needed during setup. The official Ollama installer is signature-checked before launch, then the chat and Whisper/Piper speech resources are downloaded. In local mode your messages and microphone audio are processed on this device, not uploaded to a remote AI provider. Approve download and setup?",
+                consentMessage,
                 IsArabic ? "موافقة على تجهيز الذكاء الاصطناعي المحلي" : "Approve local AI setup",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information,
