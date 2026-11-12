@@ -26,7 +26,7 @@ public sealed class NativeConversationEngine
     public string Respond(string input, string language, string? documentText = null, string? documentName = null)
     {
         var isArabic = !string.Equals(language, "en", StringComparison.OrdinalIgnoreCase);
-        if (_learning.TryTeachFromUtterance(input, out var learningMessage))
+        if (_learning.TryTeachFromUtterance(input, out var learningMessage, language))
             return learningMessage;
         if (!string.IsNullOrWhiteSpace(documentText))
             return RespondToDocument(input, documentText, documentName ?? "attachment", isArabic);

@@ -66,6 +66,8 @@ public sealed class NativeAgentOrchestrator
 
         _history.Upsert(task);
         var verified = false;
+        var allStepsVerified = true;
+        var isArabic = !string.Equals(interfaceLanguage, "en", StringComparison.OrdinalIgnoreCase);
         var intentName = "Unknown";
         var outputs = new List<string>();
         try
@@ -73,7 +75,7 @@ public sealed class NativeAgentOrchestrator
             cancellationToken.ThrowIfCancellationRequested();
             Log("Native cognitive core selected. No external model, Ollama, Qwen, or AI API will be called.");
 
-            if (_learning.TryTeachFromUtterance(goal, out var learnedMessage))
+            if (_learning.TryTeachFromUtterance(goal, out var learnedMessage, interfaceLanguage))
             {
                 task.Status = "Completed";
                 task.Result = learnedMessage;
@@ -140,7 +142,9 @@ public sealed class NativeAgentOrchestrator
                 if (IsDeclined(output))
                 {
                     task.Status = "Stopped";
-                    task.Result = output + Environment.NewLine + "لم تبدأ ليال أي خطوة تابعة بعد رفض الموافقة.";
+                    task.Result = output + Environment.NewLine + (isArabic
+                        ? "لم تبدأ ليال أي خطوة تابعة بعد رفض الموافقة."
+                        : "Layal did not start any dependent step after approval was declined.");
                     Log("The user declined the action. No dependent steps were started.");
                     _learning.RecordExperience(intentName, task.Status, verified: false);
                     _history.Upsert(task);
@@ -167,34 +171,37 @@ public sealed class NativeAgentOrchestrator
                         task.Status = "CompletedWithWarnings";
                         task.Result = string.Join(Environment.NewLine + Environment.NewLine, outputs) +
                             Environment.NewLine + Environment.NewLine +
-                            "تعذر التحقق من النتيجة بعد التنفيذ. لم أعتبر المهمة مكتملة بالكامل.";
+                            (isArabic
+                                ? "تعذر التحقق من النتيجة بعد التنفيذ. لم أعتبر المهمة مكتملة بالكامل."
+                                : "The result could not be verified after execution. I did not mark the task as fully complete.");
                         Log("Verification did not pass. The action result is retained, but completion is not claimed.");
                         _learning.RecordExperience(intentName, task.Status, verified: false);
                         _history.Upsert(task);
                         return task;
                     }
                     outputs.Add(verification);
-                    verified = true;
                     Log("Local verification passed.");
                 }
-                else
-                {
-                    verified = step.VerificationDescription == "The tool result itself is the final read-only result.";
-                }
+
+                // Verification is a property of every planned step, not merely the last step.
+                // Use an explicit plan flag rather than comparing user-facing English prose.
+                var stepVerified = step.VerifyToolName is not null || step.ToolResultIsSufficientEvidence;
+                allStepsVerified &= stepVerified;
             }
 
             task.Result = string.Join(Environment.NewLine + Environment.NewLine, outputs);
             task.Status = plan.Any(step => step.RequiresExternalOutcomeCheck) ? "CompletedWithWarnings" : "Completed";
             if (task.Status == "CompletedWithWarnings")
                 task.Result += Environment.NewLine + Environment.NewLine +
-                    "تم تنفيذ الطلب المحلي، لكن النتيجة الخارجية (مثل تحميل صفحة أو ظهور تطبيق) لم تُرصد بصورة مستقلة.";
+                    (isArabic
+                        ? "تم تنفيذ الإجراء المحلي، لكن النتيجة الخارجية (مثل تحميل صفحة أو ظهور تطبيق) لم تُرصد بصورة مستقلة."
+                        : "The local action was dispatched, but its external outcome (such as a page loading or an application appearing) was not independently observed.");
             Log(task.Status == "Completed"
                 ? "Native task completed with the available result verified."
                 : "Native action was dispatched, but its external outcome still needs observation.");
             // A tool dispatch is not proof that an external application or website
             // reached the requested state. Keep that outcome explicitly unverified.
-            if (plan.Any(step => step.RequiresExternalOutcomeCheck))
-                verified = false;
+            verified = allStepsVerified && !plan.Any(step => step.RequiresExternalOutcomeCheck);
             _learning.RecordExperience(intentName, task.Status, verified);
             _history.Upsert(task);
             return task;
@@ -214,7 +221,9 @@ public sealed class NativeAgentOrchestrator
         catch (OperationCanceledException)
         {
             task.Status = "Cancelled";
-            task.Result = "تم إلغاء المهمة. أي آثار اكتملت قبل الإلغاء موضحة في سجل التنفيذ، ولا يمكن التراجع تلقائيًا عن كل أثر خارجي.";
+            task.Result = isArabic
+                ? "تم إلغاء المهمة. أي آثار اكتملت قبل الإلغاء موضحة في سجل التنفيذ، ولا يمكن التراجع تلقائيًا عن كل أثر خارجي."
+                : "The task was cancelled. Any effects completed before cancellation are listed in the execution log; external effects cannot always be rolled back automatically.";
             Log("Native task cancelled. No new action will be started.");
             _learning.RecordExperience(intentName, task.Status, verified: false);
             _history.Upsert(task);
@@ -252,25 +261,30 @@ public sealed class NativeAgentOrchestrator
         {
             case NativeIntent.CurrentTime:
                 plan.Add(new NativePlanStep("Read the current local time", "get_current_time", "{}",
-                    VerificationDescription: "The tool result itself is the final read-only result."));
+                    VerificationDescription: "The tool result itself is the final read-only result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.SystemInfo:
                 plan.Add(new NativePlanStep("Read non-sensitive system information", "get_system_info", "{}",
-                    VerificationDescription: "The tool result itself is the final read-only result."));
+                    VerificationDescription: "The tool result itself is the final read-only result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.WorkspaceInfo:
                 plan.Add(new NativePlanStep("Read approved workspace metadata", "get_workspace_info", "{}",
-                    VerificationDescription: "The tool result itself is the final read-only result."));
+                    VerificationDescription: "The tool result itself is the final read-only result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.ListWorkspaceFiles:
                 plan.Add(new NativePlanStep("List entries inside the approved workspace", "list_workspace_files",
                     JsonSerializer.Serialize(new { directory = command.Directory ?? string.Empty }),
-                    VerificationDescription: "The tool result itself is the final read-only result."));
+                    VerificationDescription: "The tool result itself is the final read-only result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.ReadTextFile when !string.IsNullOrWhiteSpace(command.Path):
                 plan.Add(new NativePlanStep("Read one approved workspace text file locally", "read_text_file",
                     JsonSerializer.Serialize(new { path = command.Path, start_character = 0, max_characters = 18000 }),
-                    VerificationDescription: "The approved file slice was returned to Layal's local core."));
+                    VerificationDescription: "The approved file slice was returned to Layal's local core.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.CreateTextFile when !string.IsNullOrWhiteSpace(command.Path) && command.Content is not null:
                 plan.Add(new NativePlanStep("Create a new file after showing its exact content for approval", "create_text_file",
@@ -283,34 +297,40 @@ public sealed class NativeAgentOrchestrator
             case NativeIntent.SearchWeb when !string.IsNullOrWhiteSpace(command.Query):
                 plan.Add(new NativePlanStep("Search the web through the dedicated browser after local approval", "web_search",
                     JsonSerializer.Serialize(new { query = command.Query }),
-                    VerificationDescription: "The bounded search result itself is the returned evidence."));
+                    VerificationDescription: "The bounded search result itself is the returned evidence.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.OpenUrl when !string.IsNullOrWhiteSpace(command.Url):
                 plan.Add(new NativePlanStep("Open the approved URL in the default browser", "open_url",
                     JsonSerializer.Serialize(new { url = command.Url }),
                     RequiresExternalOutcomeCheck: true,
-                    VerificationDescription: "The tool result itself is the final read-only result."));
+                    VerificationDescription: "The tool result itself is the final read-only result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.LaunchProgram when !string.IsNullOrWhiteSpace(command.ProgramId):
                 plan.Add(new NativePlanStep("Launch one allow-listed Windows application after approval", "launch_allowed_program",
                     JsonSerializer.Serialize(new { program = command.ProgramId }),
                     RequiresExternalOutcomeCheck: true,
-                    VerificationDescription: "The tool result itself is the final read-only result."));
+                    VerificationDescription: "The tool result itself is the final read-only result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.BuildProject when !string.IsNullOrWhiteSpace(command.Path):
                 plan.Add(new NativePlanStep("Build the specified workspace project after approval", "run_dotnet_build",
                     JsonSerializer.Serialize(new { project_file = command.Path, configuration = "Release" }),
-                    VerificationDescription: "The build tool returned its final process result."));
+                    VerificationDescription: "The build tool returned its final process result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.TestProject when !string.IsNullOrWhiteSpace(command.Path):
                 plan.Add(new NativePlanStep("Run tests for the specified workspace project after approval", "run_dotnet_test",
                     JsonSerializer.Serialize(new { project_file = command.Path, configuration = "Release" }),
-                    VerificationDescription: "The test tool returned its final process result."));
+                    VerificationDescription: "The test tool returned its final process result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
             case NativeIntent.SaveMemory when !string.IsNullOrWhiteSpace(command.Title) && !string.IsNullOrWhiteSpace(command.Content):
                 plan.Add(new NativePlanStep("Save the explicitly requested note to encrypted local memory", "save_memory",
                     JsonSerializer.Serialize(new { title = command.Title, content = command.Content }),
-                    VerificationDescription: "The memory tool returned its saved-note result."));
+                    VerificationDescription: "The memory tool returned its saved-note result.",
+                    ToolResultIsSufficientEvidence: true));
                 break;
         }
         return plan;
@@ -333,5 +353,6 @@ public sealed class NativeAgentOrchestrator
         string? VerifyArgumentsJson = null,
         string? ExpectedText = null,
         bool RequiresExternalOutcomeCheck = false,
-        string? VerificationDescription = null);
+        string? VerificationDescription = null,
+        bool ToolResultIsSufficientEvidence = false);
 }
