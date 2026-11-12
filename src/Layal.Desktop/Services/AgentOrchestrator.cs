@@ -9,6 +9,18 @@ public sealed class AgentOrchestrator
     private const int MaxModelRounds = 8;
     private const int MaxToolCalls = 12;
     private const int MaxToolResultChars = 24_000;
+
+    private const string AgentTaskOperatingProtocol = """
+Autonomous task execution protocol:
+- Treat the user's request as the desired end state. For a multi-step task, determine the necessary steps, choose the available tools, and sequence them yourself. Do not ask the user to choose tools or direct ordinary intermediate steps.
+- Continue working through the available tools until the requested outcome is reached or a concrete blocker prevents progress. After every tool call, inspect its exact result and use it to choose the next step.
+- When a tool fails, diagnose the returned error. Try a safe alternative or a corrected retry when the evidence supports one; do not blindly repeat an unchanged failing action. Never hide a failure or treat a declined action as success.
+- Before reporting completion, verify the requested outcome using the strongest available evidence: read back a created or changed file, inspect the resulting application/page state, or run the relevant build/test/check when appropriate. A dispatched click, request, or write attempt alone does not prove the intended outcome.
+- If the outcome cannot be verified with the available tools, say exactly what was completed and what remains unverified. Do not claim full completion.
+- Keep the internal plan private. Share only concise progress summaries, blockers, and verification evidence; do not expose private chain-of-thought.
+- Ask the user only for information or authorization that is genuinely unavailable. For actions that require consent, invoke the corresponding tool and let Layal's local approval UI handle the decision. Never bypass, assume, hide, or pre-approve consent.
+- Use only the tools provided by Layal. Do not invent capabilities, exceed tool limits, or substitute an unsafe action for an unavailable tool.
+""";
     private readonly IAgentModelClient _client;
     private readonly AgentToolExecutor _tools;
     private readonly SkillPackageService _skills;
@@ -58,7 +70,7 @@ public sealed class AgentOrchestrator
         Log(useLocalAi
             ? "Task accepted; preparing a bounded execution plan through the local Ollama model."
             : "Task accepted; preparing a bounded execution plan through the configured cloud model.");
-        var systemPrompt = LayalIdentity.ForInterfaceLanguage(interfaceLanguage, assistantPersona);
+        var systemPrompt = LayalIdentity.ForInterfaceLanguage(interfaceLanguage, assistantPersona) + "\n\n" + AgentTaskOperatingProtocol;
         var messages = new JsonArray
         {
             new JsonObject { ["role"] = "system", ["content"] = systemPrompt },
