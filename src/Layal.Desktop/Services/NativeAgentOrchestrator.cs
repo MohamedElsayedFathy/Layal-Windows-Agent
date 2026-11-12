@@ -19,9 +19,6 @@ public sealed class NativeAgentOrchestrator
     private static readonly Regex ExplicitGoalSequenceSeparator = new(
         @"[\r\n]+",
         RegexOptions.CultureInvariant);
-    private static readonly Regex NaturalGoalSequenceSeparator = new(
-        @"\s+(?:ثم|وبعدين|بعد\s+كده|وبعد\s+كده|وبعدها|then|and\s+then|after\s+that)\s+",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private readonly NativeLanguageParser _parser;
     private readonly NativeLearningService _learning;
     private readonly AgentToolExecutor _tools;
@@ -217,35 +214,18 @@ public sealed class NativeAgentOrchestrator
         }
     }
 
-    private List<string> SplitGoalSequence(string goal)
+    private static List<string> SplitGoalSequence(string goal)
     {
-        var explicitCommands = ExplicitGoalSequenceSeparator.Split(goal)
+        var commands = ExplicitGoalSequenceSeparator.Split(goal)
             .Select(command => command.Trim())
             .ToList();
-        if (explicitCommands.Count > 1)
-        {
-            // A line break is an explicit sequence boundary. Empty or unsupported
-            // segments invalidate the complete plan before any operation is approved.
-            return explicitCommands.Any(string.IsNullOrWhiteSpace)
-                ? new List<string>()
-                : explicitCommands;
-        }
 
-        var naturalCommands = NaturalGoalSequenceSeparator.Split(goal)
-            .Select(command => command.Trim())
-            .ToList();
-        if (naturalCommands.Count <= 1)
-            return naturalCommands;
-
-        if (naturalCommands.Any(string.IsNullOrWhiteSpace))
-            return new List<string>();
-
-        // Natural connectors such as "then" are only treated as plan boundaries when
-        // every resulting segment matches a known native intent. Otherwise they remain
-        // part of the user's original text (for example, file content saying "first then second").
-        return naturalCommands.All(command => _parser.Parse(command).Intent != NativeIntent.Unknown)
-            ? naturalCommands
-            : new List<string> { goal.Trim() };
+        // A line break is the only multi-command separator. Natural language connectors
+        // and semicolons may be literal file/search/memory content, so they are never
+        // interpreted as an instruction boundary.
+        return commands.Count == 0 || commands.Any(string.IsNullOrWhiteSpace)
+            ? new List<string>()
+            : commands;
     }
 
     private static List<NativePlanStep> CreatePlan(NativeCommand command)
