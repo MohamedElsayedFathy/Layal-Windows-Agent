@@ -146,4 +146,23 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual("الساعة كام", command);
         Assert.AreEqual(NativeIntent.CurrentTime, new NativeLanguageParser(reloaded).Parse("الوقت").Intent);
     }
+    [TestMethod]
+    public void EnglishConversationAcknowledgesUserTaughtAliasInEnglish()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The native learning store is protected with Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi"));
+        var engine = new NativeConversationEngine(
+            new NativeLanguageParser(learning),
+            learning,
+            new MemoryService(Path.Combine(temp.Path, "memory.dpapi")));
+
+        var response = engine.Respond("When I say \"time\", do what time is it", "en");
+
+        StringAssert.Contains(response, "Saved the local shortcut");
+        Assert.IsFalse(response.Contains("تم حفظ الاختصار المحلي", StringComparison.Ordinal));
+    }
+
 }
