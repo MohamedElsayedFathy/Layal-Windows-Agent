@@ -138,7 +138,7 @@ public sealed class NativeAgentOrchestratorTests
         Assert.AreEqual("CompletedWithWarnings", task.Status);
         Assert.AreEqual(2, approvalCalls, "Creation and local read-back require separate approvals.");
         Assert.IsTrue(File.Exists(Path.Combine(workspace, "notes.txt")));
-        Assert.IsTrue(task.Result.Contains("تعذر التحقق", StringComparison.Ordinal));
+        Assert.IsTrue(task.Result.Contains("could not be verified", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(learning.GetRecentExperiences().Any(item =>
             item.Intent == NativeIntent.CreateTextFile.ToString() && item.Verified));
     }
@@ -169,6 +169,7 @@ public sealed class NativeAgentOrchestratorTests
             "en");
 
         Assert.AreEqual("Cancelled", task.Status);
+        Assert.IsTrue(task.Result.Contains("task was cancelled", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(approvalCalled);
         Assert.IsFalse(File.Exists(Path.Combine(workspace, "notes.txt")));
     }
@@ -428,7 +429,7 @@ public sealed class NativeAgentOrchestratorTests
             "en");
 
         Assert.AreEqual("CompletedWithWarnings", task.Status, task.Result);
-        StringAssert.Contains(task.Result, "النتيجة الخارجية");
+        Assert.IsTrue(task.Result.Contains("external outcome", StringComparison.OrdinalIgnoreCase));
 
         var experience = learning.GetRecentExperiences(1).Single();
         Assert.AreEqual(nameof(NativeIntent.LaunchProgram), experience.Intent);
@@ -461,4 +462,35 @@ public sealed class NativeAgentOrchestratorTests
         if (!OperatingSystem.IsWindows())
             Assert.Inconclusive("The native task history, memory, and learning stores use Windows DPAPI.");
     }
+    [TestMethod]
+    public async Task VerifiedCreateFollowedByReadKeepsTheWholeSequenceVerified()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var approvals = 0;
+
+        var task = await orchestrator.RunTaskAsync(
+            "create file evidence.txt with content Verified value" + Environment.NewLine + "read file evidence.txt",
+            (_, _, _) => { approvals++; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("Completed", task.Status, task.Result);
+        Assert.AreEqual(3, approvals, "Create, its verification read-back, and the explicit read each require approval.");
+        var experience = learning.GetRecentExperiences(1).Single();
+        Assert.AreEqual("Sequence", experience.Intent);
+        Assert.IsTrue(experience.Verified,
+            "A later successful read-only step must not erase evidence from an earlier verified file-creation step.");
+    }
+
 }
