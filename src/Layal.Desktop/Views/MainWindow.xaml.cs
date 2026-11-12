@@ -1116,7 +1116,10 @@ public partial class MainWindow : Window
         // the page shell; using that unbounded height leaves the welcome card in full mode.
         // MainTabs.SizeChanged keeps this responsive even when the chat child does not resize.
         // Use a dense welcome card before hiding the secondary weather summary.
-        var compact = availableHeight < 520;
+        // The main window enforces a 600-DIP minimum height; after its caption,
+        // margins and navigation shell, the remaining tab viewport is roughly 530 DIPs.
+        // Use a viewport-relative breakpoint rather than the old child-height threshold.
+        var compact = availableHeight < 560;
         var dense = availableHeight < 900;
         var layoutMode = compact ? 2 : dense ? 1 : 0;
         ChatEmptyStateText.Text = dense
