@@ -2264,22 +2264,22 @@ public sealed class MainWindowVisualSmokeTests
         window.UpdateLayout();
         window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         showMascot.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, showMascot));
-        Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
         Assert.IsTrue(AppRuntime.Settings.MascotAlwaysOnTop,
             "Collision handling must preserve the persisted always-on-top preference.");
         var mascotOverlapsMainWindow = new Rect(mascot.Left, mascot.Top, mascot.Width, mascot.Height)
             .IntersectsWith(new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight));
         if (mascotOverlapsMainWindow)
         {
-            var sentBehindField = typeof(FloatingMascotWindow).GetField("_mascotSentBehindMainWindow", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?? throw new InvalidOperationException("The temporary mascot z-order state was not found.");
-            Assert.IsTrue((bool)sentBehindField.GetValue(mascot)!,
-                "When no safe slot exists, the mascot must be sent behind the main window.");
-            Assert.IsFalse(mascot.Topmost,
-                "The effective z-order may be lowered while collision handling protects a full-size main window.");
+            var hiddenField = typeof(FloatingMascotWindow).GetField("_mascotHiddenForMainWindowOverlap", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("The temporary mascot overlap state was not found.");
+            Assert.IsTrue((bool)hiddenField.GetValue(mascot)!,
+                "When no safe slot exists, the mascot must be temporarily hidden.");
+            Assert.IsFalse(mascot.IsVisible,
+                "A full-size main window must not be covered by the floating mascot.");
         }
         else
         {
+            Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore the mascot when a safe slot is available.");
             Assert.IsTrue(mascot.Topmost, "ShowAgain must restore the persisted always-on-top preference when unobstructed.");
         }
 
