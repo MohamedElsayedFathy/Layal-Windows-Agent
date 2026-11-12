@@ -579,10 +579,6 @@
                         <Button x:Name="VoiceConversationButton" Grid.Column="2" Content="بدء المحادثة الصوتية" Click="VoiceConversationButton_Click" MinWidth="148"
                                 ToolTip="محادثة صوتية مباشرة: يستخدم الميكروفون ويبث الصوت إلى موفر Realtime حتى تضغط إيقاف."
                                 AutomationProperties.Name="بدء المحادثة الصوتية" AutomationProperties.HelpText="يُبث صوت الميكروفون مباشرة إلى موفر Realtime أثناء الجلسة. اضغط مرة أخرى لإيقاف الميكروفون والمحادثة."/>
-                        <Button x:Name="VoiceMuteButton" Grid.Column="3" Content="كتم الميكروفون" Click="VoiceMuteButton_Click"
-                                Visibility="Collapsed" MinWidth="110"
-                                AutomationProperties.Name="كتم ميكروفون المحادثة الصوتية"
-                                AutomationProperties.HelpText="يكتم الميكروفون مؤقتًا دون إنهاء المحادثة؛ اضغط مرة أخرى لإعادة تشغيله."/>
                         <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="4" Content="إرسال" Click="SendButton_Click" MinWidth="82" MinHeight="48"/>
                         <Button x:Name="CancelResponseButton" Grid.Column="5" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
@@ -1168,8 +1164,6 @@
                         <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1" AutomationProperties.Name="عنوان API الأساسي / API base URL" AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}" AutomationProperties.HelpText="عنوان الخدمة الأساسية بصيغة HTTP أو HTTPS / HTTP or HTTPS base URL for the provider."/>
                         <TextBlock x:Name="ModelLabel" Text="معرّف النموذج" Margin="4,5,4,0"/>
                         <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto" AutomationProperties.Name="معرّف النموذج / Model ID" AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"/>
-                        <TextBlock x:Name="SpeechModelLabel" Visibility="Collapsed" Text="Cloud speech model (unused)" Margin="4,8,4,0"/>
-                        <TextBox x:Name="SpeechModelInput" Visibility="Collapsed" FlowDirection="LeftToRight" Text="gpt-transcribe" AutomationProperties.Name="معرّف نموذج تحويل الكلام إلى نص / Speech-to-text model ID" AutomationProperties.LabeledBy="{Binding ElementName=SpeechModelLabel}" ToolTip="حقل قديم غير مستخدم؛ تحويل الكلام في المحادثة محلي فقط."/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="VoiceReplySectionTitle" Text="صوت ليال" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد من نواة ليال، يمكن نطقه محليًا عبر Piper إذا كانت موارد الصوت جاهزة. لا يُرسل النص إلى Realtime."/>
@@ -1191,19 +1185,6 @@
                         <TextBlock x:Name="AudioDeviceStatus" Text="يُستخدم جهاز Windows الافتراضي حتى تختار جهازًا آخر."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة أجهزة الصوت"/>
-                        <TextBlock x:Name="VoiceReplyVoiceLabel" Visibility="Collapsed" Text="Cloud voice (unused)" Margin="4,6,4,0"/>
-                        <ComboBox x:Name="VoiceReplyVoiceSelector" Visibility="Collapsed" SelectedValuePath="Tag" SelectedValue="marin" SelectionChanged="VoiceReplyVoiceSelector_SelectionChanged" MinWidth="260" AutomationProperties.Name="صوت غير مستخدم">
-                            <ComboBoxItem Tag="marin" Content="Marin — موصى به"/>
-                            <ComboBoxItem Tag="cedar" Content="Cedar — موصى به"/>
-                            <ComboBoxItem Tag="alloy" Content="Alloy"/>
-                            <ComboBoxItem Tag="ash" Content="Ash"/>
-                            <ComboBoxItem Tag="ballad" Content="Ballad"/>
-                            <ComboBoxItem Tag="coral" Content="Coral"/>
-                            <ComboBoxItem Tag="echo" Content="Echo"/>
-                            <ComboBoxItem Tag="sage" Content="Sage"/>
-                            <ComboBoxItem Tag="shimmer" Content="Shimmer"/>
-                            <ComboBoxItem Tag="verse" Content="Verse"/>
-                        </ComboBox>
                         <TextBlock x:Name="AssistantPersonaLabel" Text="نمط شخصية ليال" Margin="4,8,4,0"/>
                         <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="AssistantPersonaSelector_SelectionChanged"
@@ -1229,8 +1210,6 @@
                         <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="يتغير إيقاع النطق المحلي فقط عبر Piper. لا يوجد مسار نطق سحابي أو تعليمات تُرسل إلى مزود خارجي."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.Name="حدود نبرة الإلقاء"/>
-                        <TextBlock x:Name="VoiceReplyModelLabel" Visibility="Collapsed" Text="Cloud realtime model (unused)" Margin="4,8,4,0"/>
-                        <TextBox x:Name="VoiceReplyModelInput" Visibility="Collapsed" FlowDirection="LeftToRight" Text="gpt-realtime-2.1-mini" AutomationProperties.Name="معرّف نموذج الرد الصوتي" AutomationProperties.LabeledBy="{Binding ElementName=VoiceReplyModelLabel}"/>
                         <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper بعد تجهيز موارده؛ لا يتم إرسال نص الرد إلى خدمة صوتية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
                         <Button x:Name="TestVoiceReplyButton" Content="تجربة صوت ليال" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يختبر النطق المحلي عبر Piper فقط؛ لا يُرسل نص إلى أي خدمة."/>
 
