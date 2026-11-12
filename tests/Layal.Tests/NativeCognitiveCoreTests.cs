@@ -39,17 +39,6 @@ public sealed class NativeCognitiveCoreTests
     }
 
     [TestMethod]
-    [DataRow("لا تفتحي المفكرة")]
-    [DataRow("من فضلك لا تفتحي المفكرة")]
-    [DataRow("don't open notepad")]
-    [DataRow("I don't want to start paint")]
-    [DataRow("The word notepad appears in this sentence")]
-    [DataRow("Could you tell me how to open calculator?")]
-    [DataRow("please open https://example.com")]
-    [DataRow("don't open https://example.com")]
-    [DataRow("don't list files")]
-    [DataRow("show me how to list files")]
-    [TestMethod]
     [DataRow("help", NativeIntent.Capabilities)]
     [DataRow("what can you do", NativeIntent.Capabilities)]
     [DataRow("ايه قدراتك", NativeIntent.Capabilities)]
@@ -76,6 +65,17 @@ public sealed class NativeCognitiveCoreTests
         Assert.AreEqual(NativeIntent.Unknown, parser.Parse(phrase).Intent, phrase);
     }
 
+    [TestMethod]
+    [DataRow("لا تفتحي المفكرة")]
+    [DataRow("من فضلك لا تفتحي المفكرة")]
+    [DataRow("don't open notepad")]
+    [DataRow("I don't want to start paint")]
+    [DataRow("The word notepad appears in this sentence")]
+    [DataRow("Could you tell me how to open calculator?")]
+    [DataRow("please open https://example.com")]
+    [DataRow("don't open https://example.com")]
+    [DataRow("don't list files")]
+    [DataRow("show me how to list files")]
     public void ParserDoesNotTreatNegatedOrDescriptiveTextAsAnAction(string phrase)
     {
         using var temp = new TestTempDirectory();
