@@ -712,7 +712,7 @@ for required in (
     if required not in ui_xaml:
         ERRORS.append(f"Layal voice reply control is missing from MainWindow.xaml: {required}")
 for required in (
-    "await _layalSpeech.SpeakAsync",
+    "_localVoiceService.SpeakAsync(",
     "VoiceReplySettingChanged",
     "VoiceReplyVoiceSelector_SelectionChanged",
     "TestVoiceReplyButton_Click",
