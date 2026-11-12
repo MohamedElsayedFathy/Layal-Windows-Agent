@@ -7542,6 +7542,13 @@ public partial class MainWindow : Window
         // Agent execution follows the same explicit local/cloud choice as chat.
         // Local mode never reads or forwards the saved cloud API key.
         var useLocalAi = AppRuntime.Settings.UseLocalAi;
+        var selectedSkills = SkillsList.SelectedItems.Cast<SkillRecord>().Take(3).ToList();
+        if (SkillsList.SelectedItems.Count > 3)
+        {
+            SetAccessibleStatusText(TaskResult, IsArabic ? "استخدم 3 مهارات كحد أقصى في المهمة الواحدة." : "Select no more than 3 skills for one task.");
+            return;
+        }
+
         if (useLocalAi && !await EnsureLocalAiSetupAsync(includeVoice: false))
         {
             SetAccessibleStatusText(TaskResult, IsArabic
@@ -7557,14 +7564,6 @@ public partial class MainWindow : Window
                 ? "لا يوجد مفتاح API محفوظ. استخدم الوضع المحلي أو اضبط المزود السحابي من الإعدادات."
                 : "No saved API key. Use local mode or configure the cloud provider in Settings.");
             MainTabs.SelectedItem = SettingsTab;
-            return;
-        }
-
-        var selectedSkills = SkillsList.SelectedItems.Cast<SkillRecord>().Take(3).ToList();
-        if (SkillsList.SelectedItems.Count > 3)
-        {
-            SetAccessibleStatusText(TaskResult, IsArabic ? "استخدم 3 مهارات كحد أقصى في المهمة الواحدة." : "Select no more than 3 skills for one task.");
-
             return;
         }
 
