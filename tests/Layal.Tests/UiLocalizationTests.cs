@@ -38,6 +38,22 @@ public sealed class UiLocalizationTests
     }
 
     [TestMethod]
+    public void PermissionAuditEventsAreLocalizedAndRetainSafeActionMetadata()
+    {
+        const string original = "12:34:56  Permission denied: actor=local user; tool=create_text_file; category=Modify; target=draft.md; reason=Create file.";
+
+        var arabic = UiLocalization.FormatTaskEvent(original, isArabic: true);
+        var english = UiLocalization.FormatTaskEvent(original, isArabic: false);
+
+        Assert.IsTrue(arabic.StartsWith("12:34:56  رُفض الإذن:", StringComparison.Ordinal));
+        StringAssert.Contains(arabic, "create_text_file");
+        StringAssert.Contains(arabic, "الفئة=تعديل");
+        StringAssert.Contains(arabic, "الهدف=draft.md");
+        StringAssert.Contains(arabic, "السبب=إنشاء ملف");
+        Assert.AreEqual(original, english);
+    }
+
+    [TestMethod]
     public void ApprovalDetailsAreLocalizedButPreserveTheActualUrl()
     {
         const string url = "https://example.test/path?q=layal";
@@ -152,3 +168,4 @@ public sealed class UiLocalizationTests
         Assert.AreEqual("Settings saved. Connectivity is not confirmed yet; run the connection test.", arabic);
     }
 }
+
