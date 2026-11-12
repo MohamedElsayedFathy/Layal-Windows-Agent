@@ -79,7 +79,11 @@ public sealed class NativeLanguageParser
             return new NativeCommand(NativeIntent.Greeting, original);
         if (ContainsAny(normalized, "مين انتي", "من انتي", "عرفيني بنفسك", "who are you", "introduce yourself"))
             return new NativeCommand(NativeIntent.Identity, original);
-        if (ContainsAny(normalized, "تقدري تعملي ايه", "ايه قدراتك", "ما هي قدراتك", "ماذا تستطيعين", "help", "what can you do"))
+        if (new[]
+            {
+                "تقدري تعملي ايه", "ايه قدراتك", "ما هي قدراتك", "ماذا تستطيعين",
+                "help", "what can you do"
+            }.Contains(normalized, StringComparer.Ordinal))
             return new NativeCommand(NativeIntent.Capabilities, original);
         if (ContainsAny(normalized, "الساعه كام", "الوقت كام", "كام الساعه", "الوقت الحالي", "current time", "what time is it", "time now"))
             return new NativeCommand(NativeIntent.CurrentTime, original);
@@ -166,9 +170,9 @@ public sealed class NativeLanguageParser
             "اهلا", "اهلين", "مرحبا", "السلام عليكم", "صباح الخير", "مساء الخير",
             "hello", "hi", "hey"
         };
-        return greetings.Any(greeting =>
-            string.Equals(normalized, greeting, StringComparison.Ordinal) ||
-            normalized.StartsWith(greeting + " ", StringComparison.Ordinal));
+        // Match only a complete greeting. A greeting followed by a real request must
+        // continue through intent parsing instead of being swallowed as a salutation.
+        return greetings.Contains(normalized, StringComparer.Ordinal);
     }
 
     private static bool ContainsAny(string source, params string[] values) =>
