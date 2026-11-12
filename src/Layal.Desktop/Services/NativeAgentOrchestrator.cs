@@ -15,7 +15,8 @@ namespace Layal.Services;
 /// </summary>
 public sealed class NativeAgentOrchestrator
 {
-    private const int MaximumPlanSteps = 6;
+    private const int MaximumPlanCommands = 6;
+    private const int MaximumPlanSteps = MaximumPlanCommands * 2;
     private static readonly Regex ExplicitGoalSequenceSeparator = new(
         @"[\r\n]+",
         RegexOptions.CultureInvariant);
@@ -85,8 +86,8 @@ public sealed class NativeAgentOrchestrator
             var commandTexts = SplitGoalSequence(goal);
             if (commandTexts.Count == 0)
                 throw new InvalidOperationException("The command sequence is empty or contains a dangling separator. Nothing was executed.");
-            if (commandTexts.Count > MaximumPlanSteps)
-                throw new InvalidOperationException($"The native planner supports at most {MaximumPlanSteps} explicit commands per task. Nothing was executed.");
+            if (commandTexts.Count > MaximumPlanCommands)
+                throw new InvalidOperationException($"The native planner supports at most {MaximumPlanCommands} explicit commands per task. Nothing was executed.");
 
             // Parse and plan the complete sequence before the first tool is called. One unknown
             // segment invalidates the whole sequence, so a partially understood goal cannot
