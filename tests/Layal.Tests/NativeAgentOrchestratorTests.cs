@@ -206,6 +206,34 @@ public sealed class NativeAgentOrchestratorTests
     }
 
     [TestMethod]
+    public async Task NaturalSequenceWordInsideFileContentIsPreservedLiterally()
+    {
+        EnsureWindowsDpapi();
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        var learning = new NativeLearningService(Path.Combine(temp.Path, "learning.dpapi"));
+        var orchestrator = new NativeAgentOrchestrator(
+            new NativeLanguageParser(learning),
+            learning,
+            new AgentToolExecutor(workspace, new MemoryService(Path.Combine(temp.Path, "memory.dpapi"))),
+            new TaskHistoryService(Path.Combine(temp.Path, "tasks.dpapi")));
+        var approvalCalls = 0;
+
+        var task = await orchestrator.RunTaskAsync(
+            "create file sentence.txt with content First then second",
+            (_, _, _) => { approvalCalls++; return Task.FromResult(true); },
+            _ => { },
+            CancellationToken.None,
+            "en");
+
+        Assert.AreEqual("Completed", task.Status, task.Result);
+        Assert.AreEqual(2, approvalCalls, "One create approval and one read-back approval are expected.");
+        Assert.AreEqual("First then second", File.ReadAllText(Path.Combine(workspace, "sentence.txt")));
+    }
+
+    [TestMethod]
     public async Task UnknownCommandInSequenceRejectsWholePlanBeforeFirstSideEffect()
     {
         EnsureWindowsDpapi();
@@ -222,7 +250,7 @@ public sealed class NativeAgentOrchestratorTests
         var approvalCalled = false;
 
         var task = await orchestrator.RunTaskAsync(
-            "create file first.txt with content First value then do something outside native capabilities",
+            "create file first.txt with content First value; do something outside native capabilities",
             (_, _, _) => { approvalCalled = true; return Task.FromResult(true); },
             _ => { },
             CancellationToken.None,
