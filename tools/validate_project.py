@@ -732,84 +732,72 @@ if "synthetic voice is not a human recording" not in ui_code or "ليس صوت �
 if not voice_docs_text:
     ERRORS.append("Layal voice reply usage/privacy documentation is missing")
 
-# Guard the local-first default: user consent precedes runtime downloads, and chat/voice can work without an API key.
+# The main cognitive paths must be owned by Layal; only optional local speech assets are retained.
 local_ai_path = ROOT / "src/Layal.Desktop/Services/LocalAiService.cs"
 local_voice_path = ROOT / "src/Layal.Desktop/Services/LocalVoiceService.cs"
-local_test_path = ROOT / "tests/Layal.Tests/LocalAiServiceTests.cs"
+local_test_path = ROOT / "tests/Layal.Tests/LocalVoiceServiceTests.cs"
 local_settings_text = (ROOT / "src/Layal.Desktop/Models/UserSettings.cs").read_text(encoding="utf-8")
-local_ai_text = local_ai_path.read_text(encoding="utf-8") if local_ai_path.is_file() else ""
 local_voice_text = local_voice_path.read_text(encoding="utf-8") if local_voice_path.is_file() else ""
 local_tests_text = local_test_path.read_text(encoding="utf-8") if local_test_path.is_file() else ""
-if not local_ai_text:
-    ERRORS.append("Local chat service is missing")
-for required in (
-    'public const string DefaultModelId = "qwen3.5:2b";',
-    'new("http://127.0.0.1:11434/")',
-    'UseProxy = false',
-    '"api/pull"',
-    '"api/chat"',
-    'public async Task EnsureReadyAsync',
-    'VerifyOllamaSignatureAsync',
-):
-    if required not in local_ai_text:
-        ERRORS.append(f"Local chat bootstrap/runtime is missing: {required}")
+if local_ai_path.exists():
+    ERRORS.append("Obsolete Ollama/Qwen LocalAiService must be removed from the native-core build")
+if "LocalAiModelId" in local_settings_text:
+    ERRORS.append("Obsolete local chat-model setting remains in UserSettings")
 if not local_voice_text:
-    ERRORS.append("Local speech recognition and synthesis service is missing")
+    ERRORS.append("Optional local speech service is missing")
 for required in (
-    'whisper-cli.exe',
-    'public async Task<string> TranscribeAsync',
-    'public async Task SpeakAsync',
-    'TryDeleteFile(inputPath)',
-    'TryDeleteFile(outputPath)',
-    'ValidateVoiceConfig',
+    "public static string DataRoot",
+    "whisper-cli.exe",
+    "public async Task<string> TranscribeAsync",
+    "public async Task SpeakAsync",
+    "TryDeleteFile(inputPath)",
+    "TryDeleteFile(outputPath)",
+    "ValidateVoiceConfig",
 ):
     if required not in local_voice_text:
-        ERRORS.append(f"Local voice behavior is missing: {required}")
-for required in (
-    'UseLocalAi { get; set; } = true',
-    'LocalAiModelId { get; set; } = Layal.Services.LocalAiService.DefaultModelId',
-):
-    if required not in local_settings_text:
-        ERRORS.append(f"Local-first default is missing from UserSettings.cs: {required}")
+        ERRORS.append(f"Optional local speech behavior is missing: {required}")
+if "UseLocalAi { get; set; } = true" not in local_settings_text:
+    ERRORS.append("Local processing compatibility setting is missing from UserSettings.cs")
 for required in (
     'x:Name="UseLocalAiCheckbox"',
     'x:Name="SetupLocalAiButton"',
     'Click="SetupLocalAiButton_Click"',
 ):
     if required not in ui_xaml:
-        ERRORS.append(f"Local AI setup UI is missing: {required}")
-# Layal's text conversation and task engine must be model-independent.
-# Legacy Ollama code may remain for migration/testing, but the main chat/task UI
-# must route through the native core and must not call a model completion API.
+        ERRORS.append(f"Optional local speech setup UI is missing: {required}")
 for required in (
-    'AppRuntime.NativeConversationEngine.Respond(',
-    'AppRuntime.NativeAgentOrchestrator.RunTaskAsync(',
-    'LocalAiModeSettingChanged',
+    "AppRuntime.NativeConversationEngine.Respond(",
+    "AppRuntime.NativeAgentOrchestrator.RunTaskAsync(",
+    "LocalAiModeSettingChanged",
 ):
     if required not in ui_code:
         ERRORS.append(f"Native cognitive-core UI wiring is missing: {required}")
 for forbidden in (
-    '_localAiService.ChatStreamAsync(',
-    '_aiClient.ChatStreamAsync(',
-    'AppRuntime.AgentOrchestrator.RunTaskAsync(',
+    "_localAiService.ChatStreamAsync(",
+    "_aiClient.ChatStreamAsync(",
+    "AppRuntime.AgentOrchestrator.RunTaskAsync(",
+    "new VoiceConversationService",
+    "_speechToText.TranscribeAsync(",
+    "_layalSpeech.SpeakAsync(",
 ):
     if forbidden in ui_code:
-        ERRORS.append(f"Legacy model-backed chat/task path is still active: {forbidden}")
-if 'EnsureLocalAiSetupAsync' not in ui_code:
+        ERRORS.append(f"Model-backed chat/task/voice fallback is still active: {forbidden}")
+if "EnsureLocalAiSetupAsync" not in ui_code:
     ERRORS.append("Optional local speech setup wiring is missing")
-if '_localVoiceService.TranscribeAsync' not in ui_code or '_localVoiceService.SpeakAsync' not in ui_code:
-    ERRORS.append("Local speech resource execution is missing")
-if 'LocalVoiceConversationButton_ClickAsync' not in ui_code:
+if "_localVoiceService.TranscribeAsync(" not in ui_code or "_localVoiceService.SpeakAsync(" not in ui_code:
+    ERRORS.append("Optional local speech execution is missing")
+if "LocalVoiceConversationButton_ClickAsync" not in ui_code:
     ERRORS.append("Local speech conversation UI wiring is missing")
 if not local_tests_text:
-    ERRORS.append("Local AI service unit tests are missing")
+    ERRORS.append("Local speech unit tests are missing")
 for required in (
-    "LocalChatDefaultsToAnOllamaLoopbackEndpointAndSmallModel",
-    "ValidateModelIdAcceptsNamespacedModelTagsButRejectsUnsafeValues",
     "LocalVoiceSpeechPreparationRemovesMarkupAndUrlsWithoutChangingVisibleWords",
+    "LocalVoiceCleanupDeletesOnlyOldGeneratedAudioAndTranscriptFiles",
+    "LocalVoiceCleanupFailsClosedWhenItCannotDeleteAStaleAudioArtifact",
+    "VoiceResourcesUseTheIsolatedLayalDataRoot",
 ):
     if required not in local_tests_text:
-        ERRORS.append(f"Local AI regression test is missing: {required}")
+        ERRORS.append(f"Local voice regression test is missing: {required}")
 
 # The full-duplex Realtime implementation remains in the repository for reference/tests,
 # but the active conversation UI must not instantiate it or send microphone/text to it.
