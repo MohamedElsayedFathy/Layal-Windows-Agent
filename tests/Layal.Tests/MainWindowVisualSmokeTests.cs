@@ -2257,11 +2257,18 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(oldBaseUrl, store.Load().ProviderBaseUrl);
         Assert.AreEqual(oldModelId, store.Load().ModelId);
 
-        // Test the show control against the real floating window, then leave the harness in a safe state.
+        // Test the show control at a compact size where a safe mascot slot is available.
         mascot.Hide();
+        window.Width = 900;
+        window.Height = 560;
+        window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         showMascot.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, showMascot));
         Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
         Assert.IsTrue(mascot.Topmost, "ShowAgain must respect the persisted always-on-top preference.");
+        Assert.IsFalse(new Rect(mascot.Left, mascot.Top, mascot.Width, mascot.Height)
+            .IntersectsWith(new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight)),
+            "The restored mascot must not cover the compact main window.");
 
         AppRuntime.Settings = store.Load();
         AppRuntime.Settings.ThemeMode = "light";
