@@ -84,8 +84,7 @@ public partial class MainWindow : Window
     private string? _pendingDocumentText;
     private string? _pendingDocumentFileName;
     private string? _pendingDocumentNotice;
-    private readonly SpeechToTextService _speechToText = new();
-    private readonly LayalSpeechService _layalSpeech = new();
+    private readonly MicrophoneCaptureService _microphoneCapture = new();
     private readonly LocalVoiceService _localVoiceService = new();
     private bool _localAiReady = true;
     private bool _localVoiceReady;
@@ -98,8 +97,6 @@ public partial class MainWindow : Window
     private bool _discardSpeechAudioOnStop;
     private CancellationTokenSource? _voiceTestCancellation;
     private CancellationTokenSource? _voiceConversationCancellation;
-    private VoiceConversationStatus _voiceConversationStatus = VoiceConversationStatus.Stopped;
-    private VoiceConversationService? _voiceConversationService;
     private bool _refreshingAudioDeviceSelectors;
     private DateTimeOffset _speechRecordingStartedAt;
     private bool _speechIsStopping;
@@ -172,11 +169,8 @@ public partial class MainWindow : Window
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         WeatherLocationInput.Text = AppRuntime.Settings.WeatherLocation ?? string.Empty;
         ModelInput.Text = AppRuntime.Settings.ModelId;
-        SpeechModelInput.Text = AppRuntime.Settings.SpeechToTextModelId;
         VoiceReplyCheckbox.IsChecked = AppRuntime.Settings.VoiceRepliesEnabled;
-        VoiceReplyModelInput.Text = AppRuntime.Settings.VoiceReplyModelId;
         // SettingsStore normalizes only invalid/empty IDs. Preserve every valid voice explicitly selected by the user.
-        VoiceReplyVoiceSelector.SelectedValue = AppRuntime.Settings.VoiceReplyId;
         AssistantPersonaSelector.SelectedItem = AssistantPersonaSelector.Items.OfType<ComboBoxItem>()
             .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), AppRuntime.Settings.AssistantPersona, StringComparison.Ordinal));
         VoiceDeliveryStyleSelector.SelectedValue = VoiceDeliveryStylePolicy.Normalize(AppRuntime.Settings.VoiceDeliveryStyleId);
@@ -301,7 +295,7 @@ public partial class MainWindow : Window
     {
         if (!IsLoaded || _refreshingAudioDeviceSelectors || AudioInputDeviceSelector.SelectedValue is not string selectedId)
             return;
-        if (_speechToText.IsRecording || _localVoiceRecordingActive ||
+        if (_microphoneCapture.IsRecording || _localVoiceRecordingActive ||
             _voiceConversationCancellation is not null || _speechIsStopping)
         {
             RefreshAudioDeviceSelectors();
@@ -354,25 +348,6 @@ public partial class MainWindow : Window
     {
         RefreshAudioDeviceSelectors();
         SetChatActivityStatus(IsArabic ? "تم تحديث قائمة أجهزة الصوت." : "Audio device lists refreshed.");
-    }
-
-    private void VoiceMuteButton_Click(object sender, RoutedEventArgs e)
-    {
-        var service = _voiceConversationService;
-        if (service is null || _voiceConversationCancellation is null)
-            return;
-        try
-        {
-            service.SetMicrophoneMuted(!service.IsMicrophoneMuted);
-            UpdateVoiceConversationControls();
-            SetChatActivityStatus(service.IsMicrophoneMuted
-                ? (IsArabic ? "الميكروفون مكتوم؛ المحادثة ما زالت متصلة." : "Microphone muted; the voice conversation remains connected.")
-                : (IsArabic ? "تم تشغيل الميكروفون؛ يمكنك متابعة الكلام." : "Microphone unmuted; you can continue speaking."));
-        }
-        catch (Exception ex)
-        {
-            SetChatActivityStatus((IsArabic ? "تعذر تغيير حالة الميكروفون: " : "Could not change microphone mute: ") + ex.Message);
-        }
     }
 
     public void ShowFromTray()
@@ -438,7 +413,7 @@ public partial class MainWindow : Window
                 _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
                 _documentExtractionCancellation is not null || _clipboardReadCancellation is not null ||
                 _screenCaptureCancellation is not null || _hoveredElementInspectionCancellation is not null ||
-                _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+                _localVoiceRecordingActive || _microphoneCapture.IsRecording || _speechIsStopping ||
                 _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
             {
                 SetChatActivityStatus(IsArabic
@@ -465,7 +440,7 @@ public partial class MainWindow : Window
             _localAiSetupCancellation is not null || _documentExtractionCancellation is not null ||
             _clipboardReadCancellation is not null || _screenCaptureCancellation is not null ||
             _hoveredElementInspectionCancellation is not null || _localVoiceRecordingActive ||
-            _speechToText.IsRecording || _speechIsStopping ||
+            _microphoneCapture.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
@@ -612,7 +587,7 @@ public partial class MainWindow : Window
         UpdateClipboardReadButtons();
         CameraVisionButton.IsEnabled = !shieldEnabled;
         SpeechToTextButton.IsEnabled = !_speechIsStopping &&
-            (!shieldEnabled || _speechToText.IsRecording || _speechCancellation is not null);
+            (!shieldEnabled || _microphoneCapture.IsRecording || _speechCancellation is not null);
         VoiceConversationButton.IsEnabled = !shieldEnabled ||
             _voiceConversationCancellation is not null || _localVoiceRecordingActive;
     }
@@ -692,9 +667,9 @@ public partial class MainWindow : Window
         {
             CancelLocalVoiceRecording();
         }
-        else if (_speechToText.IsRecording)
+        else if (_microphoneCapture.IsRecording)
         {
-            try { _speechToText.CancelRecording(); }
+            try { _microphoneCapture.CancelRecording(); }
             catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Privacy shield could not cancel microphone capture: {0}", ex.Message); }
             UpdateSpeechToTextButton();
         }
@@ -1353,7 +1328,7 @@ public partial class MainWindow : Window
             _cameraVisionWindow.Close();
             _cameraVisionWindow = null;
         }
-        _speechToText.Dispose();
+        _microphoneCapture.Dispose();
         _speechCancellation?.Dispose();
         _voiceTestCancellation?.Dispose();
         SystemEvents.UserPreferenceChanged -= MainWindow_UserPreferenceChanged;
@@ -1398,7 +1373,6 @@ public partial class MainWindow : Window
         ChatHistoryPanel.Margin = ar ? new Thickness(8, 4, 0, 4) : new Thickness(0, 4, 8, 4);
         ChatHistoryPanelTransform.X = ar ? 10 : -10;
         ChatInput.FlowDirection = TaskInput.FlowDirection = MemoryTitleInput.FlowDirection = MemoryContentInput.FlowDirection = MemorySearchInput.FlowDirection = MemoryCategoryInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-        SpeechModelInput.FlowDirection = VoiceReplyModelInput.FlowDirection = FlowDirection.LeftToRight;
         TaskResult.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         BaseUrlInput.FlowDirection = ModelInput.FlowDirection = ApiKeyInput.FlowDirection = GitHubSkillUrlInput.FlowDirection = FlowDirection.LeftToRight;
         WeatherLocationInput.FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
@@ -1671,19 +1645,10 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
             ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
             : "Read replies aloud. Local mode synthesizes speech on this device after local voice resources are prepared.");
-        SpeechModelInput.ToolTip = ar
-            ? "حقل قديم غير مستخدم؛ تحويل الميكروفون في المحادثة محلي عبر Whisper."
-            : "Legacy field not used; microphone transcription in chat runs locally with Whisper.";
-        AutomationProperties.SetName(SpeechModelInput, ar ? "معرّف نموذج تحويل الكلام إلى نص" : "Speech-to-text model ID");
-        AutomationProperties.SetHelpText(SpeechModelInput, ar
-            ? "هذا الحقل مخفي وغير مستخدم في النواة المستقلة."
-            : "The speech model supported by your provider; it may differ from your chat model.");
         AutomationProperties.SetName(SpeechToTextButton, ar ? "تسجيل صوت وتحويله إلى نص" : "Record speech and transcribe it");
-        AutomationProperties.SetHelpText(SpeechToTextButton, AppRuntime.Settings.UseLocalAi
-            ? (ar ? "التسجيل والتحويل محليان بعد تنزيل الموارد. راجع النص الناتج قبل إرساله إلى ليال."
-                : "Recording and transcription run locally after setup. Review the transcript before sending it to Layal.")
-            : (ar ? "التسجيل يدوي؛ لا يُرسل الصوت إلى موفر API إلا بعد تأكيد منفصل."
-                : "Manual recording; audio is uploaded to the API provider only after a separate confirmation."));
+        AutomationProperties.SetHelpText(SpeechToTextButton, ar
+            ? "التسجيل يدوي والتحويل محلي عبر Whisper بعد تجهيز موارده. راجع النص قبل إرساله إلى ليال. لا يُرفع الصوت إلى خادم."
+            : "Manual recording and local Whisper transcription after setup. Review the transcript before sending it to Layal. Audio is never uploaded.");
         UpdateSpeechToTextButton();
         UpdateVoiceConversationControls();
         QuickAskButton.Content = ar ? "سؤال سريع" : "Quick Ask";
@@ -2586,11 +2551,11 @@ public partial class MainWindow : Window
             return true;
         }
 
-        if (_speechToText.IsRecording && !_speechIsStopping)
+        if (_microphoneCapture.IsRecording && !_speechIsStopping)
         {
             try
             {
-                _speechToText.CancelRecording();
+                _microphoneCapture.CancelRecording();
                 SetChatActivityStatus(IsArabic
                     ? "تم إلغاء التسجيل الصوتي المحلي؛ لم يتم إرسال الصوت."
                     : "Local recording cancelled; audio was not sent.");
@@ -3732,15 +3697,6 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException(IsArabic ? "اكتب عنوان HTTP/HTTPS صحيحًا دون بيانات دخول داخل الرابط." : "Enter a valid HTTP/HTTPS base URL without embedded credentials.");
             var model = ModelInput.Text.Trim();
             if (string.IsNullOrWhiteSpace(model)) throw new InvalidOperationException(IsArabic ? "معرّف النموذج مطلوب." : "Model ID is required.");
-            var speechModel = SpeechModelInput.Text.Trim();
-            if (string.IsNullOrWhiteSpace(speechModel))
-                throw new InvalidOperationException(IsArabic ? "معرّف نموذج تحويل الكلام إلى نص مطلوب." : "Speech-to-text model ID is required.");
-            var voiceModel = VoiceReplyModelInput.Text.Trim();
-            if (string.IsNullOrWhiteSpace(voiceModel))
-                throw new InvalidOperationException(IsArabic ? "معرّف نموذج الصوت مطلوب." : "Voice model ID is required.");
-            var voiceId = VoiceReplyVoiceSelector.SelectedValue?.ToString() ?? LayalSpeechService.DefaultVoiceId;
-            if (!LayalSpeechService.IsSupportedVoice(voiceId))
-                throw new InvalidOperationException(IsArabic ? "اختر نبرة صوت مدعومة لليال." : "Choose a supported Layal voice preset.");
 
             submittedApiKey = ApiKeyInput.Password.Trim();
             var profileSecret = !string.IsNullOrWhiteSpace(submittedApiKey) ? submittedApiKey : originalSecret;
@@ -3769,10 +3725,7 @@ public partial class MainWindow : Window
             var settingsToSave = AppRuntime.Settings.Clone();
             settingsToSave.ProviderBaseUrl = baseUrl;
             settingsToSave.ModelId = model;
-            settingsToSave.SpeechToTextModelId = speechModel;
             settingsToSave.VoiceRepliesEnabled = VoiceReplyCheckbox.IsChecked == true;
-            settingsToSave.VoiceReplyModelId = voiceModel;
-            settingsToSave.VoiceReplyId = voiceId.ToLowerInvariant();
 
             // Save credentials and the linked API profile before committing settings.json.
             // This prevents a rejected profile save from leaving the visible settings half-updated.
@@ -3871,15 +3824,6 @@ public partial class MainWindow : Window
         SetAccessibleStatusText(ProviderActionStatus, IsArabic
             ? (AppRuntime.Settings.VoiceRepliesEnabled ? "تم تفعيل قراءة ليال لردودها صوتيًا." : "تم إيقاف الردود الصوتية لليال.")
             : (AppRuntime.Settings.VoiceRepliesEnabled ? "Layal voice replies are enabled." : "Layal voice replies are disabled."));
-    }
-
-    private void VoiceReplyVoiceSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!IsLoaded) return;
-        var voiceId = VoiceReplyVoiceSelector.SelectedValue?.ToString();
-        if (!LayalSpeechService.IsSupportedVoice(voiceId)) return;
-        AppRuntime.Settings.VoiceReplyId = voiceId!.ToLowerInvariant();
-        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
     }
 
     private void VoiceDeliveryStyleSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -4143,7 +4087,7 @@ public partial class MainWindow : Window
         }
         if (_speechIsStopping) return;
 
-        if (AppRuntime.Settings.PrivacyShieldEnabled && !_speechToText.IsRecording)
+        if (AppRuntime.Settings.PrivacyShieldEnabled && !_microphoneCapture.IsRecording)
         {
             SetChatActivityStatus(IsArabic
                 ? "درع الخصوصية مفعّل؛ لا يمكن بدء تسجيل أو تحويل صوت جديد."
@@ -4151,7 +4095,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_speechToText.IsRecording)
+        if (_microphoneCapture.IsRecording)
         {
             _speechRecordingTimer.Stop();
             await StopSpeechRecordingAndTranscribeAsync();
@@ -4193,7 +4137,7 @@ public partial class MainWindow : Window
 
         try
         {
-            _speechToText.StartRecording(AppRuntime.Settings.AudioInputDeviceId);
+            _microphoneCapture.StartRecording(AppRuntime.Settings.AudioInputDeviceId);
             _speechRecordingStartedAt = DateTimeOffset.UtcNow;
             _speechRecordingTimer.Start();
             UpdateSpeechToTextButton();
@@ -4211,8 +4155,8 @@ public partial class MainWindow : Window
 
     private void SpeechRecordingTimer_Tick(object? sender, EventArgs e)
     {
-        if (!_speechToText.IsRecording) return;
-        if (DateTimeOffset.UtcNow - _speechRecordingStartedAt < SpeechToTextService.MaximumRecordingDuration)
+        if (!_microphoneCapture.IsRecording) return;
+        if (DateTimeOffset.UtcNow - _speechRecordingStartedAt < MicrophoneCaptureService.MaximumRecordingDuration)
             return;
         _speechRecordingTimer.Stop();
         if (_localVoiceRecordingActive)
@@ -4223,7 +4167,7 @@ public partial class MainWindow : Window
 
     private async Task StopSpeechRecordingAndTranscribeAsync()
     {
-        if (_speechIsStopping || !_speechToText.IsRecording) return;
+        if (_speechIsStopping || !_microphoneCapture.IsRecording) return;
         _discardSpeechAudioOnStop = false;
         _speechIsStopping = true;
         _speechRecordingTimer.Stop();
@@ -4232,7 +4176,7 @@ public partial class MainWindow : Window
         CancellationTokenSource? transcription = null;
         try
         {
-            var recording = await _speechToText.StopRecordingAsync();
+            var recording = await _microphoneCapture.StopRecordingAsync();
             audio = recording.WavBytes;
             _speechIsStopping = false;
             UpdateSpeechToTextButton();
@@ -4306,7 +4250,7 @@ public partial class MainWindow : Window
 
     private void UpdateSpeechToTextButton()
     {
-        SpeechToTextButton.Content = _speechToText.IsRecording
+        SpeechToTextButton.Content = _microphoneCapture.IsRecording
             ? (IsArabic ? "إيقاف وتحويل" : "Stop & transcribe")
             : _speechIsStopping
                 ? (IsArabic ? "جارٍ إيقاف التسجيل…" : "Stopping recording…")
@@ -4314,8 +4258,8 @@ public partial class MainWindow : Window
                     ? (IsArabic ? "إلغاء التحويل" : "Cancel transcription")
                     : (IsArabic ? "تسجيل صوت" : "Record voice");
         SpeechToTextButton.IsEnabled = !_speechIsStopping &&
-            (!AppRuntime.Settings.PrivacyShieldEnabled || _speechToText.IsRecording || _speechCancellation is not null);
-        SpeechToTextButton.ToolTip = _speechToText.IsRecording
+            (!AppRuntime.Settings.PrivacyShieldEnabled || _microphoneCapture.IsRecording || _speechCancellation is not null);
+        SpeechToTextButton.ToolTip = _microphoneCapture.IsRecording
             ? AppRuntime.Settings.UseLocalAi
                 ? (IsArabic ? "اضغط لإيقاف التسجيل وتحويله محليًا. لن يُرفع الصوت." : "Stop recording and transcribe locally. Audio will not be uploaded.")
                 : (IsArabic ? "اضغط لإيقاف التسجيل. لن يُرسل الصوت إلا بعد تأكيد منفصل." : "Press to stop recording. Audio is uploaded only after separate confirmation.")
@@ -4340,7 +4284,7 @@ public partial class MainWindow : Window
             return;
         }
         if (_chatCancellation is not null || _voiceTestCancellation is not null ||
-            _speechToText.IsRecording || _speechCancellation is not null || _speechIsStopping ||
+            _microphoneCapture.IsRecording || _speechCancellation is not null || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
@@ -4384,10 +4328,9 @@ public partial class MainWindow : Window
         var session = new CancellationTokenSource();
         try
         {
-            _speechToText.StartRecording(AppRuntime.Settings.AudioInputDeviceId);
+            _microphoneCapture.StartRecording(AppRuntime.Settings.AudioInputDeviceId);
             _voiceConversationCancellation = session;
             _localVoiceRecordingActive = true;
-            _voiceConversationStatus = VoiceConversationStatus.UserSpeaking;
             _speechRecordingStartedAt = DateTimeOffset.UtcNow;
             _speechRecordingTimer.Start();
             ChatInput.IsEnabled = false;
@@ -4407,7 +4350,6 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _localVoiceRecordingActive = false;
-            _voiceConversationStatus = VoiceConversationStatus.Stopped;
             if (ReferenceEquals(_voiceConversationCancellation, session)) _voiceConversationCancellation = null;
             session.Dispose();
             SetChatActivityStatus((IsArabic ? "تعذر بدء التسجيل المحلي: " : "Could not start local recording: ") + ex.Message);
@@ -4422,14 +4364,13 @@ public partial class MainWindow : Window
         _localVoiceRecordingActive = false;
         _speechIsStopping = true;
         _speechRecordingTimer.Stop();
-        _voiceConversationStatus = VoiceConversationStatus.Connecting;
         UpdateVoiceConversationControls();
         UpdateSpeechToTextButton();
         byte[]? audio = null;
         var session = _voiceConversationCancellation;
         try
         {
-            var recording = await _speechToText.StopRecordingAsync();
+            var recording = await _microphoneCapture.StopRecordingAsync();
             audio = recording.WavBytes;
             if (ShouldDiscardPendingSpeechAudio() || session?.IsCancellationRequested == true)
             {
@@ -4469,7 +4410,6 @@ public partial class MainWindow : Window
                 _voiceConversationCancellation = null;
                 session?.Dispose();
             }
-            _voiceConversationStatus = VoiceConversationStatus.Stopped;
             if (IsLoaded)
             {
                 ChatInput.IsEnabled = true;
@@ -4503,7 +4443,6 @@ public partial class MainWindow : Window
             }
             _localVoiceRecordingActive = false;
             _speechIsStopping = false;
-            _voiceConversationStatus = VoiceConversationStatus.Stopped;
             UpdateVoiceConversationControls();
             UpdateSpeechToTextButton();
             if (IsLoaded)
@@ -4524,12 +4463,11 @@ public partial class MainWindow : Window
         if (!_localVoiceRecordingActive) return;
         _localVoiceRecordingActive = false;
         _speechRecordingTimer.Stop();
-        try { _speechToText.CancelRecording(); } catch { /* The capture service may already have stopped. */ }
+        try { _microphoneCapture.CancelRecording(); } catch { /* The capture service may already have stopped. */ }
         var session = _voiceConversationCancellation;
         _voiceConversationCancellation = null;
         session?.Cancel();
         session?.Dispose();
-        _voiceConversationStatus = VoiceConversationStatus.Stopped;
         ChatInput.IsEnabled = true;
         SendButton.IsEnabled = _chatCancellation is null;
         NewConversationButton.IsEnabled = !_incognitoMode;
@@ -4557,42 +4495,6 @@ public partial class MainWindow : Window
         await LocalVoiceConversationButton_ClickAsync();
     }
 
-    private void VoiceConversationService_StatusChanged(VoiceConversationStatus status, string? detail)
-    {
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            if (!IsLoaded || AppRuntime.Settings.PrivacyShieldEnabled) return;
-            _voiceConversationStatus = status;
-            UpdateVoiceConversationControls();
-            if (status != VoiceConversationStatus.Stopped)
-                SetChatActivityStatus(VoiceConversationStatusMessage(status));
-        }));
-    }
-
-    private void VoiceConversationService_TranscriptReceived(string role, string text)
-    {
-        if (string.IsNullOrWhiteSpace(role) || string.IsNullOrWhiteSpace(text)) return;
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            if (!IsLoaded || AppRuntime.IsExiting || AppRuntime.Settings.PrivacyShieldEnabled) return;
-            AddMessage(role == "user" ? "user" : "assistant", text.Trim());
-            if (role == "assistant")
-                AppRuntime.MascotWindow?.SetMood(SelectChatMood(
-                    ChatMessages.LastOrDefault(m => m.Role == "user")?.Content ?? string.Empty, text));
-        }));
-    }
-
-    private string VoiceConversationStatusMessage(VoiceConversationStatus status) =>
-        status switch
-        {
-            VoiceConversationStatus.Connecting => IsArabic ? "جارٍ تجهيز تحويل الصوت المحلي..." : "Preparing local speech transcription...",
-            VoiceConversationStatus.Listening => IsArabic ? "الميكروفون نشط — تحدث إلى ليال في أي وقت." : "Microphone active — speak to Layal at any time.",
-            VoiceConversationStatus.UserSpeaking => IsArabic ? "ليال بتسمعك الآن..." : "Layal is listening to you...",
-            VoiceConversationStatus.AssistantSpeaking => IsArabic ? "ليال بترد — تقدر تقاطعها بالكلام." : "Layal is responding — speak to interrupt.",
-            VoiceConversationStatus.Muted => IsArabic ? "الميكروفون مكتوم؛ المحادثة ما زالت متصلة." : "Microphone muted; the voice session remains connected.",
-            _ => IsArabic ? "الميكروفون متوقف." : "Microphone is off."
-        };
-
     private void UpdateVoiceConversationControls()
     {
         if (VoiceConversationButton is null) return;
@@ -4611,7 +4513,6 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(VoiceConversationButton, IsArabic
             ? "اضغط للتسجيل ومرة ثانية لإرسال الكلام إلى نواة ليال المستقلة. لا يوجد بث صوتي سحابي."
             : "Press to record and press again to send speech to Layal's native core. There is no cloud audio stream.");
-        VoiceMuteButton.Visibility = Visibility.Collapsed;
         VoiceConversationIndicator.Visibility = _localVoiceRecordingActive || active
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -4626,17 +4527,6 @@ public partial class MainWindow : Window
         VoiceConversationButton.IsEnabled = !AppRuntime.Settings.PrivacyShieldEnabled ||
             _voiceConversationCancellation is not null || _localVoiceRecordingActive;
     }
-
-    private string VoiceConversationIndicatorMessage(VoiceConversationStatus status) =>
-        status switch
-        {
-            VoiceConversationStatus.Connecting => IsArabic ? "جارٍ الاتصال" : "Connecting",
-            VoiceConversationStatus.Listening => IsArabic ? "الميكروفون نشط" : "Mic active",
-            VoiceConversationStatus.UserSpeaking => IsArabic ? "بتسمعك ليال" : "Listening",
-            VoiceConversationStatus.AssistantSpeaking => IsArabic ? "تقدر تقاطعها" : "Speak to interrupt",
-            VoiceConversationStatus.Muted => IsArabic ? "الميكروفون مكتوم" : "Microphone muted",
-            _ => IsArabic ? "الميكروفون متوقف" : "Mic off"
-        };
 
     private async void InspectHoveredElementButton_Click(object sender, RoutedEventArgs e)
     {
@@ -4771,7 +4661,7 @@ public partial class MainWindow : Window
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
             _screenCaptureCancellation is not null ||
-            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _localVoiceRecordingActive || _microphoneCapture.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
@@ -4893,7 +4783,7 @@ public partial class MainWindow : Window
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
             _documentExtractionCancellation is not null ||
-            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _localVoiceRecordingActive || _microphoneCapture.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true })
         {
             SetChatActivityStatus(IsArabic
@@ -4933,7 +4823,7 @@ public partial class MainWindow : Window
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
             _documentExtractionCancellation is not null ||
-            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _localVoiceRecordingActive || _microphoneCapture.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true };
         var hasAttachment = _pendingVisionImageBytes is { Length: > 0 } ||
             !string.IsNullOrWhiteSpace(_pendingDocumentText);
@@ -5121,7 +5011,7 @@ public partial class MainWindow : Window
         if (_chatCancellation is not null || _agentTaskCancellation is not null ||
             _voiceConversationCancellation is not null || _speechCancellation is not null ||
             _voiceTestCancellation is not null || _localAiSetupCancellation is not null ||
-            _localVoiceRecordingActive || _speechToText.IsRecording || _speechIsStopping ||
+            _localVoiceRecordingActive || _microphoneCapture.IsRecording || _speechIsStopping ||
             _cameraVisionWindow is { IsVisible: true } || _quickAskWindow is { IsVisible: true } ||
             _documentExtractionCancellation is not null)
         {
@@ -7780,7 +7670,7 @@ public partial class MainWindow : Window
             CancelLocalVoiceRecording();
         else if (!_speechIsStopping)
         {
-            try { _speechToText.CancelRecording(); }
+            try { _microphoneCapture.CancelRecording(); }
             catch { /* Shutdown should continue even if capture already stopped. */ }
         }
     }
@@ -7795,7 +7685,7 @@ public partial class MainWindow : Window
         _localAiSetupCancellation?.Cancel();
         if (_localVoiceRecordingActive) CancelLocalVoiceRecording();
         _voiceConversationCancellation?.Cancel();
-        if (!_speechIsStopping) _speechToText.CancelRecording();
+        if (!_speechIsStopping) _microphoneCapture.CancelRecording();
 
         if (!AppRuntime.IsExiting)
         {
