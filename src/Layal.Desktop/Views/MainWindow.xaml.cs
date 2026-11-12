@@ -104,7 +104,6 @@ public partial class MainWindow : Window
     private byte[]? _pendingVisionImageBytes;
     private string? _pendingVisionContentType;
     private string? _pendingVisionFileName;
-    private string _lastCameraObservation = string.Empty;
     private CancellationTokenSource? _agentTaskCancellation;
     private string? _selectedMemoryId;
     private bool _selectedMemoryIsArchived;
@@ -115,8 +114,6 @@ public partial class MainWindow : Window
     private string _memoryEditorBaselineContent = string.Empty;
     private string _memoryEditorBaselineCategory = "General";
     private const int MaxMemoryBackupBytes = 2 * 1024 * 1024;
-    private string? _testedBaseUrl;
-    private string? _testedModelId;
     private string _currentConversationId = string.Empty;
     private bool _refreshingChatSessions;
     private ICollectionView? _apiConnectionsView;
@@ -502,7 +499,6 @@ public partial class MainWindow : Window
         ChatMessages.Clear();
         ChatInput.Clear();
         ClearPendingChatAttachmentsForPrivateMode();
-        _lastCameraObservation = string.Empty;
         ChatConversations.Clear();
         ChatHistorySelector.SelectedItem = null;
         UpdateVisionAttachmentControls();
@@ -516,7 +512,6 @@ public partial class MainWindow : Window
     private void ExitPrivateChatMode()
     {
         ClearPendingChatAttachmentsForPrivateMode();
-        _lastCameraObservation = string.Empty;
         AppRuntime.ChatSessionService.EndTemporarySession();
         _incognitoMode = false;
         AppRuntime.IsPrivateChatActive = false;
@@ -715,7 +710,6 @@ public partial class MainWindow : Window
             UpdateDocumentAttachmentUi();
         }
 
-        _lastCameraObservation = string.Empty;
         UpdateVoiceConversationControls();
         UpdateCameraVisionIndicator();
     }
@@ -3960,9 +3954,7 @@ public partial class MainWindow : Window
         try
         {
             var result = await _providerConnectionTester.ProbeAsync(baseUrl, key);
-            _testedBaseUrl = baseUrl.TrimEnd('/');
-            _testedModelId = ModelInput.Text.Trim();
-            var testSummary = IsArabic ? $"نجح الاختبار: {result}" : $"Test succeeded: {result}";
+                    var testSummary = IsArabic ? $"نجح الاختبار: {result}" : $"Test succeeded: {result}";
             SetAccessibleStatusText(ProviderActionStatus, UiLocalization.TranslateKnownFeedback(testSummary, IsArabic));
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
         }
@@ -5293,7 +5285,6 @@ public partial class MainWindow : Window
         camera.AutomaticObservationChanged += CameraVisionWindow_AutomaticObservationChanged;
         camera.Closed += CameraVisionWindow_Closed;
         _cameraVisionWindow = camera;
-        _lastCameraObservation = string.Empty;
         UpdateCameraVisionIndicator();
         camera.Show();
     }
@@ -5393,7 +5384,6 @@ public partial class MainWindow : Window
 
     private void CameraVisionWindow_AutomaticObservationChanged(bool enabled)
     {
-        _lastCameraObservation = string.Empty;
         UpdateCameraVisionIndicator();
         SetChatActivityStatus(enabled
             ? (IsArabic ? "التحليل البصري التلقائي نشط: لقطة كل 10 ثوانٍ." : "Automatic visual observation is active: one still every 10 seconds.")
@@ -5412,7 +5402,6 @@ public partial class MainWindow : Window
             _cameraVisionWindow.Closed -= CameraVisionWindow_Closed;
             _cameraVisionWindow = null;
         }
-        _lastCameraObservation = string.Empty;
         UpdateCameraVisionIndicator();
         if (IsLoaded)
             SetChatActivityStatus(IsArabic ? "تم إيقاف الكاميرا." : "Camera stopped.");
