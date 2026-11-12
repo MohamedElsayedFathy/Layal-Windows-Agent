@@ -75,7 +75,7 @@ public sealed class NativeLanguageParser
 
         if (ContainsAny(normalized, "لما اقول", "عندما اقول", "when i say"))
             return new NativeCommand(NativeIntent.TeachAlias, original);
-        if (ContainsAny(normalized, "اهلا", "اهلين", "مرحبا", "السلام عليكم", "صباح الخير", "مساء الخير", "hello", "hi", "hey"))
+        if (IsGreeting(normalized))
             return new NativeCommand(NativeIntent.Greeting, original);
         if (ContainsAny(normalized, "مين انتي", "من انتي", "عرفيني بنفسك", "who are you", "introduce yourself"))
             return new NativeCommand(NativeIntent.Identity, original);
@@ -144,6 +144,18 @@ public sealed class NativeLanguageParser
         if (ContainsAny(normalized, "افتحي مستكشف الملفات", "افتح مستكشف الملفات", "file explorer")) return "file_explorer";
         if (ContainsAny(normalized, "افتحي مدير المهام", "افتح مدير المهام", "task manager")) return "task_manager";
         return null;
+    }
+
+    private static bool IsGreeting(string normalized)
+    {
+        var greetings = new[]
+        {
+            "اهلا", "اهلين", "مرحبا", "السلام عليكم", "صباح الخير", "مساء الخير",
+            "hello", "hi", "hey"
+        };
+        return greetings.Any(greeting =>
+            string.Equals(normalized, greeting, StringComparison.Ordinal) ||
+            normalized.StartsWith(greeting + " ", StringComparison.Ordinal));
     }
 
     private static bool ContainsAny(string source, params string[] values) =>
