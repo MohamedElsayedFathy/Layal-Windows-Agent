@@ -80,6 +80,7 @@ $script:RequirementSuiteMap = @{
     'LAYAL-036' = @('tests/Layal.Tests/AgentToolExecutorTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs', 'tests/Layal.Tests/SkillPackageServiceTests.cs')
     'LAYAL-037' = @('tests/Layal.Tests/MainWindowVisualSmokeTests.cs', 'tests/Layal.Tests/UiLocalizationTests.cs', 'tools/Test-LayalKeyboardNavigation.ps1')
     'LAYAL-038' = @('tests/Layal.Tests/ApiConnectionServiceTests.cs', 'tests/Layal.Tests/ApiToolApprovalTests.cs')
+    'LAYAL-039' = @('tests/Layal.Tests/NativeCognitiveCoreTests.cs', 'tests/Layal.Tests/NativeAgentOrchestratorTests.cs')
 }
 $script:AyoSuiteMap = @{
     'AYO-01' = @('tests/Layal.Tests/LocalVoiceServiceTests.cs', 'tests/Layal.Tests/AudioDeviceServiceTests.cs', 'tests/Layal.Tests/LocalVoiceLanguageSegmentationTests.cs')
