@@ -92,7 +92,8 @@ public partial class App : Application
         AppRuntime.AgentToolExecutor = new AgentToolExecutor(AppRuntime.WorkspaceRoot, AppRuntime.MemoryService, AppRuntime.ApiConnectionService, AppRuntime.BrowserAutomationService);
         AppRuntime.NativeLearningService = new NativeLearningService(Path.Combine(dataRoot, "native-learning.dpapi"));
         AppRuntime.NativeLanguageParser = new NativeLanguageParser(AppRuntime.NativeLearningService);
-        AppRuntime.NativeConversationEngine = new NativeConversationEngine(AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.MemoryService);
+        AppRuntime.LanguageReferenceService = LanguageReferenceService.LoadBuiltIn();
+        AppRuntime.NativeConversationEngine = new NativeConversationEngine(AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.MemoryService, AppRuntime.LanguageReferenceService);
         AppRuntime.NativeAgentOrchestrator = new NativeAgentOrchestrator(AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.AgentToolExecutor, AppRuntime.TaskHistoryService);
 
         AppRuntime.ExitAction = ShutdownLayal;
