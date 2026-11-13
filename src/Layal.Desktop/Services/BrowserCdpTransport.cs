@@ -61,6 +61,9 @@ internal sealed class BrowserCdpTransport
 
     internal async Task<JsonObject> SendCommandAsync(CdpPageTarget page, string method, JsonObject parameters, CancellationToken token)
     {
+        if (!IsTrustedBrowserWebSocketUrl(page.WebSocketUrl))
+            throw new InvalidOperationException("The browser DevTools page endpoint is not an approved loopback endpoint.");
+
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(CdpRequestTimeout);
         using var socket = new ClientWebSocket();
