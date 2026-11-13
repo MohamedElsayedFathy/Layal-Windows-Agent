@@ -17,6 +17,7 @@ namespace Layal.Services;
 /// </summary>
 public sealed class AgentToolExecutor
 {
+    private const string ApprovalPreviewOmissionText = "…[preview truncated; remaining content omitted]";
     private const int MaxProcessOutputChars = 120_000;
     private readonly string _workspaceRoot;
     private readonly MemoryService _memory;
