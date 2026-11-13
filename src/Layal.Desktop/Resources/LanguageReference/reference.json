@@ -1,0 +1,1805 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026.11.13-seed.1",
+  "topics": [
+    {
+      "id": "daily",
+      "nameAr": "الحياة اليومية",
+      "nameEn": "Everyday life",
+      "descriptionAr": "التواصل اليومي والاحتياجات والأنشطة المعتادة.",
+      "descriptionEn": "Everyday communication, needs and routines.",
+      "sortOrder": 1
+    },
+    {
+      "id": "conversation",
+      "nameAr": "الحوار والتواصل",
+      "nameEn": "Conversation and communication",
+      "descriptionAr": "إدارة الحوار والأسئلة والردود والتوضيح.",
+      "descriptionEn": "Dialogue, questions, responses and clarification.",
+      "sortOrder": 2
+    },
+    {
+      "id": "education",
+      "nameAr": "التعليم والتعلم",
+      "nameEn": "Education and learning",
+      "descriptionAr": "التعلم والدراسة والشرح والتقييم.",
+      "descriptionEn": "Learning, study, explanation and assessment.",
+      "sortOrder": 3
+    },
+    {
+      "id": "work",
+      "nameAr": "العمل والمشروعات",
+      "nameEn": "Work and projects",
+      "descriptionAr": "العمل والتعاون وإدارة المشروعات.",
+      "descriptionEn": "Work, collaboration and project management.",
+      "sortOrder": 4
+    },
+    {
+      "id": "technology",
+      "nameAr": "التكنولوجيا والبرمجة",
+      "nameEn": "Technology and programming",
+      "descriptionAr": "الحاسوب والبرمجيات والبرمجة.",
+      "descriptionEn": "Computers, software and programming.",
+      "sortOrder": 5
+    },
+    {
+      "id": "computer",
+      "nameAr": "الكمبيوتر وWindows",
+      "nameEn": "Computers and Windows",
+      "descriptionAr": "أجهزة الكمبيوتر وأنظمة التشغيل والملفات.",
+      "descriptionEn": "Computers, operating systems and files.",
+      "sortOrder": 6
+    },
+    {
+      "id": "internet",
+      "nameAr": "الإنترنت والشبكات",
+      "nameEn": "Internet and networks",
+      "descriptionAr": "الاتصال والويب والشبكات.",
+      "descriptionEn": "Connectivity, web and networks.",
+      "sortOrder": 7
+    },
+    {
+      "id": "science",
+      "nameAr": "العلوم والرياضيات",
+      "nameEn": "Science and mathematics",
+      "descriptionAr": "المفاهيم العلمية والكمية.",
+      "descriptionEn": "Scientific and quantitative concepts.",
+      "sortOrder": 8
+    },
+    {
+      "id": "health",
+      "nameAr": "الصحة والطب",
+      "nameEn": "Health and medicine",
+      "descriptionAr": "مصطلحات الصحة والرعاية الطبية.",
+      "descriptionEn": "Health and medical-care terminology.",
+      "sortOrder": 9
+    },
+    {
+      "id": "business",
+      "nameAr": "المال والأعمال",
+      "nameEn": "Finance and business",
+      "descriptionAr": "المال والأسواق والتجارة.",
+      "descriptionEn": "Money, markets and commerce.",
+      "sortOrder": 10
+    },
+    {
+      "id": "law",
+      "nameAr": "القانون والمعاملات",
+      "nameEn": "Law and transactions",
+      "descriptionAr": "المفاهيم القانونية والإجراءات.",
+      "descriptionEn": "Legal concepts and procedures.",
+      "sortOrder": 11
+    },
+    {
+      "id": "travel",
+      "nameAr": "السفر والمواصلات",
+      "nameEn": "Travel and transport",
+      "descriptionAr": "السفر والاتجاهات ووسائل النقل.",
+      "descriptionEn": "Travel, directions and transport.",
+      "sortOrder": 12
+    },
+    {
+      "id": "food",
+      "nameAr": "الطعام والتسوق",
+      "nameEn": "Food and shopping",
+      "descriptionAr": "الطعام والشراء والمنتجات.",
+      "descriptionEn": "Food, purchases and products.",
+      "sortOrder": 13
+    },
+    {
+      "id": "arts",
+      "nameAr": "الفنون والترفيه",
+      "nameEn": "Arts and entertainment",
+      "descriptionAr": "الفنون والإعلام والأنشطة الترفيهية.",
+      "descriptionEn": "Arts, media and entertainment.",
+      "sortOrder": 14
+    },
+    {
+      "id": "history",
+      "nameAr": "التاريخ والجغرافيا",
+      "nameEn": "History and geography",
+      "descriptionAr": "الأزمنة والأماكن والأحداث.",
+      "descriptionEn": "Time periods, places and events.",
+      "sortOrder": 15
+    },
+    {
+      "id": "relationships",
+      "nameAr": "العلاقات والمجتمع",
+      "nameEn": "Relationships and society",
+      "descriptionAr": "العلاقات الاجتماعية والسياقات الثقافية.",
+      "descriptionEn": "Social relationships and cultural context.",
+      "sortOrder": 16
+    },
+    {
+      "id": "safety",
+      "nameAr": "الأمن والسلامة",
+      "nameEn": "Security and safety",
+      "descriptionAr": "الخصوصية والأمان والمخاطر.",
+      "descriptionEn": "Privacy, security and risks.",
+      "sortOrder": 17
+    },
+    {
+      "id": "accessibility",
+      "nameAr": "إمكانية الوصول",
+      "nameEn": "Accessibility",
+      "descriptionAr": "التواصل الميسر وإمكانية الوصول.",
+      "descriptionEn": "Inclusive communication and accessibility.",
+      "sortOrder": 18
+    }
+  ],
+  "concepts": [
+    {
+      "id": "greeting-how-are-you",
+      "topicId": "conversation",
+      "meaningAr": "سؤال اجتماعي للاطمئنان على حال شخص وبدء حوار أو متابعته. يختلف الأسلوب بحسب اللهجة ودرجة الرسمية.",
+      "meaningEn": "A social question used to check on someone and start or continue a conversation.",
+      "usageNotesAr": "«إزيك» مصرية يومية وغير رسمية. «كيف حالك؟» فصحى ورسمية نسبيًا. لا يلزم أن يكون السؤال طلبًا لتقرير طبي أو تفصيلي.",
+      "usageNotesEn": "The Egyptian form is casual. The MSA form is more formal. The question is usually a greeting, not a request for a detailed report.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian Cairene",
+          "text": "إزيك؟",
+          "transliteration": "izzayyak / izzayyik",
+          "pronunciation": "إِزَّيَّك / إِزَّيِّك",
+          "partOfSpeech": "greeting",
+          "register": "casual",
+          "variants": [
+            "ازيك",
+            "إزيّك",
+            "عامل ايه",
+            "عاملة ايه",
+            "أخبارك إيه"
+          ],
+          "examples": [
+            {
+              "text": "إزيك؟ عامل إيه النهارده؟",
+              "translationAr": "تحية وسؤال عن الحال.",
+              "translationEn": "How are you? How are you doing today?",
+              "context": "friendly greeting"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "Modern Standard Arabic",
+          "text": "كيف حالك؟",
+          "transliteration": "kayfa haluk",
+          "pronunciation": "كَيْفَ حَالُكَ",
+          "partOfSpeech": "greeting",
+          "register": "formal",
+          "variants": [
+            "كيف حالكم",
+            "كيف أنت"
+          ],
+          "examples": [
+            {
+              "text": "مرحبًا، كيف حالك اليوم؟",
+              "translationAr": "سؤال فصيح عن الحال.",
+              "translationEn": "Hello, how are you today?",
+              "context": "formal greeting"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "International English",
+          "text": "How are you?",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "greeting",
+          "register": "neutral",
+          "variants": [
+            "How are you doing?",
+            "How's it going?"
+          ],
+          "examples": [
+            {
+              "text": "Hi, how are you doing today?",
+              "translationAr": "مرحبًا، كيف حالك اليوم؟",
+              "translationEn": "Hi, how are you doing today?",
+              "context": "friendly greeting"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "request-please",
+      "topicId": "conversation",
+      "meaningAr": "تعبير لتلطيف الطلب أو إظهار الأدب. قد تأتي «لو سمحت» للمذكر أو «لو سمحتي» للمؤنث في العامية المصرية.",
+      "meaningEn": "A politeness marker used to soften a request.",
+      "usageNotesAr": "اختيار التعبير يتأثر بالمقام والعلاقة بين المتحدثين.",
+      "usageNotesEn": "Choose the form based on formality and the relationship between speakers.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "لو سمحت",
+          "transliteration": "law samaht",
+          "pronunciation": "لَوْ سَمَحْت",
+          "partOfSpeech": "politeness marker",
+          "register": "neutral",
+          "variants": [
+            "لو سمحتي",
+            "معلش بعد إذنك",
+            "بعد إذنك"
+          ],
+          "examples": [
+            {
+              "text": "ممكن تساعدني لو سمحت؟",
+              "translationAr": "طلب مهذب للمساعدة.",
+              "translationEn": "Could you help me, please?",
+              "context": "polite request"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "من فضلك",
+          "transliteration": "min fadlik",
+          "pronunciation": "مِنْ فَضْلِكَ",
+          "partOfSpeech": "politeness marker",
+          "register": "formal",
+          "variants": [
+            "رجاءً",
+            "لو تكرمت"
+          ],
+          "examples": [
+            {
+              "text": "أرسل الملف من فضلك.",
+              "translationAr": "طلب مهذب بصياغة فصيحة.",
+              "translationEn": "Please send the file.",
+              "context": "formal request"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "Please",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "politeness marker",
+          "register": "neutral",
+          "variants": [
+            "If you would",
+            "Could you please"
+          ],
+          "examples": [
+            {
+              "text": "Could you please send the file?",
+              "translationAr": "هل يمكنك إرسال الملف من فضلك؟",
+              "translationEn": "Could you please send the file?",
+              "context": "polite request"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agreement-okay",
+      "topicId": "conversation",
+      "meaningAr": "تعبير يدل على الموافقة أو القبول أو أن الأمر مفهوم. قد يعني إنهاء النقاش بحسب السياق ونبرة الصوت.",
+      "meaningEn": "An expression of agreement, acceptance or understanding; context and tone can change its force.",
+      "usageNotesAr": "«تمام» المصرية أوسع من مجرد الموافقة؛ قد تعني أن المعلومة وصلت أو أن الأمر انتهى.",
+      "usageNotesEn": "The Egyptian expression has several pragmatic uses beyond simple agreement.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "تمام",
+          "transliteration": "tamam",
+          "pronunciation": "تَمَام",
+          "partOfSpeech": "discourse marker",
+          "register": "casual",
+          "variants": [
+            "ماشي",
+            "حاضر",
+            "فل"
+          ],
+          "examples": [
+            {
+              "text": "تمام، هبعتلك الملف دلوقتي.",
+              "translationAr": "موافقة مع التزام بفعل شيء الآن.",
+              "translationEn": "Okay, I'll send you the file now.",
+              "context": "agreement"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "حسنًا",
+          "transliteration": "hasanan",
+          "pronunciation": "حَسَنًا",
+          "partOfSpeech": "discourse marker",
+          "register": "formal",
+          "variants": [
+            "موافق",
+            "على ما يرام"
+          ],
+          "examples": [
+            {
+              "text": "حسنًا، سأرسل الملف الآن.",
+              "translationAr": "موافقة بصياغة فصيحة.",
+              "translationEn": "All right, I will send the file now.",
+              "context": "agreement"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "Okay",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "discourse marker",
+          "register": "neutral",
+          "variants": [
+            "All right",
+            "Sounds good"
+          ],
+          "examples": [
+            {
+              "text": "Okay, I'll send it now.",
+              "translationAr": "حسنًا، سأرسله الآن.",
+              "translationEn": "Okay, I'll send it now.",
+              "context": "agreement"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "egyptian-maalesh",
+      "topicId": "conversation",
+      "meaningAr": "تعبير مصري متعدد الوظائف؛ قد يستخدم للاعتذار أو التخفيف أو طلب السماح أو تهوين موقف بسيط. لا توجد ترجمة إنجليزية واحدة ثابتة.",
+      "meaningEn": "An Egyptian expression used for apology, softening, asking pardon or downplaying a minor issue; there is no single fixed English equivalent.",
+      "usageNotesAr": "يجب تحديد المعنى من سياق الجملة ونبرة المتحدث، لا من الكلمة منفردة.",
+      "usageNotesEn": "Interpret from sentence context and tone rather than translating the word mechanically.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "معلش",
+          "transliteration": "maalesh",
+          "pronunciation": "مَعْلِش",
+          "partOfSpeech": "discourse marker",
+          "register": "casual",
+          "variants": [
+            "معلش بقى",
+            "ولا يهمك"
+          ],
+          "examples": [
+            {
+              "text": "معلش، اتأخرت عليك.",
+              "translationAr": "اعتذار عن التأخير.",
+              "translationEn": "Sorry, I kept you waiting.",
+              "context": "apology"
+            },
+            {
+              "text": "معلش، ممكن تعيد الكلام؟",
+              "translationAr": "طلب تكرار الكلام بلطف.",
+              "translationEn": "Sorry, could you repeat that?",
+              "context": "repair"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "عذرًا",
+          "transliteration": "udhran",
+          "pronunciation": "عُذْرًا",
+          "partOfSpeech": "discourse marker",
+          "register": "formal",
+          "variants": [
+            "لا بأس",
+            "سامحني"
+          ],
+          "examples": [
+            {
+              "text": "عذرًا، هل يمكنك إعادة الجملة؟",
+              "translationAr": "طلب إعادة الكلام.",
+              "translationEn": "Excuse me, could you repeat the sentence?",
+              "context": "repair"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "Sorry / Never mind",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "discourse marker",
+          "register": "neutral",
+          "variants": [
+            "Excuse me",
+            "No worries"
+          ],
+          "examples": [
+            {
+              "text": "Sorry, could you say that again?",
+              "translationAr": "عذرًا، هل يمكنك قول ذلك مرة أخرى؟",
+              "translationEn": "Sorry, could you say that again?",
+              "context": "repair"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "egyptian-khalas",
+      "topicId": "conversation",
+      "meaningAr": "قد تعني أن الشيء انتهى أو أن المطلوب كافٍ أو أن المتحدث قرر التوقف. معناها يتحدد من السياق.",
+      "meaningEn": "Can mean finished, enough, or a decision to stop; the meaning depends on context.",
+      "usageNotesAr": "قد تحمل نبرة حاسمة أو مطمئنة أو منزعجة؛ لا تستنتج الانفعال من الكلمة وحدها.",
+      "usageNotesEn": "It can sound firm, reassuring or irritated; do not infer emotion from the word alone.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "خلاص",
+          "transliteration": "khalas",
+          "pronunciation": "خَلَاص",
+          "partOfSpeech": "discourse marker",
+          "register": "casual",
+          "variants": [
+            "كفاية",
+            "انتهى"
+          ],
+          "examples": [
+            {
+              "text": "خلاص، فهمت الفكرة.",
+              "translationAr": "أصبحت الفكرة واضحة.",
+              "translationEn": "Okay, I understand the idea now.",
+              "context": "understanding"
+            },
+            {
+              "text": "خلاص كده، وقف التسجيل.",
+              "translationAr": "إشارة إلى إنهاء التسجيل.",
+              "translationEn": "That's enough; stop the recording.",
+              "context": "stop"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "انتهى الأمر",
+          "transliteration": "intaha al-amr",
+          "pronunciation": "انْتَهَى الأَمْر",
+          "partOfSpeech": "phrase",
+          "register": "formal",
+          "variants": [
+            "يكفي",
+            "توقف"
+          ],
+          "examples": [
+            {
+              "text": "انتهى الأمر، شكرًا.",
+              "translationAr": "إعلان انتهاء الأمر.",
+              "translationEn": "That is finished, thank you.",
+              "context": "completion"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "That's it / Enough",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "phrase",
+          "register": "neutral",
+          "variants": [
+            "Finished",
+            "Stop here"
+          ],
+          "examples": [
+            {
+              "text": "That's it, stop the recording.",
+              "translationAr": "هذا يكفي، أوقف التسجيل.",
+              "translationEn": "That's it, stop the recording.",
+              "context": "stop"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "egyptian-dilwa2ti",
+      "topicId": "daily",
+      "meaningAr": "ظرف زمان مصري يعني الوقت الحالي أو الآن.",
+      "meaningEn": "An Egyptian Arabic adverb meaning now or at the present time.",
+      "usageNotesAr": "تكتب أيضًا «دلوقتي» أو «دلوقت» بحسب العادة الإملائية.",
+      "usageNotesEn": "Common spellings include dilwa'ti and dilwa't.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "دلوقتي",
+          "transliteration": "dilwa'ti",
+          "pronunciation": "دِلْوَقْتِي",
+          "partOfSpeech": "adverb",
+          "register": "casual",
+          "variants": [
+            "دلوقت",
+            "دلوقتى",
+            "حاليًا"
+          ],
+          "examples": [
+            {
+              "text": "هبدأ الشغل دلوقتي.",
+              "translationAr": "سأبدأ العمل الآن.",
+              "translationEn": "I'll start working now.",
+              "context": "time"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "الآن",
+          "transliteration": "al-aan",
+          "pronunciation": "الآن",
+          "partOfSpeech": "adverb",
+          "register": "neutral",
+          "variants": [
+            "حاليًا",
+            "في الوقت الحالي"
+          ],
+          "examples": [
+            {
+              "text": "سأبدأ العمل الآن.",
+              "translationAr": "سأبدأ العمل الآن.",
+              "translationEn": "I will start working now.",
+              "context": "time"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "Now",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "adverb",
+          "register": "neutral",
+          "variants": [
+            "Right now",
+            "At the moment"
+          ],
+          "examples": [
+            {
+              "text": "I'll start now.",
+              "translationAr": "سأبدأ الآن.",
+              "translationEn": "I'll start now.",
+              "context": "time"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "egyptian-bokra",
+      "topicId": "daily",
+      "meaningAr": "ظرف زمان يشير عادةً إلى اليوم التالي لليوم الحالي.",
+      "meaningEn": "An adverb that usually refers to the day after today.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "بكرة",
+          "transliteration": "bokra",
+          "pronunciation": "بُكْرَة",
+          "partOfSpeech": "adverb",
+          "register": "casual",
+          "variants": [
+            "بكره",
+            "بكرا"
+          ],
+          "examples": [
+            {
+              "text": "هكلمك بكرة الصبح.",
+              "translationAr": "سأتحدث معك صباح الغد.",
+              "translationEn": "I'll call you tomorrow morning.",
+              "context": "time"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "غدًا",
+          "transliteration": "ghadan",
+          "pronunciation": "غَدًا",
+          "partOfSpeech": "adverb",
+          "register": "formal",
+          "variants": [
+            "في اليوم التالي"
+          ],
+          "examples": [
+            {
+              "text": "سأتصل بك غدًا.",
+              "translationAr": "سأتصل بك غدًا.",
+              "translationEn": "I will call you tomorrow.",
+              "context": "time"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "Tomorrow",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "adverb",
+          "register": "neutral",
+          "variants": [
+            "The next day"
+          ],
+          "examples": [
+            {
+              "text": "I'll call you tomorrow.",
+              "translationAr": "سأتصل بك غدًا.",
+              "translationEn": "I'll call you tomorrow.",
+              "context": "time"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "egyptian-3ayez",
+      "topicId": "conversation",
+      "meaningAr": "صيغة مصرية للتعبير عن الرغبة أو الحاجة. تتغير الصيغة مع النوع والعدد والسياق.",
+      "meaningEn": "An Egyptian Arabic expression of wanting or needing something; its form varies with gender and number.",
+      "usageNotesAr": "«عايز» للمذكر المفرد و«عايزة» للمؤنث المفرد في الاستخدام الشائع؛ «عاوز» و«عاوزة» بدائل صوتية/إملائية واسعة الانتشار.",
+      "usageNotesEn": "Common singular forms are 3ayez (masculine) and 3ayza (feminine), with spelling variants.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "عايز",
+          "transliteration": "3ayez",
+          "pronunciation": "عَايِز",
+          "partOfSpeech": "adjective/verb-like predicate",
+          "register": "casual",
+          "variants": [
+            "عاوز",
+            "عايزة",
+            "عاوزة",
+            "نفسي في"
+          ],
+          "examples": [
+            {
+              "text": "أنا عايز أتعلم إنجليزي.",
+              "translationAr": "أرغب في تعلم الإنجليزية.",
+              "translationEn": "I want to learn English.",
+              "context": "want"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "أريد",
+          "transliteration": "uridu",
+          "pronunciation": "أُرِيد",
+          "partOfSpeech": "verb",
+          "register": "formal",
+          "variants": [
+            "أرغب في",
+            "أحتاج إلى"
+          ],
+          "examples": [
+            {
+              "text": "أريد تعلم اللغة الإنجليزية.",
+              "translationAr": "أريد تعلم اللغة الإنجليزية.",
+              "translationEn": "I want to learn English.",
+              "context": "want"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "Want",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "verb",
+          "register": "neutral",
+          "variants": [
+            "Would like",
+            "Need"
+          ],
+          "examples": [
+            {
+              "text": "I want to learn English.",
+              "translationAr": "أريد تعلم الإنجليزية.",
+              "translationEn": "I want to learn English.",
+              "context": "want"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "egyptian-ezzay",
+      "topicId": "conversation",
+      "meaningAr": "أداة استفهام مصرية للسؤال عن الطريقة أو الكيفية.",
+      "meaningEn": "An Egyptian Arabic question word asking how something is done or how something happened.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "إزاي؟",
+          "transliteration": "izzay",
+          "pronunciation": "إِزَّاي",
+          "partOfSpeech": "question word",
+          "register": "casual",
+          "variants": [
+            "ازاي",
+            "إزاي أعمل",
+            "عملت كده ازاي"
+          ],
+          "examples": [
+            {
+              "text": "إزاي أغير إعدادات الصوت؟",
+              "translationAr": "كيف أغير إعدادات الصوت؟",
+              "translationEn": "How do I change the audio settings?",
+              "context": "how-to"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "كيف؟",
+          "transliteration": "kayfa",
+          "pronunciation": "كَيْفَ",
+          "partOfSpeech": "question word",
+          "register": "formal",
+          "variants": [
+            "بأي طريقة"
+          ],
+          "examples": [
+            {
+              "text": "كيف أغير إعدادات الصوت؟",
+              "translationAr": "كيف أغير إعدادات الصوت؟",
+              "translationEn": "How do I change the audio settings?",
+              "context": "how-to"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "How?",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "question word",
+          "register": "neutral",
+          "variants": [
+            "In what way?"
+          ],
+          "examples": [
+            {
+              "text": "How do I change the audio settings?",
+              "translationAr": "كيف أغير إعدادات الصوت؟",
+              "translationEn": "How do I change the audio settings?",
+              "context": "how-to"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clarification-ya3ni-eh",
+      "topicId": "conversation",
+      "meaningAr": "صيغة مصرية لطلب تفسير كلمة أو فكرة. وقد تستخدم «يعني» أيضًا لإعادة الصياغة أو ملء وقفة أثناء الكلام.",
+      "meaningEn": "An Egyptian phrase asking for the meaning of a word or idea. 'Ya3ni' also functions as a discourse marker in other contexts.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "يعني إيه؟",
+          "transliteration": "ya3ni eh",
+          "pronunciation": "يَعْنِي إِيه",
+          "partOfSpeech": "question phrase",
+          "register": "casual",
+          "variants": [
+            "معناها ايه",
+            "قصدك ايه"
+          ],
+          "examples": [
+            {
+              "text": "المصطلح ده يعني إيه؟",
+              "translationAr": "ما معنى هذا المصطلح؟",
+              "translationEn": "What does this term mean?",
+              "context": "clarification"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "ما معنى ذلك؟",
+          "transliteration": "ma ma'na dhalik",
+          "pronunciation": "مَا مَعْنَى ذَلِكَ",
+          "partOfSpeech": "question phrase",
+          "register": "formal",
+          "variants": [
+            "ماذا تقصد؟"
+          ],
+          "examples": [
+            {
+              "text": "ما معنى هذا المصطلح؟",
+              "translationAr": "ما معنى هذا المصطلح؟",
+              "translationEn": "What does this term mean?",
+              "context": "clarification"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "text": "What does that mean?",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "question phrase",
+          "register": "neutral",
+          "variants": [
+            "What do you mean?",
+            "What is the meaning?"
+          ],
+          "examples": [
+            {
+              "text": "What does this term mean?",
+              "translationAr": "ما معنى هذا المصطلح؟",
+              "translationEn": "What does this term mean?",
+              "context": "clarification"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "computer-file",
+      "topicId": "computer",
+      "meaningAr": "مجموعة بيانات محفوظة باسم وامتداد داخل نظام ملفات.",
+      "meaningEn": "A named collection of data stored in a file system.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "text": "ملف",
+          "transliteration": "milaff",
+          "pronunciation": "مِلَفّ",
+          "partOfSpeech": "noun",
+          "register": "neutral",
+          "variants": [
+            "فايل",
+            "الفايل"
+          ],
+          "examples": [
+            {
+              "text": "افتح الملف اللي نزلته.",
+              "translationAr": "افتح الملف الذي قمت بتنزيله.",
+              "translationEn": "Open the file I downloaded.",
+              "context": "computer"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "ملف",
+          "transliteration": "milaff",
+          "pronunciation": "مِلَفّ",
+          "partOfSpeech": "noun",
+          "register": "neutral",
+          "variants": [
+            "وثيقة"
+          ],
+          "examples": [
+            {
+              "text": "احفظ الملف في المجلد.",
+              "translationAr": "احفظ الملف في المجلد.",
+              "translationEn": "Save the file in the folder.",
+              "context": "computer"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "File",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "neutral",
+          "variants": [
+            "Document"
+          ],
+          "examples": [
+            {
+              "text": "Open the downloaded file.",
+              "translationAr": "افتح الملف الذي تم تنزيله.",
+              "translationEn": "Open the downloaded file.",
+              "context": "computer"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "computer-browser",
+      "topicId": "internet",
+      "meaningAr": "برنامج لعرض صفحات الويب والتفاعل مع المواقع.",
+      "meaningEn": "An application used to access and interact with websites.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian / code-switching",
+          "text": "Browser",
+          "transliteration": "browser",
+          "pronunciation": "بْرَاوْزَر",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "المتصفح",
+            "البراوزر"
+          ],
+          "examples": [
+            {
+              "text": "افتحي الـBrowser وروحي للموقع.",
+              "translationAr": "افتحي المتصفح وانتقلي إلى الموقع.",
+              "translationEn": "Open the browser and go to the website.",
+              "context": "technology"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "متصفح الويب",
+          "transliteration": "mutasaffih al-web",
+          "pronunciation": "مُتَصَفِّح الوِيب",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "المتصفح"
+          ],
+          "examples": [
+            {
+              "text": "افتح متصفح الويب.",
+              "translationAr": "افتح متصفح الويب.",
+              "translationEn": "Open the web browser.",
+              "context": "technology"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Web browser",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "Browser"
+          ],
+          "examples": [
+            {
+              "text": "Open your web browser.",
+              "translationAr": "افتح متصفح الويب.",
+              "translationEn": "Open your web browser.",
+              "context": "technology"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "software-permission",
+      "topicId": "safety",
+      "meaningAr": "إذن يحدد ما إذا كان التطبيق أو المستخدم مسموحًا له بتنفيذ فعل أو الوصول إلى مورد.",
+      "meaningEn": "An authorization that determines whether an application or user may perform an action or access a resource.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "صلاحية",
+          "transliteration": "salahiyya",
+          "pronunciation": "صَلَاحِيَّة",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "إذن",
+            "permission"
+          ],
+          "examples": [
+            {
+              "text": "ليال لازم تطلب موافقة قبل تعديل الملف.",
+              "translationAr": "ينبغي أن تطلب ليال إذنًا قبل تعديل الملف.",
+              "translationEn": "Layal must ask for permission before editing the file.",
+              "context": "security"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "إذن / صلاحية",
+          "transliteration": "idhn / salahiyya",
+          "pronunciation": "إِذْن / صَلَاحِيَّة",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "تفويض"
+          ],
+          "examples": [
+            {
+              "text": "يتطلب الإجراء إذنًا صريحًا.",
+              "translationAr": "يتطلب الإجراء إذنًا صريحًا.",
+              "translationEn": "The action requires explicit permission.",
+              "context": "security"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Permission",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "Authorization",
+            "Access right"
+          ],
+          "examples": [
+            {
+              "text": "The action requires explicit permission.",
+              "translationAr": "يتطلب الإجراء إذنًا صريحًا.",
+              "translationEn": "The action requires explicit permission.",
+              "context": "security"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "speech-recognition",
+      "topicId": "technology",
+      "meaningAr": "تقنية تحول الكلام المنطوق إلى نص مكتوب. لا تضمن وحدها فهم المعنى أو نية المتحدث.",
+      "meaningEn": "Technology that converts spoken audio into written text; it does not by itself understand intent or meaning.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "تحويل الكلام لنص",
+          "transliteration": "tahweel el-kalam le-nass",
+          "pronunciation": "تَحْوِيل الكَلَام لِنَصّ",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "تفريغ الصوت",
+            "Speech to Text",
+            "STT"
+          ],
+          "examples": [
+            {
+              "text": "حوّلي التسجيل لنص وخليني أراجعه.",
+              "translationAr": "حوّلي التسجيل إلى نص لأراجعه.",
+              "translationEn": "Transcribe the recording so I can review it.",
+              "context": "speech"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "التعرّف الآلي على الكلام",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "تحويل الكلام إلى نص"
+          ],
+          "examples": [
+            {
+              "text": "يحوّل النظام الكلام إلى نص.",
+              "translationAr": "يحوّل النظام الكلام إلى نص.",
+              "translationEn": "The system converts speech to text.",
+              "context": "speech"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Automatic speech recognition",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "Speech recognition",
+            "ASR",
+            "Speech to text",
+            "STT"
+          ],
+          "examples": [
+            {
+              "text": "Speech recognition converts audio into text.",
+              "translationAr": "يحول التعرف على الكلام الصوت إلى نص.",
+              "translationEn": "Speech recognition converts audio into text.",
+              "context": "speech"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "speech-synthesis",
+      "topicId": "technology",
+      "meaningAr": "تقنية تولد صوتًا منطوقًا انطلاقًا من نص.",
+      "meaningEn": "Technology that generates spoken audio from text.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "تحويل النص لكلام",
+          "transliteration": "tahweel el-nass le-kalam",
+          "pronunciation": "تَحْوِيل النَّصّ لِكَلام",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "نطق النص",
+            "Text to Speech",
+            "TTS"
+          ],
+          "examples": [
+            {
+              "text": "خلي ليال تقرأ الرد بصوتها.",
+              "translationAr": "اجعل ليال تنطق الرد صوتيًا.",
+              "translationEn": "Have Layal read the reply aloud.",
+              "context": "speech"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "توليد الكلام من النص",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "تحويل النص إلى كلام"
+          ],
+          "examples": [
+            {
+              "text": "ينطق النظام النص باللغة المختارة.",
+              "translationAr": "ينطق النظام النص باللغة المختارة.",
+              "translationEn": "The system speaks the text in the selected language.",
+              "context": "speech"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Text-to-speech",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "TTS",
+            "Speech synthesis"
+          ],
+          "examples": [
+            {
+              "text": "Text-to-speech reads the reply aloud.",
+              "translationAr": "يقرأ تحويل النص إلى كلام الرد بصوت مسموع.",
+              "translationEn": "Text-to-speech reads the reply aloud.",
+              "context": "speech"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language-code-switching",
+      "topicId": "conversation",
+      "meaningAr": "الانتقال بين لغتين أو أكثر داخل الجملة أو الحوار الواحد، مثل إدخال مصطلح إنجليزي وسط جملة مصرية.",
+      "meaningEn": "Switching between two or more languages within one sentence or conversation.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "خلط اللغات",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "كلام عربي وإنجليزي مع بعض",
+            "Code-switching"
+          ],
+          "examples": [
+            {
+              "text": "عندي meeting بكرة وعايز أراجع الـreport.",
+              "translationAr": "لدي اجتماع غدًا وأريد مراجعة التقرير.",
+              "translationEn": "I have a meeting tomorrow and want to review the report.",
+              "context": "code-switching"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "التناوب اللغوي",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "التبديل بين اللغات"
+          ],
+          "examples": [
+            {
+              "text": "قد يستخدم المتحدث مصطلحات إنجليزية داخل جملة عربية.",
+              "translationAr": "قد يستخدم المتحدث مصطلحات إنجليزية داخل جملة عربية.",
+              "translationEn": "A speaker may use English terms in an Arabic sentence.",
+              "context": "code-switching"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Linguistics",
+          "text": "Code-switching",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "Language alternation"
+          ],
+          "examples": [
+            {
+              "text": "Code-switching is common in bilingual conversations.",
+              "translationAr": "التناوب اللغوي شائع في المحادثات ثنائية اللغة.",
+              "translationEn": "Code-switching is common in bilingual conversations.",
+              "context": "code-switching"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "task-approval",
+      "topicId": "safety",
+      "meaningAr": "موافقة واعية ومحددة من المستخدم قبل تنفيذ خطوة ذات أثر، مثل الكتابة أو الحذف أو الإرسال.",
+      "meaningEn": "An informed, specific user confirmation required before a consequential action such as writing, deleting or sending.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "موافقة قبل التنفيذ",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "استئذان",
+            "موافقة المستخدم"
+          ],
+          "examples": [
+            {
+              "text": "وريني اللي هيتغير الأول قبل ما تنفذي.",
+              "translationAr": "اعرضي التغييرات المتوقعة قبل التنفيذ.",
+              "translationEn": "Show me what will change before you execute it.",
+              "context": "approval"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "موافقة صريحة",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "formal",
+          "variants": [
+            "اعتماد المستخدم"
+          ],
+          "examples": [
+            {
+              "text": "لا يبدأ التنفيذ قبل الموافقة الصريحة.",
+              "translationAr": "لا يبدأ التنفيذ قبل الموافقة الصريحة.",
+              "translationEn": "Execution does not begin before explicit approval.",
+              "context": "approval"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Explicit approval",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "User consent",
+            "Confirmation"
+          ],
+          "examples": [
+            {
+              "text": "The operation requires explicit approval.",
+              "translationAr": "تتطلب العملية موافقة صريحة.",
+              "translationEn": "The operation requires explicit approval.",
+              "context": "approval"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "computer-workspace",
+      "topicId": "computer",
+      "meaningAr": "مجلد أو مساحة محددة تسمح للتطبيق بالعمل على ملفاتها وفق حدود وصلاحيات معلومة.",
+      "meaningEn": "A designated folder or environment in which an application may work under defined path and permission boundaries.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "مساحة الشغل",
+          "transliteration": "masahat el-shoghl",
+          "pronunciation": "مَسَاحَة الشُّغْل",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "مجلد المشروع",
+            "Workspace"
+          ],
+          "examples": [
+            {
+              "text": "اشتغلي جوه مساحة المشروع بس.",
+              "translationAr": "اعملي داخل مساحة المشروع فقط.",
+              "translationEn": "Work only inside the project workspace.",
+              "context": "workspace"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "مساحة العمل",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "بيئة العمل"
+          ],
+          "examples": [
+            {
+              "text": "تظل الملفات خارج مساحة العمل دون تعديل.",
+              "translationAr": "تظل الملفات خارج مساحة العمل دون تعديل.",
+              "translationEn": "Files outside the workspace remain unchanged.",
+              "context": "workspace"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Workspace",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "Working directory",
+            "Project workspace"
+          ],
+          "examples": [
+            {
+              "text": "Work only inside the approved workspace.",
+              "translationAr": "اعمل داخل مساحة العمل المعتمدة فقط.",
+              "translationEn": "Work only inside the approved workspace.",
+              "context": "workspace"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "computer-backup",
+      "topicId": "computer",
+      "meaningAr": "نسخة إضافية من البيانات يمكن استخدامها لاستعادة الحالة السابقة عند الفقد أو الخطأ.",
+      "meaningEn": "An additional copy of data used to restore an earlier state after loss or error.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "نسخة احتياطية",
+          "transliteration": "noskha ehtiyatiyya",
+          "pronunciation": "نُسْخَة احْتِيَاطِيَّة",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "باك أب",
+            "Backup"
+          ],
+          "examples": [
+            {
+              "text": "اعملي نسخة احتياطية قبل التعديل.",
+              "translationAr": "أنشئي نسخة احتياطية قبل التعديل.",
+              "translationEn": "Create a backup before editing.",
+              "context": "backup"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "نسخة احتياطية",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "نسخة للاستعادة"
+          ],
+          "examples": [
+            {
+              "text": "تُستخدم النسخة الاحتياطية لاستعادة البيانات.",
+              "translationAr": "تُستخدم النسخة الاحتياطية لاستعادة البيانات.",
+              "translationEn": "The backup is used to restore data.",
+              "context": "backup"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Backup",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "Backup copy"
+          ],
+          "examples": [
+            {
+              "text": "Keep a backup before making changes.",
+              "translationAr": "احتفظ بنسخة احتياطية قبل إجراء التغييرات.",
+              "translationEn": "Keep a backup before making changes.",
+              "context": "backup"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "computer-error",
+      "topicId": "technology",
+      "meaningAr": "حالة تشير إلى أن عملية أو برنامجًا لم يعمل كما هو متوقع. يجب التفريق بين رسالة الخطأ والسبب الجذري.",
+      "meaningEn": "A condition indicating that an operation or program did not behave as expected; an error message is not necessarily the root cause.",
+      "forms": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian technical",
+          "text": "خطأ",
+          "transliteration": "khata2",
+          "pronunciation": "خَطَأ",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "إيرور",
+            "Error"
+          ],
+          "examples": [
+            {
+              "text": "طلعلي error أثناء تشغيل البرنامج.",
+              "translationAr": "ظهرت رسالة خطأ أثناء تشغيل البرنامج.",
+              "translationEn": "I got an error while running the application.",
+              "context": "debugging"
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "text": "خطأ برمجي",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun phrase",
+          "register": "technical",
+          "variants": [
+            "استثناء",
+            "خلل"
+          ],
+          "examples": [
+            {
+              "text": "يجب تحديد السبب الجذري للخطأ.",
+              "translationAr": "يجب تحديد السبب الجذري للخطأ.",
+              "translationEn": "The root cause of the error must be identified.",
+              "context": "debugging"
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "Technical English",
+          "text": "Error",
+          "transliteration": "",
+          "pronunciation": "",
+          "partOfSpeech": "noun",
+          "register": "technical",
+          "variants": [
+            "Exception",
+            "Failure"
+          ],
+          "examples": [
+            {
+              "text": "The application reported an error.",
+              "translationAr": "أبلغ التطبيق عن خطأ.",
+              "translationEn": "The application reported an error.",
+              "context": "debugging"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "dialogue-ask-repeat",
+      "topicId": "conversation",
+      "scenarioAr": "طلب إعادة جملة لم تُسمع بوضوح دون إحراج المتحدث.",
+      "scenarioEn": "Politely asking someone to repeat a sentence that was not heard clearly.",
+      "versions": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "turns": [
+            {
+              "role": "A",
+              "text": "معلش، ممكن تعيد آخر جملة؟"
+            },
+            {
+              "role": "B",
+              "text": "أكيد، كنت بقول إن الاجتماع اتأجل لبكرة."
+            },
+            {
+              "role": "A",
+              "text": "تمام، شكرًا للتوضيح."
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "turns": [
+            {
+              "role": "A",
+              "text": "عذرًا، هل يمكنك إعادة الجملة الأخيرة؟"
+            },
+            {
+              "role": "B",
+              "text": "بالتأكيد، كنت أقول إن الاجتماع تأجل إلى الغد."
+            },
+            {
+              "role": "A",
+              "text": "شكرًا على التوضيح."
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "turns": [
+            {
+              "role": "A",
+              "text": "Sorry, could you repeat the last sentence?"
+            },
+            {
+              "role": "B",
+              "text": "Sure. I was saying the meeting has been moved to tomorrow."
+            },
+            {
+              "role": "A",
+              "text": "Okay, thanks for clarifying."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dialogue-tech-help",
+      "topicId": "technology",
+      "scenarioAr": "طلب مساعدة تقنية وشرح خطوات المشكلة.",
+      "scenarioEn": "Asking for technical help and explaining the steps that led to an issue.",
+      "versions": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian with English technical terms",
+          "turns": [
+            {
+              "role": "A",
+              "text": "ممكن تساعدني؟ البرنامج بيطلع error أول ما بعمل Run."
+            },
+            {
+              "role": "B",
+              "text": "أكيد. ابعتلي نص رسالة الخطأ وقولي حصلت بعد أنهي خطوة."
+            },
+            {
+              "role": "A",
+              "text": "بعد ما عملت Update للـpackage."
+            },
+            {
+              "role": "B",
+              "text": "تمام، هنراجع الـversion والـlogs الأول قبل أي تغيير."
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "turns": [
+            {
+              "role": "A",
+              "text": "هل يمكنك مساعدتي؟ يعرض البرنامج خطأ عند تشغيله."
+            },
+            {
+              "role": "B",
+              "text": "بالتأكيد. أرسل نص رسالة الخطأ وحدد الخطوة التي سبقتها."
+            },
+            {
+              "role": "A",
+              "text": "حدث ذلك بعد تحديث الحزمة البرمجية."
+            },
+            {
+              "role": "B",
+              "text": "حسنًا، سنراجع الإصدار والسجلات قبل إجراء أي تغيير."
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "turns": [
+            {
+              "role": "A",
+              "text": "Could you help me? The app throws an error as soon as I run it."
+            },
+            {
+              "role": "B",
+              "text": "Sure. Send me the exact error message and the step that triggered it."
+            },
+            {
+              "role": "A",
+              "text": "It started after I updated the package."
+            },
+            {
+              "role": "B",
+              "text": "Okay. We'll inspect the version and logs before changing anything."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dialogue-task-approval",
+      "topicId": "safety",
+      "scenarioAr": "توضيح الأثر والحصول على موافقة قبل تعديل ملف.",
+      "scenarioEn": "Explaining the effect and obtaining approval before changing a file.",
+      "versions": [
+        {
+          "language": "ar-EG",
+          "variety": "Egyptian",
+          "turns": [
+            {
+              "role": "A",
+              "text": "هعدل الملف ده. أوريك الفرق الأول؟"
+            },
+            {
+              "role": "B",
+              "text": "أيوه، اعرض التغييرات والمسار والنسخة الاحتياطية."
+            },
+            {
+              "role": "A",
+              "text": "دي التغييرات المقترحة. أبدأ؟"
+            },
+            {
+              "role": "B",
+              "text": "موافق على التعديلات دي بس."
+            }
+          ]
+        },
+        {
+          "language": "ar",
+          "variety": "MSA",
+          "turns": [
+            {
+              "role": "A",
+              "text": "سأعدل هذا الملف. هل أعرض التغييرات أولًا؟"
+            },
+            {
+              "role": "B",
+              "text": "نعم، اعرض التغييرات والمسار والنسخة الاحتياطية."
+            },
+            {
+              "role": "A",
+              "text": "هذه هي التغييرات المقترحة. هل أبدأ؟"
+            },
+            {
+              "role": "B",
+              "text": "أوافق على هذه التعديلات فقط."
+            }
+          ]
+        },
+        {
+          "language": "en",
+          "variety": "English",
+          "turns": [
+            {
+              "role": "A",
+              "text": "I'm about to edit this file. Would you like to review the diff first?"
+            },
+            {
+              "role": "B",
+              "text": "Yes. Show the changes, target path, and backup plan."
+            },
+            {
+              "role": "A",
+              "text": "Here is the proposed diff. May I proceed?"
+            },
+            {
+              "role": "B",
+              "text": "I approve only these changes."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
