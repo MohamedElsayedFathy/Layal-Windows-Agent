@@ -38,7 +38,7 @@ public sealed class LanguageConcept
     public string UsageNotesEn { get; set; } = string.Empty;
     public List<LanguageForm> Forms { get; set; } = new();
     public string SourceId { get; set; } = "layal-curated";
-    public string License { get; set; } = "CC0-1.0";
+    public string License { get; set; } = "project-internal; review required";
 }
 
 public sealed class LanguageForm
