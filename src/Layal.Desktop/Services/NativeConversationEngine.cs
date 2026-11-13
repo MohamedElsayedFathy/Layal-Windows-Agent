@@ -39,6 +39,8 @@ public sealed class NativeConversationEngine
 
         if (TryRespondFromLanguageReference(input, isArabic, out var referenceResponse))
             return referenceResponse;
+        if (TryRespondWithLanguageDialogue(input, isArabic, out var dialogueResponse))
+            return dialogueResponse;
 
         var command = _parser.Parse(input);
         return command.Intent switch
@@ -129,6 +131,54 @@ public sealed class NativeConversationEngine
         }
 
         response = string.Join(Environment.NewLine + Environment.NewLine, lines.Where(line => !string.IsNullOrWhiteSpace(line)));
+        return true;
+    }
+
+
+    private bool TryRespondWithLanguageDialogue(string input, bool isArabic, out string response)
+    {
+        response = string.Empty;
+        if (string.IsNullOrWhiteSpace(input)) return false;
+
+        var normalized = LanguageTextNormalizer.Normalize(input);
+        Match request = Regex.Match(normalized,
+            @"^(?:اعمل حوار عن|اعملي حوار عن|اكتب حوار عن|اكتبي حوار عن)\\s+(?<topic>.+)$",
+            RegexOptions.CultureInvariant);
+        if (!request.Success)
+            request = Regex.Match(normalized,
+                @"^(?:show|write|create) (?:a )?dialogue (?:about|for) (?<topic>.+)$",
+                RegexOptions.CultureInvariant);
+        if (!request.Success) return false;
+
+        var topicQuery = request.Groups["topic"].Value.Trim();
+        var preferredLanguage = isArabic ? "ar-EG" : "en";
+        var dialogue = _languageReference.SearchDialogues(topicQuery, preferredLanguage, maximumResults: 1).FirstOrDefault()
+            ?? _languageReference.SearchDialogues(topicQuery, maximumResults: 1).FirstOrDefault();
+        if (dialogue is null) return false;
+
+        var version = dialogue.Versions.FirstOrDefault(item =>
+                string.Equals(item.Language, preferredLanguage, StringComparison.OrdinalIgnoreCase))
+            ?? dialogue.Versions.FirstOrDefault(item => item.Language == "ar-EG")
+            ?? dialogue.Versions[0];
+        var topic = _languageReference.GetTopic(dialogue.TopicId);
+        var lines = new List<string>
+        {
+            isArabic
+                ? $"**حوار: {dialogue.ScenarioAr}** — {topic?.NameAr ?? "الحوار"}"
+                : $"**Dialogue: {dialogue.ScenarioEn}** — {topic?.NameEn ?? "Conversation"}"
+        };
+        foreach (var turn in version.Turns)
+        {
+            var speaker = turn.Role switch
+            {
+                "A" => isArabic ? "المتحدث الأول" : "Speaker A",
+                "B" => isArabic ? "المتحدث الثاني" : "Speaker B",
+                _ => turn.Role
+            };
+            lines.Add($"**{speaker}:** {turn.Text}");
+        }
+
+        response = string.Join(Environment.NewLine + Environment.NewLine, lines);
         return true;
     }
 
