@@ -7,6 +7,10 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parent.parent
 ERRORS: list[str] = []
 
+# MainWindow is split across feature-focused partial class files.
+# Every source-level UI wiring check must inspect the complete code-behind.
+# Uses the shared MainWindow source aggregate initialized before the XAML scan.
+
 
 def check_csharp_delimiters(path: Path) -> None:
     """Conservative delimiter scan that skips comments and string/char literals."""
@@ -106,12 +110,14 @@ for xaml_path in xaml_files:
             ERRORS.append(f"Missing code-behind file for x:Class '{xclass}' in {xaml_path.relative_to(ROOT)}")
 
     if xaml_path.name in {"MainWindow.xaml", "FloatingMascotWindow.xaml", "VisionCameraWindow.xaml"}:
-        code_path = xaml_path.with_name(xaml_path.name + ".cs")
-        if code_path.exists():
-            code = code_path.read_text(encoding="utf-8")
-            for handler in handlers:
-                if not re.search(r"\b" + re.escape(handler) + r"\s*\(", code):
-                    ERRORS.append(f"Missing XAML event handler '{handler}' for {xaml_path.relative_to(ROOT)}")
+        if xaml_path.name == "MainWindow.xaml":
+            code = main_window_code_text
+        else:
+            code_path = xaml_path.with_name(xaml_path.name + ".cs")
+            code = code_path.read_text(encoding="utf-8") if code_path.exists() else ""
+        for handler in handlers:
+            if not re.search(r"\\b" + re.escape(handler) + r"\\s*\\(", code):
+                ERRORS.append(f"Missing XAML event handler '{handler}' for {xaml_path.relative_to(ROOT)}")
 
 # Check Layal.* StaticResource/DynamicResource references against App.xaml resource keys.
 app_path = ROOT / "src/Layal.Desktop/App.xaml"
@@ -482,7 +488,7 @@ for required in (
 ):
     if required not in api_service_text:
         ERRORS.append(f"API catalog service behavior is missing: {required}")
-api_ui_code = (ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs").read_text(encoding="utf-8")
+api_ui_code = main_window_code_text
 for required in (
     "ApiConnectionSearchInput_TextChanged",
     "ApiConnectionMatchesSearch",
@@ -524,9 +530,8 @@ if not (ROOT / "docs/API_CATALOG_AR.md").is_file():
 
 # Guard the new personality milestone against accidental removal of its XAML/code-behind wiring.
 mascot_code_path = ROOT / "src/Layal.Desktop/Views/FloatingMascotWindow.xaml.cs"
-main_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
 mascot_code = mascot_code_path.read_text(encoding="utf-8") if mascot_code_path.exists() else ""
-main_code = main_code_path.read_text(encoding="utf-8") if main_code_path.exists() else ""
+main_code = main_window_code_text
 palette_path = ROOT / "src/Layal.Desktop/Services/UiThemePalette.cs"
 palette_code = palette_path.read_text(encoding="utf-8") if palette_path.exists() else ""
 resolver_path = ROOT / "src/Layal.Desktop/Services/TaskMoodResolver.cs"
@@ -576,10 +581,9 @@ for expected_glass_color in ("#FFFFFFFF", "#E82F416F"):
 
 # Unified keyboard-accessibility and bilingual UI guardrails.
 ui_xaml_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml"
-ui_code_path = ROOT / "src/Layal.Desktop/Views/MainWindow.xaml.cs"
 app_xaml_path = ROOT / "src/Layal.Desktop/App.xaml"
 ui_xaml = ui_xaml_path.read_text(encoding="utf-8") if ui_xaml_path.is_file() else ""
-ui_code = ui_code_path.read_text(encoding="utf-8") if ui_code_path.is_file() else ""
+ui_code = main_window_code_text
 app_xaml = app_xaml_path.read_text(encoding="utf-8") if app_xaml_path.is_file() else ""
 
 for required in (
