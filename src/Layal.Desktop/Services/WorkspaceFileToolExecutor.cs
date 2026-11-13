@@ -37,7 +37,6 @@ internal sealed class WorkspaceFileToolExecutor
         "global.json", "nuget.config", "packages.lock.json", "dotnet-tools.json",
         "Directory.Build.props", "Directory.Build.targets", "Directory.Build.rsp", "Directory.Packages.props"
     };
-    private const string ApprovalPreviewOmissionText = "…[preview truncated; remaining content omitted]";
     private sealed record TextFileSnapshot(string Text, Encoding Encoding, long Length, DateTime LastWriteTimeUtc, string Sha256);
     private readonly string _workspaceRoot;
     private readonly WorkspacePathPolicy _workspacePaths;
@@ -438,14 +437,5 @@ internal sealed class WorkspaceFileToolExecutor
         }
     }
 
-    private static string BuildBoundedApprovalPreview(string text, int maxCharacters)
-    {
-        if (text.Length <= maxCharacters) return text;
-        var suffix = Environment.NewLine + ApprovalPreviewOmissionText;
-        if (maxCharacters <= suffix.Length) return text[..maxCharacters];
-        var contentLength = maxCharacters - suffix.Length;
-        if (contentLength > 0 && contentLength < text.Length && char.IsHighSurrogate(text[contentLength - 1]) && char.IsLowSurrogate(text[contentLength]))
-            contentLength--;
-        return text[..contentLength] + suffix;
-    }
+
 }
