@@ -12,9 +12,6 @@ ERRORS: list[str] = []
 main_window_code_paths = sorted((ROOT / "src/Layal.Desktop/Views").glob("MainWindow*.cs"))
 main_window_code_text = "\n".join(path.read_text(encoding="utf-8") for path in main_window_code_paths)
 
-# MainWindow is split across feature-focused partial class files.
-# Every source-level UI wiring check must inspect the complete code-behind.
-# Uses the shared MainWindow source aggregate initialized before the XAML scan.
 
 
 def check_csharp_delimiters(path: Path) -> None:
@@ -121,7 +118,7 @@ for xaml_path in xaml_files:
             code_path = xaml_path.with_name(xaml_path.name + ".cs")
             code = code_path.read_text(encoding="utf-8") if code_path.exists() else ""
         for handler in handlers:
-            if not re.search(r"\\b" + re.escape(handler) + r"\\s*\\(", code):
+            if not re.search(r"\b" + re.escape(handler) + r"\s*\(", code):
                 ERRORS.append(f"Missing XAML event handler '{handler}' for {xaml_path.relative_to(ROOT)}")
 
 # Check Layal.* StaticResource/DynamicResource references against App.xaml resource keys.
