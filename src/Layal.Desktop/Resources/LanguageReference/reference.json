@@ -1651,6 +1651,14 @@
             }
           ]
         }
+      ],
+      "searchTerms": [
+        "إعادة الكلام",
+        "إعادة الجملة",
+        "طلب توضيح",
+        "repeat that",
+        "ask to repeat",
+        "hearing clarification"
       ]
     },
     {
@@ -1725,6 +1733,14 @@
             }
           ]
         }
+      ],
+      "searchTerms": [
+        "المساعدة التقنية",
+        "الدعم الفني",
+        "مشكلة تقنية",
+        "technical help",
+        "tech support",
+        "debugging help"
       ]
     },
     {
@@ -1799,6 +1815,14 @@
             }
           ]
         }
+      ],
+      "searchTerms": [
+        "موافقة على تعديل",
+        "قبل ما أعدل",
+        "موافقة قبل التغيير",
+        "review before edit",
+        "approval before change",
+        "file modification consent"
       ]
     }
   ]
