@@ -37,7 +37,7 @@ public sealed class NativeConversationLanguageReferenceTests
         var answer = engine.Respond("اعملي حوار عن المساعدة التقنية", "ar");
 
         StringAssert.Contains(answer, "ممكن تساعدني؟");
-        StringAssert.Contains(answer, "Speaker");
+        StringAssert.Contains(answer, "المتحدث الأول");
         StringAssert.Contains(answer, "error");
     }
 }
