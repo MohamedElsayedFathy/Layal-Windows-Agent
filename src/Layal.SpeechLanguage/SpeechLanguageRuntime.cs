@@ -128,8 +128,8 @@ public sealed class DialogueSession
 }
 
 /// <summary>
-/// Deterministic answers from the local reference only. It neither invents open-ended answers
-/// nor executes commands; action execution remains behind the host permission broker.
+/// Deterministic, bounded replies from the local reference. It never invents definitions,
+/// executes commands, or turns a recognized request into permission to use a tool.
 /// </summary>
 public sealed class SpeechLanguageReferenceResponder
 {
@@ -145,25 +145,50 @@ public sealed class SpeechLanguageReferenceResponder
         if (query.Length == 0)
             return false;
 
+        var language = _engine.Analyze(input).Language.PrimaryLanguage;
+
+        if (TryExtractVerbQuery(query, out var verbTerm))
+        {
+            var verbs = _engine.Reference.FindVerbParadigms(verbTerm, language, 3);
+            if (verbs.Count == 0) return false;
+            response = FormatVerbs(verbs, preferArabic);
+            return true;
+        }
+
+        if (TryExtractGrammarQuery(query, out var grammarTerm))
+        {
+            var rules = string.IsNullOrWhiteSpace(grammarTerm)
+                ? _engine.Reference.GrammarRules.Take(3).ToArray()
+                : _engine.Reference.FindGrammar(grammarTerm, language, maximumResults: 4);
+            if (rules.Count == 0) return false;
+            response = FormatGrammar(rules, preferArabic);
+            return true;
+        }
+
+        if (TryExtractPhraseQuery(query, out var phraseTerm))
+        {
+            var patterns = _engine.Reference.FindDialoguePatterns(
+                phraseTerm, DialogueIntent.Unknown, language, 4);
+            if (patterns.Count == 0) return false;
+            response = FormatPatterns(patterns, language, preferArabic);
+            return true;
+        }
+
         if (TryExtractDefinitionQuery(query, out var term))
         {
-            var language = _engine.Analyze(input).Language.PrimaryLanguage;
             var matches = _engine.Reference.Find(term, language, 3);
-            if (matches.Count == 0)
-                return false;
+            if (matches.Count == 0) return false;
             response = FormatDefinitions(matches, preferArabic);
             return true;
         }
 
         if (TryExtractTopicQuery(query, out var topicQuery))
         {
-            var analysis = _engine.Analyze(input);
             var topics = topicQuery.Length == 0
-                ? _engine.Reference.GetTopics(3)
-                : _engine.Reference.FindTopics(topicQuery, analysis.Language.PrimaryLanguage, 3);
-            if (topics.Count == 0)
-                return false;
-            response = FormatTopics(topics, analysis.Language.PrimaryLanguage, preferArabic);
+                ? _engine.Reference.GetTopics(4)
+                : _engine.Reference.FindTopics(topicQuery, language, 4);
+            if (topics.Count == 0) return false;
+            response = FormatTopics(topics, language, preferArabic);
             return true;
         }
 
@@ -180,8 +205,7 @@ public sealed class SpeechLanguageReferenceResponder
         ];
         foreach (var prefix in prefixes)
         {
-            if (!value.StartsWith(prefix, StringComparison.Ordinal))
-                continue;
+            if (!value.StartsWith(prefix, StringComparison.Ordinal)) continue;
             term = value[prefix.Length..].Trim();
             if (term.StartsWith("كلمة ", StringComparison.Ordinal))
                 term = term["كلمة ".Length..].Trim();
@@ -193,6 +217,68 @@ public sealed class SpeechLanguageReferenceResponder
             value.EndsWith(" mean", StringComparison.Ordinal))
         {
             term = value[whatDoes.Length..^" mean".Length].Trim();
+            return term.Length >= 2;
+        }
+
+        term = string.Empty;
+        return false;
+    }
+
+    private static bool TryExtractGrammarQuery(string value, out string term)
+    {
+        string[] prefixes =
+        [
+            "اشرح قاعدة ", "اشرحلي قاعدة ", "ما قاعدة ", "ايه قاعدة ",
+            "القاعدة النحوية ", "قاعدة ", "explain grammar ", "grammar rule ",
+            "what is the grammar of ", "explain the rule "
+        ];
+        foreach (var prefix in prefixes)
+        {
+            if (!value.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            term = value[prefix.Length..].Trim();
+            return true;
+        }
+
+        if (value is "اشرح القواعد" or "قواعد اللغة" or "grammar")
+        {
+            term = string.Empty;
+            return true;
+        }
+
+        term = string.Empty;
+        return false;
+    }
+
+    private static bool TryExtractVerbQuery(string value, out string term)
+    {
+        string[] prefixes =
+        [
+            "صرف الفعل ", "تصريف الفعل ", "تصريف ", "صرف ",
+            "conjugate ", "conjugation of ", "verb forms of "
+        ];
+        foreach (var prefix in prefixes)
+        {
+            if (!value.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            term = value[prefix.Length..].Trim();
+            return term.Length >= 2;
+        }
+
+        term = string.Empty;
+        return false;
+    }
+
+    private static bool TryExtractPhraseQuery(string value, out string term)
+    {
+        string[] prefixes =
+        [
+            "ازاي اقول ", "كيف اقول ", "عبارة عن ", "عبارة ل ",
+            "قول بالانجليزي ", "قول بالمصري ", "how do i say ", "how to say ",
+            "phrase for ", "expression for "
+        ];
+        foreach (var prefix in prefixes)
+        {
+            if (!value.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            term = value[prefix.Length..].Trim();
             return term.Length >= 2;
         }
 
@@ -235,10 +321,7 @@ public sealed class SpeechLanguageReferenceResponder
             + Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, lines);
     }
 
-    private static string FormatTopics(
-        IReadOnlyList<ConversationTopic> topics,
-        SpeechLanguageKind language,
-        bool arabic)
+    private static string FormatTopics(IReadOnlyList<ConversationTopic> topics, SpeechLanguageKind language, bool arabic)
     {
         var lines = topics.Select(topic =>
         {
@@ -253,6 +336,55 @@ public sealed class SpeechLanguageReferenceResponder
             return "• " + name + (string.IsNullOrWhiteSpace(prompt) ? string.Empty : Environment.NewLine + "  " + prompt);
         });
         return (arabic ? "إليك موضوعات مناسبة لبدء الحوار:" : "Here are some topics to start a conversation:")
+            + Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, lines);
+    }
+
+    private static string FormatGrammar(IReadOnlyList<GrammarRule> rules, bool arabic)
+    {
+        var lines = rules.Select(rule =>
+        {
+            var title = arabic ? rule.TitleArabic : rule.TitleEnglish;
+            var explanation = arabic ? rule.ExplanationArabic : rule.ExplanationEnglish;
+            var examples = rule.Examples.Count == 0 ? string.Empty :
+                Environment.NewLine + (arabic ? "أمثلة: " : "Examples: ") + string.Join("؛ ", rule.Examples.Take(3));
+            var pattern = string.IsNullOrWhiteSpace(rule.Pattern) ? string.Empty :
+                Environment.NewLine + (arabic ? "النمط: " : "Pattern: ") + rule.Pattern;
+            return "• " + title + Environment.NewLine + explanation + pattern + examples;
+        });
+        return (arabic ? "هذه القواعد الموجودة في المرجع المحلي:" : "These rules are available in the local reference:")
+            + Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, lines);
+    }
+
+    private static string FormatVerbs(IReadOnlyList<VerbParadigm> verbs, bool arabic)
+    {
+        var lines = verbs.Select(verb =>
+        {
+            var meaning = arabic ? verb.MeaningArabic : verb.MeaningEnglish;
+            var labels = arabic
+                ? new[] { "الماضي", "المضارع", "المستقبل", "الأمر", "المصدر" }
+                : new[] { "Past", "Present", "Future", "Imperative", "Verbal noun" };
+            var forms = new[] { verb.Past, verb.Present, verb.Future, verb.Imperative, verb.VerbalNoun };
+            var rows = labels.Zip(forms, (label, form) => string.IsNullOrWhiteSpace(form)
+                ? string.Empty : label + ": " + form).Where(value => value.Length > 0);
+            return "• " + verb.Lemma + " — " + meaning + Environment.NewLine + string.Join(Environment.NewLine, rows)
+                + (string.IsNullOrWhiteSpace(verb.NotesArabic) ? string.Empty : Environment.NewLine + verb.NotesArabic);
+        });
+        return (arabic ? "هذه صيغ الأفعال في المرجع المحلي:" : "These verb forms are in the local reference:")
+            + Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, lines);
+    }
+
+    private static string FormatPatterns(IReadOnlyList<DialoguePattern> patterns, SpeechLanguageKind language, bool arabic)
+    {
+        var lines = patterns.Select(pattern =>
+        {
+            var utterance = pattern.Utterances.FirstOrDefault() ?? string.Empty;
+            var reply = pattern.Replies.FirstOrDefault() ?? string.Empty;
+            var label = arabic ? pattern.SituationArabic : pattern.SituationEnglish;
+            return "• " + label
+                + (utterance.Length == 0 ? string.Empty : Environment.NewLine + (arabic ? "يمكنك أن تقول: " : "You can say: ") + utterance)
+                + (reply.Length == 0 ? string.Empty : Environment.NewLine + (arabic ? "رد مناسب: " : "Possible reply: ") + reply);
+        });
+        return (arabic ? "هذه تعبيرات مناسبة للموقف:" : "Here are phrases for that situation:")
             + Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, lines);
     }
 }
