@@ -16,13 +16,12 @@ namespace Layal.Services;
 /// </summary>
 public sealed class BrowserAutomationService
 {
-    private const int MaxCdpMessageBytes = 2 * 1024 * 1024;
     private const int MaxPageTextChars = 20_000;
     private const int MaxElementTextChars = 160;
     private static readonly TimeSpan BrowserStartTimeout = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan CdpRequestTimeout = TimeSpan.FromSeconds(10);
     private readonly string _profileDirectory;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly BrowserCdpTransport _cdpTransport;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
     private readonly CancellationTokenSource _shutdownCancellation = new();
     private Process? _browserProcess;
@@ -34,6 +33,7 @@ public sealed class BrowserAutomationService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         _profileDirectory = Path.Combine(Path.GetFullPath(dataRoot), "BrowserProfile");
+        _cdpTransport = new BrowserCdpTransport(() => _debugPort);
     }
 
     /// <summary>
@@ -777,7 +777,7 @@ public sealed class BrowserAutomationService
 
         var usablePages = pages
             .Where(x => !x.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase) &&
-                        IsTrustedBrowserWebSocketUrl(x.WebSocketUrl))
+                        _cdpTransport.IsTrustedBrowserWebSocketUrl(x.WebSocketUrl))
             .ToArray();
         ValidateSinglePageSession(usablePages.Length);
         return usablePages[0];
@@ -913,62 +913,6 @@ public sealed class BrowserAutomationService
         return value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var text) ? text : value?.ToJsonString();
     }
 
-    private async Task<JsonObject> SendCommandAsync(CdpPageTarget page, string method, JsonObject parameters, CancellationToken token)
-    {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(CdpRequestTimeout);
-        using var socket = new ClientWebSocket();
-        try
-        {
-            await socket.ConnectAsync(new Uri(page.WebSocketUrl), timeout.Token);
-            var request = JsonSerializer.SerializeToUtf8Bytes(new { id = 1, method, @params = parameters });
-            await socket.SendAsync(request.AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
-            var buffer = new byte[8192];
-            while (true)
-            {
-                using var message = new MemoryStream();
-                while (true)
-                {
-                    var received = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
-                    if (received.MessageType == WebSocketMessageType.Close)
-                        throw new WebSocketException("The browser closed the DevTools connection.");
-                    if (message.Length + received.Count > MaxCdpMessageBytes)
-                        throw new InvalidOperationException("The browser DevTools response exceeded 2 MB.");
-                    message.Write(buffer, 0, received.Count);
-                    if (received.EndOfMessage) break;
-                }
-
-                using var doc = JsonDocument.Parse(message.ToArray());
-                var root = doc.RootElement;
-                // Chromium sends asynchronous protocol events on the same socket. Ignore them
-                // until the response carrying this command's request id arrives.
-                if (!root.TryGetProperty("id", out var id) || id.GetInt32() != 1)
-                    continue;
-                if (root.TryGetProperty("error", out var error))
-                    throw new InvalidOperationException("Browser DevTools command failed: " + error.GetRawText());
-                return JsonNode.Parse(root.GetRawText()) as JsonObject ?? new JsonObject();
-            }
-        }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested)
-        {
-            throw new TimeoutException($"Browser DevTools request '{method}' timed out after {CdpRequestTimeout.TotalSeconds:0} seconds.");
-        }
-    }
-
-    private bool IsTrustedBrowserWebSocketUrl(string value)
-    {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
-            !uri.Scheme.Equals("ws", StringComparison.OrdinalIgnoreCase) ||
-            uri.Port != _debugPort ||
-            !string.IsNullOrEmpty(uri.UserInfo))
-            return false;
-
-        var loopbackHost = uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-            uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-            uri.Host.Equals("::1", StringComparison.OrdinalIgnoreCase);
-        return loopbackHost && uri.AbsolutePath.StartsWith("/devtools/page/", StringComparison.Ordinal);
-    }
-
     private string DebugEndpoint(string route) => $"http://127.0.0.1:{_debugPort}/{route}";
 
     private static string BuildPreviewExpression(string selector, string action)
@@ -993,6 +937,9 @@ public sealed class BrowserAutomationService
             "return JSON.stringify({found:true,url:location.href,tag,type,id:e.id||'',name:e.getAttribute('name')||'',label,text,href:e.href||'',role,formAssociated,disabled,readOnly,accept,multiple,fingerprint:fp});})()";
     }
 
+    private Task<JsonObject> SendCommandAsync(CdpPageTarget page, string method, JsonObject parameters, CancellationToken token) =>
+        _cdpTransport.SendCommandAsync(page, method, parameters, token);
+
     private async Task SelectApprovedUploadFileAsync(
         CdpPageTarget page,
         BrowserElementPreview preview,
@@ -1002,15 +949,10 @@ public sealed class BrowserAutomationService
         // A CDP DOM node id is scoped to its DevTools session. Keep one WebSocket open from
         // getDocument through setFileInputFiles so the selected node cannot silently refer to
         // an unrelated or uninitialized DOM session.
-        using var socket = new ClientWebSocket();
-        using (var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(token))
-        {
-            connectTimeout.CancelAfter(CdpRequestTimeout);
-            await socket.ConnectAsync(new Uri(page.WebSocketUrl), connectTimeout.Token);
-        }
+        using var socket = await _cdpTransport.ConnectPageAsync(page, token);
 
         var commandId = 1;
-        _ = await SendCommandOnSocketAsync(socket, commandId++, "DOM.getDocument", new JsonObject
+        _ = await _cdpTransport.SendCommandOnSocketAsync(socket, commandId++, "DOM.getDocument", new JsonObject
         {
             ["depth"] = 1,
             ["pierce"] = true
@@ -1032,7 +974,7 @@ public sealed class BrowserAutomationService
             "if(e.disabled===true||e.getAttribute('aria-disabled')==='true'||(e.files&&e.files.length>0)||!e.getClientRects().length||style.visibility==='hidden'||style.display==='none'||Number(style.opacity)<=0.01||style.pointerEvents==='none'||e.closest('[aria-hidden=true]')||rect.width<=0||rect.height<=0||rect.bottom<=0||rect.right<=0||rect.top>=innerHeight||rect.left>=innerWidth)throw new Error('The approved file input is no longer visible, enabled, and empty.');" +
             "return e;})()";
 
-        var evaluation = await SendCommandOnSocketAsync(socket, commandId++, "Runtime.evaluate", new JsonObject
+        var evaluation = await _cdpTransport.SendCommandOnSocketAsync(socket, commandId++, "Runtime.evaluate", new JsonObject
         {
             ["expression"] = expression,
             ["returnByValue"] = false,
@@ -1049,7 +991,7 @@ public sealed class BrowserAutomationService
         if (string.IsNullOrWhiteSpace(objectId))
             throw new InvalidOperationException("The browser did not return a live reference to the approved file input.");
 
-        var request = await SendCommandOnSocketAsync(socket, commandId++, "DOM.requestNode", new JsonObject
+        var request = await _cdpTransport.SendCommandOnSocketAsync(socket, commandId++, "DOM.requestNode", new JsonObject
         {
             ["objectId"] = objectId
         }, token);
@@ -1058,59 +1000,11 @@ public sealed class BrowserAutomationService
             throw new InvalidOperationException("The approved file input was detached before local file selection.");
 
         token.ThrowIfCancellationRequested();
-        _ = await SendCommandOnSocketAsync(socket, commandId, "DOM.setFileInputFiles", new JsonObject
+        _ = await _cdpTransport.SendCommandOnSocketAsync(socket, commandId, "DOM.setFileInputFiles", new JsonObject
         {
             ["nodeId"] = nodeId,
             ["files"] = new JsonArray(JsonValue.Create(absoluteFilePath))
         }, token);
-    }
-
-    private static async Task<JsonObject> SendCommandOnSocketAsync(
-        ClientWebSocket socket,
-        int commandId,
-        string method,
-        JsonObject parameters,
-        CancellationToken token)
-    {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(CdpRequestTimeout);
-        try
-        {
-            var request = JsonSerializer.SerializeToUtf8Bytes(new
-            {
-                id = commandId,
-                method,
-                @params = parameters
-            });
-            await socket.SendAsync(request.AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
-            var buffer = new byte[8192];
-            while (true)
-            {
-                using var message = new MemoryStream();
-                while (true)
-                {
-                    var received = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
-                    if (received.MessageType == WebSocketMessageType.Close)
-                        throw new WebSocketException("The browser closed the DevTools upload connection.");
-                    if (message.Length + received.Count > MaxCdpMessageBytes)
-                        throw new InvalidOperationException("The browser DevTools upload response exceeded 2 MB.");
-                    message.Write(buffer, 0, received.Count);
-                    if (received.EndOfMessage) break;
-                }
-
-                using var document = JsonDocument.Parse(message.ToArray());
-                var root = document.RootElement;
-                if (!root.TryGetProperty("id", out var id) || id.GetInt32() != commandId)
-                    continue;
-                if (root.TryGetProperty("error", out var error))
-                    throw new InvalidOperationException("Browser DevTools upload command failed: " + error.GetRawText());
-                return JsonNode.Parse(root.GetRawText()) as JsonObject ?? new JsonObject();
-            }
-        }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested)
-        {
-            throw new TimeoutException($"Browser DevTools upload command '{method}' timed out after {CdpRequestTimeout.TotalSeconds:0} seconds.");
-        }
     }
 
     private static string BuildActionExpression(BrowserElementPreview preview, string action, string value)
