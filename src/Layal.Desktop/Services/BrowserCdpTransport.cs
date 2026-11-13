@@ -29,7 +29,7 @@ internal sealed class BrowserCdpTransport
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
             !uri.Scheme.Equals("ws", StringComparison.OrdinalIgnoreCase) ||
-            uri.Port != _debugPort ||
+            uri.Port != _getDebugPort() ||
             !string.IsNullOrEmpty(uri.UserInfo))
             return false;
 
