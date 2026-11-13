@@ -155,7 +155,7 @@ internal static class DialogueIntentDetector
     private static readonly string[] Greetings =
     [
         "اهلا", "اهلين", "مرحبا", "السلام عليكم", "صباح الخير", "مساء الخير",
-        "ازيك", "ازيكم", "hello", "hi", "hey", "good morning", "good evening"
+        "ازيك", "ازيكم", "عامل ايه", "عاملة ايه", "hello", "hi", "hey", "good morning", "good evening"
     ];
     private static readonly string[] Farewells =
     [
@@ -188,7 +188,7 @@ internal static class DialogueIntentDetector
         if (Farewells.Any(marker => Contains(value, marker))) return DialogueIntent.Farewell;
         if (Gratitude.Any(marker => Contains(value, marker))) return DialogueIntent.Gratitude;
         if (Apologies.Any(marker => Contains(value, marker))) return DialogueIntent.Apology;
-        if (Greetings.Any(marker => string.Equals(value, Normalize(marker), StringComparison.Ordinal))) return DialogueIntent.Greeting;
+        if (Greetings.Any(marker => ContainsPhrase(value, marker))) return DialogueIntent.Greeting;
         if (text.Contains('?') || text.Contains('؟') || QuestionMarkers.Any(marker => Contains(value, marker)))
             return DialogueIntent.Question;
         if (CommandStarts.Any(start => value.StartsWith(Normalize(start), StringComparison.Ordinal)))
@@ -198,6 +198,15 @@ internal static class DialogueIntentDetector
 
     private static bool Contains(string source, string marker) =>
         source.Contains(Normalize(marker), StringComparison.Ordinal);
+
+    private static bool ContainsPhrase(string source, string marker)
+    {
+        var normalizedMarker = Normalize(marker);
+        return source.Equals(normalizedMarker, StringComparison.Ordinal) ||
+            source.StartsWith(normalizedMarker + " ", StringComparison.Ordinal) ||
+            source.EndsWith(" " + normalizedMarker, StringComparison.Ordinal) ||
+            source.Contains(" " + normalizedMarker + " ", StringComparison.Ordinal);
+    }
 
     private static string Normalize(string value) => SpeechTextNormalizer.NormalizeForLookup(value);
 }
