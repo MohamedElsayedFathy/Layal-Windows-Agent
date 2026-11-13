@@ -212,7 +212,8 @@ public sealed class LanguageReferenceService
             .Select(dialogue => new
             {
                 Dialogue = dialogue,
-                Score = dialogue.Versions
+                Score = ScoreTextValue(LanguageTextNormalizer.Normalize(dialogue.ScenarioAr + " " + dialogue.ScenarioEn), normalized, tokens) +
+                    dialogue.Versions
                     .Where(version => requestedLanguage is null ||
                         string.Equals(version.Language, requestedLanguage, StringComparison.OrdinalIgnoreCase))
                     .SelectMany(version => version.Turns)
