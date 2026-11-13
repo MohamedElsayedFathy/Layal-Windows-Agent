@@ -283,8 +283,19 @@ public partial class MainWindow
         VoiceReplyDisclosureText.Text = ar
             ? "صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper؛ لا يُرسل نص الرد إلى أي خدمة صوتية."
             : "Layal's synthetic voice is not a human recording. Speech is generated locally with Piper; reply text is not sent to a voice service.";
-        TestVoiceReplyButton.Content = ar ? "تجربة صوت ليال" : "Test Layal voice";
-        TestVoiceReplyButton.ToolTip = ar ? "يجرب نطق Piper المحلي فقط؛ لا يُرسل نص إلى أي خدمة." : "Previews local Piper speech only; no text is sent to a service.";
+        TestVoiceReplyButton.Content = ar ? "اختبار السماعة والنطق" : "Test speaker and speech";
+        TestVoiceReplyButton.ToolTip = ar
+            ? "يشغّل عينة عربية وإنجليزية عبر Piper المحلي على مخرج الصوت المحدد؛ استمع للتأكد من وضوح الصوت."
+            : "Plays an Arabic and English sample with local Piper on the selected output; listen for clear playback.";
+        TestMicrophoneButton.Content = ar ? "اختبار الميكروفون (3 ثوانٍ)" : "Test microphone (3 seconds)";
+        TestMicrophoneButton.ToolTip = ar
+            ? "يسجل عينة قصيرة في الذاكرة فقط، ويقيس مستوى الإشارة ثم يمسحها؛ لا يحفظ الصوت ولا يحوله إلى نص."
+            : "Captures a short in-memory sample, measures its signal level, then clears it; audio is not saved or transcribed.";
+        AutomationProperties.SetName(TestMicrophoneButton, ar ? "اختبار الميكروفون" : "Test microphone");
+        AutomationProperties.SetHelpText(TestMicrophoneButton, ar
+            ? "اختبار اختياري لمدة ثلاث ثوانٍ. تحدث أثناء الاختبار؛ تبقى العينة مؤقتًا في الذاكرة ولا تُحفظ أو تُرسل أو تُحوّل إلى نص."
+            : "Optional three-second test. Speak during the test; the sample stays temporarily in memory and is not saved, uploaded, or transcribed.");
+        MicrophoneDiagnosticStatus.Text = string.Empty;
         AssistantPersonaLabel.Text = ar ? "أسلوب صياغة الرد" : "Text response style";
         AssistantPersonaDisclosure.Text = ar
             ? "يتحكم في صياغة النص فقط. اختيارات نبرة الإلقاء والصوت منفصلة عنه، ولا تتغير الهوية أو حدود الأمان أو الصلاحيات."

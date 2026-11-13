@@ -143,6 +143,87 @@ public partial class MainWindow
         SetChatActivityStatus(IsArabic ? "تم تحديث قائمة أجهزة الصوت." : "Audio device lists refreshed.");
     }
 
+    private async void TestMicrophoneButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_audioInputDiagnosticCancellation is not null)
+            return;
+
+        if (IsCaptureBlockedByPrivacyShield())
+        {
+            AudioInputDiagnosticStatus.Text = IsArabic
+                ? "اختبار الميكروفون محظور بسبب درع الخصوصية أو إغلاق التطبيق."
+                : "Microphone testing is blocked by the privacy shield or application shutdown.";
+            AudioInputDiagnosticStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+            return;
+        }
+
+        if (_microphoneCapture.IsRecording || _localVoiceRecordingActive ||
+            _voiceConversationCancellation is not null || _speechCancellation is not null ||
+            _speechIsStopping || _voiceTestCancellation is not null || _chatCancellation is not null)
+        {
+            AudioInputDiagnosticStatus.Text = IsArabic
+                ? "أوقف التسجيل أو المحادثة أو تشغيل الصوت الحالي قبل اختبار الميكروفون."
+                : "Stop the current recording, conversation, or audio playback before testing the microphone.";
+            AudioInputDiagnosticStatus.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+            return;
+        }
+
+        var cancellation = new CancellationTokenSource();
+        _audioInputDiagnosticCancellation = cancellation;
+        TestMicrophoneButton.IsEnabled = false;
+        SpeechRecordingResult? recording = null;
+        try
+        {
+            AudioDeviceService.ResolveInputDeviceNumber(AppRuntime.Settings.AudioInputDeviceId);
+            _microphoneCapture.StartRecording(AppRuntime.Settings.AudioInputDeviceId);
+            AudioInputDiagnosticStatus.Text = IsArabic
+                ? "تحدث الآن لمدة 3 ثوانٍ. العينة مؤقتة في الذاكرة فقط؛ لن تُحفظ أو تُرسل أو تُحوّل إلى نص."
+                : "Speak now for 3 seconds. The sample stays in memory only; it will not be saved, uploaded, or transcribed.";
+            AudioInputDiagnosticStatus.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
+
+            await Task.Delay(TimeSpan.FromSeconds(3), cancellation.Token);
+            recording = await _microphoneCapture.StopRecordingAsync(cancellation.Token);
+            var metrics = AudioInputSignalAnalyzer.Analyze(recording.WavBytes);
+            var signal = metrics.HasSignal
+                ? (IsArabic ? "إشارة صوتية ظاهرة" : "audio signal detected")
+                : (IsArabic ? "لم تظهر إشارة كافية؛ افحص مستوى الميكروفون وصلاحياته" : "no usable signal; check microphone level and permissions");
+            var clipping = metrics.ClippingLikely
+                ? (IsArabic ? "تحذير: توجد عينات مقصوصة" : "warning: clipped samples detected")
+                : (IsArabic ? "لا يظهر قصّ ملحوظ" : "no significant clipping detected");
+            AudioInputDiagnosticStatus.Text = IsArabic
+                ? $"النتيجة: {signal}. المدة: {metrics.DurationSeconds.ToString("F1", CultureInfo.InvariantCulture)} ث؛ مستوى RMS: {metrics.RmsDbfs.ToString("F1", CultureInfo.InvariantCulture)} dBFS؛ الذروة: {metrics.PeakDbfs.ToString("F1", CultureInfo.InvariantCulture)} dBFS؛ العينات المقصوصة: {metrics.ClippedSamplePercent.ToString("F2", CultureInfo.InvariantCulture)}%. {clipping}. هذا قياس لمستوى الإشارة وليس تقييمًا لدقة فهم الكلام."
+                : $"Result: {signal}. Duration: {metrics.DurationSeconds.ToString("F1", CultureInfo.InvariantCulture)} s; RMS: {metrics.RmsDbfs.ToString("F1", CultureInfo.InvariantCulture)} dBFS; peak: {metrics.PeakDbfs.ToString("F1", CultureInfo.InvariantCulture)} dBFS; clipped samples: {metrics.ClippedSamplePercent.ToString("F2", CultureInfo.InvariantCulture)}%. {clipping}. This measures signal level, not speech-recognition accuracy.";
+            AudioInputDiagnosticStatus.Foreground = metrics.HasSignal && !metrics.ClippingLikely
+                ? ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen)
+                : ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            AudioInputDiagnosticStatus.Text = IsArabic
+                ? "تم إلغاء اختبار الميكروفون والتخلص من العينة المؤقتة."
+                : "Microphone test cancelled; the temporary sample was discarded.";
+            AudioInputDiagnosticStatus.Foreground = ThemeBrush("Layal.Muted", System.Windows.Media.Brushes.Gray);
+        }
+        catch (Exception ex)
+        {
+            AudioInputDiagnosticStatus.Text = UiLocalization.FormatTechnicalError(
+                "فشل اختبار الميكروفون", "Microphone test failed", ex, IsArabic);
+            AudioInputDiagnosticStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+        }
+        finally
+        {
+            if (_microphoneCapture.IsRecording)
+                _microphoneCapture.CancelRecording();
+            if (recording?.WavBytes is { Length: > 0 } wavBytes)
+                Array.Clear(wavBytes, 0, wavBytes.Length);
+            if (ReferenceEquals(_audioInputDiagnosticCancellation, cancellation))
+                _audioInputDiagnosticCancellation = null;
+            cancellation.Dispose();
+            if (IsLoaded)
+                TestMicrophoneButton.IsEnabled = !IsCaptureBlockedByPrivacyShield();
+        }
+    }
+
     public void ShowFromTray()
     {
         if (!IsVisible) Show();
@@ -377,6 +458,7 @@ public partial class MainWindow
         CaptureScreenRegionButton.IsEnabled = !shieldEnabled && _chatCancellation is null;
         UpdateClipboardReadButtons();
         CameraVisionButton.IsEnabled = !shieldEnabled;
+        TestMicrophoneButton.IsEnabled = !shieldEnabled && _audioInputDiagnosticCancellation is null;
         SpeechToTextButton.IsEnabled = !_speechIsStopping &&
             (!shieldEnabled || _microphoneCapture.IsRecording || _speechCancellation is not null);
         VoiceConversationButton.IsEnabled = !shieldEnabled ||
@@ -448,6 +530,7 @@ public partial class MainWindow
         // Abort both the five-second pointer-targeting interval and any pending UIA result.
         _hoveredElementInspectionCancellation?.Cancel();
         _documentExtractionCancellation?.Cancel();
+        _audioInputDiagnosticCancellation?.Cancel();
         _speechRecordingTimer.Stop();
         // StopRecordingAsync has no cancellation token. Mark its in-flight finalization so
         // the resulting audio is discarded before any local transcription or cloud upload.

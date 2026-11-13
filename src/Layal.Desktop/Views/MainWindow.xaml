@@ -1179,12 +1179,20 @@
                                   SelectionChanged="AudioOutputDeviceSelector_SelectionChanged"
                                   AutomationProperties.Name="اختيار مخرج صوت ليال"
                                   AutomationProperties.HelpText="اختر السماعة أو مخرج الصوت الذي سيشغّل ردود ليال والكلام المباشر."/>
-                        <Button x:Name="RefreshAudioDevicesButton" Content="تحديث أجهزة الصوت" Click="RefreshAudioDevicesButton_Click"
-                                HorizontalAlignment="Left" Margin="4,5,4,0"
-                                AutomationProperties.Name="تحديث قائمة أجهزة الصوت"/>
+                        <WrapPanel Margin="4,5,4,0">
+                            <Button x:Name="RefreshAudioDevicesButton" Content="تحديث أجهزة الصوت" Click="RefreshAudioDevicesButton_Click"
+                                    AutomationProperties.Name="تحديث قائمة أجهزة الصوت"/>
+                            <Button x:Name="TestMicrophoneButton" Content="اختبار الميكروفون (3 ثوانٍ)" Click="TestMicrophoneButton_Click"
+                                    ToolTip="يسجل عينة قصيرة في الذاكرة فقط، ويقيس مستوى الإشارة ثم يمسحها؛ لا يحفظ الصوت ولا يحوله إلى نص."
+                                    AutomationProperties.Name="اختبار الميكروفون"
+                                    AutomationProperties.HelpText="اختبار اختياري لمدة ثلاث ثوانٍ. تحدث أثناء الاختبار؛ تبقى العينة مؤقتًا في الذاكرة ولا تُحفظ أو تُرسل أو تُحوّل إلى نص."/>
+                        </WrapPanel>
                         <TextBlock x:Name="AudioDeviceStatus" Text="يُستخدم جهاز Windows الافتراضي حتى تختار جهازًا آخر."
-                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,2"
                                    AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة أجهزة الصوت"/>
+                        <TextBlock x:Name="AudioInputDiagnosticStatus" Text="" Foreground="{DynamicResource Layal.Muted}"
+                                   TextWrapping="Wrap" Margin="4,2,4,8" AutomationProperties.LiveSetting="Polite"
+                                   AutomationProperties.Name="نتيجة اختبار الميكروفون"/>
                         <TextBlock x:Name="AssistantPersonaLabel" Text="نمط شخصية ليال" Margin="4,8,4,0"/>
                         <ComboBox x:Name="AssistantPersonaSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="AssistantPersonaSelector_SelectionChanged"
@@ -1211,7 +1219,7 @@
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.Name="حدود نبرة الإلقاء"/>
                         <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper بعد تجهيز موارده؛ لا يتم إرسال نص الرد إلى خدمة صوتية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
-                        <Button x:Name="TestVoiceReplyButton" Content="تجربة صوت ليال" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يختبر النطق المحلي عبر Piper فقط؛ لا يُرسل نص إلى أي خدمة."/>
+                        <Button x:Name="TestVoiceReplyButton" Content="اختبار السماعة والنطق" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يشغّل عينة عربية وإنجليزية عبر Piper المحلي على مخرج الصوت المحدد؛ استمع للتأكد من وضوح الصوت."/>
 
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>
