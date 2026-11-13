@@ -93,7 +93,21 @@ public sealed class LanguageReferenceServiceTests
         const string unsupported = "{\"schemaVersion\":99,\"catalogVersion\":\"test\",\"topics\":[],\"concepts\":[],\"dialogues\":[]}";
         const string duplicates = "{\"schemaVersion\":1,\"catalogVersion\":\"test\",\"topics\":[{\"id\":\"a\",\"nameAr\":\"أ\",\"nameEn\":\"A\"},{\"id\":\"a\",\"nameAr\":\"ب\",\"nameEn\":\"B\"}],\"concepts\":[],\"dialogues\":[]}";
 
-        Assert.ThrowsException<InvalidDataException>(() => LanguageReferenceService.FromJson(unsupported));
-        Assert.ThrowsException<InvalidDataException>(() => LanguageReferenceService.FromJson(duplicates));
+        AssertInvalidData(() => LanguageReferenceService.FromJson(unsupported));
+        AssertInvalidData(() => LanguageReferenceService.FromJson(duplicates));
+    }
+
+    private static void AssertInvalidData(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (InvalidDataException)
+        {
+            return;
+        }
+
+        Assert.Fail("Expected an InvalidDataException, but the action completed without one.");
     }
 }
