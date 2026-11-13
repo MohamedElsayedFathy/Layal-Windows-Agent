@@ -21,7 +21,6 @@ internal sealed class WorkspaceFileToolExecutor
     private const int MaxReadBytes = 256 * 1024;
     private const int MaxEditBytes = 512 * 1024;
     private const int MaxWriteBytes = 100 * 1024;
-    private const int MaxBackupFiles = 200;
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private static readonly HashSet<string> ReadableExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -31,11 +30,6 @@ internal sealed class WorkspaceFileToolExecutor
     private static readonly HashSet<string> WritableExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".txt", ".md", ".cs", ".json", ".xaml", ".xml", ".py", ".yml", ".yaml", ".toml", ".csv"
-    };
-    private static readonly HashSet<string> BuildControlFileNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "global.json", "nuget.config", "packages.lock.json", "dotnet-tools.json",
-        "Directory.Build.props", "Directory.Build.targets", "Directory.Build.rsp", "Directory.Packages.props"
     };
     private sealed record TextFileSnapshot(string Text, Encoding Encoding, long Length, DateTime LastWriteTimeUtc, string Sha256);
     private readonly string _workspaceRoot;
