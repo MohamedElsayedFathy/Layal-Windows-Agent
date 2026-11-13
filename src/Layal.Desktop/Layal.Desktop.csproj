@@ -34,4 +34,7 @@
     <None Update="Assets\3D\RiggedFigure-LICENSE.md" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Assets\layal-mascot-reference.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Layal.SpeechLanguage\Layal.SpeechLanguage.csproj" />
+  </ItemGroup>
 </Project>

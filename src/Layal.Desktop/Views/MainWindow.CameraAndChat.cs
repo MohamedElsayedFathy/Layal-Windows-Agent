@@ -22,6 +22,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Layal.Models;
 using Layal.Services;
+using Layal.SpeechLanguage;
 
 namespace Layal.Views;
 
@@ -342,11 +343,12 @@ public partial class MainWindow
                 {
                     try
                     {
-                        await _localVoiceService.SpeakAsync(
+                        await _speechLanguageRuntime.SpeakAsync(
                             response,
-                            _chatCancellation.Token,
-                            AppRuntime.Settings.AudioOutputDeviceId,
-                            AppRuntime.Settings.VoiceDeliveryStyleId);
+                            new SpeechSynthesisOptions(
+                                AppRuntime.Settings.AudioOutputDeviceId,
+                                AppRuntime.Settings.VoiceDeliveryStyleId),
+                            _chatCancellation.Token);
                         completionStatus = IsArabic
                             ? "اكتمل الرد المحلي ونطقه بصوت Piper المحلي."
                             : "Native reply completed and spoken with local Piper speech.";

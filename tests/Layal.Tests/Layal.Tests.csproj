@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Layal.Desktop\Layal.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\Layal.SpeechLanguage\Layal.SpeechLanguage.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="TestAssets\arabic-ocr-fixture.png" CopyToOutputDirectory="PreserveNewest" />

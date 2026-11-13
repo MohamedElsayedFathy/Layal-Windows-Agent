@@ -6,12 +6,18 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Layal.Desktop", "src\Layal.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Layal.Tests", "tests\Layal.Tests\Layal.Tests.csproj", "{B0B5D72C-F2BE-4F00-B8EA-44CB5C8E7361}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Layal.SpeechLanguage", "src\Layal.SpeechLanguage\Layal.SpeechLanguage.csproj", "{C7F3D65E-0E97-4F52-9905-E5A1D1A642A9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C7F3D65E-0E97-4F52-9905-E5A1D1A642A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7F3D65E-0E97-4F52-9905-E5A1D1A642A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7F3D65E-0E97-4F52-9905-E5A1D1A642A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7F3D65E-0E97-4F52-9905-E5A1D1A642A9}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B0B5D72C-F2BE-4F00-B8EA-44CB5C8E7361}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B0B5D72C-F2BE-4F00-B8EA-44CB5C8E7361}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B0B5D72C-F2BE-4F00-B8EA-44CB5C8E7361}.Release|Any CPU.ActiveCfg = Release|Any CPU

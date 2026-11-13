@@ -693,7 +693,7 @@ for required in (
     if required not in ui_xaml:
         ERRORS.append(f"Local voice reply control is missing from MainWindow.xaml: {required}")
 for required in (
-    "_localVoiceService.SpeakAsync(",
+    "_speechLanguageRuntime.SpeakAsync(",
     "VoiceReplySettingChanged",
     "TestVoiceReplyButton_Click",
     "VoiceRepliesEnabled",
@@ -765,8 +765,13 @@ for forbidden in (
         ERRORS.append(f"Model-backed chat/task/voice fallback is still active: {forbidden}")
 if "EnsureLocalAiSetupAsync" not in ui_code:
     ERRORS.append("Optional local speech setup wiring is missing")
-if "_localVoiceService.TranscribeAsync(" not in ui_code or "_localVoiceService.SpeakAsync(" not in ui_code:
-    ERRORS.append("Optional local speech execution is missing")
+if "_speechLanguageRuntime.RecognizeAsync(" not in ui_code or "_speechLanguageRuntime.SpeakAsync(" not in ui_code:
+    ERRORS.append("Optional local speech execution is missing from the standalone speech-language runtime")
+
+speech_adapter_path = ROOT / "src/Layal.Desktop/Services/LocalSpeechLanguageProvider.cs"
+speech_adapter_text = speech_adapter_path.read_text(encoding="utf-8") if speech_adapter_path.is_file() else ""
+if "_voiceService.TranscribeAsync(" not in speech_adapter_text or "_voiceService.SpeakAsync(" not in speech_adapter_text:
+    ERRORS.append("Standalone speech-language provider must delegate only to the existing local Whisper/Piper service")
 if "LocalVoiceConversationButton_ClickAsync" not in ui_code:
     ERRORS.append("Local speech conversation UI wiring is missing")
 if not local_tests_text:
@@ -804,8 +809,8 @@ for required in (
     "await LocalVoiceConversationButton_ClickAsync();",
     "_microphoneCapture.StartRecording(",
     "_microphoneCapture.StopRecordingAsync(",
-    "_localVoiceService.TranscribeAsync(",
-    "_localVoiceService.SpeakAsync(",
+    "_speechLanguageRuntime.RecognizeAsync(",
+    "_speechLanguageRuntime.SpeakAsync(",
 ):
     if required not in ui_code:
         ERRORS.append(f"Native local speech wiring is missing: {required}")
