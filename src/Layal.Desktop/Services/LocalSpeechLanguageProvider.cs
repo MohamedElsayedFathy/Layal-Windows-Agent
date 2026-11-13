@@ -16,8 +16,18 @@ public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, IS
     public LocalSpeechLanguageProvider(LocalVoiceService voiceService) =>
         _voiceService = voiceService ?? throw new ArgumentNullException(nameof(voiceService));
 
-    public Task<string> RecognizeAsync(ReadOnlyMemory<byte> waveAudio, CancellationToken cancellationToken) =>
-        _voiceService.TranscribeAsync(waveAudio.ToArray(), cancellationToken);
+    public async Task<string> RecognizeAsync(ReadOnlyMemory<byte> waveAudio, CancellationToken cancellationToken)
+    {
+        var audioCopy = waveAudio.ToArray();
+        try
+        {
+            return await _voiceService.TranscribeAsync(audioCopy, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Array.Clear(audioCopy, 0, audioCopy.Length);
+        }
+    }
 
     public Task SynthesizeAndPlayAsync(
         string text,
