@@ -74,6 +74,8 @@ public sealed class LanguageReferenceServiceTests
         var english = service.SearchDialogues("error", language: "en");
 
         Assert.IsTrue(egyptian.Any(item => item.Id == "dialogue-tech-help"));
+        Assert.IsTrue(service.SearchDialogues("المساعدة التقنية", language: "ar-EG")
+            .Any(item => item.Id == "dialogue-tech-help"));
         Assert.IsTrue(english.Any(item => item.Id == "dialogue-tech-help"));
     }
 
