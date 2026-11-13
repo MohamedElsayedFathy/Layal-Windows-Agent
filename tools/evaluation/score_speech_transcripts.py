@@ -104,7 +104,7 @@ def validate_manifest(payload: object) -> list[str]:
             seen_ids.add(case_id)
 
         locale = case.get("locale")
-        if locale not in SUPPORTED_LOCALES:
+        if not isinstance(locale, str) or locale not in SUPPORTED_LOCALES:
             errors.append(f"{prefix} has unsupported locale '{locale}'.")
         reference = case.get("referenceText")
         if not isinstance(reference, str) or not normalize(reference):
