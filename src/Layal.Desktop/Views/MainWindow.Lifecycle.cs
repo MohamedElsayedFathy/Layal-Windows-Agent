@@ -54,6 +54,7 @@ public partial class MainWindow
         _speechRecordingTimer.Stop();
         _speechCancellation?.Cancel();
         _voiceTestCancellation?.Cancel();
+        _audioInputDiagnosticCancellation?.Cancel();
         _localAiSetupCancellation?.Cancel();
         if (_localVoiceRecordingActive) CancelLocalVoiceRecording();
         _voiceConversationCancellation?.Cancel();

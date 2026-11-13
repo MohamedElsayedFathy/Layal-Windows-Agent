@@ -99,6 +99,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _speechCancellation;
     private bool _discardSpeechAudioOnStop;
     private CancellationTokenSource? _voiceTestCancellation;
+    private CancellationTokenSource? _audioInputDiagnosticCancellation;
     private CancellationTokenSource? _voiceConversationCancellation;
     private bool _refreshingAudioDeviceSelectors;
     private DateTimeOffset _speechRecordingStartedAt;
