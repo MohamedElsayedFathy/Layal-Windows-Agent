@@ -9,6 +9,11 @@ ERRORS: list[str] = []
 
 # MainWindow is split across feature-focused partial class files.
 # Every source-level UI wiring check must inspect the complete code-behind.
+main_window_code_paths = sorted((ROOT / "src/Layal.Desktop/Views").glob("MainWindow*.cs"))
+main_window_code_text = "\n".join(path.read_text(encoding="utf-8") for path in main_window_code_paths)
+
+# MainWindow is split across feature-focused partial class files.
+# Every source-level UI wiring check must inspect the complete code-behind.
 # Uses the shared MainWindow source aggregate initialized before the XAML scan.
 
 
@@ -156,8 +161,6 @@ main_window_theme_text = main_window_xaml.read_text(encoding="utf-8") if main_wi
 if not re.search(r'<Button[^>]*x:Name="ThemeButton"[^>]*Click="ThemeButton_Click"', main_window_theme_text):
     ERRORS.append("ThemeButton must remain wired to the real ThemeButton_Click event handler")
 
-main_window_code_paths = sorted((ROOT / "src/Layal.Desktop/Views").glob("MainWindow*.cs"))
-main_window_code_text = "\n".join(path.read_text(encoding="utf-8") for path in main_window_code_paths)
 theme_handler_match = re.search(r"private void ThemeButton_Click\(.*?\n    \}", main_window_code_text, re.DOTALL)
 if not theme_handler_match:
     ERRORS.append("Dark-mode toggle handler ThemeButton_Click is missing")
