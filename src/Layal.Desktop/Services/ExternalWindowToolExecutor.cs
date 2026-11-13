@@ -11,7 +11,7 @@ namespace Layal.Services;
 /// </summary>
 internal sealed class ExternalWindowToolExecutor
 {
-    private async Task<string> GetWindowTitlesAsync(Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
+    internal async Task<string> GetWindowTitlesAsync(Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
     {
         if (!AppRuntime.Settings.AllowWindowTitleInspection)
             return "Window and UI inspection is disabled in Layal settings. Ask the user to enable it first.";
@@ -24,7 +24,7 @@ internal sealed class ExternalWindowToolExecutor
         return content;
     }
 
-    private async Task<string> ActivateWindowAsync(string title, Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
+    internal async Task<string> ActivateWindowAsync(string title, Func<string, string, CancellationToken, Task<bool>> confirm, CancellationToken token)
     {
         if (!AppRuntime.Settings.AllowWindowTitleInspection)
             return "Window interaction is disabled. Enable window and UI inspection in Settings first.";
@@ -47,7 +47,7 @@ internal sealed class ExternalWindowToolExecutor
             : "The exact approved window no longer exists or no longer matches its PID/title; no replacement window was activated.";
     }
 
-    private async Task<string> InspectWindowControlsAsync(
+    internal async Task<string> InspectWindowControlsAsync(
         string title,
         Func<string, string, CancellationToken, Task<bool>> confirm,
         Action<string> report,
@@ -80,7 +80,7 @@ internal sealed class ExternalWindowToolExecutor
         return WindowsUiAutomationService.FormatReport(target.Title, target.ProcessId, controls);
     }
 
-    private async Task<string> InvokeWindowControlAsync(
+    internal async Task<string> InvokeWindowControlAsync(
         string title,
         string controlType,
         string automationId,
@@ -126,7 +126,7 @@ internal sealed class ExternalWindowToolExecutor
         return WindowsUiAutomationService.FormatInvokeReport(outcome);
     }
 
-    private async Task<string> FillUiTextAsync(
+    internal async Task<string> FillUiTextAsync(
         string title,
         string automationId,
         string text,
@@ -172,7 +172,7 @@ internal sealed class ExternalWindowToolExecutor
         return WindowsUiAutomationService.FormatTextEntryReport(outcome);
     }
 
-    private async Task<string> SetUiCheckboxAsync(
+    internal async Task<string> SetUiCheckboxAsync(
         string title,
         string automationId,
         bool shouldBeChecked,
