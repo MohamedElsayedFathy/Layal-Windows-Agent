@@ -85,10 +85,9 @@ public partial class MainWindow : Window
     private string? _pendingDocumentNotice;
     private readonly MicrophoneCaptureService _microphoneCapture = new();
     private readonly LocalVoiceService _localVoiceService = new();
-    private readonly SpeechLanguageEngine _speechLanguageEngine = SpeechLanguageEngine.CreateDefault();
-    private readonly LocalSpeechLanguageProvider _localSpeechLanguageProvider = new(_localVoiceService);
-    private readonly SpeechLanguageRuntime _speechLanguageRuntime = new(
-        _speechLanguageEngine, _localSpeechLanguageProvider, _localSpeechLanguageProvider);
+    private readonly SpeechLanguageEngine _speechLanguageEngine;
+    private readonly LocalSpeechLanguageProvider _localSpeechLanguageProvider;
+    private readonly SpeechLanguageRuntime _speechLanguageRuntime;
     // Used only when the user explicitly selects Test external API; never used by chat or task planning.
     private readonly OpenAiCompatibleClient _providerConnectionTester = new();
     private bool _localVoiceReady;
@@ -138,6 +137,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _speechLanguageEngine = SpeechLanguageEngine.CreateDefault();
+        _localSpeechLanguageProvider = new LocalSpeechLanguageProvider(_localVoiceService);
+        _speechLanguageRuntime = new SpeechLanguageRuntime(
+            _speechLanguageEngine, _localSpeechLanguageProvider, _localSpeechLanguageProvider);
         _isUiInitialized = true;
         AppRuntime.OpenTaskNotification = OpenTaskFromNotification;
         if (!Layal.App.SuppressStartupForTests)
