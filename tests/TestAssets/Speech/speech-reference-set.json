@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "description": "Transcript-only starter evaluation set. Audio files are intentionally absent until recordings are collected with informed speaker consent.",
+  "recordingStatus": "not-recorded",
+  "cases": [
+    {
+      "id": "eg-001",
+      "locale": "ar-EG",
+      "referenceText": "النهارده هخلص الشغل بدري وأروح البيت.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-002",
+      "locale": "ar-EG",
+      "referenceText": "إزيك؟ عامل إيه النهارده؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-003",
+      "locale": "ar-EG",
+      "referenceText": "معلش، ممكن تعيد آخر جملة؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-004",
+      "locale": "ar-EG",
+      "referenceText": "أنا مش فاهم المشكلة حصلت إمتى بالظبط.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-005",
+      "locale": "ar-EG",
+      "referenceText": "افتحي المفكرة واكتبي الملاحظات دي في ملف جديد.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-006",
+      "locale": "ar-EG",
+      "referenceText": "عايز أراجع الأرقام قبل ما أبعت التقرير.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-007",
+      "locale": "ar-EG",
+      "referenceText": "استنى شوية، الصوت مش واضح عندي.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-008",
+      "locale": "ar-EG",
+      "referenceText": "هو ينفع نأجل الاجتماع لبكرة الصبح؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-009",
+      "locale": "ar-EG",
+      "referenceText": "لو سمحت، قوليلي إزاي أغير إعدادات الميكروفون.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-010",
+      "locale": "ar-EG",
+      "referenceText": "أنا روحت مدينة نصر ورجعت المعادي في حوالي نص ساعة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-001",
+      "locale": "ar",
+      "referenceText": "يرجى مراجعة المستند قبل اعتماده وإرساله.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-002",
+      "locale": "ar",
+      "referenceText": "هل يمكنك توضيح الخطوة الأخيرة بمزيد من التفصيل؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-003",
+      "locale": "ar",
+      "referenceText": "يجب حفظ نسخة احتياطية قبل تعديل الملفات.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-004",
+      "locale": "ar",
+      "referenceText": "لم يبدأ التسجيل لأن إذن استخدام الميكروفون غير متاح.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-005",
+      "locale": "ar",
+      "referenceText": "تعمل الخدمة محليًا دون إرسال البيانات إلى خادم خارجي.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-006",
+      "locale": "ar",
+      "referenceText": "سأرسل النتيجة بعد التحقق من جميع الاختبارات.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-001",
+      "locale": "en",
+      "referenceText": "Please open the project folder and list the files.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-002",
+      "locale": "en",
+      "referenceText": "The microphone is working, but the recording is too quiet.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-003",
+      "locale": "en",
+      "referenceText": "Could you explain what changed in the latest build?",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-004",
+      "locale": "en",
+      "referenceText": "Do not upload this audio to an external service.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-005",
+      "locale": "en",
+      "referenceText": "I need a backup before you modify the configuration file.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-006",
+      "locale": "en",
+      "referenceText": "The test failed because the expected output was missing.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-001",
+      "locale": "mixed",
+      "referenceText": "افتحي الـBrowser وروحي على صفحة Settings.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-002",
+      "locale": "mixed",
+      "referenceText": "عندي meeting بكرة وعايز أراجع الـreport قبلها.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-003",
+      "locale": "mixed",
+      "referenceText": "اعملي build للـsolution وبعدها شغلي الـtests.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-004",
+      "locale": "mixed",
+      "referenceText": "الـmicrophone مش شغال، ممكن تراجعي الـaudio device؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-005",
+      "locale": "mixed",
+      "referenceText": "Please افتحي الملف اللي اسمه release-notes.md.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-006",
+      "locale": "mixed",
+      "referenceText": "ما تعمليش upload للـfile قبل ما أوافق.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-007",
+      "locale": "mixed",
+      "referenceText": "الـapplication بيطلع error لما أضغط على Save.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-008",
+      "locale": "mixed",
+      "referenceText": "شغلي speech recognition وخلي النص يظهر للمراجعة الأول.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    }
+  ]
+}
