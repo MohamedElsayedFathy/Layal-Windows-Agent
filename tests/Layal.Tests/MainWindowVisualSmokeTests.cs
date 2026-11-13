@@ -2257,11 +2257,31 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(oldBaseUrl, store.Load().ProviderBaseUrl);
         Assert.AreEqual(oldModelId, store.Load().ModelId);
 
-        // Test the show control against the real floating window, then leave the harness in a safe state.
+        // Test the show control at a compact size where a safe mascot slot is available.
         mascot.Hide();
+        window.Width = 900;
+        window.Height = 560;
+        window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         showMascot.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, showMascot));
-        Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
-        Assert.IsTrue(mascot.Topmost, "ShowAgain must respect the persisted always-on-top preference.");
+        Assert.IsTrue(AppRuntime.Settings.MascotAlwaysOnTop,
+            "Collision handling must preserve the persisted always-on-top preference.");
+        var mascotOverlapsMainWindow = new Rect(mascot.Left, mascot.Top, mascot.Width, mascot.Height)
+            .IntersectsWith(new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight));
+        if (mascotOverlapsMainWindow)
+        {
+            var hiddenField = typeof(FloatingMascotWindow).GetField("_mascotHiddenForMainWindowOverlap", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("The temporary mascot overlap state was not found.");
+            Assert.IsTrue((bool)hiddenField.GetValue(mascot)!,
+                "When no safe slot exists, the mascot must be temporarily hidden.");
+            Assert.IsFalse(mascot.IsVisible,
+                "A full-size main window must not be covered by the floating mascot.");
+        }
+        else
+        {
+            Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
+            Assert.IsTrue(mascot.Topmost, "ShowAgain must restore the persisted always-on-top preference when unobstructed.");
+        }
 
         AppRuntime.Settings = store.Load();
         AppRuntime.Settings.ThemeMode = "light";

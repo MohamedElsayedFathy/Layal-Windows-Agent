@@ -61,6 +61,7 @@ public static class LayalNativeInput
     [DllImport("user32.dll", SetLastError=true)]
     private static extern uint SendInput(uint count, Input[] inputs, int size);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll", SetLastError=true)] private static extern bool ShowWindow(IntPtr hwnd, int command);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
     [DllImport("user32.dll", SetLastError=true)] private static extern uint GetDpiForWindow(IntPtr hwnd);
 
@@ -68,6 +69,7 @@ public static class LayalNativeInput
     public static uint ProcessIdForWindow(IntPtr hwnd) { GetWindowThreadProcessId(hwnd, out uint pid); return pid; }
     public static double DpiScaleForWindow(IntPtr hwnd) { uint dpi = GetDpiForWindow(hwnd); return dpi == 0 ? 1.0 : dpi / 96.0; }
     public static bool Visible(IntPtr hwnd) => IsWindowVisible(hwnd);
+    public static bool MinimizeWindow(IntPtr hwnd) => hwnd != IntPtr.Zero && ShowWindow(hwnd, 6);
     public static long ExtendedStyle(IntPtr hwnd) => IntPtr.Size == 8 ? GetWindowLongPtr64(hwnd, -20).ToInt64() : GetWindowLong32(hwnd, -20);
     public static string DescribeWindowAt(int x, int y) {
         IntPtr hwnd = WindowFromPoint(new NativePoint { X=x, Y=y });
@@ -172,6 +174,20 @@ function Pump-Messages {
         Start-Sleep -Milliseconds 20
     }
     [System.Windows.Forms.Application]::DoEvents()
+}
+function Minimize-MainLayalWindow {
+    $deadline=[DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+    $mainWindowHwnd=[IntPtr]::Zero
+    while ([DateTime]::UtcNow -lt $deadline -and $mainWindowHwnd -eq [IntPtr]::Zero) {
+        $script:AppProcess.Refresh()
+        $mainWindowHwnd=$script:AppProcess.MainWindowHandle
+        if ($mainWindowHwnd -eq [IntPtr]::Zero) { Pump-Messages 100 }
+    }
+    if ($mainWindowHwnd -eq [IntPtr]::Zero) {
+        throw "Could not identify the main Layal window for isolated mascot acceptance."
+    }
+    [void][LayalNativeInput]::MinimizeWindow($mainWindowHwnd)
+    Pump-Messages 500
 }
 function Get-MascotRect {
     $rect=[LayalNativeInput]::GetRect($script:MascotHwnd)
@@ -296,6 +312,7 @@ try {
     $form.Show()
     [System.Windows.Forms.Application]::DoEvents()
     $script:AppProcess=Start-Process -FilePath $resolvedExe -WorkingDirectory (Split-Path -Parent $resolvedExe) -PassThru
+    Minimize-MainLayalWindow
     $deadline=[DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     while ([DateTime]::UtcNow -lt $deadline -and $script:MascotHwnd -eq [IntPtr]::Zero) {
         Pump-Messages 100
@@ -439,6 +456,7 @@ try {
             }
             $script:AppProcess=Start-Process -FilePath $resolvedExe -WorkingDirectory (Split-Path -Parent $resolvedExe) -PassThru
             $script:MascotHwnd=[IntPtr]::Zero
+            Minimize-MainLayalWindow
             $deadline=[DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
             $windowDiagnostic=$null
             while ([DateTime]::UtcNow -lt $deadline -and $script:MascotHwnd -eq [IntPtr]::Zero) {
