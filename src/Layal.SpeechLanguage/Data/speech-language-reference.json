@@ -1,0 +1,2023 @@
+{
+  "schemaVersion": 1,
+  "referenceVersion": "1.0.0",
+  "coverageNote": "مرجع تأسيسي منظم من أمثلة منتقاة؛ ليس قاموسًا كاملًا ولا مدونة قواعد شاملة. يمكن توسيعه بإضافات موثقة ومراجعة.",
+  "entries": [
+    {
+      "id": "msa-greeting",
+      "term": "السلام عليكم",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "تحية عربية شائعة عند اللقاء أو بدء الحديث.",
+      "meaningEnglish": "A common Arabic greeting used when meeting or opening a conversation.",
+      "pronunciation": "as-salāmu ʿalaykum",
+      "transliteration": "as-salamu alaykum",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "مرحبا",
+        "أهلا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "السلام عليكم، كيف حالك؟"
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-hello",
+      "term": "مرحبًا",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "لفظ ترحيب عند استقبال شخص أو بدء محادثة.",
+      "meaningEnglish": "A welcoming expression used to greet someone.",
+      "pronunciation": "marḥaban",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "أهلا",
+        "أهلا وسهلا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "مرحبًا بك في الاجتماع."
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-how-are-you",
+      "term": "كيف حالك",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "سؤال عن الحال أو الصحة العامة.",
+      "meaningEnglish": "A question asking how someone is doing.",
+      "pronunciation": "kayfa haluka",
+      "transliteration": "",
+      "partOfSpeech": "question phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "كيف حالك اليوم؟"
+      ],
+      "topics": [
+        "greetings",
+        "wellbeing"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-please",
+      "term": "من فضلك",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "صيغة مهذبة لطلب شيء.",
+      "meaningEnglish": "A polite phrase used when making a request.",
+      "pronunciation": "min fadlik",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "لو سمحت"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "من فضلك، أعد الشرح."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-thanks",
+      "term": "شكرًا",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "تعبير عن الامتنان.",
+      "meaningEnglish": "An expression of gratitude.",
+      "pronunciation": "shukran",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "أشكرك"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "شكرًا على مساعدتك."
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-welcome",
+      "term": "عفوًا",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "رد على الشكر أو طلب الانتباه بحسب السياق.",
+      "meaningEnglish": "A response to thanks or an attention-getting expression, depending on context.",
+      "pronunciation": "afwan",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "المعنى يتحدد بالسياق ونبرة الصوت.",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "عفوًا، لم أسمع السؤال."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-yes",
+      "term": "نعم",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "أداة إثبات أو موافقة.",
+      "meaningEnglish": "A word expressing agreement or affirmation.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "particle",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [
+        "لا"
+      ],
+      "forms": [],
+      "examples": [
+        "نعم، فهمت المطلوب."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-no",
+      "term": "لا",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "أداة نفي أو رفض.",
+      "meaningEnglish": "A particle expressing negation or refusal.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "particle",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [
+        "نعم"
+      ],
+      "forms": [],
+      "examples": [
+        "لا أحتاج إلى مساعدة الآن."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-why",
+      "term": "لماذا",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "أداة استفهام للسؤال عن السبب.",
+      "meaningEnglish": "A question word asking for a reason.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "لماذا اخترت هذا الحل؟"
+      ],
+      "topics": [
+        "learning"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-when",
+      "term": "متى",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "أداة استفهام للسؤال عن الزمن.",
+      "meaningEnglish": "A question word asking about time.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "متى يبدأ الاجتماع؟"
+      ],
+      "topics": [
+        "time",
+        "work-study"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-where",
+      "term": "أين",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "أداة استفهام للسؤال عن المكان.",
+      "meaningEnglish": "A question word asking about location.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "أين يقع المتحف؟"
+      ],
+      "topics": [
+        "travel",
+        "directions"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-how",
+      "term": "كيف",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "أداة استفهام عن الطريقة أو الحال.",
+      "meaningEnglish": "A question word about manner or condition.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "كيف تعمل هذه الأداة؟"
+      ],
+      "topics": [
+        "technology",
+        "learning"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-want",
+      "term": "أريد",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "فعل يدل على الرغبة أو طلب شيء.",
+      "meaningEnglish": "A verb meaning to want or wish for something.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "verb",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [
+        "يريد",
+        "تريد"
+      ],
+      "examples": [
+        "أريد معرفة التفاصيل."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-need",
+      "term": "أحتاج",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "فعل يدل على الحاجة إلى شيء.",
+      "meaningEnglish": "A verb meaning to need something.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "verb",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [
+        "يحتاج",
+        "تحتاج"
+      ],
+      "examples": [
+        "أحتاج إلى بعض الوقت."
+      ],
+      "topics": [
+        "work-study"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-understand",
+      "term": "أفهم",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "فعل يدل على إدراك المعنى أو المقصود.",
+      "meaningEnglish": "A verb meaning to understand.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "verb",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "أستوعب"
+      ],
+      "antonyms": [
+        "أجهل"
+      ],
+      "forms": [],
+      "examples": [
+        "أفهم الفكرة الآن."
+      ],
+      "topics": [
+        "learning"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-repeat",
+      "term": "أعد من فضلك",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "طلب مهذب لإعادة الكلام أو الشرح.",
+      "meaningEnglish": "A polite request to repeat speech or an explanation.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "كرر من فضلك"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "أعد من فضلك آخر جملة."
+      ],
+      "topics": [
+        "learning"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-good-morning",
+      "term": "صباح الخير",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "تحية تُقال في بداية اليوم.",
+      "meaningEnglish": "A greeting used in the morning.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "صباح النور"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "صباح الخير، كيف كان يومك؟"
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-good-evening",
+      "term": "مساء الخير",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "تحية تُقال في المساء.",
+      "meaningEnglish": "A greeting used in the evening.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "مساء النور"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "مساء الخير، أهلًا بك."
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "msa-goodbye",
+      "term": "إلى اللقاء",
+      "language": "ar",
+      "dialect": "msa",
+      "meaningArabic": "صيغة وداع عند إنهاء اللقاء.",
+      "meaningEnglish": "A farewell expression used when parting.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "وداعا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "إلى اللقاء، نكمل غدًا."
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "eg-izzayak",
+      "term": "إزيك",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "سؤال مصري دارج عن الحال.",
+      "meaningEnglish": "An Egyptian colloquial greeting meaning how are you.",
+      "pronunciation": "izzayyak",
+      "transliteration": "izzayyak",
+      "partOfSpeech": "greeting",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "ازيك",
+        "كيفك"
+      ],
+      "antonyms": [],
+      "forms": [
+        "إزيك",
+        "إزيكِ",
+        "إزيكم"
+      ],
+      "examples": [
+        "إزيك؟ عامل إيه النهارده؟"
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-amel-eh",
+      "term": "عامل إيه",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "سؤال مصري دارج عن الحال.",
+      "meaningEnglish": "An Egyptian colloquial way to ask how someone is doing.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "greeting",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [
+        "عامل",
+        "عاملة"
+      ],
+      "examples": [
+        "عامل إيه؟ الدنيا ماشية معاك؟"
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-akhbarak",
+      "term": "أخبارك",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "سؤال ودي عن أحوال الشخص.",
+      "meaningEnglish": "A friendly Egyptian question about someone's news or wellbeing.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [
+        "أخبارك إيه"
+      ],
+      "examples": [
+        "أخبارك إيه؟ بقالنا كتير ما اتكلمناش."
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-ayez",
+      "term": "عايز",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "صيغة عامية مصرية للمذكر للتعبير عن الرغبة.",
+      "meaningEnglish": "Egyptian colloquial masculine form meaning want.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "عاوز",
+        "أريد"
+      ],
+      "antonyms": [],
+      "forms": [
+        "عايز",
+        "عايزة",
+        "عايزين"
+      ],
+      "examples": [
+        "أنا عايز أتعلم حاجة جديدة."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-mesh",
+      "term": "مش",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة نفي عامية مصرية.",
+      "meaningEnglish": "An Egyptian colloquial negation particle.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "particle",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "ليس"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "أنا مش متأكد من الإجابة."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-da",
+      "term": "ده",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "اسم إشارة مصري للمفرد المذكر.",
+      "meaningEnglish": "Egyptian demonstrative for a masculine singular noun.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "demonstrative",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "هذا"
+      ],
+      "antonyms": [],
+      "forms": [
+        "ده",
+        "دي",
+        "دول"
+      ],
+      "examples": [
+        "ده حل مناسب للمشكلة."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-de",
+      "term": "دي",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "اسم إشارة مصري للمفرد المؤنث.",
+      "meaningEnglish": "Egyptian demonstrative for a feminine singular noun.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "demonstrative",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "هذه"
+      ],
+      "antonyms": [],
+      "forms": [
+        "دي",
+        "ده",
+        "دول"
+      ],
+      "examples": [
+        "دي فكرة كويسة."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-keda",
+      "term": "كده",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "تعبير مصري بمعنى بهذه الطريقة أو على هذا النحو.",
+      "meaningEnglish": "Egyptian expression meaning like this or in this way.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "adverb",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "هكذا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "اعملها كده وهتكون أوضح."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-eh",
+      "term": "إيه",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة استفهام مصرية بمعنى ماذا أو ما.",
+      "meaningEnglish": "Egyptian question word meaning what.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "ايه",
+        "ماذا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "إيه رأيك في الفكرة؟"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-ezzay",
+      "term": "إزاي",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة استفهام مصرية عن الطريقة أو الحال.",
+      "meaningEnglish": "Egyptian question word meaning how.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "ازاي",
+        "كيف"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "إزاي وصلت للحل ده؟"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-fein",
+      "term": "فين",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة استفهام مصرية عن المكان.",
+      "meaningEnglish": "Egyptian question word meaning where.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "أين"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "فين أقرب محطة؟"
+      ],
+      "topics": [
+        "directions"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-leih",
+      "term": "ليه",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة استفهام مصرية عن السبب.",
+      "meaningEnglish": "Egyptian question word meaning why.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "لماذا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "ليه اخترت الطريق ده؟"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-emta",
+      "term": "إمتى",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة استفهام مصرية عن الزمن.",
+      "meaningEnglish": "Egyptian question word meaning when.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "امتى",
+        "متى"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "إمتى نبدأ؟"
+      ],
+      "topics": [
+        "time"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-delwa2ty",
+      "term": "دلوقتي",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "ظرف زمان مصري بمعنى الآن.",
+      "meaningEnglish": "Egyptian adverb meaning now.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "adverb",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "دلوقت",
+        "الآن"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "أنا مشغول دلوقتي، أكلمك بعدين."
+      ],
+      "topics": [
+        "time"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-lissa",
+      "term": "لسه",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "تعبير مصري يدل على الاستمرار أو عدم حدوث شيء حتى الآن حسب السياق.",
+      "meaningEnglish": "An Egyptian expression meaning still or not yet, depending on context.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "adverb",
+      "register": "colloquial",
+      "usageNotesArabic": "تحتاج إلى سياق لتحديد معناها بدقة.",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "لسه ما خلصتش الشغل."
+      ],
+      "topics": [
+        "time",
+        "work-study"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-bokra",
+      "term": "بكرة",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "ظرف زمان مصري بمعنى اليوم التالي.",
+      "meaningEnglish": "Egyptian colloquial word for tomorrow.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "adverb",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "غدا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "نتكلم بكرة بعد الشغل."
+      ],
+      "topics": [
+        "time"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-embareh",
+      "term": "امبارح",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "ظرف زمان مصري بمعنى اليوم السابق.",
+      "meaningEnglish": "Egyptian colloquial word for yesterday.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "adverb",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "أمس",
+        "البارحة"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "كنت في المكان ده امبارح."
+      ],
+      "topics": [
+        "time"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-maalesh",
+      "term": "معلش",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "تعبير مصري قد يستخدم للاعتذار أو التخفيف أو طلب التسامح بحسب السياق.",
+      "meaningEnglish": "An Egyptian expression used for apology, reassurance, or asking someone to let something pass.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "discourse marker",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "آسف",
+        "لا بأس"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "معلش، اتأخرت عليك شوية."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-tamam",
+      "term": "تمام",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "تعبير شائع للموافقة أو أن الأمور جيدة.",
+      "meaningEnglish": "A common expression meaning okay, fine, or all set.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "interjection",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "ماشي",
+        "كويس"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "تمام، هبعتلك التفاصيل حالًا."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-mashy",
+      "term": "ماشي",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "تعبير مصري للموافقة أو قبول الاقتراح.",
+      "meaningEnglish": "An Egyptian colloquial expression for agreement or acceptance.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "interjection",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "حاضر",
+        "تمام"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "ماشي، نتقابل الساعة ستة."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-awy",
+      "term": "أوي",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة عامية مصرية للتوكيد بمعنى جدًا.",
+      "meaningEnglish": "Egyptian colloquial intensifier meaning very.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "adverb",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "جدا",
+        "للغاية"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "الجو حر أوي النهارده."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-ashan",
+      "term": "عشان",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "أداة عامية مصرية للتعليل أو الغرض.",
+      "meaningEnglish": "Egyptian colloquial connector meaning because or so that.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "conjunction",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "علشان",
+        "لأن"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "اتصلت بيك عشان أسألك عن الموعد."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-momken",
+      "term": "ممكن",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "لفظ للاحتمال أو طلب الإذن أو المساعدة.",
+      "meaningEnglish": "A common Egyptian expression for possibility, permission, or a polite request.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "modal expression",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "هل يمكن"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "ممكن تساعدني في السؤال ده؟"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-begad",
+      "term": "بجد",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "تعبير مصري للتأكيد أو السؤال عن صدق معلومة.",
+      "meaningEnglish": "An Egyptian expression meaning seriously or for real.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "adverb",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "حقا",
+        "فعلا"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "بجد؟ دي أخبار حلوة."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "eg-teslam",
+      "term": "تسلم",
+      "language": "ar",
+      "dialect": "egyptian",
+      "meaningArabic": "تعبير شكر أو دعاء طيب في الحديث اليومي.",
+      "meaningEnglish": "An Egyptian expression of thanks or goodwill.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "interjection",
+      "register": "colloquial",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [
+        "تسلم",
+        "تسلمي"
+      ],
+      "examples": [
+        "تسلم على المساعدة."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": true
+    },
+    {
+      "id": "en-hello",
+      "term": "hello",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "كلمة شائعة لبدء التحية أو لفت الانتباه.",
+      "meaningEnglish": "A common word used to greet someone or get attention.",
+      "pronunciation": "hə-LOH",
+      "transliteration": "",
+      "partOfSpeech": "interjection",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "hi",
+        "hey"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Hello, how are you today?"
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-how-are-you",
+      "term": "how are you",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "سؤال شائع عن حال الشخص.",
+      "meaningEnglish": "A common question asking about someone's wellbeing.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "how's it going"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "How are you feeling today?"
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-please",
+      "term": "please",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "كلمة تضيف تهذيبًا إلى الطلب.",
+      "meaningEnglish": "A word that makes a request more polite.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "polite marker",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Please repeat the last sentence."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-thank-you",
+      "term": "thank you",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "عبارة للتعبير عن الامتنان.",
+      "meaningEnglish": "An expression of gratitude.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "thanks",
+        "many thanks"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Thank you for your help."
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-youre-welcome",
+      "term": "you're welcome",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "رد شائع على الشكر.",
+      "meaningEnglish": "A common response to someone saying thank you.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "no problem",
+        "my pleasure"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "You're welcome. Happy to help."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-sorry",
+      "term": "sorry",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "تعبير عن الاعتذار أو التعاطف.",
+      "meaningEnglish": "An expression of apology or sympathy.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "I apologize"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Sorry, I missed your call."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-yes",
+      "term": "yes",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "كلمة للموافقة أو الإثبات.",
+      "meaningEnglish": "A word expressing agreement or affirmation.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [
+        "no"
+      ],
+      "forms": [],
+      "examples": [
+        "Yes, that works for me."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-no",
+      "term": "no",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "كلمة للنفي أو الرفض.",
+      "meaningEnglish": "A word expressing negation or refusal.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [
+        "yes"
+      ],
+      "forms": [],
+      "examples": [
+        "No, I cannot attend today."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-what",
+      "term": "what",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "أداة استفهام للسؤال عن شيء أو معلومة.",
+      "meaningEnglish": "A question word asking about an object or information.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "What would you like to discuss?"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-why",
+      "term": "why",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "أداة استفهام للسؤال عن السبب.",
+      "meaningEnglish": "A question word asking for a reason.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Why did you choose this option?"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-when",
+      "term": "when",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "أداة استفهام للسؤال عن الزمن.",
+      "meaningEnglish": "A question word asking about time.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "When should we start?"
+      ],
+      "topics": [
+        "time"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-where",
+      "term": "where",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "أداة استفهام للسؤال عن المكان.",
+      "meaningEnglish": "A question word asking about a place or location.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Where is the nearest station?"
+      ],
+      "topics": [
+        "travel",
+        "directions"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-how",
+      "term": "how",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "أداة استفهام عن الطريقة أو الحال.",
+      "meaningEnglish": "A question word about manner or condition.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "question word",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "How does this feature work?"
+      ],
+      "topics": [
+        "technology",
+        "learning"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-need",
+      "term": "I need",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "تعبير عن الحاجة إلى شيء أو مساعدة.",
+      "meaningEnglish": "An expression stating a need for something or assistance.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "verb phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "I need more information before deciding."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-want",
+      "term": "I want",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "تعبير عن الرغبة في شيء أو القيام بفعل.",
+      "meaningEnglish": "An expression stating a desire for something or an action.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "verb phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "I'd like"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "I want to learn a new skill."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-can-you",
+      "term": "can you",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "صيغة سؤال لطلب القدرة أو المساعدة.",
+      "meaningEnglish": "A question form used to ask about ability or request help.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "modal phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "could you"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Can you explain that again?"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-understand",
+      "term": "I don't understand",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "عبارة للإشارة إلى عدم فهم شيء.",
+      "meaningEnglish": "A phrase indicating that something is not understood.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "I am not following"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "I don't understand the last step."
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-repeat",
+      "term": "repeat that",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "طلب لإعادة ما قيل.",
+      "meaningEnglish": "A request for someone to say something again.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "verb phrase",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "say that again"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Could you repeat that, please?"
+      ],
+      "topics": [
+        "conversation"
+      ],
+      "isDialectMarker": false
+    },
+    {
+      "id": "en-goodbye",
+      "term": "goodbye",
+      "language": "en",
+      "dialect": "general",
+      "meaningArabic": "تعبير لإنهاء اللقاء أو المحادثة.",
+      "meaningEnglish": "An expression used when parting or ending a conversation.",
+      "pronunciation": "",
+      "transliteration": "",
+      "partOfSpeech": "interjection",
+      "register": "neutral",
+      "usageNotesArabic": "",
+      "usageNotesEnglish": "",
+      "synonyms": [
+        "bye",
+        "see you"
+      ],
+      "antonyms": [],
+      "forms": [],
+      "examples": [
+        "Goodbye, talk to you tomorrow."
+      ],
+      "topics": [
+        "greetings"
+      ],
+      "isDialectMarker": false
+    }
+  ],
+  "topics": [
+    {
+      "id": "greetings",
+      "nameArabic": "التحية والتعارف",
+      "nameEnglish": "Greetings and introductions",
+      "descriptionArabic": "بدء الحديث والتعارف والسؤال عن الحال.",
+      "descriptionEnglish": "Opening a conversation and getting to know someone.",
+      "keywords": [
+        "تحية",
+        "تعارف",
+        "greeting",
+        "introduction",
+        "إزيك",
+        "hello"
+      ],
+      "promptsArabicFusha": [
+        "كيف تفضل أن يبدأ الناس محادثة معك؟"
+      ],
+      "promptsEgyptian": [
+        "إيه أكتر طريقة بتحب الناس تسلّم بيها عليك؟"
+      ],
+      "promptsEnglish": [
+        "What makes a first conversation comfortable for you?"
+      ]
+    },
+    {
+      "id": "family",
+      "nameArabic": "العائلة والعلاقات",
+      "nameEnglish": "Family and relationships",
+      "descriptionArabic": "الحديث العام عن الأسرة والعلاقات والتواصل.",
+      "descriptionEnglish": "General conversation about family, relationships, and communication.",
+      "keywords": [
+        "عائلة",
+        "أسرة",
+        "أهل",
+        "family",
+        "relationships"
+      ],
+      "promptsArabicFusha": [
+        "ما العادة العائلية التي تحب الحفاظ عليها؟"
+      ],
+      "promptsEgyptian": [
+        "إيه عادة عائلية بتحب تفضل موجودة؟"
+      ],
+      "promptsEnglish": [
+        "What family tradition would you like to keep?"
+      ]
+    },
+    {
+      "id": "work-study",
+      "nameArabic": "العمل والدراسة",
+      "nameEnglish": "Work and study",
+      "descriptionArabic": "التعلم والعمل وتنظيم الوقت والمهارات.",
+      "descriptionEnglish": "Learning, work, time management, and skills.",
+      "keywords": [
+        "شغل",
+        "عمل",
+        "دراسة",
+        "تعلم",
+        "work",
+        "study",
+        "learning",
+        "skills"
+      ],
+      "promptsArabicFusha": [
+        "ما المهارة التي ترغب في تطويرها هذا العام؟"
+      ],
+      "promptsEgyptian": [
+        "إيه المهارة اللي نفسك تطورها الفترة الجاية؟"
+      ],
+      "promptsEnglish": [
+        "What skill would you like to improve this year?"
+      ]
+    },
+    {
+      "id": "hobbies",
+      "nameArabic": "الهوايات والاهتمامات",
+      "nameEnglish": "Hobbies and interests",
+      "descriptionArabic": "الأنشطة الممتعة والاهتمامات الشخصية.",
+      "descriptionEnglish": "Enjoyable activities and personal interests.",
+      "keywords": [
+        "هواية",
+        "اهتمامات",
+        "موسيقى",
+        "رسم",
+        "hobby",
+        "interests"
+      ],
+      "promptsArabicFusha": [
+        "ما النشاط الذي يجعلك تشعر بالراحة بعد يوم طويل؟"
+      ],
+      "promptsEgyptian": [
+        "إيه الحاجة اللي بتحب تعملها عشان تفصل بعد يوم طويل؟"
+      ],
+      "promptsEnglish": [
+        "What activity helps you unwind after a long day?"
+      ]
+    },
+    {
+      "id": "food",
+      "nameArabic": "الطعام والطبخ",
+      "nameEnglish": "Food and cooking",
+      "descriptionArabic": "الأكلات المفضلة والوصفات وتجارب الطعام.",
+      "descriptionEnglish": "Favorite dishes, recipes, and food experiences.",
+      "keywords": [
+        "أكل",
+        "طعام",
+        "طبخ",
+        "وصفة",
+        "food",
+        "cooking",
+        "recipe"
+      ],
+      "promptsArabicFusha": [
+        "ما الطبق الذي تحب تعلم طريقة إعداده؟"
+      ],
+      "promptsEgyptian": [
+        "إيه أكلة نفسك تتعلم تعملها بإيدك؟"
+      ],
+      "promptsEnglish": [
+        "What dish would you like to learn to cook?"
+      ]
+    },
+    {
+      "id": "travel",
+      "nameArabic": "السفر والرحلات",
+      "nameEnglish": "Travel and trips",
+      "descriptionArabic": "الوجهات والتجارب والتخطيط للرحلات.",
+      "descriptionEnglish": "Destinations, experiences, and trip planning.",
+      "keywords": [
+        "سفر",
+        "رحلة",
+        "إجازة",
+        "مكان",
+        "travel",
+        "trip",
+        "vacation"
+      ],
+      "promptsArabicFusha": [
+        "ما المكان الذي تتمنى زيارته، وما سبب اختيارك؟"
+      ],
+      "promptsEgyptian": [
+        "إيه المكان اللي نفسك تزوره، وليه اخترته؟"
+      ],
+      "promptsEnglish": [
+        "Where would you love to travel, and why?"
+      ]
+    },
+    {
+      "id": "directions",
+      "nameArabic": "الأماكن والاتجاهات",
+      "nameEnglish": "Places and directions",
+      "descriptionArabic": "وصف الأماكن وطلب الاتجاهات والتنقل.",
+      "descriptionEnglish": "Describing places, asking for directions, and getting around.",
+      "keywords": [
+        "اتجاهات",
+        "عنوان",
+        "طريق",
+        "مكان",
+        "directions",
+        "address",
+        "route"
+      ],
+      "promptsArabicFusha": [
+        "ما أفضل طريقة لوصف طريق لشخص يزور المكان لأول مرة؟"
+      ],
+      "promptsEgyptian": [
+        "لو حد جاي المكان أول مرة، تشرحله الطريق إزاي؟"
+      ],
+      "promptsEnglish": [
+        "How would you explain directions to a first-time visitor?"
+      ]
+    },
+    {
+      "id": "technology",
+      "nameArabic": "التكنولوجيا والتطبيقات",
+      "nameEnglish": "Technology and apps",
+      "descriptionArabic": "الأجهزة والبرامج والخصوصية والاستخدام اليومي للتقنية.",
+      "descriptionEnglish": "Devices, software, privacy, and everyday technology.",
+      "keywords": [
+        "تكنولوجيا",
+        "تقنية",
+        "برنامج",
+        "تطبيق",
+        "خصوصية",
+        "technology",
+        "software",
+        "apps",
+        "privacy"
+      ],
+      "promptsArabicFusha": [
+        "ما التقنية التي وفرت عليك وقتًا أو جهدًا مؤخرًا؟"
+      ],
+      "promptsEgyptian": [
+        "إيه تطبيق أو تقنية وفرت عليك وقت أو مجهود مؤخرًا؟"
+      ],
+      "promptsEnglish": [
+        "What technology has recently saved you time or effort?"
+      ]
+    },
+    {
+      "id": "books-media",
+      "nameArabic": "الكتب والأفلام والإعلام",
+      "nameEnglish": "Books, films, and media",
+      "descriptionArabic": "القراءة والأفلام والبرامج والمحتوى.",
+      "descriptionEnglish": "Reading, films, shows, and other media.",
+      "keywords": [
+        "كتاب",
+        "قراءة",
+        "فيلم",
+        "مسلسل",
+        "كتب",
+        "books",
+        "reading",
+        "movie",
+        "film",
+        "media"
+      ],
+      "promptsArabicFusha": [
+        "ما عمل فني أو كتاب ترك لديك فكرة تتذكرها؟"
+      ],
+      "promptsEgyptian": [
+        "إيه فيلم أو كتاب ساب عندك فكرة لسه فاكرها؟"
+      ],
+      "promptsEnglish": [
+        "What book or film left you with an idea you still remember?"
+      ]
+    },
+    {
+      "id": "weather",
+      "nameArabic": "الطقس والفصول",
+      "nameEnglish": "Weather and seasons",
+      "descriptionArabic": "الطقس وتفضيلات الفصول والأنشطة المرتبطة بها.",
+      "descriptionEnglish": "Weather, favorite seasons, and seasonal activities.",
+      "keywords": [
+        "طقس",
+        "جو",
+        "شتاء",
+        "صيف",
+        "weather",
+        "seasons",
+        "winter",
+        "summer"
+      ],
+      "promptsArabicFusha": [
+        "أي فصل تفضله، وما الأنشطة التي ترتبط به؟"
+      ],
+      "promptsEgyptian": [
+        "بتحب الصيف ولا الشتا؟ وإيه أكتر حاجة بتحب تعملها في الفصل ده؟"
+      ],
+      "promptsEnglish": [
+        "Which season do you prefer, and what do you enjoy doing then?"
+      ]
+    },
+    {
+      "id": "sports",
+      "nameArabic": "الرياضة والنشاط",
+      "nameEnglish": "Sports and activity",
+      "descriptionArabic": "الرياضة والفرق والأنشطة البدنية بشكل عام.",
+      "descriptionEnglish": "Sports, teams, and physical activities.",
+      "keywords": [
+        "رياضة",
+        "كرة",
+        "تمرين",
+        "فريق",
+        "sports",
+        "football",
+        "exercise",
+        "team"
+      ],
+      "promptsArabicFusha": [
+        "ما النشاط الرياضي الذي تستمتع بمشاهدته أو ممارسته؟"
+      ],
+      "promptsEgyptian": [
+        "بتحب تتفرج على إيه أو تمارس أنهي رياضة؟"
+      ],
+      "promptsEnglish": [
+        "What sport do you enjoy watching or playing?"
+      ]
+    },
+    {
+      "id": "plans",
+      "nameArabic": "الخطط والأهداف",
+      "nameEnglish": "Plans and goals",
+      "descriptionArabic": "التخطيط للمستقبل والأهداف والخطوات العملية.",
+      "descriptionEnglish": "Planning, future goals, and practical next steps.",
+      "keywords": [
+        "خطة",
+        "هدف",
+        "مستقبل",
+        "تنظيم",
+        "plan",
+        "goal",
+        "future",
+        "planning"
+      ],
+      "promptsArabicFusha": [
+        "ما هدف صغير يمكن إنجازه خلال الأسبوع القادم؟"
+      ],
+      "promptsEgyptian": [
+        "إيه هدف صغير تقدر تخلصه الأسبوع الجاي؟"
+      ],
+      "promptsEnglish": [
+        "What small goal could you complete next week?"
+      ]
+    },
+    {
+      "id": "problem-solving",
+      "nameArabic": "حل المشكلات واتخاذ القرار",
+      "nameEnglish": "Problem-solving and decisions",
+      "descriptionArabic": "تحليل الخيارات وموازنة المزايا والعيوب.",
+      "descriptionEnglish": "Exploring options and weighing trade-offs.",
+      "keywords": [
+        "مشكلة",
+        "حل",
+        "قرار",
+        "اختيار",
+        "problem",
+        "solution",
+        "decision",
+        "choices"
+      ],
+      "promptsArabicFusha": [
+        "كيف تقارن بين خيارين عندما تكون المعلومات غير مكتملة؟"
+      ],
+      "promptsEgyptian": [
+        "لما تحتار بين اختيارين، بتقرر على أساس إيه؟"
+      ],
+      "promptsEnglish": [
+        "How do you compare two options when information is incomplete?"
+      ]
+    },
+    {
+      "id": "wellbeing",
+      "nameArabic": "الروتين والرفاه اليومي",
+      "nameEnglish": "Daily routines and wellbeing",
+      "descriptionArabic": "الحديث عن العادات اليومية وتنظيم الحياة.",
+      "descriptionEnglish": "Talking about routines, habits, and daily balance.",
+      "keywords": [
+        "روتين",
+        "عادات",
+        "راحة",
+        "نوم",
+        "routine",
+        "habits",
+        "wellbeing"
+      ],
+      "promptsArabicFusha": [
+        "ما العادة اليومية التي تساعدك على تنظيم وقتك؟"
+      ],
+      "promptsEgyptian": [
+        "إيه عادة يومية بتساعدك تنظم وقتك؟"
+      ],
+      "promptsEnglish": [
+        "What daily habit helps you stay organized?"
+      ]
+    }
+  ]
+}

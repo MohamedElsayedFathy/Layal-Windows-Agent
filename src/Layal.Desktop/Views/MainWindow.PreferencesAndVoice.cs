@@ -22,6 +22,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Layal.Models;
 using Layal.Services;
+using Layal.SpeechLanguage;
 
 namespace Layal.Views;
 
@@ -277,11 +278,12 @@ public partial class MainWindow
             if (!await EnsureLocalAiSetupAsync(includeVoice: true, retryVoice: true, cancellationToken: cancellation.Token) ||
                 !_localVoiceReady)
                 return;
-            await _localVoiceService.SpeakAsync(
+            await _speechLanguageRuntime.SpeakAsync(
                 "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak locally and clearly.",
-                cancellation.Token,
-                AppRuntime.Settings.AudioOutputDeviceId,
-                AppRuntime.Settings.VoiceDeliveryStyleId);
+                new SpeechSynthesisOptions(
+                    AppRuntime.Settings.AudioOutputDeviceId,
+                    AppRuntime.Settings.VoiceDeliveryStyleId),
+                cancellation.Token);
             SetAccessibleStatusText(ProviderActionStatus, IsArabic
                 ? "انتهت تجربة الصوت المحلي؛ لم يُرسل النص إلى خادم."
                 : "Local voice preview completed; text was not sent to a server.");
@@ -550,7 +552,8 @@ public partial class MainWindow
                 ? "جارٍ تحويل التسجيل محليًا. لن يُرفع الصوت إلى خادم."
                 : "Transcribing locally. Audio will not be uploaded to a server.");
 
-            var transcript = await _localVoiceService.TranscribeAsync(audio, transcription.Token);
+            var recognition = await _speechLanguageRuntime.RecognizeAsync(audio, transcription.Token);
+            var transcript = recognition.Text;
             if (ShouldDiscardPendingSpeechAudio() || transcription.IsCancellationRequested)
             {
                 SetChatActivityStatus(IsArabic
@@ -564,9 +567,10 @@ public partial class MainWindow
                 : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
             ChatInput.CaretIndex = ChatInput.Text.Length;
             ChatInput.Focus();
+            var detectedLanguage = recognition.Analysis.GetLanguageLabel(IsArabic);
             SetChatActivityStatus(IsArabic
-                ? "تم التحويل محليًا. راجع النص ثم اضغط إرسال؛ لم تُرسل الرسالة تلقائيًا."
-                : "Local transcription completed. Review the text and press Send; it was not sent automatically.");
+                ? $"تم التحويل محليًا ({detectedLanguage}). راجع النص ثم اضغط إرسال؛ لم تُرسل الرسالة تلقائيًا."
+                : $"Local transcription completed ({detectedLanguage}). Review the text and press Send; it was not sent automatically.");
         }
         catch (OperationCanceledException)
         {
@@ -732,7 +736,8 @@ public partial class MainWindow
                 return;
             }
 
-            var transcript = await _localVoiceService.TranscribeAsync(audio, session?.Token ?? CancellationToken.None);
+            var recognition = await _speechLanguageRuntime.RecognizeAsync(audio, session?.Token ?? CancellationToken.None);
+            var transcript = recognition.Text;
             if (ShouldDiscardPendingSpeechAudio() || session?.IsCancellationRequested == true)
             {
                 SetChatActivityStatus(IsArabic
@@ -767,9 +772,10 @@ public partial class MainWindow
         ChatHistoryList.IsEnabled = !_incognitoMode;
             }
             UpdateVoiceConversationControls();
+            var detectedLanguage = recognition.Analysis.GetLanguageLabel(IsArabic);
             SetChatActivityStatus(IsArabic
-                ? "تم تحويل كلامك محليًا؛ جارٍ معالجة النص داخل نواة ليال المستقلة."
-                : "Local transcription complete; processing the text with Layal's native core.");
+                ? $"تم تحويل كلامك محليًا ({detectedLanguage})؛ جارٍ معالجة النص داخل نواة ليال المستقلة."
+                : $"Local transcription complete ({detectedLanguage}); processing the text with Layal's native core.");
             await SendMessageAsync();
         }
         catch (OperationCanceledException)

@@ -22,6 +22,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Layal.Models;
 using Layal.Services;
+using Layal.SpeechLanguage;
 using Microsoft.Win32;
 
 namespace Layal.Views;
@@ -84,6 +85,10 @@ public partial class MainWindow : Window
     private string? _pendingDocumentNotice;
     private readonly MicrophoneCaptureService _microphoneCapture = new();
     private readonly LocalVoiceService _localVoiceService = new();
+    private readonly SpeechLanguageEngine _speechLanguageEngine = SpeechLanguageEngine.CreateDefault();
+    private readonly LocalSpeechLanguageProvider _localSpeechLanguageProvider = new(_localVoiceService);
+    private readonly SpeechLanguageRuntime _speechLanguageRuntime = new(
+        _speechLanguageEngine, _localSpeechLanguageProvider, _localSpeechLanguageProvider);
     // Used only when the user explicitly selects Test external API; never used by chat or task planning.
     private readonly OpenAiCompatibleClient _providerConnectionTester = new();
     private bool _localVoiceReady;

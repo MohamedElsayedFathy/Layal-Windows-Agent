@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Layal.SpeechLanguage;
 
 namespace Layal.Services;
 
@@ -15,12 +16,14 @@ public sealed class NativeConversationEngine
     private readonly NativeLanguageParser _parser;
     private readonly NativeLearningService _learning;
     private readonly MemoryService _memory;
+    private readonly SpeechLanguageReferenceResponder _speechLanguageReferenceResponder;
 
     public NativeConversationEngine(NativeLanguageParser parser, NativeLearningService learning, MemoryService memory)
     {
         _parser = parser ?? throw new ArgumentNullException(nameof(parser));
         _learning = learning ?? throw new ArgumentNullException(nameof(learning));
         _memory = memory ?? throw new ArgumentNullException(nameof(memory));
+        _speechLanguageReferenceResponder = new SpeechLanguageReferenceResponder(SpeechLanguageEngine.CreateDefault());
     }
 
     public string Respond(string input, string language, string? documentText = null, string? documentName = null)
@@ -32,6 +35,10 @@ public sealed class NativeConversationEngine
             return RespondToDocument(input, documentText, documentName ?? "attachment", isArabic);
 
         var command = _parser.Parse(input);
+        if (command.Intent == NativeIntent.Unknown &&
+            _speechLanguageReferenceResponder.TryRespond(input, isArabic, out var referenceResponse))
+            return referenceResponse;
+
         return command.Intent switch
         {
             NativeIntent.Greeting => isArabic
