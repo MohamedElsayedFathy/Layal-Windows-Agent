@@ -26,6 +26,7 @@ public static class AppRuntime
     public static BrowserAutomationService BrowserAutomationService { get; set; } = null!;
     public static NativeLearningService NativeLearningService { get; set; } = null!;
     public static NativeLanguageParser NativeLanguageParser { get; set; } = null!;
+    public static LanguageReferenceService LanguageReferenceService { get; set; } = null!;
     public static NativeConversationEngine NativeConversationEngine { get; set; } = null!;
     public static NativeAgentOrchestrator NativeAgentOrchestrator { get; set; } = null!;
     public static string WorkspaceRoot { get; set; } = string.Empty;
