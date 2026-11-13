@@ -68,6 +68,7 @@ public sealed class LanguageDialogue
     public string TopicId { get; set; } = string.Empty;
     public string ScenarioAr { get; set; } = string.Empty;
     public string ScenarioEn { get; set; } = string.Empty;
+    public List<string> SearchTerms { get; set; } = new();
     public List<LanguageDialogueVersion> Versions { get; set; } = new();
 }
 
@@ -213,6 +214,7 @@ public sealed class LanguageReferenceService
             {
                 Dialogue = dialogue,
                 Score = ScoreTextValue(LanguageTextNormalizer.Normalize(dialogue.ScenarioAr + " " + dialogue.ScenarioEn), normalized, tokens) +
+                    dialogue.SearchTerms.Sum(term => ScoreTextValue(LanguageTextNormalizer.Normalize(term), normalized, tokens, exactPhraseScore: 90)) +
                     dialogue.Versions
                     .Where(version => requestedLanguage is null ||
                         string.Equals(version.Language, requestedLanguage, StringComparison.OrdinalIgnoreCase))
