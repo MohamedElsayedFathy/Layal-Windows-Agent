@@ -26,6 +26,7 @@
     <PackageReference Include="TesseractOCR" Version="5.5.2" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Resources\LanguageReference\reference.json" LogicalName="Layal.Resources.LanguageReference.reference.json" />
     <Resource Include="Assets\layal-tray.ico" />
     <Resource Include="Assets\Characters\*.png" />
     <Resource Include="Assets\Fonts\*.ttf" />
