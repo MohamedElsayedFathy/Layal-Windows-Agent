@@ -39,13 +39,27 @@ public sealed class SpeechLanguageRuntime
     {
         if (_recognitionProvider is null)
             throw new NotSupportedException("No speech-recognition provider is configured.");
-        if (waveAudio.Length <= 44 || waveAudio.Length > MaximumWaveAudioBytes)
-            throw new ArgumentOutOfRangeException(nameof(waveAudio), "Audio must be a non-empty WAV payload within the local size limit.");
+        if (waveAudio.Length <= 44 || waveAudio.Length > MaximumWaveAudioBytes || !IsWavePayload(waveAudio))
+            throw new ArgumentOutOfRangeException(nameof(waveAudio), "Audio must be a valid RIFF/WAVE payload within the local size limit.");
 
         cancellationToken.ThrowIfCancellationRequested();
         var transcript = await _recognitionProvider.RecognizeAsync(waveAudio, cancellationToken).ConfigureAwait(false);
         var analysis = _engine.Analyze(transcript);
         return new SpeechRecognitionResult(analysis.NormalizedText, analysis);
+    }
+
+    private static bool IsWavePayload(ReadOnlyMemory<byte> payload)
+    {
+        var audio = payload.Span;
+        if (audio.Length < 44 ||
+            audio[0] != (byte)'R' || audio[1] != (byte)'I' ||
+            audio[2] != (byte)'F' || audio[3] != (byte)'F' ||
+            audio[8] != (byte)'W' || audio[9] != (byte)'A' ||
+            audio[10] != (byte)'V' || audio[11] != (byte)'E')
+            return false;
+
+        var declaredLength = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(audio.Slice(4, 4));
+        return declaredLength >= 36 && declaredLength <= audio.Length - 8;
     }
 
     public Task SpeakAsync(

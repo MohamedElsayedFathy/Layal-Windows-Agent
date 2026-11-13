@@ -18,6 +18,16 @@ public enum DialogueIntent
     Apology,
     Question,
     Command,
+    Request,
+    Permission,
+    Clarification,
+    Agreement,
+    Disagreement,
+    Confirmation,
+    Denial,
+    Suggestion,
+    Preference,
+    Help,
     GeneralConversation
 }
 
@@ -75,6 +85,52 @@ public sealed class ConversationTopic
     public List<string> PromptsEnglish { get; init; } = new();
 }
 
+public sealed class GrammarRule
+{
+    public string Id { get; init; } = string.Empty;
+    public string Language { get; init; } = string.Empty;
+    public string Dialect { get; init; } = string.Empty;
+    public string Category { get; init; } = string.Empty;
+    public string TitleArabic { get; init; } = string.Empty;
+    public string TitleEnglish { get; init; } = string.Empty;
+    public string ExplanationArabic { get; init; } = string.Empty;
+    public string ExplanationEnglish { get; init; } = string.Empty;
+    public string Pattern { get; init; } = string.Empty;
+    public List<string> Examples { get; init; } = new();
+    public List<string> CommonErrors { get; init; } = new();
+    public List<string> Keywords { get; init; } = new();
+}
+
+public sealed class DialoguePattern
+{
+    public string Id { get; init; } = string.Empty;
+    public string Intent { get; init; } = string.Empty;
+    public string Language { get; init; } = string.Empty;
+    public string Dialect { get; init; } = string.Empty;
+    public string SituationArabic { get; init; } = string.Empty;
+    public string SituationEnglish { get; init; } = string.Empty;
+    public List<string> Triggers { get; init; } = new();
+    public List<string> Utterances { get; init; } = new();
+    public List<string> Replies { get; init; } = new();
+    public string NotesArabic { get; init; } = string.Empty;
+}
+
+public sealed class VerbParadigm
+{
+    public string Id { get; init; } = string.Empty;
+    public string Lemma { get; init; } = string.Empty;
+    public string Language { get; init; } = string.Empty;
+    public string Dialect { get; init; } = string.Empty;
+    public string MeaningArabic { get; init; } = string.Empty;
+    public string MeaningEnglish { get; init; } = string.Empty;
+    public string Past { get; init; } = string.Empty;
+    public string Present { get; init; } = string.Empty;
+    public string Future { get; init; } = string.Empty;
+    public string Imperative { get; init; } = string.Empty;
+    public string VerbalNoun { get; init; } = string.Empty;
+    public string NotesArabic { get; init; } = string.Empty;
+}
+
 public sealed record SpeechLanguageAnalysis(
     string OriginalText,
     string NormalizedText,
@@ -83,6 +139,9 @@ public sealed record SpeechLanguageAnalysis(
     IReadOnlyList<LinguisticEntry> MatchingEntries,
     IReadOnlyList<ConversationTopic> MatchingTopics)
 {
+    public IReadOnlyList<GrammarRule> MatchingGrammarRules { get; init; } = Array.Empty<GrammarRule>();
+    public IReadOnlyList<DialoguePattern> MatchingDialoguePatterns { get; init; } = Array.Empty<DialoguePattern>();
+
     public string GetLanguageLabel(bool arabic) => Language.PrimaryLanguage switch
     {
         SpeechLanguageKind.ArabicStandard => arabic ? "العربية الفصحى" : "Modern Standard Arabic",
@@ -107,3 +166,12 @@ public sealed record SpeechSynthesisOptions(
 public sealed record SpeechRecognitionResult(
     string Text,
     SpeechLanguageAnalysis Analysis);
+
+public sealed record LinguisticReferenceCoverage(
+    int LexicalEntries,
+    int ConversationTopics,
+    int GrammarRules,
+    int DialoguePatterns,
+    int VerbParadigms,
+    string ReferenceVersion,
+    string CoverageNote);

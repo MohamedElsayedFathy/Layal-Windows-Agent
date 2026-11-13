@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Layal.SpeechLanguage;
@@ -60,13 +61,25 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
-    public void ReferenceContainsEgyptianFushaAndEnglishEntries()
+    public void ReferenceContainsThreeLanguageLexiconAndTopics()
     {
         Assert.IsTrue(_engine.Reference.Find("معلش", SpeechLanguageKind.EgyptianArabic).Any());
         Assert.IsTrue(_engine.Reference.Find("من فضلك", SpeechLanguageKind.ArabicStandard).Any());
         Assert.IsTrue(_engine.Reference.Find("thank you", SpeechLanguageKind.English).Any());
-        Assert.IsTrue(_engine.Reference.Entries.Count >= 50);
-        Assert.IsTrue(_engine.Reference.Topics.Count >= 10);
+        Assert.IsTrue(_engine.Reference.Entries.Count >= 200);
+        Assert.IsTrue(_engine.Reference.Topics.Count >= 20);
+    }
+
+    [TestMethod]
+    public void ReferenceCoverageIncludesLexiconGrammarDialogueAndVerbs()
+    {
+        var coverage = _engine.Reference.GetCoverage();
+        Assert.AreEqual("2.0.0", coverage.ReferenceVersion);
+        Assert.IsTrue(coverage.LexicalEntries >= 200);
+        Assert.IsTrue(coverage.ConversationTopics >= 20);
+        Assert.IsTrue(coverage.GrammarRules >= 60);
+        Assert.IsTrue(coverage.DialoguePatterns >= 60);
+        Assert.IsTrue(coverage.VerbParadigms >= 30);
     }
 
     [TestMethod]
@@ -80,13 +93,72 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
-    public void ReferenceResponderAnswersExplicitDefinitionAndTopicRequests()
+    public void GrammarLookupFindsFushaEgyptianAndEnglishRules()
+    {
+        Assert.IsTrue(_engine.Reference.FindGrammar("الجملة الاسمية", SpeechLanguageKind.ArabicStandard)
+            .Any(rule => rule.Id == "msa-nominal-sentence"));
+        Assert.IsTrue(_engine.Reference.FindGrammar("النفي بما ش", SpeechLanguageKind.EgyptianArabic)
+            .Any(rule => rule.Id == "eg-negation-ma-sh"));
+        Assert.IsTrue(_engine.Reference.FindGrammar("subject verb object", SpeechLanguageKind.English)
+            .Any(rule => rule.Id == "en-word-order"));
+    }
+
+    [TestMethod]
+    public void VerbLookupSupportsLemmaAndInflectedForms()
+    {
+        Assert.IsTrue(_engine.Reference.FindVerbParadigms("كتب", SpeechLanguageKind.ArabicStandard)
+            .Any(verb => verb.Id == "msa-write"));
+        Assert.IsTrue(_engine.Reference.FindVerbParadigms("بشوف", SpeechLanguageKind.EgyptianArabic)
+            .Any(verb => verb.Id == "eg-see"));
+        Assert.IsTrue(_engine.Reference.FindVerbParadigms("went", SpeechLanguageKind.English)
+            .Any(verb => verb.Id == "en-go"));
+    }
+
+    [TestMethod]
+    public void DialoguePatternsClassifyRequestAndAgreementWithoutExecutingAnything()
+    {
+        var request = _engine.Analyze("لو سمحت ابعتلي الملف.");
+        Assert.AreEqual(DialogueIntent.Request, request.Intent);
+        Assert.IsTrue(request.MatchingDialoguePatterns.Any(pattern => pattern.Intent == "Request"));
+
+        var agreement = _engine.Analyze("أتفق معك في هذه النقطة.");
+        Assert.AreEqual(DialogueIntent.Agreement, agreement.Intent);
+    }
+
+    [TestMethod]
+    public void EnglishPhrasebookClassifiesGratitude()
+    {
+        var analysis = _engine.Analyze("Thank you for your help.");
+        Assert.AreEqual(DialogueIntent.Gratitude, analysis.Intent);
+        Assert.IsTrue(analysis.MatchingDialoguePatterns.Any(pattern => pattern.Intent == "Gratitude"));
+    }
+
+    [TestMethod]
+    public void AnalysisExposesRelatedGrammarAndDialogueKnowledge()
+    {
+        var analysis = _engine.Analyze("I prefer the first option because it is simpler.");
+        Assert.IsTrue(analysis.MatchingGrammarRules.Count > 0 || analysis.MatchingDialoguePatterns.Count > 0);
+    }
+
+    [TestMethod]
+    public void ReferenceResponderAnswersDefinitionTopicGrammarVerbAndPhraseRequests()
     {
         var responder = new SpeechLanguageReferenceResponder(_engine);
+
         Assert.IsTrue(responder.TryRespond("يعني ايه معلش", true, out var definition));
         StringAssert.Contains(definition, "معلش");
+
         Assert.IsTrue(responder.TryRespond("عايز موضوع نتكلم عنه", true, out var topic));
         StringAssert.Contains(topic, "موضوعات");
+
+        Assert.IsTrue(responder.TryRespond("اشرح قاعدة الجملة الاسمية", true, out var grammar));
+        StringAssert.Contains(grammar, "الجملة الاسمية");
+
+        Assert.IsTrue(responder.TryRespond("صرف الفعل كتب", true, out var verb));
+        StringAssert.Contains(verb, "كتب");
+
+        Assert.IsTrue(responder.TryRespond("ازاي اقول شكرا", true, out var phrase));
+        StringAssert.Contains(phrase, "تعبيرات مناسبة");
     }
 
     [TestMethod]
@@ -108,7 +180,7 @@ public sealed class SpeechLanguageEngineTests
     {
         var provider = new FakeSpeechProvider("إزيك");
         var runtime = new SpeechLanguageRuntime(_engine, provider, provider);
-        var audio = new byte[128];
+        var audio = CreateWaveAudio();
 
         var recognition = await runtime.RecognizeAsync(audio);
         Assert.AreEqual("إزيك", recognition.Text);
@@ -131,11 +203,42 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
+    public async Task RuntimeRejectsMalformedWaveBeforeCallingProvider()
+    {
+        var provider = new FakeSpeechProvider("hello");
+        var runtime = new SpeechLanguageRuntime(_engine, provider, provider);
+        var malformed = new byte[128];
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => runtime.RecognizeAsync(malformed));
+        Assert.IsFalse(provider.RecognitionWasCalled);
+    }
+
+    [TestMethod]
     public void TextAnalysisDoesNotRequireSpeechProviders()
     {
         var runtime = new SpeechLanguageRuntime(_engine);
         Assert.AreEqual(SpeechLanguageKind.English, runtime.AnalyzeText("Hello").Language.PrimaryLanguage);
         Assert.ThrowsExactly<NotSupportedException>(() => runtime.SpeakAsync("Hello"));
+    }
+
+    private static byte[] CreateWaveAudio()
+    {
+        var bytes = new byte[46];
+        Encoding.ASCII.GetBytes("RIFF").CopyTo(bytes, 0);
+        BitConverter.GetBytes((uint)(bytes.Length - 8)).CopyTo(bytes, 4);
+        Encoding.ASCII.GetBytes("WAVE").CopyTo(bytes, 8);
+        Encoding.ASCII.GetBytes("fmt ").CopyTo(bytes, 12);
+        BitConverter.GetBytes(16u).CopyTo(bytes, 16);
+        BitConverter.GetBytes((ushort)1).CopyTo(bytes, 20);
+        BitConverter.GetBytes((ushort)1).CopyTo(bytes, 22);
+        BitConverter.GetBytes(16_000u).CopyTo(bytes, 24);
+        BitConverter.GetBytes(32_000u).CopyTo(bytes, 28);
+        BitConverter.GetBytes((ushort)2).CopyTo(bytes, 32);
+        BitConverter.GetBytes((ushort)16).CopyTo(bytes, 34);
+        Encoding.ASCII.GetBytes("data").CopyTo(bytes, 36);
+        BitConverter.GetBytes(2u).CopyTo(bytes, 40);
+        bytes[44] = 0;
+        bytes[45] = 0;
+        return bytes;
     }
 
     private sealed class FakeSpeechProvider : ISpeechRecognitionProvider, ISpeechSynthesisProvider

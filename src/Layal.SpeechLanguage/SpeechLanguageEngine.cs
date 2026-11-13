@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Layal.SpeechLanguage;
 
@@ -21,14 +20,22 @@ public sealed class SpeechLanguageEngine
             throw new ArgumentOutOfRangeException(nameof(text), $"Transcripts cannot exceed {MaximumTranscriptCharacters} characters.");
 
         var language = LanguageDetector.Detect(normalized, Reference);
-        var intent = DialogueIntentDetector.Detect(normalized);
+        var intent = Reference.DetectIntent(normalized);
+        if (intent == DialogueIntent.Unknown)
+            intent = DialogueIntentDetector.Detect(normalized);
+
         return new SpeechLanguageAnalysis(
             original,
             normalized,
             language,
             intent,
             Reference.Find(normalized, language.PrimaryLanguage, 6),
-            Reference.FindTopics(normalized, language.PrimaryLanguage, 4));
+            Reference.FindTopics(normalized, language.PrimaryLanguage, 4))
+        {
+            MatchingGrammarRules = Reference.FindGrammar(normalized, language.PrimaryLanguage, maximumResults: 3),
+            MatchingDialoguePatterns = Reference.FindDialoguePatterns(
+                normalized, intent, language.PrimaryLanguage, maximumResults: 3)
+        };
     }
 }
 
@@ -152,11 +159,6 @@ internal static class LanguageDetector
 
 internal static class DialogueIntentDetector
 {
-    private static readonly string[] Greetings =
-    [
-        "اهلا", "اهلين", "مرحبا", "السلام عليكم", "صباح الخير", "مساء الخير",
-        "ازيك", "ازيكم", "عامل ايه", "عاملة ايه", "hello", "hi", "hey", "good morning", "good evening"
-    ];
     private static readonly string[] Farewells =
     [
         "مع السلامه", "الى اللقاء", "اشوفك", "سلام", "goodbye", "bye", "see you"
@@ -167,46 +169,42 @@ internal static class DialogueIntentDetector
     ];
     private static readonly string[] Apologies =
     [
-        "اسف", "اسفه", "معلش", "اعتذر", "sorry", "my apologies", "excuse me"
+        "اسف", "اسفه", "اعتذر", "sorry", "my apologies", "excuse me"
     ];
     private static readonly string[] QuestionMarkers =
     [
         "ايه", "ماذا", "لماذا", "ليه", "ازاي", "كيف", "فين", "اين", "امتى", "متى",
-        "هل", "مين", "من", "what", "why", "when", "where", "how", "who", "which", "can you"
+        "هل", "مين", "من", "what", "why", "when", "where", "how", "who", "which"
     ];
     private static readonly string[] CommandStarts =
     [
         "افتح", "افتحي", "اعمل", "اعملي", "شغل", "شغلي", "انشئ", "اكتب", "اكتبي",
         "نفذ", "نفذي", "ابحث", "دور", "اقرا", "اقرأ",
-        "open ", "create ", "make ", "run ", "execute ", "search ", "read "
+        "open", "create", "make", "run", "execute", "search", "read"
     ];
 
     public static DialogueIntent Detect(string text)
     {
         var value = SpeechTextNormalizer.NormalizeForLookup(text);
         if (value.Length == 0) return DialogueIntent.Unknown;
-        if (Farewells.Any(marker => Contains(value, marker))) return DialogueIntent.Farewell;
-        if (Gratitude.Any(marker => Contains(value, marker))) return DialogueIntent.Gratitude;
-        if (Apologies.Any(marker => Contains(value, marker))) return DialogueIntent.Apology;
-        if (Greetings.Any(marker => ContainsPhrase(value, marker))) return DialogueIntent.Greeting;
-        if (text.Contains('?') || text.Contains('؟') || QuestionMarkers.Any(marker => Contains(value, marker)))
+
+        if (MatchesPhrase(value, Farewells)) return DialogueIntent.Farewell;
+        if (MatchesPhrase(value, Gratitude)) return DialogueIntent.Gratitude;
+        if (MatchesPhrase(value, Apologies)) return DialogueIntent.Apology;
+        if (text.Contains('?') || text.Contains('؟') || MatchesPhrase(value, QuestionMarkers))
             return DialogueIntent.Question;
-        if (CommandStarts.Any(start => value.StartsWith(Normalize(start), StringComparison.Ordinal)))
+        if (CommandStarts.Any(start => StartsWithPhrase(value, SpeechTextNormalizer.NormalizeForLookup(start))))
             return DialogueIntent.Command;
         return DialogueIntent.GeneralConversation;
     }
 
-    private static bool Contains(string source, string marker) =>
-        source.Contains(Normalize(marker), StringComparison.Ordinal);
+    private static bool MatchesPhrase(string source, IEnumerable<string> values) =>
+        values.Any(value => StartsWithPhrase(source, SpeechTextNormalizer.NormalizeForLookup(value)) ||
+                            ContainsPhrase(source, SpeechTextNormalizer.NormalizeForLookup(value)));
 
-    private static bool ContainsPhrase(string source, string marker)
-    {
-        var normalizedMarker = Normalize(marker);
-        return source.Equals(normalizedMarker, StringComparison.Ordinal) ||
-            source.StartsWith(normalizedMarker + " ", StringComparison.Ordinal) ||
-            source.EndsWith(" " + normalizedMarker, StringComparison.Ordinal) ||
-            source.Contains(" " + normalizedMarker + " ", StringComparison.Ordinal);
-    }
+    private static bool StartsWithPhrase(string source, string phrase) =>
+        phrase.Length > 0 && (source == phrase || source.StartsWith(phrase + " ", StringComparison.Ordinal));
 
-    private static string Normalize(string value) => SpeechTextNormalizer.NormalizeForLookup(value);
+    private static bool ContainsPhrase(string source, string phrase) =>
+        phrase.Length > 0 && (" " + source + " ").Contains(" " + phrase + " ", StringComparison.Ordinal);
 }
