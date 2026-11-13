@@ -388,12 +388,20 @@ public static class LanguageTextNormalizer
         return result.ToString().Trim();
     }
 
-    public static IReadOnlyList<string> Tokenize(string? value) =>
-        Normalize(value)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(token => token.Length >= 2)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+    public static IReadOnlyList<string> Tokenize(string? value)
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var token in Normalize(value).Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.Length < 2) continue;
+            result.Add(token);
+            // Egyptian/MSA searches often differ only by the Arabic definite article.
+            // Preserve the original token and add a conservative article-stripped lookup key.
+            if (token.StartsWith("ال", StringComparison.Ordinal) && token.Length > 4)
+                result.Add(token[2..]);
+        }
+        return result.ToArray();
+    }
 
     private static bool IsDirectionalControl(char character) =>
         character is '\u061C' or '\u200E' or '\u200F' or '\u202A' or '\u202B' or
