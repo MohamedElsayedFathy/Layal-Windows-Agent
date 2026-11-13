@@ -1,3 +1,7 @@
+> **Current status notice — 13 November 2026:** This English roadmap is a historical milestone/backlog reference. Its older checkbox statuses and baseline are superseded. The authoritative live implementation status, completed work, pending acceptance gates, unimplemented capabilities, and next execution order are maintained in [the updated Arabic master roadmap execution log](MASTER_ROADMAP_EXECUTION_AR.md) at `main`, baseline commit `4df2a067c4c6df161d140e2f06d252745c1f8d3b`. Do not use the historical checkboxes below as proof that a feature is currently complete.
+>
+> The original user-provided roadmap remains preserved in `docs/reference` and is not replaced by this status update.
+
 # Layal implementation roadmap
 
 ## Master development roadmap execution — 2026-11-12
