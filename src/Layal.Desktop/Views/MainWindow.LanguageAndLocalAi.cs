@@ -295,7 +295,7 @@ public partial class MainWindow
         AutomationProperties.SetHelpText(TestMicrophoneButton, ar
             ? "اختبار اختياري لمدة ثلاث ثوانٍ. تحدث أثناء الاختبار؛ تبقى العينة مؤقتًا في الذاكرة ولا تُحفظ أو تُرسل أو تُحوّل إلى نص."
             : "Optional three-second test. Speak during the test; the sample stays temporarily in memory and is not saved, uploaded, or transcribed.");
-        MicrophoneDiagnosticStatus.Text = string.Empty;
+        AudioInputDiagnosticStatus.Text = string.Empty;
         AssistantPersonaLabel.Text = ar ? "أسلوب صياغة الرد" : "Text response style";
         AssistantPersonaDisclosure.Text = ar
             ? "يتحكم في صياغة النص فقط. اختيارات نبرة الإلقاء والصوت منفصلة عنه، ولا تتغير الهوية أو حدود الأمان أو الصلاحيات."
