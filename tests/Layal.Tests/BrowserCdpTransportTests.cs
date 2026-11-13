@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Layal.Services;
@@ -58,6 +59,24 @@ public sealed class BrowserCdpTransportTests
 
         var connect = transport.GetType().GetMethod("ConnectPageAsync", InstanceMembers)!;
         var task = (Task)connect.Invoke(transport, new object[] { target, CancellationToken.None })!;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await task);
+    }
+
+    [TestMethod]
+    public async Task OrdinaryPageCommandRejectsUntrustedEndpointsBeforeConnecting()
+    {
+        var transport = CreateTransport(() => 9222);
+        var targetType = typeof(BrowserAutomationService).Assembly.GetType("Layal.Services.CdpPageTarget", throwOnError: true)!;
+        var target = Activator.CreateInstance(
+            targetType,
+            InstanceMembers,
+            binder: null,
+            args: new object[] { "page-1", "title", "https://example.com/", "http://192.0.2.10:9222/devtools/page/page-1" },
+            culture: null)!;
+
+        var send = transport.GetType().GetMethod("SendCommandAsync", InstanceMembers)!;
+        var task = (Task)send.Invoke(transport, new object[] { target, "Runtime.evaluate", new JsonObject(), CancellationToken.None })!;
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await task);
     }
