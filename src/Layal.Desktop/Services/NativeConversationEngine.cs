@@ -15,12 +15,18 @@ public sealed class NativeConversationEngine
     private readonly NativeLanguageParser _parser;
     private readonly NativeLearningService _learning;
     private readonly MemoryService _memory;
+    private readonly LanguageReferenceService _languageReference;
 
-    public NativeConversationEngine(NativeLanguageParser parser, NativeLearningService learning, MemoryService memory)
+    public NativeConversationEngine(
+        NativeLanguageParser parser,
+        NativeLearningService learning,
+        MemoryService memory,
+        LanguageReferenceService? languageReference = null)
     {
         _parser = parser ?? throw new ArgumentNullException(nameof(parser));
         _learning = learning ?? throw new ArgumentNullException(nameof(learning));
         _memory = memory ?? throw new ArgumentNullException(nameof(memory));
+        _languageReference = languageReference ?? LanguageReferenceService.LoadBuiltIn();
     }
 
     public string Respond(string input, string language, string? documentText = null, string? documentName = null)
@@ -30,6 +36,9 @@ public sealed class NativeConversationEngine
             return learningMessage;
         if (!string.IsNullOrWhiteSpace(documentText))
             return RespondToDocument(input, documentText, documentName ?? "attachment", isArabic);
+
+        if (TryRespondFromLanguageReference(input, isArabic, out var referenceResponse))
+            return referenceResponse;
 
         var command = _parser.Parse(input);
         return command.Intent switch
@@ -48,6 +57,79 @@ public sealed class NativeConversationEngine
                 : "Teach me an alias with: “When I say [phrase], do [command]”. I will store it locally and only map it to a command already supported by my core.",
             _ => RespondFromLocalKnowledge(input, isArabic)
         };
+    }
+
+
+    private bool TryRespondFromLanguageReference(string input, bool isArabic, out string response)
+    {
+        response = string.Empty;
+        if (string.IsNullOrWhiteSpace(input)) return false;
+
+        var normalized = LanguageTextNormalizer.Normalize(input);
+        string? query = null;
+
+        var arabic = Regex.Match(normalized,
+            @"^(?:يعني ايه|معنى(?: كلمه)?|ما معنى(?: كلمه)?|ايه معنى(?: كلمه)?)\s+(?<term>.+?)\s*$",
+            RegexOptions.CultureInvariant);
+        if (arabic.Success)
+            query = arabic.Groups["term"].Value;
+        else
+        {
+            var english = Regex.Match(normalized,
+                @"^(?:what does (?<term>.+?) mean|what is the meaning of (?<term>.+)|define (?<term>.+))\s*\??$",
+                RegexOptions.CultureInvariant);
+            if (english.Success)
+                query = english.Groups["term"].Value;
+        }
+
+        if (string.IsNullOrWhiteSpace(query)) return false;
+        query = query.Trim(' ', '"', '«', '»', '“', '”', '?', '؟', '.', '،', ',');
+        if (query.Length == 0) return false;
+
+        var matches = _languageReference.Search(query, maximumResults: 3);
+        if (matches.Count == 0) return false;
+
+        var best = matches[0].Concept;
+        var topic = _languageReference.GetTopic(best.TopicId);
+        var lines = new List<string>
+        {
+            isArabic ? $"**{query}** — {topic?.NameAr ?? "مرجع لغوي"}" : $"**{query}** — {topic?.NameEn ?? "Language reference"}",
+            isArabic ? best.MeaningAr : best.MeaningEn
+        };
+
+        if (!string.IsNullOrWhiteSpace(best.UsageNotesAr) || !string.IsNullOrWhiteSpace(best.UsageNotesEn))
+            lines.Add(isArabic ? best.UsageNotesAr : best.UsageNotesEn);
+
+        var forms = best.Forms
+            .OrderBy(form => form.Language switch { "ar-EG" => 0, "ar" => 1, "en" => 2, _ => 3 })
+            .Select(form =>
+            {
+                var label = form.Language switch
+                {
+                    "ar-EG" => isArabic ? "مصري" : "Egyptian",
+                    "ar" => isArabic ? "فصحى" : "MSA",
+                    "en" => "English",
+                    _ => form.Language
+                };
+                return $"{label}: {form.Text}";
+            })
+            .ToList();
+        if (forms.Count > 0)
+            lines.Add((isArabic ? "المقابلات: " : "Forms: ") + string.Join(" | ", forms));
+
+        var example = best.Forms.SelectMany(form => form.Examples).FirstOrDefault();
+        if (example is not null)
+            lines.Add((isArabic ? "مثال: " : "Example: ") + example.Text);
+
+        if (matches.Count > 1 && matches[1].Score >= matches[0].Score - 4)
+        {
+            lines.Add(isArabic ? "قد تحمل العبارة معنى آخر بحسب السياق:" : "The phrase may have another meaning in context:");
+            foreach (var alternative in matches.Skip(1).Take(2))
+                lines.Add("- " + (isArabic ? alternative.Concept.MeaningAr : alternative.Concept.MeaningEn));
+        }
+
+        response = string.Join(Environment.NewLine + Environment.NewLine, lines.Where(line => !string.IsNullOrWhiteSpace(line)));
+        return true;
     }
 
     private string RespondToDocument(string question, string document, string name, bool isArabic)
