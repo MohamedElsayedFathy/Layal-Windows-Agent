@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Fixed text prompts for human and objective evaluation of Layal's target synthetic voice. No audio recordings are included.",
+  "targetPersona": {
+    "voice": "original feminine youthful adult persona",
+    "qualities": [
+      "soft",
+      "gentle",
+      "warm",
+      "clear",
+      "consistent speaker identity across languages"
+    ],
+    "languages": [
+      "Egyptian Arabic (Cairene)",
+      "Modern Standard Arabic",
+      "English",
+      "Arabic-English code-switching"
+    ],
+    "styles": [
+      "natural",
+      "gentle",
+      "bright",
+      "clear",
+      "empathetic",
+      "serious",
+      "energetic",
+      "playful"
+    ]
+  },
+  "testCases": [
+    {
+      "id": "egy-01",
+      "language": "EgyptianArabic",
+      "text": "إزيك؟ عاملة إيه النهارده؟ أتمنى يومك يكون لطيف."
+    },
+    {
+      "id": "egy-02",
+      "language": "EgyptianArabic",
+      "text": "أنا هراجع المواعيد وأبعتلك النتيجة قبل الساعة خمسة."
+    },
+    {
+      "id": "egy-03",
+      "language": "EgyptianArabic",
+      "text": "خدي وقتك، مفيش أي استعجال. نقدر نمشي خطوة خطوة."
+    },
+    {
+      "id": "egy-04",
+      "language": "EgyptianArabic",
+      "text": "لو سمحت، افتحي الإعدادات واختاري جهاز الصوت المناسب."
+    },
+    {
+      "id": "egy-05",
+      "language": "EgyptianArabic",
+      "text": "الجو النهارده جميل، وممكن نخرج بعد العصر لو الوقت مناسب."
+    },
+    {
+      "id": "egy-06",
+      "language": "EgyptianArabic",
+      "text": "مش متأكدة من المعلومة دي، فخليني أتحقق منها الأول."
+    },
+    {
+      "id": "msa-01",
+      "language": "ArabicStandard",
+      "text": "مرحبًا، يسعدني مساعدتك اليوم. كيف يمكنني أن أبدأ؟"
+    },
+    {
+      "id": "msa-02",
+      "language": "ArabicStandard",
+      "text": "يرجى مراجعة التفاصيل التالية قبل اعتماد النتيجة النهائية."
+    },
+    {
+      "id": "msa-03",
+      "language": "ArabicStandard",
+      "text": "يمكنك إيقاف التسجيل في أي وقت، ولن يُرسل الصوت دون موافقتك."
+    },
+    {
+      "id": "msa-04",
+      "language": "ArabicStandard",
+      "text": "الوضوح والدقة أهم من سرعة الإجابة."
+    },
+    {
+      "id": "eng-01",
+      "language": "English",
+      "text": "Hello! I'm Layal. I'll help you work through this one step at a time."
+    },
+    {
+      "id": "eng-02",
+      "language": "English",
+      "text": "Please review the final version before you approve the changes."
+    },
+    {
+      "id": "eng-03",
+      "language": "English",
+      "text": "Take your time. There is no need to rush."
+    },
+    {
+      "id": "eng-04",
+      "language": "English",
+      "text": "The audio is processed locally on your device."
+    },
+    {
+      "id": "mix-01",
+      "language": "MixedArabicEnglish",
+      "text": "أنا هراجع the final report وأبعتلك النسخة النهائية النهارده."
+    },
+    {
+      "id": "mix-02",
+      "language": "MixedArabicEnglish",
+      "text": "افتحي Settings، وبعد كده اختاري Audio Output Device."
+    },
+    {
+      "id": "mix-03",
+      "language": "MixedArabicEnglish",
+      "text": "الـ meeting هتبدأ الساعة 3:30، فخلينا نجهز قبلها بعشر دقايق."
+    },
+    {
+      "id": "mix-04",
+      "language": "MixedArabicEnglish",
+      "text": "لو ظهر Error، ابعتيلي the exact message عشان نعرف السبب."
+    }
+  ],
+  "evaluation": {
+    "humanScales": [
+      "naturalness",
+      "intelligibility",
+      "softness",
+      "speaker_identity_consistency",
+      "prosody_fit",
+      "pronunciation_accuracy"
+    ],
+    "machineMetrics": [
+      "time_to_first_audio_ms",
+      "real_time_factor",
+      "peak_ram_mb",
+      "peak_vram_mb",
+      "sample_rate_hz"
+    ],
+    "protocol": "Render every prompt with the same fixed speaker for each candidate. Evaluate all styles without changing speaker identity. Record device, OS, model revision, settings and rater notes. Do not treat ASR WER as a complete substitute for human TTS evaluation."
+  }
+}

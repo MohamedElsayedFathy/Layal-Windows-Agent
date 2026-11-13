@@ -378,10 +378,11 @@ public sealed class LocalVoiceService
         }
 
         var lengthScale = VoiceDeliveryStylePolicy.GetLocalLengthScale(deliveryStyleId);
+        var sentenceSilence = VoiceDeliveryStylePolicy.GetLocalSentenceSilenceSeconds(deliveryStyleId);
         foreach (var segment in segments)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await SpeakSegmentAsync(segment.Text, segment.IsArabic, outputDeviceId, cancellationToken, lengthScale);
+            await SpeakSegmentAsync(segment.Text, segment.IsArabic, outputDeviceId, cancellationToken, lengthScale, sentenceSilence);
         }
     }
 
@@ -440,7 +441,8 @@ public sealed class LocalVoiceService
         bool isArabic,
         string? outputDeviceId,
         CancellationToken cancellationToken,
-        double lengthScale)
+        double lengthScale,
+        double sentenceSilence)
     {
         var modelPath = isArabic ? ArabicModelPath : EnglishModelPath;
         var configPath = isArabic ? ArabicConfigPath : EnglishConfigPath;
@@ -466,6 +468,8 @@ public sealed class LocalVoiceService
             start.ArgumentList.Add(outputPath);
             start.ArgumentList.Add("--length_scale");
             start.ArgumentList.Add(lengthScale.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--sentence_silence");
+            start.ArgumentList.Add(sentenceSilence.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
 
             var result = await RunProcessAsync(start, text, TimeSpan.FromMinutes(2), cancellationToken);
             if (result.ExitCode != 0)

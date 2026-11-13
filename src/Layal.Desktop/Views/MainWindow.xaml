@@ -1209,17 +1209,21 @@
                         <ComboBox x:Name="VoiceDeliveryStyleSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="VoiceDeliveryStyleSelector_SelectionChanged"
                                   AutomationProperties.Name="نبرة الإلقاء الصوتي"
-                                  AutomationProperties.HelpText="إعداد سرعة النطق المحلي عبر Piper فقط؛ لا يتصل بأي خدمة صوتية خارجية.">
+                                  AutomationProperties.HelpText="يضبط سرعة النطق والوقفات المحلية عبر Piper؛ لا يغيّر خامة الصوت أو يولّد مشاعر صوتية كاملة.">
                             <ComboBoxItem Tag="natural" Content="طبيعية وعفوية"/>
-                            <ComboBoxItem Tag="gentle" Content="هادئة ولطيفة"/>
-                            <ComboBoxItem Tag="bright" Content="مشرقة وحيوية باعتدال"/>
+                            <ComboBoxItem Tag="gentle" Content="هادئة وناعمة"/>
+                            <ComboBoxItem Tag="bright" Content="مبهجة بخفة"/>
                             <ComboBoxItem Tag="clear" Content="واضحة ومتزنة"/>
+                            <ComboBoxItem Tag="empathetic" Content="متعاطفة ومطمئنة"/>
+                            <ComboBoxItem Tag="serious" Content="جادة ورصينة"/>
+                            <ComboBoxItem Tag="energetic" Content="نشيطة وحيوية"/>
+                            <ComboBoxItem Tag="playful" Content="مرحة وخفيفة"/>
                         </ComboBox>
-                        <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="يتغير إيقاع النطق المحلي فقط عبر Piper. لا يوجد مسار نطق سحابي أو تعليمات تُرسل إلى مزود خارجي."
+                        <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="الأنماط تغيّر سرعة الكلام والوقفات فقط في محرك Piper الحالي؛ لا تغيّر خامة الصوت أو تمثّل أداءً عاطفيًا كاملًا. لا يُرسل النص إلى خدمة صوتية خارجية."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.Name="حدود نبرة الإلقاء"/>
                         <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper بعد تجهيز موارده؛ لا يتم إرسال نص الرد إلى خدمة صوتية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
-                        <Button x:Name="TestVoiceReplyButton" Content="اختبار السماعة والنطق" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يشغّل عينة عربية وإنجليزية عبر Piper المحلي على مخرج الصوت المحدد؛ استمع للتأكد من وضوح الصوت."/>
+                        <Button x:Name="TestVoiceReplyButton" Content="اختبار السماعة والنطق" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يشغّل عينة عربية وإنجليزية عبر Piper المحلي على مخرج الصوت المحدد؛ اختبر وضوح النطق والإيقاع والوقفات."/>
 
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>
