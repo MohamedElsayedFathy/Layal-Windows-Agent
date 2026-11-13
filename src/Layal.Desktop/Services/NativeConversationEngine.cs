@@ -142,7 +142,7 @@ public sealed class NativeConversationEngine
 
         var normalized = LanguageTextNormalizer.Normalize(input);
         Match request = Regex.Match(normalized,
-            @"^(?:اعمل حوار عن|اعملي حوار عن|اكتب حوار عن|اكتبي حوار عن)\\s+(?<topic>.+)$",
+            @"^(?:اعمل حوار عن|اعملي حوار عن|اكتب حوار عن|اكتبي حوار عن)\s+(?<topic>.+)$",
             RegexOptions.CultureInvariant);
         if (!request.Success)
             request = Regex.Match(normalized,
