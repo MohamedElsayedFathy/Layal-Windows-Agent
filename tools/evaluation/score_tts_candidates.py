@@ -339,6 +339,8 @@ def build_report(payload: dict, prompt_cases: dict[str, dict], engine_index: dic
             "modelHashesRecorded": bool(engine.get("modelSha256")) and all(_is_sha256(item) for item in engine.get("modelSha256", [])),
             "voiceCloningDisabled": engine.get("voiceCloningEnabled") is False,
             "completeCoverage": missing_count == 0 and bool(expected_keys),
+            "targetLanguageCoverage": set(languages) == LANGUAGES,
+            "targetStyleCoverage": set(styles) == STYLES,
             "humanReviewComplete": missing_count == 0 and bool(engine_records) and all(len(record["ratings"]) >= MIN_HUMAN_RATERS_PER_SAMPLE for record in engine_records),
             "manualAcceptanceRecorded": engine.get("manualAcceptanceStatus") == "accepted",
         }
