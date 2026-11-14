@@ -103,6 +103,28 @@ class PiperBaselineRendererTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 RENDERER.verify_asset(root, spec)
 
+    def test_piper_runtime_tree_rejects_extra_or_missing_code_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "piper-root"
+            piper_dir = root / "piper"
+            piper_dir.mkdir(parents=True)
+            for asset in RENDERER.PIPER_RUNTIME_ASSETS:
+                target = root / asset.relative_path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"pinned test fixture")
+
+            RENDERER.verify_piper_runtime_tree(root)
+
+            extra = piper_dir / "untrusted-sidecar.dll"
+            extra.write_bytes(b"unexpected runtime code")
+            with self.assertRaisesRegex(ValueError, "غير متوقعة"):
+                RENDERER.verify_piper_runtime_tree(root)
+
+            extra.unlink()
+            (piper_dir / "piper.exe").unlink()
+            with self.assertRaisesRegex(ValueError, "المفقودة"):
+                RENDERER.verify_piper_runtime_tree(root)
+
     def test_joining_pcm_segments_preserves_frames_and_rejects_incompatible_rates(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
