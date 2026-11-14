@@ -63,7 +63,11 @@ class TtsCandidateScoringTests(unittest.TestCase):
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
     def sample_for(self, directory, audio_path):
-        digest = self.write_wav(directory / audio_path)
+        # Give each prompt a distinct deterministic waveform; real TTS renders for
+        # different prompts must not collapse to the same cached audio artifact.
+        seed = sum(audio_path.encode("utf-8")) % 12000 + 1000
+        values = [0, seed, -seed, 10000, -10000] * 240
+        digest = self.write_wav(directory / audio_path, values=values)
         return {
             "caseId": "egy-01",
             "engineId": "candidate-a",
