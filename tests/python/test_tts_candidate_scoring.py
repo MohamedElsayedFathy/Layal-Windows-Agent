@@ -35,6 +35,7 @@ class TtsCandidateScoringTests(unittest.TestCase):
             "speakerId": "female-01",
             "licenseStatus": "pending",
             "speakerRightsStatus": "pending",
+            "manualAcceptanceStatus": "pending",
             "voiceCloningEnabled": False,
             "modelSha256": ["a" * 64],
             "supportedLanguages": languages or ["EgyptianArabic"],
@@ -188,6 +189,39 @@ class TtsCandidateScoringTests(unittest.TestCase):
         }])
         errors, _ = MODULE.validate_manifest(manifest, self.prompt_cases)
         self.assertTrue(any("unknown caseId" in error for error in errors))
+
+    def test_production_gate_requires_two_human_ratings_and_manual_acceptance(self):
+        engine = self.make_engine()
+        engine["licenseStatus"] = "verified"
+        engine["licenseEvidenceUrl"] = "https://example.com/license"
+        engine["speakerRightsStatus"] = "verified"
+        engine["speakerRightsEvidenceUrl"] = "https://example.com/rights"
+        engine["manualAcceptanceStatus"] = "accepted"
+        cases = [case_id for case_id, case in self.prompt_cases.items() if case["language"] == "EgyptianArabic"]
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            samples = []
+            records = []
+            for case_id in cases:
+                sample = self.sample_for(root, f"samples/{case_id}.wav")
+                sample["caseId"] = case_id
+                sample["ratings"].append({"raterId": "rater-02", "scores": dict(sample["ratings"][0]["scores"])})
+                samples.append(sample)
+                audio = MODULE.inspect_wav(root / sample["audioPath"], sample["audioSha256"])
+                records.append({
+                    **sample, "language": "EgyptianArabic",
+                    "realTimeFactor": sample["renderTimeMs"] / audio["durationMs"],
+                    **audio,
+                })
+            manifest = {"schemaVersion": 1, "runId": "accepted-test", "engines": [engine], "samples": samples}
+            errors, engines = MODULE.validate_manifest(manifest, self.prompt_cases)
+            self.assertEqual([], errors)
+            report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
+            self.assertTrue(report["engines"][0]["productionGates"]["humanReviewComplete"])
+            self.assertTrue(report["engines"][0]["eligibleForProduction"])
+            engine["manualAcceptanceStatus"] = "pending"
+            report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
+            self.assertFalse(report["engines"][0]["eligibleForProduction"])
 
     def test_verified_rights_need_https_evidence_and_scores_must_be_in_range(self):
         engine = self.make_engine()
