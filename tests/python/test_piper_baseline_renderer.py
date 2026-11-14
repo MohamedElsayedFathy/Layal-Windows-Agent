@@ -99,6 +99,10 @@ class PiperBaselineRendererTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 RENDERER.verify_asset(root, spec)
 
+            (root / "asset.bin").write_bytes(b"x" * len(payload))
+            with self.assertRaises(ValueError):
+                RENDERER.verify_asset(root, spec)
+
     def test_joining_pcm_segments_preserves_frames_and_rejects_incompatible_rates(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
