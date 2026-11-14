@@ -562,6 +562,7 @@ def build_engine_record(asset_info: dict[str, Any]) -> dict[str, Any]:
             if key.endswith(".onnx.json")
         },
         "voiceModelNames": ["ar_JO-kareem-medium", "en_US-lessac-medium"],
+        "modelSourceUrls": {"arabic": ARABIC_MODEL_URL, "english": ENGLISH_MODEL_URL},
         "voiceIdentityNote": (
             "This is a composite application baseline with two different Piper voice models, "
             "not one shared speaker identity across languages."
