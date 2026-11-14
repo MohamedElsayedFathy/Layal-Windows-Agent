@@ -34,6 +34,7 @@ RATING_FIELDS = (
     "identityConsistency", "prosodyFit", "pronunciationAccuracy",
 )
 HASH_LENGTH = 64
+MIN_HUMAN_RATERS_PER_SAMPLE = 2
 
 
 def _is_number(value: object) -> bool:
@@ -111,6 +112,7 @@ def validate_manifest(payload: object, prompt_cases: dict[str, dict]) -> tuple[l
         engines = []
     engine_index: dict[str, dict] = {}
     allowed_status = {"pending", "verified", "blocked"}
+    allowed_acceptance = {"pending", "accepted", "rejected"}
     for index, engine in enumerate(engines, start=1):
         prefix = f"Engine #{index}"
         if not isinstance(engine, dict):
@@ -132,8 +134,12 @@ def validate_manifest(payload: object, prompt_cases: dict[str, dict]) -> tuple[l
         if not isinstance(engine.get("revisionIsImmutable"), bool):
             errors.append(f"Engine '{engine_id}' needs boolean revisionIsImmutable.")
         for field in ("licenseStatus", "speakerRightsStatus"):
-            if engine.get(field) not in allowed_status:
+            value = engine.get(field)
+            if not isinstance(value, str) or value not in allowed_status:
                 errors.append(f"Engine '{engine_id}' has invalid {field}; use pending, verified, or blocked.")
+        manual_status = engine.get("manualAcceptanceStatus")
+        if not isinstance(manual_status, str) or manual_status not in allowed_acceptance:
+            errors.append(f"Engine '{engine_id}' must set manualAcceptanceStatus to pending, accepted, or rejected.")
         for status_field, evidence_field in (
             ("licenseStatus", "licenseEvidenceUrl"),
             ("speakerRightsStatus", "speakerRightsEvidenceUrl"),
@@ -333,6 +339,8 @@ def build_report(payload: dict, prompt_cases: dict[str, dict], engine_index: dic
             "modelHashesRecorded": bool(engine.get("modelSha256")) and all(_is_sha256(item) for item in engine.get("modelSha256", [])),
             "voiceCloningDisabled": engine.get("voiceCloningEnabled") is False,
             "completeCoverage": missing_count == 0 and bool(expected_keys),
+            "humanReviewComplete": missing_count == 0 and bool(engine_records) and all(len(record["ratings"]) >= MIN_HUMAN_RATERS_PER_SAMPLE for record in engine_records),
+            "manualAcceptanceRecorded": engine.get("manualAcceptanceStatus") == "accepted",
         }
         by_language = {}
         by_style = {}
@@ -378,7 +386,7 @@ def build_report(payload: dict, prompt_cases: dict[str, dict], engine_index: dic
             "This report scores recorded artifacts only; it does not run or approve a TTS model.",
             "Missing samples are not zero-quality scores; they reduce coverage only.",
             "Human ratings are reported per dimension and are not collapsed into an arbitrary overall score.",
-            "Production eligibility requires every provenance, rights, voice-cloning and coverage gate to pass.",
+            "Production eligibility requires every provenance, rights, voice-cloning, human-review and acceptance gate to pass.",
         ],
     }
 
