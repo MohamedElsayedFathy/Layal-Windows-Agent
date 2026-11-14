@@ -46,7 +46,7 @@ class TtsCandidateScoringTests(unittest.TestCase):
         return {
             "schemaVersion": 1,
             "runId": "test-run",
-            "device": {"os": "Windows", "cpu": "Test CPU"},
+            "device": {"os": "Windows", "cpu": "Test CPU", "ramMb": 8192, "gpu": "Test GPU"},
             "engines": [self.make_engine(languages)],
             "samples": samples or [],
         }
@@ -75,6 +75,7 @@ class TtsCandidateScoringTests(unittest.TestCase):
             "ratings": [{
                 "raterId": "rater-01",
                 "scores": {
+                    "promptFidelity": 5,
                     "naturalness": 4,
                     "intelligibility": 5,
                     "softness": 4,
@@ -138,8 +139,12 @@ class TtsCandidateScoringTests(unittest.TestCase):
             report = MODULE.build_report(manifest, self.prompt_cases, engines, [record])
             engine = report["engines"][0]
             self.assertAlmostEqual(20.0, engine["metrics"]["realTimeFactor"], places=3)
+            self.assertEqual(5.0, engine["humanRatings"]["promptFidelity"])
             self.assertEqual(4.0, engine["humanRatings"]["naturalness"])
             self.assertEqual(5.0, engine["humanRatings"]["intelligibility"])
+            self.assertEqual(manifest["device"], report["device"])
+            self.assertEqual("https://example.com/model", engine["sourceUrl"])
+            self.assertEqual(["a" * 64], engine["modelSha256"])
             self.assertNotIn("overallScore", engine)
 
     def test_audio_path_traversal_is_rejected(self):
@@ -297,6 +302,33 @@ class TtsCandidateScoringTests(unittest.TestCase):
         engine["manualAcceptanceStatus"] = "pending"
         report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
         self.assertFalse(report["engines"][0]["eligibleForProduction"])
+
+
+    def test_same_candidate_wav_cannot_be_reused_for_different_prompts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            sample = self.sample_for(root, "samples/reused.wav")
+            duplicate = dict(sample)
+            duplicate["caseId"] = "egy-02"
+            duplicate["style"] = "gentle"
+            manifest = self.make_manifest([sample, duplicate])
+            errors, _ = MODULE.validate_manifest(manifest, self.prompt_cases)
+            self.assertTrue(any("reuses an identical WAV hash for a different prompt" in error for error in errors))
+
+    def test_zero_render_time_and_missing_device_provenance_are_rejected(self):
+        manifest = self.make_manifest()
+        errors, _ = MODULE.validate_manifest(manifest, self.prompt_cases)
+        self.assertEqual([], errors)
+
+        manifest["device"].pop("cpu")
+        manifest["samples"] = [{
+            "caseId": "egy-01", "engineId": "candidate-a", "style": "natural",
+            "audioPath": "samples/a.wav", "audioSha256": "a" * 64,
+            "renderTimeMs": 0, "timeToFirstAudioMs": 0, "ratings": [],
+        }]
+        errors, _ = MODULE.validate_manifest(manifest, self.prompt_cases)
+        self.assertTrue(any("device.cpu" in error for error in errors))
+        self.assertTrue(any("positive numeric 'renderTimeMs'" in error for error in errors))
 
 
 if __name__ == "__main__":
