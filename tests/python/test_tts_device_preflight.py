@@ -85,7 +85,7 @@ class TtsDevicePreflightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp, \
              mock.patch.object(MODULE, "collect_cpu", return_value=("Test CPU", "test")), \
              mock.patch.object(MODULE, "collect_total_memory_mb", return_value=16384), \
-             mock.patch.object(MODULE, "collect_nvidia_gpus", return_value=([{"name": "Test GPU", "memoryMb": 8192}], "nvidia-smi")):
+             mock.patch.object(MODULE, "collect_nvidia_gpus", return_value=([{"name": "Test GPU 1", "memoryMb": 8192}, {"name": "Test GPU 2", "memoryMb": 4096}], "nvidia-smi")):
             report = MODULE.collect_device_report(Path(temp))
         self.assertEqual(
             {"os", "cpu", "ramMb", "gpu"},
@@ -93,8 +93,8 @@ class TtsDevicePreflightTests(unittest.TestCase):
         )
         self.assertEqual("Test CPU", report["device"]["cpu"])
         self.assertEqual(16384, report["device"]["ramMb"])
-        self.assertEqual("Test GPU", report["device"]["gpu"])
-        self.assertEqual(8192, report["hardwareDetails"]["totalNvidiaVramMb"])
+        self.assertEqual("Test GPU 1; Test GPU 2", report["device"]["gpu"])
+        self.assertEqual(8192, report["hardwareDetails"]["largestNvidiaGpuVramMb"])
         self.assertTrue(report["limitations"])
 
     def test_cli_writes_machine_readable_json_without_running_inference(self):
