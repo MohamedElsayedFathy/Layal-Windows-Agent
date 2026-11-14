@@ -102,10 +102,6 @@ public partial class FloatingMascotWindow : Window
     private double _rightPupilMoodX;
     private double _rightPupilMoodY;
     private string _mood = "idle";
-    private Point? _positionBeforeMainWindowOverlap;
-    private bool _mascotHiddenForMainWindowOverlap;
-    private bool _userRequestedMascotHidden;
-    private bool _updatingMainWindowOverlap;
     private const int GwlExStyle = -20;
     private const long WsExTransparent = 0x00000020L;
     private const uint SwpNoSize = 0x0001;
@@ -227,14 +223,6 @@ public partial class FloatingMascotWindow : Window
         _normalShellEffect = Shell.Effect;
         SystemEvents.UserPreferenceChanged += Mascot_UserPreferenceChanged;
         Closed += MascotWindow_Closed;
-        if (AppRuntime.MainWindow is { } mainWindow)
-        {
-            mainWindow.LocationChanged += MainWindowGeometryChanged;
-            mainWindow.SizeChanged += MainWindowGeometryChanged;
-            mainWindow.StateChanged += MainWindowGeometryChanged;
-            mainWindow.IsVisibleChanged += MainWindow_IsVisibleChanged;
-            mainWindow.Closed += MainWindow_Closed;
-        }
         InitializeCinematicEffects();
         InitializeCharacterArt();
         ApplyCharacterDisplayMode(AppRuntime.Settings.MascotCharacterDisplayMode);
@@ -285,12 +273,7 @@ public partial class FloatingMascotWindow : Window
         // over the pass-through area are delivered to the application underneath, not here.
         _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AppRuntime.Settings.PerformanceModeEnabled ? 33 : 8) };
         _hitTestTimer.Tick += (_, _) => UpdateHitTestTransparency();
-        IsVisibleChanged += (_, _) =>
-        {
-            UpdateTimersForVisibility();
-            if (IsVisible)
-                UpdatePositionForMainWindowOverlap();
-        };
+        IsVisibleChanged += (_, _) => UpdateTimersForVisibility();
         UpdateTimersForVisibility();
         UpdateLanguage();
         SetMood("idle");
@@ -432,99 +415,6 @@ public partial class FloatingMascotWindow : Window
     {
         SystemEvents.UserPreferenceChanged -= Mascot_UserPreferenceChanged;
         Closed -= MascotWindow_Closed;
-        if (AppRuntime.MainWindow is { } mainWindow)
-        {
-            mainWindow.LocationChanged -= MainWindowGeometryChanged;
-            mainWindow.SizeChanged -= MainWindowGeometryChanged;
-            mainWindow.StateChanged -= MainWindowGeometryChanged;
-            mainWindow.IsVisibleChanged -= MainWindow_IsVisibleChanged;
-            mainWindow.Closed -= MainWindow_Closed;
-        }
-    }
-
-    private void MainWindowGeometryChanged(object? sender, EventArgs e) => UpdatePositionForMainWindowOverlap();
-
-    private void MainWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) => UpdatePositionForMainWindowOverlap();
-
-    private void MainWindow_Closed(object? sender, EventArgs e) => RestorePositionAfterMainWindowOverlap();
-
-    private void UpdatePositionForMainWindowOverlap()
-    {
-        if (_updatingMainWindowOverlap || _userRequestedMascotHidden ||
-            (!IsVisible && !_mascotHiddenForMainWindowOverlap))
-            return;
-
-        var mainWindow = AppRuntime.MainWindow;
-        if (mainWindow is null || !mainWindow.IsVisible || mainWindow.WindowState == WindowState.Minimized ||
-            mainWindow.ActualWidth <= 0 || mainWindow.ActualHeight <= 0)
-        {
-            RestorePositionAfterMainWindowOverlap();
-            return;
-        }
-
-        var preferredPosition = _positionBeforeMainWindowOverlap ?? new Point(Left, Top);
-        var preferredBounds = new Rect(preferredPosition, new Size(Width, Height));
-        var mainWindowBounds = new Rect(mainWindow.Left, mainWindow.Top, mainWindow.ActualWidth, mainWindow.ActualHeight);
-        if (!preferredBounds.IntersectsWith(mainWindowBounds))
-        {
-            RestorePositionAfterMainWindowOverlap();
-            return;
-        }
-
-        _positionBeforeMainWindowOverlap ??= new Point(Left, Top);
-        var position = MascotCollisionPlacement.FindAvailablePosition(
-            mainWindowBounds,
-            new Size(Width, Height),
-            SystemParameters.WorkArea,
-            preferredPosition);
-
-        _updatingMainWindowOverlap = true;
-        try
-        {
-            if (position is { } availablePosition)
-            {
-                Left = availablePosition.X;
-                Top = availablePosition.Y;
-                _mascotHiddenForMainWindowOverlap = false;
-                Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
-                Visibility = Visibility.Visible;
-            }
-            else
-            {
-                // A maximized window can leave no safe slot; hide the mascot until the
-                // main window moves or minimizes rather than drawing over its controls.
-                _mascotHiddenForMainWindowOverlap = true;
-                Visibility = Visibility.Hidden;
-            }
-        }
-        finally
-        {
-            _updatingMainWindowOverlap = false;
-        }
-    }
-
-    private void RestorePositionAfterMainWindowOverlap()
-    {
-        if (_updatingMainWindowOverlap || _positionBeforeMainWindowOverlap is not { } preferredPosition)
-            return;
-
-        _updatingMainWindowOverlap = true;
-        try
-        {
-            Left = preferredPosition.X;
-            Top = preferredPosition.Y;
-            _positionBeforeMainWindowOverlap = null;
-            if (_mascotHiddenForMainWindowOverlap && !_userRequestedMascotHidden)
-            {
-                Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
-                Visibility = Visibility.Visible;
-            }
-            _mascotHiddenForMainWindowOverlap = false;
-        }
-        finally
-        {
-            _updatingMainWindowOverlap = false;
-        }
     }
 
     private void ApplySystemAccessibilityAppearance() =>
@@ -1751,12 +1641,10 @@ public partial class FloatingMascotWindow : Window
 
     public void ShowAgain()
     {
-        _userRequestedMascotHidden = false;
         Visibility = Visibility.Visible;
         if (!IsVisible) Show();
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
         if (!AnimationsAllowed) Root.RenderTransform = Transform.Identity;
-        UpdatePositionForMainWindowOverlap();
     }
 
     public void UpdateLanguage()
@@ -2718,13 +2606,10 @@ public partial class FloatingMascotWindow : Window
         var position = ClampToVirtualScreen(Left, Top);
         Left = position.Left;
         Top = position.Top;
-        if (_positionBeforeMainWindowOverlap is not null)
-            _positionBeforeMainWindowOverlap = new Point(Left, Top);
         AppRuntime.Settings.MascotLeft = Left;
         AppRuntime.Settings.MascotTop = Top;
         try { AppRuntime.SettingsStore.Save(AppRuntime.Settings); }
         catch { /* Keep the mascot usable even if settings storage is unavailable. */ }
-        UpdatePositionForMainWindowOverlap();
     }
 
     private void UpdateIdleState()
@@ -2839,7 +2724,6 @@ public partial class FloatingMascotWindow : Window
     private void OpenMenuItem_Click(object sender, RoutedEventArgs e) => AppRuntime.MainWindow?.ShowFromTray();
     private void HideMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        _userRequestedMascotHidden = true;
         Hide();
     }
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e) => AppRuntime.ExitAction?.Invoke();

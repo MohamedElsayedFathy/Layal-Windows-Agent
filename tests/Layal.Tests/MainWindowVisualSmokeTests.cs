@@ -2257,7 +2257,8 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual(oldBaseUrl, store.Load().ProviderBaseUrl);
         Assert.AreEqual(oldModelId, store.Load().ModelId);
 
-        // Test the show control at a compact size where a safe mascot slot is available.
+        // The mascot is an independent desktop companion. It must remain at the user's
+        // chosen coordinates even when intentionally placed over the main application.
         mascot.Hide();
         window.Width = 900;
         window.Height = 560;
@@ -2265,23 +2266,34 @@ public sealed class MainWindowVisualSmokeTests
         window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         showMascot.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, showMascot));
         Assert.IsTrue(AppRuntime.Settings.MascotAlwaysOnTop,
-            "Collision handling must preserve the persisted always-on-top preference.");
-        var mascotOverlapsMainWindow = new Rect(mascot.Left, mascot.Top, mascot.Width, mascot.Height)
-            .IntersectsWith(new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight));
-        if (mascotOverlapsMainWindow)
-        {
-            var hiddenField = typeof(FloatingMascotWindow).GetField("_mascotHiddenForMainWindowOverlap", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?? throw new InvalidOperationException("The temporary mascot overlap state was not found.");
-            Assert.IsTrue((bool)hiddenField.GetValue(mascot)!,
-                "When no safe slot exists, the mascot must be temporarily hidden.");
-            Assert.IsFalse(mascot.IsVisible,
-                "A full-size main window must not be covered by the floating mascot.");
-        }
-        else
-        {
-            Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
-            Assert.IsTrue(mascot.Topmost, "ShowAgain must restore the persisted always-on-top preference when unobstructed.");
-        }
+            "Showing the mascot must preserve the persisted always-on-top preference.");
+        Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
+
+        var mainBounds = new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight);
+        var requestedPosition = new Point(
+            window.Left + (window.ActualWidth - mascot.Width) / 2,
+            window.Top + (window.ActualHeight - mascot.Height) / 2);
+        requestedPosition = new Point(
+            Math.Clamp(requestedPosition.X, SystemParameters.VirtualScreenLeft,
+                SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - mascot.Width),
+            Math.Clamp(requestedPosition.Y, SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - mascot.Height));
+        mascot.Left = requestedPosition.X;
+        mascot.Top = requestedPosition.Y;
+        var saveMascotPosition = typeof(FloatingMascotWindow).GetMethod("SaveMascotPosition", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SaveMascotPosition was not found.");
+        saveMascotPosition.Invoke(mascot, null);
+
+        var mascotBounds = new Rect(mascot.Left, mascot.Top, mascot.Width, mascot.Height);
+        Assert.IsTrue(mascotBounds.IntersectsWith(mainBounds),
+            "A user-selected mascot position may intentionally overlap the main application.");
+        Assert.IsTrue(mascot.IsVisible,
+            "The mascot must not be hidden merely because it overlaps the main application.");
+        var savedMascotSettings = store.Load();
+        Assert.AreEqual(mascot.Left, savedMascotSettings.MascotLeft, 0.1,
+            "The selected horizontal position must be persisted without collision relocation.");
+        Assert.AreEqual(mascot.Top, savedMascotSettings.MascotTop, 0.1,
+            "The selected vertical position must be persisted without collision relocation.");
 
         AppRuntime.Settings = store.Load();
         AppRuntime.Settings.ThemeMode = "light";
