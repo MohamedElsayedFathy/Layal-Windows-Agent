@@ -2267,7 +2267,7 @@ public sealed class MainWindowVisualSmokeTests
         showMascot.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, showMascot));
         Assert.IsTrue(AppRuntime.Settings.MascotAlwaysOnTop,
             "Showing the mascot must preserve the persisted always-on-top preference.");
-        Assert.IsTrue(mascot.IsVisible, "The show-mascot control must restore the mascot.");
+        Assert.IsTrue(mascot.IsVisible, "The show-mascot button must restore a hidden mascot window.");
 
         var mainBounds = new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight);
         var requestedPosition = new Point(
