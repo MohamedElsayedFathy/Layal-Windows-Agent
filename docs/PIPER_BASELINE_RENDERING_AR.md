@@ -23,6 +23,20 @@
 - الأنماط الثمانية تغيّر length_scale وsentence_silence طبقًا لسياسة التطبيق. هذا تغيير في السرعة والوقفات، وليس تحكمًا عاطفيًا أو تغييرًا في خامة الصوت.
 - تُترك مراجعة الترخيص وحقوق الصوت والقبول البشري بحالة pending. لذلك لا يمكن لهذا التقرير وحده اعتماد Piper كصوت إنتاج نهائي.
 
+## تجهيز نسخة المستودع محليًا داخل AI
+
+لو نسخة المستودع غير موجودة على جهازك، يمكن وضعها بجانب ملفاتك الحالية داخل مجلد AI دون المساس بملفات Word الموجودة:
+
+~~~powershell
+$ai = Join-Path $env:USERPROFILE 'Desktop\\JobApplicationSender\\AI'
+$repo = Join-Path $ai 'Layal-Windows-Agent'
+
+git clone --branch feat/piper-baseline-renderer https://github.com/MohamedElsayedFathy/Layal-Windows-Agent.git $repo
+Set-Location $repo
+~~~
+
+لو عندك clone سابق للمستودع، لا تنشئ نسخة ثانية؛ افتح جذر النسخة الموجودة واسحب فرع feat/piper-baseline-renderer إليها بعد التأكد من حفظ أي تغييرات محلية.
+
 ## شروط ما قبل التشغيل
 
 1. اسحب فرع feat/piper-baseline-renderer أو استخدم نسخة المستودع بعد دمجه.
