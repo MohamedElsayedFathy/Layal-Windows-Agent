@@ -28,7 +28,7 @@
 لو نسخة المستودع غير موجودة على جهازك، يمكن وضعها بجانب ملفاتك الحالية داخل مجلد AI دون المساس بملفات Word الموجودة:
 
 ~~~powershell
-$ai = Join-Path $env:USERPROFILE 'Desktop\\JobApplicationSender\\AI'
+$ai = Join-Path $env:USERPROFILE 'Desktop\JobApplicationSender\AI'
 $repo = Join-Path $ai 'Layal-Windows-Agent'
 
 git clone --branch feat/piper-baseline-renderer https://github.com/MohamedElsayedFathy/Layal-Windows-Agent.git $repo
