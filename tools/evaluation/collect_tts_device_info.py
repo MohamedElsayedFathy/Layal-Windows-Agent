@@ -163,7 +163,8 @@ def collect_device_report(model_directory: Path) -> dict[str, Any]:
             "cpuDetection": cpu_source,
             "gpuDetection": gpu_detection,
             "gpus": gpus,
-            "totalNvidiaVramMb": sum(gpu_memory_values) if gpu_memory_values else None,
+            # VRAM belongs to separate devices; do not imply it is one shared pool.
+            "largestNvidiaGpuVramMb": max(gpu_memory_values) if gpu_memory_values else None,
             "pythonVersion": platform.python_version(),
             "pythonImplementation": platform.python_implementation(),
             "architecture": platform.machine(),
