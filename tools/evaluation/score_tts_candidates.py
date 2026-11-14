@@ -30,7 +30,7 @@ STYLES = {
     "empathetic", "serious", "energetic", "playful",
 }
 RATING_FIELDS = (
-    "naturalness", "intelligibility", "softness", "accentFit",
+    "promptFidelity", "naturalness", "intelligibility", "softness", "accentFit",
     "identityConsistency", "prosodyFit", "pronunciationAccuracy",
 )
 HASH_LENGTH = 64
@@ -106,6 +106,20 @@ def validate_manifest(payload: object, prompt_cases: dict[str, dict]) -> tuple[l
     if not isinstance(run_id, str) or not run_id.strip():
         errors.append("'runId' must be a non-empty string.")
 
+    device = payload.get("device")
+    if not isinstance(device, dict):
+        errors.append("'device' must be an object with reproducible hardware details.")
+    else:
+        for field in ("os", "cpu"):
+            if not isinstance(device.get(field), str) or not device[field].strip():
+                errors.append(f"'device.{field}' must be a non-empty string.")
+        ram_mb = device.get("ramMb")
+        if not isinstance(ram_mb, int) or isinstance(ram_mb, bool) or ram_mb <= 0:
+            errors.append("'device.ramMb' must be a positive integer.")
+        gpu = device.get("gpu")
+        if gpu is not None and (not isinstance(gpu, str) or not gpu.strip()):
+            errors.append("'device.gpu' must be a non-empty string or null.")
+
     engines = payload.get("engines")
     if not isinstance(engines, list) or not engines:
         errors.append("'engines' must be a non-empty array.")
@@ -168,6 +182,7 @@ def validate_manifest(payload: object, prompt_cases: dict[str, dict]) -> tuple[l
         errors.append("'samples' must be an array.")
         samples = []
     seen_samples: set[tuple[str, str, str]] = set()
+    seen_audio_by_engine_case: dict[tuple[str, str], str] = {}
     for index, sample in enumerate(samples, start=1):
         prefix = f"Sample #{index}"
         if not isinstance(sample, dict):
@@ -199,15 +214,30 @@ def validate_manifest(payload: object, prompt_cases: dict[str, dict]) -> tuple[l
         seen_samples.add(key)
         for field in ("renderTimeMs", "timeToFirstAudioMs"):
             value = sample.get(field)
-            if not _is_number(value) or value < 0:
-                errors.append(f"{prefix} needs a non-negative numeric '{field}'.")
+            invalid = not _is_number(value) or value < 0
+            if field == "renderTimeMs" and _is_number(value) and value == 0:
+                invalid = True
+            if invalid:
+                requirement = "positive" if field == "renderTimeMs" else "non-negative"
+                errors.append(f"{prefix} needs a {requirement} numeric '{field}'.")
         if _is_number(sample.get("renderTimeMs")) and _is_number(sample.get("timeToFirstAudioMs")):
             if sample["timeToFirstAudioMs"] > sample["renderTimeMs"]:
                 errors.append(f"{prefix} timeToFirstAudioMs cannot exceed renderTimeMs.")
         if not isinstance(sample.get("audioPath"), str) or not sample["audioPath"].strip():
             errors.append(f"{prefix} needs a relative audioPath.")
-        if not _is_sha256(sample.get("audioSha256")):
+        audio_hash = sample.get("audioSha256")
+        if not _is_sha256(audio_hash):
             errors.append(f"{prefix} needs a 64-character audioSha256.")
+        else:
+            hash_key = (engine_id, audio_hash.lower())
+            previous_case = seen_audio_by_engine_case.get(hash_key)
+            if previous_case is not None and previous_case != case_id:
+                errors.append(
+                    f"{prefix} reuses an identical WAV hash for a different prompt "
+                    f"('{previous_case}' and '{case_id}'); each prompt needs its own render."
+                )
+            else:
+                seen_audio_by_engine_case[hash_key] = case_id
         ratings = sample.get("ratings", [])
         if not isinstance(ratings, list):
             errors.append(f"{prefix} ratings must be an array.")
@@ -364,8 +394,16 @@ def build_report(payload: dict, prompt_cases: dict[str, dict], engine_index: dic
             "id": engine_id,
             "displayName": engine["displayName"],
             "revision": engine["revision"],
+            "sourceUrl": engine["sourceUrl"],
+            "revisionIsImmutable": engine["revisionIsImmutable"],
+            "speakerId": engine["speakerId"],
+            "modelSha256": engine["modelSha256"],
             "licenseStatus": engine["licenseStatus"],
+            "licenseEvidenceUrl": engine.get("licenseEvidenceUrl"),
             "speakerRightsStatus": engine["speakerRightsStatus"],
+            "speakerRightsEvidenceUrl": engine.get("speakerRightsEvidenceUrl"),
+            "voiceCloningEnabled": engine["voiceCloningEnabled"],
+            "manualAcceptanceStatus": engine["manualAcceptanceStatus"],
             "observedSamples": len(engine_records),
             "expectedSamples": len(expected_keys),
             "missingSamples": missing_count,
@@ -381,6 +419,7 @@ def build_report(payload: dict, prompt_cases: dict[str, dict], engine_index: dic
         "schemaVersion": 1,
         "runId": payload["runId"],
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "device": payload["device"],
         "promptCount": len(prompt_cases),
         "sampleCount": len(audio_records),
         "engines": engine_reports,
