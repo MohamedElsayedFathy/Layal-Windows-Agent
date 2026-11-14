@@ -218,7 +218,13 @@ class TtsCandidateScoringTests(unittest.TestCase):
                     "realTimeFactor": sample["renderTimeMs"] / audio["durationMs"],
                     **audio,
                 })
-            manifest = {"schemaVersion": 1, "runId": "accepted-test", "engines": [engine], "samples": samples}
+            manifest = {
+                "schemaVersion": 1,
+                "runId": "accepted-test",
+                "device": {"os": "Windows", "cpu": "Test CPU", "ramMb": 8192, "gpu": "Test GPU"},
+                "engines": [engine],
+                "samples": samples,
+            }
             errors, engines = MODULE.validate_manifest(manifest, self.prompt_cases)
             self.assertEqual([], errors)
             report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
@@ -285,6 +291,7 @@ class TtsCandidateScoringTests(unittest.TestCase):
         manifest = {
             "schemaVersion": 1,
             "runId": "full-target-test",
+            "device": {"os": "Windows", "cpu": "Test CPU", "ramMb": 8192, "gpu": "Test GPU"},
             "engines": [engine],
             "samples": [],
         }
