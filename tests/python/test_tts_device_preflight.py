@@ -17,6 +17,11 @@ SPEC.loader.exec_module(MODULE)
 
 
 class TtsDevicePreflightTests(unittest.TestCase):
+    def test_physical_memory_probe_returns_a_positive_integer_on_the_host(self):
+        memory_mb = MODULE.collect_total_memory_mb()
+        self.assertIsInstance(memory_mb, int)
+        self.assertGreater(memory_mb, 0)
+
     def test_cpu_falls_back_to_architecture_without_claiming_model_name(self):
         with mock.patch.object(MODULE, "_windows_cpu_name", return_value=None), \
              mock.patch.object(MODULE.platform, "processor", return_value=""), \
