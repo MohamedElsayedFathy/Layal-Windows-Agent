@@ -218,9 +218,8 @@ class TtsCandidateScoringTests(unittest.TestCase):
             self.assertEqual([], errors)
             report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
             self.assertTrue(report["engines"][0]["productionGates"]["humanReviewComplete"])
-            self.assertTrue(report["engines"][0]["eligibleForProduction"])
-            engine["manualAcceptanceStatus"] = "pending"
-            report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
+            self.assertFalse(report["engines"][0]["productionGates"]["targetLanguageCoverage"])
+            self.assertFalse(report["engines"][0]["productionGates"]["targetStyleCoverage"])
             self.assertFalse(report["engines"][0]["eligibleForProduction"])
 
     def test_verified_rights_need_https_evidence_and_scores_must_be_in_range(self):
@@ -243,6 +242,61 @@ class TtsCandidateScoringTests(unittest.TestCase):
         manifest["samples"] = [sample]
         errors, _ = MODULE.validate_manifest(manifest, self.prompt_cases)
         self.assertTrue(any("between 1 and 5" in error for error in errors))
+
+
+    def test_production_target_requires_all_languages_all_styles_and_manual_acceptance(self):
+        engine = self.make_engine(languages=sorted(MODULE.LANGUAGES))
+        engine["supportedStyles"] = sorted(MODULE.STYLES)
+        engine["licenseStatus"] = "verified"
+        engine["licenseEvidenceUrl"] = "https://example.com/license"
+        engine["speakerRightsStatus"] = "verified"
+        engine["speakerRightsEvidenceUrl"] = "https://example.com/rights"
+        engine["manualAcceptanceStatus"] = "accepted"
+
+        records = []
+        for case_id, case in self.prompt_cases.items():
+            for style in engine["supportedStyles"]:
+                scores = {field: 4 for field in MODULE.RATING_FIELDS}
+                records.append({
+                    "caseId": case_id,
+                    "engineId": engine["id"],
+                    "language": case["language"],
+                    "style": style,
+                    "renderTimeMs": 500,
+                    "timeToFirstAudioMs": 80,
+                    "durationMs": 1000,
+                    "realTimeFactor": 0.5,
+                    "rmsFullScale": 0.1,
+                    "peakFullScale": 0.2,
+                    "clippedSamplesPercent": 0.0,
+                    "sha256": "a" * 64,
+                    "sampleRateHz": 24000,
+                    "ratings": [
+                        {"raterId": "rater-01", "scores": scores},
+                        {"raterId": "rater-02", "scores": scores},
+                    ],
+                })
+
+        manifest = {
+            "schemaVersion": 1,
+            "runId": "full-target-test",
+            "engines": [engine],
+            "samples": [],
+        }
+        errors, engines = MODULE.validate_manifest(manifest, self.prompt_cases)
+        self.assertEqual([], errors)
+        report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
+        result = report["engines"][0]
+        self.assertEqual(144, result["expectedSamples"])
+        self.assertEqual(144, result["observedSamples"])
+        self.assertTrue(result["productionGates"]["targetLanguageCoverage"])
+        self.assertTrue(result["productionGates"]["targetStyleCoverage"])
+        self.assertTrue(result["productionGates"]["humanReviewComplete"])
+        self.assertTrue(result["eligibleForProduction"])
+
+        engine["manualAcceptanceStatus"] = "pending"
+        report = MODULE.build_report(manifest, self.prompt_cases, engines, records)
+        self.assertFalse(report["engines"][0]["eligibleForProduction"])
 
 
 if __name__ == "__main__":
