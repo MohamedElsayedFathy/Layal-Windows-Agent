@@ -1641,12 +1641,10 @@ public partial class FloatingMascotWindow : Window
 
     public void ShowAgain()
     {
-        _userRequestedMascotHidden = false;
         Visibility = Visibility.Visible;
         if (!IsVisible) Show();
         Topmost = AppRuntime.Settings.MascotAlwaysOnTop;
         if (!AnimationsAllowed) Root.RenderTransform = Transform.Identity;
-        UpdatePositionForMainWindowOverlap();
     }
 
     public void UpdateLanguage()
