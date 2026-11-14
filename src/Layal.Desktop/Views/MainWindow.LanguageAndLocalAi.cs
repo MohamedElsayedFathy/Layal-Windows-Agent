@@ -316,12 +316,12 @@ public partial class MainWindow
             : "Text style is independent from delivery style and voice identity; it never changes safety rules, confirmations, or tool permissions.");
         VoiceDeliveryStyleLabel.Text = ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style";
         VoiceDeliveryStyleDisclosure.Text = ar
-            ? "طبيعية أو هادئة أو مشرقة أو واضحة. النطق المحلي عبر Piper يغيّر الإيقاع فقط؛ لا توجد تعليمات صوتية تُرسل إلى خادم."
-            : "Natural, gentle, bright, or clear. Local Piper speech changes pace only; no voice instructions are sent to a server.";
+            ? "ثمانية أنماط: طبيعية، ناعمة، مبهجة، واضحة، متعاطفة، جادة، نشيطة ومرحة. Piper الحالي يضبط سرعة الكلام والوقفات فقط؛ لا يغيّر خامة الصوت أو يولّد انفعالات كاملة، ولا يُرسل النص إلى خادم."
+            : "Eight styles: natural, gentle, bright, clear, empathetic, serious, energetic, and playful. Current Piper controls pace and pauses only; it does not change voice timbre or provide full emotional prosody, and text is not sent to a server.";
         AutomationProperties.SetName(VoiceDeliveryStyleSelector, ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style");
         AutomationProperties.SetHelpText(VoiceDeliveryStyleSelector, ar
-            ? "اختيار مستقل عن أسلوب النص وهوية الصوت. لا يغيّر قواعد الأمان أو صلاحيات الأدوات."
-            : "Independent from text style and voice identity. Does not change safety rules or tool permissions.");
+            ? "اختر أحد ثمانية أنماط للإلقاء. يغيّر Piper المحلي السرعة والوقفات فقط؛ لا يغيّر هوية الصوت أو قواعد الأمان أو صلاحيات الأدوات."
+            : "Choose one of eight delivery styles. Local Piper adjusts pace and pauses only; it does not change voice identity, safety rules, or tool permissions.");
         foreach (ComboBoxItem styleItem in VoiceDeliveryStyleSelector.Items)
             styleItem.Content = VoiceDeliveryStylePolicy.GetDisplayName(styleItem.Tag?.ToString(), ar);
         CharacterDisplayModeLabel.Text = ar ? "الشخصية المعروضة" : "Displayed character";
