@@ -177,6 +177,45 @@ def verify_asset(root: Path, asset: AssetSpec) -> str:
     return actual_hash
 
 
+def verify_piper_runtime_tree(piper_root: Path) -> None:
+    """Match the app's exact runtime-code inventory and reject every reparse point."""
+    piper_root = piper_root.expanduser().absolute()
+    reject_reparse_points(piper_root)
+
+    expected = {
+        Path(asset.relative_path).as_posix().casefold()
+        for asset in PIPER_RUNTIME_ASSETS
+    }
+    actual: set[str] = set()
+    code_extensions = {".exe", ".dll", ".ort"}
+
+    def visit(directory: Path) -> None:
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                entry_path = Path(entry.path)
+                # Check all entries, including non-code files and directories, just as
+                # LocalVoiceService does before it starts the verified Piper executable.
+                reject_reparse_points(entry_path)
+                if entry.is_dir(follow_symlinks=False):
+                    visit(entry_path)
+                elif entry.is_file(follow_symlinks=False) and entry_path.suffix.casefold() in code_extensions:
+                    actual.add(entry_path.relative_to(piper_root).as_posix().casefold())
+
+    visit(piper_root)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        details = []
+        if missing:
+            details.append("ملفات runtime المثبتة المفقودة: " + ", ".join(missing))
+        if unexpected:
+            details.append("ملفات runtime غير متوقعة: " + ", ".join(unexpected))
+        raise ValueError(
+            "مجموعة ملفات Piper التنفيذية لا تطابق التثبيت الذي يتحقق منه التطبيق. "
+            + "؛ ".join(details)
+        )
+
+
 def verify_assets(piper_root: Path, models_dir: Path) -> dict[str, Any]:
     piper_root = piper_root.expanduser().absolute()
     models_dir = models_dir.expanduser().absolute()
@@ -186,6 +225,9 @@ def verify_assets(piper_root: Path, models_dir: Path) -> dict[str, Any]:
         raise NotADirectoryError(f"Piper root غير موجود: {piper_root}")
     if not models_dir.is_dir():
         raise NotADirectoryError(f"مجلد نماذج Piper غير موجود: {models_dir}")
+
+    # Match LocalVoiceService's exact executable/DLL/ORT inventory before launch.
+    verify_piper_runtime_tree(piper_root)
 
     runtime_hashes: dict[str, str] = {}
     for asset in PIPER_RUNTIME_ASSETS:
