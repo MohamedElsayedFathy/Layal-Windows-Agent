@@ -534,25 +534,31 @@ public sealed class LocalVoiceService
             if (declaredLength.HasValue && declaredLength.Value > 0 && declaredLength.Value != expectedSize)
                 throw new InvalidOperationException($"حجم ملف الصوت من المصدر تغيّر؛ أُلغي التنزيل للتحقق من النسخة ({declaredLength.Value:N0} بايت بدلًا من {expectedSize:N0}).");
 
-            await using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
-            await using var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true);
-            var buffer = new byte[1024 * 128];
             long downloaded = 0;
-            try
+            // Close both streams before hashing or moving the staging file. The output stream
+            // uses FileShare.None, so verifying or renaming it while its handle is still open
+            // fails on Windows with "file is being used by another process".
             {
-                while (true)
+                await using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
+                await using var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true);
+                var buffer = new byte[1024 * 128];
+                try
                 {
-                    var count = await input.ReadAsync(buffer.AsMemory(), timeout.Token);
-                    if (count == 0) break;
-                    downloaded += count;
-                    if (downloaded > expectedSize)
-                        throw new InvalidOperationException("تجاوز الملف الذي يتم تنزيله الحجم المتوقع؛ أُلغي لتجنب تخزين ملف غير موثوق.");
-                    await output.WriteAsync(buffer.AsMemory(0, count), timeout.Token);
-                    progress?.Report(new LocalSpeechProgress(progressMessage, Math.Clamp(downloaded * 100d / expectedSize, 0d, 100d)));
+                    while (true)
+                    {
+                        var count = await input.ReadAsync(buffer.AsMemory(), timeout.Token);
+                        if (count == 0) break;
+                        downloaded += count;
+                        if (downloaded > expectedSize)
+                            throw new InvalidOperationException("تجاوز الملف الذي يتم تنزيله الحجم المتوقع؛ أُلغي لتجنب تخزين ملف غير موثوق.");
+                        await output.WriteAsync(buffer.AsMemory(0, count), timeout.Token);
+                        progress?.Report(new LocalSpeechProgress(progressMessage, Math.Clamp(downloaded * 100d / expectedSize, 0d, 100d)));
+                    }
                 }
+                finally { Array.Clear(buffer); }
+                await output.FlushAsync(timeout.Token);
             }
-            finally { Array.Clear(buffer); }
-            await output.FlushAsync(timeout.Token);
+
             if (downloaded != expectedSize)
                 throw new InvalidOperationException($"اكتمل تنزيل غير صحيح الحجم ({downloaded:N0} بايت بدلًا من {expectedSize:N0}). أعد المحاولة.");
 
