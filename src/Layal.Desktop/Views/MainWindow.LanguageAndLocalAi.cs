@@ -279,14 +279,14 @@ public partial class MainWindow
             ? "حدد السماعة أو مخرج الصوت لردود ليال والمحادثة الصوتية."
             : "Select the speaker or audio output used for Layal's spoken replies and live conversations.");
         AutomationProperties.SetName(RefreshAudioDevicesButton, ar ? "تحديث قائمة أجهزة الصوت" : "Refresh audio devices");
-        VoiceReplyCheckbox.Content = ar ? "نطق الردود بصوت Piper المحلي (اختياري)" : "Speak replies with optional local Piper voice";
+        VoiceReplyCheckbox.Content = ar ? "نطق الردود عبر VoiceTut المحلي (اختياري)" : "Speak replies with optional local VoiceTut";
         VoiceReplyDisclosureText.Text = ar
-            ? "صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper؛ لا يُرسل نص الرد إلى أي خدمة صوتية."
-            : "Layal's synthetic voice is not a human recording. Speech is generated locally with Piper; reply text is not sent to a voice service.";
+            ? "صوت ليال اصطناعي ويُولّد محليًا عبر VoiceTut بتصميم صوت من وصف نصي فقط. لا تُحمّل أصوات العرض المرجعية أو ملفات استنساخ، ولا يُرسل النص إلى خدمة بعيدة."
+            : "Layal's synthetic voice is generated locally by VoiceTut using text-based Voice Design only. No demo reference voices or cloning samples are loaded, and text is not sent to a remote speech service.";
         TestVoiceReplyButton.Content = ar ? "اختبار السماعة والنطق" : "Test speaker and speech";
         TestVoiceReplyButton.ToolTip = ar
-            ? "يشغّل عينة عربية وإنجليزية عبر Piper المحلي على مخرج الصوت المحدد؛ استمع للتأكد من وضوح الصوت."
-            : "Plays an Arabic and English sample with local Piper on the selected output; listen for clear playback.";
+            ? "يشغّل عينة عربية وإنجليزية عبر VoiceTut المحلي، ثم يعرض زمن أول مقطع وعامل الزمن الحقيقي وعدد المقاطع."
+            : "Plays Arabic and English samples with local VoiceTut, then reports time-to-first-audio, real-time factor and chunk count.";
         TestMicrophoneButton.Content = ar ? "اختبار الميكروفون (3 ثوانٍ)" : "Test microphone (3 seconds)";
         TestMicrophoneButton.ToolTip = ar
             ? "يسجل عينة قصيرة في الذاكرة فقط، ويقيس مستوى الإشارة ثم يمسحها؛ لا يحفظ الصوت ولا يحوله إلى نص."
@@ -316,12 +316,12 @@ public partial class MainWindow
             : "Text style is independent from delivery style and voice identity; it never changes safety rules, confirmations, or tool permissions.");
         VoiceDeliveryStyleLabel.Text = ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style";
         VoiceDeliveryStyleDisclosure.Text = ar
-            ? "ثمانية أنماط: طبيعية، ناعمة، مبهجة، واضحة، متعاطفة، جادة، نشيطة ومرحة. Piper الحالي يضبط سرعة الكلام والوقفات فقط؛ لا يغيّر خامة الصوت أو يولّد انفعالات كاملة، ولا يُرسل النص إلى خادم."
-            : "Eight styles: natural, gentle, bright, clear, empathetic, serious, energetic, and playful. Current Piper controls pace and pauses only; it does not change voice timbre or provide full emotional prosody, and text is not sent to a server.";
+            ? "أنماط الإلقاء الثمانية تغيّر سرعة التوليد فقط. هوية الصوت تُحدَّد بصورة مستقلة من وصف Voice Design، والتعبير العاطفي الكامل غير مضمون."
+            : "The eight delivery presets adjust generation speed only. Voice identity is configured separately through Voice Design; full emotional prosody is not guaranteed.";
         AutomationProperties.SetName(VoiceDeliveryStyleSelector, ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style");
         AutomationProperties.SetHelpText(VoiceDeliveryStyleSelector, ar
-            ? "اختر أحد ثمانية أنماط للإلقاء. يغيّر Piper المحلي السرعة والوقفات فقط؛ لا يغيّر هوية الصوت أو قواعد الأمان أو صلاحيات الأدوات."
-            : "Choose one of eight delivery styles. Local Piper adjusts pace and pauses only; it does not change voice identity, safety rules, or tool permissions.");
+            ? "اختر أحد ثمانية أنماط؛ تأثيرها العملي هنا تعديل سرعة التوليد فقط. لا تغيّر هوية الصوت أو قواعد الأمان أو صلاحيات الأدوات."
+            : "Choose one of eight presets; they only adjust synthesis speed here. They do not change voice identity, safety rules, or tool permissions.");
         foreach (ComboBoxItem styleItem in VoiceDeliveryStyleSelector.Items)
             styleItem.Content = VoiceDeliveryStylePolicy.GetDisplayName(styleItem.Tag?.ToString(), ar);
         CharacterDisplayModeLabel.Text = ar ? "الشخصية المعروضة" : "Displayed character";
@@ -335,6 +335,17 @@ public partial class MainWindow
         foreach (ComboBoxItem modeItem in CharacterDisplayModeSelector.Items)
             modeItem.Content = CharacterDisplayModePolicy.GetModeName(modeItem.Tag?.ToString(), ar);
         AutomationProperties.SetName(VoiceReplyCheckbox, ar ? "الردود الصوتية لليال" : "Layal voice replies");
+        VoiceDesignInstructionLabel.Text = ar ? "وصف تصميم صوت ليال" : "Layal voice-design description";
+        VoiceQualityStepsLabel.Text = ar ? "جودة التوليد (خطوات النموذج)" : "Synthesis quality (model steps)";
+        VoiceGuidanceLabel.Text = ar ? "قوة توجيه تصميم الصوت" : "Voice-design guidance";
+        VoiceSpeedLabel.Text = ar ? "سرعة النطق" : "Speech speed";
+        VoiceNormalizationCheckbox.Content = ar ? "تفعيل مرجع تطبيع الكلام المصري" : "Enable Egyptian speech normalizer";
+        VoiceNormalizationDisclosure.Text = ar
+            ? "التطبيع محلي: أرقام وتواريخ وأوقات وعملات ونسب وأرقام هاتف وبريد وروابط ومقابض واختصارات ووحدات وأسماء إنجليزية مضافة. يحافظ على التشكيل الذي تكتبه."
+            : "Local normalization expands numbers, dates, times, currencies, percentages, phone numbers, email, URLs, handles, abbreviations, units and configured names. User-entered diacritics are preserved.";
+        VoiceDesignDisclosure.Text = ar
+            ? "الافتراضي أنثوي بعمر طفولي وطبقة مرتفعة جدًا. هذا وصف تصميم تجريبي؛ لا يضمن لهجة أو خامة أو عمرًا صوتيًا محددًا على كل اللغات."
+            : "Default design is female, child, very high pitch. This is an experimental design prompt and does not guarantee a specific dialect, timbre or perceived age across languages.");
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
             ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
             : "Read replies aloud. Local mode synthesizes speech on this device after local voice resources are prepared.");
@@ -574,8 +585,8 @@ public partial class MainWindow
         LocalAiSectionTitle.Text = ar ? "نواة ليال المستقلة والصوت المحلي الاختياري" : "Layal native core and optional local speech";
         UseLocalAiCheckbox.Content = ar ? "المعالجة المحلية فقط (ثابت)" : "Local processing only (fixed)";
         LocalAiDescription.Text = ar
-            ? "النواة الرمزية تعمل دون نموذج لكنها محدودة. لتفعيل حوار عام، جهّز نموذجًا لغويًا محليًا من القسم التالي. رسائل المحادثة تظل على الجهاز؛ Whisper/Piper لمعالجة الصوت فقط."
-            : "The deterministic core works without a model but is limited. Set up a local language model below for general conversation. Chat stays on this PC; Whisper/Piper handle speech only.";
+            ? "النواة المحلية تعمل دون نموذج لكنها محدودة. لتفعيل حوار عام، جهّز نموذجًا لغويًا محليًا من القسم التالي. السمع محلي عبر Whisper والنطق المحلي عبر VoiceTut؛ لا يُستخدم أي منهما للتفكير أو تنفيذ المهام."
+            : "The native core works without a model but is limited. Set up a local language model below for general conversation. Whisper handles local speech recognition and VoiceTut handles local speech synthesis; neither is used for reasoning or tasks.";
         LocalChatModelSectionTitle.Text = ar ? "محرك المحادثة العامة المحلي" : "General-purpose local chat engine";
         LocalChatModelBaseUrlLabel.Text = ar ? "عنوان خادم النموذج المحلي (Loopback فقط)" : "Local model server URL (loopback only)";
         LocalChatModelIdLabel.Text = ar ? "معرّف النموذج المثبت محليًا" : "Installed local model ID";
