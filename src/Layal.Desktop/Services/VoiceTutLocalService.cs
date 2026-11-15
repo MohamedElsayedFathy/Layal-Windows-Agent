@@ -118,7 +118,8 @@ public sealed class VoiceTutLocalService : IDisposable
             await RunPythonAsync(new[]
             {
                 "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
-                "--index-url", torchIndex, "torch==2.8.0", "torchaudio==2.8.0"
+                "--index-url", torchIndex, "--extra-index-url", "https://pypi.org/simple",
+                "torch==2.8.0", "torchaudio==2.8.0"
             }, ProcessInstallTimeout, cancellationToken, "تثبيت PyTorch");
 
             progress?.Report(new LocalSpeechProgress("تثبيت OmniVoice وVoiceTut بإصدارات Git ثابتة…", 42));
