@@ -322,21 +322,56 @@ public partial class MainWindow
         SetChatActivityStatus(IsArabic ? "ليال تفكر بالنواة المحلية..." : "Layal is reasoning with her native local core...");
         AppRuntime.MascotWindow?.SetMood("thinking");
 
+        var useConfiguredLocalModel = LocalChatModelService.IsConfigured(
+            AppRuntime.Settings.LocalChatModelBaseUrl,
+            AppRuntime.Settings.LocalChatModelId);
         try
         {
-            var response = await Task.Run(
-                () => AppRuntime.NativeConversationEngine.Respond(
-                    text,
-                    AppRuntime.Settings.Language,
-                    documentText,
-                    documentName),
-                _chatCancellation.Token);
+            string response;
+            if (useConfiguredLocalModel)
+            {
+                var modelMessages = ChatContextBuilder.Build(
+                    BuildLocalChatSystemPrompt(),
+                    ChatMessages.ToList()).ToList();
+                if (!string.IsNullOrWhiteSpace(documentText))
+                {
+                    var boundedDocument = documentText.Length <= 12000
+                        ? documentText
+                        : documentText[..12000] + Environment.NewLine + "[document context truncated]";
+                    modelMessages.Add(new ChatMessage
+                    {
+                        Role = "user",
+                        Content = (IsArabic ? "محتوى المستند المرفق (مقتطف محلي):\n" : "Attached document content (local excerpt):\n")
+                            + boundedDocument
+                    });
+                }
+
+                response = await _localChatModelService.GetReplyAsync(
+                    AppRuntime.Settings.LocalChatModelBaseUrl,
+                    AppRuntime.Settings.LocalChatModelId,
+                    modelMessages,
+                    _chatCancellation.Token);
+            }
+            else
+            {
+                response = await Task.Run(
+                    () => AppRuntime.NativeConversationEngine.Respond(
+                        text,
+                        AppRuntime.Settings.Language,
+                        documentText,
+                        documentName),
+                    _chatCancellation.Token);
+            }
 
             AddMessage("assistant", response);
             AppRuntime.MascotWindow?.SetMood(SelectChatMood(text, response));
-            var completionStatus = IsArabic
-                ? "اكتمل الرد من نواة ليال المحلية؛ لم يتم استدعاء نموذج ذكاء اصطناعي."
-                : "Native local reply completed; no AI model was called.";
+            var completionStatus = useConfiguredLocalModel
+                ? (IsArabic
+                    ? "اكتمل الرد من النموذج اللغوي المحلي على هذا الجهاز؛ لم يتم استخدام مزود سحابي."
+                    : "Reply completed using the language model running locally on this PC; no cloud provider was used.")
+                : (IsArabic
+                    ? "اكتمل الرد من النواة المحلية المحدودة. أعد إعداد نموذج محادثة محلي للحصول على حوار مفتوح."
+                    : "Reply completed by the bounded native core. Configure a local chat model for open-ended conversation.");
             if (!suppressVoiceReply && AppRuntime.Settings.VoiceRepliesEnabled)
             {
                 if (_localVoiceReady)

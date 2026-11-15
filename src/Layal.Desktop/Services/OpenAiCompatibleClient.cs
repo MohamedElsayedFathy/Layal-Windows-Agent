@@ -51,7 +51,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(15));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
+        SetBearerAuthorization(request, apiKey);
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException(await FormatError(response, cancellationToken));
@@ -72,7 +72,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
+        SetBearerAuthorization(request, apiKey);
         request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -162,7 +162,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
+        SetBearerAuthorization(request, apiKey);
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
 
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -217,7 +217,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
+        SetBearerAuthorization(request, apiKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
         request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -338,7 +338,7 @@ public sealed class OpenAiCompatibleClient
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(baseUrl, "chat/completions"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (apiKey ?? string.Empty).Trim());
+        SetBearerAuthorization(request, apiKey);
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -579,6 +579,13 @@ public sealed class OpenAiCompatibleClient
                 .Where(partText => !string.IsNullOrEmpty(partText)));
         }
         return string.Empty;
+    }
+
+    private static void SetBearerAuthorization(HttpRequestMessage request, string apiKey)
+    {
+        var value = (apiKey ?? string.Empty).Trim();
+        if (value.Length > 0)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", value);
     }
 
     private static Uri BuildUri(string baseUrl, string endpoint)

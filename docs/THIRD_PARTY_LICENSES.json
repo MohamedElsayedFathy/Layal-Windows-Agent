@@ -394,6 +394,16 @@
       "licenseTextPath": "licenses/MIT-Dotnet-Extensions.txt",
       "copyright": ".NET Foundation and Contributors",
       "reviewStatus": "NuGet package metadata identifies MIT licensing; included in the product SBOM through the TesseractOCR dependency graph; human legal review remains pending."
+    },
+    {
+      "id": "NAudio.Wasapi",
+      "licenseExpression": "MIT",
+      "versionPolicy": "direct dependency pinned to 3.3.0",
+      "sourceUrl": "https://www.nuget.org/packages/NAudio.Wasapi/3.3.0",
+      "licenseUrl": "https://github.com/naudio/NAudio/blob/main/LICENSE",
+      "licenseTextPath": "licenses/MIT-NAudio.txt",
+      "copyright": "Copyright (c) Mark Heath and NAudio contributors",
+      "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
     }
   ],
   "provenanceReview": {

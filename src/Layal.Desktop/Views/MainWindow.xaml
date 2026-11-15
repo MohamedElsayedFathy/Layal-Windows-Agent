@@ -1159,6 +1159,23 @@
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,8"
                                    AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة نواة ليال والصوت المحلي"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
+                        <TextBlock x:Name="LocalChatModelSectionTitle" Text="نموذج محادثة محلي اختياري" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
+                        <TextBlock x:Name="LocalChatModelBaseUrlLabel" Text="عنوان خادم النموذج المحلي" Margin="4,5,4,0"/>
+                        <TextBox x:Name="LocalChatModelBaseUrlInput" FlowDirection="LeftToRight" MinHeight="40"
+                                 AutomationProperties.LabeledBy="{Binding ElementName=LocalChatModelBaseUrlLabel}"
+                                 AutomationProperties.HelpText="يُقبل loopback فقط مثل http://127.0.0.1:11434/v1. لن تُرسل المحادثات إلى خادم بعيد."/>
+                        <TextBlock x:Name="LocalChatModelIdLabel" Text="معرّف النموذج المثبت محليًا" Margin="4,5,4,0"/>
+                        <TextBox x:Name="LocalChatModelIdInput" FlowDirection="LeftToRight" MinHeight="40"
+                                 AutomationProperties.LabeledBy="{Binding ElementName=LocalChatModelIdLabel}"
+                                 ToolTip="مثال: qwen2.5:7b"/>
+                        <WrapPanel Margin="4,6,4,0">
+                            <Button x:Name="SaveLocalChatModelButton" Content="حفظ النموذج المحلي" Click="SaveLocalChatModelButton_Click"/>
+                            <Button x:Name="TestLocalChatModelButton" Content="اختبار الخادم المحلي" Click="TestLocalChatModelButton_Click"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="LocalChatModelStatusText" Text="لم يتم إعداد نموذج محادثة محلي؛ ستظل النواة المحدودة متاحة."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,8"
+                                   AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة نموذج المحادثة المحلي"/>
+                        <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="ProviderSectionTitle" Text="اختبار اتصال API خارجي فقط (لا يستخدم للردود أو المهام)" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
                         <TextBlock x:Name="EndpointLabel" Text="Base URL" Margin="4,5,4,0"/>
                         <TextBox x:Name="BaseUrlInput" FlowDirection="LeftToRight" Text="http://127.0.0.1:31415/v1" AutomationProperties.Name="عنوان API الأساسي / API base URL" AutomationProperties.LabeledBy="{Binding ElementName=EndpointLabel}" AutomationProperties.HelpText="عنوان الخدمة الأساسية بصيغة HTTP أو HTTPS / HTTP or HTTPS base URL for the provider."/>

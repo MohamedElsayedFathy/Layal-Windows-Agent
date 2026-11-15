@@ -30,6 +30,20 @@ public sealed class NativeCognitiveCoreTests
     }
 
     [TestMethod]
+    [DataRow("السلام عليكم", NativeIntent.Greeting)]
+    [DataRow("السلام عليكم ورحمة الله وبركاته", NativeIntent.Greeting)]
+    [DataRow("وعليكم السلام", NativeIntent.Greeting)]
+    [DataRow("صباح النور", NativeIntent.Greeting)]
+    public void ParserRecognizesCommonArabicGreetingVariants(string phrase, NativeIntent expected)
+    {
+        using var temp = new TestTempDirectory();
+        var parser = new NativeLanguageParser(
+            new NativeLearningService(Path.Combine(temp.Path, "native-learning.dpapi")));
+
+        Assert.AreEqual(expected, parser.Parse(phrase).Intent, phrase);
+    }
+
+    [TestMethod]
     public void ParserDoesNotInventAnIntentForUnsupportedLanguage()
     {
         using var temp = new TestTempDirectory();

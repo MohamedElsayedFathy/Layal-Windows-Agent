@@ -90,6 +90,7 @@ public partial class MainWindow : Window
     private readonly SpeechLanguageRuntime _speechLanguageRuntime;
     // Used only when the user explicitly selects Test external API; never used by chat or task planning.
     private readonly OpenAiCompatibleClient _providerConnectionTester = new();
+    private readonly LocalChatModelService _localChatModelService = new();
     private bool _localVoiceReady;
     private string? _localVoiceSetupError;
     private bool _localVoiceSetupAttempted;
@@ -173,7 +174,10 @@ public partial class MainWindow : Window
         BaseUrlInput.Text = AppRuntime.Settings.ProviderBaseUrl;
         WeatherLocationInput.Text = AppRuntime.Settings.WeatherLocation ?? string.Empty;
         ModelInput.Text = AppRuntime.Settings.ModelId;
+        LocalChatModelBaseUrlInput.Text = AppRuntime.Settings.LocalChatModelBaseUrl;
+        LocalChatModelIdInput.Text = AppRuntime.Settings.LocalChatModelId;
         VoiceReplyCheckbox.IsChecked = AppRuntime.Settings.VoiceRepliesEnabled;
+        UpdateLocalChatModelStatusText();
         // SettingsStore normalizes only invalid/empty IDs. Preserve every valid voice explicitly selected by the user.
         AssistantPersonaSelector.SelectedItem = AssistantPersonaSelector.Items.OfType<ComboBoxItem>()
             .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), AppRuntime.Settings.AssistantPersona, StringComparison.Ordinal));
