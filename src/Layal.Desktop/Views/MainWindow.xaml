@@ -577,8 +577,8 @@
                         <TextBox x:Name="ChatInput" Style="{StaticResource Layal.PillTextBox}" Grid.Column="0" FlowDirection="RightToLeft" MinHeight="54" VerticalContentAlignment="Center" KeyDown="ChatInput_KeyDown" ToolTip="اكتب رسالة ثم اضغط Enter" AutomationProperties.AutomationId="ChatInput" AutomationProperties.Name="رسالة المحادثة / Chat message" AutomationProperties.HelpText="اكتب رسالة ثم اضغط Enter لإرسالها / Type a message and press Enter to send. Ctrl+1 ينقلك إلى هذا الحقل."/>
                         <Button x:Name="SpeechToTextButton" Grid.Column="1" Content="تسجيل صوت" Click="SpeechToTextButton_Click" MinWidth="112" ToolTip="تسجيل يدوي وتحويل محلي عبر Whisper؛ لا يُرفع الصوت إلى خادم." AutomationProperties.Name="تسجيل صوت لتحويله إلى نص" AutomationProperties.HelpText="اضغط لبدء التسجيل، واضغط ثانية لإيقافه. يعالج Whisper الصوت محليًا، ثم يظهر النص للمراجعة قبل الإرسال إلى نواة ليال."/>
                         <Button x:Name="VoiceConversationButton" Grid.Column="2" Content="بدء المحادثة الصوتية" Click="VoiceConversationButton_Click" MinWidth="148"
-                                ToolTip="محادثة صوتية محلية بالتناوب: اضغط للتسجيل ثم اضغط مرة ثانية لإرسال النص إلى نواة ليال."
-                                AutomationProperties.Name="التحدث إلى ليال محليًا" AutomationProperties.HelpText="يُعالج التسجيل على الجهاز عبر Whisper؛ لا يوجد بث صوتي أو اتصال بخدمة خارجية."/>
+                                ToolTip="محادثة صوتية منفصلة: اضغط للتسجيل ثم اضغط مرة ثانية للإرسال. ليال ترد بالصوت ولا تضيف الدور إلى سجل الشات النصي."
+                                AutomationProperties.Name="التحدث إلى ليال محليًا" AutomationProperties.HelpText="يُعالج التسجيل على الجهاز عبر Whisper، ويُرسل إلى محرك المحادثة المحلي المُعد. الرد مسموع فقط وسياق الصوت منفصل عن الشات النصي."/>
                         <Button x:Name="SendButton" Style="{StaticResource Layal.AccentButton}" Grid.Column="4" Content="إرسال" Click="SendButton_Click" MinWidth="82" MinHeight="48"/>
                         <Button x:Name="CancelResponseButton" Grid.Column="5" Content="إيقاف" Click="CancelResponseButton_Click" MinWidth="72" IsEnabled="False"/>
                     </Grid>
@@ -1193,7 +1193,7 @@
                         <TextBox x:Name="ModelInput" FlowDirection="LeftToRight" Text="auto" AutomationProperties.Name="معرّف النموذج / Model ID" AutomationProperties.LabeledBy="{Binding ElementName=ModelLabel}"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
                         <TextBlock x:Name="VoiceReplySectionTitle" Text="صوت ليال" FontSize="16" FontWeight="SemiBold" Margin="4,8,4,4"/>
-                        <CheckBox x:Name="VoiceReplyCheckbox" Content="ليال تقرأ ردودها بصوت" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية لليال" AutomationProperties.HelpText="بعد اكتمال الرد من نواة ليال، يمكن نطقه محليًا عبر Piper إذا كانت موارد الصوت جاهزة. لا يُرسل النص إلى أي خدمة صوتية."/>
+                        <CheckBox x:Name="VoiceReplyCheckbox" Content="تفعيل الرد الصوتي في المحادثة الصوتية" IsChecked="True" Checked="VoiceReplySettingChanged" Unchecked="VoiceReplySettingChanged" AutomationProperties.Name="الردود الصوتية في المحادثة الصوتية" AutomationProperties.HelpText="هذا الإعداد يتحكم في ردود وضع المحادثة الصوتية فقط. رسائل الشات النصي تظل نصية ولا تُقرأ بصوت."/>
                         <TextBlock x:Name="AudioInputDeviceLabel" Text="الميكروفون المستخدم" Margin="4,8,4,0"/>
                         <ComboBox x:Name="AudioInputDeviceSelector" MinHeight="40" MinWidth="260"
                                   DisplayMemberPath="Name" SelectedValuePath="Id"
