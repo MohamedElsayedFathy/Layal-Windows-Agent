@@ -285,7 +285,7 @@ public sealed class LocalVoiceService
         }
     }
 
-    public Task SpeakAsync(
+    public async Task SpeakAsync(
         string text,
         CancellationToken cancellationToken = default,
         string? outputDeviceId = null,
@@ -300,10 +300,14 @@ public sealed class LocalVoiceService
             2.0,
             1.0,
             true);
-        return _voiceTutService.SpeakAsync(
-            NormalizeTextForSpeech(text), outputDeviceId, settings, cancellationToken);
+        var effectiveSpeed = Math.Clamp(settings.Speed / VoiceDeliveryStylePolicy.GetLocalLengthScale(deliveryStyleId), 0.5, 2.0);
+        var adjusted = settings with { Speed = effectiveSpeed };
+        await _voiceTutService.SpeakAsync(
+            NormalizeTextForSpeech(text), outputDeviceId, adjusted, cancellationToken).ConfigureAwait(false);
+        VoiceMetricsUpdated?.Invoke(this, _voiceTutService.LastMetricsSummary);
     }
 
+    public event EventHandler<string>? VoiceMetricsUpdated;
     public string LastVoiceMetricsSummary => _voiceTutService.LastMetricsSummary;
 
     public void Dispose() => _voiceTutService.Dispose();
