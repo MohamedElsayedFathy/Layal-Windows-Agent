@@ -142,6 +142,11 @@ public partial class MainWindow : Window
         InitializeComponent();
         _speechLanguageEngine = SpeechLanguageEngine.CreateDefault();
         _localSpeechLanguageProvider = new LocalSpeechLanguageProvider(_localVoiceService);
+        _localVoiceService.VoiceMetricsUpdated += (_, summary) => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (VoiceTutMetricsText is not null)
+                VoiceTutMetricsText.Text = summary;
+        }));
         _speechLanguageRuntime = new SpeechLanguageRuntime(
             _speechLanguageEngine, _localSpeechLanguageProvider, _localSpeechLanguageProvider);
         _isUiInitialized = true;
