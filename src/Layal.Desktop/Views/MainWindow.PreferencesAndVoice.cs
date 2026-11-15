@@ -174,8 +174,8 @@ public partial class MainWindow
         AppRuntime.Settings.VoiceRepliesEnabled = VoiceReplyCheckbox.IsChecked == true;
         AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         SetAccessibleStatusText(ProviderActionStatus, IsArabic
-            ? (AppRuntime.Settings.VoiceRepliesEnabled ? "تم تفعيل قراءة ليال لردودها صوتيًا." : "تم إيقاف الردود الصوتية لليال.")
-            : (AppRuntime.Settings.VoiceRepliesEnabled ? "Layal voice replies are enabled." : "Layal voice replies are disabled."));
+            ? (AppRuntime.Settings.VoiceRepliesEnabled ? "تم تفعيل الرد بالصوت في وضع المحادثة الصوتية." : "تم إيقاف الرد بالصوت في وضع المحادثة الصوتية.")
+            : (AppRuntime.Settings.VoiceRepliesEnabled ? "Spoken replies are enabled for voice conversations." : "Spoken replies are disabled for voice conversations."));
     }
 
     private void VoiceDeliveryStyleSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
