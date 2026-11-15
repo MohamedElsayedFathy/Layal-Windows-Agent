@@ -516,7 +516,11 @@ public sealed class LocalVoiceService
             return;
         TryDeleteFile(destination);
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        var temporary = destination + ".download";
+        // Give every download attempt its own staging file. A fixed ".download" path can be
+        // held by a previous process, antivirus scanner, or another setup attempt, preventing
+        // FileStream(FileShare.None) from opening it even though this attempt owns the download.
+        // CreateNew also ensures a stale file can never be silently truncated and reused.
+        var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".download";
         try
         {
             progress?.Report(new LocalSpeechProgress(progressMessage));
