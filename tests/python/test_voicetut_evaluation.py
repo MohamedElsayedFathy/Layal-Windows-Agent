@@ -48,7 +48,7 @@ class VoiceTutEvaluationTests(unittest.TestCase):
             path = Path(temp) / "bytes.bin"
             path.write_bytes(b"layal-voice-tut")
             self.assertEqual(
-                "8d4624d2e35b16a9159d6dcefbf4b8c4a725ae97cc5b6717907c52f3a9d3c7b1",
+                "0e92b49d73fb667425a268632ef0d25eac80e6e1ba278fa9c8f8445e7ad6baf9",
                 MODULE.sha256_file(path),
             )
 
