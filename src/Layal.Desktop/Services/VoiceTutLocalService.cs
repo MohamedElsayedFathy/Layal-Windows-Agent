@@ -241,9 +241,10 @@ public sealed class VoiceTutLocalService : IDisposable
                     var sampleRate = GetInt32(root, "sampleRate");
                     if (sampleRate is < 8000 or > 48000)
                         throw new InvalidOperationException("VoiceTut returned an unsupported audio sample rate.");
+                    // NAudio 3.x exposes a fixed five-second buffer. Feed it in partial
+                    // writes below so a model chunk larger than the buffer never deadlocks.
                     buffer = new BufferedWaveProvider(new WaveFormat(sampleRate, 16, 1))
                     {
-                        BufferLength = checked(sampleRate * 2 * 24),
                         DiscardOnBufferOverflow = false,
                         ReadFully = true
                     };
@@ -265,23 +266,43 @@ public sealed class VoiceTutLocalService : IDisposable
                     {
                         if (pcm.Length == 0 || pcm.Length > 4 * 1024 * 1024 || pcm.Length % 2 != 0)
                             throw new InvalidOperationException("VoiceTut returned an invalid audio chunk.");
-                        while (buffer.BufferedBytes + pcm.Length > buffer.BufferLength)
+                        var offset = 0;
+                        while (offset < pcm.Length)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
                             if (stopped?.Task.IsCompleted == true)
                                 throw new InvalidOperationException("Audio playback stopped before the stream finished.");
-                            await Task.Delay(20, cancellationToken).ConfigureAwait(false);
-                        }
-                        buffer.AddSamples(pcm, 0, pcm.Length);
-                        totalAudioSeconds += pcm.Length / (double)(buffer.WaveFormat.AverageBytesPerSecond);
-                        if (!playbackStarted)
-                        {
-                            playbackCancellationRegistration = cancellationToken.Register(() =>
+
+                            var availableBytes = buffer.BufferLength - buffer.BufferedBytes;
+                            if (availableBytes < 2)
                             {
-                                try { output.Stop(); } catch { /* Output may already be stopped. */ }
-                            });
-                            output.Play();
-                            playbackStarted = true;
+                                await Task.Delay(20, cancellationToken).ConfigureAwait(false);
+                                continue;
+                            }
+
+                            // Keep PCM16 sample boundaries intact and never overrun NAudio's
+                            // fixed circular buffer, even if one model chunk is longer than 5s.
+                            var writeCount = Math.Min(availableBytes, pcm.Length - offset);
+                            writeCount -= writeCount % 2;
+                            if (writeCount <= 0)
+                            {
+                                await Task.Delay(20, cancellationToken).ConfigureAwait(false);
+                                continue;
+                            }
+
+                            buffer.AddSamples(pcm, offset, writeCount);
+                            offset += writeCount;
+                            totalAudioSeconds += writeCount / (double)(buffer.WaveFormat.AverageBytesPerSecond);
+
+                            if (!playbackStarted)
+                            {
+                                playbackCancellationRegistration = cancellationToken.Register(() =>
+                                {
+                                    try { output.Stop(); } catch { /* Output may already be stopped. */ }
+                                });
+                                output.Play();
+                                playbackStarted = true;
+                            }
                         }
                     }
                     finally
