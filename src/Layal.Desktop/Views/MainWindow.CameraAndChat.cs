@@ -276,9 +276,15 @@ public partial class MainWindow
 
     private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
-    private async Task SendMessageAsync(bool suppressVoiceReply = false)
+    private async Task SendMessageAsync(
+        bool suppressVoiceReply = false,
+        string? suppliedText = null,
+        bool voiceChannel = false)
     {
-        if (_voiceConversationCancellation is not null)
+        var channel = voiceChannel ? ConversationChannel.Voice : ConversationChannel.Text;
+        var writesVisibleChat = ConversationChannelPolicy.WritesMessagesToVisibleChat(channel);
+
+        if (!voiceChannel && _voiceConversationCancellation is not null)
         {
             SetChatActivityStatus(IsArabic
                 ? "أوقف التسجيل الصوتي قبل إرسال رسالة نصية."
@@ -286,12 +292,12 @@ public partial class MainWindow
             return;
         }
 
-        var text = ChatInput.Text.Trim();
+        var text = (suppliedText ?? ChatInput.Text).Trim();
         if (_chatCancellation is not null) return;
-        var documentText = _pendingDocumentText;
-        var documentName = _pendingDocumentFileName ?? "document";
+        var documentText = voiceChannel ? null : _pendingDocumentText;
+        var documentName = voiceChannel ? "voice conversation" : (_pendingDocumentFileName ?? "document");
 
-        if (_pendingVisionImageBytes is { Length: > 0 })
+        if (!voiceChannel && _pendingVisionImageBytes is { Length: > 0 })
         {
             SetChatActivityStatus(IsArabic
                 ? "تحليل الصور لم يُنقل بعد إلى نواة ليال المستقلة. لم يتم إرسال الصورة إلى أي نموذج."
@@ -299,16 +305,25 @@ public partial class MainWindow
             return;
         }
 
-        if (documentText is { Length: > 0 } && string.IsNullOrWhiteSpace(text))
+        if (!voiceChannel && documentText is { Length: > 0 } && string.IsNullOrWhiteSpace(text))
             text = IsArabic
                 ? "لخص الملف المرفق بأهم الجمل، أو ابحث داخله عن معلومات مرتبطة بسؤالي."
                 : "Summarize the attached document using its key sentences, or find passages relevant to my question.";
 
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        ChatInput.Clear();
-        AddMessage("user", text);
-        if (documentText is { Length: > 0 })
+        if (writesVisibleChat)
+        {
+            ChatInput.Clear();
+            AddMessage("user", text);
+        }
+        else
+        {
+            _voiceConversationMessages.Add(new ChatMessage { Role = "user", Content = text });
+            TrimVoiceConversationHistory();
+        }
+
+        if (writesVisibleChat && documentText is { Length: > 0 })
         {
             _pendingDocumentText = null;
             _pendingDocumentFileName = null;
@@ -319,7 +334,9 @@ public partial class MainWindow
         _chatCancellation = new CancellationTokenSource();
         SendButton.IsEnabled = false;
         CancelResponseButton.IsEnabled = true;
-        SetChatActivityStatus(IsArabic ? "ليال تفكر بالنواة المحلية..." : "Layal is reasoning with her native local core...");
+        SetChatActivityStatus(voiceChannel
+            ? (IsArabic ? "ليال تعالج كلامك محليًا، وسترد بالصوت…" : "Layal is processing your speech locally and will reply aloud…")
+            : (IsArabic ? "ليال تعالج رسالتك بالنموذج المحلي…" : "Layal is processing your message with the local model…"));
         AppRuntime.MascotWindow?.SetMood("thinking");
 
         var useConfiguredLocalModel = LocalChatModelService.IsConfigured(
@@ -330,9 +347,12 @@ public partial class MainWindow
             string response;
             if (useConfiguredLocalModel)
             {
+                var conversation = writesVisibleChat
+                    ? ChatMessages.ToList()
+                    : _voiceConversationMessages.ToList();
                 var modelMessages = ChatContextBuilder.Build(
                     BuildLocalChatSystemPrompt(),
-                    ChatMessages.ToList()).ToList();
+                    conversation).ToList();
                 if (!string.IsNullOrWhiteSpace(documentText))
                 {
                     var boundedDocument = documentText.Length <= 12000
@@ -363,16 +383,27 @@ public partial class MainWindow
                     _chatCancellation.Token);
             }
 
-            AddMessage("assistant", response);
+            if (writesVisibleChat)
+                AddMessage("assistant", response);
+            else
+            {
+                _voiceConversationMessages.Add(new ChatMessage { Role = "assistant", Content = response });
+                TrimVoiceConversationHistory();
+            }
+
             AppRuntime.MascotWindow?.SetMood(SelectChatMood(text, response));
             var completionStatus = useConfiguredLocalModel
                 ? (IsArabic
                     ? "اكتمل الرد من النموذج اللغوي المحلي على هذا الجهاز؛ لم يتم استخدام مزود سحابي."
                     : "Reply completed using the language model running locally on this PC; no cloud provider was used.")
                 : (IsArabic
-                    ? "اكتمل الرد من النواة المحلية المحدودة. أعد إعداد نموذج محادثة محلي للحصول على حوار مفتوح."
-                    : "Reply completed by the bounded native core. Configure a local chat model for open-ended conversation.");
-            if (!suppressVoiceReply && AppRuntime.Settings.VoiceRepliesEnabled)
+                    ? "اكتمل الرد من النواة المحلية المحدودة. جهّز نموذج المحادثة المحلي للحوار المفتوح."
+                    : "Reply completed by the bounded native core. Set up the local chat model for open-ended conversation.");
+
+            var shouldSpeak = ConversationChannelPolicy.SpeaksAssistantReply(
+                channel,
+                AppRuntime.Settings.VoiceRepliesEnabled) && !suppressVoiceReply;
+            if (shouldSpeak)
             {
                 if (_localVoiceReady)
                 {
@@ -385,8 +416,8 @@ public partial class MainWindow
                                 AppRuntime.Settings.VoiceDeliveryStyleId),
                             _chatCancellation.Token);
                         completionStatus = IsArabic
-                            ? "اكتمل الرد المحلي ونطقه بصوت Piper المحلي."
-                            : "Native reply completed and spoken with local Piper speech.";
+                            ? "اكتمل الرد الصوتي المحلي. لم يُضف نص المحادثة الصوتية إلى سجل الشات."
+                            : "Local spoken reply completed. The voice conversation was not added to text chat.";
                     }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception speechError)
@@ -399,33 +430,56 @@ public partial class MainWindow
                 else
                 {
                     completionStatus += IsArabic
-                        ? " موارد الصوت غير مجهزة؛ يمكنك تجهيز Whisper/Piper اختياريًا من الإعدادات."
-                        : " Speech resources are not set up; you can optionally install Whisper/Piper from Settings.";
+                        ? " موارد الصوت غير مجهزة؛ جهّز Whisper/Piper من الإعدادات."
+                        : " Speech resources are not set up; prepare Whisper/Piper in Settings.";
                 }
+            }
+            else if (voiceChannel)
+            {
+                completionStatus += IsArabic
+                    ? " الرد الصوتي متوقف من إعدادات الصوت."
+                    : " Spoken replies are disabled in speech settings.";
             }
             SetChatActivityStatus(completionStatus);
         }
         catch (OperationCanceledException)
         {
-            AddMessage("status", IsArabic ? "تم إيقاف الطلب." : "Request cancelled.");
+            if (writesVisibleChat)
+                AddMessage("status", IsArabic ? "تم إيقاف الطلب." : "Request cancelled.");
             AppRuntime.MascotWindow?.SetMood("paused");
             SetChatActivityStatus(IsArabic ? "تم الإيقاف" : "Cancelled");
         }
         catch (Exception ex)
         {
-            AddMessage("status", (IsArabic ? "تعذر على نواة ليال معالجة الرسالة: " : "Layal's native core could not process the message: ") + ex.Message);
+            if (writesVisibleChat)
+                AddMessage("status", (IsArabic ? "تعذر على المحرك المحلي معالجة الرسالة: " : "The local engine could not process the message: ") + ex.Message);
             AppRuntime.MascotWindow?.SetMood("error");
             SetChatActivityStatus(IsArabic ? "فشل الطلب المحلي" : "Local request failed");
         }
         finally
         {
-            SaveCurrentChatMessages();
+            if (ConversationChannelPolicy.PersistsConversationHistory(channel))
+                SaveCurrentChatMessages();
             _chatCancellation?.Dispose();
             _chatCancellation = null;
             SendButton.IsEnabled = true;
             CancelResponseButton.IsEnabled = false;
-            ChatMessagesList.ScrollIntoView(ChatMessages.LastOrDefault());
+            if (writesVisibleChat)
+                ChatMessagesList.ScrollIntoView(ChatMessages.LastOrDefault());
             RefreshProviderStatus();
+        }
+    }
+
+    private void TrimVoiceConversationHistory()
+    {
+        while (_voiceConversationMessages.Count > ChatContextBuilder.DefaultMaxMessages)
+            _voiceConversationMessages.RemoveAt(0);
+
+        var totalCharacters = _voiceConversationMessages.Sum(message => message.Content?.Length ?? 0);
+        while (_voiceConversationMessages.Count > 2 && totalCharacters > ChatContextBuilder.DefaultMaxCharacters)
+        {
+            totalCharacters -= _voiceConversationMessages[0].Content?.Length ?? 0;
+            _voiceConversationMessages.RemoveAt(0);
         }
     }
 
@@ -675,6 +729,7 @@ public partial class MainWindow
         var conversation = AppRuntime.ChatSessionService.CreateNewConversation(IsArabic ? "محادثة جديدة" : "New conversation");
         _currentConversationId = conversation.Id;
         ChatMessages.Clear();
+        _voiceConversationMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
         SetChatActivityStatus(IsArabic
@@ -708,6 +763,7 @@ public partial class MainWindow
         var fresh = AppRuntime.ChatSessionService.ClearAll(IsArabic ? "محادثة جديدة" : "New conversation");
         _currentConversationId = fresh.Id;
         ChatMessages.Clear();
+        _voiceConversationMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
         SetChatActivityStatus(IsArabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.");
@@ -751,6 +807,7 @@ public partial class MainWindow
 
         var conversation = AppRuntime.ChatSessionService.SelectConversation(selected.Id);
         _currentConversationId = conversation.Id;
+        _voiceConversationMessages.Clear();
         ChatMessages.Clear();
         foreach (var message in conversation.Messages.TakeLast(100))
         {

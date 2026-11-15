@@ -450,17 +450,17 @@
       "id": "Piper Windows x64 runtime archive",
       "sourceUrl": "https://github.com/rhasspy/piper/releases/tag/2023.11.14-2",
       "licenseExpression": "MIT (upstream Piper project; bundled dependencies may have separate notices)",
-      "distributionPolicy": "downloaded after user consent; not bundled by Layal",
-      "integrityCheck": "exact byte length and safe ZIP extraction; upstream release API does not currently expose SHA-256",
-      "reviewStatus": "upstream source/license noted; dependency and legal review still required"
+      "distributionPolicy": "Historical migration record only. Piper is no longer downloaded or used; after successful VoiceTut setup, Layal removes this exact legacy archive and its runtime folder from the Layal LocalAi data root.",
+      "integrityCheck": "Legacy cleanup checks the known path for reparse points before safe deletion; no Piper executable is launched.",
+      "reviewStatus": "Retired from the active voice runtime; retained only to document the one-time migration path."
     },
     {
       "id": "Piper voice models: Arabic Kareem medium and English Lessac medium",
       "sourceUrl": "https://huggingface.co/rhasspy/piper-voices",
       "licenseExpression": "MIT (upstream voice collection metadata)",
-      "distributionPolicy": "downloaded after user consent; not bundled by Layal",
-      "integrityCheck": "exact size and SHA-256 for ONNX weights; size/config validation for JSON metadata",
-      "reviewStatus": "upstream model metadata noted; legal review still required"
+      "distributionPolicy": "Historical migration record only. These two legacy voice model files and their JSON sidecars are removed from Layal's LocalAi speech-models folder after successful VoiceTut setup.",
+      "integrityCheck": "Exact legacy filenames are checked for reparse points before deletion; no Piper voice model is loaded or synthesized.",
+      "reviewStatus": "Retired from the active voice runtime; exact known model files are cleaned during migration."
     },
     {
       "id": "Tesseract trained-data models: Arabic and English",
@@ -469,6 +469,38 @@
       "distributionPolicy": "downloaded from a commit-pinned upstream repository during Windows build and bundled in the application/installer; model binaries are not committed to the Git source tree",
       "integrityCheck": "exact size and pinned Git blob object identity for ara.traineddata and eng.traineddata",
       "reviewStatus": "upstream license and pinned model identities noted; redistribution review remains pending"
+    },
+    {
+      "id": "VoiceTut-TTS model weights and normalization data",
+      "sourceUrl": "https://huggingface.co/mohammedaly22/VoiceTut-TTS/tree/b36bdf4416864d84f47ca77ce3decf34f6ab16cc",
+      "licenseExpression": "Apache-2.0",
+      "distributionPolicy": "Downloaded only after explicit local speech setup consent into the current user's LocalAi cache; not bundled in Layal. Only the pinned model config, safetensors weights and tokenizer files are fetched; the reference_speakers folder is excluded.",
+      "integrityCheck": "Immutable Hugging Face revision b36bdf4416864d84f47ca77ce3decf34f6ab16cc; SHA-256 is calculated by the evaluation renderer for each local safetensors file.",
+      "reviewStatus": "Model license recorded as Apache-2.0. Built-in reference speaker audio is not downloaded or used. Rights to the generated Voice Design identity and human listening acceptance remain pending."
+    },
+    {
+      "id": "VoiceTut-TTS inference source",
+      "sourceUrl": "https://github.com/MohammedAly22/VoiceTuT-TTS/tree/44cba00cd3ddb04b5213353e19e960045e332da7",
+      "licenseExpression": "Apache-2.0",
+      "distributionPolicy": "Installed from a pinned source archive into a per-user Python virtual environment after explicit user consent; not bundled in the Layal installer or source package.",
+      "integrityCheck": "Pinned source commit 44cba00cd3ddb04b5213353e19e960045e332da7; source archive URL is commit-qualified.",
+      "reviewStatus": "Upstream LICENSE file retained in licenses/Apache-2.0-VoiceTut.txt. Runtime Python package versions are recorded in the local environment freeze receipt."
+    },
+    {
+      "id": "OmniVoice inference backbone",
+      "sourceUrl": "https://github.com/k2-fsa/OmniVoice/tree/08be0b4ccbac3e13e374e86fbfead4b4cac343e2",
+      "licenseExpression": "Apache-2.0",
+      "distributionPolicy": "Installed from a pinned source archive into the per-user Python virtual environment after explicit user consent; not bundled in Layal.",
+      "integrityCheck": "Pinned source commit 08be0b4ccbac3e13e374e86fbfead4b4cac343e2; source archive URL is commit-qualified.",
+      "reviewStatus": "Upstream LICENSE file retained in licenses/Apache-2.0-OmniVoice.txt. Generated voice identity provenance remains separately pending."
+    },
+    {
+      "id": "VoiceTut Python runtime dependencies",
+      "sourceUrl": "https://github.com/MohammedAly22/VoiceTuT-TTS/blob/44cba00cd3ddb04b5213353e19e960045e332da7/pyproject.toml",
+      "licenseExpression": "Multiple upstream licenses; see individual installed package metadata",
+      "distributionPolicy": "Resolved by pip into a per-user Python virtual environment after explicit consent; not bundled in Layal.",
+      "integrityCheck": "PyTorch and torchaudio are pinned to 2.8.0; exact resolved dependency versions are captured in the local environment freeze receipt.",
+      "reviewStatus": "Third-party dependency licenses are not homogenized under Apache-2.0; review the installed environment inventory before redistributing any of these dependencies."
     }
   ]
 }

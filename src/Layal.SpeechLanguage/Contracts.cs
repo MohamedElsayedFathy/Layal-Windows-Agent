@@ -161,7 +161,12 @@ public sealed record DialogueTurn(
 
 public sealed record SpeechSynthesisOptions(
     string? OutputDeviceId = null,
-    string? DeliveryStyleId = null);
+    string? DeliveryStyleId = null,
+    string? VoiceDesignInstruction = null,
+    int QualitySteps = 32,
+    double GuidanceScale = 2.0,
+    double Speed = 1.0,
+    bool NormalizeText = true);
 
 public sealed record SpeechRecognitionResult(
     string Text,

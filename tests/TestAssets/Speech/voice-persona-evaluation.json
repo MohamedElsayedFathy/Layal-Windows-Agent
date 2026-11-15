@@ -25,7 +25,10 @@
       "serious",
       "energetic",
       "playful"
-    ]
+    ],
+    "voiceDesignDescription": "female, child, very high pitch",
+    "summary": "Original synthetic feminine voice with a youthful, child-like quality and a very high pitch; perceived age and timbre remain experimental and require human review. Do not imitate a real child or person.",
+    "referenceAudioPolicy": "No reference audio, built-in demo speaker or voice cloning is allowed."
   },
   "testCases": [
     {

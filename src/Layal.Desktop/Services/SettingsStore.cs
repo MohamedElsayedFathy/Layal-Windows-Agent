@@ -104,6 +104,19 @@ public sealed class SettingsStore
         if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
             settings.AssistantPersona = "warm";
         settings.VoiceDeliveryStyleId = VoiceDeliveryStylePolicy.Normalize(settings.VoiceDeliveryStyleId);
+        settings.VoiceDesignInstruction = (settings.VoiceDesignInstruction ?? VoiceTutLocalService.DefaultVoiceDesign).Trim();
+        if (settings.VoiceDesignInstruction.Length is 0 or > 300 ||
+            !settings.VoiceDesignInstruction.Contains("female", StringComparison.OrdinalIgnoreCase) ||
+            settings.VoiceDesignInstruction.Contains("ref_audio", StringComparison.OrdinalIgnoreCase) ||
+            settings.VoiceDesignInstruction.Contains("clone", StringComparison.OrdinalIgnoreCase))
+            settings.VoiceDesignInstruction = VoiceTutLocalService.DefaultVoiceDesign;
+        settings.VoiceQualitySteps = Math.Clamp(settings.VoiceQualitySteps, 4, 64);
+        settings.VoiceGuidanceScale = double.IsFinite(settings.VoiceGuidanceScale)
+            ? Math.Clamp(settings.VoiceGuidanceScale, 0.0, 6.0)
+            : 2.0;
+        settings.VoiceSpeed = double.IsFinite(settings.VoiceSpeed)
+            ? Math.Clamp(settings.VoiceSpeed, 0.5, 2.0)
+            : 1.0;
         settings.MascotCharacterDisplayMode = CharacterDisplayModePolicy.Normalize(settings.MascotCharacterDisplayMode);
         settings.GmailOAuthClientId = (settings.GmailOAuthClientId ?? string.Empty).Trim();
         if (settings.GmailOAuthClientId.Length > 300 ||

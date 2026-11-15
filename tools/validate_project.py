@@ -670,13 +670,13 @@ for required in (
     if required not in localization_test_text:
         ERRORS.append(f"Bilingual localization test coverage is missing: {required}")
 
-# Local speech gate: Piper playback and Whisper transcription must remain local-only.
+# Local speech gate: VoiceTut synthesis and Whisper transcription must remain local-only.
 voice_settings_path = ROOT / "src/Layal.Desktop/Models/UserSettings.cs"
 voice_tests_path = ROOT / "tests/Layal.Tests/LocalVoiceServiceTests.cs"
 voice_settings_text = voice_settings_path.read_text(encoding="utf-8") if voice_settings_path.is_file() else ""
 voice_tests_text = voice_tests_path.read_text(encoding="utf-8") if voice_tests_path.is_file() else ""
 if not voice_tests_text:
-    ERRORS.append("Local Piper/Whisper speech unit tests are missing")
+    ERRORS.append("Local VoiceTut/Whisper speech unit tests are missing")
 for required in (
     "LocalVoiceSpeechPreparationRemovesMarkupAndUrlsWithoutChangingVisibleWords",
     "LocalVoiceCleanupDeletesOnlyOldGeneratedAudioAndTranscriptFiles",
@@ -735,8 +735,9 @@ for required in (
     "public async Task<string> TranscribeAsync",
     "public async Task SpeakAsync",
     "TryDeleteFile(inputPath)",
-    "TryDeleteFile(outputPath)",
-    "ValidateVoiceConfig",
+    "DeleteLegacyPiperResources",
+    "await _voiceTutService.SpeakAsync(",
+    "VoiceTutLocalService.DefaultVoiceDesign",
 ):
     if required not in local_voice_text:
         ERRORS.append(f"Optional local speech behavior is missing: {required}")
@@ -771,7 +772,7 @@ if "_speechLanguageRuntime.RecognizeAsync(" not in ui_code or "_speechLanguageRu
 speech_adapter_path = ROOT / "src/Layal.Desktop/Services/LocalSpeechLanguageProvider.cs"
 speech_adapter_text = speech_adapter_path.read_text(encoding="utf-8") if speech_adapter_path.is_file() else ""
 if "_voiceService.TranscribeAsync(" not in speech_adapter_text or "_voiceService.SpeakAsync(" not in speech_adapter_text:
-    ERRORS.append("Standalone speech-language provider must delegate only to the existing local Whisper/Piper service")
+    ERRORS.append("Standalone speech-language provider must delegate only to the local Whisper/VoiceTut service")
 if "LocalVoiceConversationButton_ClickAsync" not in ui_code:
     ERRORS.append("Local speech conversation UI wiring is missing")
 if not local_tests_text:

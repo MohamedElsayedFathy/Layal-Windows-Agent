@@ -217,8 +217,8 @@ public partial class MainWindow
         GoChatButton.Content = ar ? "فتح المحادثة" : "Open chat";
         GoSettingsButton.Content = ar ? "إعدادات الاتصال" : "Connection settings";
         HomeCaveat.Text = ar
-            ? "الردود النصية والتخطيط والمهام والتعلم من الاختصارات تعمل داخل نواة ليال المحلية دون نموذج ذكاء اصطناعي خارجي. الصوت المحلي اختياري ويحتاج موارد Whisper/Piper فقط."
-            : "Text replies, planning, tasks, and alias learning run inside Layal's native core without an external AI model. Optional local speech requires Whisper/Piper resources only.";
+            ? "الردود النصية والتخطيط والمهام تعمل داخل النواة المحلية. الصوت المحلي اختياري: Whisper للسمع وVoiceTut للنطق وتصميم الصوت المصري."
+            : "Text replies, planning and tasks run inside Layal's native core. Optional local speech uses Whisper for recognition and VoiceTut for Egyptian speech synthesis and voice design.";
 
         ChatHeading.Text = ar ? "المحادثة مع ليال" : "Chat with Layal";
         ChatSectionEyebrow.Text = ar ? "LAYAL / مساعد سطح المكتب" : "LAYAL / DESKTOP ASSISTANT";
@@ -279,14 +279,14 @@ public partial class MainWindow
             ? "حدد السماعة أو مخرج الصوت لردود ليال والمحادثة الصوتية."
             : "Select the speaker or audio output used for Layal's spoken replies and live conversations.");
         AutomationProperties.SetName(RefreshAudioDevicesButton, ar ? "تحديث قائمة أجهزة الصوت" : "Refresh audio devices");
-        VoiceReplyCheckbox.Content = ar ? "نطق الردود بصوت Piper المحلي (اختياري)" : "Speak replies with optional local Piper voice";
+        VoiceReplyCheckbox.Content = ar ? "نطق الردود عبر VoiceTut المحلي (اختياري)" : "Speak replies with optional local VoiceTut";
         VoiceReplyDisclosureText.Text = ar
-            ? "صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper؛ لا يُرسل نص الرد إلى أي خدمة صوتية."
-            : "Layal's synthetic voice is not a human recording. Speech is generated locally with Piper; reply text is not sent to a voice service.";
+            ? "صوت ليال اصطناعي وليس صوت إنسان؛ يُولّد محليًا عبر VoiceTut بتصميم صوت من وصف نصي فقط. لا تُحمّل أصوات العرض المرجعية أو ملفات استنساخ، ولا يُرسل النص إلى خدمة بعيدة."
+            : "Layal's synthetic voice is not a human recording; it is generated locally by VoiceTut using text-based Voice Design only. No demo reference voices or cloning samples are loaded, and text is not sent to a remote speech service.";
         TestVoiceReplyButton.Content = ar ? "اختبار السماعة والنطق" : "Test speaker and speech";
         TestVoiceReplyButton.ToolTip = ar
-            ? "يشغّل عينة عربية وإنجليزية عبر Piper المحلي على مخرج الصوت المحدد؛ استمع للتأكد من وضوح الصوت."
-            : "Plays an Arabic and English sample with local Piper on the selected output; listen for clear playback.";
+            ? "يشغّل عينة عربية وإنجليزية عبر VoiceTut المحلي، ثم يعرض زمن أول مقطع وعامل الزمن الحقيقي وعدد المقاطع."
+            : "Plays Arabic and English samples with local VoiceTut, then reports time-to-first-audio, real-time factor and chunk count.";
         TestMicrophoneButton.Content = ar ? "اختبار الميكروفون (3 ثوانٍ)" : "Test microphone (3 seconds)";
         TestMicrophoneButton.ToolTip = ar
             ? "يسجل عينة قصيرة في الذاكرة فقط، ويقيس مستوى الإشارة ثم يمسحها؛ لا يحفظ الصوت ولا يحوله إلى نص."
@@ -316,12 +316,12 @@ public partial class MainWindow
             : "Text style is independent from delivery style and voice identity; it never changes safety rules, confirmations, or tool permissions.");
         VoiceDeliveryStyleLabel.Text = ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style";
         VoiceDeliveryStyleDisclosure.Text = ar
-            ? "ثمانية أنماط: طبيعية، ناعمة، مبهجة، واضحة، متعاطفة، جادة، نشيطة ومرحة. Piper الحالي يضبط سرعة الكلام والوقفات فقط؛ لا يغيّر خامة الصوت أو يولّد انفعالات كاملة، ولا يُرسل النص إلى خادم."
-            : "Eight styles: natural, gentle, bright, clear, empathetic, serious, energetic, and playful. Current Piper controls pace and pauses only; it does not change voice timbre or provide full emotional prosody, and text is not sent to a server.";
+            ? "أنماط الإلقاء الثمانية تغيّر سرعة التوليد فقط. هوية الصوت تُحدَّد بصورة مستقلة من وصف Voice Design، والتعبير العاطفي الكامل غير مضمون."
+            : "The eight delivery presets adjust generation speed only. Voice identity is configured separately through Voice Design; full emotional prosody is not guaranteed.";
         AutomationProperties.SetName(VoiceDeliveryStyleSelector, ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style");
         AutomationProperties.SetHelpText(VoiceDeliveryStyleSelector, ar
-            ? "اختر أحد ثمانية أنماط للإلقاء. يغيّر Piper المحلي السرعة والوقفات فقط؛ لا يغيّر هوية الصوت أو قواعد الأمان أو صلاحيات الأدوات."
-            : "Choose one of eight delivery styles. Local Piper adjusts pace and pauses only; it does not change voice identity, safety rules, or tool permissions.");
+            ? "اختر أحد ثمانية أنماط؛ تأثيرها العملي هنا تعديل سرعة التوليد فقط. لا تغيّر هوية الصوت أو قواعد الأمان أو صلاحيات الأدوات."
+            : "Choose one of eight presets; they only adjust synthesis speed here. They do not change voice identity, safety rules, or tool permissions.");
         foreach (ComboBoxItem styleItem in VoiceDeliveryStyleSelector.Items)
             styleItem.Content = VoiceDeliveryStylePolicy.GetDisplayName(styleItem.Tag?.ToString(), ar);
         CharacterDisplayModeLabel.Text = ar ? "الشخصية المعروضة" : "Displayed character";
@@ -335,6 +335,33 @@ public partial class MainWindow
         foreach (ComboBoxItem modeItem in CharacterDisplayModeSelector.Items)
             modeItem.Content = CharacterDisplayModePolicy.GetModeName(modeItem.Tag?.ToString(), ar);
         AutomationProperties.SetName(VoiceReplyCheckbox, ar ? "الردود الصوتية لليال" : "Layal voice replies");
+        VoiceDesignInstructionInput.Text = string.IsNullOrWhiteSpace(AppRuntime.Settings.VoiceDesignInstruction)
+            ? VoiceTutLocalService.DefaultVoiceDesign : AppRuntime.Settings.VoiceDesignInstruction;
+        VoiceQualityStepsSlider.Value = Math.Clamp(AppRuntime.Settings.VoiceQualitySteps, 4, 64);
+        VoiceGuidanceSlider.Value = Math.Clamp(AppRuntime.Settings.VoiceGuidanceScale, 0.0, 6.0);
+        VoiceSpeedSlider.Value = Math.Clamp(AppRuntime.Settings.VoiceSpeed, 0.5, 2.0);
+        VoiceNormalizationCheckbox.IsChecked = AppRuntime.Settings.VoiceTextNormalizationEnabled;
+        VoiceQualityStepsValue.Text = VoiceQualityStepsSlider.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        VoiceGuidanceValue.Text = VoiceGuidanceSlider.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        VoiceSpeedValue.Text = VoiceSpeedSlider.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "×";
+        VoiceTutMetricsText.Text = string.IsNullOrWhiteSpace(_localVoiceService.LastVoiceMetricsSummary)
+            ? (ar ? "VoiceTut: لا توجد قياسات بعد." : "VoiceTut: no measurements yet.")
+            : _localVoiceService.LastVoiceMetricsSummary;
+        AutomationProperties.SetName(VoiceDesignInstructionInput, ar ? "وصف تصميم الصوت الأنثوي" : "Female voice design description");
+        AutomationProperties.SetHelpText(VoiceDesignInstructionInput, ar
+            ? "وصف Voice Design. يجب أن يحتوي على female، ولا يقبل تسجيلات مرجعية أو استنساخ أصوات."
+            : "Voice Design prompt. Must contain female; reference audio and voice cloning are disabled.");
+        VoiceDesignInstructionLabel.Text = ar ? "وصف تصميم صوت ليال" : "Layal voice-design description";
+        VoiceQualityStepsLabel.Text = ar ? "جودة التوليد (خطوات النموذج)" : "Synthesis quality (model steps)";
+        VoiceGuidanceLabel.Text = ar ? "قوة توجيه تصميم الصوت" : "Voice-design guidance";
+        VoiceSpeedLabel.Text = ar ? "سرعة النطق" : "Speech speed";
+        VoiceNormalizationCheckbox.Content = ar ? "تفعيل مرجع تطبيع الكلام المصري" : "Enable Egyptian speech normalizer";
+        VoiceNormalizationDisclosure.Text = ar
+            ? "التطبيع محلي: أرقام وتواريخ وأوقات وعملات ونسب وأرقام هاتف وبريد وروابط ومقابض واختصارات ووحدات وأسماء إنجليزية مضافة. يحافظ على التشكيل الذي تكتبه."
+            : "Local normalization expands numbers, dates, times, currencies, percentages, phone numbers, email, URLs, handles, abbreviations, units and configured names. User-entered diacritics are preserved.";
+        VoiceDesignDisclosure.Text = ar
+            ? "الافتراضي أنثوي بعمر طفولي وطبقة مرتفعة جدًا. هذا وصف تصميم تجريبي؛ لا يضمن لهجة أو خامة أو عمرًا صوتيًا محددًا على كل اللغات."
+            : "Default design is female, child, very high pitch. This is an experimental design prompt and does not guarantee a specific dialect, timbre or perceived age across languages.";
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
             ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
             : "Read replies aloud. Local mode synthesizes speech on this device after local voice resources are prepared.");
@@ -574,25 +601,32 @@ public partial class MainWindow
         LocalAiSectionTitle.Text = ar ? "نواة ليال المستقلة والصوت المحلي الاختياري" : "Layal native core and optional local speech";
         UseLocalAiCheckbox.Content = ar ? "المعالجة المحلية فقط (ثابت)" : "Local processing only (fixed)";
         LocalAiDescription.Text = ar
-            ? "النواة الرمزية تعمل دون نموذج. للحصول على حوار مفتوح، يمكنك ربط نموذج لغوي يعمل على جهازك عبر خادم محلي؛ العنوان البعيد مرفوض. Whisper/Piper للصوت فقط."
-            : "The deterministic core works without a model. For open-ended chat, you can connect a language model running on this PC through a loopback-only server; remote hosts are rejected. Whisper/Piper are for speech only.";
-        LocalChatModelSectionTitle.Text = ar ? "نموذج محادثة محلي اختياري" : "Optional local conversation model";
+            ? "النواة المحلية تعمل دون نموذج لكنها محدودة. لتفعيل حوار عام، جهّز نموذجًا لغويًا محليًا من القسم التالي. السمع محلي عبر Whisper والنطق المحلي عبر VoiceTut؛ لا يُستخدم أي منهما للتفكير أو تنفيذ المهام."
+            : "The native core works without a model but is limited. Set up a local language model below for general conversation. Whisper handles local speech recognition and VoiceTut handles local speech synthesis; neither is used for reasoning or tasks.";
+        LocalChatModelSectionTitle.Text = ar ? "محرك المحادثة العامة المحلي" : "General-purpose local chat engine";
         LocalChatModelBaseUrlLabel.Text = ar ? "عنوان خادم النموذج المحلي (Loopback فقط)" : "Local model server URL (loopback only)";
         LocalChatModelIdLabel.Text = ar ? "معرّف النموذج المثبت محليًا" : "Installed local model ID";
+        SetupLocalChatModelButton.Content = ar ? "تجهيز المحادثة المحلية (Qwen3.5 2B)" : "Set up local chat (Qwen3.5 2B)";
+        CancelLocalChatModelSetupButton.Content = ar ? "إلغاء تجهيز المحادثة" : "Cancel chat setup";
         SaveLocalChatModelButton.Content = ar ? "حفظ النموذج المحلي" : "Save local model";
         TestLocalChatModelButton.Content = ar ? "اختبار الخادم المحلي" : "Test local server";
         AutomationProperties.SetName(LocalChatModelBaseUrlInput, LocalChatModelBaseUrlLabel.Text);
         AutomationProperties.SetName(LocalChatModelIdInput, LocalChatModelIdLabel.Text);
+        AutomationProperties.SetName(SetupLocalChatModelButton, SetupLocalChatModelButton.Content?.ToString() ?? string.Empty);
+        AutomationProperties.SetHelpText(SetupLocalChatModelButton, ar
+            ? "قد يثبت Ollama عبر WinGet وينزّل نموذجًا حجمه نحو 2.7 إلى 3.1 جيجابايت بعد موافقتك."
+            : "After consent, this may install Ollama through WinGet and download a model of about 2.7–3.1 GB.");
+        AutomationProperties.SetName(CancelLocalChatModelSetupButton, CancelLocalChatModelSetupButton.Content?.ToString() ?? string.Empty);
         AutomationProperties.SetName(SaveLocalChatModelButton, SaveLocalChatModelButton.Content?.ToString() ?? string.Empty);
         AutomationProperties.SetName(TestLocalChatModelButton, TestLocalChatModelButton.Content?.ToString() ?? string.Empty);
         UpdateLocalChatModelStatusText();
-        SetupLocalAiButton.Content = ar ? "تجهيز الصوت المحلي فقط" : "Set up local speech only";
+        SetupLocalAiButton.Content = ar ? "تجهيز Whisper وVoiceTut محليًا" : "Set up local Whisper and VoiceTut";
         CancelLocalAiSetupButton.Content = ar ? "إلغاء التنزيل" : "Cancel downloads";
         AutomationProperties.SetName(CancelLocalAiSetupButton, ar ? "إلغاء تنزيل موارد الذكاء الاصطناعي المحلي" : "Cancel local AI downloads");
         AutomationProperties.SetName(UseLocalAiCheckbox, ar ? "وضع الذكاء الاصطناعي المحلي" : "Local AI mode");
         AutomationProperties.SetHelpText(UseLocalAiCheckbox, ar
-            ? "الردود والتخطيط والمهام تستخدم نواة ليال المستقلة دائمًا. موارد الصوت المحلية اختيارية."
-            : "Replies, planning, and tasks always use Layal's native core. Local speech resources are optional.");
+            ? "المحادثة العامة تستخدم النموذج اللغوي المحلي إذا تم إعداده. نواة ليال المستقلة تظل متاحة للأوامر والمهام المنظمة، وتبقى إجراءات الجهاز خاضعة للصلاحيات والموافقات."
+            : "General conversation uses the local language model when configured. Layal's native core remains available for structured commands and tasks; device actions remain subject to permissions and confirmations.");
         ProviderSectionTitle.Text = ar ? "اختبار اتصال API خارجي (لا يدخل في تفكير ليال أو ردودها أو تنفيذ مهامها)" : "External API connectivity test (not used by Layal for chat, reasoning, or task execution)";
         ArabicLanguageButton.Content = "العربية";
         EnglishLanguageButton.Content = "English";
@@ -803,13 +837,13 @@ public partial class MainWindow
         UpdateLocalChatModelStatusText();
         LocalAiStatusText.Text = _localVoiceReady
             ? (IsArabic
-                ? "نواة ليال النصية والمهام جاهزة دون أي نموذج خارجي. موارد الصوت المحلي جاهزة أيضًا."
-                : "Layal's text and task core is ready without an external model. Local speech resources are ready too.")
+                ? "نواة ليال النصية والمهام جاهزة. Whisper للسمع وVoiceTut لتوليد الصوت جاهزان محليًا."
+                : "Layal's text and task core is ready. Whisper and VoiceTut speech resources are ready locally.")
             : !string.IsNullOrWhiteSpace(_localVoiceSetupError)
                 ? (IsArabic ? "تعذر تجهيز موارد الصوت المحلي. سبب الفشل: " : "Local speech setup failed. Reason: ") + _localVoiceSetupError
                 : (IsArabic
-                    ? "نواة ليال النصية والمهام جاهزة دون تنزيل نماذج. الصوت المحلي اختياري ويحتاج تجهيز Whisper/Piper فقط."
-                    : "Layal's text and task core is ready without model downloads. Local speech is optional and only needs Whisper/Piper resources.");
+                    ? "نواة ليال النصية والمهام جاهزة دون تنزيل نماذج. الصوت المحلي اختياري ويحتاج Whisper للتفريغ وVoiceTut للنطق."
+                    : "Layal's text and task core is ready without model downloads. Optional speech setup installs Whisper and the local VoiceTut synthesis runtime.");
     }
 
     private async Task RefreshLocalAiStatusAsync()
@@ -901,9 +935,9 @@ public partial class MainWindow
             var consent = LayalDialogService.Show(
                 this,
                 IsArabic
-                    ? "المحادثة النصية وتنفيذ المهام يعملان بالفعل بنواة ليال المحلية ولا يحتاجان إلى Ollama أو Qwen أو مفتاح API. هذا التنزيل اختياري للصوت فقط: Whisper لتحويل الكلام إلى نص وPiper لنطق الردود. قد يحتاج تنزيل موارد الصوت إلى إنترنت ومساحة إضافية. لن تُستخدم هذه النماذج للتفكير أو اتخاذ القرارات أو تنفيذ المهام. هل توافق على تجهيز الصوت المحلي؟"
-                    : "Text chat and task execution already run in Layal's native local core and do not need Ollama, Qwen, or an API key. This optional download is for speech only: Whisper for speech-to-text and Piper for speech output. It needs internet and additional disk space. These models will not be used for reasoning, decisions, or task execution. Approve local speech setup?",
-                IsArabic ? "موافقة على تجهيز الصوت المحلي فقط" : "Approve local speech-only setup",
+                    ? "المحادثة النصية وتنفيذ المهام يعملان بالفعل بنواة ليال المحلية. سيُجهّز هذا الخيار الصوت فقط: Whisper لتحويل الكلام إلى نص، وPython/PyTorch، ونموذج VoiceTut بحجم يقارب 2.5 جيجابايت لتوليد الصوت. يلزم Python 3.10 إلى 3.12 مثبتًا مسبقًا، واتصال إنترنت ومساحة إضافية كبيرة. لن تُحمّل الأصوات المرجعية الجاهزة أو ملفات الاستنساخ؛ يعمل VoiceTut بوضع Voice Design فقط على 127.0.0.1. هل توافق على التنزيل والتثبيت محليًا؟"
+                    : "Text chat and tasks already run in Layal's native core. This optional setup is speech-only: Whisper for recognition, Python/PyTorch, and the VoiceTut model (about 2.5 GB of weights) for synthesis. Python 3.10–3.12 must already be installed; internet access and substantial additional disk space are required. Built-in reference speakers and cloning assets are not downloaded. VoiceTut runs in Voice Design-only mode behind 127.0.0.1. Approve local download and installation?",
+                IsArabic ? "الموافقة على تثبيت Whisper وVoiceTut محليًا" : "Approve local Whisper and VoiceTut setup",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information,
                 MessageBoxResult.No);

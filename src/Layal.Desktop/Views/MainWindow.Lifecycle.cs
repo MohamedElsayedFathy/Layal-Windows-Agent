@@ -69,6 +69,7 @@ public partial class MainWindow
         {
             _chatCancellation?.Cancel();
             _agentTaskCancellation?.Cancel();
+            _localVoiceService.Dispose();
         }
     }
 }

@@ -6,15 +6,21 @@ using Layal.SpeechLanguage;
 namespace Layal.Services;
 
 /// <summary>
-/// Adapter over Layal's integrity-checked local Whisper/Piper service.
-/// No cloud fallback is introduced, and microphone consent remains in the WPF host.
+/// Adapts local Whisper recognition and the isolated VoiceTut Voice Design synthesizer.
+/// Audio capture consent remains in the WPF host; no cloud speech fallback is introduced.
 /// </summary>
 public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, ISpeechSynthesisProvider
 {
     private readonly LocalVoiceService _voiceService;
+    private readonly Func<VoiceTutGenerationSettings>? _settingsFactory;
 
-    public LocalSpeechLanguageProvider(LocalVoiceService voiceService) =>
+    public LocalSpeechLanguageProvider(
+        LocalVoiceService voiceService,
+        Func<VoiceTutGenerationSettings>? settingsFactory = null)
+    {
         _voiceService = voiceService ?? throw new ArgumentNullException(nameof(voiceService));
+        _settingsFactory = settingsFactory;
+    }
 
     public async Task<string> RecognizeAsync(ReadOnlyMemory<byte> waveAudio, CancellationToken cancellationToken)
     {
@@ -37,5 +43,11 @@ public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, IS
             text,
             cancellationToken,
             options.OutputDeviceId,
-            options.DeliveryStyleId);
+            options.DeliveryStyleId,
+            _settingsFactory?.Invoke() ?? new VoiceTutGenerationSettings(
+                options.VoiceDesignInstruction ?? VoiceTutLocalService.DefaultVoiceDesign,
+                options.QualitySteps,
+                options.GuidanceScale,
+                options.Speed,
+                options.NormalizeText));
 }
