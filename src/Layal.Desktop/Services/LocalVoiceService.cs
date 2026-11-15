@@ -535,7 +535,7 @@ public sealed class LocalVoiceService
                 throw new InvalidOperationException($"حجم ملف الصوت من المصدر تغيّر؛ أُلغي التنزيل للتحقق من النسخة ({declaredLength.Value:N0} بايت بدلًا من {expectedSize:N0}).");
 
             await using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
-            await using var output = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true);
+            await using var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true);
             var buffer = new byte[1024 * 128];
             long downloaded = 0;
             try
