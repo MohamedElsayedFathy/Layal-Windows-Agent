@@ -352,7 +352,12 @@ public partial class MainWindow
                 "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak locally and clearly.",
                 new SpeechSynthesisOptions(
                     AppRuntime.Settings.AudioOutputDeviceId,
-                    AppRuntime.Settings.VoiceDeliveryStyleId),
+                    AppRuntime.Settings.VoiceDeliveryStyleId,
+                    AppRuntime.Settings.VoiceDesignInstruction,
+                    AppRuntime.Settings.VoiceQualitySteps,
+                    AppRuntime.Settings.VoiceGuidanceScale,
+                    AppRuntime.Settings.VoiceSpeed,
+                    AppRuntime.Settings.VoiceTextNormalizationEnabled),
                 cancellation.Token);
             SetAccessibleStatusText(ProviderActionStatus, IsArabic
                 ? "انتهت تجربة الصوت المحلي؛ لم يُرسل النص إلى خادم."
