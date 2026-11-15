@@ -71,6 +71,15 @@ These notices capture license declarations published by the package sources. The
 - Package metadata: https://www.nuget.org/packages/NAudio.Midi/3.3.0
 - License text: licenses/MIT-NAudio.txt
 
+## NAudio.Wasapi
+
+- Package: NAudio.Wasapi version 3.3.0 (direct dependency for Windows default-output playback)
+- License declared by upstream: MIT
+- Project/source: https://github.com/naudio/NAudio
+- Package metadata: https://www.nuget.org/packages/NAudio.Wasapi/3.3.0
+- License text: licenses/MIT-NAudio.txt
+
+
 
 ## OpenCvSharp4
 
