@@ -663,8 +663,8 @@ public partial class MainWindow
         var consent = LayalDialogService.Show(
             this,
             IsArabic
-                ? "سيظل الميكروفون نشطًا حتى تضغط الزر مرة ثانية أو Esc. سيُعالج التسجيل على هذا الجهاز باستخدام نماذج محلية؛ قد يُكتب ملف مؤقت ثم يحذفه التطبيق. لن يُرسل الصوت إلى خادم سحابي. بعد التحويل سيُعالج النص داخل نواة ليال المستقلة دون استدعاء أي نموذج محادثة. هل تريد البدء؟"
-                : "The microphone stays active until you press the button again or Esc. The recording is processed on this computer with local models; a temporary audio file may be created and then deleted. Audio is not sent to a cloud server. After transcription, the text is handled by Layal's native core without calling a chat model. Start?",
+                ? "سيظل الميكروفون نشطًا حتى تضغط الزر مرة ثانية أو Esc. سيُعالج التسجيل على هذا الجهاز باستخدام نماذج محلية، ولن يُرسل الصوت إلى خادم سحابي. بعد التحويل ستُرسل الكلمات إلى محرك المحادثة المحلي المُعد إن كان متاحًا، وسيصدر رد ليال صوتيًا فقط دون إضافة نص إلى سجل الشات. هل تريد البدء؟"
+                : "The microphone stays active until you press the button again or Esc. Recording and transcription stay on this PC; audio is not sent to a cloud server. The transcript is sent to the configured local chat model when available, and Layal replies aloud only without adding the voice turn to text chat. Start?",
             IsArabic ? "بدء الكلام المحلي" : "Start local voice input",
             MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
         if (consent != MessageBoxResult.Yes) return;
@@ -695,8 +695,8 @@ public partial class MainWindow
             UpdateVoiceConversationControls();
             UpdateSpeechToTextButton();
             SetChatActivityStatus(IsArabic
-                ? "بتسمعك ليال محليًا… اضغط «إنهاء الكلام وإرسال» لإيقاف التسجيل وإرسال النص إلى الشات المحلي."
-                : "Layal is listening locally… Press Finish speaking & send to stop recording and send the transcript to local chat.");
+                ? "ليال بتسمعك محليًا… اضغط «إنهاء الكلام وإرسال» لإيقاف التسجيل. الرد هيكون بالصوت فقط."
+                : "Layal is listening locally… Press Finish speaking & send to stop recording. The reply will be spoken only.");
         }
         catch (Exception ex)
         {
@@ -751,11 +751,7 @@ public partial class MainWindow
                 return;
             }
 
-            ChatInput.Text = string.IsNullOrWhiteSpace(ChatInput.Text)
-                ? transcript
-                : ChatInput.Text.TrimEnd() + Environment.NewLine + transcript;
-            ChatInput.CaretIndex = ChatInput.Text.Length;
-
+            // Keep the transcript inside the voice channel; never place it in the visible text composer.
             // Release the voice-session guard before SendMessageAsync takes ownership of the turn.
             if (ReferenceEquals(_voiceConversationCancellation, session))
             {
@@ -774,9 +770,9 @@ public partial class MainWindow
             UpdateVoiceConversationControls();
             var detectedLanguage = recognition.Analysis.GetLanguageLabel(IsArabic);
             SetChatActivityStatus(IsArabic
-                ? $"تم تحويل كلامك محليًا ({detectedLanguage})؛ جارٍ معالجة النص داخل نواة ليال المستقلة."
-                : $"Local transcription complete ({detectedLanguage}); processing the text with Layal's native core.");
-            await SendMessageAsync();
+                ? $"تم تحويل كلامك محليًا ({detectedLanguage})؛ جارٍ إعداد رد صوتي منفصل."
+                : $"Local transcription complete ({detectedLanguage}); preparing a separate spoken reply.");
+            await SendMessageAsync(suppliedText: transcript, voiceChannel: true);
         }
         catch (OperationCanceledException)
         {
@@ -843,7 +839,7 @@ public partial class MainWindow
             return;
         }
 
-        // Whisper performs local transcription; the native core generates the reply.
+        // Whisper performs local transcription; the voice channel uses its own conversation context and spoken output.
         await LocalVoiceConversationButton_ClickAsync();
     }
 
@@ -857,14 +853,14 @@ public partial class MainWindow
                 ? (IsArabic ? "جارٍ تحويل الصوت المحلي…" : "Transcribing local voice…")
                 : (IsArabic ? "التحدث إلى ليال محليًا" : "Talk to Layal locally");
         VoiceConversationButton.ToolTip = _localVoiceRecordingActive
-            ? (IsArabic ? "اضغط لإيقاف الميكروفون وتحويل التسجيل محليًا وإرسال النص إلى نواة ليال." : "Stop the microphone, transcribe locally, and send the text to Layal's native core.")
+            ? (IsArabic ? "اضغط لإيقاف الميكروفون وتحويل التسجيل محليًا ومعالجة الدور في محادثة الصوت." : "Stop the microphone, transcribe locally, and process this turn in the separate voice conversation.")
             : active
                 ? (IsArabic ? "اضغط لإلغاء تحويل الصوت المحلي، أو اضغط Esc." : "Cancel local transcription, or press Esc.")
-                : (IsArabic ? "محادثة صوتية بالتناوب: اضغط للتسجيل ثم اضغط مرة ثانية للإرسال. الرد يصدر من نواة ليال المحلية." : "Turn-based local voice: press to record, then press again to send. Replies come from Layal's native core.");
+                : (IsArabic ? "محادثة صوتية منفصلة: اضغط للتسجيل ثم اضغط مرة ثانية للإرسال. لا تُضاف الرسائل إلى سجل الشات، والرد يصدر بالصوت." : "Separate voice conversation: press to record, then press again to send. Turns stay out of text chat and replies are spoken aloud.");
         AutomationProperties.SetName(VoiceConversationButton, VoiceConversationButton.Content?.ToString() ?? string.Empty);
         AutomationProperties.SetHelpText(VoiceConversationButton, IsArabic
-            ? "اضغط للتسجيل ومرة ثانية لإرسال الكلام إلى نواة ليال المستقلة. لا يوجد بث صوتي سحابي."
-            : "Press to record and press again to send speech to Layal's native core. There is no cloud audio stream.");
+            ? "اضغط للتسجيل ومرة ثانية للإرسال. سياق الصوت منفصل عن الشات النصي، والصوت يُعالج محليًا."
+            : "Press to record and press again to send. Voice context is separate from text chat and audio is processed locally.");
         VoiceConversationIndicator.Visibility = _localVoiceRecordingActive || active
             ? Visibility.Visible
             : Visibility.Collapsed;
