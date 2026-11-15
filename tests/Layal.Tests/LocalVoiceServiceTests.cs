@@ -147,6 +147,67 @@ public sealed class LocalVoiceServiceTests
         }
     }
 
+    [TestMethod]
+    public void SuccessfulVoiceTutMigrationRemovesOnlyKnownLegacyPiperAssets()
+    {
+        var variable = LayalDataPathPolicy.AcceptanceRootEnvironmentVariable;
+        var previousValue = Environment.GetEnvironmentVariable(variable);
+        var acceptanceRoot = Path.Combine(Path.GetTempPath(), "LayalPiperMigration", Guid.NewGuid().ToString("N"));
+        var dataRoot = Path.Combine(acceptanceRoot, "LocalAppData", "Layal", "LocalAi");
+        var modelsRoot = Path.Combine(dataRoot, "speech-models");
+        var toolsRoot = Path.Combine(dataRoot, "tools");
+        var piperRoot = Path.Combine(toolsRoot, "piper");
+        try
+        {
+            Directory.CreateDirectory(modelsRoot);
+            Directory.CreateDirectory(piperRoot);
+            foreach (var name in new[]
+            {
+                "ar_JO-kareem-medium.onnx",
+                "ar_JO-kareem-medium.onnx.json",
+                "en_US-lessac-medium.onnx",
+                "en_US-lessac-medium.onnx.json",
+                "other-voice.onnx",
+                "ggml-base.bin"
+            })
+                File.WriteAllText(Path.Combine(modelsRoot, name), "test");
+
+            File.WriteAllText(Path.Combine(dataRoot, "piper-windows-amd64-2023.11.14-2.zip"), "archive");
+            File.WriteAllText(Path.Combine(piperRoot, "piper.exe"), "binary");
+            var keepFile = Path.Combine(toolsRoot, "whisper", "whisper-cli.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(keepFile)!);
+            File.WriteAllText(keepFile, "whisper");
+
+            Environment.SetEnvironmentVariable(variable, acceptanceRoot);
+            var method = typeof(LocalVoiceService).GetMethod(
+                "DeleteLegacyPiperResources",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(method, "The explicit Piper migration cleanup must exist.");
+            method!.Invoke(null, null);
+
+            foreach (var name in new[]
+            {
+                "ar_JO-kareem-medium.onnx",
+                "ar_JO-kareem-medium.onnx.json",
+                "en_US-lessac-medium.onnx",
+                "en_US-lessac-medium.onnx.json"
+            })
+                Assert.IsFalse(File.Exists(Path.Combine(modelsRoot, name)), name + " must be removed.");
+
+            Assert.IsTrue(File.Exists(Path.Combine(modelsRoot, "other-voice.onnx")));
+            Assert.IsTrue(File.Exists(Path.Combine(modelsRoot, "ggml-base.bin")));
+            Assert.IsTrue(File.Exists(keepFile), "Whisper files must not be removed.");
+            Assert.IsFalse(File.Exists(Path.Combine(dataRoot, "piper-windows-amd64-2023.11.14-2.zip")));
+            Assert.IsFalse(Directory.Exists(piperRoot));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, previousValue);
+            if (Directory.Exists(acceptanceRoot))
+                Directory.Delete(acceptanceRoot, recursive: true);
+        }
+    }
+
     private static MethodInfo GetTemporaryArtifactCleanupMethod()
     {
         var method = typeof(LocalVoiceService).GetMethod(
