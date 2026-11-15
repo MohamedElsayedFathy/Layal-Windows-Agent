@@ -574,15 +574,22 @@ public partial class MainWindow
         LocalAiSectionTitle.Text = ar ? "نواة ليال المستقلة والصوت المحلي الاختياري" : "Layal native core and optional local speech";
         UseLocalAiCheckbox.Content = ar ? "المعالجة المحلية فقط (ثابت)" : "Local processing only (fixed)";
         LocalAiDescription.Text = ar
-            ? "النواة الرمزية تعمل دون نموذج. للحصول على حوار مفتوح، يمكنك ربط نموذج لغوي يعمل على جهازك عبر خادم محلي؛ العنوان البعيد مرفوض. Whisper/Piper للصوت فقط."
-            : "The deterministic core works without a model. For open-ended chat, you can connect a language model running on this PC through a loopback-only server; remote hosts are rejected. Whisper/Piper are for speech only.";
-        LocalChatModelSectionTitle.Text = ar ? "نموذج محادثة محلي اختياري" : "Optional local conversation model";
+            ? "النواة الرمزية تعمل دون نموذج لكنها محدودة. لتفعيل حوار عام، جهّز نموذجًا لغويًا محليًا من القسم التالي. رسائل المحادثة تظل على الجهاز؛ Whisper/Piper لمعالجة الصوت فقط."
+            : "The deterministic core works without a model but is limited. Set up a local language model below for general conversation. Chat stays on this PC; Whisper/Piper handle speech only.";
+        LocalChatModelSectionTitle.Text = ar ? "محرك المحادثة العامة المحلي" : "General-purpose local chat engine";
         LocalChatModelBaseUrlLabel.Text = ar ? "عنوان خادم النموذج المحلي (Loopback فقط)" : "Local model server URL (loopback only)";
         LocalChatModelIdLabel.Text = ar ? "معرّف النموذج المثبت محليًا" : "Installed local model ID";
+        SetupLocalChatModelButton.Content = ar ? "تجهيز المحادثة المحلية (Qwen3.5 2B)" : "Set up local chat (Qwen3.5 2B)";
+        CancelLocalChatModelSetupButton.Content = ar ? "إلغاء تجهيز المحادثة" : "Cancel chat setup";
         SaveLocalChatModelButton.Content = ar ? "حفظ النموذج المحلي" : "Save local model";
         TestLocalChatModelButton.Content = ar ? "اختبار الخادم المحلي" : "Test local server";
         AutomationProperties.SetName(LocalChatModelBaseUrlInput, LocalChatModelBaseUrlLabel.Text);
         AutomationProperties.SetName(LocalChatModelIdInput, LocalChatModelIdLabel.Text);
+        AutomationProperties.SetName(SetupLocalChatModelButton, SetupLocalChatModelButton.Content?.ToString() ?? string.Empty);
+        AutomationProperties.SetHelpText(SetupLocalChatModelButton, ar
+            ? "قد يثبت Ollama عبر WinGet وينزّل نموذجًا حجمه نحو 2.7 إلى 3.1 جيجابايت بعد موافقتك."
+            : "After consent, this may install Ollama through WinGet and download a model of about 2.7–3.1 GB.");
+        AutomationProperties.SetName(CancelLocalChatModelSetupButton, CancelLocalChatModelSetupButton.Content?.ToString() ?? string.Empty);
         AutomationProperties.SetName(SaveLocalChatModelButton, SaveLocalChatModelButton.Content?.ToString() ?? string.Empty);
         AutomationProperties.SetName(TestLocalChatModelButton, TestLocalChatModelButton.Content?.ToString() ?? string.Empty);
         UpdateLocalChatModelStatusText();
