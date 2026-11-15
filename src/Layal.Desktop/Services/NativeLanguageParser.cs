@@ -174,7 +174,11 @@ public sealed class NativeLanguageParser
         };
         // Match only a complete greeting. A greeting followed by a real request must
         // continue through intent parsing instead of being swallowed as a salutation.
-        return greetings.Contains(normalized, StringComparer.Ordinal);
+        return greetings.Any(greeting =>
+            string.Equals(
+                NativeTextNormalizer.Normalize(greeting),
+                normalized,
+                StringComparison.Ordinal));
     }
 
     private static bool ContainsAny(string source, params string[] values) =>
