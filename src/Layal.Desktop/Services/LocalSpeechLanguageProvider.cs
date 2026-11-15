@@ -12,9 +12,15 @@ namespace Layal.Services;
 public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, ISpeechSynthesisProvider
 {
     private readonly LocalVoiceService _voiceService;
+    private readonly Func<VoiceTutGenerationSettings>? _settingsFactory;
 
-    public LocalSpeechLanguageProvider(LocalVoiceService voiceService) =>
+    public LocalSpeechLanguageProvider(
+        LocalVoiceService voiceService,
+        Func<VoiceTutGenerationSettings>? settingsFactory = null)
+    {
         _voiceService = voiceService ?? throw new ArgumentNullException(nameof(voiceService));
+        _settingsFactory = settingsFactory;
+    }
 
     public async Task<string> RecognizeAsync(ReadOnlyMemory<byte> waveAudio, CancellationToken cancellationToken)
     {
@@ -38,7 +44,7 @@ public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, IS
             cancellationToken,
             options.OutputDeviceId,
             options.DeliveryStyleId,
-            new VoiceTutGenerationSettings(
+            _settingsFactory?.Invoke() ?? new VoiceTutGenerationSettings(
                 options.VoiceDesignInstruction ?? VoiceTutLocalService.DefaultVoiceDesign,
                 options.QualitySteps,
                 options.GuidanceScale,
