@@ -1143,9 +1143,9 @@
                         <CheckBox x:Name="UseLocalAiCheckbox" Content="المعالجة المحلية فقط (ثابت)" IsEnabled="False"
                                   IsChecked="True" Checked="LocalAiModeSettingChanged" Unchecked="LocalAiModeSettingChanged"
                                   AutomationProperties.Name="وضع الصوت المحلي"
-                                  AutomationProperties.HelpText="الردود والتخطيط والمهام وتحويل الصوت والنطق لا تستخدم مزود AI سحابيًا. موارد Whisper/Piper محلية واختيارية للصوت فقط."/>
+                                  AutomationProperties.HelpText="الردود والتخطيط والمهام وتحويل الصوت والنطق لا تستخدم مزود AI سحابيًا. موارد Whisper وVoiceTut محلية واختيارية للصوت فقط."/>
                         <TextBlock x:Name="LocalAiDescription"
-                                   Text="الردود النصية وتنفيذ المهام يعملان دون تنزيل أي نموذج. يمكنك اختياريًا تنزيل Whisper وPiper للصوت فقط؛ لن يُستخدما للتفكير أو التخطيط أو اتخاذ القرارات."
+                                   Text="الردود النصية وتنفيذ المهام يعملان دون تنزيل أي نموذج. يمكنك اختياريًا تجهيز Whisper وVoiceTut للصوت فقط؛ لن يُستخدما للتفكير أو التخطيط أو اتخاذ القرارات."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,5"/>
                         <Button x:Name="SetupLocalAiButton" Content="تجهيز الصوت المحلي فقط" Click="SetupLocalAiButton_Click"
                                 HorizontalAlignment="Left" AutomationProperties.Name="تجهيز الصوت المحلي فقط"/>
@@ -1236,7 +1236,7 @@
                         <ComboBox x:Name="VoiceDeliveryStyleSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="VoiceDeliveryStyleSelector_SelectionChanged"
                                   AutomationProperties.Name="نبرة الإلقاء الصوتي"
-                                  AutomationProperties.HelpText="يضبط سرعة النطق والوقفات المحلية عبر Piper؛ لا يغيّر خامة الصوت أو يولّد مشاعر صوتية كاملة.">
+                                  AutomationProperties.HelpText="يضبط سرعة التوليد عبر VoiceTut فقط؛ لا يغيّر هوية الصوت أو يضمن مشاعر صوتية كاملة.">
                             <ComboBoxItem Tag="natural" Content="طبيعية وعفوية"/>
                             <ComboBoxItem Tag="gentle" Content="هادئة وناعمة"/>
                             <ComboBoxItem Tag="bright" Content="مبهجة بخفة"/>
