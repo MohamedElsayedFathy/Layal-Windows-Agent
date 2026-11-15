@@ -516,7 +516,11 @@ public sealed class LocalVoiceService
             return;
         TryDeleteFile(destination);
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        var temporary = destination + ".download";
+        // Give every download attempt its own staging file. A fixed ".download" path can be
+        // held by a previous process, antivirus scanner, or another setup attempt, preventing
+        // FileStream(FileShare.None) from opening it even though this attempt owns the download.
+        // CreateNew also ensures a stale file can never be silently truncated and reused.
+        var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".download";
         try
         {
             progress?.Report(new LocalSpeechProgress(progressMessage));
@@ -531,7 +535,7 @@ public sealed class LocalVoiceService
                 throw new InvalidOperationException($"حجم ملف الصوت من المصدر تغيّر؛ أُلغي التنزيل للتحقق من النسخة ({declaredLength.Value:N0} بايت بدلًا من {expectedSize:N0}).");
 
             await using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
-            await using var output = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true);
+            await using var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true);
             var buffer = new byte[1024 * 128];
             long downloaded = 0;
             try
