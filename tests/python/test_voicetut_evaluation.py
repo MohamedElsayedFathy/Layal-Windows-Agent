@@ -2,6 +2,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -51,6 +52,45 @@ class VoiceTutEvaluationTests(unittest.TestCase):
                 "0e92b49d73fb667425a268632ef0d25eac80e6e1ba278fa9c8f8445e7ad6baf9",
                 MODULE.sha256_file(path),
             )
+
+
+    def test_bridge_accepts_only_female_voice_design_and_rejects_reference_audio(self):
+        request = {
+            "text": "ازيك يا ليال؟",
+            "language": "arz",
+            "instruct": "female, child, very high pitch",
+            "num_steps": 32,
+            "guidance_scale": 2.0,
+            "speed": 1.0,
+            "normalize": True,
+        }
+        values = BRIDGE.validate_request(request)
+        self.assertEqual("female, child, very high pitch", values[2])
+        self.assertEqual(32, values[3])
+        self.assertTrue(values[6])
+
+        for invalid_prompt in ("male, adult", "female, ref_audio clone", "female, reference audio imitation"):
+            invalid = dict(request, instruct=invalid_prompt)
+            with self.assertRaises(ValueError):
+                BRIDGE.validate_request(invalid)
+
+    def test_bridge_rejects_invalid_generation_ranges_and_non_finite_speed(self):
+        request = {
+            "text": "Hello Layal",
+            "language": "en",
+            "instruct": "female, child, very high pitch",
+            "num_steps": 100,
+            "guidance_scale": 2.0,
+            "speed": 1.0,
+            "normalize": True,
+        }
+        with self.assertRaises(ValueError):
+            BRIDGE.validate_request(request)
+
+        request["num_steps"] = 32
+        request["speed"] = float("nan")
+        with self.assertRaises(ValueError):
+            BRIDGE.validate_request(request)
 
     def test_model_source_is_pinned_and_voice_references_are_excluded(self):
         source = MODULE_PATH.read_text(encoding="utf-8")
