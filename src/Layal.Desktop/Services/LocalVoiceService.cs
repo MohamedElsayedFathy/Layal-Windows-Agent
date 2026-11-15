@@ -183,7 +183,6 @@ public sealed class LocalVoiceService
             // before attempting a repair or network download.
             Volatile.Write(ref _ready, 0);
             _whisperExecutable = null;
-            _piperExecutable = null;
             return false;
         }
     }
@@ -309,7 +308,7 @@ public sealed class LocalVoiceService
 
     public void Dispose() => _voiceTutService.Dispose();
 
-    /// <summary>Splits mixed Arabic/Latin text so each language uses its matching local Piper voice.</summary>
+    /// <summary>Detects Arabic/Latin runs for language-aware routing and evaluation helpers.</summary>
     public static IReadOnlyList<(string Text, bool IsArabic)> SplitTextByLanguage(string? text)
     {
         var normalized = NormalizeTextForSpeech(text);
@@ -676,17 +675,6 @@ public sealed class LocalVoiceService
         }
     }
 
-    private static void DeletePiperInstallDirectory(string directory)
-    {
-        var expected = Path.GetFullPath(Path.Combine(ToolsRoot, "piper")).TrimEnd(Path.DirectorySeparatorChar);
-        var actual = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar);
-        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("رفض التطبيق حذف مسار خارج تثبيت Piper المعتمد.");
-
-        if (Directory.Exists(actual))
-            DeleteDirectoryWithoutFollowingReparsePoints(actual);
-    }
-
     private static void DeleteDirectoryWithoutFollowingReparsePoints(string path)
     {
         var attributes = File.GetAttributes(path);
@@ -725,24 +713,6 @@ public sealed class LocalVoiceService
                 throw new InvalidOperationException("رفض التطبيق رابطًا رمزيًا داخل أرشيف أداة الصوت.");
         }
         archive.ExtractToDirectory(destination, overwriteFiles: true);
-    }
-
-    private static void ValidateVoiceConfig(string path, string expectedName)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
-            var root = document.RootElement;
-            if (!root.TryGetProperty("audio", out var audio) ||
-                !audio.TryGetProperty("sample_rate", out var rate) ||
-                rate.ValueKind != JsonValueKind.Number ||
-                !rate.TryGetInt32(out var sampleRate) || sampleRate is < 8000 or > 48000)
-                throw new InvalidOperationException();
-        }
-        catch
-        {
-            throw new InvalidOperationException($"ملف إعدادات الصوت {expectedName} غير صالح؛ أعد تجهيز الصوت المحلي.");
-        }
     }
 
     private static async Task<(int ExitCode, string Output, string Error)> RunProcessAsync(
