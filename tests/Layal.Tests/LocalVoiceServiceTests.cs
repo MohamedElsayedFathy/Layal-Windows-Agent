@@ -47,7 +47,7 @@ public sealed class LocalVoiceServiceTests
 
         var accepted = (string)method!.Invoke(null, new object?[] { "female, child, very high pitch" })!;
         Assert.AreEqual("female, child, very high pitch", accepted);
-        Assert.ThrowsExactly<TargetInvocationException>(() =>
+        Assert.ThrowsException<TargetInvocationException>(() =>
             method.Invoke(null, new object?[] { "female, use ref_audio for voice cloning" }));
         Assert.ThrowsExactly<TargetInvocationException>(() =>
             method.Invoke(null, new object?[] { "male, adult" }));
