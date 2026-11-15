@@ -27,6 +27,34 @@ public sealed class LocalVoiceServiceTests
     }
 
     [TestMethod]
+    public void PiperProcessUsesUtf8ForArabicStandardInput()
+    {
+        var method = typeof(LocalVoiceService).GetMethod(
+            "CreatePiperProcessStartInfo",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(method, "Expected a Piper process-start factory.");
+        var start = (System.Diagnostics.ProcessStartInfo)method!.Invoke(
+            null, new object[] { "piper.exe", "C:\\temp" })!;
+
+        Assert.IsTrue(start.RedirectStandardInput);
+        Assert.AreEqual(65001, start.StandardInputEncoding?.CodePage);
+        Assert.AreEqual(0, start.StandardInputEncoding?.GetPreamble().Length ?? -1);
+    }
+
+    [TestMethod]
+    public void WindowsDefaultOutputUsesWasapiSharedMode()
+    {
+        var method = typeof(LocalVoiceService).GetMethod(
+            "UsesWasapiForDefaultOutput",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(method, "Expected the default-output backend policy.");
+
+        Assert.IsTrue((bool)method!.Invoke(null, new object?[] { AudioDeviceService.WindowsDefaultDeviceId })!);
+        Assert.IsTrue((bool)method.Invoke(null, new object?[] { null })!);
+        Assert.IsFalse((bool)method.Invoke(null, new object?[] { "winmm:custom" })!);
+    }
+
+    [TestMethod]
     public void LocalVoiceCleanupDeletesOnlyOldGeneratedAudioAndTranscriptFiles()
     {
         var directory = Path.Combine(Path.GetTempPath(), "layal-voice-cleanup-" + Guid.NewGuid().ToString("N"));

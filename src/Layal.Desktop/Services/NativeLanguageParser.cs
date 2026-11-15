@@ -167,7 +167,9 @@ public sealed class NativeLanguageParser
     {
         var greetings = new[]
         {
-            "اهلا", "اهلين", "مرحبا", "السلام عليكم", "صباح الخير", "مساء الخير",
+            "اهلا", "اهلين", "مرحبا", "السلام عليكم", "السلام عليكم ورحمة الله",
+            "السلام عليكم ورحمة الله وبركاته", "سلام عليكم", "وعليكم السلام",
+            "صباح الخير", "صباح النور", "مساء الخير", "مساء النور",
             "hello", "hi", "hey"
         };
         // Match only a complete greeting. A greeting followed by a real request must

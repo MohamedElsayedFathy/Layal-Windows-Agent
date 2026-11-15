@@ -124,6 +124,8 @@ public sealed class SettingsStore
 
         settings.ProviderBaseUrl = (settings.ProviderBaseUrl ?? string.Empty).Trim();
         settings.ModelId = (settings.ModelId ?? string.Empty).Trim();
+        settings.LocalChatModelBaseUrl = LocalChatModelService.NormalizeBaseUrl(settings.LocalChatModelBaseUrl);
+        settings.LocalChatModelId = LocalChatModelService.NormalizeModelId(settings.LocalChatModelId);
 
         settings.ProactiveCheckInIntervalMinutes = settings.ProactiveCheckInIntervalMinutes is 15 or 30 or 60 or 120
             ? settings.ProactiveCheckInIntervalMinutes

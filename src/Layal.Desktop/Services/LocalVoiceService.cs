@@ -451,15 +451,9 @@ public sealed class LocalVoiceService
         var outputPath = Path.Combine(TempRoot, Guid.NewGuid().ToString("N") + ".wav");
         try
         {
-            var start = new ProcessStartInfo(_piperExecutable!)
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                WorkingDirectory = Path.GetDirectoryName(_piperExecutable!)!
-            };
+            var start = CreatePiperProcessStartInfo(
+                _piperExecutable!,
+                Path.GetDirectoryName(_piperExecutable!)!);
             start.ArgumentList.Add("--model");
             start.ArgumentList.Add(modelPath);
             start.ArgumentList.Add("--config");
@@ -904,6 +898,20 @@ public sealed class LocalVoiceService
         }
     }
 
+    private static ProcessStartInfo CreatePiperProcessStartInfo(string executable, string workingDirectory) =>
+        new(executable)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardInputEncoding = new UTF8Encoding(false),
+            StandardOutputEncoding = new UTF8Encoding(false),
+            StandardErrorEncoding = new UTF8Encoding(false),
+            WorkingDirectory = workingDirectory
+        };
+
     private static async Task<(int ExitCode, string Output, string Error)> RunProcessAsync(
         ProcessStartInfo start,
         string? standardInput,
@@ -947,27 +955,36 @@ public sealed class LocalVoiceService
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var reader = new WaveFileReader(path);
-        using var output = new WaveOut { DeviceNumber = AudioDeviceService.ResolveOutputDeviceNumber(outputDeviceId) };
-        var stopped = new TaskCompletionSource<StoppedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
-        EventHandler<StoppedEventArgs> handler = (_, args) => stopped.TrySetResult(args);
-        output.PlaybackStopped += handler;
-        try
+        IWavePlayer output = UsesWasapiForDefaultOutput(outputDeviceId)
+            ? new WasapiOut()
+            : new WaveOut { DeviceNumber = AudioDeviceService.ResolveOutputDeviceNumber(outputDeviceId) };
+        using (output)
         {
-            output.Init(reader);
-            using var registration = cancellationToken.Register(() =>
+            var stopped = new TaskCompletionSource<StoppedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<StoppedEventArgs> handler = (_, args) => stopped.TrySetResult(args);
+            output.PlaybackStopped += handler;
+            try
             {
-                try { output.Stop(); } catch { /* The output may already be stopped. */ }
-            });
-            output.Play();
-            var result = await stopped.Task.WaitAsync(cancellationToken);
-            if (result.Exception is not null)
-                throw new InvalidOperationException("تعذر تشغيل الصوت المحلي على جهاز الإخراج الافتراضي.", result.Exception);
-        }
-        finally
-        {
-            output.PlaybackStopped -= handler;
+                output.Init(reader);
+                using var registration = cancellationToken.Register(() =>
+                {
+                    try { output.Stop(); } catch { /* The output may already be stopped. */ }
+                });
+                output.Play();
+                var result = await stopped.Task.WaitAsync(cancellationToken);
+                if (result.Exception is not null)
+                    throw new InvalidOperationException("تعذر تشغيل الصوت المحلي على جهاز الإخراج المحدد.", result.Exception);
+            }
+            finally
+            {
+                output.PlaybackStopped -= handler;
+            }
         }
     }
+
+    private static bool UsesWasapiForDefaultOutput(string? outputDeviceId) =>
+        string.IsNullOrWhiteSpace(outputDeviceId) ||
+        string.Equals(outputDeviceId.Trim(), AudioDeviceService.WindowsDefaultDeviceId, StringComparison.Ordinal);
 
     private static void TryKillProcess(Process process)
     {

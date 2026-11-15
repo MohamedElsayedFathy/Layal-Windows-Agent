@@ -574,8 +574,18 @@ public partial class MainWindow
         LocalAiSectionTitle.Text = ar ? "نواة ليال المستقلة والصوت المحلي الاختياري" : "Layal native core and optional local speech";
         UseLocalAiCheckbox.Content = ar ? "المعالجة المحلية فقط (ثابت)" : "Local processing only (fixed)";
         LocalAiDescription.Text = ar
-            ? "الردود النصية والمهام لا تحتاج إلى تنزيل نماذج. يمكنك اختياريًا تنزيل Whisper/Piper لتحويل الكلام والنطق فقط؛ لن تُستخدم موارد الصوت للتفكير أو اتخاذ القرارات."
-            : "Text replies and tasks need no model downloads. You may optionally install Whisper/Piper for speech input/output only; speech resources are not used for reasoning or decisions.";
+            ? "النواة الرمزية تعمل دون نموذج. للحصول على حوار مفتوح، يمكنك ربط نموذج لغوي يعمل على جهازك عبر خادم محلي؛ العنوان البعيد مرفوض. Whisper/Piper للصوت فقط."
+            : "The deterministic core works without a model. For open-ended chat, you can connect a language model running on this PC through a loopback-only server; remote hosts are rejected. Whisper/Piper are for speech only.";
+        LocalChatModelSectionTitle.Text = ar ? "نموذج محادثة محلي اختياري" : "Optional local conversation model";
+        LocalChatModelBaseUrlLabel.Text = ar ? "عنوان خادم النموذج المحلي (Loopback فقط)" : "Local model server URL (loopback only)";
+        LocalChatModelIdLabel.Text = ar ? "معرّف النموذج المثبت محليًا" : "Installed local model ID";
+        SaveLocalChatModelButton.Content = ar ? "حفظ النموذج المحلي" : "Save local model";
+        TestLocalChatModelButton.Content = ar ? "اختبار الخادم المحلي" : "Test local server";
+        AutomationProperties.SetName(LocalChatModelBaseUrlInput, LocalChatModelBaseUrlLabel.Text);
+        AutomationProperties.SetName(LocalChatModelIdInput, LocalChatModelIdLabel.Text);
+        AutomationProperties.SetName(SaveLocalChatModelButton, SaveLocalChatModelButton.Content?.ToString() ?? string.Empty);
+        AutomationProperties.SetName(TestLocalChatModelButton, TestLocalChatModelButton.Content?.ToString() ?? string.Empty);
+        UpdateLocalChatModelStatusText();
         SetupLocalAiButton.Content = ar ? "تجهيز الصوت المحلي فقط" : "Set up local speech only";
         CancelLocalAiSetupButton.Content = ar ? "إلغاء التنزيل" : "Cancel downloads";
         AutomationProperties.SetName(CancelLocalAiSetupButton, ar ? "إلغاء تنزيل موارد الذكاء الاصطناعي المحلي" : "Cancel local AI downloads");
@@ -790,6 +800,7 @@ public partial class MainWindow
     private void UpdateLocalAiStatusText()
     {
         if (LocalAiStatusText is null) return;
+        UpdateLocalChatModelStatusText();
         LocalAiStatusText.Text = _localVoiceReady
             ? (IsArabic
                 ? "نواة ليال النصية والمهام جاهزة دون أي نموذج خارجي. موارد الصوت المحلي جاهزة أيضًا."

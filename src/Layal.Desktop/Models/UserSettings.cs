@@ -17,6 +17,10 @@ public sealed class UserSettings
     public bool AutomaticLocationConsentConfirmed { get; set; } = false;
     public string ProviderBaseUrl { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
+    /// <summary>Optional OpenAI-compatible local model endpoint. Only loopback URLs are accepted.</summary>
+    public string LocalChatModelBaseUrl { get; set; } = Layal.Services.LocalChatModelService.DefaultBaseUrl;
+    /// <summary>Model ID served by the local loopback endpoint; blank keeps the deterministic native core active.</summary>
+    public string LocalChatModelId { get; set; } = string.Empty;
     public bool UseLocalAi { get; set; } = true;
     public bool VoiceRepliesEnabled { get; set; } = true;
     /// <summary>Stable WinMM microphone selection; Windows default is used until the user chooses a device.</summary>
@@ -62,6 +66,8 @@ public sealed class UserSettings
         AutomaticLocationConsentConfirmed = AutomaticLocationConsentConfirmed,
         ProviderBaseUrl = ProviderBaseUrl,
         ModelId = ModelId,
+        LocalChatModelBaseUrl = LocalChatModelBaseUrl,
+        LocalChatModelId = LocalChatModelId,
         UseLocalAi = UseLocalAi,
         VoiceRepliesEnabled = VoiceRepliesEnabled,
         AudioInputDeviceId = AudioInputDeviceId,
@@ -98,6 +104,8 @@ public sealed class UserSettings
         AutomaticLocationConsentConfirmed = source.AutomaticLocationConsentConfirmed;
         ProviderBaseUrl = source.ProviderBaseUrl;
         ModelId = source.ModelId;
+        LocalChatModelBaseUrl = source.LocalChatModelBaseUrl;
+        LocalChatModelId = source.LocalChatModelId;
         UseLocalAi = source.UseLocalAi;
         VoiceRepliesEnabled = source.VoiceRepliesEnabled;
         AudioInputDeviceId = source.AudioInputDeviceId;
