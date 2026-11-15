@@ -26,6 +26,11 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(settings.AllowWindowTitleInspection);
         Assert.AreEqual("warm", settings.AssistantPersona);
         Assert.AreEqual("natural", settings.VoiceDeliveryStyleId);
+        Assert.AreEqual(VoiceTutLocalService.DefaultVoiceDesign, settings.VoiceDesignInstruction);
+        Assert.AreEqual(32, settings.VoiceQualitySteps);
+        Assert.AreEqual(2.0, settings.VoiceGuidanceScale, 0.0001);
+        Assert.AreEqual(1.0, settings.VoiceSpeed, 0.0001);
+        Assert.IsTrue(settings.VoiceTextNormalizationEnabled);
         Assert.AreEqual("duo", settings.MascotCharacterDisplayMode);
         Assert.AreEqual(string.Empty, settings.GmailOAuthClientId);
         Assert.IsFalse(settings.PrivacyShieldEnabled);
@@ -118,6 +123,11 @@ public sealed class SettingsStoreTests
             ThemePreset = "ocean",
             AssistantPersona = "focused",
             VoiceDeliveryStyleId = "gentle",
+            VoiceDesignInstruction = "female, child, very high pitch",
+            VoiceQualitySteps = 48,
+            VoiceGuidanceScale = 2.5,
+            VoiceSpeed = 1.15,
+            VoiceTextNormalizationEnabled = false,
             MascotCharacterDisplayMode = "robot",
             QuickAskHotkeyPreset = "AltShiftQ",
             GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
@@ -149,6 +159,11 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
         Assert.AreEqual("focused", reloaded.AssistantPersona);
         Assert.AreEqual("gentle", reloaded.VoiceDeliveryStyleId);
+        Assert.AreEqual("female, child, very high pitch", reloaded.VoiceDesignInstruction);
+        Assert.AreEqual(48, reloaded.VoiceQualitySteps);
+        Assert.AreEqual(2.5, reloaded.VoiceGuidanceScale, 0.0001);
+        Assert.AreEqual(1.15, reloaded.VoiceSpeed, 0.0001);
+        Assert.IsFalse(reloaded.VoiceTextNormalizationEnabled);
         Assert.AreEqual("robot", reloaded.MascotCharacterDisplayMode);
         Assert.AreEqual("https://provider.example/v1", reloaded.ProviderBaseUrl);
         Assert.AreEqual("test-model", reloaded.ModelId);
@@ -185,6 +200,11 @@ public sealed class SettingsStoreTests
             VoiceRepliesEnabled = false,
             AssistantPersona = "professional",
             VoiceDeliveryStyleId = "bright",
+            VoiceDesignInstruction = "female, child, high pitch",
+            VoiceQualitySteps = 56,
+            VoiceGuidanceScale = 4.25,
+            VoiceSpeed = 0.85,
+            VoiceTextNormalizationEnabled = false,
             MascotCharacterDisplayMode = "layal",
             GmailOAuthClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
             MascotAlwaysOnTop = false,
@@ -216,6 +236,11 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
         Assert.AreEqual("professional", candidate.AssistantPersona);
         Assert.AreEqual("bright", candidate.VoiceDeliveryStyleId);
+        Assert.AreEqual("female, child, high pitch", candidate.VoiceDesignInstruction);
+        Assert.AreEqual(56, candidate.VoiceQualitySteps);
+        Assert.AreEqual(4.25, candidate.VoiceGuidanceScale, 0.0001);
+        Assert.AreEqual(0.85, candidate.VoiceSpeed, 0.0001);
+        Assert.IsFalse(candidate.VoiceTextNormalizationEnabled);
         Assert.AreEqual("layal", candidate.MascotCharacterDisplayMode);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", candidate.GmailOAuthClientId);
         Assert.IsFalse(candidate.MascotAlwaysOnTop);
@@ -240,6 +265,11 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("professional", target.AssistantPersona);
         Assert.AreEqual("bright", target.VoiceDeliveryStyleId);
+        Assert.AreEqual("female, child, high pitch", target.VoiceDesignInstruction);
+        Assert.AreEqual(56, target.VoiceQualitySteps);
+        Assert.AreEqual(4.25, target.VoiceGuidanceScale, 0.0001);
+        Assert.AreEqual(0.85, target.VoiceSpeed, 0.0001);
+        Assert.IsFalse(target.VoiceTextNormalizationEnabled);
         Assert.AreEqual("layal", target.MascotCharacterDisplayMode);
         Assert.IsTrue(target.AutomaticLocationConsentConfirmed);
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", target.GmailOAuthClientId);
@@ -249,6 +279,22 @@ public sealed class SettingsStoreTests
         Assert.IsTrue(target.ProactiveCheckInEnabled);
         Assert.AreEqual(120, target.ProactiveCheckInIntervalMinutes);
         Assert.AreEqual(new DateTimeOffset(2026, 10, 28, 14, 0, 0, TimeSpan.Zero), target.LastProactiveCheckInAt);
+    }
+
+    [TestMethod]
+    public void VoiceTutSettingsClampNumericControlsAndRejectReferenceAudioPrompts()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"),
+            """{"VoiceDesignInstruction":"female, ref_audio clone","VoiceQualitySteps":100,"VoiceGuidanceScale":-2.5,"VoiceSpeed":3.5,"VoiceTextNormalizationEnabled":false}""");
+
+        var settings = new SettingsStore(temp.Path).Load();
+
+        Assert.AreEqual(VoiceTutLocalService.DefaultVoiceDesign, settings.VoiceDesignInstruction);
+        Assert.AreEqual(64, settings.VoiceQualitySteps);
+        Assert.AreEqual(0.0, settings.VoiceGuidanceScale, 0.0001);
+        Assert.AreEqual(2.0, settings.VoiceSpeed, 0.0001);
+        Assert.IsFalse(settings.VoiceTextNormalizationEnabled);
     }
 
     [TestMethod]
