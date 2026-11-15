@@ -190,13 +190,12 @@ public sealed class LocalVoiceIntegrityTests
     }
 
     [TestMethod]
-    public void InvalidateReadinessClearsTheReadyBitAndBothExecutablePaths()
+    public void InvalidateReadinessClearsTheReadyBitAndWhisperExecutable()
     {
         var service = new LocalVoiceService();
         var type = typeof(LocalVoiceService);
         type.GetField("_ready", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(service, 1);
         type.GetField("_whisperExecutable", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(service, "whisper-cli.exe");
-        type.GetField("_piperExecutable", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(service, "piper.exe");
 
         var invalidate = type.GetMethod("InvalidateReadiness", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.IsNotNull(invalidate);
@@ -204,7 +203,8 @@ public sealed class LocalVoiceIntegrityTests
 
         Assert.IsFalse(service.IsReady);
         Assert.IsNull(type.GetField("_whisperExecutable", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(service));
-        Assert.IsNull(type.GetField("_piperExecutable", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(service));
+        Assert.IsNull(type.GetField("_piperExecutable", BindingFlags.NonPublic | BindingFlags.Instance),
+            "Piper executables must not remain part of the production speech runtime.");
     }
 
     [TestMethod]
