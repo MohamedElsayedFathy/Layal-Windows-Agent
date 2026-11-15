@@ -100,18 +100,24 @@ These notices capture license declarations published by the package sources. The
 These upstream license declarations are recorded for notice completeness; project-level redistribution and legal review remain pending.
 
 
-## Runtime-downloaded local AI components (not bundled with Layal)
+## Runtime-downloaded local AI and speech components (not bundled with Layal)
 
-These components are downloaded to the current user's LocalAppData directory only after the user accepts the local AI setup prompt. Their binaries and model weights are not bundled in the Layal installer or source package.
+These components are downloaded to the current user's LocalAppData directory only after the user accepts the matching setup prompt. Model weights, Python environments and runtime executables are not bundled in the Layal installer or source package.
 
 - **Ollama for Windows** — official installer: https://ollama.com/download. The installer is launched only after Windows Authenticode reports a valid signature whose subject contains “Ollama”. The installer is downloaded over HTTPS; Layal does not embed a provider/API key.
-- **Qwen3.5 2B** — pulled by Ollama from the official Ollama model library: https://ollama.com/library/qwen3.5:2b. The upstream model page currently identifies the Qwen3.5 model license as Apache-2.0. The model is downloaded at first setup, not distributed in the application package.
+- **Qwen3.5 2B** — pulled by Ollama from the official Ollama model library: https://ollama.com/library/qwen3.5:2b. The model is downloaded at first local-chat setup, not distributed in the application package.
 - **whisper.cpp Windows x64 CLI v1.9.1** — https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.1. The pinned binary archive is checked against its expected byte length and SHA-256 before extraction.
-- **Whisper base model weights** — https://huggingface.co/ggerganov/whisper.cpp. The pinned model file is checked against its expected byte length and SHA-1 before use.
-- **Piper speech engine** — https://github.com/rhasspy/piper/releases/tag/2023.11.14-2. The pinned Windows x64 release archive is checked against its expected byte length and extracted with path-traversal/symlink checks. The upstream release API does not publish a SHA-256 digest for this archive, so the current implementation does not claim cryptographic archive-hash verification.
-- **Piper Arabic voice ar_JO-kareem-medium and English voice en_US-lessac-medium** — https://huggingface.co/rhasspy/piper-voices. The ONNX voice files are verified against upstream SHA-256 digests; each model's JSON configuration is size-checked and validated before use. The voice collection declares MIT licensing, and the Arabic voice is Jordanian Arabic rather than Egyptian Arabic.
+- **Whisper base model weights** — https://huggingface.co/ggerganov/whisper.cpp. The pinned model file is checked against its expected byte length and SHA-256 before use. Whisper remains the speech-recognition path.
+- **VoiceTut-TTS model weights** — https://huggingface.co/mohammedaly22/VoiceTut-TTS/tree/b36bdf4416864d84f47ca77ce3decf34f6ab16cc. Apache-2.0. Downloaded only after explicit consent at the immutable model revision. Only model config, safetensors weights and tokenizer files are requested; the model repository's reference_speakers folder and all sample WAV files are excluded.
+- **VoiceTut-TTS inference source** — https://github.com/MohammedAly22/VoiceTuT-TTS/tree/44cba00cd3ddb04b5213353e19e960045e332da7. Apache-2.0; installed into an isolated per-user Python virtual environment from a commit-pinned archive.
+- **OmniVoice inference backbone** — https://github.com/k2-fsa/OmniVoice/tree/08be0b4ccbac3e13e374e86fbfead4b4cac343e2. Apache-2.0; installed from a commit-pinned archive into the same isolated environment.
+- **Python / PyTorch / torchaudio and transitive dependencies** — installed into the per-user virtual environment only after the user accepts local voice setup. Python 3.10–3.12 must already be installed; PyTorch and torchaudio are pinned to 2.8.0, with CUDA selected when a compatible NVIDIA runtime is detected and CPU wheels otherwise. Exact resolved Python package versions are recorded locally; each dependency retains its own upstream license.
 
-Upstream notices and model terms apply to the downloaded components separately from Layal. This inventory is informational and does not constitute a legal opinion or rights clearance for every use case.
+The 19 built-in VoiceTut demonstration speakers are not loaded or distributed by Layal. The model author's licensing clarification said the reference speakers discussed there were for demonstration/evaluation and not cleared for commercial use; the current model card's higher speaker count is not treated as evidence of new rights. Layal therefore uses Voice Design only, with no reference audio and no cloning. Apache-2.0 covers the identified model/source work; it does not by itself establish separate rights in the generated voice identity or prove human acoustic acceptance.
+
+**Legacy Piper migration:** Piper is no longer an active Layal speech dependency. After Whisper and VoiceTut setup succeeds, Layal removes only its exact prior Piper runtime/archive and the two previously configured voice files (ar_JO-kareem-medium and en_US-lessac-medium) from Layal's own LocalAi data root. Reparse-point checks are performed before removal. No unrelated user files or other project folders are cleaned.
+
+Upstream notices and model terms apply to the downloaded components separately from Layal. This inventory is informational and is not a legal opinion or an independent clearance of generated audio.
 
 ## PdfPig
 
