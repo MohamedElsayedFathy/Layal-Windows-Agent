@@ -1172,7 +1172,17 @@
                             <Button x:Name="SaveLocalChatModelButton" Content="حفظ النموذج المحلي" Click="SaveLocalChatModelButton_Click"/>
                             <Button x:Name="TestLocalChatModelButton" Content="اختبار الخادم المحلي" Click="TestLocalChatModelButton_Click"/>
                         </WrapPanel>
-                        <TextBlock x:Name="LocalChatModelStatusText" Text="لم يتم إعداد نموذج محادثة محلي؛ ستظل النواة المحدودة متاحة."
+                        <Button x:Name="SetupLocalChatModelButton" Content="تجهيز المحادثة المحلية (Qwen3.5 2B)" Click="SetupLocalChatModelButton_Click"
+                                HorizontalAlignment="Left" Margin="4,6,4,0"
+                                AutomationProperties.Name="تجهيز نموذج المحادثة المحلي"
+                                AutomationProperties.HelpText="يثبت Ollama عند الحاجة وينزل نموذج Qwen3.5 2B بعد موافقتك، بحجم متوقع 2.7 إلى 3.1 جيجابايت."/>
+                        <Button x:Name="CancelLocalChatModelSetupButton" Content="إلغاء تجهيز المحادثة" Click="CancelLocalChatModelSetupButton_Click"
+                                HorizontalAlignment="Left" Margin="4,6,4,0" Visibility="Collapsed" IsEnabled="False"
+                                AutomationProperties.Name="إلغاء تنزيل نموذج المحادثة المحلي"/>
+                        <ProgressBar x:Name="LocalChatModelProgressBar" Minimum="0" Maximum="100" Height="7" Margin="4,6,4,0"
+                                     Visibility="Collapsed" IsIndeterminate="False"
+                                     AutomationProperties.Name="تقدم تجهيز نموذج المحادثة المحلي"/>
+                        <TextBlock x:Name="LocalChatModelStatusText" Text="لم يتم إعداد نموذج محادثة محلي؛ الشات يستخدم النواة المحدودة فقط."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,8"
                                    AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="حالة نموذج المحادثة المحلي"/>
                         <Separator Margin="4,10" Background="{DynamicResource Layal.Border}"/>
