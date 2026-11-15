@@ -36,6 +36,7 @@ class EngineState:
         self.error: str | None = None
         self.metrics: deque[dict[str, Any]] = deque(maxlen=30)
         self.lock = threading.Lock()
+        self.inference_lock = threading.Lock()
 
 
 STATE = EngineState()
@@ -238,35 +239,36 @@ class Handler(BaseHTTPRequestHandler):
 
             if torch.cuda.is_available():
                 torch.cuda.reset_peak_memory_stats()
-            for sample_rate, chunk in STATE.engine.stream(
-                text,
-                instruct=instruction,
-                language=language,
-                normalize=normalize,
-                num_step=steps,
-                guidance_scale=guidance,
-                speed=speed,
-            ):
-                wave = np.asarray(chunk, dtype=np.float32).reshape(-1)
-                if sample_rate != STATE.sample_rate:
-                    raise RuntimeError("معدل أخذ العينات تغيّر أثناء البث.")
-                if wave.size == 0:
-                    continue
-                now = time.perf_counter()
-                if first_audio_ms is None:
-                    first_audio_ms = (now - started) * 1000.0
-                total_audio_seconds += wave.size / float(sample_rate)
-                pcm_peak = max(pcm_peak, float(np.max(np.abs(wave))))
-                square_sum += float(np.sum(np.square(wave, dtype=np.float64)))
-                sample_count += int(wave.size)
-                pcm = (np.clip(wave, -1.0, 1.0) * 32767.0).astype("<i2", copy=False).tobytes()
-                chunk_count += 1
-                emit({
-                    "type": "chunk",
-                    "sequence": chunk_count,
-                    "sampleRate": int(sample_rate),
-                    "pcm16": base64.b64encode(pcm).decode("ascii"),
-                })
+            with STATE.inference_lock:
+                for sample_rate, chunk in STATE.engine.stream(
+                    text,
+                    instruct=instruction,
+                    language=language,
+                    normalize=normalize,
+                    num_step=steps,
+                    guidance_scale=guidance,
+                    speed=speed,
+                ):
+                    wave = np.asarray(chunk, dtype=np.float32).reshape(-1)
+                    if sample_rate != STATE.sample_rate:
+                        raise RuntimeError("معدل أخذ العينات تغيّر أثناء البث.")
+                    if wave.size == 0:
+                        continue
+                    now = time.perf_counter()
+                    if first_audio_ms is None:
+                        first_audio_ms = (now - started) * 1000.0
+                    total_audio_seconds += wave.size / float(sample_rate)
+                    pcm_peak = max(pcm_peak, float(np.max(np.abs(wave))))
+                    square_sum += float(np.sum(np.square(wave, dtype=np.float64)))
+                    sample_count += int(wave.size)
+                    pcm = (np.clip(wave, -1.0, 1.0) * 32767.0).astype("<i2", copy=False).tobytes()
+                    chunk_count += 1
+                    emit({
+                        "type": "chunk",
+                        "sequence": chunk_count,
+                        "sampleRate": int(sample_rate),
+                        "pcm16": base64.b64encode(pcm).decode("ascii"),
+                    })
 
             elapsed = time.perf_counter() - started
             rms = (square_sum / sample_count) ** 0.5 if sample_count else 0.0
