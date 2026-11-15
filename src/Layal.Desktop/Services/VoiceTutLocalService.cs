@@ -30,6 +30,7 @@ public sealed class VoiceTutLocalService : IDisposable
     public const string DefaultVoiceDesign = "female, child, very high pitch";
 
     private const string InstallMarker = "voicetut-install.json";
+    private const string PythonEnvironmentFreeze = "python-packages.freeze.txt";
     private const int MaximumTextCharacters = 6000;
     private static readonly TimeSpan ProcessInstallTimeout = TimeSpan.FromMinutes(45);
     private static readonly TimeSpan ModelStartupTimeout = TimeSpan.FromMinutes(20);
@@ -49,6 +50,7 @@ public sealed class VoiceTutLocalService : IDisposable
 
     public bool IsReady => File.Exists(PythonExecutablePath) &&
                            File.Exists(Path.Combine(InstallRoot, InstallMarker)) &&
+                           File.Exists(Path.Combine(InstallRoot, PythonEnvironmentFreeze)) &&
                            File.Exists(ModelWeightsPath);
 
     public string LastMetricsSummary { get; private set; } = string.Empty;
@@ -81,6 +83,7 @@ public sealed class VoiceTutLocalService : IDisposable
         var expectedManifest = $"model={ModelId}\nrevision={ModelRevision}\nomnivoice={OmniVoiceCommit}\nvoicetut={VoiceTutCommit}\ntorch=2.8.0\n";
         var installMatches = File.Exists(PythonExecutablePath) &&
             File.Exists(manifestPath) &&
+            File.Exists(Path.Combine(InstallRoot, PythonEnvironmentFreeze)) &&
             string.Equals(await File.ReadAllTextAsync(manifestPath, cancellationToken), expectedManifest, StringComparison.Ordinal);
 
         if (!installMatches)
@@ -130,6 +133,18 @@ public sealed class VoiceTutLocalService : IDisposable
                 "-c",
                 "import torch, omnivoice, voicetut_tts; print('torch=' + torch.__version__); print('cuda=' + str(torch.cuda.is_available()))"
             }, TimeSpan.FromMinutes(2), cancellationToken, "التحقق من مكتبات VoiceTut");
+
+            var packageInventory = await RunCommandAsync(
+                PythonExecutablePath,
+                new[] { "-m", "pip", "freeze", "--all" },
+                TimeSpan.FromMinutes(2),
+                cancellationToken,
+                "تسجيل إصدارات مكتبات Python");
+            await File.WriteAllTextAsync(
+                Path.Combine(InstallRoot, PythonEnvironmentFreeze),
+                packageInventory.Output,
+                new UTF8Encoding(false),
+                cancellationToken);
 
             await File.WriteAllTextAsync(manifestPath, expectedManifest, new UTF8Encoding(false), cancellationToken);
         }
