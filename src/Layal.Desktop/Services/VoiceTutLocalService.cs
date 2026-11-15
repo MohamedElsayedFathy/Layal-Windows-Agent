@@ -85,7 +85,7 @@ public sealed class VoiceTutLocalService : IDisposable
 
         if (!installMatches)
         {
-            progress?.Report(new LocalSpeechProgress("فحص بيئة Python 3.11 وتجهيز بيئة VoiceTut المعزولة…", 5));
+            progress?.Report(new LocalSpeechProgress("فحص Python 3.10–3.12 وتجهيز بيئة VoiceTut المعزولة…", 5));
             var pythonLauncher = await FindPythonLauncherAsync(cancellationToken);
             if (pythonLauncher is null)
                 throw new InvalidOperationException(
@@ -121,8 +121,8 @@ public sealed class VoiceTutLocalService : IDisposable
             await RunPythonAsync(new[]
             {
                 "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
-                $"git+https://github.com/k2-fsa/OmniVoice.git@{OmniVoiceCommit}",
-                $"git+https://github.com/MohammedAly22/VoiceTuT-TTS.git@{VoiceTutCommit}"
+                $"https://github.com/k2-fsa/OmniVoice/archive/{OmniVoiceCommit}.zip",
+                $"https://github.com/MohammedAly22/VoiceTuT-TTS/archive/{VoiceTutCommit}.zip"
             }, ProcessInstallTimeout, cancellationToken, "تثبيت VoiceTut وOmniVoice");
 
             await RunPythonAsync(new[]
@@ -373,19 +373,26 @@ public sealed class VoiceTutLocalService : IDisposable
         lock (_processSync) _serverProcess = process;
 
         progress?.Report(new LocalSpeechProgress("تشغيل نموذج VoiceTut محليًا لأول مرة؛ يُجهّز النموذج ويُحمّل الأوزان…", 72));
-        var deadline = DateTimeOffset.UtcNow.Add(ModelStartupTimeout);
-        while (DateTimeOffset.UtcNow < deadline)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (process.HasExited)
-                throw new InvalidOperationException("توقّف خادم VoiceTut أثناء بدء التشغيل. " + _lastStartupLog);
-            if (await IsServerHealthyAsync(cancellationToken))
-                return;
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
-        }
+            var deadline = DateTimeOffset.UtcNow.Add(ModelStartupTimeout);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (process.HasExited)
+                    throw new InvalidOperationException("توقّف خادم VoiceTut أثناء بدء التشغيل. " + _lastStartupLog);
+                if (await IsServerHealthyAsync(cancellationToken))
+                    return;
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+            }
 
-        StopServer();
-        throw new TimeoutException("لم يصبح خادم VoiceTut المحلي جاهزًا خلال المهلة المحددة. " + _lastStartupLog);
+            throw new TimeoutException("لم يصبح خادم VoiceTut المحلي جاهزًا خلال المهلة المحددة. " + _lastStartupLog);
+        }
+        catch
+        {
+            StopServer();
+            throw;
+        }
     }
 
     private async Task<bool> IsServerHealthyAsync(CancellationToken cancellationToken)
@@ -434,7 +441,7 @@ public sealed class VoiceTutLocalService : IDisposable
                 var args = prefix.Concat(new[]
                 {
                     "-c",
-                    "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,14) else 2)"
+                    "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,13) else 2)"
                 }).ToArray();
                 var result = await RunCommandAsync(executable, args, TimeSpan.FromSeconds(15), cancellationToken, "فحص Python");
                 if (result.ExitCode == 0)
@@ -554,7 +561,9 @@ public sealed class VoiceTutLocalService : IDisposable
                 return "—";
             return value.GetDouble().ToString(format, System.Globalization.CultureInfo.InvariantCulture);
         }
-        return $"VoiceTut | TTFA: {Number(metrics, "timeToFirstAudioMs", "0")} ms | RTF: {Number(metrics, "realTimeFactor", "0.00")} | Duration: {Number(metrics, "audioDurationSeconds", "0.0")} s | Chunks: {GetInt32(metrics, "chunkCount")} | Device: {GetString(metrics, "device")}";
+        var vram = Number(metrics, "peakVramMb", "0");
+        var vramText = vram == "—" ? "n/a" : vram + " MB";
+        return $"VoiceTut | TTFA: {Number(metrics, "timeToFirstAudioMs", "0")} ms | RTF: {Number(metrics, "realTimeFactor", "0.00")} | Duration: {Number(metrics, "audioDurationSeconds", "0.0")} s | Chunks: {GetInt32(metrics, "chunkCount")} | Peak: {Number(metrics, "peakLevel", "0.000")} | RMS: {Number(metrics, "rmsLevel", "0.000")} | VRAM: {vramText} | Device: {GetString(metrics, "device")}";
     }
 
     private static string GetString(JsonElement root, string property) =>
