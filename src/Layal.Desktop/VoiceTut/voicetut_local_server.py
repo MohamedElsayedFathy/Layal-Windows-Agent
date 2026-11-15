@@ -221,57 +221,76 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
 
         emit({"type": "meta", "sampleRate": STATE.sample_rate, "channels": 1, "sampleFormat": "s16le"})
-        for sample_rate, chunk in STATE.engine.stream(
-            text,
-            instruct=instruction,
-            language=language,
-            normalize=normalize,
-            num_step=steps,
-            guidance_scale=guidance,
-            speed=speed,
-        ):
+        try:
             import numpy as np
-            wave = np.asarray(chunk, dtype=np.float32).reshape(-1)
-            if sample_rate != STATE.sample_rate:
-                raise RuntimeError("معدل أخذ العينات تغيّر أثناء البث.")
-            if wave.size == 0:
-                continue
-            now = time.perf_counter()
-            if first_audio_ms is None:
-                first_audio_ms = (now - started) * 1000.0
-            total_audio_seconds += wave.size / float(sample_rate)
-            pcm_peak = max(pcm_peak, float(np.max(np.abs(wave))))
-            square_sum += float(np.sum(np.square(wave, dtype=np.float64)))
-            sample_count += int(wave.size)
-            pcm = (np.clip(wave, -1.0, 1.0) * 32767.0).astype("<i2", copy=False).tobytes()
-            chunk_count += 1
-            emit({
-                "type": "chunk",
-                "sequence": chunk_count,
-                "sampleRate": int(sample_rate),
-                "pcm16": base64.b64encode(pcm).decode("ascii"),
-            })
+            import torch
 
-        elapsed = time.perf_counter() - started
-        rms = (square_sum / sample_count) ** 0.5 if sample_count else 0.0
-        metrics = {
-            "elapsedSeconds": round(elapsed, 4),
-            "timeToFirstAudioMs": round(first_audio_ms or elapsed * 1000.0, 2),
-            "audioDurationSeconds": round(total_audio_seconds, 4),
-            "realTimeFactor": round(elapsed / total_audio_seconds, 4) if total_audio_seconds else None,
-            "chunkCount": chunk_count,
-            "sampleRate": STATE.sample_rate,
-            "device": STATE.device,
-            "peakLevel": round(pcm_peak, 5),
-            "rmsLevel": round(rms, 5),
-            "qualitySteps": steps,
-            "guidanceScale": guidance,
-            "speed": speed,
-            "normalizationEnabled": normalize,
-        }
-        with STATE.lock:
-            STATE.metrics.appendleft(metrics)
-        emit({"type": "done", "metrics": metrics})
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+            for sample_rate, chunk in STATE.engine.stream(
+                text,
+                instruct=instruction,
+                language=language,
+                normalize=normalize,
+                num_step=steps,
+                guidance_scale=guidance,
+                speed=speed,
+            ):
+                wave = np.asarray(chunk, dtype=np.float32).reshape(-1)
+                if sample_rate != STATE.sample_rate:
+                    raise RuntimeError("معدل أخذ العينات تغيّر أثناء البث.")
+                if wave.size == 0:
+                    continue
+                now = time.perf_counter()
+                if first_audio_ms is None:
+                    first_audio_ms = (now - started) * 1000.0
+                total_audio_seconds += wave.size / float(sample_rate)
+                pcm_peak = max(pcm_peak, float(np.max(np.abs(wave))))
+                square_sum += float(np.sum(np.square(wave, dtype=np.float64)))
+                sample_count += int(wave.size)
+                pcm = (np.clip(wave, -1.0, 1.0) * 32767.0).astype("<i2", copy=False).tobytes()
+                chunk_count += 1
+                emit({
+                    "type": "chunk",
+                    "sequence": chunk_count,
+                    "sampleRate": int(sample_rate),
+                    "pcm16": base64.b64encode(pcm).decode("ascii"),
+                })
+
+            elapsed = time.perf_counter() - started
+            rms = (square_sum / sample_count) ** 0.5 if sample_count else 0.0
+            peak_vram_mb = (
+                round(torch.cuda.max_memory_allocated() / (1024 ** 2), 2)
+                if torch.cuda.is_available() else None
+            )
+            metrics = {
+                "elapsedSeconds": round(elapsed, 4),
+                "timeToFirstAudioMs": round(first_audio_ms or elapsed * 1000.0, 2),
+                "audioDurationSeconds": round(total_audio_seconds, 4),
+                "realTimeFactor": round(elapsed / total_audio_seconds, 4) if total_audio_seconds else None,
+                "chunkCount": chunk_count,
+                "sampleRate": STATE.sample_rate,
+                "device": STATE.device,
+                "peakLevel": round(pcm_peak, 5),
+                "rmsLevel": round(rms, 5),
+                "peakVramMb": peak_vram_mb,
+                "qualitySteps": steps,
+                "guidanceScale": guidance,
+                "speed": speed,
+                "normalizationEnabled": normalize,
+            }
+            with STATE.lock:
+                STATE.metrics.appendleft(metrics)
+            emit({"type": "done", "metrics": metrics})
+        except (BrokenPipeError, ConnectionResetError):
+            LOG.info("Client disconnected during VoiceTut streaming.")
+            raise
+        except Exception as exc:
+            LOG.exception("VoiceTut synthesis failed after streaming headers were sent.")
+            try:
+                emit({"type": "error", "message": str(exc)[:500]})
+            except (BrokenPipeError, ConnectionResetError):
+                pass
 
     def _synthesize(self, payload: dict[str, Any]) -> None:
         # Same Voice Design-only path; no reference audio or speaker registry can be selected.
