@@ -281,8 +281,8 @@ public partial class MainWindow
         AutomationProperties.SetName(RefreshAudioDevicesButton, ar ? "تحديث قائمة أجهزة الصوت" : "Refresh audio devices");
         VoiceReplyCheckbox.Content = ar ? "نطق الردود عبر VoiceTut المحلي (اختياري)" : "Speak replies with optional local VoiceTut";
         VoiceReplyDisclosureText.Text = ar
-            ? "صوت ليال اصطناعي ويُولّد محليًا عبر VoiceTut بتصميم صوت من وصف نصي فقط. لا تُحمّل أصوات العرض المرجعية أو ملفات استنساخ، ولا يُرسل النص إلى خدمة بعيدة."
-            : "Layal's synthetic voice is generated locally by VoiceTut using text-based Voice Design only. No demo reference voices or cloning samples are loaded, and text is not sent to a remote speech service.";
+            ? "صوت ليال اصطناعي وليس صوت إنسان؛ يُولّد محليًا عبر VoiceTut بتصميم صوت من وصف نصي فقط. لا تُحمّل أصوات العرض المرجعية أو ملفات استنساخ، ولا يُرسل النص إلى خدمة بعيدة."
+            : "Layal's synthetic voice is not a human recording; it is generated locally by VoiceTut using text-based Voice Design only. No demo reference voices or cloning samples are loaded, and text is not sent to a remote speech service.";
         TestVoiceReplyButton.Content = ar ? "اختبار السماعة والنطق" : "Test speaker and speech";
         TestVoiceReplyButton.ToolTip = ar
             ? "يشغّل عينة عربية وإنجليزية عبر VoiceTut المحلي، ثم يعرض زمن أول مقطع وعامل الزمن الحقيقي وعدد المقاطع."
@@ -361,7 +361,7 @@ public partial class MainWindow
             : "Local normalization expands numbers, dates, times, currencies, percentages, phone numbers, email, URLs, handles, abbreviations, units and configured names. User-entered diacritics are preserved.";
         VoiceDesignDisclosure.Text = ar
             ? "الافتراضي أنثوي بعمر طفولي وطبقة مرتفعة جدًا. هذا وصف تصميم تجريبي؛ لا يضمن لهجة أو خامة أو عمرًا صوتيًا محددًا على كل اللغات."
-            : "Default design is female, child, very high pitch. This is an experimental design prompt and does not guarantee a specific dialect, timbre or perceived age across languages.");
+            : "Default design is female, child, very high pitch. This is an experimental design prompt and does not guarantee a specific dialect, timbre or perceived age across languages.";
         AutomationProperties.SetHelpText(VoiceReplyCheckbox, ar
             ? "تشغيل قراءة الردود صوتيًا. في الوضع المحلي تُولّد على جهازك بعد تجهيز موارد الصوت."
             : "Read replies aloud. Local mode synthesizes speech on this device after local voice resources are prepared.");
