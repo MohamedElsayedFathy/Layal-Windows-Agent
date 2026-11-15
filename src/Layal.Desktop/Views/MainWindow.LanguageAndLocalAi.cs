@@ -794,9 +794,11 @@ public partial class MainWindow
             ? (IsArabic
                 ? "نواة ليال النصية والمهام جاهزة دون أي نموذج خارجي. موارد الصوت المحلي جاهزة أيضًا."
                 : "Layal's text and task core is ready without an external model. Local speech resources are ready too.")
-            : (IsArabic
-                ? "نواة ليال النصية والمهام جاهزة دون تنزيل نماذج. الصوت المحلي اختياري ويحتاج تجهيز Whisper/Piper فقط."
-                : "Layal's text and task core is ready without model downloads. Local speech is optional and only needs Whisper/Piper resources.");
+            : !string.IsNullOrWhiteSpace(_localVoiceSetupError)
+                ? (IsArabic ? "تعذر تجهيز موارد الصوت المحلي. سبب الفشل: " : "Local speech setup failed. Reason: ") + _localVoiceSetupError
+                : (IsArabic
+                    ? "نواة ليال النصية والمهام جاهزة دون تنزيل نماذج. الصوت المحلي اختياري ويحتاج تجهيز Whisper/Piper فقط."
+                    : "Layal's text and task core is ready without model downloads. Local speech is optional and only needs Whisper/Piper resources.");
     }
 
     private async Task RefreshLocalAiStatusAsync()
@@ -804,12 +806,15 @@ public partial class MainWindow
         try
         {
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync();
+            if (_localVoiceReady) _localVoiceSetupError = null;
             UpdateLocalAiStatusText();
             RefreshProviderStatus();
         }
         catch (Exception ex)
         {
-            LocalAiStatusText.Text = (IsArabic ? "تعذر فحص موارد الصوت المحلي: " : "Could not inspect local speech resources: ") + ex.Message;
+            _localVoiceSetupError = ex.Message;
+            System.Diagnostics.Trace.TraceError("Could not inspect local speech resources: {0}", ex);
+            UpdateLocalAiStatusText();
         }
     }
 
@@ -873,6 +878,7 @@ public partial class MainWindow
             // Text chat and task planning now run in Layal's own native core.
             // Only optional microphone/speaker resources are checked or downloaded here.
             _localVoiceReady = await _localVoiceService.ValidateCachedResourcesAsync(setupToken);
+            if (_localVoiceReady) _localVoiceSetupError = null;
             var needsVoice = includeVoice && !_localVoiceReady && (!_localVoiceSetupAttempted || retryVoice);
             if (!needsVoice)
             {
@@ -913,10 +919,13 @@ public partial class MainWindow
             });
 
             _localVoiceSetupAttempted = true;
+            _localVoiceSetupError = null;
             try
             {
                 await _localVoiceService.EnsureReadyAsync(progress, setupToken);
                 _localVoiceReady = _localVoiceService.IsReady;
+                if (!_localVoiceReady)
+                    _localVoiceSetupError = "اكتملت خطوة التجهيز دون أن يؤكد محرك الصوت جاهزيته.";
             }
             catch (OperationCanceledException) when (setupCancellation.IsCancellationRequested)
             {
@@ -925,9 +934,8 @@ public partial class MainWindow
             catch (Exception voiceError)
             {
                 _localVoiceReady = false;
-                LocalAiStatusText.Text = (IsArabic
-                    ? "نواة النص والمهام جاهزة، لكن تجهيز الصوت لم يكتمل. التفاصيل: "
-                    : "The native text and task core is ready, but speech setup did not complete. Details: ") + voiceError.Message;
+                _localVoiceSetupError = voiceError.Message;
+                System.Diagnostics.Trace.TraceError("Local speech resource setup failed: {0}", voiceError);
             }
 
             UpdateLocalAiStatusText();
@@ -943,7 +951,9 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalAiStatusText.Text = (IsArabic ? "تعذر تجهيز الصوت المحلي: " : "Could not set up local speech: ") + ex.Message;
+            _localVoiceSetupError = ex.Message;
+            System.Diagnostics.Trace.TraceError("Could not set up local speech: {0}", ex);
+            UpdateLocalAiStatusText();
             SetAccessibleStatusText(ProviderActionStatus, LocalAiStatusText.Text);
             ProviderActionStatus.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
             return false;

@@ -91,6 +91,7 @@ public partial class MainWindow : Window
     // Used only when the user explicitly selects Test external API; never used by chat or task planning.
     private readonly OpenAiCompatibleClient _providerConnectionTester = new();
     private bool _localVoiceReady;
+    private string? _localVoiceSetupError;
     private bool _localVoiceSetupAttempted;
     private bool _localVoiceRecordingActive;
     private readonly SemaphoreSlim _localAiSetupGate = new(1, 1);
