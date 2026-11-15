@@ -729,6 +729,7 @@ public partial class MainWindow
         var conversation = AppRuntime.ChatSessionService.CreateNewConversation(IsArabic ? "محادثة جديدة" : "New conversation");
         _currentConversationId = conversation.Id;
         ChatMessages.Clear();
+        _voiceConversationMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
         SetChatActivityStatus(IsArabic
@@ -762,6 +763,7 @@ public partial class MainWindow
         var fresh = AppRuntime.ChatSessionService.ClearAll(IsArabic ? "محادثة جديدة" : "New conversation");
         _currentConversationId = fresh.Id;
         ChatMessages.Clear();
+        _voiceConversationMessages.Clear();
         ChatInput.Clear();
         RefreshChatSessions(_currentConversationId);
         SetChatActivityStatus(IsArabic ? "تم مسح سجل المحادثات المحفوظ وبدء محادثة جديدة." : "Saved chat history was cleared. A fresh conversation is ready.");
@@ -805,6 +807,7 @@ public partial class MainWindow
 
         var conversation = AppRuntime.ChatSessionService.SelectConversation(selected.Id);
         _currentConversationId = conversation.Id;
+        _voiceConversationMessages.Clear();
         ChatMessages.Clear();
         foreach (var message in conversation.Messages.TakeLast(100))
         {
