@@ -10,6 +10,7 @@ import argparse
 import base64
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -99,10 +100,19 @@ def validate_request(payload: dict[str, Any]) -> tuple[str, str, str, int, float
     if any(token in lowered for token in forbidden):
         raise ValueError("هذه الواجهة تسمح بتصميم الصوت فقط، وليس الاستنساخ أو الصوت المرجعي.")
 
-    steps = int(payload.get("num_steps", 32))
-    guidance = float(payload.get("guidance_scale", 2.0))
-    speed = float(payload.get("speed", 1.0))
-    normalize = bool(payload.get("normalize", True))
+    steps_raw = payload.get("num_steps", 32)
+    guidance_raw = payload.get("guidance_scale", 2.0)
+    speed_raw = payload.get("speed", 1.0)
+    normalize = payload.get("normalize", True)
+    if isinstance(steps_raw, bool) or not isinstance(steps_raw, (int, float)) or not float(steps_raw).is_integer():
+        raise ValueError("عدد خطوات الجودة يجب أن يكون عددًا صحيحًا.")
+    if not isinstance(normalize, bool):
+        raise ValueError("خيار التطبيع يجب أن يكون true أو false.")
+    steps = int(steps_raw)
+    guidance = float(guidance_raw)
+    speed = float(speed_raw)
+    if not math.isfinite(guidance) or not math.isfinite(speed):
+        raise ValueError("قيمة التوجيه والسرعة يجب أن تكون أرقامًا محدودة.")
     if not 4 <= steps <= 64:
         raise ValueError("عدد خطوات الجودة يجب أن يكون بين 4 و64.")
     if not 0.0 <= guidance <= 6.0:
@@ -205,6 +215,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Connection", "close")
+        self.close_connection = True
         self.end_headers()
 
         started = time.perf_counter()
