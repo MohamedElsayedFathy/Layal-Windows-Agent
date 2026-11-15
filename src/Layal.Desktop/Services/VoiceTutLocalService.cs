@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -241,7 +242,7 @@ public sealed class VoiceTutLocalService : IDisposable
                         throw new InvalidOperationException("VoiceTut returned an unsupported audio sample rate.");
                     buffer = new BufferedWaveProvider(new WaveFormat(sampleRate, 16, 1))
                     {
-                        BufferDuration = TimeSpan.FromSeconds(24),
+                        BufferLength = checked(sampleRate * 2 * 24),
                         DiscardOnBufferOverflow = false,
                         ReadFully = true
                     };
