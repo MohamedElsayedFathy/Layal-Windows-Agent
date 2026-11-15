@@ -598,8 +598,8 @@ public partial class MainWindow
         AutomationProperties.SetName(CancelLocalAiSetupButton, ar ? "إلغاء تنزيل موارد الذكاء الاصطناعي المحلي" : "Cancel local AI downloads");
         AutomationProperties.SetName(UseLocalAiCheckbox, ar ? "وضع الذكاء الاصطناعي المحلي" : "Local AI mode");
         AutomationProperties.SetHelpText(UseLocalAiCheckbox, ar
-            ? "الردود والتخطيط والمهام تستخدم نواة ليال المستقلة دائمًا. موارد الصوت المحلية اختيارية."
-            : "Replies, planning, and tasks always use Layal's native core. Local speech resources are optional.");
+            ? "المحادثة العامة تستخدم النموذج اللغوي المحلي إذا تم إعداده. نواة ليال المستقلة تظل متاحة للأوامر والمهام المنظمة، وتبقى إجراءات الجهاز خاضعة للصلاحيات والموافقات."
+            : "General conversation uses the local language model when configured. Layal's native core remains available for structured commands and tasks; device actions remain subject to permissions and confirmations.");
         ProviderSectionTitle.Text = ar ? "اختبار اتصال API خارجي (لا يدخل في تفكير ليال أو ردودها أو تنفيذ مهامها)" : "External API connectivity test (not used by Layal for chat, reasoning, or task execution)";
         ArabicLanguageButton.Content = "العربية";
         EnglishLanguageButton.Content = "English";
