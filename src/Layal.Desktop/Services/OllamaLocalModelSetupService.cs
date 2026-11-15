@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -67,13 +66,9 @@ public sealed class OllamaLocalModelSetupService
             progress,
             cancellationToken);
 
-        var models = await _chatService.GetAvailableModelIdsAsync(
+        await _chatService.TestConnectionAsync(
             LocalChatModelService.DefaultBaseUrl, cancellationToken).ConfigureAwait(false);
-        if (!models.Any(model => string.Equals(model, DefaultModelId, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException(
-                $"انتهى تنزيل النموذج، لكن خادم Ollama لم يعرض المعرّف المتوقع {DefaultModelId} عبر واجهة OpenAI المحلية.");
-
-        progress?.Report("تم التحقق من ظهور نموذج المحادثة المحلي وأصبح جاهزًا.");
+        progress?.Report("اكتمل تنزيل النموذج واستجاب خادم Ollama المحلي.");
     }
 
     private async Task EnsureServerReadyAsync(
