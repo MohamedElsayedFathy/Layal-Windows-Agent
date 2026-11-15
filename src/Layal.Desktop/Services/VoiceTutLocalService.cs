@@ -205,6 +205,7 @@ public sealed class VoiceTutLocalService : IDisposable
         var playbackStarted = false;
         var completed = false;
         var totalAudioSeconds = 0.0;
+        CancellationTokenRegistration playbackCancellationRegistration = default;
         var drainDeadline = DateTimeOffset.UtcNow.AddMinutes(8);
 
         try
@@ -258,7 +259,7 @@ public sealed class VoiceTutLocalService : IDisposable
                         totalAudioSeconds += pcm.Length / (double)(buffer.WaveFormat.AverageBytesPerSecond);
                         if (!playbackStarted)
                         {
-                            using var registration = cancellationToken.Register(() =>
+                            playbackCancellationRegistration = cancellationToken.Register(() =>
                             {
                                 try { output.Stop(); } catch { /* Output may already be stopped. */ }
                             });
@@ -309,6 +310,7 @@ public sealed class VoiceTutLocalService : IDisposable
         }
         finally
         {
+            playbackCancellationRegistration.Dispose();
             if (output is not null)
             {
                 if (stoppedHandler is not null)
@@ -323,7 +325,7 @@ public sealed class VoiceTutLocalService : IDisposable
         IProgress<LocalSpeechProgress>? progress)
     {
         if (await IsServerHealthyAsync(cancellationToken)) return;
-        if (!IsReady)
+        if (!File.Exists(PythonExecutablePath) || !File.Exists(Path.Combine(InstallRoot, InstallMarker)))
             throw new InvalidOperationException("جهّز VoiceTut من إعدادات الصوت المحلي أولًا.");
 
         StopServer();
