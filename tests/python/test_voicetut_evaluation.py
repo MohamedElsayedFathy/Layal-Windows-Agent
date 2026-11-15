@@ -13,6 +13,13 @@ MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(MODULE)
 
+BRIDGE_PATH = ROOT / "src" / "Layal.Desktop" / "VoiceTut" / "voicetut_local_server.py"
+BRIDGE_SPEC = importlib.util.spec_from_file_location("layal_voicetut_bridge", BRIDGE_PATH)
+BRIDGE = importlib.util.module_from_spec(BRIDGE_SPEC)
+assert BRIDGE_SPEC and BRIDGE_SPEC.loader
+sys.modules[BRIDGE_SPEC.name] = BRIDGE
+BRIDGE_SPEC.loader.exec_module(BRIDGE)
+
 
 class VoiceTutEvaluationTests(unittest.TestCase):
     def test_language_mapping_keeps_msa_exploratory(self):
