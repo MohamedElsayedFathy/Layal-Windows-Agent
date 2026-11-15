@@ -29,7 +29,7 @@ public sealed class UserSettings
     public string AudioOutputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
     /// <summary>Conversational response style only; never changes safety rules, tool permissions, or confirmation requirements.</summary>
     public string AssistantPersona { get; set; } = "warm";
-    /// <summary>Optional local Piper speech delivery pace; never changes generated text or task permissions.</summary>
+    /// <summary>Optional local VoiceTut speech delivery pace; never changes generated text or task permissions.</summary>
     public string VoiceDeliveryStyleId { get; set; } = Layal.Services.VoiceDeliveryStylePolicy.DefaultStyle;
     /// <summary>VoiceTut Voice Design attributes; no reference audio or speaker cloning is used.</summary>
     public string VoiceDesignInstruction { get; set; } = Layal.Services.VoiceTutLocalService.DefaultVoiceDesign;
