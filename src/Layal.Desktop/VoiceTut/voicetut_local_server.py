@@ -237,9 +237,9 @@ class Handler(BaseHTTPRequestHandler):
             import numpy as np
             import torch
 
-            if torch.cuda.is_available():
-                torch.cuda.reset_peak_memory_stats()
             with STATE.inference_lock:
+                if torch.cuda.is_available():
+                    torch.cuda.reset_peak_memory_stats()
                 for sample_rate, chunk in STATE.engine.stream(
                     text,
                     instruct=instruction,
@@ -269,13 +269,13 @@ class Handler(BaseHTTPRequestHandler):
                         "sampleRate": int(sample_rate),
                         "pcm16": base64.b64encode(pcm).decode("ascii"),
                     })
+                peak_vram_mb = (
+                    round(torch.cuda.max_memory_allocated() / (1024 ** 2), 2)
+                    if torch.cuda.is_available() else None
+                )
 
             elapsed = time.perf_counter() - started
             rms = (square_sum / sample_count) ** 0.5 if sample_count else 0.0
-            peak_vram_mb = (
-                round(torch.cuda.max_memory_allocated() / (1024 ** 2), 2)
-                if torch.cuda.is_available() else None
-            )
             metrics = {
                 "elapsedSeconds": round(elapsed, 4),
                 "timeToFirstAudioMs": round(first_audio_ms or elapsed * 1000.0, 2),
