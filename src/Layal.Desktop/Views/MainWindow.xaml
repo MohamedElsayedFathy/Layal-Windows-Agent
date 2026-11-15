@@ -1246,11 +1246,47 @@
                             <ComboBoxItem Tag="energetic" Content="نشيطة وحيوية"/>
                             <ComboBoxItem Tag="playful" Content="مرحة وخفيفة"/>
                         </ComboBox>
-                        <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="الأنماط تغيّر سرعة الكلام والوقفات فقط في محرك Piper الحالي؛ لا تغيّر خامة الصوت أو تمثّل أداءً عاطفيًا كاملًا. لا يُرسل النص إلى خدمة صوتية خارجية."
+                        <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="أنماط الإلقاء تضبط سرعة التوليد فقط؛ لا تدّعي تغيير هوية الصوت أو توليد مشاعر لا يدعمها النموذج."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
                                    AutomationProperties.Name="حدود نبرة الإلقاء"/>
-                        <TextBlock x:Name="VoiceReplyDisclosureText" Text="صوت ليال اصطناعي وليس صوت إنسان. يُولّد النطق محليًا عبر Piper بعد تجهيز موارده؛ لا يتم إرسال نص الرد إلى خدمة صوتية." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
-                        <Button x:Name="TestVoiceReplyButton" Content="اختبار السماعة والنطق" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يشغّل عينة عربية وإنجليزية عبر Piper المحلي على مخرج الصوت المحدد؛ اختبر وضوح النطق والإيقاع والوقفات."/>
+                        <TextBlock x:Name="VoiceDesignInstructionLabel" Text="وصف تصميم صوت ليال" Margin="4,6,4,0"/>
+                        <TextBox x:Name="VoiceDesignInstructionInput" Text="female, child, very high pitch"
+                                 FlowDirection="LeftToRight" TextWrapping="Wrap" AcceptsReturn="False"
+                                 MinHeight="42" LostFocus="VoiceDesignInstructionInput_LostFocus"
+                                 AutomationProperties.LabeledBy="{Binding ElementName=VoiceDesignInstructionLabel}"
+                                 AutomationProperties.HelpText="Voice Design prompt. يجب أن يحتوي على female؛ لا يقبل مراجع صوتية أو استنساخًا."/>
+                        <TextBlock x:Name="VoiceDesignDisclosure" Text="التصميم الافتراضي: أنثوي، عمر طفولي، طبقة مرتفعة جدًا. صفة الطفل والنبرة العالية تجريبية مع المصرية والإنجليزية، وليست ضمانًا لنتيجة بشرية محددة."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
+                                   AutomationProperties.Name="حدود تصميم الصوت"/>
+                        <TextBlock x:Name="VoiceQualityStepsLabel" Text="جودة التوليد (خطوات النموذج)" Margin="4,6,4,0"/>
+                        <Slider x:Name="VoiceQualityStepsSlider" Minimum="4" Maximum="64" Value="32"
+                                TickFrequency="4" IsSnapToTickEnabled="True"
+                                ValueChanged="VoiceQualityStepsSlider_ValueChanged"
+                                AutomationProperties.Name="جودة توليد الصوت" AutomationProperties.HelpText="عدد الخطوات من 4 إلى 64؛ زيادتها قد ترفع الجودة وتزيد زمن التوليد."/>
+                        <TextBlock x:Name="VoiceQualityStepsValue" Text="32" Foreground="{DynamicResource Layal.Muted}" Margin="4,0,4,4"/>
+                        <TextBlock x:Name="VoiceGuidanceLabel" Text="قوة توجيه تصميم الصوت" Margin="4,6,4,0"/>
+                        <Slider x:Name="VoiceGuidanceSlider" Minimum="0" Maximum="6" Value="2"
+                                TickFrequency="0.1" IsSnapToTickEnabled="False"
+                                ValueChanged="VoiceGuidanceSlider_ValueChanged"
+                                AutomationProperties.Name="قوة توجيه تصميم الصوت"/>
+                        <TextBlock x:Name="VoiceGuidanceValue" Text="2.0" Foreground="{DynamicResource Layal.Muted}" Margin="4,0,4,4"/>
+                        <TextBlock x:Name="VoiceSpeedLabel" Text="سرعة النطق" Margin="4,6,4,0"/>
+                        <Slider x:Name="VoiceSpeedSlider" Minimum="0.5" Maximum="2" Value="1"
+                                TickFrequency="0.05" IsSnapToTickEnabled="False"
+                                ValueChanged="VoiceSpeedSlider_ValueChanged"
+                                AutomationProperties.Name="سرعة توليد الصوت"/>
+                        <TextBlock x:Name="VoiceSpeedValue" Text="1.00×" Foreground="{DynamicResource Layal.Muted}" Margin="4,0,4,4"/>
+                        <CheckBox x:Name="VoiceNormalizationCheckbox" Content="تفعيل مرجع تطبيع الكلام المصري"
+                                  IsChecked="True" Click="VoiceNormalizationCheckbox_Click"
+                                  AutomationProperties.Name="تطبيع الكلام المصري"
+                                  AutomationProperties.HelpText="توسيع الأرقام والتواريخ والأوقات والعملات والروابط والاختصارات مع الحفاظ على التشكيل المكتوب."/>
+                        <TextBlock x:Name="VoiceNormalizationDisclosure" Text="التطبيع يُطبّق محليًا قبل النطق، ويدعم الأرقام والتواريخ والأوقات والعملات وأرقام الهاتف والبريد والروابط والاختصارات والأسماء المضافة."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"/>
+                        <TextBlock x:Name="VoiceTutMetricsText" Text="VoiceTut: لا توجد قياسات بعد."
+                                   Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"
+                                   AutomationProperties.Name="مؤشرات أداء VoiceTut" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock x:Name="VoiceReplyDisclosureText" Text="الصوت اصطناعي ويُولّد محليًا عبر VoiceTut باستخدام Voice Design فقط. لا تُحمّل أصوات العرض المرجعية ولا تُرسل ملفات صوت أو نصوص إلى خدمة بعيدة." Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,5,4,4" AutomationProperties.LiveSetting="Polite"/>
+                        <Button x:Name="TestVoiceReplyButton" Content="اختبار السماعة والنطق" Click="TestVoiceReplyButton_Click" HorizontalAlignment="Left" ToolTip="يشغّل عينة عربية وإنجليزية عبر VoiceTut المحلي ويعرض قياسات زمن أول مقطع وسرعة التوليد."/>
 
                         <TextBlock x:Name="ApiKeyLabel" Text="Unified API Key / API Key" Margin="4,5,4,0"/>
                         <PasswordBox x:Name="ApiKeyInput" FlowDirection="LeftToRight" AutomationProperties.Name="مفتاح API / API key" AutomationProperties.LabeledBy="{Binding ElementName=ApiKeyLabel}" AutomationProperties.HelpText="يُحفظ المفتاح مشفرًا لمستخدم Windows الحالي / The API key is saved encrypted for the current Windows user."/>
