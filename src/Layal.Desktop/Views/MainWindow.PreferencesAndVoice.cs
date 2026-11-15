@@ -178,6 +178,76 @@ public partial class MainWindow
             : (AppRuntime.Settings.VoiceRepliesEnabled ? "Spoken replies are enabled for voice conversations." : "Spoken replies are disabled for voice conversations."));
     }
 
+    private void VoiceDesignInstructionInput_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        var instruction = (VoiceDesignInstructionInput.Text ?? string.Empty).Trim();
+        if (instruction.Length == 0 || instruction.Length > 300 ||
+            !instruction.Contains("female", StringComparison.OrdinalIgnoreCase) ||
+            instruction.Contains("ref_audio", StringComparison.OrdinalIgnoreCase) ||
+            instruction.Contains("reference audio", StringComparison.OrdinalIgnoreCase) ||
+            instruction.Contains("clone", StringComparison.OrdinalIgnoreCase))
+        {
+            VoiceDesignInstructionInput.Text = AppRuntime.Settings.VoiceDesignInstruction;
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "وصف الصوت غير صالح. يجب أن يتضمن female، ولا يمكنه طلب استنساخ صوت أو مرجع صوتي."
+                : "Invalid voice design. Include female; reference audio and cloning are disabled.");
+            return;
+        }
+        AppRuntime.Settings.VoiceDesignInstruction = instruction;
+        SaveVoiceGenerationSettings();
+    }
+
+    private void VoiceQualityStepsSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (VoiceQualityStepsValue is not null)
+            VoiceQualityStepsValue.Text = Math.Clamp((int)Math.Round(e.NewValue), 4, 64).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (!IsLoaded) return;
+        AppRuntime.Settings.VoiceQualitySteps = Math.Clamp((int)Math.Round(e.NewValue), 4, 64);
+        SaveVoiceGenerationSettings();
+    }
+
+    private void VoiceGuidanceSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (VoiceGuidanceValue is not null)
+            VoiceGuidanceValue.Text = e.NewValue.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        if (!IsLoaded) return;
+        AppRuntime.Settings.VoiceGuidanceScale = Math.Clamp(e.NewValue, 0.0, 6.0);
+        SaveVoiceGenerationSettings();
+    }
+
+    private void VoiceSpeedSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (VoiceSpeedValue is not null)
+            VoiceSpeedValue.Text = e.NewValue.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "×";
+        if (!IsLoaded) return;
+        AppRuntime.Settings.VoiceSpeed = Math.Clamp(e.NewValue, 0.5, 2.0);
+        SaveVoiceGenerationSettings();
+    }
+
+    private void VoiceNormalizationCheckbox_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        AppRuntime.Settings.VoiceTextNormalizationEnabled = VoiceNormalizationCheckbox.IsChecked == true;
+        SaveVoiceGenerationSettings();
+    }
+
+    private void SaveVoiceGenerationSettings()
+    {
+        try
+        {
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            SetAccessibleStatusText(ProviderActionStatus, IsArabic
+                ? "تم حفظ إعدادات VoiceTut المحلية."
+                : "Local VoiceTut settings saved.");
+        }
+        catch (Exception ex)
+        {
+            SetAccessibleStatusText(ProviderActionStatus,
+                UiLocalization.FormatTechnicalError("تعذر حفظ إعدادات الصوت", "Could not save speech settings", ex, IsArabic));
+        }
+    }
+
     private void VoiceDeliveryStyleSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded || VoiceDeliveryStyleSelector.SelectedItem is not ComboBoxItem item) return;
