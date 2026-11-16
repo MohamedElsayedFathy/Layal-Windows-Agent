@@ -430,7 +430,11 @@ public sealed class LocalVoiceService
             if (value.BytesPerSecond > 0)
                 details += $" · {FormatBytes((long)value.BytesPerSecond)}/s";
             if (value.RemainingSeconds is double remaining)
-                details += $" · {TimeSpan.FromSeconds(Math.Clamp(remaining, 0, 86400)):mm\\:ss}";
+            {
+                var remainingText = TimeSpan.FromSeconds(Math.Clamp(remaining, 0, 86400))
+                    .ToString(@"mm\\:ss", System.Globalization.CultureInfo.InvariantCulture);
+                details += $" · {remainingText}";
+            }
             progress.Report(new LocalSpeechProgress(message + " " + details, percent));
         });
     }
