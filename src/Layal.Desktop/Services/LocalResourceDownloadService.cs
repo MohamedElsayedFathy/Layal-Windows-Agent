@@ -82,6 +82,28 @@ public sealed class LocalResourceDownloadService : IDisposable
         IProgress<LocalResourceDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await DownloadAttemptAsync(resource, destinationPath, progress, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+            catch (HttpRequestException exception) when (
+                attempt < 3 && IsTransientHttpFailure(exception))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task DownloadAttemptAsync(
+        LocalResourceDefinition resource,
+        string destinationPath,
+        IProgress<LocalResourceDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
         if (resource.ExpectedSizeBytes is not > 0 || !resource.HasPinnedSha256)
@@ -226,12 +248,13 @@ public sealed class LocalResourceDownloadService : IDisposable
         var strongETag = response.Headers.ETag is { IsWeak: false } tag
             ? tag.ToString()
             : null;
-        var lastModified = response.Content.Headers.LastModified ?? resume?.LastModified;
+        var lastModified = response.Content.Headers.LastModified ?? (append ? resume?.LastModified : null);
+        var effectiveETag = strongETag ?? (append ? resume?.StrongETag : null);
         var metadata = new ResumeMetadata(
             source.AbsoluteUri,
             expectedSize,
             expectedHash,
-            strongETag ?? resume?.StrongETag,
+            effectiveETag,
             lastModified);
         await WriteResumeMetadataAsync(metadataPath, metadata, cancellationToken).ConfigureAwait(false);
 
@@ -293,6 +316,17 @@ public sealed class LocalResourceDownloadService : IDisposable
         {
             Array.Clear(buffer);
         }
+    }
+
+    private static bool IsTransientHttpFailure(HttpRequestException exception)
+    {
+        if (exception.StatusCode is null)
+            return true;
+
+        var statusCode = (int)exception.StatusCode.Value;
+        return exception.StatusCode == HttpStatusCode.RequestTimeout ||
+               exception.StatusCode == HttpStatusCode.TooManyRequests ||
+               statusCode is >= 500 and <= 599;
     }
 
     private async Task<ResumeMetadata?> TryLoadResumeMetadataAsync(
