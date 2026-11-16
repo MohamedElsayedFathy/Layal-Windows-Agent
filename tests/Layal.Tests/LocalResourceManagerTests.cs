@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -262,6 +263,36 @@ public sealed class LocalResourceDownloadServiceTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             downloader.DownloadAsync(resource, Path.Combine(temp.Path, "resource.bin")));
+    }
+
+    [TestMethod]
+    public async Task DownloadRetriesTransientTransportFailures()
+    {
+        using var temp = new TestTempDirectory();
+        var payload = Encoding.UTF8.GetBytes("retry after temporary transport failure");
+        var resource = CreateResource(payload);
+        var attempts = 0;
+        var handler = new StubHandler((request, _) =>
+        {
+            attempts++;
+            if (attempts == 1)
+                throw new HttpRequestException("temporary network interruption");
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload),
+                RequestMessage = request
+            });
+        });
+
+        using var client = new HttpClient(handler);
+        using var downloader = new LocalResourceDownloadService(client, new[] { Host });
+        var destination = Path.Combine(temp.Path, "retry.bin");
+
+        await downloader.DownloadAsync(resource, destination);
+
+        Assert.AreEqual(2, attempts);
+        CollectionAssert.AreEqual(payload, await File.ReadAllBytesAsync(destination));
     }
 
     [TestMethod]
