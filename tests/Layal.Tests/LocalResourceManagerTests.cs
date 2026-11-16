@@ -106,6 +106,23 @@ public sealed class LocalResourceManagerTests
     }
 
     [TestMethod]
+    public async Task InstalledCannotBeMarkedBeforeVerification()
+    {
+        using var temp = new TestTempDirectory();
+        var manager = new LocalResourceManager(Path.Combine(temp.Path, "resource-state.json"));
+        await manager.InitializeAsync();
+        await manager.BeginDownloadAsync(LocalResourceIds.WhisperRuntime, 100);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            manager.MarkInstalledAsync(LocalResourceIds.WhisperRuntime));
+
+        var state = await manager.GetSnapshotAsync();
+        Assert.AreEqual(
+            LocalResourceLifecycle.Downloading,
+            state.Single(item => item.ResourceId == LocalResourceIds.WhisperRuntime).State);
+    }
+
+    [TestMethod]
     public async Task ProgressCannotBeReportedOutsideDownloadingState()
     {
         using var temp = new TestTempDirectory();
