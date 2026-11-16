@@ -2,8 +2,8 @@
 
 **الحالة:** قرار منتج معتمد؛ مواصفة التنفيذ والقبول  
 **التاريخ:** 2026-11-16  
-**الفرع:** \`feature/complete-first-run-setup-2026-11-16\`  
-**الأساس الحالي:** \`main\` عند \`ba3f63575faf1f3aaaa70e00c919f63ed6de2118\`
+**الفرع:** `feature/complete-first-run-setup-2026-11-16`  
+**الأساس الحالي:** `main` عند `ba3f63575faf1f3aaaa70e00c919f63ed6de2118`
 
 ---
 
@@ -28,24 +28,24 @@
 
 ## 2. الوضع القائم الذي يجب البناء عليه
 
-| المجال | الموجود في \`main\` | الفجوة التي يغلقها Complete Setup |
+| المجال | الموجود في `main` | الفجوة التي يغلقها Complete Setup |
 |---|---|---|
-| المحادثة | \`LocalChatModelService\` يرفض عناوين الخوادم غير المحلية، و\`OllamaLocalModelSetupService\` يثبت Ollama عبر WinGet وينزّل \`qwen3.5:2b\` | التجهيز منفصل عن تجربة أول تشغيل ويحتاج الذهاب للإعدادات؛ لا توجد حالة موحدة أو فحص موارد شامل عند بدء التطبيق |
-| الصوت | \`LocalVoiceService\` يجهز Whisper و\`VoiceTutLocalService\` | مسار إعداد منفصل، اختيار Python يتطلب \`py\` وإصدارًا مثبتًا مسبقًا، ومراحل pip لا تعرض تقدمًا تفصيليًا كافيًا |
-| TTS | VoiceTut revision مثبتة، و\`snapshot_download\` يستخدم \`HF_HOME\` | يلزم إظهار تقدم تنزيل الأوزان والتحقق من كامل لقطة النموذج واستكمال التنزيل |
-| OCR | ملفات \`ara.traineddata\` و\`eng.traineddata\` مثبّتة أثناء بناء التوزيعة | يجب أن يسجل فحص أول التشغيل أنها موجودة وسليمة، لا أن يعيد تنزيلها دون داعٍ |
-| المحادثات | \`ChatSessionService\` يخزن جلسات متعددة محليًا بالتشفير، بحدود احتفاظ معروفة | يجب التأكد من إرسال السياق المناسب للنموذج دون تجاوز حد التوكنات، والحفاظ على حدود الخصوصية |
+| المحادثة | `LocalChatModelService` يرفض عناوين الخوادم غير المحلية، و`OllamaLocalModelSetupService` يثبت Ollama عبر WinGet وينزّل `qwen3.5:2b` | التجهيز منفصل عن تجربة أول تشغيل ويحتاج الذهاب للإعدادات؛ لا توجد حالة موحدة أو فحص موارد شامل عند بدء التطبيق |
+| الصوت | `LocalVoiceService` يجهز Whisper و`VoiceTutLocalService` | مسار إعداد منفصل، اختيار Python يتطلب `py` وإصدارًا مثبتًا مسبقًا، ومراحل pip لا تعرض تقدمًا تفصيليًا كافيًا |
+| TTS | VoiceTut revision مثبتة، و`snapshot_download` يستخدم `HF_HOME` | يلزم إظهار تقدم تنزيل الأوزان والتحقق من كامل لقطة النموذج واستكمال التنزيل |
+| OCR | ملفات `ara.traineddata` و`eng.traineddata` مثبّتة أثناء بناء التوزيعة | يجب أن يسجل فحص أول التشغيل أنها موجودة وسليمة، لا أن يعيد تنزيلها دون داعٍ |
+| المحادثات | `ChatSessionService` يخزن جلسات متعددة محليًا بالتشفير، بحدود احتفاظ معروفة | يجب التأكد من إرسال السياق المناسب للنموذج دون تجاوز حد التوكنات، والحفاظ على حدود الخصوصية |
 | التوزيع | Inno Setup ينسخ التطبيق ثم يشغله | يجب أن يقود أول تشغيل إلى معالج الموارد قبل ظهور واجهة العمل العادية |
 
 المراجع المصدرية داخل المشروع:
-- \`src/Layal.Desktop/Services/LocalChatModelService.cs\`
-- \`src/Layal.Desktop/Services/OllamaLocalModelSetupService.cs\`
-- \`src/Layal.Desktop/Services/LocalVoiceService.cs\`
-- \`src/Layal.Desktop/Services/VoiceTutLocalService.cs\`
-- \`src/Layal.Desktop/Services/ChatSessionService.cs\`
-- \`installer/Layal.iss\`
-- \`docs/LOCAL_AI_SETUP_AR.md\`
-- \`docs/VOICE_REPLY_AR.md\`
+- `src/Layal.Desktop/Services/LocalChatModelService.cs`
+- `src/Layal.Desktop/Services/OllamaLocalModelSetupService.cs`
+- `src/Layal.Desktop/Services/LocalVoiceService.cs`
+- `src/Layal.Desktop/Services/VoiceTutLocalService.cs`
+- `src/Layal.Desktop/Services/ChatSessionService.cs`
+- `installer/Layal.iss`
+- `docs/LOCAL_AI_SETUP_AR.md`
+- `docs/VOICE_REPLY_AR.md`
 
 ## 3. فهرس الموارد Resource Catalog
 
@@ -55,38 +55,38 @@
 
 | المورد | الإصدار/المصدر الحالي | حجم مرجعي معروف أو متوقع | التحقق |
 |---|---|---:|---|
-| .NET Runtime | self-contained مع Layal | مضمّن في حزمة التطبيق | وجود \`Layal.exe\` وملفات runtime المضمّنة |
+| .NET Runtime | self-contained مع Layal | مضمّن في حزمة التطبيق | وجود `Layal.exe` وملفات runtime المضمّنة |
 | Python x64 | Python 3.12؛ الإصدار الذي اختُبر محليًا 3.12.10 | يُقرأ من بيان المورد | توقيع Authenticode صالح من Python Software Foundation، الإصدار والمعمارية |
-| PyTorch CPU | \`torch==2.8.0\` | wheel الذي نُزّل على جهاز الاختبار 619.4 MB | إصدار الحزمة ونتيجة الاستيراد واختبار tensor |
-| TorchAudio CPU | \`torchaudio==2.8.0\` | wheel الذي نُزّل على جهاز الاختبار 2.5 MB | إصدار الحزمة واختبار الاستيراد |
-| PyTorch CUDA | \`torch==2.8.0\` و\`torchaudio==2.8.0\` من فهرس CUDA 12.8 الحالي | اكتشاف الحجم من بيان تنزيل pip | توافق الجهاز/السائق، \`torch.cuda.is_available()\` واختبار tensor على GPU |
-| OmniVoice | commit \`08be0b4ccbac3e13e374e86fbfead4b4cac343e2\` | أرشيف مصدر صغير؛ واعتمادياته هي الجزء الأكبر | commit ثابت، بناء wheel، import smoke test |
-| VoiceTut-TTS | commit \`44cba00cd3ddb04b5213353e19e960045e332da7\` | أرشيف مصدر صغير؛ واعتمادياته هي الجزء الأكبر | commit ثابت، بناء wheel، import smoke test |
-| VoiceTut weights | \`mohammedaly22/VoiceTut-TTS\`, revision \`b36bdf4416864d84f47ca77ce3decf34f6ab16cc\` | نحو 2.47 GB بحسب صفحة النموذج | revision مثبتة، ملفات النموذج المطلوبة، سلامة بيانات Hugging Face/Xet، واختبار خادم |
-| Whisper binary | whisper.cpp v1.9.1 | 7,982,101 bytes | SHA-256 الحالي في \`LocalVoiceService\` وفحص كل ملفات الأرشيف بعد فك الضغط |
-| Whisper model | \`ggml-base.bin\` عند commit \`5359861c739e955e79d9a303bcbc70fb988958b1\` | 147,951,465 bytes | SHA-256 الحالي في \`LocalVoiceService\` |
-| OCR Arabic/English | commit \`87416418657359cb625c412a48b6e1d6d41c29bd\` | 1,432,056 + 4,113,088 bytes | Git blob SHA-1 الحالي وفحص وجود الملفين المضمّنين |
+| PyTorch CPU | `torch==2.8.0` | wheel الذي نُزّل على جهاز الاختبار 619.4 MB | إصدار الحزمة ونتيجة الاستيراد واختبار tensor |
+| TorchAudio CPU | `torchaudio==2.8.0` | wheel الذي نُزّل على جهاز الاختبار 2.5 MB | إصدار الحزمة واختبار الاستيراد |
+| PyTorch CUDA | `torch==2.8.0` و`torchaudio==2.8.0` من فهرس CUDA 12.8 الحالي | اكتشاف الحجم من بيان تنزيل pip | توافق الجهاز/السائق، `torch.cuda.is_available()` واختبار tensor على GPU |
+| OmniVoice | commit `08be0b4ccbac3e13e374e86fbfead4b4cac343e2` | أرشيف مصدر صغير؛ واعتمادياته هي الجزء الأكبر | commit ثابت، بناء wheel، import smoke test |
+| VoiceTut-TTS | commit `44cba00cd3ddb04b5213353e19e960045e332da7` | أرشيف مصدر صغير؛ واعتمادياته هي الجزء الأكبر | commit ثابت، بناء wheel، import smoke test |
+| VoiceTut weights | `mohammedaly22/VoiceTut-TTS`, revision `b36bdf4416864d84f47ca77ce3decf34f6ab16cc` | نحو 2.47 GB بحسب صفحة النموذج | revision مثبتة، ملفات النموذج المطلوبة، سلامة بيانات Hugging Face/Xet، واختبار خادم |
+| Whisper binary | whisper.cpp v1.9.1 | 7,982,101 bytes | SHA-256 الحالي في `LocalVoiceService` وفحص كل ملفات الأرشيف بعد فك الضغط |
+| Whisper model | `ggml-base.bin` عند commit `5359861c739e955e79d9a303bcbc70fb988958b1` | 147,951,465 bytes | SHA-256 الحالي في `LocalVoiceService` |
+| OCR Arabic/English | commit `87416418657359cb625c412a48b6e1d6d41c29bd` | 1,432,056 + 4,113,088 bytes | Git blob SHA-1 الحالي وفحص وجود الملفين المضمّنين |
 | Ollama Windows runtime | تثبيت per-user أو runtime مدمج مُدار بواسطة Layal؛ يجب تثبيت نسخة محددة | توثيق Ollama يذكر 4 GB على الأقل لمساحة ملفات البرنامج | إصدار ثابت، تحقق من الملف/التوقيع، واختبار خادم loopback |
-| Local chat model | \`qwen3.5:2b\` الموجود بالفعل في خدمة إعداد الشات | 2.7–3.1 GB بحسب سجل المشروع/مكتبة Ollama | حفظ digest الفعلي للنموذج بعد التنزيل، \`ollama list/show\` واختبار API |
+| Local chat model | `qwen3.5:2b` الموجود بالفعل في خدمة إعداد الشات | 2.7–3.1 GB بحسب سجل المشروع/مكتبة Ollama | حفظ digest الفعلي للنموذج بعد التنزيل، `ollama list/show` واختبار API |
 
 الأرقام أعلاه **قيم مرجعية وليست إجمالي مساحة ثابتًا**. يجب تحديثها آليًا من ملف المورد عند تغيير إصدار أو منصة. حجم صفحة النموذج أو wheel ليس مساويًا تلقائيًا لمساحة التخزين النهائية أو مساحة الملفات المؤقتة.
 
 ### 3.2 اختيار نموذج الشات حسب الجهاز
 
-النموذج الحالي في المشروع هو \`qwen3.5:2b\`، وهو نقطة البداية المرجعية التي يجب الحفاظ عليها إلى أن تجتاز النماذج البديلة تقييم العربية المصرية والإنجليزية والجلسات الطويلة على أجهزة Windows المستهدفة.
+النموذج الحالي في المشروع هو `qwen3.5:2b`، وهو نقطة البداية المرجعية التي يجب الحفاظ عليها إلى أن تجتاز النماذج البديلة تقييم العربية المصرية والإنجليزية والجلسات الطويلة على أجهزة Windows المستهدفة.
 
 تُظهر مكتبة Ollama حاليًا نماذج Qwen3.5 بأحجام مرجعية مختلفة، منها 0.8B (نحو 1.2–1.3 GB)، و2B (نحو 2.7–3.1 GB)، و4B (نحو 3.3–4.0 GB)، و9B (نحو 6.6–7.6 GB)، مع نافذة سياق معلنة 256K. لا يعني ذلك أن كل جهاز يستطيع تشغيل كل حجم بكفاءة.
 
 المطلوب:
 - فحص RAM الفعلية، وذاكرة GPU، ونوع GPU، والسائق، والمعمارية، والمساحة الحرة.
-- اختيار نموذج من قائمة مغلقة ومختبرة ومثبتة digest؛ لا تنزيل \`latest\` متغير بلا تسجيل بصمة.
+- اختيار نموذج من قائمة مغلقة ومختبرة ومثبتة digest؛ لا تنزيل `latest` متغير بلا تسجيل بصمة.
 - استخدام نموذج 2B كخط أساس على جهاز متوسط/CPU إذا اجتاز بوابة الذاكرة والأداء.
 - السماح بنموذج أصغر للأجهزة محدودة الذاكرة، وبحجم أكبر فقط على جهاز يطابق بوابة موثقة ونتائج benchmark.
 - إظهار اسم النموذج وحجمه وسبب الاختيار قبل الموافقة.
 - عدم اختيار CUDA لمجرد وجود اسم بطاقة؛ يجب التحقق من السائق وقدرة التشغيل الفعلية.
 - عدم تنزيل CUDA Toolkit كاملًا إذا كانت حزم PyTorch المحددة تتضمن runtime المطلوب؛ لا نثبت تعريف GPU أو نحدّثه تلقائيًا.
 
-**مهم:** اختبار جهاز المستخدم في جلسة 2026-11-16 وجد أن \`nvidia-smi\` غير متاح، ولذلك اختير PyTorch CPU. كما أظهر فحص مساحة وقتها نحو 23.06 GB فارغة. لم تُسجل سعة RAM في ذلك الاختبار، فلا يجوز افتراضها أو إعلان توافق نهائي قبل فحصها.
+**مهم:** اختبار جهاز المستخدم في جلسة 2026-11-16 وجد أن `nvidia-smi` غير متاح، ولذلك اختير PyTorch CPU. كما أظهر فحص مساحة وقتها نحو 23.06 GB فارغة. لم تُسجل سعة RAM في ذلك الاختبار، فلا يجوز افتراضها أو إعلان توافق نهائي قبل فحصها.
 
 ### 3.3 موارد لا تُنزّل في هذا المسار
 
@@ -125,7 +125,7 @@
 بعد نجاح جميع بوابات الإعداد:
 1. يحفظ معالج الإعداد بيان الموارد الفعلي وإصداراتها وdigests وحالة التحقق.
 2. يشغّل خادم المحادثة المحلي على loopback فقط ويتأكد من وجود النموذج المختار ويجري اختبار محادثة واحدًا.
-3. يجهز خادم VoiceTut المحلي ويتحقق من حالة \`healthz\` ثم يجري اختبار توليد محلي قصير دون تشغيل الميكروفون.
+3. يجهز خادم VoiceTut المحلي ويتحقق من حالة `healthz` ثم يجري اختبار توليد محلي قصير دون تشغيل الميكروفون.
 4. يتحقق من Whisper binary والنموذج ومن OCR العربي والإنجليزي.
 5. يحفظ إعدادات المحادثة المحلية تلقائيًا ويجعل الرد الصوتي المحلي جاهزًا.
 6. يغلق المعالج ويفتح Layal في واجهة المحادثة. لا يحتاج المستخدم إلى الرجوع للإعدادات لتشغيل التحضير الأول.
@@ -137,45 +137,45 @@
 
 ### 5.1 خدمة واحدة لإعداد الموارد
 
-إنشاء نقطة دخول واحدة، مثل \`CompleteSetupService\`، تعتمد على واجهات قابلة للاختبار:
-- \`IResourceCatalog\`: تعريف الموارد والإصدارات والروابط والأحجام والبصمات والحقوق.
-- \`IHardwareProfileService\`: كشف CPU/RAM/GPU/driver/free disk/architecture.
-- \`IResumableDownloadService\`: تنزيل متدفق، Range عند دعمه، retries/backoff، واستمرار آمن.
-- \`IProcessRunner\`: تشغيل العمليات مع بث stdout/stderr تدريجيًا وCancellationToken.
-- \`IPythonRuntimeService\`: اكتشاف أو توفير Python x64 المعزول والتحقق منه.
-- \`IPackageInstallService\`: pip مع lock file، retries، cache محلي، وتحقق imports.
-- \`IChatRuntimeService\`: تثبيت/تحديث runtime وإعداد النموذج والتحقق من digest وloopback.
-- \`ILocalSpeechSetupService\`: تجهيز Whisper/VoiceTut والتحقق من الأوزان وhealth.
-- \`ISetupStateStore\`: حفظ حالة كل مورد والتحقق من صلاحية علامات الجاهزية.
-- \`ISetupProgressReporter\`: بث تقدم موحد قابل للعرض في WPF.
-- \`ISetupLogService\`: سجل محدود لا يحتوي prompts أو أسرارًا.
+إنشاء نقطة دخول واحدة، مثل `CompleteSetupService`، تعتمد على واجهات قابلة للاختبار:
+- `IResourceCatalog`: تعريف الموارد والإصدارات والروابط والأحجام والبصمات والحقوق.
+- `IHardwareProfileService`: كشف CPU/RAM/GPU/driver/free disk/architecture.
+- `IResumableDownloadService`: تنزيل متدفق، Range عند دعمه، retries/backoff، واستمرار آمن.
+- `IProcessRunner`: تشغيل العمليات مع بث stdout/stderr تدريجيًا وCancellationToken.
+- `IPythonRuntimeService`: اكتشاف أو توفير Python x64 المعزول والتحقق منه.
+- `IPackageInstallService`: pip مع lock file، retries، cache محلي، وتحقق imports.
+- `IChatRuntimeService`: تثبيت/تحديث runtime وإعداد النموذج والتحقق من digest وloopback.
+- `ILocalSpeechSetupService`: تجهيز Whisper/VoiceTut والتحقق من الأوزان وhealth.
+- `ISetupStateStore`: حفظ حالة كل مورد والتحقق من صلاحية علامات الجاهزية.
+- `ISetupProgressReporter`: بث تقدم موحد قابل للعرض في WPF.
+- `ISetupLogService`: سجل محدود لا يحتوي prompts أو أسرارًا.
 
 لا تُنشأ نسخة ثانية من خدمات Ollama/VoiceTut داخل الواجهة. تُعاد الاستفادة من الخدمات الحالية خلف واجهات، مع نقل التنسيق إلى مدير موحد.
 
 ### 5.2 بيان حالة قابل للاستئناف
 
 لكل مورد حالة مستقلة:
-\`NotStarted → Downloading → Downloaded → Verifying → Installing → HealthChecking → Ready\`
+`NotStarted → Downloading → Downloaded → Verifying → Installing → HealthChecking → Ready`
 
-وحالات فشل/إلغاء واضحة. لا تُكتب علامة \`Ready\` قبل مرور كل اختبارات المورد. تستخدم كتابة ذرية (ملف مؤقت ثم rename)، وتحتوي العلامة على الإصدار والـ digest والبيئة التي تم اختبارها.
+وحالات فشل/إلغاء واضحة. لا تُكتب علامة `Ready` قبل مرور كل اختبارات المورد. تستخدم كتابة ذرية (ملف مؤقت ثم rename)، وتحتوي العلامة على الإصدار والـ digest والبيئة التي تم اختبارها.
 
 لا يعني وجود الملف وحده أنه سليم. تُعاد مطابقة البصمة والحجم والإصدار في كل تشغيل عند الحاجة.
 
 ### 5.3 التنزيل واستكماله
 
-- استخدام HTTP streaming لا \`ReadAsStringAsync\` لتنزيل الملفات الكبيرة.
+- استخدام HTTP streaming لا `ReadAsStringAsync` لتنزيل الملفات الكبيرة.
 - استخدام ملفات staging فريدة، وفتح الملفات بحدود مشاركة آمنة، والتحقق قبل النقل إلى الوجهة النهائية.
-- استخدام \`Range\` فقط عندما يدعم الخادم الاستكمال وتُثبت هوية الملف عبر ETag/If-Range أو digest معروف؛ وإلا يبدأ ذلك المورد من جديد مع الاحتفاظ ببقية الموارد المكتملة.
+- استخدام `Range` فقط عندما يدعم الخادم الاستكمال وتُثبت هوية الملف عبر ETag/If-Range أو digest معروف؛ وإلا يبدأ ذلك المورد من جديد مع الاحتفاظ ببقية الموارد المكتملة.
 - اعتماد retries متدرجة مع حد أقصى واضح ووقت اتصال/قراءة كبير ومناسب للملفات الضخمة.
-- استخدام كاش pip ثابت بدل \`--no-cache-dir\` حتى لا تعاد تنزيل عجلات الحزم بعد كل انقطاع.
-- استخدام Hugging Face cache المثبتة في \`HF_HOME\` مع revision ثابتة وآلية Xet/Hub للاستكمال.
+- استخدام كاش pip ثابت بدل `--no-cache-dir` حتى لا تعاد تنزيل عجلات الحزم بعد كل انقطاع.
+- استخدام Hugging Face cache المثبتة في `HF_HOME` مع revision ثابتة وآلية Xet/Hub للاستكمال.
 - استعمال Ollama pull stream/content-addressed store للنموذج، ثم تسجيل digest الذي أعاده runtime.
 - عدم حذف ملفات التنزيل الجزئية عند الإلغاء؛ تنظيف الملفات القديمة أو غير المطابقة فقط بعد فحص آمن.
 - عدم تشغيل عمليتي إعداد بالتوازي لنفس البيئة أو المورد.
 
 ### 5.4 مشكلة التقدم الحالية التي يجب إغلاقها
 
-\`VoiceTutLocalService.RunCommandAsync\` حاليًا يقرأ stdout/stderr إلى نهاية العملية ثم ينتظر \`WaitForExitAsync\`، ما يجعل واجهة المستخدم لا ترى تقدم pip أثناء تثبيت PyTorch وOmniVoice وVoiceTut. هذا كان سببًا مباشرًا في ظهور التثبيت متوقفًا للمستخدم رغم أن السجل أظهر أنه يكمل تنزيل وبناء الحزم.
+`VoiceTutLocalService.RunCommandAsync` حاليًا يقرأ stdout/stderr إلى نهاية العملية ثم ينتظر `WaitForExitAsync`، ما يجعل واجهة المستخدم لا ترى تقدم pip أثناء تثبيت PyTorch وOmniVoice وVoiceTut. هذا كان سببًا مباشرًا في ظهور التثبيت متوقفًا للمستخدم رغم أن السجل أظهر أنه يكمل تنزيل وبناء الحزم.
 
 يجب تحويل مشغل العمليات إلى قراءة سطرية متوازية مستمرة وتحديث progress aggregator، مع الاحتفاظ بمخرجات الخطأ المحدودة في السجل. لا يكفي رفع مهلة الانتظار أو تغيير النص المعروض.
 
@@ -185,13 +185,13 @@
 - إذا لم يوجد، يوفره المعالج تلقائيًا من مصدر Python الرسمي مع التحقق من توقيع المثبّت؛ لا يطلب من المستخدم تنزيله يدويًا.
 - إنشاء venv تحت مجلد بيانات Layal، لا في المجلد العام للمشروع.
 - قفل جميع إصدارات pip وإصدارات الحزم العابرة في lock file قابل لإعادة البناء، مع hashes حيثما أمكن.
-- تحقق \`pip check\`، و\`torch\`، و\`torchaudio\`، و\`numpy\`، و\`omnivoice\`، و\`voicetut_tts\`، و\`huggingface_hub\`.
+- تحقق `pip check`، و`torch`، و`torchaudio`، و`numpy`، و`omnivoice`، و`voicetut_tts`، و`huggingface_hub`.
 - لا تُكتب manifest التثبيت قبل اكتمال كل تحقق.
-- لا يُستخدم \`ffmpeg\` أو أي runtime إضافي إلا إذا أثبت اختبار المسار الفعلي أنه مطلوب؛ يجب معالجة التحذير الحالي من pydub بدل تجاهله أو تنزيل برنامج زائد بلا حاجة.
+- لا يُستخدم `ffmpeg` أو أي runtime إضافي إلا إذا أثبت اختبار المسار الفعلي أنه مطلوب؛ يجب معالجة التحذير الحالي من pydub بدل تجاهله أو تنزيل برنامج زائد بلا حاجة.
 
 ### 5.6 تشغيل الخدمات
 
-- Ollama API يكون loopback فقط؛ يتحقق \`LocalChatModelService.ValidateBaseUrl\` من ذلك قبل كل اتصال.
+- Ollama API يكون loopback فقط؛ يتحقق `LocalChatModelService.ValidateBaseUrl` من ذلك قبل كل اتصال.
 - لا يُسمح لخادم الشات بتلقي أدوات تنفيذ النظام/الملفات. لا تضاف وظائف tool-calling إلى النموذج في هذا المسار.
 - VoiceTut يظل loopback-only مع token عشوائي، ويظل Voice Design فقط.
 - Whisper يُستخدم محليًا لتحويل التسجيل إلى نص؛ يجب أن يراجع المستخدم النص قبل إرساله إلى نواة ليال.
@@ -212,13 +212,13 @@
 ## 7. الخصوصية والأمان وسلسلة التوريد
 
 1. الموارد من الناشرين/المستودعات الرسمية المثبتة، لا من روابط مختصرة أو مرايا مجهولة.
-2. كل إصدار/Commit وdigest محفوظ في البيان، ولا يعتمد على \`main\` أو \`latest\` المتغير وقت التشغيل.
+2. كل إصدار/Commit وdigest محفوظ في البيان، ولا يعتمد على `main` أو `latest` المتغير وقت التشغيل.
 3. تحقق SHA-256 أو توقيع الناشر أو تحقق Hub/Xet عند كل نقطة استعمال.
 4. حفظ موارد المستخدم في مجلد بيانات Layal الحالي؛ عدم حذف محادثات/ذاكرة/مهارات/موارد المستخدم عند الترقية أو إزالة البرنامج.
 5. لا تُرسل المحادثات أو التسجيلات إلى الشبكة خارج loopback. تنزيل النموذج نفسه هو اتصال شبكة فقط خلال مرحلة الإعداد وبعد موافقة المستخدم.
 6. لا تُسجّل prompts أو نصوص التسجيلات أو أسرارًا في ملفات logs.
 7. التحقق من تراخيص Ollama (MIT)، وQwen3.5 model (Apache-2.0 حسب بيان نموذج Ollama الحالي)، وVoiceTut (Apache-2.0)، وOmniVoice (Apache-2.0)، وWhisper، وPyTorch، وكل الاعتماديات العابرة.
-8. تحديث \`docs/THIRD_PARTY_LICENSES.json\` وملفات \`licenses/\` وSBOM والتوزيعة قبل أي إصدار قابل للتوزيع.
+8. تحديث `docs/THIRD_PARTY_LICENSES.json` وملفات `licenses/` وSBOM والتوزيعة قبل أي إصدار قابل للتوزيع.
 9. نجاح التثبيت المحلي لا يغلق بوابة ترخيص Layal أو حقوق الأصول الرسومية؛ تبقى بوابات الإصدار الحالية كما هي حتى تعتمد قانونيًا.
 10. عدم تثبيت أو تحديث تعريف GPU تلقائيًا. يوضح المعالج المتطلبات إذا كان التعريف غير متوافق.
 
@@ -256,10 +256,10 @@
 - عدم فتح واجهة العمل العادية حتى ينجح الإعداد الكامل أو يختار المستخدم صراحةً وضعًا محدودًا مؤقتًا؛ الوضع المحدود لا يكتب حالة اكتمال.
 
 ### المرحلة C — دمج الشات الكامل
-- إعادة استخدام \`OllamaLocalModelSetupService\` وخدمة الشات الحالية خلف مدير الإعداد.
+- إعادة استخدام `OllamaLocalModelSetupService` وخدمة الشات الحالية خلف مدير الإعداد.
 - اعتماد نموذج Qwen3.5 مثبت digest ومناسب للجهاز.
 - اختبار المحادثة العربية المصرية والفصحى والإنجليزية والمزج، وتتابع السياق، والاسترجاع من المحادثة الجارية.
-- ربط \`LocalChatModelId\` و\`LocalChatModelBaseUrl\` تلقائيًا بعد نجاح التحقق.
+- ربط `LocalChatModelId` و`LocalChatModelBaseUrl` تلقائيًا بعد نجاح التحقق.
 - تشغيل Ollama المحلي تلقائيًا عند بدء Layal إذا كان جاهزًا.
 - إبقاء الشات منفصلًا عن تنفيذ المهام.
 
