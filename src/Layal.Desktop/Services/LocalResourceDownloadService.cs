@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -41,6 +42,9 @@ public sealed class LocalResourceDownloadService : IDisposable
         "registry.ollama.ai"
     };
 
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> DestinationLocks =
+        new(StringComparer.OrdinalIgnoreCase);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -82,19 +86,31 @@ public sealed class LocalResourceDownloadService : IDisposable
         IProgress<LocalResourceDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        for (var attempt = 1; ; attempt++)
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+        var normalizedDestination = Path.GetFullPath(destinationPath);
+        var destinationLock = DestinationLocks.GetOrAdd(
+            normalizedDestination, _ => new SemaphoreSlim(1, 1));
+        await destinationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            try
+            for (var attempt = 1; ; attempt++)
             {
-                await DownloadAttemptAsync(resource, destinationPath, progress, cancellationToken)
-                    .ConfigureAwait(false);
-                return;
+                try
+                {
+                    await DownloadAttemptAsync(resource, normalizedDestination, progress, cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
+                }
+                catch (HttpRequestException exception) when (
+                    attempt < 3 && IsTransientHttpFailure(exception))
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken).ConfigureAwait(false);
+                }
             }
-            catch (HttpRequestException exception) when (
-                attempt < 3 && IsTransientHttpFailure(exception))
-            {
-                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken).ConfigureAwait(false);
-            }
+        }
+        finally
+        {
+            destinationLock.Release();
         }
     }
 
