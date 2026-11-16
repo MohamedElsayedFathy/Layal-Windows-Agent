@@ -116,6 +116,11 @@ public sealed class VoiceTutLocalService : IDisposable
             {
                 DeleteManagedPythonEnvironment();
             }
+            else if (!File.Exists(PythonExecutablePath) && Directory.Exists(VirtualEnvironment))
+            {
+                // A prior cancelled venv creation may leave a partial app-managed directory.
+                DeleteManagedPythonEnvironment();
+            }
 
             if (!File.Exists(PythonExecutablePath))
             {
@@ -394,6 +399,12 @@ public sealed class VoiceTutLocalService : IDisposable
                 TimeSpan.FromMinutes(2),
                 cancellationToken,
                 "التحقق من VoiceTut").ConfigureAwait(false);
+            await RunCommandAsync(
+                PythonExecutablePath,
+                new[] { "-m", "pip", "check" },
+                TimeSpan.FromMinutes(3),
+                cancellationToken,
+                "فحص اعتماديات Python").ConfigureAwait(false);
             return true;
         }
         catch (Exception exception) when (
