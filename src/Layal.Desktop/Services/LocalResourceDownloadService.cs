@@ -30,6 +30,7 @@ public sealed class LocalResourceDownloadService : IDisposable
     private static readonly HashSet<string> DefaultApprovedHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "github.com",
+        "codeload.github.com",
         "release-assets.githubusercontent.com",
         "objects.githubusercontent.com",
         "huggingface.co",
@@ -234,12 +235,25 @@ public sealed class LocalResourceDownloadService : IDisposable
                 throw new InvalidDataException("The download server returned an invalid byte range.");
             }
 
-            if (resume?.StrongETag is { Length: > 0 } expectedETag &&
-                response.Headers.ETag is { } actualETag &&
-                !string.Equals(expectedETag, actualETag.ToString(), StringComparison.Ordinal))
+            if (resume?.StrongETag is { Length: > 0 } expectedETag)
             {
-                DeletePartialArtifacts(partialPath, metadataPath);
-                throw new InvalidDataException("The resource changed on the server during a resumed download.");
+                if (response.Headers.ETag is not { IsWeak: false } actualETag ||
+                    !string.Equals(expectedETag, actualETag.ToString(), StringComparison.Ordinal))
+                {
+                    DeletePartialArtifacts(partialPath, metadataPath);
+                    throw new InvalidDataException(
+                        "The server did not confirm the strong ETag for the resumed resource.");
+                }
+            }
+            else if (resume?.LastModified is { } expectedLastModified)
+            {
+                if (response.Content.Headers.LastModified is not { } actualLastModified ||
+                    actualLastModified != expectedLastModified)
+                {
+                    DeletePartialArtifacts(partialPath, metadataPath);
+                    throw new InvalidDataException(
+                        "The server did not confirm the Last-Modified validator for the resumed resource.");
+                }
             }
         }
         else if (response.StatusCode == HttpStatusCode.OK)
