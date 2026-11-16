@@ -68,6 +68,28 @@ public sealed class LocalResourceManagerTests
     }
 
     [TestMethod]
+    public async Task SeparateManagerInstancesDoNotOverwriteEachOthersResourceChanges()
+    {
+        using var temp = new TestTempDirectory();
+        var statePath = Path.Combine(temp.Path, "resource-state.json");
+        var first = new LocalResourceManager(statePath);
+        var second = new LocalResourceManager(statePath);
+        await first.InitializeAsync();
+        await second.InitializeAsync();
+
+        await first.BeginDownloadAsync(LocalResourceIds.WhisperRuntime, 100);
+        await second.BeginDownloadAsync(LocalResourceIds.WhisperModel, 200);
+
+        var snapshot = await first.GetSnapshotAsync();
+        Assert.AreEqual(
+            LocalResourceLifecycle.Downloading,
+            snapshot.Single(item => item.ResourceId == LocalResourceIds.WhisperRuntime).State);
+        Assert.AreEqual(
+            LocalResourceLifecycle.Downloading,
+            snapshot.Single(item => item.ResourceId == LocalResourceIds.WhisperModel).State);
+    }
+
+    [TestMethod]
     public async Task ReadyCannotBeMarkedBeforeVerificationOrInstallation()
     {
         using var temp = new TestTempDirectory();
@@ -219,6 +241,53 @@ public sealed class LocalResourceDownloadServiceTests
         await secondDownloader.DownloadAsync(resource, destination);
 
         CollectionAssert.AreEqual(payload, await File.ReadAllBytesAsync(destination));
+        Assert.IsFalse(File.Exists(partialPath));
+        Assert.IsFalse(File.Exists(partialPath + ".json"));
+    }
+
+    [TestMethod]
+    public async Task ResumedDownloadRequiresServerToConfirmStrongEtag()
+    {
+        using var temp = new TestTempDirectory();
+        var payload = Enumerable.Range(0, 100_000)
+            .Select(value => (byte)(value % 239))
+            .ToArray();
+        var resource = CreateResource(payload);
+        var partialBytes = payload[..4096];
+        var destination = Path.Combine(temp.Path, "etag-required.bin");
+        var partialPath = destination + ".partial";
+        await File.WriteAllBytesAsync(partialPath, partialBytes);
+        await File.WriteAllTextAsync(partialPath + ".json", System.Text.Json.JsonSerializer.Serialize(new
+        {
+            SourceUri = resource.Source,
+            ExpectedSizeBytes = payload.LongLength,
+            ExpectedSha256 = resource.ExpectedSha256,
+            StrongETag = "\\"resource-v1\\"",
+            LastModified = (DateTimeOffset?)null
+        }));
+
+        var handler = new StubHandler((request, _) =>
+        {
+            Assert.AreEqual((long)partialBytes.Length, request.Headers.Range?.Ranges.Single().From);
+            Assert.AreEqual("\\"resource-v1\\"", request.Headers.IfRange?.EntityTag?.ToString());
+            var response = new HttpResponseMessage(HttpStatusCode.PartialContent)
+            {
+                Content = new ByteArrayContent(payload[partialBytes.Length..]),
+                RequestMessage = request
+            };
+            response.Content.Headers.ContentRange =
+                new ContentRangeHeaderValue(partialBytes.Length, payload.Length - 1, payload.Length);
+            // Deliberately omit ETag: appending without a validator confirmation is unsafe.
+            return Task.FromResult(response);
+        });
+
+        using var client = new HttpClient(handler);
+        using var downloader = new LocalResourceDownloadService(client, new[] { Host });
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+            downloader.DownloadAsync(resource, destination));
+
+        Assert.IsFalse(File.Exists(destination));
         Assert.IsFalse(File.Exists(partialPath));
         Assert.IsFalse(File.Exists(partialPath + ".json"));
     }
