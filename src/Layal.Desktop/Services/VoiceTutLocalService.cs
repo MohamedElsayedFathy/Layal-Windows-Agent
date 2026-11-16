@@ -99,13 +99,13 @@ public sealed class VoiceTutLocalService : IDisposable
         if (!installMatches)
         {
             progress?.Report(new LocalSpeechProgress("فحص Python 3.10–3.12 وتجهيز بيئة VoiceTut المعزولة…", 5));
-            var pythonLauncher = await FindPythonLauncherAsync(cancellationToken);
-            if (pythonLauncher is null)
-                throw new InvalidOperationException(
-                    "يلزم Python 3.10 أو 3.11 أو 3.12 (64-bit). لم يُغيّر التطبيق تثبيتات Python الموجودة.");
-
             if (!File.Exists(PythonExecutablePath))
             {
+                var pythonLauncher = await FindPythonLauncherAsync(cancellationToken);
+                if (pythonLauncher is null)
+                    throw new InvalidOperationException(
+                        "يلزم Python 3.10 أو 3.11 أو 3.12 (64-bit). لم يُغيّر التطبيق تثبيتات Python الموجودة.");
+
                 var venvArgs = pythonLauncher.Value.PrefixArguments
                     .Concat(new[] { "-m", "venv", VirtualEnvironment }).ToArray();
                 await RunCommandAsync(
