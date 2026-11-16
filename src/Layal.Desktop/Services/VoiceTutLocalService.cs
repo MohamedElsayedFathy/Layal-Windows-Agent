@@ -42,12 +42,21 @@ public sealed class VoiceTutLocalService : IDisposable
     }) { Timeout = Timeout.InfiniteTimeSpan };
 
     private readonly object _processSync = new();
+    private readonly LocalResourceSetupCoordinator _resourceCoordinator;
     private Process? _serverProcess;
     private string? _serverToken;
     private Uri? _serverBaseUri;
     private string? _pythonExecutable;
     private string _lastStartupLog = string.Empty;
     private bool _disposed;
+
+    public VoiceTutLocalService()
+        : this(new LocalResourceSetupCoordinator(new LocalResourceManager()))
+    {
+    }
+
+    public VoiceTutLocalService(LocalResourceSetupCoordinator resourceCoordinator) =>
+        _resourceCoordinator = resourceCoordinator ?? throw new ArgumentNullException(nameof(resourceCoordinator));
 
     public bool IsReady => File.Exists(PythonExecutablePath) &&
                            File.Exists(Path.Combine(InstallRoot, InstallMarker)) &&
@@ -93,82 +102,256 @@ public sealed class VoiceTutLocalService : IDisposable
             var pythonLauncher = await FindPythonLauncherAsync(cancellationToken);
             if (pythonLauncher is null)
                 throw new InvalidOperationException(
-                    "يلزم تثبيت Python 3.10 أو 3.11 أو 3.12 (64-bit) مع Python Launcher. لم يتم تثبيت أي برنامج تلقائيًا.");
+                    "يلزم Python 3.10 أو 3.11 أو 3.12 (64-bit). لم يُغيّر التطبيق تثبيتات Python الموجودة.");
 
-            Directory.CreateDirectory(InstallRoot);
             if (!File.Exists(PythonExecutablePath))
             {
-                var venvArgs = pythonLauncher.Value.PrefixArguments.Concat(new[] { "-m", "venv", VirtualEnvironment }).ToArray();
-                await RunCommandAsync(pythonLauncher.Value.Executable, venvArgs,
-                    ProcessInstallTimeout, cancellationToken, "إنشاء بيئة Python المعزولة");
+                var venvArgs = pythonLauncher.Value.PrefixArguments
+                    .Concat(new[] { "-m", "venv", VirtualEnvironment }).ToArray();
+                await RunCommandAsync(
+                    pythonLauncher.Value.Executable,
+                    venvArgs,
+                    ProcessInstallTimeout,
+                    cancellationToken,
+                    "إنشاء بيئة Python المعزولة").ConfigureAwait(false);
             }
 
             _pythonExecutable = PythonExecutablePath;
-            progress?.Report(new LocalSpeechProgress("تثبيت PyTorch محليًا (CUDA إن كانت بطاقة NVIDIA متاحة، وإلا CPU)…", 18));
-            await RunPythonAsync(new[]
-            {
-                "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
-                "--upgrade", "pip"
-            }, ProcessInstallTimeout, cancellationToken, "تحديث pip");
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.PythonRuntime,
+                VerifyPythonRuntimeAsync,
+                cancellationToken).ConfigureAwait(false);
 
-            var cudaAvailable = await IsNvidiaRuntimeAvailableAsync(cancellationToken);
-            var torchIndex = cudaAvailable
-                ? "https://download.pytorch.org/whl/cu128"
-                : "https://download.pytorch.org/whl/cpu";
-            await RunPythonAsync(new[]
-            {
-                "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
-                "--index-url", torchIndex, "--extra-index-url", "https://pypi.org/simple",
-                "torch==2.8.0", "torchaudio==2.8.0"
-            }, ProcessInstallTimeout, cancellationToken, "تثبيت PyTorch");
+            progress?.Report(new LocalSpeechProgress("تثبيت PyTorch محليًا (CUDA إن كان تشغيلها مدعومًا، وإلا CPU)…", 18));
+            var cudaDeviceDetected = await IsNvidiaRuntimeAvailableAsync(cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.ExecuteAsync(
+                LocalResourceIds.PyTorch,
+                async token =>
+                {
+                    await RunPythonAsync(new[]
+                    {
+                        "-m", "pip", "install", "--disable-pip-version-check",
+                        "--upgrade", "pip"
+                    }, ProcessInstallTimeout, token, "تحديث pip", progress).ConfigureAwait(false);
+
+                    var torchIndex = cudaDeviceDetected
+                        ? "https://download.pytorch.org/whl/cu128"
+                        : "https://download.pytorch.org/whl/cpu";
+                    await RunPythonAsync(new[]
+                    {
+                        "-m", "pip", "install", "--disable-pip-version-check",
+                        "--index-url", torchIndex, "--extra-index-url", "https://pypi.org/simple",
+                        "torch==2.8.0", "torchaudio==2.8.0"
+                    }, ProcessInstallTimeout, token, "تثبيت PyTorch", progress).ConfigureAwait(false);
+
+                    if (cudaDeviceDetected)
+                    {
+                        var cudaProbe = await RunCommandAsync(
+                            PythonExecutablePath,
+                            new[] { "-c", "import torch; print('CUDA_AVAILABLE=' + str(torch.cuda.is_available()))" },
+                            TimeSpan.FromMinutes(2), token, "فحص تشغيل CUDA").ConfigureAwait(false);
+                        if (!cudaProbe.Output.Contains("CUDA_AVAILABLE=True", StringComparison.OrdinalIgnoreCase))
+                        {
+                            progress?.Report(new LocalSpeechProgress(
+                                "لم يؤكد PyTorch قابلية تشغيل CUDA؛ جارٍ التحويل إلى إصدار CPU المتوافق دون تغيير تعريف بطاقة الرسوميات."));
+                            await RunPythonAsync(new[]
+                            {
+                                "-m", "pip", "install", "--disable-pip-version-check", "--force-reinstall",
+                                "--index-url", "https://download.pytorch.org/whl/cpu",
+                                "--extra-index-url", "https://pypi.org/simple",
+                                "torch==2.8.0", "torchaudio==2.8.0"
+                            }, ProcessInstallTimeout, token, "تثبيت PyTorch CPU", progress).ConfigureAwait(false);
+                        }
+                    }
+                },
+                VerifyTorchRuntimeAsync,
+                cancellationToken).ConfigureAwait(false);
 
             progress?.Report(new LocalSpeechProgress("تثبيت OmniVoice وVoiceTut بإصدارات Git ثابتة…", 42));
-            await RunPythonAsync(new[]
-            {
-                "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
-                $"https://github.com/k2-fsa/OmniVoice/archive/{OmniVoiceCommit}.zip",
-                $"https://github.com/MohammedAly22/VoiceTuT-TTS/archive/{VoiceTutCommit}.zip"
-            }, ProcessInstallTimeout, cancellationToken, "تثبيت VoiceTut وOmniVoice");
+            await _resourceCoordinator.ExecuteAsync(
+                LocalResourceIds.OmniVoice,
+                token => RunPythonAsync(new[]
+                {
+                    "-m", "pip", "install", "--disable-pip-version-check",
+                    $"https://github.com/k2-fsa/OmniVoice/archive/{OmniVoiceCommit}.zip",
+                    $"https://github.com/MohammedAly22/VoiceTuT-TTS/archive/{VoiceTutCommit}.zip"
+                }, ProcessInstallTimeout, token, "تثبيت VoiceTut وOmniVoice", progress),
+                VerifyOmniVoicePackageAsync,
+                cancellationToken).ConfigureAwait(false);
 
-            await RunPythonAsync(new[]
-            {
-                "-c",
-                "import torch, omnivoice, voicetut_tts; print('torch=' + torch.__version__); print('cuda=' + str(torch.cuda.is_available()))"
-            }, TimeSpan.FromMinutes(2), cancellationToken, "التحقق من مكتبات VoiceTut");
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.VoiceTut,
+                VerifyVoiceTutPackageAsync,
+                cancellationToken).ConfigureAwait(false);
+
+            await RunPythonAsync(
+                new[] { "-m", "pip", "check" },
+                TimeSpan.FromMinutes(3),
+                cancellationToken,
+                "فحص اعتماديات Python",
+                progress).ConfigureAwait(false);
 
             var packageInventory = await RunCommandAsync(
                 PythonExecutablePath,
                 new[] { "-m", "pip", "freeze", "--all" },
                 TimeSpan.FromMinutes(2),
                 cancellationToken,
-                "تسجيل إصدارات مكتبات Python");
+                "تسجيل إصدارات مكتبات Python").ConfigureAwait(false);
             await File.WriteAllTextAsync(
                 Path.Combine(InstallRoot, PythonEnvironmentFreeze),
                 packageInventory.Output,
                 new UTF8Encoding(false),
-                cancellationToken);
-
-            await File.WriteAllTextAsync(manifestPath, expectedManifest, new UTF8Encoding(false), cancellationToken);
+                cancellationToken).ConfigureAwait(false);
+            await File.WriteAllTextAsync(
+                manifestPath, expectedManifest, new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
         }
         else
         {
             _pythonExecutable = PythonExecutablePath;
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.PythonRuntime, VerifyPythonRuntimeAsync, cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.PyTorch, VerifyTorchRuntimeAsync, cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.OmniVoice, VerifyOmniVoicePackageAsync, cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.VoiceTut, VerifyVoiceTutPackageAsync, cancellationToken).ConfigureAwait(false);
         }
 
-        progress?.Report(new LocalSpeechProgress("تحميل أوزان VoiceTut المثبتة والتحقق منها (نحو 2.5 جيجابايت)…", 62));
-        await EnsureServerStartedAsync(cancellationToken, progress);
-        if (!File.Exists(ModelWeightsPath))
-            throw new InvalidOperationException("لم يؤكد VoiceTut وجود ملف الأوزان المثبت بالإصدار المحدد.");
+        progress?.Report(new LocalSpeechProgress("تحميل أوزان VoiceTut المثبتة والتحقق من نسخة النموذج…", 62));
+        await _resourceCoordinator.ExecuteAsync(
+            LocalResourceIds.VoiceTutModel,
+            token => EnsureServerStartedAsync(token, progress),
+            async token => File.Exists(ModelWeightsPath) &&
+                await IsServerHealthyAsync(token).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
 
-        progress?.Report(new LocalSpeechProgress("VoiceTut جاهز محليًا: Voice Design فقط، دون أصوات مرجعية أو استنساخ.", 100));
+        if (!IsReady)
+            throw new InvalidOperationException("لم يؤكد VoiceTut اكتمال تثبيت الموارد المحلية المطلوبة.");
+
+        progress?.Report(new LocalSpeechProgress(
+            "VoiceTut جاهز محليًا: Voice Design فقط، دون أصوات مرجعية أو استنساخ.", 100));
     }
 
-    public Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
+    public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem)
-            return Task.FromResult(false);
-        return Task.FromResult(IsReady);
+        if (!OperatingSystem.IsWindows() || !Environment.Is64BitOperatingSystem || !IsReady)
+            return false;
+
+        try
+        {
+            _pythonExecutable = PythonExecutablePath;
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.PythonRuntime, VerifyPythonRuntimeAsync, cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.PyTorch, VerifyTorchRuntimeAsync, cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.OmniVoice, VerifyOmniVoicePackageAsync, cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.VoiceTut, VerifyVoiceTutPackageAsync, cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.VoiceTutModel,
+                _ => Task.FromResult(File.Exists(ModelWeightsPath)),
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidOperationException or
+                System.ComponentModel.Win32Exception or TimeoutException)
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> VerifyPythonRuntimeAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(PythonExecutablePath)) return false;
+        try
+        {
+            var result = await RunCommandAsync(
+                PythonExecutablePath,
+                new[]
+                {
+                    "-c",
+                    "import struct,sys; print('PYTHON=' + '.'.join(map(str,sys.version_info[:3]))); print('BITS=' + str(struct.calcsize('P')*8)); raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,13) and struct.calcsize('P') == 8 else 3)"
+                },
+                TimeSpan.FromSeconds(30),
+                cancellationToken,
+                "التحقق من Python x64").ConfigureAwait(false);
+            return result.Output.Contains("BITS=64", StringComparison.Ordinal);
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or Win32Exception or FileNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> VerifyTorchRuntimeAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await RunCommandAsync(
+                PythonExecutablePath,
+                new[]
+                {
+                    "-c",
+                    "import torch,torchaudio; print('TORCH=' + torch.__version__.split('+')[0]); print('TORCHAUDIO=' + torchaudio.__version__.split('+')[0]); raise SystemExit(0 if torch.__version__.split('+')[0] == '2.8.0' and torchaudio.__version__.split('+')[0] == '2.8.0' else 3)"
+                },
+                TimeSpan.FromMinutes(2),
+                cancellationToken,
+                "التحقق من PyTorch وTorchAudio").ConfigureAwait(false);
+            return result.Output.Contains("TORCH=2.8.0", StringComparison.Ordinal) &&
+                   result.Output.Contains("TORCHAUDIO=2.8.0", StringComparison.Ordinal);
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or Win32Exception or FileNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> VerifyOmniVoicePackageAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunCommandAsync(
+                PythonExecutablePath,
+                new[] { "-c", "import omnivoice" },
+                TimeSpan.FromMinutes(2),
+                cancellationToken,
+                "التحقق من OmniVoice").ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or Win32Exception or FileNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> VerifyVoiceTutPackageAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunCommandAsync(
+                PythonExecutablePath,
+                new[] { "-c", "import voicetut_tts" },
+                TimeSpan.FromMinutes(2),
+                cancellationToken,
+                "التحقق من VoiceTut").ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or Win32Exception or FileNotFoundException)
+        {
+            return false;
+        }
     }
 
     public async Task SpeakAsync(
