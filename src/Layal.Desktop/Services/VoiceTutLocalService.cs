@@ -644,7 +644,7 @@ public sealed class VoiceTutLocalService : IDisposable
             if (string.IsNullOrWhiteSpace(e.Data)) return;
             AppendStartupLog(e.Data);
             Trace.WriteLine("[VoiceTut] " + e.Data);
-            progress?.Report(new LocalSpeechProgress(e.Data));
+            progress?.Report(new LocalSpeechProgress(e.Data, TryParsePercent(e.Data)));
         };
         process.Exited += (_, _) => Trace.TraceError("VoiceTut local server exited with code {0}.", TryGetExitCode(process));
         if (!process.Start())
@@ -852,10 +852,33 @@ public sealed class VoiceTutLocalService : IDisposable
 
             var clean = line.Trim();
             if (clean.Length > 0)
-                progress?.Report(new LocalSpeechProgress(clean.Length <= 240 ? clean : clean[..240] + "…"));
+                progress?.Report(new LocalSpeechProgress(
+                    clean.Length <= 240 ? clean : clean[..240] + "…",
+                    TryParsePercent(clean)));
         }
 
         return captured.ToString();
+    }
+
+    private static double? TryParsePercent(string text)
+    {
+        var percentIndex = text.IndexOf('%');
+        if (percentIndex <= 0) return null;
+
+        var start = percentIndex - 1;
+        while (start >= 0 &&
+               (char.IsDigit(text[start]) || text[start] is '.' or ','))
+            start--;
+        var number = text[(start + 1)..percentIndex].Replace(',', '.');
+        if (!double.TryParse(
+                number,
+                System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var percent) ||
+            !double.IsFinite(percent) ||
+            percent is < 0 or > 100)
+            return null;
+        return percent;
     }
 
     private static string ValidateVoiceInstruction(string? instruction)
