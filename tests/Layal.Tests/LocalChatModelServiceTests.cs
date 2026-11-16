@@ -57,6 +57,48 @@ public sealed class LocalChatModelServiceTests
         Assert.IsNull(handler.LastAuthorizationScheme);
     }
 
+    [TestMethod]
+    public async Task ModelSmokeTestPerformsInferenceOnlyAgainstLoopbackEndpoint()
+    {
+        using var handler = new ChatRecordingHandler();
+        var client = new OpenAiCompatibleClient(_ => new HttpClient(handler, disposeHandler: false));
+        var service = new LocalChatModelService(client);
+
+        var reply = await service.RunModelSmokeTestAsync(
+            LocalChatModelService.DefaultBaseUrl, "qwen3.5:2b");
+
+        Assert.AreEqual("OK", reply);
+        Assert.AreEqual("http://127.0.0.1:11434/v1/chat/completions", handler.LastRequestUri?.AbsoluteUri);
+        StringAssert.Contains(handler.LastRequestBody ?? string.Empty, "\"model\":\"qwen3.5:2b\"");
+        StringAssert.Contains(handler.LastRequestBody ?? string.Empty, "\"role\":\"user\"");
+        Assert.IsNull(handler.LastAuthorizationScheme);
+    }
+
+    private sealed class ChatRecordingHandler : HttpMessageHandler
+    {
+        public Uri? LastRequestUri { get; private set; }
+        public string? LastRequestBody { get; private set; }
+        public string? LastAuthorizationScheme { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            LastRequestUri = request.RequestUri;
+            LastRequestBody = request.Content is null
+                ? null
+                : await request.Content.ReadAsStringAsync(cancellationToken);
+            LastAuthorizationScheme = request.Headers.Authorization?.Scheme;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"choices\":[{\"message\":{\"content\":\"OK\"}}]}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        }
+    }
+
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public Uri? LastRequestUri { get; private set; }
