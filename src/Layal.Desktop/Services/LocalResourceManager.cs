@@ -81,44 +81,7 @@ public sealed class LocalResourceManager
             EnsureNoReparsePoints(directory);
             EnsureFileIsNotReparsePoint(_stateFilePath);
 
-            var persisted = new Dictionary<string, LocalResourceStateEntry>(StringComparer.Ordinal);
-            if (File.Exists(_stateFilePath))
-            {
-                await using var input = new FileStream(
-                    _stateFilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                    16 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                var document = await JsonSerializer.DeserializeAsync<StateDocument>(
-                    input, JsonOptions, cancellationToken).ConfigureAwait(false);
-                if (document is null || document.SchemaVersion != CurrentSchemaVersion ||
-                    document.Resources is null)
-                    throw new InvalidDataException("The local resource state file has an unsupported or invalid schema.");
-
-                foreach (var pair in document.Resources)
-                {
-                    var item = pair.Value;
-                    if (item is null ||
-                        !string.Equals(pair.Key, item.ResourceId, StringComparison.Ordinal) ||
-                        !Enum.IsDefined(item.State) ||
-                        item.BytesDownloaded < 0 ||
-                        item.TotalBytes is <= 0 ||
-                        (item.TotalBytes.HasValue && item.BytesDownloaded > item.TotalBytes.Value) ||
-                        (item.BytesPerSecond.HasValue &&
-                         (!double.IsFinite(item.BytesPerSecond.Value) || item.BytesPerSecond.Value < 0)) ||
-                        (item.RemainingSeconds.HasValue &&
-                         (!double.IsFinite(item.RemainingSeconds.Value) || item.RemainingSeconds.Value < 0)))
-                        throw new InvalidDataException("The local resource state file contains an invalid entry.");
-
-                    if (LocalResourceCatalog.TryGet(pair.Key, out _))
-                        persisted[pair.Key] = item;
-                }
-            }
-
-            foreach (var definition in LocalResourceCatalog.All)
-            {
-                _entries[definition.Id] = persisted.TryGetValue(definition.Id, out var item)
-                    ? item
-                    : NewEntry(definition.Id, LocalResourceLifecycle.Pending);
-            }
+            await ReloadPersistedEntriesLockedAsync(cancellationToken).ConfigureAwait(false);
 
             _initialized = true;
             await PersistLockedAsync(cancellationToken).ConfigureAwait(false);
@@ -136,6 +99,7 @@ public sealed class LocalResourceManager
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await ReloadPersistedEntriesLockedAsync(cancellationToken).ConfigureAwait(false);
             return _entries.Values
                 .OrderBy(item => item.ResourceId, StringComparer.Ordinal)
                 .ToArray();
@@ -299,6 +263,10 @@ public sealed class LocalResourceManager
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // Another manager instance can have changed a different resource since this
+            // instance initialized. Reload under the shared path lock before applying a
+            // mutation so those changes are not lost when this snapshot is persisted.
+            await ReloadPersistedEntriesLockedAsync(cancellationToken).ConfigureAwait(false);
             updated = update(_entries[resourceId]);
             _entries[resourceId] = updated;
             await PersistLockedAsync(cancellationToken).ConfigureAwait(false);
@@ -310,6 +278,56 @@ public sealed class LocalResourceManager
 
         StateChanged?.Invoke(updated);
         return updated;
+    }
+
+    private async Task ReloadPersistedEntriesLockedAsync(CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(_stateFilePath)
+            ?? throw new InvalidOperationException("Resource state file has no parent directory.");
+        EnsureNoReparsePoints(directory);
+        Directory.CreateDirectory(directory);
+        EnsureNoReparsePoints(directory);
+        EnsureFileIsNotReparsePoint(_stateFilePath);
+
+        var persisted = new Dictionary<string, LocalResourceStateEntry>(StringComparer.Ordinal);
+        if (File.Exists(_stateFilePath))
+        {
+            await using var input = new FileStream(
+                _stateFilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                16 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            var document = await JsonSerializer.DeserializeAsync<StateDocument>(
+                input, JsonOptions, cancellationToken).ConfigureAwait(false);
+            if (document is null || document.SchemaVersion != CurrentSchemaVersion ||
+                document.Resources is null)
+                throw new InvalidDataException("The local resource state file has an unsupported or invalid schema.");
+
+            foreach (var pair in document.Resources)
+            {
+                var item = pair.Value;
+                if (item is null ||
+                    !string.Equals(pair.Key, item.ResourceId, StringComparison.Ordinal) ||
+                    !Enum.IsDefined(item.State) ||
+                    item.BytesDownloaded < 0 ||
+                    item.TotalBytes is <= 0 ||
+                    (item.TotalBytes.HasValue && item.BytesDownloaded > item.TotalBytes.Value) ||
+                    (item.BytesPerSecond.HasValue &&
+                     (!double.IsFinite(item.BytesPerSecond.Value) || item.BytesPerSecond.Value < 0)) ||
+                    (item.RemainingSeconds.HasValue &&
+                     (!double.IsFinite(item.RemainingSeconds.Value) || item.RemainingSeconds.Value < 0)))
+                    throw new InvalidDataException("The local resource state file contains an invalid entry.");
+
+                if (LocalResourceCatalog.TryGet(pair.Key, out _))
+                    persisted[pair.Key] = item;
+            }
+        }
+
+        _entries.Clear();
+        foreach (var definition in LocalResourceCatalog.All)
+        {
+            _entries[definition.Id] = persisted.TryGetValue(definition.Id, out var item)
+                ? item
+                : NewEntry(definition.Id, LocalResourceLifecycle.Pending);
+        }
     }
 
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
