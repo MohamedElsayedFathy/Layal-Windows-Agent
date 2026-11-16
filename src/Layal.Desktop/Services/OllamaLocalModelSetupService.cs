@@ -12,8 +12,8 @@ namespace Layal.Services;
 /// </summary>
 public sealed class OllamaLocalModelSetupService
 {
-    public const string DefaultModelId = "qwen3.5:2b";
-    public const string ModelSizeDescription = "2.7–3.1 GB";
+    public static readonly string DefaultModelId = "qwen3.5:2b";
+    public static readonly string ModelSizeDescription = "2.7–3.1 GB";
     private static readonly TimeSpan ServerStartupTimeout = TimeSpan.FromSeconds(45);
 
     private readonly LocalChatModelService _chatService;
