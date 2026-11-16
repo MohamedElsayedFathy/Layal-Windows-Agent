@@ -57,9 +57,19 @@ public sealed class LocalVoiceService
     private static string TempRoot => Path.Combine(Root, "temp");
     private static readonly TimeSpan StaleTemporaryArtifactAge = TimeSpan.FromHours(1);
     private static string WhisperModelPath => Path.Combine(ModelsRoot, "ggml-base.bin");
-    private readonly VoiceTutLocalService _voiceTutService = new();
+    private readonly LocalResourceDownloadService _resourceDownloader;
+    private readonly LocalResourceSetupCoordinator _resourceCoordinator;
+    private readonly VoiceTutLocalService _voiceTutService;
     private string? _whisperExecutable;
     private int _ready;
+
+    public LocalVoiceService()
+    {
+        var resourceManager = new LocalResourceManager();
+        _resourceDownloader = new LocalResourceDownloadService();
+        _resourceCoordinator = new LocalResourceSetupCoordinator(resourceManager, _resourceDownloader);
+        _voiceTutService = new VoiceTutLocalService(_resourceCoordinator);
+    }
 
     // A file's presence is not evidence that it still matches the verified resources. The
     // cache must be verified in this process before local speech is advertised as ready.
@@ -88,22 +98,29 @@ public sealed class LocalVoiceService
         CleanupStaleTemporaryArtifacts(TempRoot, DateTime.UtcNow);
 
         var whisperArchive = Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip");
-        await EnsureVerifiedFileAsync(
-            WhisperArchiveUrl, whisperArchive, WhisperArchiveSize, WhisperArchiveSha256, null,
-            "تنزيل محرك تحويل الكلام إلى نص (Whisper)…", progress, cancellationToken);
-
         var whisperRoot = Path.Combine(ToolsRoot, "whisper");
-        _whisperExecutable = await FindVerifiedWhisperExecutableAsync(
-            whisperArchive, whisperRoot, cancellationToken);
-        if (_whisperExecutable is null)
-            _whisperExecutable = await ExtractVerifiedWhisperArchiveAsync(
-                whisperArchive, whisperRoot, cancellationToken);
+        await _resourceCoordinator.DownloadAsync(
+            LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperRuntime),
+            whisperArchive,
+            CreateDownloadProgress(progress, "تنزيل محرك تحويل الكلام إلى نص (Whisper)…"),
+            cancellationToken,
+            async token =>
+            {
+                _whisperExecutable = await FindVerifiedWhisperExecutableAsync(
+                    whisperArchive, whisperRoot, token).ConfigureAwait(false);
+                if (_whisperExecutable is null)
+                    _whisperExecutable = await ExtractVerifiedWhisperArchiveAsync(
+                        whisperArchive, whisperRoot, token).ConfigureAwait(false);
+                return _whisperExecutable is not null;
+            }).ConfigureAwait(false);
         if (_whisperExecutable is null)
             throw new InvalidOperationException("تعذر التحقق من محرك Whisper وملفاته المستخرجة من الأرشيف الموثوق؛ لم يتم تشغيله.");
 
-        await EnsureVerifiedFileAsync(
-            WhisperModelUrl, WhisperModelPath, WhisperModelSize, WhisperModelSha256, null,
-            "تنزيل نموذج فهم الكلام العربي والإنجليزي (Whisper)…", progress, cancellationToken);
+        await _resourceCoordinator.DownloadAsync(
+            LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperModel),
+            WhisperModelPath,
+            CreateDownloadProgress(progress, "تنزيل نموذج فهم الكلام العربي والإنجليزي (Whisper)…"),
+            cancellationToken).ConfigureAwait(false);
 
         await _voiceTutService.EnsureReadyAsync(progress, cancellationToken);
         DeleteLegacyPiperResources();
@@ -167,8 +184,23 @@ public sealed class LocalVoiceService
             if (_whisperExecutable is null)
                 return false;
 
+            if (!await MatchesExpectedFileAsync(
+                    WhisperModelPath, WhisperModelSize, WhisperModelSha256, null, cancellationToken))
+                return false;
+
             if (!await _voiceTutService.ValidateCachedResourcesAsync(cancellationToken))
                 return false;
+
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.WhisperRuntime,
+                async token => await FindVerifiedWhisperExecutableAsync(
+                    whisperArchive, Path.Combine(ToolsRoot, "whisper"), token).ConfigureAwait(false) is not null,
+                cancellationToken).ConfigureAwait(false);
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.WhisperModel,
+                token => MatchesExpectedFileAsync(
+                    WhisperModelPath, WhisperModelSize, WhisperModelSha256, null, token),
+                cancellationToken).ConfigureAwait(false);
 
             Volatile.Write(ref _ready, 1);
             return true;
@@ -310,7 +342,11 @@ public sealed class LocalVoiceService
     public event EventHandler<string>? VoiceMetricsUpdated;
     public string LastVoiceMetricsSummary => _voiceTutService.LastMetricsSummary;
 
-    public void Dispose() => _voiceTutService.Dispose();
+    public void Dispose()
+    {
+        _voiceTutService.Dispose();
+        _resourceDownloader.Dispose();
+    }
 
     /// <summary>Detects Arabic/Latin runs for language-aware routing and evaluation helpers.</summary>
     public static IReadOnlyList<(string Text, bool IsArabic)> SplitTextByLanguage(string? text)
@@ -377,6 +413,36 @@ public sealed class LocalVoiceService
         result = Regex.Replace(result, @"\s+", " ");
         result = result.Trim();
         return result.Length > 6000 ? result[..6000] : result;
+    }
+
+    private static IProgress<LocalResourceDownloadProgress>? CreateDownloadProgress(
+        IProgress<LocalSpeechProgress>? progress,
+        string message)
+    {
+        if (progress is null) return null;
+
+        return new Progress<LocalResourceDownloadProgress>(value =>
+        {
+            var percent = value.TotalBytes > 0
+                ? Math.Clamp(value.DownloadedBytes * 100d / value.TotalBytes, 0d, 100d)
+                : (double?)null;
+            var details = $"{FormatBytes(value.DownloadedBytes)} / {FormatBytes(value.TotalBytes)}";
+            if (value.BytesPerSecond > 0)
+                details += $" · {FormatBytes((long)value.BytesPerSecond)}/s";
+            if (value.RemainingSeconds is double remaining)
+                details += $" · {TimeSpan.FromSeconds(Math.Clamp(remaining, 0, 86400)):mm\\:ss}";
+            progress.Report(new LocalSpeechProgress(message + " " + details, percent));
+        });
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        var value = Math.Max(0, bytes);
+        if (value >= 1024L * 1024 * 1024)
+            return (value / 1024d / 1024d / 1024d).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " GB";
+        if (value >= 1024L * 1024)
+            return (value / 1024d / 1024d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " MB";
+        return (value / 1024d).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " KB";
     }
 
     private static async Task EnsureVerifiedFileAsync(
