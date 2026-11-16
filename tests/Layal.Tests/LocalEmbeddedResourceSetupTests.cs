@@ -28,7 +28,8 @@ public sealed class LocalEmbeddedResourceSetupTests
         Assert.IsFalse(await LocalEmbeddedResourceSetupService.VerifyGitBlobAsync(
             path, bytes.LongLength, new string('0', 40)));
 
-        var tampered = Encoding.UTF8.GetBytes("tampered OCR model test payload");
+        var tampered = bytes.ToArray();
+        tampered[0] ^= 0x01; // Replace one byte while preserving the exact file length.
         Assert.AreEqual(bytes.Length, tampered.Length,
             "The tampering test must replace the file with a same-length payload.");
         await File.WriteAllBytesAsync(path, tampered);
