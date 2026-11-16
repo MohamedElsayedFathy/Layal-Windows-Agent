@@ -28,7 +28,7 @@ public sealed class VoiceTutLocalService : IDisposable
     public static readonly string ModelRevision = "b36bdf4416864d84f47ca77ce3decf34f6ab16cc";
     public const string OmniVoiceCommit = "08be0b4ccbac3e13e374e86fbfead4b4cac343e2";
     public const string VoiceTutCommit = "44cba00cd3ddb04b5213353e19e960045e332da7";
-    public const string DefaultVoiceDesign = "female, child, very high pitch";
+    public static readonly string DefaultVoiceDesign = "female, child, very high pitch";
 
     private const string InstallMarker = "voicetut-install.json";
     private const string PythonEnvironmentFreeze = "python-packages.freeze.txt";
