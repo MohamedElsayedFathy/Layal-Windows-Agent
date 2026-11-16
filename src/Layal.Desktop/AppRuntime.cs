@@ -29,6 +29,7 @@ public static class AppRuntime
     public static NativeConversationEngine NativeConversationEngine { get; set; } = null!;
     public static NativeAgentOrchestrator NativeAgentOrchestrator { get; set; } = null!;
     public static string WorkspaceRoot { get; set; } = string.Empty;
+    public static LocalVoiceService? LocalVoiceRuntime { get; set; }
     public static MainWindow? MainWindow { get; set; }
     public static FloatingMascotWindow? MascotWindow { get; set; }
     public static TrayService? Tray { get; set; }

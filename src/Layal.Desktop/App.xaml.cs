@@ -95,6 +95,37 @@ public partial class App : Application
         AppRuntime.NativeConversationEngine = new NativeConversationEngine(AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.MemoryService);
         AppRuntime.NativeAgentOrchestrator = new NativeAgentOrchestrator(AppRuntime.NativeLanguageParser, AppRuntime.NativeLearningService, AppRuntime.AgentToolExecutor, AppRuntime.TaskHistoryService);
 
+        // Share one speech runtime between first-run setup and the main window. This keeps
+        // the verified local VoiceTut service alive after the wizard closes.
+        AppRuntime.LocalVoiceRuntime = new LocalVoiceService();
+        if (!_isScheduledReminderLaunch && !dataPaths.IsolatedAcceptance)
+        {
+            var resourceManager = new LocalResourceManager();
+            var setupIsReady = false;
+            try
+            {
+                setupIsReady = CompleteSetupReadinessPolicy.IsComplete(
+                    resourceManager.GetSnapshotAsync().GetAwaiter().GetResult());
+            }
+            catch (Exception ex)
+            {
+                WriteCrashLog("Read first-run resource state", ex);
+            }
+
+            if (!setupIsReady)
+            {
+                var setupWindow = new CompleteSetupWindow(dataRoot, AppRuntime.LocalVoiceRuntime);
+                setupWindow.ShowDialog();
+                if (!setupWindow.CanContinueToMainWindow)
+                {
+                    try { AppRuntime.LocalVoiceRuntime.Dispose(); }
+                    catch (Exception ex) { WriteCrashLog("Dispose first-run speech runtime", ex); }
+                    Shutdown();
+                    return;
+                }
+            }
+        }
+
         AppRuntime.ExitAction = ShutdownLayal;
         AppRuntime.MainWindow = new MainWindow();
         AppRuntime.MascotWindow = new FloatingMascotWindow();
