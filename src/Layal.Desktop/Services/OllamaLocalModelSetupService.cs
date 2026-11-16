@@ -123,6 +123,7 @@ public sealed class OllamaLocalModelSetupService
 
         try
         {
+            await EnsureServerReadyAsync(executable, null, cancellationToken).ConfigureAwait(false);
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.OllamaRuntime,
                 VerifyOllamaRuntimeAsync,
@@ -166,26 +167,6 @@ public sealed class OllamaLocalModelSetupService
             await RunCommandAsync(
                 executable, new[] { "--version" }, null, cancellationToken).ConfigureAwait(false);
             return File.Exists(executable);
-        }
-        catch (Exception exception) when (
-            exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
-        {
-            return false;
-        }
-    }
-
-    private static async Task<bool> VerifyChatModelAsync(
-        string executable,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await RunCommandAsync(
-                executable,
-                new[] { "show", DefaultModelId },
-                null,
-                cancellationToken).ConfigureAwait(false);
-            return true;
         }
         catch (Exception exception) when (
             exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
@@ -310,7 +291,6 @@ public sealed class OllamaLocalModelSetupService
     private sealed record OllamaModelDigestManifest(
         string ModelId,
         string Digest,
-        long SizeBytes,
         DateTimeOffset VerifiedAtUtc);
 
     private async Task<string?> GetInstalledModelDigestAsync(CancellationToken cancellationToken)
@@ -362,7 +342,7 @@ public sealed class OllamaLocalModelSetupService
         var directory = Path.GetDirectoryName(ModelDigestManifestPath)!;
         Directory.CreateDirectory(directory);
         var manifest = new OllamaModelDigestManifest(
-            DefaultModelId, digest, 0, DateTimeOffset.UtcNow);
+            DefaultModelId, digest, DateTimeOffset.UtcNow);
         var temporary = ModelDigestManifestPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
