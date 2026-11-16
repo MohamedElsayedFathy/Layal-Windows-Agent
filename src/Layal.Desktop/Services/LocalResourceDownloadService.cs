@@ -237,7 +237,8 @@ public sealed class LocalResourceDownloadService : IDisposable
 
             if (resume?.StrongETag is { Length: > 0 } expectedETag)
             {
-                if (response.Headers.ETag is not { IsWeak: false } actualETag ||
+                var actualETag = response.Headers.ETag;
+                if (actualETag is null || actualETag.IsWeak ||
                     !string.Equals(expectedETag, actualETag.ToString(), StringComparison.Ordinal))
                 {
                     DeletePartialArtifacts(partialPath, metadataPath);
