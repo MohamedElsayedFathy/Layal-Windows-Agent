@@ -85,7 +85,8 @@ public sealed class LocalResourceDownloadService : IDisposable
         LocalResourceDefinition resource,
         string destinationPath,
         IProgress<LocalResourceDownloadProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<LocalResourceDownloadProgress, CancellationToken, ValueTask>? progressCallback = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
         var normalizedDestination = Path.GetFullPath(destinationPath);
@@ -98,7 +99,8 @@ public sealed class LocalResourceDownloadService : IDisposable
             {
                 try
                 {
-                    await DownloadAttemptAsync(resource, normalizedDestination, progress, cancellationToken)
+                    await DownloadAttemptAsync(
+                        resource, normalizedDestination, progress, cancellationToken, progressCallback)
                         .ConfigureAwait(false);
                     return;
                 }
@@ -119,7 +121,8 @@ public sealed class LocalResourceDownloadService : IDisposable
         LocalResourceDefinition resource,
         string destinationPath,
         IProgress<LocalResourceDownloadProgress>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<LocalResourceDownloadProgress, CancellationToken, ValueTask>? progressCallback)
     {
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
@@ -150,8 +153,10 @@ public sealed class LocalResourceDownloadService : IDisposable
         if (await MatchesExpectedFileAsync(destination, expectedSize, expectedHash, cancellationToken)
             .ConfigureAwait(false))
         {
-            progress?.Report(new LocalResourceDownloadProgress(
-                resource.Id, expectedSize, expectedSize, 0, 0));
+            await ReportProgressAsync(
+                resource,
+                new LocalResourceDownloadProgress(resource.Id, expectedSize, expectedSize, 0, 0),
+                progress, progressCallback, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -174,8 +179,10 @@ public sealed class LocalResourceDownloadService : IDisposable
             {
                 File.Move(partialPath, destination, overwrite: true);
                 TryDeleteFile(metadataPath);
-                progress?.Report(new LocalResourceDownloadProgress(
-                    resource.Id, expectedSize, expectedSize, 0, 0));
+                await ReportProgressAsync(
+                    resource,
+                    new LocalResourceDownloadProgress(resource.Id, expectedSize, expectedSize, 0, 0),
+                    progress, progressCallback, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -320,8 +327,10 @@ public sealed class LocalResourceDownloadService : IDisposable
                     var remaining = speed > 0
                         ? Math.Max(0, (expectedSize - downloaded) / speed)
                         : (double?)null;
-                    progress?.Report(new LocalResourceDownloadProgress(
-                        resource.Id, downloaded, expectedSize, speed, remaining));
+                    await ReportProgressAsync(
+                        resource,
+                        new LocalResourceDownloadProgress(resource.Id, downloaded, expectedSize, speed, remaining),
+                        progress, progressCallback, cancellationToken).ConfigureAwait(false);
                 }
 
                 await output.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -339,14 +348,43 @@ public sealed class LocalResourceDownloadService : IDisposable
 
             File.Move(partialPath, destination, overwrite: true);
             TryDeleteFile(metadataPath);
-            progress?.Report(new LocalResourceDownloadProgress(
-                resource.Id, expectedSize, expectedSize,
-                Math.Max(0, (expectedSize - offset) / Math.Max(stopwatch.Elapsed.TotalSeconds, 0.001)), 0));
+            await ReportProgressAsync(
+                resource,
+                new LocalResourceDownloadProgress(
+                    resource.Id, expectedSize, expectedSize,
+                    Math.Max(0, (expectedSize - offset) / Math.Max(stopwatch.Elapsed.TotalSeconds, 0.001)), 0),
+                progress, progressCallback, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             Array.Clear(buffer);
         }
+    }
+
+    public static Task<bool> VerifyFileAsync(
+        LocalResourceDefinition resource,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        if (resource.ExpectedSizeBytes is not > 0 || !resource.HasPinnedSha256)
+            throw new InvalidOperationException(
+                "A local resource verification requires a catalog-pinned byte size and SHA-256: " + resource.Id);
+        return MatchesExpectedFileAsync(
+            path, resource.ExpectedSizeBytes.Value, resource.ExpectedSha256!, cancellationToken);
+    }
+
+    private static async Task ReportProgressAsync(
+        LocalResourceDefinition resource,
+        LocalResourceDownloadProgress value,
+        IProgress<LocalResourceDownloadProgress>? progress,
+        Func<LocalResourceDownloadProgress, CancellationToken, ValueTask>? progressCallback,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report(value);
+        if (progressCallback is not null)
+            await progressCallback(value, cancellationToken).ConfigureAwait(false);
     }
 
     private static bool IsTransientHttpFailure(HttpRequestException exception)
