@@ -123,11 +123,11 @@ public sealed class OllamaLocalModelSetupService
 
         try
         {
-            await EnsureServerReadyAsync(executable, null, cancellationToken).ConfigureAwait(false);
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.OllamaRuntime,
                 VerifyOllamaRuntimeAsync,
                 cancellationToken).ConfigureAwait(false);
+            await EnsureServerReadyAsync(executable, null, cancellationToken).ConfigureAwait(false);
 
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.ChatModel,
@@ -164,6 +164,8 @@ public sealed class OllamaLocalModelSetupService
         if (executable is null) return false;
         try
         {
+            if (!await VerifyOllamaAuthenticodeAsync(executable, cancellationToken).ConfigureAwait(false))
+                return false;
             await RunCommandAsync(
                 executable, new[] { "--version" }, null, cancellationToken).ConfigureAwait(false);
             return File.Exists(executable);
@@ -171,6 +173,79 @@ public sealed class OllamaLocalModelSetupService
         catch (Exception exception) when (
             exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
         {
+            return false;
+        }
+    }
+
+    private static async Task<bool> VerifyOllamaAuthenticodeAsync(
+        string executable,
+        CancellationToken cancellationToken)
+    {
+        if (!OperatingSystem.IsWindows() || !File.Exists(executable))
+            return false;
+
+        var systemDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        var powershell = Path.Combine(
+            systemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (!File.Exists(powershell))
+            return false;
+
+        var literalPath = "'" + executable.Replace("'", "''", StringComparison.Ordinal) + "'";
+        var script =
+            "$ErrorActionPreference='Stop'; " +
+            "$signature=Get-AuthenticodeSignature -LiteralPath " + literalPath + "; " +
+            "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 17 }; " +
+            "[Console]::Out.WriteLine($signature.SignerCertificate.Subject)";
+
+        var start = new ProcessStartInfo(powershell)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoLogo");
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-NonInteractive");
+        start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add(script);
+
+        using var process = new Process { StartInfo = start };
+        try
+        {
+            if (!process.Start()) return false;
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+            var subject = await stdout.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+            _ = await stderr.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+            return process.ExitCode == 0 &&
+                   subject.Contains("Ollama", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (OperationCanceledException)
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch { }
+            try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { }
+            if (cancellationToken.IsCancellationRequested) throw;
+            return false;
+        }
+        catch
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch { }
             return false;
         }
     }
