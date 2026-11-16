@@ -262,14 +262,14 @@ public sealed class LocalResourceDownloadServiceTests
             SourceUri = resource.Source,
             ExpectedSizeBytes = payload.LongLength,
             ExpectedSha256 = resource.ExpectedSha256,
-            StrongETag = "\\"resource-v1\\"",
+            StrongETag = "\"resource-v1\"",
             LastModified = (DateTimeOffset?)null
         }));
 
         var handler = new StubHandler((request, _) =>
         {
             Assert.AreEqual((long)partialBytes.Length, request.Headers.Range?.Ranges.Single().From);
-            Assert.AreEqual("\\"resource-v1\\"", request.Headers.IfRange?.EntityTag?.ToString());
+            Assert.AreEqual("\"resource-v1\"", request.Headers.IfRange?.EntityTag?.ToString());
             var response = new HttpResponseMessage(HttpStatusCode.PartialContent)
             {
                 Content = new ByteArrayContent(payload[partialBytes.Length..]),
