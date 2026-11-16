@@ -96,9 +96,27 @@ public sealed class VoiceTutLocalService : IDisposable
             File.Exists(Path.Combine(InstallRoot, PythonEnvironmentFreeze)) &&
             string.Equals(await File.ReadAllTextAsync(manifestPath, cancellationToken), expectedManifest, StringComparison.Ordinal);
 
+        // A marker and freeze file are not proof that the environment is still healthy.
+        // Re-run the bounded import/version checks before trusting an existing venv.
+        if (installMatches)
+        {
+            _pythonExecutable = PythonExecutablePath;
+            installMatches =
+                await VerifyPythonRuntimeAsync(cancellationToken).ConfigureAwait(false) &&
+                await VerifyTorchRuntimeAsync(cancellationToken).ConfigureAwait(false) &&
+                await VerifyOmniVoicePackageAsync(cancellationToken).ConfigureAwait(false) &&
+                await VerifyVoiceTutPackageAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         if (!installMatches)
         {
             progress?.Report(new LocalSpeechProgress("فحص Python 3.10–3.12 وتجهيز بيئة VoiceTut المعزولة…", 5));
+            if (File.Exists(PythonExecutablePath) &&
+                !await VerifyPythonRuntimeAsync(cancellationToken).ConfigureAwait(false))
+            {
+                DeleteManagedPythonEnvironment();
+            }
+
             if (!File.Exists(PythonExecutablePath))
             {
                 var pythonLauncher = await FindPythonLauncherAsync(cancellationToken);
@@ -167,20 +185,25 @@ public sealed class VoiceTutLocalService : IDisposable
                 VerifyTorchRuntimeAsync,
                 cancellationToken).ConfigureAwait(false);
 
-            progress?.Report(new LocalSpeechProgress("تثبيت OmniVoice وVoiceTut بإصدارات Git ثابتة…", 42));
+            progress?.Report(new LocalSpeechProgress("تثبيت OmniVoice بإصدار Git ثابت…", 42));
             await _resourceCoordinator.ExecuteAsync(
                 LocalResourceIds.OmniVoice,
                 token => RunPythonAsync(new[]
                 {
                     "-m", "pip", "install", "--disable-pip-version-check",
-                    $"https://github.com/k2-fsa/OmniVoice/archive/{OmniVoiceCommit}.zip",
-                    $"https://github.com/MohammedAly22/VoiceTuT-TTS/archive/{VoiceTutCommit}.zip"
-                }, ProcessInstallTimeout, token, "تثبيت VoiceTut وOmniVoice", progress),
+                    $"https://github.com/k2-fsa/OmniVoice/archive/{OmniVoiceCommit}.zip"
+                }, ProcessInstallTimeout, token, "تثبيت OmniVoice", progress),
                 VerifyOmniVoicePackageAsync,
                 cancellationToken).ConfigureAwait(false);
 
-            await _resourceCoordinator.EnsureReadyAsync(
+            progress?.Report(new LocalSpeechProgress("تثبيت VoiceTut بإصدار Git ثابت…"));
+            await _resourceCoordinator.ExecuteAsync(
                 LocalResourceIds.VoiceTut,
+                token => RunPythonAsync(new[]
+                {
+                    "-m", "pip", "install", "--disable-pip-version-check",
+                    $"https://github.com/MohammedAly22/VoiceTuT-TTS/archive/{VoiceTutCommit}.zip"
+                }, ProcessInstallTimeout, token, "تثبيت VoiceTut", progress),
                 VerifyVoiceTutPackageAsync,
                 cancellationToken).ConfigureAwait(false);
 
@@ -265,6 +288,32 @@ public sealed class VoiceTutLocalService : IDisposable
                 System.ComponentModel.Win32Exception or TimeoutException)
         {
             return false;
+        }
+    }
+
+    private static void DeleteManagedPythonEnvironment()
+    {
+        if (!Directory.Exists(VirtualEnvironment)) return;
+        EnsureManagedEnvironmentHasNoReparsePoints(VirtualEnvironment);
+        Directory.Delete(VirtualEnvironment, recursive: true);
+        if (Directory.Exists(VirtualEnvironment))
+            throw new IOException("The damaged application-managed Python environment could not be removed.");
+    }
+
+    private static void EnsureManagedEnvironmentHasNoReparsePoints(string directory)
+    {
+        if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException(
+                "Refusing to repair the Python environment because its directory is a reparse point.");
+
+        foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+        {
+            var attributes = File.GetAttributes(entry);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException(
+                    "Refusing to repair the Python environment because it contains a reparse point.");
+            if ((attributes & FileAttributes.Directory) != 0)
+                EnsureManagedEnvironmentHasNoReparsePoints(entry);
         }
     }
 
