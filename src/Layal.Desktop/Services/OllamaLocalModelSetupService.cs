@@ -1,6 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +19,14 @@ public sealed class OllamaLocalModelSetupService
     public static readonly string DefaultModelId = "qwen3.5:2b";
     public static readonly string ModelSizeDescription = "2.7–3.1 GB";
     private static readonly TimeSpan ServerStartupTimeout = TimeSpan.FromSeconds(45);
+    private const string OllamaApiBaseUrl = "http://127.0.0.1:11434/";
+    private static readonly HttpClient PullClient = new(new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        UseProxy = false,
+        ConnectTimeout = TimeSpan.FromSeconds(10),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+    }) { Timeout = Timeout.InfiniteTimeSpan };
 
     private readonly LocalChatModelService _chatService;
     private readonly LocalResourceSetupCoordinator _resourceCoordinator;
@@ -87,23 +99,20 @@ public sealed class OllamaLocalModelSetupService
         progress?.Report($"تنزيل نموذج المحادثة المحلي {DefaultModelId} (الحجم المتوقع {ModelSizeDescription})…");
         await _resourceCoordinator.ExecuteAsync(
             LocalResourceIds.ChatModel,
-            token => RunCommandAsync(
-                executable,
-                new[] { "pull", DefaultModelId },
-                progress,
-                token),
+            token => PullModelAsync(progress, token),
             async token =>
             {
-                var modelAvailable = await VerifyChatModelAsync(executable, token).ConfigureAwait(false);
-                if (!modelAvailable) return false;
+                if (!await VerifyChatModelAsync(executable, token).ConfigureAwait(false))
+                    return false;
 
-                await _chatService.TestConnectionAsync(
-                    LocalChatModelService.DefaultBaseUrl, token).ConfigureAwait(false);
+                await _chatService.RunModelSmokeTestAsync(
+                    LocalChatModelService.DefaultBaseUrl, DefaultModelId, token).ConfigureAwait(false);
+                await SaveModelDigestManifestAsync(token).ConfigureAwait(false);
                 return true;
             },
             cancellationToken).ConfigureAwait(false);
 
-        progress?.Report("اكتمل تنزيل النموذج واستجاب خادم Ollama المحلي.");
+        progress?.Report("اكتمل تنزيل النموذج، وتم اختبار توليد رد محلي والتحقق من بصمة النموذج.");
     }
 
     public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
@@ -119,17 +128,18 @@ public sealed class OllamaLocalModelSetupService
                 VerifyOllamaRuntimeAsync,
                 cancellationToken).ConfigureAwait(false);
 
-            if (!await VerifyChatModelAsync(executable, cancellationToken).ConfigureAwait(false))
-                return false;
-
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.ChatModel,
                 async token =>
                 {
                     if (!await VerifyChatModelAsync(executable, token).ConfigureAwait(false))
                         return false;
-                    await _chatService.TestConnectionAsync(
-                        LocalChatModelService.DefaultBaseUrl, token).ConfigureAwait(false);
+                    var digest = await GetInstalledModelDigestAsync(token).ConfigureAwait(false);
+                    if (string.IsNullOrWhiteSpace(digest))
+                        return false;
+                    await _chatService.RunModelSmokeTestAsync(
+                        LocalChatModelService.DefaultBaseUrl, DefaultModelId, token).ConfigureAwait(false);
+                    await SaveModelDigestManifestAsync(digest, token).ConfigureAwait(false);
                     return true;
                 },
                 cancellationToken).ConfigureAwait(false);
@@ -183,6 +193,222 @@ public sealed class OllamaLocalModelSetupService
             return false;
         }
     }
+
+    private async Task PullModelAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = new Uri(new Uri(OllamaApiBaseUrl), "api/pull");
+        if (!endpoint.IsLoopback)
+            throw new InvalidOperationException("Ollama model downloads are restricted to the local loopback endpoint.");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { model = DefaultModelId, stream = true }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        using var response = await PullClient.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException(
+                $"Ollama pull failed with HTTP {(int)response.StatusCode}: {Truncate(detail, 1200)}");
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var lastBytes = 0L;
+        var lastTotal = 0L;
+        var lastSample = Stopwatch.GetTimestamp();
+        var sawStatus = false;
+
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (line.Length == 0) continue;
+            if (line.Length > 64 * 1024)
+                throw new InvalidDataException("Ollama returned a pull progress record larger than 64 KB.");
+
+            using var document = JsonDocument.Parse(line);
+            var root = document.RootElement;
+            if (root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String)
+                throw new InvalidOperationException("Ollama model download failed: " + Truncate(error.GetString() ?? string.Empty, 1200));
+
+            var status = root.TryGetProperty("status", out var statusElement) &&
+                         statusElement.ValueKind == JsonValueKind.String
+                ? statusElement.GetString() ?? "Downloading model"
+                : "Downloading model";
+            sawStatus = true;
+
+            var completed = TryReadInt64(root, "completed");
+            var total = TryReadInt64(root, "total");
+            if (completed.HasValue && total is > 0)
+            {
+                var now = Stopwatch.GetTimestamp();
+                var elapsed = Math.Max((now - lastSample) / (double)Stopwatch.Frequency, 0.001);
+                var speed = completed.Value >= lastBytes && total == lastTotal
+                    ? (completed.Value - lastBytes) / elapsed
+                    : 0d;
+                var remaining = speed > 0
+                    ? Math.Max(0, total.Value - completed.Value) / speed
+                    : (double?)null;
+
+                await _resourceCoordinator.ReportDownloadProgressAsync(
+                    LocalResourceIds.ChatModel,
+                    completed.Value,
+                    total.Value,
+                    speed,
+                    remaining,
+                    cancellationToken).ConfigureAwait(false);
+
+                progress?.Report(
+                    $"{status} · {FormatBytes(completed.Value)} / {FormatBytes(total.Value)}" +
+                    (speed > 0 ? $" · {FormatBytes((long)speed)}/s" : string.Empty) +
+                    (remaining.HasValue
+                        ? $" · {TimeSpan.FromSeconds(Math.Clamp(remaining.Value, 0, 86400)):mm\\:ss}"
+                        : string.Empty));
+
+                lastBytes = completed.Value;
+                lastTotal = total.Value;
+                lastSample = now;
+            }
+            else
+            {
+                progress?.Report(status);
+            }
+        }
+
+        if (!sawStatus)
+            throw new InvalidDataException("Ollama ended its model pull stream without reporting a result.");
+    }
+
+    private async Task<bool> VerifyChatModelAsync(
+        string executable,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunCommandAsync(
+                executable,
+                new[] { "show", DefaultModelId },
+                null,
+                cancellationToken).ConfigureAwait(false);
+            return !string.IsNullOrWhiteSpace(
+                await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false));
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or
+                System.ComponentModel.Win32Exception or HttpRequestException or JsonException)
+        {
+            return false;
+        }
+    }
+
+    private sealed record OllamaModelDigestManifest(
+        string ModelId,
+        string Digest,
+        long SizeBytes,
+        DateTimeOffset VerifiedAtUtc);
+
+    private async Task<string?> GetInstalledModelDigestAsync(CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, new Uri(new Uri(OllamaApiBaseUrl), "api/tags"));
+        using var response = await PullClient.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Ollama model inventory returned HTTP {(int)response.StatusCode}.");
+
+        using var document = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!document.RootElement.TryGetProperty("models", out var models) ||
+            models.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var model in models.EnumerateArray())
+        {
+            var name = TryReadString(model, "name");
+            var modelId = TryReadString(model, "model");
+            if (!string.Equals(name, DefaultModelId, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(modelId, DefaultModelId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var digest = TryReadString(model, "digest");
+            return string.IsNullOrWhiteSpace(digest) ? null : digest;
+        }
+        return null;
+    }
+
+    private static string ModelDigestManifestPath => Path.Combine(
+        LocalVoiceService.DataRoot, "resource-manifests", "qwen3.5-2b.json");
+
+    private async Task SaveModelDigestManifestAsync(CancellationToken cancellationToken)
+    {
+        var digest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(digest))
+            throw new InvalidOperationException("Ollama did not return an immutable digest for the installed model.");
+        await SaveModelDigestManifestAsync(digest, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SaveModelDigestManifestAsync(
+        string digest,
+        CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(ModelDigestManifestPath)!;
+        Directory.CreateDirectory(directory);
+        var manifest = new OllamaModelDigestManifest(
+            DefaultModelId, digest, 0, DateTimeOffset.UtcNow);
+        var temporary = ModelDigestManifestPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await using (var output = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                4096, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(output, manifest, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            File.Move(temporary, ModelDigestManifestPath, overwrite: true);
+        }
+        finally
+        {
+            try { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static long? TryReadInt64(JsonElement root, string property) =>
+        root.ValueKind == JsonValueKind.Object &&
+        root.TryGetProperty(property, out var value) &&
+        value.ValueKind == JsonValueKind.Number &&
+        value.TryGetInt64(out var result) ? result : null;
+
+    private static string TryReadString(JsonElement root, string property) =>
+        root.ValueKind == JsonValueKind.Object &&
+        root.TryGetProperty(property, out var value) &&
+        value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static string FormatBytes(long bytes)
+    {
+        var value = Math.Max(0, bytes);
+        if (value >= 1024L * 1024 * 1024)
+            return (value / 1024d / 1024d / 1024d).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " GB";
+        if (value >= 1024L * 1024)
+            return (value / 1024d / 1024d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " MB";
+        return (value / 1024d).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " KB";
+    }
+
+    private static string Truncate(string value, int maxCharacters) =>
+        value.Length <= maxCharacters ? value : value[..maxCharacters] + "…";
 
     private async Task EnsureServerReadyAsync(
         string executable,
