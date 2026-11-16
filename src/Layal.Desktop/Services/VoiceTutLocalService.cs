@@ -25,7 +25,7 @@ public sealed record VoiceTutGenerationSettings(
 public sealed class VoiceTutLocalService : IDisposable
 {
     public const string ModelId = "mohammedaly22/VoiceTut-TTS";
-    public const string ModelRevision = "b36bdf4416864d84f47ca77ce3decf34f6ab16cc";
+    public static readonly string ModelRevision = "b36bdf4416864d84f47ca77ce3decf34f6ab16cc";
     public const string OmniVoiceCommit = "08be0b4ccbac3e13e374e86fbfead4b4cac343e2";
     public const string VoiceTutCommit = "44cba00cd3ddb04b5213353e19e960045e332da7";
     public const string DefaultVoiceDesign = "female, child, very high pitch";
@@ -249,7 +249,7 @@ public sealed class VoiceTutLocalService : IDisposable
                         ReadFully = true
                     };
                     output = UsesWasapiForDefaultOutput(outputDeviceId)
-                        ? new WasapiOut()
+                        ? new WasapiPlayerBuilder().Build()
                         : new WaveOut { DeviceNumber = AudioDeviceService.ResolveOutputDeviceNumber(outputDeviceId) };
                     stopped = new TaskCompletionSource<StoppedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
                     stoppedHandler = (_, args) => stopped.TrySetResult(args);
