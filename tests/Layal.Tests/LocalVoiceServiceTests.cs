@@ -34,7 +34,7 @@ public sealed class LocalVoiceServiceTests
         StringAssert.Contains(VoiceTutLocalService.DefaultVoiceDesign, "female");
         StringAssert.Contains(VoiceTutLocalService.DefaultVoiceDesign, "child");
         Assert.AreEqual(40, VoiceTutLocalService.ModelRevision.Length);
-        Assert.IsTrue(VoiceTutLocalService.ModelRevision.All(Uri.IsHexDigit));
+        Assert.IsTrue(IsHexRevision(VoiceTutLocalService.ModelRevision));
     }
 
     [TestMethod]
@@ -207,6 +207,9 @@ public sealed class LocalVoiceServiceTests
                 Directory.Delete(acceptanceRoot, recursive: true);
         }
     }
+
+    private static bool IsHexRevision(string value) =>
+        value.Length == 40 && value.All(Uri.IsHexDigit);
 
     private static MethodInfo GetTemporaryArtifactCleanupMethod()
     {
