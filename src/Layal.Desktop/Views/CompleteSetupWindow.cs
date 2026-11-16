@@ -278,8 +278,8 @@ public sealed class CompleteSetupWindow : Window
                 "اكتمل الإعداد والتحقق. ستُفتح ليال الآن؛ الميكروفون ما زال متوقفًا حتى تطلب استخدامه.",
                 "Setup and verification are complete. Layal will open now; the microphone remains off until you explicitly use it.");
             AppendLog(T("اكتملت كل بوابات الموارد المطلوبة.", "All required resource gates are ready."));
+            _isRunning = false;
             DialogResult = true;
-            Close();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -310,7 +310,6 @@ public sealed class CompleteSetupWindow : Window
         CanContinueToMainWindow = true;
         SetupCompleted = false;
         DialogResult = true;
-        Close();
     }
 
     private void CancelOrClose()
@@ -324,7 +323,6 @@ public sealed class CompleteSetupWindow : Window
 
         CanContinueToMainWindow = false;
         DialogResult = false;
-        Close();
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
