@@ -49,7 +49,8 @@ public sealed class OllamaLocalModelSetupService
 
     public async Task InstallAndPrepareAsync(
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<LocalResourceDownloadProgress>? downloadProgress = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var executable = FindOllamaExecutable();
@@ -99,7 +100,7 @@ public sealed class OllamaLocalModelSetupService
         progress?.Report($"تنزيل نموذج المحادثة المحلي {DefaultModelId} (الحجم المتوقع {ModelSizeDescription})…");
         await _resourceCoordinator.ExecuteAsync(
             LocalResourceIds.ChatModel,
-            token => PullModelAsync(progress, token),
+            token => PullModelAsync(progress, downloadProgress, token),
             async token =>
             {
                 if (!await VerifyChatModelAsync(executable, token).ConfigureAwait(false))
@@ -252,6 +253,7 @@ public sealed class OllamaLocalModelSetupService
 
     private async Task PullModelAsync(
         IProgress<string>? progress,
+        IProgress<LocalResourceDownloadProgress>? downloadProgress,
         CancellationToken cancellationToken)
     {
         var endpoint = new Uri(new Uri(OllamaApiBaseUrl), "api/pull");
@@ -312,6 +314,12 @@ public sealed class OllamaLocalModelSetupService
                     ? Math.Max(0, total.Value - completed.Value) / speed
                     : (double?)null;
 
+                var resourceProgress = new LocalResourceDownloadProgress(
+                    LocalResourceIds.ChatModel,
+                    completed.Value,
+                    total.Value,
+                    speed,
+                    remaining);
                 await _resourceCoordinator.ReportDownloadProgressAsync(
                     LocalResourceIds.ChatModel,
                     completed.Value,
@@ -319,6 +327,7 @@ public sealed class OllamaLocalModelSetupService
                     speed,
                     remaining,
                     cancellationToken).ConfigureAwait(false);
+                downloadProgress?.Report(resourceProgress);
 
                 progress?.Report(
                     $"{status} · {FormatBytes(completed.Value)} / {FormatBytes(total.Value)}" +
