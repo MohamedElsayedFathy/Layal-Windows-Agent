@@ -103,6 +103,31 @@ public sealed class LocalResourceSetupCoordinatorTests
     }
 
     [TestMethod]
+    public async Task ReportDownloadProgressAsyncPersistsOllamaLayerBytesAndEstimate()
+    {
+        using var temp = new TestTempDirectory();
+        var manager = new LocalResourceManager(Path.Combine(temp.Path, "resource-state.json"));
+        var coordinator = new LocalResourceSetupCoordinator(manager);
+        await manager.BeginDownloadAsync(LocalResourceIds.ChatModel, null);
+
+        await coordinator.ReportDownloadProgressAsync(
+            LocalResourceIds.ChatModel,
+            512L * 1024 * 1024,
+            2L * 1024 * 1024 * 1024,
+            8L * 1024 * 1024,
+            192,
+            CancellationToken.None);
+
+        var state = (await coordinator.GetSnapshotAsync())
+            .Single(item => item.ResourceId == LocalResourceIds.ChatModel);
+        Assert.AreEqual(LocalResourceLifecycle.Downloading, state.State);
+        Assert.AreEqual(512L * 1024 * 1024, state.BytesDownloaded);
+        Assert.AreEqual(2L * 1024 * 1024 * 1024, state.TotalBytes);
+        Assert.AreEqual(8L * 1024 * 1024, state.BytesPerSecond);
+        Assert.AreEqual(192d, state.RemainingSeconds);
+    }
+
+    [TestMethod]
     public async Task DownloadAsyncPersistsRealByteProgressAndVerifiesBeforeReady()
     {
         using var temp = new TestTempDirectory();
