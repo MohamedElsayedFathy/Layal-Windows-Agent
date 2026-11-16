@@ -386,8 +386,7 @@ public sealed class LocalResourceManager
                     LocalResourceLifecycle.Verifying or LocalResourceLifecycle.Installed or
                     LocalResourceLifecycle.Ready or LocalResourceLifecycle.Failed,
             LocalResourceLifecycle.Installed =>
-                from is LocalResourceLifecycle.Verifying or LocalResourceLifecycle.Downloading or
-                    LocalResourceLifecycle.Failed,
+                from is LocalResourceLifecycle.Verifying,
             LocalResourceLifecycle.Ready =>
                 from is LocalResourceLifecycle.Verifying or LocalResourceLifecycle.Installed,
             LocalResourceLifecycle.Failed =>
