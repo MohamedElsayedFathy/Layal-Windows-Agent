@@ -26,6 +26,17 @@ public sealed class LocalResourceSetupCoordinator
         CancellationToken cancellationToken = default) =>
         _manager.GetSnapshotAsync(cancellationToken);
 
+    public Task<LocalResourceStateEntry> ReportDownloadProgressAsync(
+        string resourceId,
+        long completedBytes,
+        long totalBytes,
+        double bytesPerSecond,
+        double? remainingSeconds,
+        CancellationToken cancellationToken = default) =>
+        _manager.ReportDownloadProgressAsync(
+            resourceId, completedBytes, totalBytes, bytesPerSecond, remainingSeconds, cancellationToken);
+
+
     public async Task ExecuteAsync(
         string resourceId,
         Func<CancellationToken, Task> installOrDownload,
