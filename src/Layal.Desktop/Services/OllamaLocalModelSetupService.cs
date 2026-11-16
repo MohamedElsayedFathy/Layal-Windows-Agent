@@ -17,11 +17,23 @@ public sealed class OllamaLocalModelSetupService
     private static readonly TimeSpan ServerStartupTimeout = TimeSpan.FromSeconds(45);
 
     private readonly LocalChatModelService _chatService;
+    private readonly LocalResourceSetupCoordinator _resourceCoordinator;
 
-    public OllamaLocalModelSetupService() : this(new LocalChatModelService()) { }
+    public OllamaLocalModelSetupService()
+        : this(
+            new LocalChatModelService(),
+            new LocalResourceSetupCoordinator(new LocalResourceManager()))
+    {
+    }
 
-    public OllamaLocalModelSetupService(LocalChatModelService chatService) =>
+    public OllamaLocalModelSetupService(
+        LocalChatModelService chatService,
+        LocalResourceSetupCoordinator? resourceCoordinator = null)
+    {
         _chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
+        _resourceCoordinator = resourceCoordinator ??
+            new LocalResourceSetupCoordinator(new LocalResourceManager());
+    }
 
     public async Task InstallAndPrepareAsync(
         IProgress<string>? progress = null,
@@ -29,46 +41,147 @@ public sealed class OllamaLocalModelSetupService
     {
         cancellationToken.ThrowIfCancellationRequested();
         var executable = FindOllamaExecutable();
+
         if (executable is null)
         {
-            var winget = FindOnPath("winget.exe") ??
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Microsoft", "WindowsApps", "winget.exe");
-            if (!File.Exists(winget))
-            {
-                throw new InvalidOperationException(
-                    "لم أجد Ollama أو WinGet على الجهاز. ثبّت Ollama من https://ollama.com/download/windows ثم أعد المحاولة.");
-            }
-
-            progress?.Report("تثبيت Ollama لنظام Windows عبر WinGet…");
-            await RunCommandAsync(
-                winget,
-                new[]
+            await _resourceCoordinator.ExecuteAsync(
+                LocalResourceIds.OllamaRuntime,
+                async token =>
                 {
-                    "install", "--id", "Ollama.Ollama", "--exact", "--source", "winget",
-                    "--accept-package-agreements", "--accept-source-agreements"
+                    var winget = FindOnPath("winget.exe") ??
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                            "Microsoft", "WindowsApps", "winget.exe");
+                    if (!File.Exists(winget))
+                        throw new InvalidOperationException(
+                            "لم أجد Ollama أو WinGet على الجهاز. ثبّت Ollama من https://ollama.com/download/windows ثم أعد المحاولة.");
+
+                    progress?.Report("تثبيت Ollama لنظام Windows عبر WinGet…");
+                    await RunCommandAsync(
+                        winget,
+                        new[]
+                        {
+                            "install", "--id", "Ollama.Ollama", "--exact", "--source", "winget",
+                            "--accept-package-agreements", "--accept-source-agreements"
+                        },
+                        progress,
+                        token).ConfigureAwait(false);
                 },
-                progress,
-                cancellationToken);
+                VerifyOllamaRuntimeAsync,
+                cancellationToken).ConfigureAwait(false);
 
             executable = FindOllamaExecutable();
             if (executable is null)
                 throw new InvalidOperationException(
-                    "انتهى أمر تثبيت Ollama، لكن لم أجد ollama.exe. أعد فتح Layal أو ثبّت Ollama من https://ollama.com/download/windows.");
+                    "انتهى أمر تثبيت Ollama، لكن لم أجد ollama.exe. أعد فتح Layal أو أعد محاولة التثبيت.");
+        }
+        else
+        {
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.OllamaRuntime,
+                VerifyOllamaRuntimeAsync,
+                cancellationToken).ConfigureAwait(false);
         }
 
-        await EnsureServerReadyAsync(executable, progress, cancellationToken);
+        await EnsureServerReadyAsync(executable, progress, cancellationToken).ConfigureAwait(false);
 
         progress?.Report($"تنزيل نموذج المحادثة المحلي {DefaultModelId} (الحجم المتوقع {ModelSizeDescription})…");
-        await RunCommandAsync(
-            executable,
-            new[] { "pull", DefaultModelId },
-            progress,
-            cancellationToken);
+        await _resourceCoordinator.ExecuteAsync(
+            LocalResourceIds.ChatModel,
+            token => RunCommandAsync(
+                executable,
+                new[] { "pull", DefaultModelId },
+                progress,
+                token),
+            async token =>
+            {
+                var modelAvailable = await VerifyChatModelAsync(executable, token).ConfigureAwait(false);
+                if (!modelAvailable) return false;
 
-        await _chatService.TestConnectionAsync(
-            LocalChatModelService.DefaultBaseUrl, cancellationToken).ConfigureAwait(false);
+                await _chatService.TestConnectionAsync(
+                    LocalChatModelService.DefaultBaseUrl, token).ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken).ConfigureAwait(false);
+
         progress?.Report("اكتمل تنزيل النموذج واستجاب خادم Ollama المحلي.");
+    }
+
+    public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var executable = FindOllamaExecutable();
+        if (executable is null) return false;
+
+        try
+        {
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.OllamaRuntime,
+                VerifyOllamaRuntimeAsync,
+                cancellationToken).ConfigureAwait(false);
+
+            if (!await VerifyChatModelAsync(executable, cancellationToken).ConfigureAwait(false))
+                return false;
+
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.ChatModel,
+                async token =>
+                {
+                    if (!await VerifyChatModelAsync(executable, token).ConfigureAwait(false))
+                        return false;
+                    await _chatService.TestConnectionAsync(
+                        LocalChatModelService.DefaultBaseUrl, token).ConfigureAwait(false);
+                    return true;
+                },
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidOperationException or
+                System.ComponentModel.Win32Exception or TimeoutException or HttpRequestException)
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> VerifyOllamaRuntimeAsync(CancellationToken cancellationToken)
+    {
+        var executable = FindOllamaExecutable();
+        if (executable is null) return false;
+        try
+        {
+            await RunCommandAsync(
+                executable, new[] { "--version" }, null, cancellationToken).ConfigureAwait(false);
+            return File.Exists(executable);
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> VerifyChatModelAsync(
+        string executable,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunCommandAsync(
+                executable,
+                new[] { "show", DefaultModelId },
+                null,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
     }
 
     private async Task EnsureServerReadyAsync(
