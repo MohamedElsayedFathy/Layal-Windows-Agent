@@ -640,12 +640,15 @@ public sealed class VoiceTutLocalService : IDisposable
         string[] arguments,
         TimeSpan timeout,
         CancellationToken cancellationToken,
-        string operation)
+        string operation,
+        IProgress<LocalSpeechProgress>? progress = null)
     {
-        await RunCommandAsync(PythonExecutablePath, arguments, timeout, cancellationToken, operation);
+        await RunCommandAsync(
+            PythonExecutablePath, arguments, timeout, cancellationToken, operation, progress)
+            .ConfigureAwait(false);
     }
 
-    private static async Task<(string Executable, string[] PrefixArguments)?> FindPythonLauncherAsync(
+    private async Task<(string Executable, string[] PrefixArguments)?> FindPythonLauncherAsync(
         CancellationToken cancellationToken)
     {
         var launchers = new[]
@@ -662,7 +665,7 @@ public sealed class VoiceTutLocalService : IDisposable
                 var args = prefix.Concat(new[]
                 {
                     "-c",
-                    "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,13) else 2)"
+                    "import struct,sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,13) and struct.calcsize('P') == 8 else 2)"
                 }).ToArray();
                 var result = await RunCommandAsync(executable, args, TimeSpan.FromSeconds(15), cancellationToken, "فحص Python");
                 if (result.ExitCode == 0)
@@ -676,7 +679,7 @@ public sealed class VoiceTutLocalService : IDisposable
         return null;
     }
 
-    private static async Task<bool> IsNvidiaRuntimeAvailableAsync(CancellationToken cancellationToken)
+    private async Task<bool> IsNvidiaRuntimeAvailableAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -690,12 +693,13 @@ public sealed class VoiceTutLocalService : IDisposable
         }
     }
 
-    private static async Task<(int ExitCode, string Output, string Error)> RunCommandAsync(
+    private async Task<(int ExitCode, string Output, string Error)> RunCommandAsync(
         string executable,
         string[] arguments,
         TimeSpan timeout,
         CancellationToken cancellationToken,
-        string operation)
+        string operation,
+        IProgress<LocalSpeechProgress>? progress = null)
     {
         var start = new ProcessStartInfo(executable)
         {
@@ -715,34 +719,83 @@ public sealed class VoiceTutLocalService : IDisposable
             if (!process.Start())
                 throw new InvalidOperationException($"تعذر بدء خطوة {operation}.");
         }
-        catch (Win32Exception ex)
+        catch (Win32Exception exception)
         {
-            throw new InvalidOperationException($"تعذر العثور على الأداة المطلوبة لتنفيذ {operation}: {ex.Message}", ex);
+            throw new InvalidOperationException(
+                $"تعذر العثور على الأداة المطلوبة لتنفيذ {operation}: {exception.Message}", exception);
         }
 
-        var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout);
+        var stdoutTask = PumpCommandOutputAsync(process.StandardOutput, progress);
+        var stderrTask = PumpCommandOutputAsync(process.StandardError, progress);
+
         try
         {
             await process.WaitForExitAsync(timeoutSource.Token).ConfigureAwait(false);
-            var output = await stdout.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
-            var error = await stderr.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+            var output = await stdoutTask.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+            var error = await stderrTask.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+
             if (process.ExitCode != 0)
-                throw new InvalidOperationException($"{operation} failed ({process.ExitCode}): {Truncate(error + "\n" + output, 1800)}");
+            {
+                var detail = Truncate(error + "\n" + output, 1800);
+                throw new InvalidOperationException(
+                    $"{operation} failed ({process.ExitCode}): {detail}");
+            }
+
             return (process.ExitCode, output, error);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
             TryKill(process);
-            throw new TimeoutException($"انتهت المهلة أثناء {operation}.");
+            try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { /* Preserve the cancellation or timeout that caused termination. */ }
+
+            string output = string.Empty;
+            string error = string.Empty;
+            try { output = await stdoutTask.ConfigureAwait(false); }
+            catch { }
+            try { error = await stderrTask.ConfigureAwait(false); }
+            catch { }
+
+            if (cancellationToken.IsCancellationRequested)
+                throw;
+
+            throw new TimeoutException(
+                $"انتهت المهلة أثناء {operation}. {Truncate(error + "\n" + output, 700)}");
         }
         catch
         {
             TryKill(process);
+            try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { /* Preserve the original command error. */ }
+            try { await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false); }
+            catch { /* Preserve the original command error. */ }
             throw;
         }
+    }
+
+    private static async Task<string> PumpCommandOutputAsync(
+        StreamReader reader,
+        IProgress<LocalSpeechProgress>? progress)
+    {
+        var captured = new StringBuilder();
+        const int maximumCaptureCharacters = 256 * 1024;
+
+        while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
+        {
+            if (captured.Length < maximumCaptureCharacters)
+            {
+                var remaining = maximumCaptureCharacters - captured.Length;
+                captured.AppendLine(Truncate(line, Math.Min(remaining, 2400)));
+            }
+
+            var clean = line.Trim();
+            if (clean.Length > 0)
+                progress?.Report(new LocalSpeechProgress(clean.Length <= 240 ? clean : clean[..240] + "…"));
+        }
+
+        return captured.ToString();
     }
 
     private static string ValidateVoiceInstruction(string? instruction)
