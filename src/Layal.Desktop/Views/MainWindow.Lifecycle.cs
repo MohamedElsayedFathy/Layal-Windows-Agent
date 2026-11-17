@@ -70,6 +70,8 @@ public partial class MainWindow
             _chatCancellation?.Cancel();
             _agentTaskCancellation?.Cancel();
             _localVoiceService.Dispose();
+            if (ReferenceEquals(AppRuntime.LocalVoiceRuntime, _localVoiceService))
+                AppRuntime.LocalVoiceRuntime = null;
         }
     }
 }
