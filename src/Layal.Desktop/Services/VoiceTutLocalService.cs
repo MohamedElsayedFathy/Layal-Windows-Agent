@@ -61,7 +61,8 @@ public sealed class VoiceTutLocalService : IDisposable
     public bool IsReady => File.Exists(PythonExecutablePath) &&
                            File.Exists(Path.Combine(InstallRoot, InstallMarker)) &&
                            File.Exists(Path.Combine(InstallRoot, PythonEnvironmentFreeze)) &&
-                           File.Exists(ModelWeightsPath);
+                           File.Exists(ModelWeightsPath) &&
+                           File.Exists(ModelTokenizerPath);
 
     public string LastMetricsSummary { get; private set; } = string.Empty;
     public string RuntimeDirectory => InstallRoot;
@@ -77,6 +78,7 @@ public sealed class VoiceTutLocalService : IDisposable
     private static string ModelSnapshotRoot => Path.Combine(
         ModelCacheRoot, "hub", "models--mohammedaly22--VoiceTut-TTS", "snapshots", ModelRevision);
     private static string ModelWeightsPath => Path.Combine(ModelSnapshotRoot, "model.safetensors");
+    private static string ModelTokenizerPath => Path.Combine(ModelSnapshotRoot, "tokenizer.json");
     private static string BridgeScriptPath => Path.Combine(AppContext.BaseDirectory, "VoiceTut", "voicetut_local_server.py");
 
     public async Task EnsureReadyAsync(
@@ -256,7 +258,7 @@ public sealed class VoiceTutLocalService : IDisposable
         await _resourceCoordinator.ExecuteAsync(
             LocalResourceIds.VoiceTutModel,
             token => EnsureServerStartedAsync(token, progress),
-            async token => File.Exists(ModelWeightsPath) &&
+            async token => File.Exists(ModelWeightsPath) && File.Exists(ModelTokenizerPath) &&
                 await IsServerHealthyAsync(token).ConfigureAwait(false),
             cancellationToken).ConfigureAwait(false);
 
@@ -284,9 +286,15 @@ public sealed class VoiceTutLocalService : IDisposable
                 LocalResourceIds.OmniVoice, VerifyOmniVoicePackageAsync, cancellationToken).ConfigureAwait(false);
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.VoiceTut, VerifyVoiceTutPackageAsync, cancellationToken).ConfigureAwait(false);
+            var modelDefinition = LocalResourceCatalog.GetRequired(LocalResourceIds.VoiceTutModel);
+            if (modelDefinition.ExpectedFiles is null)
+                throw new InvalidDataException("VoiceTut model file integrity pins are missing from the resource catalog.");
+            await LocalResourceFileIntegrityVerifier.VerifyAsync(
+                ModelSnapshotRoot, ModelCacheRoot, modelDefinition.ExpectedFiles, cancellationToken)
+                .ConfigureAwait(false);
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.VoiceTutModel,
-                _ => Task.FromResult(File.Exists(ModelWeightsPath)),
+                _ => Task.FromResult(File.Exists(ModelWeightsPath) && File.Exists(ModelTokenizerPath)),
                 cancellationToken).ConfigureAwait(false);
             return true;
         }
@@ -295,7 +303,7 @@ public sealed class VoiceTutLocalService : IDisposable
             throw;
         }
         catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException or InvalidOperationException or
+            exception is IOException or InvalidDataException or UnauthorizedAccessException or InvalidOperationException or
                 System.ComponentModel.Win32Exception or TimeoutException)
         {
             return false;
@@ -707,7 +715,9 @@ public sealed class VoiceTutLocalService : IDisposable
             using var response = await ApiClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return false;
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-            return doc.RootElement.TryGetProperty("ready", out var ready) && ready.ValueKind == JsonValueKind.True;
+            return doc.RootElement.TryGetProperty("ready", out var ready) && ready.ValueKind == JsonValueKind.True &&
+                   doc.RootElement.TryGetProperty("integrityVerified", out var integrity) &&
+                   integrity.ValueKind == JsonValueKind.True;
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or TaskCanceledException)
         {

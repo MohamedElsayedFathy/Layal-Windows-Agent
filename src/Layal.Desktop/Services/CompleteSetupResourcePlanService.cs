@@ -13,8 +13,10 @@ public sealed record CompleteSetupResourcePlan(
 
 /// <summary>
 /// Computes a lower-bound sum of known catalog reference sizes for required resources
-/// not yet Ready. It does not assert that every such component will be downloaded:
-/// reusable runtimes may already exist. Optional fallbacks are reported separately.
+/// not yet Ready. Per-file pins contribute known bytes even when the complete resource
+/// also contains small files whose sizes are intentionally unknown.
+/// It does not assert that every component will be downloaded: reusable runtimes may
+/// already exist. Optional fallbacks are reported separately.
 /// </summary>
 public static class CompleteSetupResourcePlanService
 {
@@ -38,7 +40,9 @@ public static class CompleteSetupResourcePlanService
             .Where(resource => resource.ExpectedSizeBytes is > 0)
             .ToArray();
 
-        var knownBytes = knownReferences.Sum(resource => resource.ExpectedSizeBytes!.Value);
+        var knownBytes = knownReferences.Sum(resource => resource.ExpectedSizeBytes!.Value) +
+            pending.SelectMany(resource => resource.ExpectedFiles ?? Array.Empty<LocalResourceFilePin>())
+                .Sum(file => file.ExpectedSizeBytes);
 
         var unknown = pending
             .Where(resource => resource.Kind != LocalResourceKind.EmbeddedData)

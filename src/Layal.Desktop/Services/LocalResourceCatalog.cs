@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 
 namespace Layal.Services;
@@ -30,6 +31,16 @@ public enum LocalResourceKind
     EmbeddedData
 }
 
+public sealed record LocalResourceFilePin(
+    string RelativePath,
+    long ExpectedSizeBytes,
+    string ExpectedSha256)
+{
+    public bool HasPinnedSha256 =>
+        ExpectedSha256 is { Length: 64 } &&
+        ExpectedSha256.All(Uri.IsHexDigit);
+}
+
 public sealed record LocalResourceDefinition(
     string Id,
     string DisplayName,
@@ -41,7 +52,8 @@ public sealed record LocalResourceDefinition(
     string? ExpectedSha256,
     string VerificationPolicy,
     long? ExpectedGitBlobSizeBytes = null,
-    string? ExpectedGitBlobSha1 = null)
+    string? ExpectedGitBlobSha1 = null,
+    IReadOnlyList<LocalResourceFilePin>? ExpectedFiles = null)
 {
     public bool HasPinnedSha256 =>
         ExpectedSha256 is { Length: 64 } &&
@@ -110,7 +122,18 @@ public static class LocalResourceCatalog
                 true,
                 null,
                 null,
-                "Verify the immutable Hugging Face revision, required model files, and local health endpoint."),
+                "Verify the immutable Hugging Face revision, SHA-256 and exact size of each downloaded binary file before model loading, then require the integrity-aware local health endpoint.",
+                ExpectedFiles: Array.AsReadOnly(new[]
+                {
+                    new LocalResourceFilePin(
+                        "model.safetensors",
+                        2_450_344_144,
+                        "172ac1268fa98cb6253deb9f66fce1115e74e9b66012847b8483addad07a2b78"),
+                    new LocalResourceFilePin(
+                        "tokenizer.json",
+                        11_423_986,
+                        "408f669b7e2b045fdf54201d815bd364e6667dbd845115da81239c40bc6dcfd1")
+                })),
 
             new LocalResourceDefinition(
                 LocalResourceIds.WhisperRuntime,
@@ -226,6 +249,25 @@ public static class LocalResourceCatalog
                 (item.ExpectedGitBlobSha1 is not null &&
                  (item.ExpectedGitBlobSha1.Length != 40 || !item.ExpectedGitBlobSha1.All(Uri.IsHexDigit))))
                 throw new InvalidOperationException("Invalid pinned Git blob identity in local resource catalog entry: " + item.Id);
+
+            if (item.ExpectedFiles is not null)
+            {
+                if (item.ExpectedFiles.Count == 0)
+                    throw new InvalidOperationException("A pinned file collection must not be empty: " + item.Id);
+
+                var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var file in item.ExpectedFiles)
+                {
+                    var segments = file.RelativePath.Replace('\\', '/').Split('/');
+                    if (string.IsNullOrWhiteSpace(file.RelativePath) ||
+                        Path.IsPathRooted(file.RelativePath) ||
+                        segments.Any(segment => segment is "" or "." or "..") ||
+                        file.ExpectedSizeBytes <= 0 ||
+                        !file.HasPinnedSha256 ||
+                        !paths.Add(file.RelativePath))
+                        throw new InvalidOperationException("Invalid or duplicate pinned file in resource catalog: " + item.Id);
+                }
+            }
         }
     }
 
