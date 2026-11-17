@@ -48,7 +48,10 @@ public sealed class CompleteSetupReadinessPolicyTests
         Assert.IsFalse(CompleteSetupReadinessPolicy.IsComplete(states));
 
         var failed = LocalResourceCatalog.All.First(resource => resource.Required);
-        states.Add(new LocalResourceStateEntry(
+        var failedIndex = states.FindIndex(item =>
+            string.Equals(item.ResourceId, failed.Id, StringComparison.Ordinal));
+        Assert.IsTrue(failedIndex >= 0);
+        states[failedIndex] = new LocalResourceStateEntry(
             failed.Id,
             LocalResourceLifecycle.Failed,
             0,
@@ -56,7 +59,7 @@ public sealed class CompleteSetupReadinessPolicyTests
             null,
             null,
             "verification failed",
-            DateTimeOffset.UtcNow));
+            DateTimeOffset.UtcNow);
 
         Assert.IsFalse(CompleteSetupReadinessPolicy.IsComplete(states));
         Assert.IsTrue(CompleteSetupReadinessPolicy.GetMissingRequiredResources(states)
