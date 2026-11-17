@@ -37,11 +37,7 @@ public sealed class SpeechLanguageEngineTests
     {
         var generic = _engine.Analyze("تمام، شكرًا لك.");
         Assert.AreEqual(SpeechLanguageKind.ArabicUnspecified, generic.Language.PrimaryLanguage);
-        Assert.AreEqual("Arabic (dialect unspecified)", generic.Language is not null
-            ? new SpeechLanguageAnalysis(
-                generic.OriginalText, generic.NormalizedText, generic.Language, generic.Intent,
-                generic.MatchingEntries, generic.MatchingTopics).GetType().Name == string.Empty ? string.Empty : generic.Language.PrimaryLanguage.ToString()
-            : string.Empty);
+        Assert.AreEqual("العربية — اللهجة غير محددة", generic.GetLanguageLabel(arabic: true));
     }
 
     [TestMethod]
