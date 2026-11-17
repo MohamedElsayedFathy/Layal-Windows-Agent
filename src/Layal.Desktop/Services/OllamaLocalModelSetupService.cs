@@ -18,7 +18,100 @@ public sealed class OllamaLocalModelSetupService
 {
     public static readonly string DefaultModelId = "qwen3.5:2b";
     public static readonly string ModelSizeDescription = "2.7–3.1 GB";
+    private const long ModelSizeUpperBoundBytes = 3_100_000_000;
     private static readonly TimeSpan ServerStartupTimeout = TimeSpan.FromSeconds(45);
+
+    public static string ModelsDirectory
+    {
+        get
+        {
+            var settings = Layal.AppRuntime.Settings;
+            if (!string.IsNullOrWhiteSpace(settings.OllamaModelsDirectory))
+                return LocalAiResourcePathPolicy.ValidateLocalDirectory(settings.OllamaModelsDirectory);
+
+            if (!string.IsNullOrWhiteSpace(settings.LocalAiDataDirectory))
+                return LocalAiResourcePathPolicy.ValidateLocalDirectory(
+                    Path.Combine(LocalVoiceService.DataRoot, "ollama-models"));
+
+            var configured = Environment.GetEnvironmentVariable("OLLAMA_MODELS");
+            return LocalAiResourcePathPolicy.ValidateLocalDirectory(
+                string.IsNullOrWhiteSpace(configured)
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ollama", "models")
+                    : configured);
+        }
+    }
+
+    public static bool HasDefaultModelManifest() =>
+        File.Exists(Path.Combine(
+            ModelsDirectory, "manifests", "registry.ollama.ai", "library", "qwen3.5", "2b"));
+
+    private static bool UsesCustomModelsDirectory =>
+        !string.IsNullOrWhiteSpace(Layal.AppRuntime.Settings.LocalAiDataDirectory) ||
+        !string.IsNullOrWhiteSpace(Layal.AppRuntime.Settings.OllamaModelsDirectory);
+
+    private static string RuntimeInstallDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Programs", "Ollama");
+
+    public static string RuntimeCapacityDirectory =>
+        Path.GetDirectoryName(FindOllamaExecutable() ?? Path.Combine(RuntimeInstallDirectory, "ollama.exe"))
+        ?? RuntimeInstallDirectory;
+
+    public static bool IsRuntimeInstalled => FindOllamaExecutable() is not null;
+
+    public static bool IsWinGetAvailable
+    {
+        get
+        {
+            var winget = FindOnPath("winget.exe") ??
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Microsoft", "WindowsApps", "winget.exe");
+            return File.Exists(winget);
+        }
+    }
+
+    public static long FallbackInstallerExpectedBytes =>
+        LocalResourceCatalog.GetRequired(LocalResourceIds.OllamaRuntimeInstaller).ExpectedSizeBytes ?? 0;
+
+    private static void EnsureOllamaInstallCapacity(string? downloadDirectory, long downloadBytes)
+    {
+        const long runtimeReferenceBytes = 4_000_000_000;
+        var runtimeRoot = Path.GetPathRoot(Path.GetFullPath(RuntimeCapacityDirectory));
+        var downloadRoot = string.IsNullOrWhiteSpace(downloadDirectory)
+            ? null
+            : Path.GetPathRoot(Path.GetFullPath(downloadDirectory));
+        if (!string.IsNullOrWhiteSpace(downloadRoot) &&
+            string.Equals(runtimeRoot, downloadRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            LocalResourceStorageCapacityGuard.EnsureAvailable(
+                RuntimeCapacityDirectory, downloadBytes, runtimeReferenceBytes);
+            return;
+        }
+
+        LocalResourceStorageCapacityGuard.EnsureAvailable(
+            RuntimeCapacityDirectory, runtimeReferenceBytes);
+        if (!string.IsNullOrWhiteSpace(downloadDirectory) && downloadBytes > 0)
+            LocalResourceStorageCapacityGuard.EnsureAvailable(
+                downloadDirectory, downloadBytes, downloadBytes);
+    }
+
+    public async Task<bool> IsServerRunningAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _chatService.TestConnectionAsync(
+                LocalChatModelService.DefaultBaseUrl, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
     private const string OllamaApiBaseUrl = "http://127.0.0.1:11434/";
     private static readonly HttpClient PullClient = new(new SocketsHttpHandler
     {
@@ -65,6 +158,7 @@ public sealed class OllamaLocalModelSetupService
 
             if (File.Exists(winget))
             {
+                EnsureOllamaInstallCapacity(null, 0);
                 await _resourceCoordinator.ExecuteAsync(
                     LocalResourceIds.OllamaRuntime,
                     async token =>
@@ -91,6 +185,10 @@ public sealed class OllamaLocalModelSetupService
                 var downloadsDirectory = Path.Combine(LocalVoiceService.DataRoot, "downloads");
                 Directory.CreateDirectory(downloadsDirectory);
                 var installerPath = Path.Combine(downloadsDirectory, "OllamaSetup-v0.40.16.exe");
+                if (!await MatchesPinnedInstallerAsync(installerPath, fallback, cancellationToken).ConfigureAwait(false))
+                    EnsureOllamaInstallCapacity(downloadsDirectory, fallback.ExpectedSizeBytes!.Value);
+                else
+                    EnsureOllamaInstallCapacity(null, 0);
                 progress?.Report("WinGet غير متاح؛ جارٍ تنزيل مثبّت Ollama الرسمي المثبّت الإصدار…");
 
                 await _resourceCoordinator.DownloadAsync(
@@ -191,6 +289,27 @@ public sealed class OllamaLocalModelSetupService
         {
             return false;
         }
+    }
+
+    private static async Task<bool> MatchesPinnedInstallerAsync(
+        string path,
+        LocalResourceDefinition resource,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path) ||
+            resource.ExpectedSizeBytes is not > 0 ||
+            !resource.HasPinnedSha256)
+            return false;
+        var info = new FileInfo(path);
+        if (info.Length != resource.ExpectedSizeBytes.Value)
+            return false;
+        await using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var actual = await System.Security.Cryptography.SHA256.HashDataAsync(stream, cancellationToken)
+            .ConfigureAwait(false);
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            actual, Convert.FromHexString(resource.ExpectedSha256!));
     }
 
     private static async Task RunOfficialInstallerAsync(
@@ -332,6 +451,10 @@ public sealed class OllamaLocalModelSetupService
         IProgress<LocalResourceDownloadProgress>? downloadProgress,
         CancellationToken cancellationToken)
     {
+        var modelStore = ModelsDirectory;
+        Directory.CreateDirectory(modelStore);
+        LocalResourceStorageCapacityGuard.EnsureAvailable(
+            modelStore, ModelSizeUpperBoundBytes, 512L * 1024 * 1024);
         var endpoint = new Uri(new Uri(OllamaApiBaseUrl), "api/pull");
         if (!endpoint.IsLoopback)
             throw new InvalidOperationException("Ollama model downloads are restricted to the local loopback endpoint.");
@@ -381,6 +504,9 @@ public sealed class OllamaLocalModelSetupService
             var total = TryReadInt64(root, "total");
             if (completed.HasValue && total is > 0)
             {
+                var remainingModelBytes = Math.Max(0, total.Value - completed.Value);
+                LocalResourceStorageCapacityGuard.EnsureAvailable(
+                    modelStore, remainingModelBytes, 512L * 1024 * 1024);
                 var now = Stopwatch.GetTimestamp();
                 var elapsed = Math.Max((now - lastSample) / (double)Stopwatch.Frequency, 0.001);
                 var speed = completed.Value >= lastBytes && total == lastTotal
@@ -643,16 +769,65 @@ public sealed class OllamaLocalModelSetupService
     private static string Truncate(string value, int maxCharacters) =>
         value.Length <= maxCharacters ? value : value[..maxCharacters] + "…";
 
+    private sealed record OllamaServerLease(int ProcessId, DateTimeOffset StartTimeUtc);
+
+    private static string ServerLeasePath => Path.Combine(ModelsDirectory, ".layal-server-lease.json");
+
+    private static void WriteConfiguredServerLease(Process server)
+    {
+        var directory = Path.GetFullPath(ModelsDirectory);
+        Directory.CreateDirectory(directory);
+        EnsureNoReparsePoints(directory);
+        var lease = new OllamaServerLease(server.Id, server.StartTime.ToUniversalTime());
+        var temporary = ServerLeasePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(lease));
+            File.Move(temporary, ServerLeasePath, overwrite: true);
+        }
+        finally
+        {
+            try { if (File.Exists(temporary)) File.Delete(temporary); } catch (IOException) { }
+        }
+    }
+
+    private static bool IsOwnedConfiguredServerRunning()
+    {
+        try
+        {
+            if (!File.Exists(ServerLeasePath) ||
+                (File.GetAttributes(ServerLeasePath) & FileAttributes.ReparsePoint) != 0)
+                return false;
+            var lease = JsonSerializer.Deserialize<OllamaServerLease>(File.ReadAllText(ServerLeasePath));
+            if (lease is null || lease.ProcessId <= 0)
+                return false;
+            using var process = Process.GetProcessById(lease.ProcessId);
+            if (process.HasExited ||
+                !string.Equals(process.ProcessName, "ollama", StringComparison.OrdinalIgnoreCase))
+                return false;
+            var actualStart = process.StartTime.ToUniversalTime();
+            return Math.Abs((actualStart - lease.StartTimeUtc.UtcDateTime).TotalSeconds) < 2;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or JsonException or
+                ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
     private async Task EnsureServerReadyAsync(
         string executable,
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
+        Directory.CreateDirectory(ModelsDirectory);
+        var alreadyRunning = false;
         try
         {
             await _chatService.TestConnectionAsync(
                 LocalChatModelService.DefaultBaseUrl, cancellationToken).ConfigureAwait(false);
-            return;
+            alreadyRunning = true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -663,6 +838,14 @@ public sealed class OllamaLocalModelSetupService
             // Start the local daemon below, then poll only the loopback endpoint.
         }
 
+        if (alreadyRunning)
+        {
+            if (UsesCustomModelsDirectory && !IsOwnedConfiguredServerRunning())
+                throw new InvalidOperationException(
+                    "An Ollama server is already running outside Layal's selected model directory. Exit Ollama completely, then restart Layal so it can start the server with the configured OLLAMA_MODELS path.");
+            return;
+        }
+
         progress?.Report("تشغيل خادم Ollama المحلي…");
         var start = new ProcessStartInfo(executable)
         {
@@ -671,12 +854,15 @@ public sealed class OllamaLocalModelSetupService
             WorkingDirectory = Path.GetDirectoryName(executable) ?? Environment.CurrentDirectory
         };
         start.ArgumentList.Add("serve");
+        start.Environment["OLLAMA_MODELS"] = ModelsDirectory;
 
         try
         {
             using var server = Process.Start(start);
+            if (server is not null && UsesCustomModelsDirectory)
+                WriteConfiguredServerLease(server);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             // Another Ollama tray instance may have started the server concurrently.
         }

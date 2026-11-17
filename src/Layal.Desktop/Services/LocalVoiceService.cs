@@ -9,7 +9,13 @@ using System.Text.RegularExpressions;
 
 namespace Layal.Services;
 
-public sealed record LocalSpeechProgress(string Message, double? Percent = null);
+public sealed record LocalSpeechProgress(
+    string Message,
+    double? Percent = null,
+    long? DownloadedBytes = null,
+    long? TotalBytes = null,
+    double? BytesPerSecond = null,
+    double? RemainingSeconds = null);
 
 /// <summary>
 /// Local speech recognition is performed by Whisper; synthesis is performed by the
@@ -46,8 +52,14 @@ public sealed class LocalVoiceService
                 Environment.GetEnvironmentVariable(LayalDataPathPolicy.AcceptanceRootEnvironmentVariable),
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
-            // Keep the existing on-disk directory so previously downloaded speech resources remain usable.
-            return Path.Combine(paths.DataRoot, "LocalAi");
+            // Acceptance runs must remain isolated from the user's configured resource volume.
+            var defaultRoot = Path.Combine(paths.DataRoot, "LocalAi");
+            if (paths.IsolatedAcceptance)
+                return defaultRoot;
+
+            return LocalAiResourcePathPolicy.Resolve(
+                Layal.AppRuntime.Settings.LocalAiDataDirectory,
+                defaultRoot);
         }
     }
 
@@ -99,6 +111,12 @@ public sealed class LocalVoiceService
 
         var whisperArchive = Path.Combine(Root, "whisper-bin-x64-v1.9.1.zip");
         var whisperRoot = Path.Combine(ToolsRoot, "whisper");
+        if (!await MatchesExpectedFileAsync(
+                whisperArchive, WhisperArchiveSize, WhisperArchiveSha256, null, cancellationToken)
+                .ConfigureAwait(false))
+            LocalResourceStorageCapacityGuard.EnsureAvailable(
+                Root, WhisperArchiveSize, checked(WhisperArchiveSize * 2));
+
         await _resourceCoordinator.DownloadAsync(
             LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperRuntime),
             whisperArchive,
@@ -115,6 +133,11 @@ public sealed class LocalVoiceService
             }).ConfigureAwait(false);
         if (_whisperExecutable is null)
             throw new InvalidOperationException("تعذر التحقق من محرك Whisper وملفاته المستخرجة من الأرشيف الموثوق؛ لم يتم تشغيله.");
+
+        if (!await MatchesExpectedFileAsync(
+                WhisperModelPath, WhisperModelSize, WhisperModelSha256, null, cancellationToken)
+                .ConfigureAwait(false))
+            LocalResourceStorageCapacityGuard.EnsureAvailable(Root, WhisperModelSize, WhisperModelSize);
 
         await _resourceCoordinator.DownloadAsync(
             LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperModel),

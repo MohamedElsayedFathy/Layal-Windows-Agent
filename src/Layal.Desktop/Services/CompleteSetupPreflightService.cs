@@ -115,22 +115,27 @@ public static class CompleteSetupPreflightService
             warning = exception.Message;
         }
 
-        var configuredOllamaModelsPath = Environment.GetEnvironmentVariable("OLLAMA_MODELS");
-        var ollamaModelsPath = string.IsNullOrWhiteSpace(configuredOllamaModelsPath)
-            ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".ollama", "models")
-            : configuredOllamaModelsPath;
-        var ollamaStorageLabel = string.IsNullOrWhiteSpace(configuredOllamaModelsPath)
+        var ollamaModelsPath = OllamaLocalModelSetupService.ModelsDirectory;
+        var ollamaStorageLabel = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OLLAMA_MODELS")) &&
+                                 string.IsNullOrWhiteSpace(Layal.AppRuntime.Settings.LocalAiDataDirectory) &&
+                                 string.IsNullOrWhiteSpace(Layal.AppRuntime.Settings.OllamaModelsDirectory)
             ? "Ollama default model volume"
-            : "OLLAMA_MODELS (Layal process) volume";
+            : "Ollama configured model volume";
 
         storage += Environment.NewLine +
                    DescribeVolume(ollamaStorageLabel, ollamaModelsPath);
         storage += Environment.NewLine +
+                   DescribeVolume(
+                       "Ollama runtime install volume",
+                       OllamaLocalModelSetupService.RuntimeCapacityDirectory);
+        storage += Environment.NewLine +
+                   DescribeVolume(
+                       "Layal Python pip cache and build temporary-file volume",
+                       Path.Combine(LocalVoiceService.DataRoot, "temp"));
+        storage += Environment.NewLine +
                    DescribeVolume("Windows temporary-file volume", Path.GetTempPath());
         storage += Environment.NewLine +
-                   "An already-running Ollama server may use a different OLLAMA_MODELS path; verify its configured model directory.";
+                   "Layal redirects Python pip cache and TEMP/TMP into the selected AI resource volume. Ollama uses its resolved model-directory setting.";
 
         if (!isSupportedWindows || !isX64)
         {

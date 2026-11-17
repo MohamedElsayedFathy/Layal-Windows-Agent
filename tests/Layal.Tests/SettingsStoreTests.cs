@@ -41,6 +41,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(0, settings.GameModeAllowedProcessNames.Count);
         Assert.IsFalse(settings.UseAutomaticLocation);
         Assert.IsFalse(settings.AutomaticLocationConsentConfirmed);
+        Assert.AreEqual(string.Empty, settings.LocalAiDataDirectory);
+        Assert.AreEqual(string.Empty, settings.OllamaModelsDirectory);
     }
 
     [TestMethod]
@@ -109,6 +111,32 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(settings.UseLocalAi);
         Assert.AreEqual(1.0, settings.MascotScale, 0.0001);
         Assert.AreEqual(0.8, settings.MascotOpacity, 0.0001);
+    }
+
+    [TestMethod]
+    public void LocalAiResourceDirectoryIsPersistedClonedAndCopied()
+    {
+        using var temp = new TestTempDirectory();
+        var selected = Path.Combine(temp.Path, "D", "LayalResources");
+        var modelStore = Path.Combine(selected, "ollama-models");
+        var settings = new UserSettings
+        {
+            LocalAiDataDirectory = selected,
+            OllamaModelsDirectory = modelStore
+        };
+        var store = new SettingsStore(temp.Path);
+        store.Save(settings);
+
+        var loaded = store.Load();
+        Assert.AreEqual(selected, loaded.LocalAiDataDirectory);
+        Assert.AreEqual(selected, loaded.Clone().LocalAiDataDirectory);
+        Assert.AreEqual(modelStore, loaded.OllamaModelsDirectory);
+        Assert.AreEqual(modelStore, loaded.Clone().OllamaModelsDirectory);
+
+        var copied = new UserSettings();
+        copied.CopyFrom(loaded);
+        Assert.AreEqual(selected, copied.LocalAiDataDirectory);
+        Assert.AreEqual(modelStore, copied.OllamaModelsDirectory);
     }
 
     [TestMethod]

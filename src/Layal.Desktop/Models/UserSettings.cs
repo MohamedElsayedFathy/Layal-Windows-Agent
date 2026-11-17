@@ -22,6 +22,10 @@ public sealed class UserSettings
     /// <summary>Model ID served by the local loopback endpoint; blank keeps the deterministic native core active.</summary>
     public string LocalChatModelId { get; set; } = string.Empty;
     public bool UseLocalAi { get; set; } = true;
+    /// <summary>Optional local folder for AI runtimes, models, caches and resource state. User documents remain in the normal profile.</summary>
+    public string LocalAiDataDirectory { get; set; } = string.Empty;
+    /// <summary>Resolved Ollama model store path; remains separate from user documents and chat history.</summary>
+    public string OllamaModelsDirectory { get; set; } = string.Empty;
     public bool VoiceRepliesEnabled { get; set; } = true;
     /// <summary>Stable WinMM microphone selection; Windows default is used until the user chooses a device.</summary>
     public string AudioInputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
@@ -75,6 +79,8 @@ public sealed class UserSettings
         LocalChatModelBaseUrl = LocalChatModelBaseUrl,
         LocalChatModelId = LocalChatModelId,
         UseLocalAi = UseLocalAi,
+        LocalAiDataDirectory = LocalAiDataDirectory,
+        OllamaModelsDirectory = OllamaModelsDirectory,
         VoiceRepliesEnabled = VoiceRepliesEnabled,
         AudioInputDeviceId = AudioInputDeviceId,
         AudioOutputDeviceId = AudioOutputDeviceId,
@@ -118,6 +124,8 @@ public sealed class UserSettings
         LocalChatModelBaseUrl = source.LocalChatModelBaseUrl;
         LocalChatModelId = source.LocalChatModelId;
         UseLocalAi = source.UseLocalAi;
+        LocalAiDataDirectory = source.LocalAiDataDirectory;
+        OllamaModelsDirectory = source.OllamaModelsDirectory;
         VoiceRepliesEnabled = source.VoiceRepliesEnabled;
         AudioInputDeviceId = source.AudioInputDeviceId;
         AudioOutputDeviceId = source.AudioOutputDeviceId;

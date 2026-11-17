@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Windows;
@@ -21,6 +22,7 @@ public partial class App : Application
     private EventWaitHandle? _activateEvent;
     private bool _ownsSingleInstanceMutex;
     private bool _isScheduledReminderLaunch;
+    private bool _isRestartAfterStorageChange;
     private Mutex? _singleInstanceMutex;
     private bool _crashDialogShown;
     private string _logDirectory = string.Empty;
@@ -31,6 +33,8 @@ public partial class App : Application
         if (SuppressStartupForTests) return;
         _isScheduledReminderLaunch = e.Args.Any(argument =>
             string.Equals(argument, "--scheduled-reminder", StringComparison.Ordinal));
+        _isRestartAfterStorageChange = e.Args.Any(argument =>
+            string.Equals(argument, "--restart-after-storage-change", StringComparison.Ordinal));
 
         var dataPaths = LayalDataPathPolicy.Resolve(
             Environment.GetEnvironmentVariable(LayalDataPathPolicy.AcceptanceRootEnvironmentVariable),
@@ -117,6 +121,40 @@ public partial class App : Application
             {
                 var setupWindow = new CompleteSetupWindow(dataRoot, localVoiceRuntime);
                 setupWindow.ShowDialog();
+                if (setupWindow.RestartRequested)
+                {
+                    try
+                    {
+                        var executable = Environment.ProcessPath;
+                        if (string.IsNullOrWhiteSpace(executable))
+                            throw new InvalidOperationException("The Layal executable path is unavailable for restart.");
+
+                        var restart = new ProcessStartInfo(executable)
+                        {
+                            UseShellExecute = false,
+                            Arguments = "--restart-after-storage-change",
+                            WorkingDirectory = Path.GetDirectoryName(executable) ?? Environment.CurrentDirectory
+                        };
+                        if (Process.Start(restart) is null)
+                            throw new InvalidOperationException("Windows did not start the new Layal process.");
+                    }
+                    catch (Exception exception)
+                    {
+                        WriteCrashLog("Restart after AI resource folder change", exception);
+                        MessageBox.Show(
+                            "تم حفظ مجلد الموارد ونُقلت الملفات بأمان. أغلق ليال وافتحها مرة أخرى لتطبيق المسار الجديد.\nThe resource folder was saved and verified. Close and reopen Layal to apply the new path.",
+                            "Layal | ليال",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                    }
+
+                    try { localVoiceRuntime.Dispose(); }
+                    catch (Exception exception) { WriteCrashLog("Dispose first-run speech runtime", exception); }
+                    AppRuntime.LocalVoiceRuntime = null;
+                    Shutdown();
+                    return;
+                }
+
                 if (!setupWindow.CanContinueToMainWindow)
                 {
                     try { localVoiceRuntime.Dispose(); }
@@ -261,6 +299,20 @@ public partial class App : Application
             // The existing instance's reminder timer will process the due item shortly.
             if (_isScheduledReminderLaunch)
                 return false;
+
+            if (_isRestartAfterStorageChange)
+            {
+                try
+                {
+                    _ownsSingleInstanceMutex = _singleInstanceMutex.WaitOne(TimeSpan.FromSeconds(15));
+                    return _ownsSingleInstanceMutex;
+                }
+                catch (AbandonedMutexException)
+                {
+                    _ownsSingleInstanceMutex = true;
+                    return true;
+                }
+            }
 
             try
             {
