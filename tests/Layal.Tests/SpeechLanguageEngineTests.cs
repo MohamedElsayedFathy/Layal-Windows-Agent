@@ -33,6 +33,17 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
+    public void ArabicUnspecifiedDoesNotRenumberExistingPublicLanguageKinds()
+    {
+        Assert.AreEqual(0, (int)SpeechLanguageKind.Unknown);
+        Assert.AreEqual(1, (int)SpeechLanguageKind.ArabicStandard);
+        Assert.AreEqual(2, (int)SpeechLanguageKind.EgyptianArabic);
+        Assert.AreEqual(3, (int)SpeechLanguageKind.English);
+        Assert.AreEqual(4, (int)SpeechLanguageKind.Mixed);
+        Assert.AreEqual(5, (int)SpeechLanguageKind.ArabicUnspecified);
+    }
+
+    [TestMethod]
     public void LeavesArabicUnspecifiedWhenDialectEvidenceIsWeakOrAbsent()
     {
         var generic = _engine.Analyze("تمام، شكرًا لك.");
@@ -50,10 +61,10 @@ public sealed class SpeechLanguageEngineTests
             SpeechLanguageKind.EgyptianArabic,
             _engine.Analyze("عاوز أروح دلوقتي").Language.PrimaryLanguage);
 
-        var evidence = _engine.Reference.DetectArabicDialect("عامل إيه النهارده؟");
+        var evidence = _engine.Reference.DetectArabicDialect("عاوز أروح دلوقتي");
         Assert.AreEqual(SpeechLanguageKind.EgyptianArabic, evidence.Dialect);
         Assert.IsTrue(evidence.EgyptianWeight >= 3);
-        Assert.IsTrue(evidence.EgyptianMarkers.Count >= 2);
+        Assert.IsTrue(evidence.EgyptianMarkers.Count >= 3);
     }
 
     [TestMethod]
