@@ -234,7 +234,10 @@ def validate_manifest(payload: object) -> list[str]:
 def validate_audio_files(payload: dict, manifest_path: Path) -> list[str]:
     """Check referenced WAV files exist and cannot escape the manifest's audio folder."""
     errors: list[str] = []
-    audio_root = (manifest_path.parent / "audio").resolve()
+    audio_directory = manifest_path.parent / "audio"
+    if audio_directory.is_symlink():
+        return ["Speech/audio must be a real directory, not a symlink."]
+    audio_root = audio_directory.resolve()
     for case in payload["cases"]:
         if case.get("recordingStatus", "not-recorded") != "recorded":
             continue
