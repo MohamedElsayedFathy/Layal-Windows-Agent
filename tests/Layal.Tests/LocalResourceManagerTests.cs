@@ -22,7 +22,14 @@ public sealed class LocalResourceManagerTests
     {
         var ids = LocalResourceCatalog.All.Select(item => item.Id).ToArray();
         Assert.AreEqual(ids.Length, ids.Distinct(StringComparer.Ordinal).Count());
-        Assert.IsTrue(LocalResourceCatalog.All.All(item => item.Required));
+        var optionalResourceIds = LocalResourceCatalog.All
+            .Where(item => !item.Required)
+            .Select(item => item.Id)
+            .ToArray();
+        CollectionAssert.AreEqual(
+            new[] { LocalResourceIds.OllamaRuntimeInstaller },
+            optionalResourceIds,
+            "Only the fallback Ollama installer should be optional in the current catalog.");
 
         var runtime = LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperRuntime);
         Assert.AreEqual(7_982_101L, runtime.ExpectedSizeBytes);
@@ -349,6 +356,72 @@ public sealed class LocalResourceDownloadServiceTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             downloader.DownloadAsync(resource, Path.Combine(temp.Path, "resource.bin")));
+    }
+
+    [TestMethod]
+    public async Task DownloadRejectsRedirectToUnapprovedHostBeforeSendingAnotherRequest()
+    {
+        using var temp = new TestTempDirectory();
+        var payload = Encoding.UTF8.GetBytes("redirect must not escape the approved host list");
+        var resource = CreateResource(payload);
+        var attempts = 0;
+        var handler = new StubHandler((request, _) =>
+        {
+            attempts++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Redirect)
+            {
+                Headers = { Location = new Uri("https://untrusted.example.test/resource.bin") },
+                RequestMessage = request
+            });
+        });
+
+        using var client = new HttpClient(handler);
+        using var downloader = new LocalResourceDownloadService(client, new[] { Host });
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            downloader.DownloadAsync(resource, Path.Combine(temp.Path, "redirect-blocked.bin")));
+
+        Assert.AreEqual(1, attempts, "The client must reject the redirect before contacting its destination.");
+        Assert.IsFalse(File.Exists(Path.Combine(temp.Path, "redirect-blocked.bin")));
+    }
+
+    [TestMethod]
+    public async Task DownloadFollowsRedirectWhenEveryHttpsHostIsApproved()
+    {
+        using var temp = new TestTempDirectory();
+        var payload = Encoding.UTF8.GetBytes("approved CDN redirect payload");
+        var resource = CreateResource(payload);
+        var attempts = 0;
+        const string cdnHost = "cdn.example.test";
+        var handler = new StubHandler((request, _) =>
+        {
+            attempts++;
+            if (request.RequestUri?.IdnHost == Host)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Redirect)
+                {
+                    Headers = { Location = new Uri("https://" + cdnHost + "/resource.bin") },
+                    RequestMessage = request
+                });
+            }
+
+            Assert.AreEqual(cdnHost, request.RequestUri?.IdnHost);
+            Assert.AreEqual("identity", request.Headers.AcceptEncoding.Single().Value);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload),
+                RequestMessage = request
+            });
+        });
+
+        using var client = new HttpClient(handler);
+        using var downloader = new LocalResourceDownloadService(client, new[] { Host, cdnHost });
+        var destination = Path.Combine(temp.Path, "approved-redirect.bin");
+
+        await downloader.DownloadAsync(resource, destination);
+
+        Assert.AreEqual(2, attempts);
+        CollectionAssert.AreEqual(payload, await File.ReadAllBytesAsync(destination));
     }
 
     [TestMethod]
