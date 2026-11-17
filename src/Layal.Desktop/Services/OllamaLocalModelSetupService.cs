@@ -266,7 +266,9 @@ public sealed class OllamaLocalModelSetupService
             "$ErrorActionPreference='Stop'; " +
             "$signature=Get-AuthenticodeSignature -LiteralPath " + literalPath + "; " +
             "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 17 }; " +
-            "[Console]::Out.WriteLine($signature.SignerCertificate.Subject)";
+            "$subject=$signature.SignerCertificate.Subject; " +
+            "if ($subject -notmatch '(^|, )O=Ollama Inc\\.(,|$)') { exit 18 }; " +
+            "[Console]::Out.WriteLine($subject)";
 
         var start = new ProcessStartInfo(powershell)
         {
@@ -302,7 +304,7 @@ public sealed class OllamaLocalModelSetupService
             var subject = await stdout.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
             _ = await stderr.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
             return process.ExitCode == 0 &&
-                   subject.Contains("Ollama", StringComparison.OrdinalIgnoreCase);
+                   subject.Contains("Ollama Inc.", StringComparison.OrdinalIgnoreCase);
         }
         catch (OperationCanceledException)
         {
