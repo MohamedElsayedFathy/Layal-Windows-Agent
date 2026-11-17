@@ -338,10 +338,17 @@ public sealed class CompleteSetupWindow : Window
                     ? TimeSpan.FromSeconds(Math.Clamp(progress.RemainingSeconds.Value, 0, 365 * 24 * 60 * 60))
                         .ToString(@"h\:mm\:ss")
                     : T("جارٍ الحساب", "calculating");
+                var resourceName = string.Equals(
+                    progress.ResourceId,
+                    LocalResourceIds.OllamaRuntimeInstaller,
+                    StringComparison.Ordinal)
+                    ? T("مثبّت Ollama", "Ollama installer")
+                    : T("نموذج المحادثة Qwen3.5 2B", "Qwen3.5 2B chat model");
                 _statusText.Text = string.Format(
                     System.Globalization.CultureInfo.CurrentCulture,
-                    T("تنزيل نموذج المحادثة: {0} من {1} — {2} — المتبقي {3}",
-                      "Downloading chat model: {0} of {1} — {2} — remaining {3}"),
+                    T("تنزيل {0}: {1} من {2} — {3} — المتبقي {4}",
+                      "Downloading {0}: {1} of {2} — {3} — remaining {4}"),
+                    resourceName,
                     CompleteSetupPreflightService.FormatBytes(progress.DownloadedBytes),
                     CompleteSetupPreflightService.FormatBytes(progress.TotalBytes),
                     speed,
