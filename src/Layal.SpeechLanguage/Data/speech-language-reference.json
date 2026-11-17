@@ -83,7 +83,7 @@
         "wellbeing"
       ],
       "isDialectMarker": true,
-      "dialectEvidenceWeight": 2
+      "dialectEvidenceWeight": 3
     },
     {
       "id": "msa-please",
@@ -570,7 +570,7 @@
         "greetings"
       ],
       "isDialectMarker": true,
-      "dialectEvidenceWeight": 2
+      "dialectEvidenceWeight": 3
     },
     {
       "id": "eg-akhbarak",
@@ -774,7 +774,7 @@
         "conversation"
       ],
       "isDialectMarker": true,
-      "dialectEvidenceWeight": 2
+      "dialectEvidenceWeight": 1
     },
     {
       "id": "eg-ezzay",
