@@ -129,7 +129,16 @@ public sealed class OllamaLocalModelSetupService
 
         await EnsureServerReadyAsync(executable, progress, cancellationToken).ConfigureAwait(false);
 
+        var existingPin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
         var installedDigest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
+
+        if (existingPin is not null && string.IsNullOrWhiteSpace(installedDigest))
+        {
+            throw new InvalidOperationException(
+                "The previously verified Qwen model is missing, but its local digest pin remains. " +
+                "Automatic download from the mutable qwen3.5:2b tag is blocked. " +
+                "Use an explicit model-reset workflow before replacing this pin.");
+        }
 
         if (!string.IsNullOrWhiteSpace(installedDigest))
         {
