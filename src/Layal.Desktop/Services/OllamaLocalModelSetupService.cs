@@ -129,23 +129,36 @@ public sealed class OllamaLocalModelSetupService
 
         await EnsureServerReadyAsync(executable, progress, cancellationToken).ConfigureAwait(false);
 
-        progress?.Report($"تنزيل نموذج المحادثة المحلي {DefaultModelId} (الحجم المتوقع {ModelSizeDescription})…");
-        await _resourceCoordinator.ExecuteAsync(
-            LocalResourceIds.ChatModel,
-            token => PullModelAsync(progress, downloadProgress, token),
-            async token =>
-            {
-                if (!await VerifyChatModelAsync(executable, token).ConfigureAwait(false))
-                    return false;
+        var existingPin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
+        var installedDigest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
 
-                await _chatService.RunModelSmokeTestAsync(
-                    LocalChatModelService.DefaultBaseUrl, DefaultModelId, token).ConfigureAwait(false);
-                await SaveModelDigestManifestAsync(token).ConfigureAwait(false);
-                return true;
-            },
-            cancellationToken).ConfigureAwait(false);
+        if (existingPin is not null && string.IsNullOrWhiteSpace(installedDigest))
+        {
+            throw new InvalidOperationException(
+                "The previously verified Qwen model is missing, but its local digest pin remains. " +
+                "Automatic download from the mutable qwen3.5:2b tag is blocked. " +
+                "Use an explicit model-reset workflow before replacing this pin.");
+        }
 
-        progress?.Report("اكتمل تنزيل النموذج، وتم اختبار توليد رد محلي والتحقق من بصمة النموذج.");
+        if (!string.IsNullOrWhiteSpace(installedDigest))
+        {
+            progress?.Report("إعادة التحقق من نموذج Qwen المحلي الموجود وبصمته المحفوظة…");
+            await _resourceCoordinator.EnsureReadyAsync(
+                LocalResourceIds.ChatModel,
+                token => VerifyPinnedModelAsync(executable, token),
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            progress?.Report($"تنزيل نموذج المحادثة المحلي {DefaultModelId} (الحجم المتوقع {ModelSizeDescription})…");
+            await _resourceCoordinator.ExecuteAsync(
+                LocalResourceIds.ChatModel,
+                token => PullModelAsync(progress, downloadProgress, token),
+                token => VerifyPinnedModelAsync(executable, token),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        progress?.Report("اكتمل التحقق من نموذج المحادثة المحلي ومقارنة بصمته ببصمة التثبيت المحفوظة.");
     }
 
     public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
@@ -164,18 +177,7 @@ public sealed class OllamaLocalModelSetupService
 
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.ChatModel,
-                async token =>
-                {
-                    if (!await VerifyChatModelAsync(executable, token).ConfigureAwait(false))
-                        return false;
-                    var digest = await GetInstalledModelDigestAsync(token).ConfigureAwait(false);
-                    if (string.IsNullOrWhiteSpace(digest))
-                        return false;
-                    await _chatService.RunModelSmokeTestAsync(
-                        LocalChatModelService.DefaultBaseUrl, DefaultModelId, token).ConfigureAwait(false);
-                    await SaveModelDigestManifestAsync(digest, token).ConfigureAwait(false);
-                    return true;
-                },
+                token => VerifyPinnedModelAsync(executable, token),
                 cancellationToken).ConfigureAwait(false);
             return true;
         }
@@ -435,8 +437,8 @@ public sealed class OllamaLocalModelSetupService
                 new[] { "show", DefaultModelId },
                 null,
                 cancellationToken).ConfigureAwait(false);
-            return !string.IsNullOrWhiteSpace(
-                await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false));
+            var digest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
+            return OllamaModelDigestPolicy.IsValidSha256Digest(digest);
         }
         catch (Exception exception) when (
             exception is InvalidOperationException or TimeoutException or
@@ -485,22 +487,97 @@ public sealed class OllamaLocalModelSetupService
     private static string ModelDigestManifestPath => Path.Combine(
         LocalVoiceService.DataRoot, "resource-manifests", "qwen3.5-2b.json");
 
-    private async Task SaveModelDigestManifestAsync(CancellationToken cancellationToken)
+    private async Task<bool> VerifyPinnedModelAsync(
+        string executable,
+        CancellationToken cancellationToken)
     {
-        var digest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(digest))
-            throw new InvalidOperationException("Ollama did not return an immutable digest for the installed model.");
-        await SaveModelDigestManifestAsync(digest, cancellationToken).ConfigureAwait(false);
+        if (!await VerifyChatModelAsync(executable, cancellationToken).ConfigureAwait(false))
+            return false;
+
+        var actualDigest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
+        if (!OllamaModelDigestPolicy.IsValidSha256Digest(actualDigest))
+            return false;
+
+        var pin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
+        if (pin is not null)
+        {
+            if (!string.Equals(pin.ModelId, DefaultModelId, StringComparison.Ordinal))
+                throw new InvalidDataException("The saved Qwen digest pin belongs to a different model.");
+            OllamaModelDigestPolicy.EnsureMatches(pin.Digest, actualDigest!);
+        }
+
+        await _chatService.RunModelSmokeTestAsync(
+            LocalChatModelService.DefaultBaseUrl, DefaultModelId, cancellationToken).ConfigureAwait(false);
+
+        // Existing installs without a pin are migrated by recording their first verified
+        // digest. Once written, the pin is immutable until an explicit reset action exists.
+        if (pin is null)
+            await SaveModelDigestManifestAsync(actualDigest!, cancellationToken).ConfigureAwait(false);
+
+        return true;
+    }
+
+    private async Task<OllamaModelDigestManifest?> ReadModelDigestManifestAsync(
+        CancellationToken cancellationToken)
+    {
+        var path = Path.GetFullPath(ModelDigestManifestPath);
+        var directory = Path.GetDirectoryName(path)
+            ?? throw new InvalidOperationException("The Qwen digest manifest has no parent directory.");
+        EnsureNoReparsePoints(directory);
+        if (!File.Exists(path))
+            return null;
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The Qwen digest manifest must not be a reparse point.");
+
+        var info = new FileInfo(path);
+        if (info.Length <= 0 || info.Length > 16 * 1024)
+            throw new InvalidDataException("The Qwen digest manifest has an invalid size.");
+
+        await using var input = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        OllamaModelDigestManifest? manifest;
+        try
+        {
+            manifest = await JsonSerializer.DeserializeAsync<OllamaModelDigestManifest>(
+                input, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException("The Qwen digest manifest contains invalid JSON.", exception);
+        }
+
+        if (manifest is null ||
+            !string.Equals(manifest.ModelId, DefaultModelId, StringComparison.Ordinal) ||
+            !OllamaModelDigestPolicy.IsValidSha256Digest(manifest.Digest))
+            throw new InvalidDataException("The Qwen digest manifest is malformed or does not match the configured model.");
+
+        return manifest with { Digest = manifest.Digest.ToLowerInvariant() };
     }
 
     private async Task SaveModelDigestManifestAsync(
         string digest,
         CancellationToken cancellationToken)
     {
+        if (!OllamaModelDigestPolicy.IsValidSha256Digest(digest))
+            throw new InvalidDataException("Ollama did not return a valid full SHA-256 model digest.");
+
         var directory = Path.GetDirectoryName(ModelDigestManifestPath)!;
+        EnsureNoReparsePoints(directory);
         Directory.CreateDirectory(directory);
+        EnsureNoReparsePoints(directory);
+
+        if (File.Exists(ModelDigestManifestPath))
+        {
+            var existing = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
+            if (existing is null)
+                throw new InvalidDataException("The Qwen digest pin could not be read.");
+            OllamaModelDigestPolicy.EnsureMatches(existing.Digest, digest);
+            return;
+        }
+
         var manifest = new OllamaModelDigestManifest(
-            DefaultModelId, digest, DateTimeOffset.UtcNow);
+            DefaultModelId, digest.ToLowerInvariant(), DateTimeOffset.UtcNow);
         var temporary = ModelDigestManifestPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
@@ -512,13 +589,31 @@ public sealed class OllamaLocalModelSetupService
                     .ConfigureAwait(false);
                 await output.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
-            File.Move(temporary, ModelDigestManifestPath, overwrite: true);
+            // Create-only: never replace a previously trusted digest pin implicitly.
+            File.Move(temporary, ModelDigestManifestPath);
         }
         finally
         {
             try { if (File.Exists(temporary)) File.Delete(temporary); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static void EnsureNoReparsePoints(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath)
+            ?? throw new InvalidOperationException("The Qwen digest path has no filesystem root.");
+        var current = root;
+        foreach (var segment in fullPath[root.Length..].Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if (Directory.Exists(current) &&
+                (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("The Qwen digest pin cannot be stored through a reparse-point directory.");
         }
     }
 

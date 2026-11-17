@@ -139,6 +139,51 @@ public sealed class CompleteSetupWindow : Window
                 "Qwen3.5 2B: نحو 2.7–3.1 GB. أوزان VoiceTut: نحو 2.47 GB. PyTorch CPU: نحو 619.4 MB (قد تختلف حزم CUDA). Whisper: نحو 148 MB للنموذج، وقرابة 8 MB للمحرك. Python الاحتياطي: نحو 29.9 MB. يتطلب Ollama نحو 4 GB على الأقل لملفات البرنامج. أحجام اعتماديات pip المؤقتة وبعض الملفات غير ثابتة؛ لذلك هذه قيم مرجعية وليست إجمالي تنزيل أو مساحة نهائيًا مضمونًا.",
                 "Qwen3.5 2B: approximately 2.7–3.1 GB. VoiceTut weights: approximately 2.47 GB. PyTorch CPU: approximately 619.4 MB (CUDA packages differ). Whisper: approximately 148 MB for the model and about 8 MB for the runtime. Python fallback: about 29.9 MB. Ollama requires at least 4 GB for program files. Pip dependencies and temporary files vary, so these are references, not a guaranteed aggregate download or final-storage estimate."),
             13, FontWeights.Normal, new Thickness(0)));
+        CompleteSetupResourcePlan resourcePlan;
+        var resourcePlanWarning = string.Empty;
+        try
+        {
+            resourcePlan = CompleteSetupResourcePlanService.Calculate(
+                _resourceManager.GetSnapshotAsync().GetAwaiter().GetResult());
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidOperationException or
+                System.Security.SecurityException or System.Text.Json.JsonException)
+        {
+            // Count every required resource as pending if persisted state cannot be read.
+            resourcePlan = CompleteSetupResourcePlanService.Calculate(
+                Array.Empty<LocalResourceStateEntry>());
+            resourcePlanWarning = T(
+                "تعذر قراءة حالة الموارد؛ عُرض تقدير محافظ بافتراض أن الموارد المطلوبة غير جاهزة. ",
+                "Resource state could not be read; the conservative plan assumes required resources are not ready. ");
+        }
+        var unknownSizeText = resourcePlan.UnknownSizeResources.Count == 0
+            ? T("لا توجد موارد تنزيل مطلوبة بأحجام مجهولة وفق حالة الموارد الحالية.",
+                "No pending required downloads have unknown catalog sizes.")
+            : string.Join(", ", resourcePlan.UnknownSizeResources);
+        referenceSizes.Children.Add(CreateText(
+            T(
+                "حسب حالة الموارد الحالية، مجموع الأحجام المرجعية المعروفة للموارد المطلوبة غير الجاهزة هو " + resourcePlanWarning +
+                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownReferenceBytes) +
+                ". موارد ذات حجم متغير/غير مثبت: " + unknownSizeText +
+                ". قد يُعاد استخدام بعض الموارد بدل تنزيلها؛ وهذا ليس إجمالي تنزيل أو مساحة تثبيت نهائية.",
+                "Based on current resource state, the sum of known catalog size references for required resources not yet Ready is " + resourcePlanWarning +
+                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownReferenceBytes) +
+                ". Some resources may be reused instead of downloaded; this is not a guaranteed download total or final installation size."),
+            12, FontWeights.Normal, new Thickness(0, 10, 0, 0)));
+        if (resourcePlan.ConditionalResources.Count > 0)
+        {
+            var conditionalReferences = string.Join(
+                ", ",
+                resourcePlan.ConditionalResources.Select(resource =>
+                    resource.DisplayName + " — " +
+                    CompleteSetupPreflightService.FormatBytes(resource.ExpectedSizeBytes!.Value)));
+            referenceSizes.Children.Add(CreateText(
+                T("موارد احتياطية/اختيارية لا تدخل في المجموع الأساسي (قد تُطلب حسب مسار التثبيت): ",
+                  "Optional/fallback resources excluded from the base subtotal (may be needed by the chosen install path): ") +
+                conditionalReferences,
+                12, FontWeights.Normal, new Thickness(0, 6, 0, 0)));
+        }
         panel.Children.Add(CreateCard(referenceSizes));
 
         _consent.Content = CreateText(
