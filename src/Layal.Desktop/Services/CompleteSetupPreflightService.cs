@@ -37,11 +37,17 @@ public static class CompleteSetupPreflightService
 {
     private static readonly (string Name, string Url)[] ConnectivityTargets =
     {
-        ("GitHub", "https://github.com/"),
+        ("GitHub source", "https://github.com/"),
+        ("GitHub archives", "https://codeload.github.com/"),
+        ("GitHub release assets", "https://release-assets.githubusercontent.com/"),
+        ("GitHub objects", "https://objects.githubusercontent.com/"),
         ("Python", "https://www.python.org/"),
-        ("PyPI", "https://pypi.org/"),
-        ("PyTorch", "https://download.pytorch.org/"),
-        ("Hugging Face", "https://huggingface.co/"),
+        ("PyPI index", "https://pypi.org/"),
+        ("Python package files", "https://files.pythonhosted.org/"),
+        ("PyTorch wheels", "https://download.pytorch.org/"),
+        ("Hugging Face Hub", "https://huggingface.co/"),
+        ("Hugging Face LFS", "https://cdn-lfs.huggingface.co/"),
+        ("Hugging Face Xet", "https://cas-bridge.xethub.hf.co/"),
         ("Ollama", "https://ollama.com/"),
         ("Ollama registry", "https://registry.ollama.ai/")
     };
