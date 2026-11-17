@@ -59,13 +59,13 @@ public static class LocalResourceCatalog
             new LocalResourceDefinition(
                 LocalResourceIds.PythonRuntime,
                 "Python x64",
-                "3.10–3.12",
-                "https://www.python.org/downloads/windows/",
+                "3.11–3.13 (managed fallback 3.13.17)",
+                "https://www.python.org/ftp/python/3.13.17/python-3.13.17-amd64.exe",
                 LocalResourceKind.Runtime,
                 true,
-                null,
-                null,
-                "Verify Authenticode signature, x64 architecture, and supported Python version."),
+                29_941_280,
+                "5da012101ba2e17113a9a1cd901e9ce1441086f2b7ecb5de06ec94163899a190",
+                "Verify the pinned installer SHA-256 and Python Software Foundation Authenticode publisher; install per-user under Layal LocalAi without changing PATH; verify Python x64 and version 3.13.17."),
 
             new LocalResourceDefinition(
                 LocalResourceIds.PyTorch,
