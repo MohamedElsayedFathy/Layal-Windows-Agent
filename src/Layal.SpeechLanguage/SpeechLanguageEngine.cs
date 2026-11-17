@@ -66,9 +66,9 @@ internal static class LanguageDetector
         }
         else if (arabicCount > 0)
         {
-            var egyptian = reference.IsEgyptianText(text);
-            primary = egyptian ? SpeechLanguageKind.EgyptianArabic : SpeechLanguageKind.ArabicStandard;
-            confidence = egyptian ? 0.82 : 0.94;
+            var dialectEvidence = reference.DetectArabicDialect(text);
+            primary = dialectEvidence.Dialect;
+            confidence = dialectEvidence.Confidence;
         }
         else if (latinCount > 0)
         {
@@ -97,7 +97,7 @@ internal static class LanguageDetector
             if (value.Length > 0 && startIndex >= 0)
             {
                 var language = currentScript == ScriptKind.Arabic
-                    ? (reference.IsEgyptianText(value) ? SpeechLanguageKind.EgyptianArabic : SpeechLanguageKind.ArabicStandard)
+                    ? reference.DetectArabicDialect(value).Dialect
                     : SpeechLanguageKind.English;
                 segments.Add(new LanguageSegment(value, language, startIndex, endIndex - startIndex));
             }
