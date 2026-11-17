@@ -1,6 +1,8 @@
 import importlib.util
 import json
 import sys
+import tempfile
+import wave
 import unittest
 from pathlib import Path
 
@@ -78,6 +80,148 @@ class SpeechTranscriptScoringTests(unittest.TestCase):
         errors = MODULE.validate_manifest(payload)
         self.assertTrue(any("duplicates id" in error for error in errors))
         self.assertTrue(any("must be a string" in error for error in errors))
+
+    @staticmethod
+    def recorded_case():
+        return {
+            "id": "eg-recorded-001",
+            "locale": "ar-EG",
+            "referenceText": "أنا مش موافق على الرقم 42",
+            "recordingStatus": "recorded",
+            "audioAsset": "audio/eg-recorded-001.wav",
+            "speakerId": "spk-001",
+            "consent": {
+                "granted": True,
+                "recordedAt": "2026-11-17T10:00:00Z",
+                "scope": "research-evaluation",
+            },
+            "referenceReview": {
+                "status": "approved",
+                "reviewerId": "rev-001",
+                "reviewedAt": "2026-11-17T11:00:00Z",
+            },
+            "hypotheses": {"whisper_cpp_base": "أنا مش موافق على الرقم 42"},
+        }
+
+    def test_recorded_case_requires_explicit_consent_and_human_review(self):
+        case = self.recorded_case()
+        case["consent"]["granted"] = False
+        case["referenceReview"]["status"] = "pending"
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+        self.assertTrue(any("consent.granted=true" in error for error in errors))
+        self.assertTrue(any("cannot contain ASR hypotheses" in error for error in errors))
+
+    def test_recorded_case_accepts_pseudonymous_consent_and_approved_reference(self):
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [self.recorded_case()]})
+        self.assertEqual([], errors)
+
+    def test_recorded_case_rejects_path_traversal_and_identifying_speaker_id(self):
+        case = self.recorded_case()
+        case["audioAsset"] = "audio/../../private.wav"
+        case["speakerId"] = "speaker-name@example.com"
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+        self.assertTrue(any("relative WAV path" in error for error in errors))
+        self.assertTrue(any("pseudonymous speakerId" in error for error in errors))
+
+    def test_malformed_recording_and_review_states_are_reported_without_crashing(self):
+        case = self.recorded_case()
+        case["recordingStatus"] = []
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+        self.assertTrue(any("unsupported recordingStatus" in error for error in errors))
+
+        case = self.recorded_case()
+        case["referenceReview"]["status"] = []
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+        self.assertTrue(any("referenceReview.status" in error for error in errors))
+
+    def test_not_recorded_case_cannot_reference_audio_or_consent(self):
+        case = {
+            "id": "eg-unrecorded",
+            "locale": "ar-EG",
+            "referenceText": "جملة اختبار",
+            "audioAsset": "audio/hidden.wav",
+            "consent": {"granted": True},
+            "hypotheses": {},
+        }
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+        self.assertTrue(any("must not reference audioAsset" in error for error in errors))
+        self.assertTrue(any("must not store consent metadata" in error for error in errors))
+
+    def test_transcript_only_cases_reject_asr_hypotheses(self):
+        for recording_status in ("not-recorded", None):
+            with self.subTest(recording_status=recording_status):
+                case = {
+                    "id": "transcript-only",
+                    "locale": "en",
+                    "referenceText": "Please open the settings page.",
+                    "hypotheses": {"whisper_cpp_base": "Please open settings."},
+                }
+                if recording_status is not None:
+                    case["recordingStatus"] = recording_status
+                errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+                self.assertTrue(any("cannot contain ASR hypotheses" in error for error in errors))
+
+    def test_scoring_requires_recorded_audio_and_approved_human_reference(self):
+        approved = self.recorded_case()
+        self.assertTrue(MODULE._is_scoring_eligible(approved))
+
+        unrecorded = self.recorded_case()
+        unrecorded["recordingStatus"] = "not-recorded"
+        self.assertFalse(MODULE._is_scoring_eligible(unrecorded))
+
+        missing_status = self.recorded_case()
+        missing_status.pop("recordingStatus")
+        self.assertFalse(MODULE._is_scoring_eligible(missing_status))
+
+        pending_review = self.recorded_case()
+        pending_review["referenceReview"]["status"] = "pending"
+        self.assertFalse(MODULE._is_scoring_eligible(pending_review))
+
+    def test_audio_file_check_requires_existing_file_inside_audio_directory(self):
+        case = self.recorded_case()
+        payload = {"schemaVersion": 1, "cases": [case]}
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "speech-reference-set.json"
+            audio_dir = Path(directory) / "audio"
+            audio_dir.mkdir()
+            self.assertTrue(any("does not exist" in error for error in MODULE.validate_audio_files(payload, manifest)))
+            with wave.open(str(audio_dir / "eg-recorded-001.wav"), "wb") as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(16000)
+                audio.writeframes(b"\\x00\\x00" * 160)
+            self.assertEqual([], MODULE.validate_audio_files(payload, manifest))
+
+    def test_audio_file_check_rejects_symlinked_audio_root(self):
+        case = self.recorded_case()
+        payload = {"schemaVersion": 1, "cases": [case]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            external_audio = root / "external-audio"
+            external_audio.mkdir()
+            manifest = root / "speech-reference-set.json"
+            audio_dir = root / "audio"
+            try:
+                audio_dir.symlink_to(external_audio, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("Directory symlinks are unavailable on this runner.")
+            errors = MODULE.validate_audio_files(payload, manifest)
+            self.assertTrue(any("must be a real directory" in error for error in errors))
+
+    def test_audio_file_check_rejects_wrong_sample_format(self):
+        case = self.recorded_case()
+        payload = {"schemaVersion": 1, "cases": [case]}
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "speech-reference-set.json"
+            audio_dir = Path(directory) / "audio"
+            audio_dir.mkdir()
+            with wave.open(str(audio_dir / "eg-recorded-001.wav"), "wb") as audio:
+                audio.setnchannels(2)
+                audio.setsampwidth(2)
+                audio.setframerate(44100)
+                audio.writeframes(b"\\x00\\x00\\x00\\x00" * 160)
+            errors = MODULE.validate_audio_files(payload, manifest)
+            self.assertTrue(any("mono 16 kHz / 16-bit PCM" in error for error in errors))
 
 
 if __name__ == "__main__":

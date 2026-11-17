@@ -21,3 +21,6 @@ TestResults/
 
 # OCR model files are pinned and fetched by tools/Install-LayalOcrModels.ps1.
 src/Layal.Desktop/tessdata/*.traineddata
+
+# Consented speech evaluation recordings remain local and must not enter Git.
+tests/TestAssets/Speech/audio/
