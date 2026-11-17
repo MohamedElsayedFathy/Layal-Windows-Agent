@@ -130,6 +130,7 @@ public partial class App : Application
 
         AppRuntime.ExitAction = ShutdownLayal;
         AppRuntime.MainWindow = new MainWindow();
+        MainWindow = AppRuntime.MainWindow;
         AppRuntime.MascotWindow = new FloatingMascotWindow();
         AppRuntime.Tray = new TrayService(
             showMain: () => Dispatcher.Invoke(() => AppRuntime.MainWindow?.ShowFromTray()),
