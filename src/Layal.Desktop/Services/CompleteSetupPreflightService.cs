@@ -74,8 +74,12 @@ public static class CompleteSetupPreflightService
         var platform = RuntimeInformation.OSDescription + " | " +
                        RuntimeInformation.OSArchitecture + " | " +
                        (Environment.Is64BitOperatingSystem ? "64-bit OS" : "32-bit OS");
-        var cpu = Environment.ProcessorCount.ToString(
-            System.Globalization.CultureInfo.InvariantCulture) +
+        var processorIdentifier = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER");
+        var cpu = (string.IsNullOrWhiteSpace(processorIdentifier)
+                ? "CPU model unavailable"
+                : processorIdentifier.Trim()) +
+            " | " + Environment.ProcessorCount.ToString(
+                System.Globalization.CultureInfo.InvariantCulture) +
             " logical processor(s) | " + RuntimeInformation.ProcessArchitecture;
         var memory = InspectPhysicalMemory();
         var gpu = InspectVideoControllers();
@@ -224,7 +228,9 @@ public static class CompleteSetupPreflightService
         const string script =
             "$ErrorActionPreference='Stop'; " +
             "Get-CimInstance -ClassName Win32_VideoController | " +
-            "ForEach-Object { Write-Output ($_.Name + ' | driver ' + $_.DriverVersion) }";
+            "ForEach-Object { " +
+            "$vram='unknown'; if ($null -ne $_.AdapterRAM) { $vram=[string]$_.AdapterRAM }; " +
+            "Write-Output ($_.Name + ' | driver ' + $_.DriverVersion + ' | adapter RAM bytes ' + $vram) }";
 
         var start = new ProcessStartInfo(powershell)
         {
