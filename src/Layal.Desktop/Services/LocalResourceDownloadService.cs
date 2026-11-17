@@ -524,7 +524,16 @@ public sealed class LocalResourceDownloadService : IDisposable
             }
 
             if (!IsRedirectStatusCode(response.StatusCode))
+            {
+                if (ownsCurrentRequest)
+                {
+                    // The final URI has already been validated; the response body remains
+                    // readable after disposing the request because resource downloads are GET-only.
+                    response.RequestMessage = null;
+                    currentRequest.Dispose();
+                }
                 return response;
+            }
 
             if (redirectCount >= MaximumValidatedRedirects)
             {
@@ -584,6 +593,8 @@ public sealed class LocalResourceDownloadService : IDisposable
     {
         if (!uri.IsAbsoluteUri ||
             !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            uri.IsLoopback ||
+            uri.Port != 443 ||
             !string.IsNullOrEmpty(uri.UserInfo) ||
             !_approvedHosts.Contains(uri.IdnHost))
             throw new InvalidOperationException("The resource download URL is not an approved HTTPS source.");
