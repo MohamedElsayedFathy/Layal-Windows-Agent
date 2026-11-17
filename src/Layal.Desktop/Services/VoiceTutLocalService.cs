@@ -783,7 +783,6 @@ public sealed class VoiceTutLocalService : IDisposable
                     "Include_tcltk=0",
                     "Include_test=0",
                     "Include_doc=0",
-                    "Include_tools=0",
                     "Shortcuts=0",
                     "AssociateFiles=0"
                 };
@@ -830,13 +829,21 @@ public sealed class VoiceTutLocalService : IDisposable
         EnsureManagedPythonRootSafe();
         var directory = ManagedPythonRoot;
         if (!Directory.Exists(directory)) return;
-        foreach (var entry in Directory.EnumerateFileSystemEntries(directory, "*", SearchOption.AllDirectories))
-        {
-            var attributes = File.GetAttributes(entry);
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidOperationException("Refusing to repair the managed Python runtime because it contains a reparse point.");
-        }
+        EnsureManagedTreeHasNoReparsePoints(directory);
         Directory.Delete(directory, recursive: true);
+    }
+
+    private static void EnsureManagedTreeHasNoReparsePoints(string directory)
+    {
+        var info = new DirectoryInfo(directory);
+        foreach (var entry in info.EnumerateFileSystemInfos())
+        {
+            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException(
+                    "Refusing to repair the managed Python runtime because it contains a reparse point.");
+            if ((entry.Attributes & FileAttributes.Directory) != 0)
+                EnsureManagedTreeHasNoReparsePoints(entry.FullName);
+        }
     }
 
     private static void EnsureNoReparsePoints(string path)
