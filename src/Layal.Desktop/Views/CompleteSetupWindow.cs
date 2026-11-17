@@ -33,6 +33,8 @@ public sealed class CompleteSetupWindow : Window
     private readonly ProgressBar _progressBar = new();
     private readonly TextBox _diagnostics = new();
     private CancellationTokenSource? _setupCancellation;
+    private CancellationTokenSource? _connectivityCancellation;
+    private bool _connectivityCheckInProgress;
     private bool _isRunning;
     private bool _hasAttemptedSetup;
 
@@ -58,7 +60,6 @@ public sealed class CompleteSetupWindow : Window
         FlowDirection = _isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Content = BuildContent();
         Closing += OnClosing;
-        Loaded += async (_, _) => await RefreshConnectivityAsync();
         UpdateButtons();
     }
 
@@ -93,8 +94,8 @@ public sealed class CompleteSetupWindow : Window
         }));
 
         _connectivityText.Text = T(
-            "جارٍ فحص اتصال HTTPS بمصادر التثبيت الرسمية…",
-            "Checking HTTPS connectivity to official setup sources…");
+            "سيتم فحص الاتصال بالمصادر الرسمية بعد موافقتك على الإعداد.",
+            "Official source connectivity will be checked after you approve setup.");
         _connectivityText.TextWrapping = TextWrapping.Wrap;
         _connectivityText.FontSize = 13;
         AutomationProperties.SetName(
@@ -148,8 +149,19 @@ public sealed class CompleteSetupWindow : Window
         _consent.Margin = new Thickness(4, 14, 4, 14);
         _consent.FontSize = 14;
         AutomationProperties.SetName(_consent, T("الموافقة على إعداد الموارد المحلية", "Approve local resource setup"));
-        _consent.Checked += (_, _) => UpdateButtons();
-        _consent.Unchecked += (_, _) => UpdateButtons();
+        _consent.Checked += async (_, _) =>
+        {
+            UpdateButtons();
+            await RefreshConnectivityAsync();
+        };
+        _consent.Unchecked += (_, _) =>
+        {
+            _connectivityCancellation?.Cancel();
+            _connectivityText.Text = T(
+                "تم إيقاف فحص الاتصال لعدم وجود موافقة حالية.",
+                "Connectivity checks are stopped because setup consent is not active.");
+            UpdateButtons();
+        };
         panel.Children.Add(_consent);
 
         _statusText.Text = T("راجع التفاصيل ثم وافق لبدء الإعداد.", "Review the details, then approve to begin setup.");
@@ -231,9 +243,18 @@ public sealed class CompleteSetupWindow : Window
 
     private async Task RefreshConnectivityAsync()
     {
+        _connectivityCancellation?.Cancel();
+        var cancellation = new CancellationTokenSource();
+        _connectivityCancellation = cancellation;
+        _connectivityCheckInProgress = true;
+        _connectivityText.Text = T(
+            "جارٍ فحص اتصال HTTPS بالمصادر الرسمية بعد موافقتك…",
+            "Checking HTTPS connectivity to official sources after your approval…");
+        UpdateButtons();
+
         try
         {
-            var report = await CompleteSetupPreflightService.InspectConnectivityAsync();
+            var report = await CompleteSetupPreflightService.InspectConnectivityAsync(cancellation.Token);
             if (!IsLoaded) return;
 
             var lines = report.Endpoints.Select(endpoint =>
@@ -253,6 +274,10 @@ public sealed class CompleteSetupWindow : Window
                     "لم يمكن الوصول إلى أي مصدر رسمي في فحص الاتصال. يمكنك المتابعة بالوضع المحدود أو إعادة المحاولة بعد استعادة الإنترنت.",
                     "No official source responded during the connectivity check. You can continue in limited mode or retry after restoring internet access."));
         }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // Consent was withdrawn or a newer explicit consent started another check.
+        }
         catch (Exception exception)
         {
             if (!IsLoaded) return;
@@ -262,6 +287,20 @@ public sealed class CompleteSetupWindow : Window
             _connectivityText.Foreground = SystemParameters.HighContrast
                 ? SystemColors.WindowTextBrush
                 : new SolidColorBrush(Color.FromRgb(168, 50, 74));
+        }
+        finally
+        {
+            _connectivityCheckInProgress = false;
+            if (ReferenceEquals(_connectivityCancellation, cancellation))
+            {
+                _connectivityCancellation.Dispose();
+                _connectivityCancellation = null;
+            }
+            else
+            {
+                cancellation.Dispose();
+            }
+            UpdateButtons();
         }
     }
 
@@ -418,7 +457,8 @@ public sealed class CompleteSetupWindow : Window
             : _hasAttemptedSetup
                 ? T("أعد المحاولة", "Retry setup")
                 : T("ابدأ الإعداد الكامل", "Start full setup");
-        _startButton.IsEnabled = !_isRunning && _preflight.IsSupported && _consent.IsChecked == true;
+        _startButton.IsEnabled = !_isRunning && !_connectivityCheckInProgress &&
+                                 _preflight.IsSupported && _consent.IsChecked == true;
         _limitedModeButton.IsEnabled = !_isRunning;
         _cancelButton.IsEnabled = true;
         _cancelButton.Content = _isRunning ? T("إيقاف", "Stop") : T("إغلاق", "Close");
