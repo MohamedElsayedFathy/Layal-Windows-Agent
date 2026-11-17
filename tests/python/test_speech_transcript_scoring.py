@@ -2,6 +2,7 @@ import importlib.util
 import json
 import sys
 import tempfile
+import wave
 import unittest
 from pathlib import Path
 
@@ -143,8 +144,27 @@ class SpeechTranscriptScoringTests(unittest.TestCase):
             audio_dir = Path(directory) / "audio"
             audio_dir.mkdir()
             self.assertTrue(any("does not exist" in error for error in MODULE.validate_audio_files(payload, manifest)))
-            (audio_dir / "eg-recorded-001.wav").write_bytes(b"RIFF")
+            with wave.open(str(audio_dir / "eg-recorded-001.wav"), "wb") as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(16000)
+                audio.writeframes(b"\\x00\\x00" * 160)
             self.assertEqual([], MODULE.validate_audio_files(payload, manifest))
+
+    def test_audio_file_check_rejects_wrong_sample_format(self):
+        case = self.recorded_case()
+        payload = {"schemaVersion": 1, "cases": [case]}
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "speech-reference-set.json"
+            audio_dir = Path(directory) / "audio"
+            audio_dir.mkdir()
+            with wave.open(str(audio_dir / "eg-recorded-001.wav"), "wb") as audio:
+                audio.setnchannels(2)
+                audio.setsampwidth(2)
+                audio.setframerate(44100)
+                audio.writeframes(b"\\x00\\x00\\x00\\x00" * 160)
+            errors = MODULE.validate_audio_files(payload, manifest)
+            self.assertTrue(any("mono 16 kHz / 16-bit PCM" in error for error in errors))
 
 
 if __name__ == "__main__":
