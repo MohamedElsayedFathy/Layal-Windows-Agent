@@ -84,7 +84,7 @@ public partial class MainWindow : Window
     private string? _pendingDocumentFileName;
     private string? _pendingDocumentNotice;
     private readonly MicrophoneCaptureService _microphoneCapture = new();
-    private readonly LocalVoiceService _localVoiceService = new();
+    private readonly LocalVoiceService _localVoiceService;
     private readonly SpeechLanguageEngine _speechLanguageEngine;
     private readonly LocalSpeechLanguageProvider _localSpeechLanguageProvider;
     private readonly SpeechLanguageRuntime _speechLanguageRuntime;
@@ -139,6 +139,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _localVoiceService = AppRuntime.LocalVoiceRuntime ??= new LocalVoiceService();
         InitializeComponent();
         _speechLanguageEngine = SpeechLanguageEngine.CreateDefault();
         _localSpeechLanguageProvider = new LocalSpeechLanguageProvider(_localVoiceService, () => new VoiceTutGenerationSettings(
