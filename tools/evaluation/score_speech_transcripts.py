@@ -14,6 +14,7 @@ from collections import defaultdict
 from pathlib import Path
 
 SUPPORTED_LOCALES = {"ar-EG", "ar", "en", "mixed"}
+NEGATION_TOKENS = {"مش", "ما", "لا", "لم", "لن", "ليس", "not", "no", "never", "without", "cannot"}
 
 
 def normalize(text: str) -> str:
@@ -73,6 +74,40 @@ def score_pair(reference: str, hypothesis: str) -> tuple[int, int, int, int]:
         char_errors,
         len(reference_characters),
     )
+
+
+
+def is_critical_token(token: str) -> bool:
+    """Identify meaning-sensitive negations and numeric tokens in a reference."""
+    return token in NEGATION_TOKENS or any(character.isdigit() for character in token)
+
+
+def score_critical_tokens(reference: str, hypothesis: str) -> tuple[int, int]:
+    """Return (critical reference-token errors, critical reference-token count)."""
+    ref, hyp = normalize(reference).split(), normalize(hypothesis).split()
+    critical = {i for i, token in enumerate(ref) if is_critical_token(token)}
+    if not critical:
+        return 0, 0
+    rows, columns = len(ref) + 1, len(hyp) + 1
+    costs = [[0] * columns for _ in range(rows)]
+    for i in range(rows): costs[i][0] = i
+    for j in range(columns): costs[0][j] = j
+    for i in range(1, rows):
+        for j in range(1, columns):
+            costs[i][j] = min(costs[i-1][j] + 1, costs[i][j-1] + 1,
+                              costs[i-1][j-1] + (ref[i-1] != hyp[j-1]))
+    erroneous = set()
+    i, j = len(ref), len(hyp)
+    while i > 0 or j > 0:
+        if i > 0 and j > 0 and ref[i-1] == hyp[j-1] and costs[i][j] == costs[i-1][j-1]:
+            i -= 1; j -= 1
+        elif i > 0 and j > 0 and costs[i][j] == costs[i-1][j-1] + 1:
+            erroneous.add(i-1); i -= 1; j -= 1
+        elif i > 0 and costs[i][j] == costs[i-1][j] + 1:
+            erroneous.add(i-1); i -= 1
+        else:
+            j -= 1
+    return len(critical & erroneous), len(critical)
 
 
 def validate_manifest(payload: object) -> list[str]:
@@ -175,7 +210,7 @@ def main() -> int:
         )
         return 0
 
-    totals: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0, 0, 0, 0])
+    totals: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0, 0, 0, 0, 0, 0])
     for case in cases:
         locale = case["locale"]
         reference = case["referenceText"]
@@ -185,27 +220,28 @@ def main() -> int:
                 continue
             hypothesis = hypotheses[engine]
             word_errors, word_count, char_errors, char_count = score_pair(reference, hypothesis)
+            critical_errors, critical_count = score_critical_tokens(reference, hypothesis)
             total = totals[(locale, engine)]
             total[0] += word_errors
             total[1] += word_count
             total[2] += char_errors
             total[3] += char_count
             total[4] += 1
+            total[5] += critical_errors
+            total[6] += critical_count
 
     if not totals:
         print(f"No hypotheses found for the requested engine(s): {', '.join(engines)}.", file=sys.stderr)
         return 2
 
-    print("locale\tengine\tcases\tWER\tCER")
+    print("locale\\tengine\\tcases\\tWER\\tCER\\tcritical_tokens\\tcritical_errors\\tcritical_error_rate")
     for (locale, engine), values in sorted(totals.items()):
-        word_errors, words, char_errors, characters, count = values
+        word_errors, words, char_errors, characters, count, critical_errors, critical_count = values
         wer = word_errors / words
         cer = char_errors / characters
-        print(f"{locale}\t{engine}\t{count}\t{wer:.4f}\t{cer:.4f}")
-    print(
-        "Corpus-weighted within each locale. Normalization removes Arabic diacritics/tatweel "
-        "and punctuation; CER excludes spaces. Inspect negation, numbers, names, and file paths separately."
-    )
+        critical_rate = critical_errors / critical_count if critical_count else 0.0
+        print(f"{locale}\\t{engine}\\t{count}\\t{wer:.4f}\\t{cer:.4f}\\t{critical_count}\\t{critical_errors}\\t{critical_rate:.4f}")
+    print("WER/CER are corpus-weighted within each locale. Critical-token error rate tracks substitutions/deletions of negations and numeric tokens; inspect names and file paths manually.")
     return 0
 
 
