@@ -234,13 +234,13 @@ def main() -> int:
         print(f"No hypotheses found for the requested engine(s): {', '.join(engines)}.", file=sys.stderr)
         return 2
 
-    print("locale\\tengine\\tcases\\tWER\\tCER\\tcritical_tokens\\tcritical_errors\\tcritical_error_rate")
+    print("locale\tengine\tcases\tWER\tCER\tcritical_tokens\tcritical_errors\tcritical_error_rate")
     for (locale, engine), values in sorted(totals.items()):
         word_errors, words, char_errors, characters, count, critical_errors, critical_count = values
         wer = word_errors / words
         cer = char_errors / characters
         critical_rate = critical_errors / critical_count if critical_count else 0.0
-        print(f"{locale}\\t{engine}\\t{count}\\t{wer:.4f}\\t{cer:.4f}\\t{critical_count}\\t{critical_errors}\\t{critical_rate:.4f}")
+        print(f"{locale}\t{engine}\t{count}\t{wer:.4f}\t{cer:.4f}\t{critical_count}\t{critical_errors}\t{critical_rate:.4f}")
     print("WER/CER are corpus-weighted within each locale. Critical-token error rate tracks substitutions/deletions of negations and numeric tokens; inspect names and file paths manually.")
     return 0
 
