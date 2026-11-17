@@ -68,6 +68,14 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
+    public void RecognizesFormalArabicLexicalAndTimeMarkers()
+    {
+        Assert.AreEqual(
+            SpeechLanguageKind.ArabicStandard,
+            _engine.Analyze("أريد هذا الآن").Language.PrimaryLanguage);
+    }
+
+    [TestMethod]
     public void MixedTextKeepsAnUndeterminedArabicSegmentSeparateFromEnglish()
     {
         var analysis = _engine.Analyze("تمام hello");
