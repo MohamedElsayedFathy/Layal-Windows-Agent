@@ -880,7 +880,9 @@ public sealed class VoiceTutLocalService : IDisposable
             "$ErrorActionPreference='Stop'; " +
             "$signature=Get-AuthenticodeSignature -LiteralPath " + literalPath + "; " +
             "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 17 }; " +
-            "[Console]::Out.WriteLine($signature.SignerCertificate.Subject)";
+            "$subject=$signature.SignerCertificate.Subject; " +
+            "if ($subject -notmatch '(^|, )O=Python Software Foundation(,|$)') { exit 18 }; " +
+            "[Console]::Out.WriteLine($subject)";
 
         var start = new ProcessStartInfo(powershell)
         {
@@ -916,7 +918,7 @@ public sealed class VoiceTutLocalService : IDisposable
             var subject = await stdout.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
             _ = await stderr.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
             return process.ExitCode == 0 &&
-                   subject.Contains("Python Software Foundation", StringComparison.OrdinalIgnoreCase);
+                   subject.Contains("O=Python Software Foundation", StringComparison.OrdinalIgnoreCase);
         }
         catch (OperationCanceledException)
         {
