@@ -34,6 +34,7 @@ public sealed class CompleteSetupWindow : Window
     private readonly TextBox _diagnostics = new();
     private CancellationTokenSource? _setupCancellation;
     private bool _isRunning;
+    private bool _hasAttemptedSetup;
 
     public bool CanContinueToMainWindow { get; private set; }
     public bool SetupCompleted { get; private set; }
@@ -269,6 +270,7 @@ public sealed class CompleteSetupWindow : Window
         if (_isRunning || _consent.IsChecked != true || !_preflight.IsSupported)
             return;
 
+        _hasAttemptedSetup = true;
         _setupCancellation = new CancellationTokenSource();
         var token = _setupCancellation.Token;
         _isRunning = true;
@@ -411,6 +413,11 @@ public sealed class CompleteSetupWindow : Window
 
     private void UpdateButtons()
     {
+        _startButton.Content = _isRunning
+            ? T("جارٍ الإعداد…", "Setting up…")
+            : _hasAttemptedSetup
+                ? T("أعد المحاولة", "Retry setup")
+                : T("ابدأ الإعداد الكامل", "Start full setup");
         _startButton.IsEnabled = !_isRunning && _preflight.IsSupported && _consent.IsChecked == true;
         _limitedModeButton.IsEnabled = !_isRunning;
         _cancelButton.IsEnabled = true;
