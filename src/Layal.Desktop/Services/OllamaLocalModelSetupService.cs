@@ -123,6 +123,7 @@ public sealed class OllamaLocalModelSetupService
 
     private readonly LocalChatModelService _chatService;
     private readonly LocalResourceSetupCoordinator _resourceCoordinator;
+    private readonly OllamaRegistryManifestClient _registryManifestClient;
 
     public OllamaLocalModelSetupService()
         : this(
@@ -135,11 +136,13 @@ public sealed class OllamaLocalModelSetupService
 
     public OllamaLocalModelSetupService(
         LocalChatModelService chatService,
-        LocalResourceSetupCoordinator? resourceCoordinator = null)
+        LocalResourceSetupCoordinator? resourceCoordinator = null,
+        OllamaRegistryManifestClient? registryManifestClient = null)
     {
         _chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
         _resourceCoordinator = resourceCoordinator ??
             new LocalResourceSetupCoordinator(new LocalResourceManager());
+        _registryManifestClient = registryManifestClient ?? new OllamaRegistryManifestClient();
     }
 
     public async Task InstallAndPrepareAsync(
@@ -229,6 +232,34 @@ public sealed class OllamaLocalModelSetupService
 
         var existingPin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
         var installedDigest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
+        var registryPin = await ReadRegistryManifestPinAsync(cancellationToken).ConfigureAwait(false);
+
+        // A fresh install, or an older install that only has a first-observed local pin,
+        // must be checked against the official registry manifest before it is marked ready.
+        // Re-query the mutable tag before pulling when no local model is present.
+        if (registryPin is null || string.IsNullOrWhiteSpace(installedDigest))
+        {
+            progress?.Report("جارٍ التحقق من بصمة manifest الرسمية لنموذج Qwen قبل التنزيل…");
+            var registrySnapshot = await _registryManifestClient.GetDefaultModelManifestAsync(
+                cancellationToken).ConfigureAwait(false);
+
+            if (registryPin is null)
+            {
+                if (!string.IsNullOrWhiteSpace(installedDigest))
+                    OllamaRegistryManifestPolicy.EnsureSelectedModelDigestMatches(
+                        registrySnapshot, installedDigest);
+
+                registryPin = await SaveRegistryManifestPinAsync(
+                    registrySnapshot, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                OllamaRegistryManifestPolicy.EnsureSameRegistryManifest(registryPin, registrySnapshot);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(installedDigest))
+            OllamaRegistryManifestPolicy.EnsureSelectedModelDigestMatches(registryPin, installedDigest);
 
         if (existingPin is not null && string.IsNullOrWhiteSpace(installedDigest))
         {
@@ -624,6 +655,10 @@ public sealed class OllamaLocalModelSetupService
         if (!OllamaModelDigestPolicy.IsValidSha256Digest(actualDigest))
             return false;
 
+        var registryPin = await ReadRegistryManifestPinAsync(cancellationToken).ConfigureAwait(false);
+        if (registryPin is not null)
+            OllamaRegistryManifestPolicy.EnsureSelectedModelDigestMatches(registryPin, actualDigest);
+
         var pin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
         if (pin is not null)
         {
@@ -641,6 +676,92 @@ public sealed class OllamaLocalModelSetupService
             await SaveModelDigestManifestAsync(actualDigest!, cancellationToken).ConfigureAwait(false);
 
         return true;
+    }
+
+    private static string RegistryModelDigestManifestPath => Path.Combine(
+        LocalVoiceService.DataRoot, "resource-manifests", "qwen3.5-2b-registry.json");
+
+    private async Task<OllamaRegistryManifestSnapshot?> ReadRegistryManifestPinAsync(
+        CancellationToken cancellationToken)
+    {
+        var path = Path.GetFullPath(RegistryModelDigestManifestPath);
+        var directory = Path.GetDirectoryName(path)
+            ?? throw new InvalidOperationException("The Qwen registry pin has no parent directory.");
+        EnsureNoReparsePoints(directory);
+        if (!File.Exists(path))
+            return null;
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The Qwen registry pin must not be a reparse point.");
+
+        var info = new FileInfo(path);
+        if (info.Length <= 0 || info.Length > 16 * 1024)
+            throw new InvalidDataException("The Qwen registry pin has an invalid size.");
+
+        await using var input = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        OllamaRegistryManifestSnapshot? snapshot;
+        try
+        {
+            snapshot = await JsonSerializer.DeserializeAsync<OllamaRegistryManifestSnapshot>(
+                input, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException("The Qwen registry pin contains invalid JSON.", exception);
+        }
+
+        if (snapshot is null)
+            throw new InvalidDataException("The Qwen registry pin is empty.");
+        return OllamaRegistryManifestPolicy.ValidateSnapshot(snapshot);
+    }
+
+    private async Task<OllamaRegistryManifestSnapshot> SaveRegistryManifestPinAsync(
+        OllamaRegistryManifestSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        snapshot = OllamaRegistryManifestPolicy.ValidateSnapshot(snapshot);
+        var existing = await ReadRegistryManifestPinAsync(cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            OllamaRegistryManifestPolicy.EnsureSameRegistryManifest(existing, snapshot);
+            return existing;
+        }
+
+        var directory = Path.GetDirectoryName(RegistryModelDigestManifestPath)!;
+        EnsureNoReparsePoints(directory);
+        Directory.CreateDirectory(directory);
+        EnsureNoReparsePoints(directory);
+
+        var temporary = RegistryModelDigestManifestPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await using (var output = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                4096, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(output, snapshot, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            // Create-only: a later registry tag change must never replace this trusted pin silently.
+            File.Move(temporary, RegistryModelDigestManifestPath);
+            return snapshot;
+        }
+        catch (IOException) when (File.Exists(RegistryModelDigestManifestPath))
+        {
+            var raced = await ReadRegistryManifestPinAsync(cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidDataException("The Qwen registry pin could not be read after a concurrent write.");
+            OllamaRegistryManifestPolicy.EnsureSameRegistryManifest(raced, snapshot);
+            return raced;
+        }
+        finally
+        {
+            try { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     private async Task<OllamaModelDigestManifest?> ReadModelDigestManifestAsync(
