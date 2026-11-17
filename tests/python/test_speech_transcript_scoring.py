@@ -123,6 +123,17 @@ class SpeechTranscriptScoringTests(unittest.TestCase):
         self.assertTrue(any("relative WAV path" in error for error in errors))
         self.assertTrue(any("pseudonymous speakerId" in error for error in errors))
 
+    def test_malformed_recording_and_review_states_are_reported_without_crashing(self):
+        case = self.recorded_case()
+        case["recordingStatus"] = []
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+        self.assertTrue(any("unsupported recordingStatus" in error for error in errors))
+
+        case = self.recorded_case()
+        case["referenceReview"]["status"] = []
+        errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+        self.assertTrue(any("referenceReview.status" in error for error in errors))
+
     def test_not_recorded_case_cannot_reference_audio_or_consent(self):
         case = {
             "id": "eg-unrecorded",
