@@ -1,16 +1,15 @@
-# بوابة اعتماد الإصدار والإعداد للنشر — Layal 0.5.2
+# بوابة اعتماد الإصدار والإعداد للنشر — Layal 0.5.8
 
-**تاريخ آخر تحديث للسجل:** 27 أكتوبر 2026  
+**تاريخ آخر تحديث للسجل:** 17 نوفمبر 2026  
 **الحالة:** **NO-GO — يمنع التوزيع العام/التجاري حاليًا**  
 **الفرع الأساسي:** `main`  
-**آخر خط أساس متكامل قبل تحديثات إجراءات CI:** `0473cf468540ae8400ae7ea830ce394815ad6ef6`  
-**الدمج الأساسي:** [PR #10](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/10)
+**خط الأساس الحالي:** `f2e07ad463a3ceee5b30184afc4699ca03883e9` (دمج PR #199)
 
-## ملخص الأدلة الآلية
+## ملخص الأدلة الآلية على خط الأساس الحالي
 
-- نجح Windows CI لخط الأساس المذكور: Release build، واختبارات **83/83**، وفحوص النقر الشفاف والسحب، وفحص DPI أحادي الشاشة، ودورة حياة المثبّت، والتحقق من 10 ملفات في بصمات SHA-256.
-- نجح فحص الأسرار وNuGet vulnerability audit على ذلك الخط الأساس؛ أظهر تدقيق NuGet صفر advisories.
-- تمت مراجعة ودمج طلبات تحديث الإجراءات #14 (checkout v7)، #13 (setup-dotnet v6)، #12 (setup-python v6)، و#11 (upload-artifact v7)، بعد نجاح فحوص كل فرع. لا بد من مراجعة أحدث تشغيلين على `main` بعد هذه التحديثات وأي commit لاحق قبل ترشيح إصدار جديد.
+- نجح [Windows Build run 44134879589](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44134879589) على commit `f2e07ad463a3ceee5b30184afc4699ca03883e9`. يتضمن التشغيل Release build والاختبارات الآلية وفحوص keyboard navigation وmouse/click-through وDPI smoke ودورة حياة المثبّت ورفع تقارير الأدلة.
+- نجح [Security and supply-chain run 44134879577](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44134879577) على commit نفسه.
+- هذه نتائج CI بعد الدمج وليست قبولًا يدويًا. تظل أدلة Narrator/NVDA وWindows High Contrast وRTL/LTR والتحجيم متعدد الشاشات والميكروفون/السماعة مطلوبة على جهاز Windows فعلي.
 - يمكن مراجعة تشغيلات `main` عبر [Windows build](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/workflows/windows-build.yml?query=branch%3Amain) و[Security/Supply Chain](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/workflows/security-supply-chain.yml?query=branch%3Amain).
 
 ## بوابات الإطلاق
@@ -25,7 +24,7 @@
 | حقوق الأصول | **OPEN — مانع نشر** | مصدر وترخيص وإذن إعادة توزيع لكل أصل، مسجلة ومراجعة |
 | اعتماديات NuGet وSBOM | **OPEN — مانع نشر** | مراجع بشري لكل اعتماد، وحل بيانات الترخيص الناقصة وتوثيق الأدلة |
 | توقيع Code Signing | **NOT CONFIGURED/NOT VERIFIED** | شهادة موثوقة وأسرار Actions وإثبات نجاح tag build مع Authenticode + RFC 3161 |
-| حماية فرع main | **NOT ENABLED عند آخر قراءة API** | تشغيل أداة `Configure-LayalMainProtection.ps1 -Apply` بحساب Admin ثم التحقق عبر GitHub |
+| حماية فرع main | **NOT REVERIFIED على الخط الأساسي الحالي** | أعد قراءة branch protection/rulesets بصلاحيات مناسبة؛ لا يُستنتج التفعيل أو التعطيل من سجل أكتوبر القديم |
 | tag وحزمة الإصدار المنشور | **NOT STARTED** | بعد الإغلاق فقط، tag على commit من `main` وحزمة موقعة وتحقق مستقل للبصمات |
 
 ## بوابة الحماية من النشر المبكر
@@ -53,8 +52,8 @@
 
 ## القرار النهائي الحالي
 
-- Windows CI الأساسي: **PASS** على خط الأساس السابق.
-- أحدث CI بعد تحديثات إجراءات GitHub: تحقق من نتيجة أحدث commit قبل الإصدار.
+- Windows Build على commit الحالي `f2e07ad`: **PASS** — run [44134879589](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44134879589).
+- Security/Supply-chain على commit الحالي نفسه: **PASS** — run [44134879577](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44134879577).
 - قبول Windows الحي: **PENDING**.
 - الرخصة والأصول: **OPEN**.
 - التوقيع الموثوق: **NOT CONFIGURED/NOT VERIFIED**.
