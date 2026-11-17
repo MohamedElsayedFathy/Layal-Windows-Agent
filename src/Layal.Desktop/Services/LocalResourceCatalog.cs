@@ -207,6 +207,7 @@ public static class LocalResourceCatalog
                 LocalResourceIds.OcrEnglish,
                 "English OCR language data",
                 "Bundled with Layal",
+                "app:tessdata/eng.traineddata",
                 LocalResourceKind.EmbeddedData,
                 true,
                 null,

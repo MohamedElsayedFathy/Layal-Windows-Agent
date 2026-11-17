@@ -27,16 +27,7 @@ public sealed class LocalResourceFileIntegrityVerifierTests
         await File.WriteAllBytesAsync(blob, payload);
         try
         {
-            try
-        {
             File.CreateSymbolicLink(Path.Combine(snapshot, "model.safetensors"), blob);
-        }
-        catch (Exception exception) when (
-            exception is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Inconclusive("The Windows test host does not permit creating symbolic links.");
-            return;
-        }
         }
         catch (Exception exception) when (
             exception is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
