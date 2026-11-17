@@ -70,6 +70,9 @@ public sealed class VoiceTutLocalService : IDisposable
     private static string InstallRoot => Path.Combine(Root, "voicetut");
     private static string VirtualEnvironment => Path.Combine(InstallRoot, "venv");
     private static string PythonExecutablePath => Path.Combine(VirtualEnvironment, "Scripts", "python.exe");
+    private const string ManagedPythonVersion = "3.13.17";
+    private static string ManagedPythonRoot => Path.Combine(Root, "python-runtime", ManagedPythonVersion);
+    private static string ManagedPythonExecutablePath => Path.Combine(ManagedPythonRoot, "python.exe");
     private static string ModelCacheRoot => Path.Combine(Root, "hf-cache");
     private static string ModelSnapshotRoot => Path.Combine(
         ModelCacheRoot, "hub", "models--mohammedaly22--VoiceTut-TTS", "snapshots", ModelRevision);
@@ -110,7 +113,7 @@ public sealed class VoiceTutLocalService : IDisposable
 
         if (!installMatches)
         {
-            progress?.Report(new LocalSpeechProgress("فحص Python 3.10–3.12 وتجهيز بيئة VoiceTut المعزولة…", 5));
+            progress?.Report(new LocalSpeechProgress("فحص Python 3.11–3.13 وتجهيز بيئة VoiceTut المعزولة…", 5));
             if (File.Exists(PythonExecutablePath) &&
                 !await VerifyPythonRuntimeAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -126,8 +129,11 @@ public sealed class VoiceTutLocalService : IDisposable
             {
                 var pythonLauncher = await FindPythonLauncherAsync(cancellationToken);
                 if (pythonLauncher is null)
-                    throw new InvalidOperationException(
-                        "يلزم Python 3.10 أو 3.11 أو 3.12 (64-bit). لم يُغيّر التطبيق تثبيتات Python الموجودة.");
+                {
+                    var managedPython = await InstallManagedPythonRuntimeAsync(progress, cancellationToken)
+                        .ConfigureAwait(false);
+                    pythonLauncher = (managedPython, Array.Empty<string>());
+                }
 
                 var venvArgs = pythonLauncher.Value.PrefixArguments
                     .Concat(new[] { "-m", "venv", VirtualEnvironment }).ToArray();
@@ -322,22 +328,35 @@ public sealed class VoiceTutLocalService : IDisposable
         }
     }
 
-    private async Task<bool> VerifyPythonRuntimeAsync(CancellationToken cancellationToken)
+    private async Task<bool> VerifyPythonRuntimeAsync(CancellationToken cancellationToken) =>
+        await VerifyPythonExecutableAsync(PythonExecutablePath, null, cancellationToken).ConfigureAwait(false);
+
+    private async Task<bool> VerifyPythonExecutableAsync(
+        string executable,
+        string? requiredVersion,
+        CancellationToken cancellationToken)
     {
-        if (!File.Exists(PythonExecutablePath)) return false;
+        if (!File.Exists(executable) ||
+            (File.GetAttributes(executable) & FileAttributes.ReparsePoint) != 0)
+            return false;
         try
         {
             var result = await RunCommandAsync(
-                PythonExecutablePath,
+                executable,
                 new[]
                 {
                     "-c",
-                    "import struct,sys; print('PYTHON=' + '.'.join(map(str,sys.version_info[:3]))); print('BITS=' + str(struct.calcsize('P')*8)); raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,13) and struct.calcsize('P') == 8 else 3)"
+                    "import struct,sys; print('PYTHON=' + '.'.join(map(str,sys.version_info[:3]))); print('BITS=' + str(struct.calcsize('P')*8)); raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,14) and struct.calcsize('P') == 8 else 3)"
                 },
                 TimeSpan.FromSeconds(30),
                 cancellationToken,
                 "التحقق من Python x64").ConfigureAwait(false);
-            return result.Output.Contains("BITS=64", StringComparison.Ordinal);
+            if (!result.Output.Contains("BITS=64", StringComparison.Ordinal))
+                return false;
+            if (requiredVersion is not null &&
+                !result.Output.Contains("PYTHON=" + requiredVersion, StringComparison.Ordinal))
+                return false;
+            return true;
         }
         catch (Exception exception) when (
             exception is InvalidOperationException or TimeoutException or Win32Exception or FileNotFoundException)
@@ -708,14 +727,216 @@ public sealed class VoiceTutLocalService : IDisposable
             .ConfigureAwait(false);
     }
 
+    private async Task<string> InstallManagedPythonRuntimeAsync(
+        IProgress<LocalSpeechProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var resource = LocalResourceCatalog.GetRequired(LocalResourceIds.PythonRuntime);
+        var downloadsDirectory = Path.Combine(Root, "downloads");
+        Directory.CreateDirectory(downloadsDirectory);
+        EnsureNoReparsePoints(downloadsDirectory);
+        var installerPath = Path.Combine(downloadsDirectory, "python-3.13.17-amd64.exe");
+        var installRoot = ManagedPythonRoot;
+
+        progress?.Report(new LocalSpeechProgress(
+            "لم يتم العثور على Python x64 متوافق؛ جارٍ تنزيل Python 3.13.17 الرسمي إلى مجلد ليال…", 6));
+
+        var downloadProgress = new Progress<LocalResourceDownloadProgress>(state =>
+        {
+            var percent = state.TotalBytes > 0
+                ? Math.Clamp(state.DownloadedBytes * 100d / state.TotalBytes, 0d, 100d)
+                : (double?)null;
+            var speed = state.BytesPerSecond > 0
+                ? (state.BytesPerSecond / 1024d / 1024d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " MB/s"
+                : "—";
+            progress?.Report(new LocalSpeechProgress(
+                $"تنزيل Python: {state.DownloadedBytes:N0} / {state.TotalBytes:N0} bytes — {speed}",
+                percent));
+        });
+
+        await _resourceCoordinator.DownloadAsync(
+            resource,
+            installerPath,
+            downloadProgress,
+            cancellationToken,
+            async token =>
+            {
+                if (!await VerifyPythonInstallerAuthenticodeAsync(installerPath, token).ConfigureAwait(false))
+                    return false;
+
+                EnsureManagedPythonRootSafe();
+                if (Directory.Exists(installRoot))
+                    DeleteManagedPythonRuntime();
+
+                Directory.CreateDirectory(installRoot);
+                EnsureNoReparsePoints(installRoot);
+
+                var arguments = new[]
+                {
+                    "/quiet",
+                    "InstallAllUsers=0",
+                    "TargetDir=" + installRoot,
+                    "PrependPath=0",
+                    "AppendPath=0",
+                    "Include_launcher=0",
+                    "Include_pip=1",
+                    "Include_tcltk=0",
+                    "Include_test=0",
+                    "Include_doc=0",
+                    "Include_tools=0",
+                    "Shortcuts=0",
+                    "AssociateFiles=0"
+                };
+                progress?.Report(new LocalSpeechProgress(
+                    "تم التحقق من ناشر Python؛ جارٍ تثبيت البيئة الخاصة بليال دون تعديل PATH…", 96));
+                await RunCommandAsync(
+                    installerPath,
+                    arguments,
+                    TimeSpan.FromMinutes(10),
+                    token,
+                    "تثبيت Python الرسمي داخل مجلد ليال",
+                    progress).ConfigureAwait(false);
+
+                return await VerifyPythonExecutableAsync(
+                    ManagedPythonExecutablePath, ManagedPythonVersion, token).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+
+        if (!await VerifyPythonExecutableAsync(
+                ManagedPythonExecutablePath, ManagedPythonVersion, cancellationToken).ConfigureAwait(false))
+            throw new InvalidOperationException("لم يجتز Python المثبّت داخل مجلد ليال فحص الإصدار والمعمارية.");
+
+        progress?.Report(new LocalSpeechProgress(
+            "أصبح Python 3.13.17 x64 جاهزًا داخل مجلد بيانات ليال.", 100));
+        return ManagedPythonExecutablePath;
+    }
+
+    private static void EnsureManagedPythonRootSafe()
+    {
+        var root = Path.GetFullPath(Root);
+        var managed = Path.GetFullPath(ManagedPythonRoot);
+        var prefix = root.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        if (!managed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The managed Python runtime path escaped Layal's LocalAi directory.");
+        EnsureNoReparsePoints(root);
+        if (Directory.Exists(managed) &&
+            (File.GetAttributes(managed) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("Refusing to replace the managed Python runtime through a reparse point.");
+    }
+
+    private static void DeleteManagedPythonRuntime()
+    {
+        EnsureManagedPythonRootSafe();
+        var directory = ManagedPythonRoot;
+        if (!Directory.Exists(directory)) return;
+        foreach (var entry in Directory.EnumerateFileSystemEntries(directory, "*", SearchOption.AllDirectories))
+        {
+            var attributes = File.GetAttributes(entry);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Refusing to repair the managed Python runtime because it contains a reparse point.");
+        }
+        Directory.Delete(directory, recursive: true);
+    }
+
+    private static void EnsureNoReparsePoints(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath)
+            ?? throw new InvalidOperationException("The managed resource path has no filesystem root.");
+        var current = root;
+        foreach (var segment in fullPath[root.Length..].Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if ((Directory.Exists(current) || File.Exists(current)) &&
+                (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Refusing to use a managed Python path containing a reparse point.");
+        }
+    }
+
+    private static async Task<bool> VerifyPythonInstallerAuthenticodeAsync(
+        string installerPath,
+        CancellationToken cancellationToken)
+    {
+        if (!OperatingSystem.IsWindows() || !File.Exists(installerPath))
+            return false;
+
+        var systemDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        var powershell = Path.Combine(systemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (!File.Exists(powershell))
+            return false;
+
+        var literalPath = "'" + installerPath.Replace("'", "''", StringComparison.Ordinal) + "'";
+        var script =
+            "$ErrorActionPreference='Stop'; " +
+            "$signature=Get-AuthenticodeSignature -LiteralPath " + literalPath + "; " +
+            "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 17 }; " +
+            "[Console]::Out.WriteLine($signature.SignerCertificate.Subject)";
+
+        var start = new ProcessStartInfo(powershell)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoLogo");
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-NonInteractive");
+        start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add(script);
+
+        using var process = new Process { StartInfo = start };
+        try
+        {
+            if (!process.Start()) return false;
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or Win32Exception)
+        {
+            return false;
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+            var subject = await stdout.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+            _ = await stderr.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+            return process.ExitCode == 0 &&
+                   subject.Contains("Python Software Foundation", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (OperationCanceledException)
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch { }
+            try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { }
+            if (cancellationToken.IsCancellationRequested) throw;
+            return false;
+        }
+        catch
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch { }
+            return false;
+        }
+    }
+
     private async Task<(string Executable, string[] PrefixArguments)?> FindPythonLauncherAsync(
         CancellationToken cancellationToken)
     {
         var launchers = new[]
         {
-            ("py", new[] { "-3.11" }),
+            (ManagedPythonExecutablePath, Array.Empty<string>()),
+            ("py", new[] { "-3.13" }),
             ("py", new[] { "-3.12" }),
-            ("py", new[] { "-3.10" }),
+            ("py", new[] { "-3.11" }),
             ("python", Array.Empty<string>())
         };
         foreach (var (executable, prefix) in launchers)
@@ -725,7 +946,7 @@ public sealed class VoiceTutLocalService : IDisposable
                 var args = prefix.Concat(new[]
                 {
                     "-c",
-                    "import struct,sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,13) and struct.calcsize('P') == 8 else 2)"
+                    "import struct,sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,14) and struct.calcsize('P') == 8 else 2)"
                 }).ToArray();
                 var result = await RunCommandAsync(executable, args, TimeSpan.FromSeconds(15), cancellationToken, "فحص Python");
                 if (result.ExitCode == 0)
