@@ -117,15 +117,15 @@ public sealed class CompleteSetupWindow : Window
         resources.Children.Add(CreateText(
             T("• المحادثة المحلية: Ollama + Qwen3.5 2B، مع اختبار استدلال محلي",
               "• Local chat: Ollama + Qwen3.5 2B, followed by a local inference test"),
-            14, FontWeights.Normal, new Thickness(0, 3)));
+            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
         resources.Children.Add(CreateText(
             T("• الصوت المحلي: Python وPyTorch وOmniVoice وVoiceTut وأوزانه، بالإضافة إلى Whisper",
               "• Local speech: Python, PyTorch, OmniVoice, VoiceTut and its model weights, plus Whisper"),
-            14, FontWeights.Normal, new Thickness(0, 3)));
+            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
         resources.Children.Add(CreateText(
             T("• OCR: التحقق من بيانات اللغة العربية والإنجليزية المضمّنة",
               "• OCR: verify the bundled Arabic and English language data"),
-            14, FontWeights.Normal, new Thickness(0, 3)));
+            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
         panel.Children.Add(CreateCard(resources));
 
         var referenceSizes = new StackPanel();
@@ -139,12 +139,13 @@ public sealed class CompleteSetupWindow : Window
             13, FontWeights.Normal, new Thickness(0)));
         panel.Children.Add(CreateCard(referenceSizes));
 
-        _consent.Content = T(
-            "أوافق على تنزيل وتثبيت الموارد المحلية المذكورة من مصادرها المعتمدة، وتشغيل اختبارات الصحة المحلية. لن يُشغّل المعالج الميكروفون ولن يرسل المحادثات إلى خدمة سحابية.",
-            "I approve downloading and installing the listed local resources from their approved sources and running local health checks. Setup will not turn on the microphone or send conversations to a cloud service.");
+        _consent.Content = CreateText(
+            T(
+                "أوافق على تنزيل وتثبيت الموارد المحلية المذكورة من مصادرها المعتمدة، وتشغيل اختبارات الصحة المحلية. لن يُشغّل المعالج الميكروفون ولن يرسل المحادثات إلى خدمة سحابية.",
+                "I approve downloading and installing the listed local resources from their approved sources and running local health checks."),
+            14, FontWeights.Normal, new Thickness(0));
         _consent.Margin = new Thickness(4, 14, 4, 14);
         _consent.FontSize = 14;
-        _consent.TextWrapping = TextWrapping.Wrap;
         AutomationProperties.SetName(_consent, T("الموافقة على إعداد الموارد المحلية", "Approve local resource setup"));
         _consent.Checked += (_, _) => UpdateButtons();
         _consent.Unchecked += (_, _) => UpdateButtons();
