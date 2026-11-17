@@ -525,6 +525,20 @@ public sealed class LocalResourceDownloadService : IDisposable
 
             if (!IsRedirectStatusCode(response.StatusCode))
             {
+                try
+                {
+                    // Also verify the effective URI returned by the handler. The production
+                    // handler disables automatic redirects; this is defense in depth for injected clients.
+                    ValidateApprovedHttpsUri(response.RequestMessage?.RequestUri ?? currentUri);
+                }
+                catch
+                {
+                    response.Dispose();
+                    if (ownsCurrentRequest)
+                        currentRequest.Dispose();
+                    throw;
+                }
+
                 if (ownsCurrentRequest)
                 {
                     // The final URI has already been validated; the response body remains
