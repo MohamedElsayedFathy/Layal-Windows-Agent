@@ -24,7 +24,7 @@
 | حقوق الأصول | **OPEN — مانع نشر** | مصدر وترخيص وإذن إعادة توزيع لكل أصل، مسجلة ومراجعة |
 | اعتماديات NuGet وSBOM | **OPEN — مانع نشر** | مراجع بشري لكل اعتماد، وحل بيانات الترخيص الناقصة وتوثيق الأدلة |
 | توقيع Code Signing | **NOT CONFIGURED/NOT VERIFIED** | شهادة موثوقة وأسرار Actions وإثبات نجاح tag build مع Authenticode + RFC 3161 |
-| حماية فرع main | **NOT ENABLED عند آخر قراءة API** | تشغيل أداة `Configure-LayalMainProtection.ps1 -Apply` بحساب Admin ثم التحقق عبر GitHub |
+| حماية فرع main | **NOT REVERIFIED على الخط الأساسي الحالي** | أعد قراءة branch protection/rulesets بصلاحيات مناسبة؛ لا يُستنتج التفعيل أو التعطيل من سجل أكتوبر القديم |
 | tag وحزمة الإصدار المنشور | **NOT STARTED** | بعد الإغلاق فقط، tag على commit من `main` وحزمة موقعة وتحقق مستقل للبصمات |
 
 ## بوابة الحماية من النشر المبكر
