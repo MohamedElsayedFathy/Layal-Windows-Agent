@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import logging
 import math
@@ -22,10 +23,78 @@ from typing import Any
 
 MODEL_ID = "mohammedaly22/VoiceTut-TTS"
 MODEL_REVISION = "b36bdf4416864d84f47ca77ce3decf34f6ab16cc"
+MODEL_FILE_MANIFEST = {
+    "model.safetensors": {
+        "size_bytes": 2_450_344_144,
+        "sha256": "172ac1268fa98cb6253deb9f66fce1115e74e9b66012847b8483addad07a2b78",
+    },
+    "tokenizer.json": {
+        "size_bytes": 11_423_986,
+        "sha256": "408f669b7e2b045fdf54201d815bd364e6667dbd845115da81239c40bc6dcfd1",
+    },
+}
 MAX_TEXT_CHARS = 6000
 MAX_BODY_BYTES = 1_000_000
 DEFAULT_INSTRUCTION = "female, child, very high pitch"
 LOG = logging.getLogger("layal.voicetut")
+
+
+def verify_model_snapshot_files(
+    snapshot_path: str | Path,
+    allowed_cache_root: str | Path,
+    expected_files: dict[str, dict[str, Any]] = MODEL_FILE_MANIFEST,
+) -> None:
+    """Fail closed unless every downloaded model binary matches its immutable LFS pin."""
+    allowed_root = Path(allowed_cache_root).resolve(strict=True)
+    snapshot_root = Path(snapshot_path).resolve(strict=True)
+    if not snapshot_root.is_relative_to(allowed_root):
+        raise ValueError("VoiceTut model snapshot resolved outside the approved Hugging Face cache.")
+
+    if not expected_files:
+        raise ValueError("VoiceTut model file integrity manifest is empty.")
+
+    for relative_name, expected in expected_files.items():
+        relative_path = Path(relative_name)
+        if (
+            relative_path.is_absolute()
+            or len(relative_path.parts) != 1
+            or relative_path.name in {"", ".", ".."}
+        ):
+            raise ValueError("VoiceTut integrity manifest contains an unsafe relative file name.")
+
+        candidate = snapshot_root / relative_path
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError as exc:
+            raise ValueError(f"Required VoiceTut model file is missing: {relative_name}") from exc
+
+        if not resolved.is_relative_to(allowed_root):
+            raise ValueError(
+                f"VoiceTut model file resolves outside the approved Hugging Face cache: {relative_name}"
+            )
+        if not resolved.is_file():
+            raise ValueError(f"Required VoiceTut model path is not a file: {relative_name}")
+
+        expected_size = expected.get("size_bytes")
+        expected_sha256 = expected.get("sha256")
+        if (
+            isinstance(expected_size, bool)
+            or not isinstance(expected_size, int)
+            or expected_size <= 0
+            or not isinstance(expected_sha256, str)
+            or len(expected_sha256) != 64
+            or any(character not in "0123456789abcdefABCDEF" for character in expected_sha256)
+        ):
+            raise ValueError(f"VoiceTut integrity manifest entry is invalid: {relative_name}")
+        if resolved.stat().st_size != expected_size:
+            raise ValueError(f"VoiceTut model file size mismatch: {relative_name}")
+
+        digest = hashlib.sha256()
+        with resolved.open("rb") as model_file:
+            for chunk in iter(lambda: model_file.read(1024 * 1024), b""):
+                digest.update(chunk)
+        if digest.hexdigest().lower() != expected_sha256.lower():
+            raise ValueError(f"VoiceTut model file SHA-256 mismatch: {relative_name}")
 
 
 class EngineState:
@@ -34,6 +103,7 @@ class EngineState:
         self.device = "unknown"
         self.sample_rate = 24000
         self.error: str | None = None
+        self.integrity_verified = False
         self.metrics: deque[dict[str, Any]] = deque(maxlen=30)
         self.lock = threading.Lock()
         self.inference_lock = threading.Lock()
@@ -43,6 +113,8 @@ STATE = EngineState()
 
 
 def load_engine() -> None:
+    STATE.engine = None
+    STATE.integrity_verified = False
     import torch
     from huggingface_hub import snapshot_download
     from voicetut_tts import VoiceTutTTS
@@ -61,6 +133,9 @@ def load_engine() -> None:
             "chat_template.jinja",
         ],
     )
+    # Hugging Face revision pinning alone does not prove the bytes in an existing local
+    # cache are intact. Verify every downloaded large binary before loading it into memory.
+    verify_model_snapshot_files(model_path, hf_home)
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     dtype = "float16" if torch.cuda.is_available() else "float32"
@@ -77,6 +152,7 @@ def load_engine() -> None:
     STATE.device = device
     STATE.sample_rate = int(STATE.engine.sampling_rate)
     STATE.error = None
+    STATE.integrity_verified = True
     LOG.info("VoiceTut is ready on %s at %s Hz; voice mode=Voice Design only.", device, STATE.sample_rate)
 
 
@@ -160,13 +236,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json(401, {"error": "unauthorized"})
             return
         if self.path == "/healthz":
-            self._json(200, {"ready": STATE.engine is not None, "device": STATE.device,
-                             "sampleRate": STATE.sample_rate, "modelRevision": MODEL_REVISION})
+            ready = STATE.engine is not None and STATE.integrity_verified
+            self._json(200, {"ready": ready, "integrityVerified": STATE.integrity_verified,
+                             "device": STATE.device, "sampleRate": STATE.sample_rate,
+                             "modelRevision": MODEL_REVISION})
             return
         if self.path == "/v1/info":
             self._json(200, {"model": MODEL_ID, "revision": MODEL_REVISION, "device": STATE.device,
                              "sampleRate": STATE.sample_rate, "voiceMode": "voice-design-only",
-                             "builtInVoicesLoaded": False, "referenceAudioEnabled": False})
+                             "builtInVoicesLoaded": False, "referenceAudioEnabled": False,
+                             "integrityVerified": STATE.integrity_verified})
             return
         if self.path == "/v1/metrics":
             with STATE.lock:

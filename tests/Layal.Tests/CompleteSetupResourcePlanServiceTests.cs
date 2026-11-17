@@ -24,9 +24,26 @@ public sealed class CompleteSetupResourcePlanServiceTests
         Assert.IsTrue(plan.HasUnknownSizes);
         CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "Qwen3.5 local chat model");
         CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "PyTorch and TorchAudio");
+        CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "VoiceTut Egyptian Arabic and English model");
         CollectionAssert.Contains(
             plan.ConditionalResources.Select(resource => resource.Id).ToArray(),
             LocalResourceIds.OllamaRuntimeInstaller);
+    }
+
+    [TestMethod]
+    public void KnownVoiceTutBinaryFilesContributeToTheLowerBoundWithoutClaimingTheFullSnapshotSize()
+    {
+        var states = LocalResourceCatalog.All
+            .Where(resource => resource.Required && resource.Id != LocalResourceIds.VoiceTutModel)
+            .Select(resource => new LocalResourceStateEntry(
+                resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow))
+            .ToArray();
+
+        var plan = CompleteSetupResourcePlanService.Calculate(states);
+
+        Assert.AreEqual(2_461_768_130L, plan.KnownReferenceBytes);
+        Assert.IsTrue(plan.HasUnknownSizes);
+        CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "VoiceTut Egyptian Arabic and English model");
     }
 
     [TestMethod]
