@@ -140,6 +140,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _localVoiceService = AppRuntime.LocalVoiceRuntime ??= new LocalVoiceService();
+        // The first-run wizard may already have prepared this shared instance.
+        _localVoiceReady = _localVoiceService.IsReady;
         InitializeComponent();
         _speechLanguageEngine = SpeechLanguageEngine.CreateDefault();
         _localSpeechLanguageProvider = new LocalSpeechLanguageProvider(_localVoiceService, () => new VoiceTutGenerationSettings(
