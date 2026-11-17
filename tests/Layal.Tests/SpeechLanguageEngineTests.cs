@@ -57,6 +57,31 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
+    public void MixedTextKeepsAnUndeterminedArabicSegmentSeparateFromEnglish()
+    {
+        var analysis = _engine.Analyze("تمام hello");
+        Assert.AreEqual(SpeechLanguageKind.Mixed, analysis.Language.PrimaryLanguage);
+        Assert.IsTrue(analysis.Language.Segments.Any(segment =>
+            segment.Language == SpeechLanguageKind.ArabicUnspecified));
+        Assert.IsTrue(analysis.Language.Segments.Any(segment =>
+            segment.Language == SpeechLanguageKind.English));
+    }
+
+    [TestMethod]
+    public void EveryConfiguredArabicDialectMarkerHasABoundedWeight()
+    {
+        var markers = _engine.Reference.Entries
+            .Where(entry => entry.IsDialectMarker)
+            .ToArray();
+
+        Assert.IsTrue(markers.Length >= 100);
+        Assert.IsTrue(markers.All(entry =>
+            entry.DialectEvidenceWeight is >= 1 and <= 3));
+        Assert.IsTrue(markers.Any(entry => entry.Dialect == "egyptian"));
+        Assert.IsTrue(markers.Any(entry => entry.Dialect == "msa"));
+    }
+
+    [TestMethod]
     public void DetectsStandardArabicFromMultipleFormalMarkers()
     {
         var analysis = _engine.Analyze("كيف حالك؟ أحتاج إلى معرفة التفاصيل.");
