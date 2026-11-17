@@ -70,6 +70,7 @@ public sealed class LocalResourceDownloadService : IDisposable
         _ownsClient = httpClient is null;
         _httpClient = httpClient ?? new HttpClient(new SocketsHttpHandler
         {
+            AllowAutoRedirect = false,
             ConnectTimeout = TimeSpan.FromSeconds(20),
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             AutomaticDecompression = DecompressionMethods.None
@@ -216,11 +217,8 @@ public sealed class LocalResourceDownloadService : IDisposable
             }
         }
 
-        using var response = await _httpClient.SendAsync(
-            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-
-        var finalUri = response.RequestMessage?.RequestUri ?? source;
-        ValidateApprovedHttpsUri(finalUri);
+        using var response = await SendWithValidatedRedirectsAsync(
+            request, cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable &&
             offset == expectedSize &&
@@ -487,6 +485,100 @@ public sealed class LocalResourceDownloadService : IDisposable
         var expected = Convert.FromHexString(expectedSha256);
         return CryptographicOperations.FixedTimeEquals(hash, expected);
     }
+
+    private const int MaximumValidatedRedirects = 5;
+
+    /// <summary>
+    /// Follows HTTPS redirects manually so every target is checked against the approved-host
+    /// allowlist before any request is sent to that host. The download pipeline uses GET only.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithValidatedRedirectsAsync(
+        HttpRequestMessage initialRequest,
+        CancellationToken cancellationToken)
+    {
+        if (initialRequest.Method != HttpMethod.Get)
+            throw new InvalidOperationException("Validated resource redirects currently support GET requests only.");
+
+        var currentRequest = initialRequest;
+        var ownsCurrentRequest = false;
+
+        for (var redirectCount = 0; ; redirectCount++)
+        {
+            var currentUri = currentRequest.RequestUri
+                ?? throw new InvalidOperationException("The resource download request has no URI.");
+            ValidateApprovedHttpsUri(currentUri);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.SendAsync(
+                    currentRequest,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw;
+            }
+
+            if (!IsRedirectStatusCode(response.StatusCode))
+                return response;
+
+            if (redirectCount >= MaximumValidatedRedirects)
+            {
+                response.Dispose();
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw new InvalidDataException(
+                    "The resource download exceeded the maximum number of validated redirects.");
+            }
+
+            if (response.Headers.Location is not { } location)
+            {
+                response.Dispose();
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw new InvalidDataException(
+                    "The resource download server returned a redirect without a Location header.");
+            }
+
+            Uri nextUri;
+            try
+            {
+                nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
+                // Validate before constructing/sending the next HTTP request. This blocks
+                // unapproved hosts, HTTP downgrade redirects, user-info URLs, and loopback targets.
+                ValidateApprovedHttpsUri(nextUri);
+            }
+            catch
+            {
+                response.Dispose();
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw;
+            }
+
+            var nextRequest = new HttpRequestMessage(HttpMethod.Get, nextUri);
+            foreach (var header in currentRequest.Headers)
+                nextRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+            response.Dispose();
+            if (ownsCurrentRequest)
+                currentRequest.Dispose();
+
+            currentRequest = nextRequest;
+            ownsCurrentRequest = true;
+        }
+    }
+
+    private static bool IsRedirectStatusCode(HttpStatusCode statusCode) =>
+        statusCode is HttpStatusCode.MovedPermanently or
+            HttpStatusCode.Redirect or
+            HttpStatusCode.SeeOther or
+            HttpStatusCode.TemporaryRedirect or
+            HttpStatusCode.PermanentRedirect;
 
     private void ValidateApprovedHttpsUri(Uri uri)
     {
