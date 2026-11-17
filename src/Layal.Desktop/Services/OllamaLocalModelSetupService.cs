@@ -57,35 +57,65 @@ public sealed class OllamaLocalModelSetupService
 
         if (executable is null)
         {
-            await _resourceCoordinator.ExecuteAsync(
-                LocalResourceIds.OllamaRuntime,
-                async token =>
-                {
-                    var winget = FindOnPath("winget.exe") ??
-                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                            "Microsoft", "WindowsApps", "winget.exe");
-                    if (!File.Exists(winget))
-                        throw new InvalidOperationException(
-                            "لم أجد Ollama أو WinGet على الجهاز. ثبّت Ollama من https://ollama.com/download/windows ثم أعد المحاولة.");
+            var winget = FindOnPath("winget.exe") ??
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Microsoft", "WindowsApps", "winget.exe");
 
-                    progress?.Report("تثبيت Ollama لنظام Windows عبر WinGet…");
-                    await RunCommandAsync(
-                        winget,
-                        new[]
-                        {
-                            "install", "--id", "Ollama.Ollama", "--exact", "--source", "winget",
-                            "--accept-package-agreements", "--accept-source-agreements"
-                        },
-                        progress,
-                        token).ConfigureAwait(false);
-                },
-                VerifyOllamaRuntimeAsync,
-                cancellationToken).ConfigureAwait(false);
+            if (File.Exists(winget))
+            {
+                await _resourceCoordinator.ExecuteAsync(
+                    LocalResourceIds.OllamaRuntime,
+                    async token =>
+                    {
+                        progress?.Report("تثبيت Ollama لنظام Windows عبر WinGet…");
+                        await RunCommandAsync(
+                            winget,
+                            new[]
+                            {
+                                "install", "--id", "Ollama.Ollama", "--exact", "--source", "winget",
+                                "--accept-package-agreements", "--accept-source-agreements"
+                            },
+                            progress,
+                            token).ConfigureAwait(false);
+                    },
+                    VerifyOllamaRuntimeAsync,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                // If WinGet is unavailable, use a version-pinned official Ollama installer.
+                // Its bytes and publisher are verified before silent per-user installation.
+                var fallback = LocalResourceCatalog.GetRequired(LocalResourceIds.OllamaRuntimeInstaller);
+                var downloadsDirectory = Path.Combine(LocalVoiceService.DataRoot, "downloads");
+                Directory.CreateDirectory(downloadsDirectory);
+                var installerPath = Path.Combine(downloadsDirectory, "OllamaSetup-v0.40.16.exe");
+                progress?.Report("WinGet غير متاح؛ جارٍ تنزيل مثبّت Ollama الرسمي المثبّت الإصدار…");
+
+                await _resourceCoordinator.DownloadAsync(
+                    fallback,
+                    installerPath,
+                    downloadProgress,
+                    cancellationToken,
+                    async token =>
+                    {
+                        if (!await VerifyOllamaAuthenticodeAsync(installerPath, token).ConfigureAwait(false))
+                            return false;
+
+                        progress?.Report("تم التحقق من توقيع Ollama؛ جارٍ التثبيت الصامت…");
+                        await RunOfficialInstallerAsync(installerPath, token).ConfigureAwait(false);
+                        return await VerifyOllamaRuntimeAsync(token).ConfigureAwait(false);
+                    }).ConfigureAwait(false);
+
+                await _resourceCoordinator.EnsureReadyAsync(
+                    LocalResourceIds.OllamaRuntime,
+                    VerifyOllamaRuntimeAsync,
+                    cancellationToken).ConfigureAwait(false);
+            }
 
             executable = FindOllamaExecutable();
             if (executable is null)
                 throw new InvalidOperationException(
-                    "انتهى أمر تثبيت Ollama، لكن لم أجد ollama.exe. أعد فتح Layal أو أعد محاولة التثبيت.");
+                    "انتهى مسار تثبيت Ollama، لكن لم أجد ollama.exe. راجع سجل الإعداد ثم أعد المحاولة.");
         }
         else
         {
@@ -157,6 +187,46 @@ public sealed class OllamaLocalModelSetupService
         {
             return false;
         }
+    }
+
+    private static async Task RunOfficialInstallerAsync(
+        string installerPath,
+        CancellationToken cancellationToken)
+    {
+        var start = new ProcessStartInfo(installerPath)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = Path.GetDirectoryName(installerPath) ?? Environment.CurrentDirectory
+        };
+        start.ArgumentList.Add("/VERYSILENT");
+        start.ArgumentList.Add("/NORESTART");
+        start.ArgumentList.Add("/SUPPRESSMSGBOXES");
+
+        using var process = new Process { StartInfo = start };
+        if (!process.Start())
+            throw new InvalidOperationException("تعذر بدء مثبّت Ollama الرسمي.");
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromMinutes(30));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch { }
+            try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { }
+            if (cancellationToken.IsCancellationRequested) throw;
+            throw new TimeoutException("انتهت مهلة تثبيت Ollama الرسمي.");
+        }
+
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException(
+                "فشل مثبّت Ollama الرسمي برمز الخروج " +
+                process.ExitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
     }
 
     private async Task<bool> VerifyOllamaRuntimeAsync(CancellationToken cancellationToken)
