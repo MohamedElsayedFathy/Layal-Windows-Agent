@@ -163,15 +163,27 @@ public sealed class CompleteSetupWindow : Window
             : string.Join(", ", resourcePlan.UnknownSizeResources);
         referenceSizes.Children.Add(CreateText(
             T(
-                "حسب حالة الموارد الحالية، مجموع الأحجام المثبتة المعروفة للموارد المطلوبة غير الجاهزة هو " + resourcePlanWarning +
-                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownDownloadBytes) +
+                "حسب حالة الموارد الحالية، مجموع الأحجام المرجعية المعروفة للموارد المطلوبة غير الجاهزة هو " + resourcePlanWarning +
+                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownReferenceBytes) +
                 ". موارد ذات حجم متغير/غير مثبت: " + unknownSizeText +
-                ". هذا حد أدنى جزئي فقط، ولا يمثل مساحة التثبيت أو الكاش أو الملفات المؤقتة.",
-                "Based on current resource state, the sum of pinned sizes for pending required downloads is " + resourcePlanWarning +
-                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownDownloadBytes) +
-                ". Variable/unpinned resource sizes: " + unknownSizeText +
-                ". This is a partial lower bound only; it is not final installation, cache, or temporary storage."),
+                ". قد يُعاد استخدام بعض الموارد بدل تنزيلها؛ وهذا ليس إجمالي تنزيل أو مساحة تثبيت نهائية.",
+                "Based on current resource state, the sum of known catalog size references for required resources not yet Ready is " + resourcePlanWarning +
+                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownReferenceBytes) +
+                ". Some resources may be reused instead of downloaded; this is not a guaranteed download total or final installation size."),
             12, FontWeights.Normal, new Thickness(0, 10, 0, 0)));
+        if (resourcePlan.ConditionalResources.Count > 0)
+        {
+            var conditionalReferences = string.Join(
+                ", ",
+                resourcePlan.ConditionalResources.Select(resource =>
+                    resource.DisplayName + " — " +
+                    CompleteSetupPreflightService.FormatBytes(resource.ExpectedSizeBytes!.Value)));
+            referenceSizes.Children.Add(CreateText(
+                T("موارد احتياطية/اختيارية لا تدخل في المجموع الأساسي (قد تُطلب حسب مسار التثبيت): ",
+                  "Optional/fallback resources excluded from the base subtotal (may be needed by the chosen install path): ") +
+                conditionalReferences,
+                12, FontWeights.Normal, new Thickness(0, 6, 0, 0)));
+        }
         panel.Children.Add(CreateCard(referenceSizes));
 
         _consent.Content = CreateText(

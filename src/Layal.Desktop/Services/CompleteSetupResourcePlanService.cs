@@ -5,15 +5,16 @@ using System.Linq;
 namespace Layal.Services;
 
 public sealed record CompleteSetupResourcePlan(
-    long KnownDownloadBytes,
+    long KnownReferenceBytes,
     int PendingRequiredResources,
     IReadOnlyList<string> UnknownSizeResources,
+    IReadOnlyList<LocalResourceDefinition> ConditionalResources,
     bool HasUnknownSizes);
 
 /// <summary>
-/// Computes a lower-bound download subtotal from resource-catalog sizes.
-/// It deliberately keeps dynamic package/model downloads visible as unknown rather than
-/// manufacturing a complete aggregate or equating download bytes with final disk usage.
+/// Computes a lower-bound sum of known catalog reference sizes for required resources
+/// not yet Ready. It does not assert that every such component will be downloaded:
+/// reusable runtimes may already exist. Optional fallbacks are reported separately.
 /// </summary>
 public static class CompleteSetupResourcePlanService
 {
@@ -32,23 +33,32 @@ public static class CompleteSetupResourcePlanService
                  state != LocalResourceLifecycle.Ready))
             .ToArray();
 
-        var downloadable = pending
+        var knownReferences = pending
             .Where(resource => resource.Kind != LocalResourceKind.EmbeddedData)
+            .Where(resource => resource.ExpectedSizeBytes is > 0)
             .ToArray();
 
-        var knownBytes = downloadable
-            .Where(resource => resource.ExpectedSizeBytes is > 0)
-            .Sum(resource => resource.ExpectedSizeBytes!.Value);
+        var knownBytes = knownReferences.Sum(resource => resource.ExpectedSizeBytes!.Value);
 
-        var unknown = downloadable
+        var unknown = pending
+            .Where(resource => resource.Kind != LocalResourceKind.EmbeddedData)
             .Where(resource => resource.ExpectedSizeBytes is null or <= 0)
             .Select(resource => resource.DisplayName)
+            .ToArray();
+
+        var conditional = LocalResourceCatalog.All
+            .Where(resource => !resource.Required &&
+                resource.Kind != LocalResourceKind.EmbeddedData &&
+                resource.ExpectedSizeBytes is > 0 &&
+                (!stateById.TryGetValue(resource.Id, out var state) ||
+                 state != LocalResourceLifecycle.Ready))
             .ToArray();
 
         return new CompleteSetupResourcePlan(
             knownBytes,
             pending.Length,
             unknown,
+            conditional,
             unknown.Length > 0);
     }
 }
