@@ -290,17 +290,18 @@ public sealed class CompleteSetupWindow : Window
         }
         finally
         {
-            _connectivityCheckInProgress = false;
             if (ReferenceEquals(_connectivityCancellation, cancellation))
             {
+                _connectivityCheckInProgress = false;
                 _connectivityCancellation.Dispose();
                 _connectivityCancellation = null;
+                UpdateButtons();
             }
             else
             {
+                // An older cancelled check must not clear the progress state of a newer consent check.
                 cancellation.Dispose();
             }
-            UpdateButtons();
         }
     }
 
@@ -424,6 +425,7 @@ public sealed class CompleteSetupWindow : Window
     private void ContinueInLimitedMode()
     {
         if (_isRunning) return;
+        _connectivityCancellation?.Cancel();
         CanContinueToMainWindow = true;
         SetupCompleted = false;
         DialogResult = true;
@@ -444,6 +446,7 @@ public sealed class CompleteSetupWindow : Window
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        _connectivityCancellation?.Cancel();
         if (!_isRunning) return;
         e.Cancel = true;
         _setupCancellation?.Cancel();
