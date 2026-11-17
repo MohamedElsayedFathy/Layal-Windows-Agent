@@ -51,7 +51,9 @@ public sealed class CompleteSetupWindow : Window
         MinWidth = 680;
         MinHeight = 620;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        Background = new SolidColorBrush(Color.FromRgb(243, 246, 255));
+        Background = SystemParameters.HighContrast
+            ? SystemColors.WindowBrush
+            : new SolidColorBrush(Color.FromRgb(243, 246, 255));
         FlowDirection = _isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Content = BuildContent();
         Closing += OnClosing;
@@ -217,8 +219,10 @@ public sealed class CompleteSetupWindow : Window
             Padding = new Thickness(2),
             CornerRadius = new CornerRadius(18),
             BorderThickness = new Thickness(1),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(213, 220, 240)),
-            Background = Brushes.White,
+            BorderBrush = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(213, 220, 240)),
+            Background = SystemParameters.HighContrast ? SystemColors.WindowBrush : Brushes.White,
             Child = scroll
         };
     }
@@ -236,9 +240,11 @@ public sealed class CompleteSetupWindow : Window
                     ? T("متاح (HTTP ", "reachable (HTTP ") + endpoint.Detail + ")"
                     : T("غير متاح — ", "unavailable — ") + endpoint.Detail));
             _connectivityText.Text = string.Join(Environment.NewLine, lines);
-            _connectivityText.Foreground = report.HasAnyReachableSource
-                ? new SolidColorBrush(Color.FromRgb(23, 115, 79))
-                : new SolidColorBrush(Color.FromRgb(168, 50, 74));
+            _connectivityText.Foreground = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : report.HasAnyReachableSource
+                    ? new SolidColorBrush(Color.FromRgb(23, 115, 79))
+                    : new SolidColorBrush(Color.FromRgb(168, 50, 74));
 
             if (!report.HasAnyReachableSource)
                 AppendLog(T(
@@ -251,7 +257,9 @@ public sealed class CompleteSetupWindow : Window
             _connectivityText.Text = T(
                 "تعذر إكمال فحص الاتصال: ", "Connectivity inspection could not complete: ") +
                 (exception.Message.Length > 500 ? exception.Message[..500] + "…" : exception.Message);
-            _connectivityText.Foreground = new SolidColorBrush(Color.FromRgb(168, 50, 74));
+            _connectivityText.Foreground = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(168, 50, 74));
         }
     }
 
@@ -414,8 +422,12 @@ public sealed class CompleteSetupWindow : Window
         Padding = new Thickness(18),
         CornerRadius = new CornerRadius(14),
         BorderThickness = new Thickness(1),
-        BorderBrush = new SolidColorBrush(Color.FromRgb(213, 220, 240)),
-        Background = new SolidColorBrush(Color.FromRgb(250, 251, 255)),
+        BorderBrush = SystemParameters.HighContrast
+            ? SystemColors.WindowTextBrush
+            : new SolidColorBrush(Color.FromRgb(213, 220, 240)),
+        Background = SystemParameters.HighContrast
+            ? SystemColors.WindowBrush
+            : new SolidColorBrush(Color.FromRgb(250, 251, 255)),
         Child = child
     };
 
@@ -427,7 +439,9 @@ public sealed class CompleteSetupWindow : Window
         TextWrapping = TextWrapping.Wrap,
         TextAlignment = _isArabic ? TextAlignment.Right : TextAlignment.Left,
         Margin = margin,
-        Foreground = new SolidColorBrush(Color.FromRgb(29, 43, 73))
+        Foreground = SystemParameters.HighContrast
+            ? SystemColors.WindowTextBrush
+            : new SolidColorBrush(Color.FromRgb(29, 43, 73))
     };
 
     private void AppendLog(string message)
