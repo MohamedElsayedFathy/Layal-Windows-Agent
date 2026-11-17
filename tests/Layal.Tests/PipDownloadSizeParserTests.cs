@@ -62,7 +62,7 @@ public sealed class PipDownloadSizeParserTests
             "100/400 kB 50 kB/s",
             out var progress));
 
-        Assert.AreEqual(300d / 50_000d, progress.RemainingSeconds!.Value, 0.0001);
+        Assert.AreEqual(300_000d / 50_000d, progress.RemainingSeconds!.Value, 0.0001);
     }
 
     [DataTestMethod]
