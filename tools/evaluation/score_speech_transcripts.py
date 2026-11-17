@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""Score ASR hypotheses against Layal's reference transcripts.
+"""Score ASR hypotheses against Layal's consented, human-reviewed corpus.
 
-No audio is stored in this manifest. Add hypotheses only after collecting recordings
-with explicit speaker consent and producing human-reviewed reference transcripts.
+Audio is never inferred from transcript-only cases. Recorded cases require explicit
+speaker consent and a pseudonymous speaker identifier; scoring hypotheses require an
+approved human reference transcript.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import unicodedata
 from collections import defaultdict
-from pathlib import Path
+from datetime import datetime
+from pathlib import Path, PurePosixPath
 
 SUPPORTED_LOCALES = {"ar-EG", "ar", "en", "mixed"}
 NEGATION_TOKENS = {"مش", "ما", "لا", "لم", "لن", "ليس", "not", "no", "never", "without", "cannot"}
+PSEUDONYMOUS_ID = re.compile(r"^(spk|rev)-[a-z0-9][a-z0-9-]{2,30}$")
 
 
 def normalize(text: str) -> str:
@@ -55,26 +59,19 @@ def edit_distance(left: list[str], right: list[str]) -> int:
 
 
 def score_pair(reference: str, hypothesis: str) -> tuple[int, int, int, int]:
-    """Return WER/CER numerators and denominators for one transcript pair.
-
-    CER is measured over Unicode code points after normalization, excluding spaces.
-    An explicitly empty hypothesis is scored as deletions rather than omitted.
-    """
+    """Return WER/CER numerators and denominators for one transcript pair."""
     ref = normalize(reference)
     hyp = normalize(hypothesis)
     ref_words = ref.split()
     hyp_words = hyp.split()
     reference_characters = ref.replace(" ", "")
     hypothesis_characters = hyp.replace(" ", "")
-    word_errors = edit_distance(ref_words, hyp_words)
-    char_errors = edit_distance(list(reference_characters), list(hypothesis_characters))
     return (
-        word_errors,
+        edit_distance(ref_words, hyp_words),
         len(ref_words),
-        char_errors,
+        edit_distance(list(reference_characters), list(hypothesis_characters)),
         len(reference_characters),
     )
-
 
 
 def is_critical_token(token: str) -> bool:
@@ -90,24 +87,98 @@ def score_critical_tokens(reference: str, hypothesis: str) -> tuple[int, int]:
         return 0, 0
     rows, columns = len(ref) + 1, len(hyp) + 1
     costs = [[0] * columns for _ in range(rows)]
-    for i in range(rows): costs[i][0] = i
-    for j in range(columns): costs[0][j] = j
+    for i in range(rows):
+        costs[i][0] = i
+    for j in range(columns):
+        costs[0][j] = j
     for i in range(1, rows):
         for j in range(1, columns):
-            costs[i][j] = min(costs[i-1][j] + 1, costs[i][j-1] + 1,
-                              costs[i-1][j-1] + (ref[i-1] != hyp[j-1]))
+            costs[i][j] = min(
+                costs[i - 1][j] + 1,
+                costs[i][j - 1] + 1,
+                costs[i - 1][j - 1] + (ref[i - 1] != hyp[j - 1]),
+            )
     erroneous = set()
     i, j = len(ref), len(hyp)
     while i > 0 or j > 0:
-        if i > 0 and j > 0 and ref[i-1] == hyp[j-1] and costs[i][j] == costs[i-1][j-1]:
-            i -= 1; j -= 1
-        elif i > 0 and j > 0 and costs[i][j] == costs[i-1][j-1] + 1:
-            erroneous.add(i-1); i -= 1; j -= 1
-        elif i > 0 and costs[i][j] == costs[i-1][j] + 1:
-            erroneous.add(i-1); i -= 1
+        if i > 0 and j > 0 and ref[i - 1] == hyp[j - 1] and costs[i][j] == costs[i - 1][j - 1]:
+            i -= 1
+            j -= 1
+        elif i > 0 and j > 0 and costs[i][j] == costs[i - 1][j - 1] + 1:
+            erroneous.add(i - 1)
+            i -= 1
+            j -= 1
+        elif i > 0 and costs[i][j] == costs[i - 1][j] + 1:
+            erroneous.add(i - 1)
+            i -= 1
         else:
             j -= 1
     return len(critical & erroneous), len(critical)
+
+
+def _valid_timestamp(value: object) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return True
+    except ValueError:
+        return False
+
+
+def _validate_recording(case: dict, prefix: str, errors: list[str]) -> None:
+    status = case.get("recordingStatus", "not-recorded")
+    if status not in {"not-recorded", "recorded"}:
+        errors.append(f"{prefix} has unsupported recordingStatus '{status}'.")
+        return
+    if status == "not-recorded":
+        if case.get("audioAsset") is not None:
+            errors.append(f"{prefix} must not reference audioAsset while recordingStatus is not-recorded.")
+        if case.get("consent") is not None:
+            errors.append(f"{prefix} must not store consent metadata without a recording.")
+        return
+
+    audio_asset = case.get("audioAsset")
+    if not isinstance(audio_asset, str) or not audio_asset.strip():
+        errors.append(f"{prefix} recorded case requires an audioAsset path.")
+    else:
+        audio_path = PurePosixPath(audio_asset)
+        if (
+            audio_path.is_absolute()
+            or "\\" in audio_asset
+            or ".." in audio_path.parts
+            or not audio_asset.startswith("audio/")
+            or audio_path.suffix.lower() != ".wav"
+        ):
+            errors.append(f"{prefix} audioAsset must be a relative WAV path below Speech/audio/.")
+
+    speaker_id = case.get("speakerId")
+    if not isinstance(speaker_id, str) or not PSEUDONYMOUS_ID.fullmatch(speaker_id) or not speaker_id.startswith("spk-"):
+        errors.append(f"{prefix} recorded case requires a pseudonymous speakerId such as 'spk-001'.")
+
+    consent = case.get("consent")
+    if not isinstance(consent, dict) or consent.get("granted") is not True:
+        errors.append(f"{prefix} recorded case requires explicit consent.granted=true.")
+    else:
+        if consent.get("scope") != "research-evaluation":
+            errors.append(f"{prefix} consent.scope must be 'research-evaluation'.")
+        if not _valid_timestamp(consent.get("recordedAt")):
+            errors.append(f"{prefix} consent.recordedAt must be an ISO-8601 timestamp.")
+
+    review = case.get("referenceReview")
+    review_approved = isinstance(review, dict) and review.get("status") == "approved"
+    if not isinstance(review, dict) or review.get("status") not in {"pending", "approved"}:
+        errors.append(f"{prefix} recorded case requires referenceReview.status 'pending' or 'approved'.")
+    elif review.get("status") == "approved":
+        reviewer_id = review.get("reviewerId")
+        if not isinstance(reviewer_id, str) or not PSEUDONYMOUS_ID.fullmatch(reviewer_id) or not reviewer_id.startswith("rev-"):
+            errors.append(f"{prefix} approved reference requires a pseudonymous reviewerId such as 'rev-001'.")
+        if not _valid_timestamp(review.get("reviewedAt")):
+            errors.append(f"{prefix} approved reference requires an ISO-8601 reviewedAt timestamp.")
+
+    hypotheses = case.get("hypotheses", {})
+    if isinstance(hypotheses, dict) and hypotheses and not review_approved:
+        errors.append(f"{prefix} cannot contain ASR hypotheses until its human referenceReview is approved.")
 
 
 def validate_manifest(payload: object) -> list[str]:
@@ -144,6 +215,8 @@ def validate_manifest(payload: object) -> list[str]:
         reference = case.get("referenceText")
         if not isinstance(reference, str) or not normalize(reference):
             errors.append(f"{prefix} must have a non-empty 'referenceText'.")
+        _validate_recording(case, prefix, errors)
+
         hypotheses = case.get("hypotheses", {})
         if not isinstance(hypotheses, dict):
             errors.append(f"{prefix} 'hypotheses' must be an object keyed by engine id.")
@@ -153,6 +226,22 @@ def validate_manifest(payload: object) -> list[str]:
                     errors.append(f"{prefix} contains an empty engine id.")
                 if not isinstance(hypothesis, str):
                     errors.append(f"{prefix} hypothesis for '{engine}' must be a string.")
+    return errors
+
+
+def validate_audio_files(payload: dict, manifest_path: Path) -> list[str]:
+    """Check referenced WAV files exist and cannot escape the manifest's audio folder."""
+    errors: list[str] = []
+    audio_root = (manifest_path.parent / "audio").resolve()
+    for case in payload["cases"]:
+        if case.get("recordingStatus", "not-recorded") != "recorded":
+            continue
+        relative = PurePosixPath(case["audioAsset"])
+        candidate = (manifest_path.parent / Path(*relative.parts)).resolve()
+        if not candidate.is_relative_to(audio_root):
+            errors.append(f"Case '{case['id']}' audioAsset resolves outside the Speech/audio directory.")
+        elif not candidate.is_file():
+            errors.append(f"Case '{case['id']}' audioAsset file does not exist: {case['audioAsset']}.")
     return errors
 
 
@@ -172,6 +261,11 @@ def main() -> int:
         action="store_true",
         help="Validate the manifest and report reference coverage without calculating metrics.",
     )
+    parser.add_argument(
+        "--check-audio-files",
+        action="store_true",
+        help="Also verify every recorded WAV exists under the manifest's audio/ directory.",
+    )
     args = parser.parse_args()
 
     try:
@@ -181,6 +275,8 @@ def main() -> int:
         return 2
 
     errors = validate_manifest(payload)
+    if not errors and args.check_audio_files:
+        errors.extend(validate_audio_files(payload, args.manifest))
     if errors:
         for error in errors:
             print(f"Manifest error: {error}", file=sys.stderr)
@@ -191,8 +287,14 @@ def main() -> int:
     for case in cases:
         locale_counts[case["locale"]] += 1
 
+    recorded = sum(case.get("recordingStatus", "not-recorded") == "recorded" for case in cases)
+    approved = sum(
+        case.get("recordingStatus") == "recorded"
+        and case.get("referenceReview", {}).get("status") == "approved"
+        for case in cases
+    )
     if args.validate_only:
-        print(f"Manifest valid: {len(cases)} reference cases.")
+        print(f"Manifest valid: {len(cases)} reference cases; {recorded} recorded; {approved} human-reviewed.")
         for locale, count in sorted(locale_counts.items()):
             print(f"{locale}\t{count}")
         return 0
@@ -206,7 +308,7 @@ def main() -> int:
     if not engines:
         print(
             f"Manifest valid: {len(cases)} reference cases; no ASR hypotheses are recorded yet. "
-            "Collect consented recordings, obtain human-reviewed transcripts, then add engine hypotheses."
+            "Collect consented recordings, approve human-reviewed transcripts, then add engine hypotheses."
         )
         return 0
 
