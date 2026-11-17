@@ -115,6 +115,23 @@ public static class CompleteSetupPreflightService
             warning = exception.Message;
         }
 
+        var configuredOllamaModelsPath = Environment.GetEnvironmentVariable("OLLAMA_MODELS");
+        var ollamaModelsPath = string.IsNullOrWhiteSpace(configuredOllamaModelsPath)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".ollama", "models")
+            : configuredOllamaModelsPath;
+        var ollamaStorageLabel = string.IsNullOrWhiteSpace(configuredOllamaModelsPath)
+            ? "Ollama default model volume"
+            : "OLLAMA_MODELS (Layal process) volume";
+
+        storage += Environment.NewLine +
+                   DescribeVolume(ollamaStorageLabel, ollamaModelsPath);
+        storage += Environment.NewLine +
+                   DescribeVolume("Windows temporary-file volume", Path.GetTempPath());
+        storage += Environment.NewLine +
+                   "An already-running Ollama server may use a different OLLAMA_MODELS path; verify its configured model directory.";
+
         if (!isSupportedWindows || !isX64)
         {
             warning = "Complete local setup requires Windows 10 version 2004 (build 19041) or later on x64.";
@@ -178,6 +195,33 @@ public static class CompleteSetupPreflightService
         })).ConfigureAwait(false);
 
         return new CompleteSetupConnectivityReport(checks.Any(item => item.Reachable), checks);
+    }
+
+    private static string DescribeVolume(string label, string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return label + ": path is not configured.";
+
+            var fullPath = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(fullPath);
+            if (string.IsNullOrWhiteSpace(root))
+                return label + ": volume root could not be determined.";
+
+            var drive = new DriveInfo(root);
+            if (!drive.IsReady)
+                return label + ": " + drive.Name + " is not ready.";
+
+            return label + ": " + drive.Name + " — " +
+                   FormatBytes(drive.AvailableFreeSpace) + " free";
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException or
+                System.Security.SecurityException or NotSupportedException)
+        {
+            return label + ": unavailable (" + exception.GetType().Name + ").";
+        }
     }
 
     public static string FormatBytes(long bytes)
