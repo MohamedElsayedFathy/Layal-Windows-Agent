@@ -130,15 +130,6 @@ public sealed class OllamaLocalModelSetupService
         await EnsureServerReadyAsync(executable, progress, cancellationToken).ConfigureAwait(false);
 
         var installedDigest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
-        var existingPin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
-
-        if (existingPin is not null && installedDigest is null)
-        {
-            throw new InvalidOperationException(
-                "The previously verified Qwen model is missing, but its local digest pin remains. " +
-                "Automatic download from the mutable qwen3.5:2b tag is blocked to prevent silent model replacement. " +
-                "Use an explicit model-reset workflow before replacing this pin.");
-        }
 
         if (!string.IsNullOrWhiteSpace(installedDigest))
         {
@@ -536,8 +527,17 @@ public sealed class OllamaLocalModelSetupService
         await using var input = new FileStream(
             path, FileMode.Open, FileAccess.Read, FileShare.Read,
             4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        var manifest = await JsonSerializer.DeserializeAsync<OllamaModelDigestManifest>(
-            input, cancellationToken: cancellationToken).ConfigureAwait(false);
+        OllamaModelDigestManifest? manifest;
+        try
+        {
+            manifest = await JsonSerializer.DeserializeAsync<OllamaModelDigestManifest>(
+                input, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException("The Qwen digest manifest contains invalid JSON.", exception);
+        }
+
         if (manifest is null ||
             !string.Equals(manifest.ModelId, DefaultModelId, StringComparison.Ordinal) ||
             !OllamaModelDigestPolicy.IsValidSha256Digest(manifest.Digest))
