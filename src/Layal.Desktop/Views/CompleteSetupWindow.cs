@@ -1,0 +1,520 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Media;
+using Layal.Services;
+
+namespace Layal.Views;
+
+/// <summary>
+/// A single-consent first-run workflow for local chat, speech and embedded OCR.
+/// The window is shown before the normal Layal shell and never enables the microphone.
+/// </summary>
+public sealed class CompleteSetupWindow : Window
+{
+    private readonly bool _isArabic;
+    private readonly LocalResourceManager _resourceManager = new();
+    private readonly OllamaLocalModelSetupService _chatSetup = new();
+    private readonly LocalEmbeddedResourceSetupService _ocrSetup = new();
+    private readonly LocalVoiceService _voiceService;
+    private readonly CompleteSetupPreflight _preflight;
+
+    private readonly CheckBox _consent = new();
+    private readonly Button _startButton = new();
+    private readonly Button _limitedModeButton = new();
+    private readonly Button _cancelButton = new();
+    private readonly TextBlock _statusText = new();
+    private readonly TextBlock _connectivityText = new();
+    private readonly ProgressBar _progressBar = new();
+    private readonly TextBox _diagnostics = new();
+    private CancellationTokenSource? _setupCancellation;
+    private CancellationTokenSource? _connectivityCancellation;
+    private bool _connectivityCheckInProgress;
+    private bool _isRunning;
+    private bool _hasAttemptedSetup;
+
+    public bool CanContinueToMainWindow { get; private set; }
+    public bool SetupCompleted { get; private set; }
+
+    public CompleteSetupWindow(string dataRoot, LocalVoiceService voiceService)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        _voiceService = voiceService ?? throw new ArgumentNullException(nameof(voiceService));
+        _isArabic = string.Equals(AppRuntime.Settings.Language, "ar", StringComparison.OrdinalIgnoreCase);
+        _preflight = CompleteSetupPreflightService.Inspect(dataRoot);
+
+        Title = T("إعداد ليال الكامل", "Layal complete setup");
+        Width = 860;
+        Height = 760;
+        MinWidth = 680;
+        MinHeight = 620;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        Background = SystemParameters.HighContrast
+            ? SystemColors.WindowBrush
+            : new SolidColorBrush(Color.FromRgb(243, 246, 255));
+        FlowDirection = _isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        Content = BuildContent();
+        Closing += OnClosing;
+        UpdateButtons();
+    }
+
+    private UIElement BuildContent()
+    {
+        var panel = new StackPanel { Margin = new Thickness(28) };
+        panel.Children.Add(CreateText(
+            T("خلّينا نجهّز ليال بالكامل", "Let's prepare Layal completely"),
+            27, FontWeights.Bold, new Thickness(0, 0, 0, 8)));
+        panel.Children.Add(CreateText(
+            T(
+                "سيُجهّز هذا المعالج المحادثة التوليدية المحلية، وفهم الكلام والنطق المحليين، وموارد OCR العربية والإنجليزية قبل فتح مساحة العمل.",
+                "This setup prepares local generative chat, local speech recognition and synthesis, and Arabic/English OCR before opening the workspace."),
+            15, FontWeights.Normal, new Thickness(0, 0, 0, 18)));
+
+        var platformText = CreateText(
+            T("فحص الجهاز والقرص", "Device and storage check"),
+            16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8));
+        var preflightText = CreateText(
+            _preflight.PlatformDescription + Environment.NewLine +
+            _preflight.CpuDescription + Environment.NewLine +
+            "RAM: " + _preflight.MemoryDescription + Environment.NewLine +
+            "GPU: " + _preflight.GpuDescription + Environment.NewLine +
+            _preflight.StorageDescription + Environment.NewLine +
+            (_preflight.Warning ?? T(
+                "سيُحدّث المعالج أحجام التنزيل من بيانات المصادر الفعلية؛ لا يفترض حجمًا ثابتًا للموارد التي لا تعلن حجمًا موثوقًا.",
+                "Download sizes will be updated from source-reported data; no fixed size is assumed for resources without a reliable published size.")),
+            13, FontWeights.Normal, new Thickness(0));
+        panel.Children.Add(CreateCard(new StackPanel
+        {
+            Children = { platformText, preflightText }
+        }));
+
+        _connectivityText.Text = T(
+            "سيتم فحص الاتصال بالمصادر الرسمية بعد موافقتك على الإعداد.",
+            "Official source connectivity will be checked after you approve setup.");
+        _connectivityText.TextWrapping = TextWrapping.Wrap;
+        _connectivityText.FontSize = 13;
+        AutomationProperties.SetName(
+            _connectivityText,
+            T("حالة الاتصال بمصادر التنزيل", "Official download source connectivity"));
+        AutomationProperties.SetLiveSetting(_connectivityText, AutomationLiveSetting.Polite);
+        panel.Children.Add(CreateCard(new StackPanel
+        {
+            Children =
+            {
+                CreateText(T("اتصال الإنترنت والمصادر", "Internet and source connectivity"),
+                    16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)),
+                _connectivityText
+            }
+        }));
+
+        var resources = new StackPanel();
+        resources.Children.Add(CreateText(
+            T("الموارد التي سيجهزها المسار الكامل", "Resources included in full setup"),
+            16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)));
+        resources.Children.Add(CreateText(
+            T("• المحادثة المحلية: Ollama + Qwen3.5 2B، مع اختبار استدلال محلي",
+              "• Local chat: Ollama + Qwen3.5 2B, followed by a local inference test"),
+            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
+        resources.Children.Add(CreateText(
+            T("• الصوت المحلي: Python وPyTorch وOmniVoice وVoiceTut وأوزانه، بالإضافة إلى Whisper",
+              "• Local speech: Python, PyTorch, OmniVoice, VoiceTut and its model weights, plus Whisper"),
+            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
+        resources.Children.Add(CreateText(
+            T("• OCR: التحقق من بيانات اللغة العربية والإنجليزية المضمّنة",
+              "• OCR: verify the bundled Arabic and English language data"),
+            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
+        panel.Children.Add(CreateCard(resources));
+
+        var referenceSizes = new StackPanel();
+        referenceSizes.Children.Add(CreateText(
+            T("أحجام مرجعية قبل الموافقة", "Reference sizes before consent"),
+            16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)));
+        referenceSizes.Children.Add(CreateText(
+            T(
+                "Qwen3.5 2B: نحو 2.7–3.1 GB. أوزان VoiceTut: نحو 2.47 GB. PyTorch CPU: نحو 619.4 MB (قد تختلف حزم CUDA). Whisper: نحو 148 MB للنموذج، وقرابة 8 MB للمحرك. Python الاحتياطي: نحو 29.9 MB. يتطلب Ollama نحو 4 GB على الأقل لملفات البرنامج. أحجام اعتماديات pip المؤقتة وبعض الملفات غير ثابتة؛ لذلك هذه قيم مرجعية وليست إجمالي تنزيل أو مساحة نهائيًا مضمونًا.",
+                "Qwen3.5 2B: approximately 2.7–3.1 GB. VoiceTut weights: approximately 2.47 GB. PyTorch CPU: approximately 619.4 MB (CUDA packages differ). Whisper: approximately 148 MB for the model and about 8 MB for the runtime. Python fallback: about 29.9 MB. Ollama requires at least 4 GB for program files. Pip dependencies and temporary files vary, so these are references, not a guaranteed aggregate download or final-storage estimate."),
+            13, FontWeights.Normal, new Thickness(0)));
+        panel.Children.Add(CreateCard(referenceSizes));
+
+        _consent.Content = CreateText(
+            T(
+                "أوافق على تنزيل وتثبيت الموارد المحلية المذكورة من مصادرها المعتمدة، وتشغيل اختبارات الصحة المحلية. لن يُشغّل المعالج الميكروفون ولن يرسل المحادثات إلى خدمة سحابية.",
+                "I approve downloading and installing the listed local resources from their approved sources and running local health checks."),
+            14, FontWeights.Normal, new Thickness(0));
+        _consent.Margin = new Thickness(4, 14, 4, 14);
+        _consent.FontSize = 14;
+        AutomationProperties.SetName(_consent, T("الموافقة على إعداد الموارد المحلية", "Approve local resource setup"));
+        _consent.Checked += async (_, _) =>
+        {
+            UpdateButtons();
+            await RefreshConnectivityAsync();
+        };
+        _consent.Unchecked += (_, _) =>
+        {
+            _connectivityCancellation?.Cancel();
+            _connectivityText.Text = T(
+                "تم إيقاف فحص الاتصال لعدم وجود موافقة حالية.",
+                "Connectivity checks are stopped because setup consent is not active.");
+            UpdateButtons();
+        };
+        panel.Children.Add(_consent);
+
+        _statusText.Text = T("راجع التفاصيل ثم وافق لبدء الإعداد.", "Review the details, then approve to begin setup.");
+        _statusText.TextWrapping = TextWrapping.Wrap;
+        _statusText.FontSize = 14;
+        _statusText.Margin = new Thickness(0, 4, 0, 8);
+        AutomationProperties.SetName(_statusText, T("حالة إعداد ليال", "Layal setup status"));
+        AutomationProperties.SetLiveSetting(_statusText, AutomationLiveSetting.Polite);
+        panel.Children.Add(_statusText);
+
+        _progressBar.Minimum = 0;
+        _progressBar.Maximum = 100;
+        _progressBar.Height = 14;
+        _progressBar.IsIndeterminate = false;
+        _progressBar.Visibility = Visibility.Collapsed;
+        _progressBar.Margin = new Thickness(0, 0, 0, 12);
+        AutomationProperties.SetName(_progressBar, T("تقدم الإعداد", "Setup progress"));
+        panel.Children.Add(_progressBar);
+
+        _diagnostics.IsReadOnly = true;
+        _diagnostics.AcceptsReturn = true;
+        _diagnostics.TextWrapping = TextWrapping.Wrap;
+        _diagnostics.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+        _diagnostics.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        _diagnostics.MinHeight = 112;
+        _diagnostics.MaxHeight = 180;
+        _diagnostics.FontFamily = new FontFamily("Consolas");
+        _diagnostics.FontSize = 12;
+        _diagnostics.Margin = new Thickness(0, 0, 0, 12);
+        AutomationProperties.SetName(_diagnostics, T("سجل تشخيص إعداد الموارد", "Resource setup diagnostics"));
+        panel.Children.Add(_diagnostics);
+
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        _startButton.Content = T("ابدأ الإعداد الكامل", "Start full setup");
+        _startButton.MinWidth = 170;
+        _startButton.Padding = new Thickness(16, 10, 16, 10);
+        _startButton.Margin = new Thickness(0, 0, 8, 0);
+        _startButton.IsDefault = true;
+        _startButton.Click += async (_, _) => await StartSetupAsync();
+
+        _limitedModeButton.Content = T("المتابعة بالوضع المحدود", "Continue in limited mode");
+        _limitedModeButton.MinWidth = 190;
+        _limitedModeButton.Padding = new Thickness(16, 10, 16, 10);
+        _limitedModeButton.Margin = new Thickness(0, 0, 8, 0);
+        _limitedModeButton.Click += (_, _) => ContinueInLimitedMode();
+
+        _cancelButton.Content = T("إغلاق", "Close");
+        _cancelButton.MinWidth = 90;
+        _cancelButton.Padding = new Thickness(16, 10, 16, 10);
+        _cancelButton.Click += (_, _) => CancelOrClose();
+
+        buttons.Children.Add(_startButton);
+        buttons.Children.Add(_limitedModeButton);
+        buttons.Children.Add(_cancelButton);
+        panel.Children.Add(buttons);
+
+        var scroll = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = panel
+        };
+        return new Border
+        {
+            Margin = new Thickness(14),
+            Padding = new Thickness(2),
+            CornerRadius = new CornerRadius(18),
+            BorderThickness = new Thickness(1),
+            BorderBrush = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(213, 220, 240)),
+            Background = SystemParameters.HighContrast ? SystemColors.WindowBrush : Brushes.White,
+            Child = scroll
+        };
+    }
+
+    private async Task RefreshConnectivityAsync()
+    {
+        _connectivityCancellation?.Cancel();
+        var cancellation = new CancellationTokenSource();
+        _connectivityCancellation = cancellation;
+        _connectivityCheckInProgress = true;
+        _connectivityText.Text = T(
+            "جارٍ فحص اتصال HTTPS بالمصادر الرسمية بعد موافقتك…",
+            "Checking HTTPS connectivity to official sources after your approval…");
+        UpdateButtons();
+
+        try
+        {
+            var report = await CompleteSetupPreflightService.InspectConnectivityAsync(cancellation.Token);
+            if (!IsLoaded) return;
+
+            var lines = report.Endpoints.Select(endpoint =>
+                endpoint.Name + ": " +
+                (endpoint.Reachable
+                    ? T("متاح (HTTP ", "reachable (HTTP ") + endpoint.Detail + ")"
+                    : T("غير متاح — ", "unavailable — ") + endpoint.Detail));
+            _connectivityText.Text = string.Join(Environment.NewLine, lines);
+            _connectivityText.Foreground = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : report.HasAnyReachableSource
+                    ? new SolidColorBrush(Color.FromRgb(23, 115, 79))
+                    : new SolidColorBrush(Color.FromRgb(168, 50, 74));
+
+            if (!report.HasAnyReachableSource)
+                AppendLog(T(
+                    "لم يمكن الوصول إلى أي مصدر رسمي في فحص الاتصال. يمكنك المتابعة بالوضع المحدود أو إعادة المحاولة بعد استعادة الإنترنت.",
+                    "No official source responded during the connectivity check. You can continue in limited mode or retry after restoring internet access."));
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // Consent was withdrawn or a newer explicit consent started another check.
+        }
+        catch (Exception exception)
+        {
+            if (!IsLoaded) return;
+            _connectivityText.Text = T(
+                "تعذر إكمال فحص الاتصال: ", "Connectivity inspection could not complete: ") +
+                (exception.Message.Length > 500 ? exception.Message[..500] + "…" : exception.Message);
+            _connectivityText.Foreground = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(168, 50, 74));
+        }
+        finally
+        {
+            if (ReferenceEquals(_connectivityCancellation, cancellation))
+            {
+                _connectivityCheckInProgress = false;
+                _connectivityCancellation.Dispose();
+                _connectivityCancellation = null;
+                UpdateButtons();
+            }
+            else
+            {
+                // An older cancelled check must not clear the progress state of a newer consent check.
+                cancellation.Dispose();
+            }
+        }
+    }
+
+    private async Task StartSetupAsync()
+    {
+        if (_isRunning || _consent.IsChecked != true || !_preflight.IsSupported)
+            return;
+
+        _hasAttemptedSetup = true;
+        _setupCancellation = new CancellationTokenSource();
+        var token = _setupCancellation.Token;
+        _isRunning = true;
+        _progressBar.Visibility = Visibility.Visible;
+        _progressBar.IsIndeterminate = true;
+        _progressBar.Value = 0;
+        UpdateButtons();
+        AppendLog(T("بدأ الإعداد الكامل بموافقة المستخدم.", "Full setup started with user consent."));
+
+        var chatProgress = new Progress<string>(message =>
+        {
+            _statusText.Text = message;
+        });
+        var modelProgress = new Progress<LocalResourceDownloadProgress>(progress =>
+        {
+            if (progress.TotalBytes > 0)
+            {
+                _progressBar.IsIndeterminate = false;
+                _progressBar.Value = Math.Clamp(
+                    progress.DownloadedBytes * 100d / progress.TotalBytes, 0d, 100d);
+                var speed = CompleteSetupPreflightService.FormatBytes(
+                    (long)Math.Max(0, progress.BytesPerSecond)) + "/s";
+                var eta = progress.RemainingSeconds.HasValue
+                    ? TimeSpan.FromSeconds(Math.Clamp(progress.RemainingSeconds.Value, 0, 365 * 24 * 60 * 60))
+                        .ToString(@"h\:mm\:ss")
+                    : T("جارٍ الحساب", "calculating");
+                var resourceName = string.Equals(
+                    progress.ResourceId,
+                    LocalResourceIds.OllamaRuntimeInstaller,
+                    StringComparison.Ordinal)
+                    ? T("مثبّت Ollama", "Ollama installer")
+                    : T("نموذج المحادثة Qwen3.5 2B", "Qwen3.5 2B chat model");
+                _statusText.Text = string.Format(
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    T("تنزيل {0}: {1} من {2} — {3} — المتبقي {4}",
+                      "Downloading {0}: {1} of {2} — {3} — remaining {4}"),
+                    resourceName,
+                    CompleteSetupPreflightService.FormatBytes(progress.DownloadedBytes),
+                    CompleteSetupPreflightService.FormatBytes(progress.TotalBytes),
+                    speed,
+                    eta);
+            }
+        });
+        var speechProgress = new Progress<LocalSpeechProgress>(progress =>
+        {
+            _statusText.Text = progress.Message;
+            if (progress.Percent.HasValue)
+            {
+                _progressBar.IsIndeterminate = false;
+                _progressBar.Value = Math.Clamp(progress.Percent.Value, 0, 100);
+            }
+            else
+            {
+                _progressBar.IsIndeterminate = true;
+            }
+        });
+
+        try
+        {
+            _statusText.Text = T("التحقق من موارد OCR المضمّنة…", "Verifying bundled OCR resources…");
+            await _ocrSetup.EnsureOcrResourcesReadyAsync(token).ConfigureAwait(true);
+            AppendLog(T("تم التحقق من OCR العربي والإنجليزي.", "Arabic and English OCR resources verified."));
+
+            _statusText.Text = T("تجهيز Ollama ونموذج المحادثة المحلي…", "Preparing Ollama and the local chat model…");
+            await _chatSetup.InstallAndPrepareAsync(chatProgress, token, modelProgress).ConfigureAwait(true);
+            AppRuntime.Settings.UseLocalAi = true;
+            AppRuntime.Settings.LocalChatModelBaseUrl = LocalChatModelService.DefaultBaseUrl;
+            AppRuntime.Settings.LocalChatModelId = OllamaLocalModelSetupService.DefaultModelId;
+            AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            AppendLog(T("نجح اختبار المحادثة المحلية وحُفظت إعداداتها.", "Local chat smoke test passed and its settings were saved."));
+
+            _statusText.Text = T("تجهيز Whisper وبيئة Python والصوت المحلي…", "Preparing Whisper, the Python environment and local speech…");
+            _progressBar.IsIndeterminate = true;
+            await _voiceService.EnsureReadyAsync(speechProgress, token).ConfigureAwait(true);
+            AppendLog(T("تم تجهيز Whisper وVoiceTut والتحقق من التشغيل المحلي.", "Whisper and VoiceTut setup and local health checks completed."));
+
+            var snapshot = await _resourceManager.GetSnapshotAsync(token).ConfigureAwait(true);
+            var missing = CompleteSetupReadinessPolicy.GetMissingRequiredResources(snapshot);
+            if (missing.Count > 0)
+            {
+                var names = string.Join(", ", missing.Select(item => item.DisplayName));
+                throw new InvalidOperationException(
+                    T("لم تصبح كل الموارد المطلوبة جاهزة بعد: ", "Some required resources are not ready yet: ") + names);
+            }
+
+            SetupCompleted = true;
+            CanContinueToMainWindow = true;
+            _progressBar.IsIndeterminate = false;
+            _progressBar.Value = 100;
+            _statusText.Text = T(
+                "اكتمل الإعداد والتحقق. ستُفتح ليال الآن؛ الميكروفون ما زال متوقفًا حتى تطلب استخدامه.",
+                "Setup and verification are complete. Layal will open now; the microphone remains off until you explicitly use it.");
+            AppendLog(T("اكتملت كل بوابات الموارد المطلوبة.", "All required resource gates are ready."));
+            _isRunning = false;
+            DialogResult = true;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            _statusText.Text = T("تم إيقاف الإعداد بأمان. الموارد التي اكتمل التحقق منها محفوظة.", "Setup was safely cancelled. Resources that passed verification remain available.");
+            AppendLog(_statusText.Text);
+        }
+        catch (Exception exception)
+        {
+            var detail = string.IsNullOrWhiteSpace(exception.Message)
+                ? exception.GetType().Name
+                : exception.Message;
+            if (detail.Length > 1200) detail = detail[..1200] + "…";
+            _statusText.Text = T("تعذر إكمال الإعداد: ", "Setup could not be completed: ") + detail;
+            AppendLog(_statusText.Text);
+        }
+        finally
+        {
+            _isRunning = false;
+            _progressBar.IsIndeterminate = false;
+            _progressBar.Visibility = Visibility.Collapsed;
+            _setupCancellation?.Dispose();
+            _setupCancellation = null;
+            UpdateButtons();
+        }
+    }
+
+    private void ContinueInLimitedMode()
+    {
+        if (_isRunning) return;
+        _connectivityCancellation?.Cancel();
+        CanContinueToMainWindow = true;
+        SetupCompleted = false;
+        DialogResult = true;
+    }
+
+    private void CancelOrClose()
+    {
+        if (_isRunning)
+        {
+            _setupCancellation?.Cancel();
+            _statusText.Text = T("جارٍ إيقاف الإعداد بأمان…", "Cancelling setup safely…");
+            return;
+        }
+
+        CanContinueToMainWindow = false;
+        DialogResult = false;
+    }
+
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        _connectivityCancellation?.Cancel();
+        if (!_isRunning) return;
+        e.Cancel = true;
+        _setupCancellation?.Cancel();
+        _statusText.Text = T("جارٍ إيقاف الإعداد قبل الإغلاق…", "Cancelling setup before closing…");
+    }
+
+    private void UpdateButtons()
+    {
+        _startButton.Content = _isRunning
+            ? T("جارٍ الإعداد…", "Setting up…")
+            : _hasAttemptedSetup
+                ? T("أعد المحاولة", "Retry setup")
+                : T("ابدأ الإعداد الكامل", "Start full setup");
+        _startButton.IsEnabled = !_isRunning && !_connectivityCheckInProgress &&
+                                 _preflight.IsSupported && _consent.IsChecked == true;
+        _limitedModeButton.IsEnabled = !_isRunning;
+        _cancelButton.IsEnabled = true;
+        _cancelButton.Content = _isRunning ? T("إيقاف", "Stop") : T("إغلاق", "Close");
+    }
+
+    private Border CreateCard(UIElement child) => new()
+    {
+        Margin = new Thickness(0, 0, 0, 14),
+        Padding = new Thickness(18),
+        CornerRadius = new CornerRadius(14),
+        BorderThickness = new Thickness(1),
+        BorderBrush = SystemParameters.HighContrast
+            ? SystemColors.WindowTextBrush
+            : new SolidColorBrush(Color.FromRgb(213, 220, 240)),
+        Background = SystemParameters.HighContrast
+            ? SystemColors.WindowBrush
+            : new SolidColorBrush(Color.FromRgb(250, 251, 255)),
+        Child = child
+    };
+
+    private TextBlock CreateText(string text, double size, FontWeight weight, Thickness margin) => new()
+    {
+        Text = text,
+        FontSize = size,
+        FontWeight = weight,
+        TextWrapping = TextWrapping.Wrap,
+        TextAlignment = _isArabic ? TextAlignment.Right : TextAlignment.Left,
+        Margin = margin,
+        Foreground = SystemParameters.HighContrast
+            ? SystemColors.WindowTextBrush
+            : new SolidColorBrush(Color.FromRgb(29, 43, 73))
+    };
+
+    private void AppendLog(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return;
+        var value = "[" + DateTimeOffset.Now.ToString("HH:mm:ss") + "] " + message + Environment.NewLine;
+        _diagnostics.AppendText(value);
+        if (_diagnostics.Text.Length > 24000)
+            _diagnostics.Text = _diagnostics.Text[^16000..];
+        _diagnostics.ScrollToEnd();
+    }
+
+    private string T(string arabic, string english) => _isArabic ? arabic : english;
+}

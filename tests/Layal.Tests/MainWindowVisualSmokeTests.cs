@@ -1131,6 +1131,9 @@ public sealed class MainWindowVisualSmokeTests
         AppRuntime.IsExiting = true;
         mascot.Close();
         window.Close();
+        Assert.IsNull(
+            AppRuntime.LocalVoiceRuntime,
+            "Closing the main window during application shutdown must clear the disposed shared speech runtime.");
         app.Shutdown();
         App.SuppressStartupForTests = false;
     }
