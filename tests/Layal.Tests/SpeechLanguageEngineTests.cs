@@ -33,6 +33,44 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
+    public void LeavesArabicUnspecifiedWhenDialectEvidenceIsWeakOrAbsent()
+    {
+        var generic = _engine.Analyze("تمام، شكرًا لك.");
+        Assert.AreEqual(SpeechLanguageKind.ArabicUnspecified, generic.Language.PrimaryLanguage);
+        Assert.AreEqual("Arabic (dialect unspecified)", generic.Language is not null
+            ? new SpeechLanguageAnalysis(
+                generic.OriginalText, generic.NormalizedText, generic.Language, generic.Intent,
+                generic.MatchingEntries, generic.MatchingTopics).GetType().Name == string.Empty ? string.Empty : generic.Language.PrimaryLanguage.ToString()
+            : string.Empty);
+    }
+
+    [TestMethod]
+    public void UsesExplicitEgyptianFormsAndDistinctMarkersAsDialectEvidence()
+    {
+        Assert.AreEqual(
+            SpeechLanguageKind.EgyptianArabic,
+            _engine.Analyze("ازيك").Language.PrimaryLanguage);
+        Assert.AreEqual(
+            SpeechLanguageKind.EgyptianArabic,
+            _engine.Analyze("عاوز أروح دلوقتي").Language.PrimaryLanguage);
+
+        var evidence = _engine.Reference.DetectArabicDialect("عامل إيه النهارده؟");
+        Assert.AreEqual(SpeechLanguageKind.EgyptianArabic, evidence.Dialect);
+        Assert.IsTrue(evidence.EgyptianWeight >= 3);
+        Assert.IsTrue(evidence.EgyptianMarkers.Count >= 2);
+    }
+
+    [TestMethod]
+    public void DetectsStandardArabicFromMultipleFormalMarkers()
+    {
+        var analysis = _engine.Analyze("كيف حالك؟ أحتاج إلى معرفة التفاصيل.");
+        Assert.AreEqual(SpeechLanguageKind.ArabicStandard, analysis.Language.PrimaryLanguage);
+        var evidence = _engine.Reference.DetectArabicDialect(analysis.NormalizedText);
+        Assert.IsTrue(evidence.StandardArabicWeight >= 3);
+        Assert.IsTrue(evidence.StandardArabicWeight - evidence.EgyptianWeight >= 2);
+    }
+
+    [TestMethod]
     public void DetectsEnglishAndMixedArabicEnglish()
     {
         Assert.AreEqual(SpeechLanguageKind.English, _engine.Analyze("Hello, how are you?").Language.PrimaryLanguage);
@@ -74,7 +112,7 @@ public sealed class SpeechLanguageEngineTests
     public void ReferenceCoverageIncludesLexiconGrammarDialogueAndVerbs()
     {
         var coverage = _engine.Reference.GetCoverage();
-        Assert.AreEqual("2.0.0", coverage.ReferenceVersion);
+        Assert.AreEqual("2.1.0", coverage.ReferenceVersion);
         Assert.IsTrue(coverage.LexicalEntries >= 200);
         Assert.IsTrue(coverage.ConversationTopics >= 20);
         Assert.IsTrue(coverage.GrammarRules >= 60);
