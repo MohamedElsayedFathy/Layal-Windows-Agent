@@ -18,7 +18,14 @@ public sealed class CompleteSetupPreflightServiceTests
     [TestMethod]
     public void FormatBytesRejectsNegativeValues()
     {
-        Assert.ThrowsException<System.ArgumentOutOfRangeException>(
-            () => CompleteSetupPreflightService.FormatBytes(-1));
+        try
+        {
+            _ = CompleteSetupPreflightService.FormatBytes(-1);
+            Assert.Fail("Expected a negative byte count to be rejected.");
+        }
+        catch (System.ArgumentOutOfRangeException)
+        {
+            // Expected validation result.
+        }
     }
 }
