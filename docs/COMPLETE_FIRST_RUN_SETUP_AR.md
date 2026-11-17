@@ -62,7 +62,7 @@
 | PyTorch CUDA | `torch==2.8.0` و`torchaudio==2.8.0` من فهرس CUDA 12.8 الحالي | اكتشاف الحجم من بيان تنزيل pip | توافق الجهاز/السائق، `torch.cuda.is_available()` واختبار tensor على GPU |
 | OmniVoice | commit `08be0b4ccbac3e13e374e86fbfead4b4cac343e2` | أرشيف مصدر صغير؛ واعتمادياته هي الجزء الأكبر | commit ثابت، بناء wheel، import smoke test |
 | VoiceTut-TTS | commit `44cba00cd3ddb04b5213353e19e960045e332da7` | أرشيف مصدر صغير؛ واعتمادياته هي الجزء الأكبر | commit ثابت، بناء wheel، import smoke test |
-| VoiceTut weights | `mohammedaly22/VoiceTut-TTS`, revision `b36bdf4416864d84f47ca77ce3decf34f6ab16cc` | نحو 2.47 GB بحسب صفحة النموذج | revision مثبتة، ملفات النموذج المطلوبة، سلامة بيانات Hugging Face/Xet، واختبار خادم |
+| VoiceTut weights | `mohammedaly22/VoiceTut-TTS`, revision `b36bdf4416864d84f47ca77ce3decf34f6ab16cc` | 2,450,344,144 bytes للأوزان + 11,423,986 bytes للـtokenizer؛ إجمالي الملفات ذات البصمة المعروفة 2,461,768,130 bytes | SHA-256 وحجم مستقلان لـ`model.safetensors` و`tokenizer.json`، تحقق داخل Python bridge وC# قبل Ready، ومراجعة روابط الكاش؛ أحجام باقي بيانات snapshot/اعتمادياتها تظل منفصلة وغير محسومة |
 | Whisper binary | whisper.cpp v1.9.1 | 7,982,101 bytes | SHA-256 الحالي في `LocalVoiceService` وفحص كل ملفات الأرشيف بعد فك الضغط |
 | Whisper model | `ggml-base.bin` عند commit `5359861c739e955e79d9a303bcbc70fb988958b1` | 147,951,465 bytes | SHA-256 الحالي في `LocalVoiceService` |
 | OCR Arabic/English | commit `87416418657359cb625c412a48b6e1d6d41c29bd` | 1,432,056 + 4,113,088 bytes | Git blob SHA-1 الحالي وفحص وجود الملفين المضمّنين |
@@ -102,7 +102,7 @@
 - يُحفظ أول digest كامل بوصفه **بصمة محلية لأول تحقق (first-observed local pin)**. هذا يوفر كشف الانحراف المحلي مستقبلًا، لكنه ليس بصمة ناشر مستقلة مثبتة مسبقًا ولا يثبت أن أول تنزيل كان مطابقًا لبيان registry معروف.
 - في كل تشغيل/إعادة تحقق، تقارن Layal digest المثبتة بالـ digest الحالي. أي اختلاف أو تلف في ملف البصمة يفشل التحقق ويمنع استبدال البصمة تلقائيًا.
 - إذا اختفى النموذج المحلي مع بقاء بصمته، لا يعاد تنزيل اسم tag متغير بصمت؛ يلزم مسار Reset/Repair صريح يحفظ اختيار المستخدم.
-- تظل خطوة اعتماد digest من manifest رسمي موثوق قبل أول تنزيل، وبصمات SHA-256 مستقلة لكل ملف أوزان VoiceTut، متطلبين منفصلين لم يُغلقا بعد.
+- تظل خطوة اعتماد digest كامل من manifest رسمي موثوق لنموذج Qwen قبل أول تنزيل متطلبًا مستقلًا للمرحلة C؛ لا يجوز اشتقاقه من بادئة مختصرة. أما ملفات VoiceTut الثنائية ذات البصمة المرجعية فقد أصبحت مثبتة ومتحققًا منها في PR #198 (راجع القسم 14).
 
 ## 4. تجربة المستخدم المطلوبة
 
