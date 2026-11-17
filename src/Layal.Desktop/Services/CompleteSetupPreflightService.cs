@@ -38,9 +38,12 @@ public static class CompleteSetupPreflightService
     private static readonly (string Name, string Url)[] ConnectivityTargets =
     {
         ("GitHub", "https://github.com/"),
+        ("Python", "https://www.python.org/"),
         ("PyPI", "https://pypi.org/"),
+        ("PyTorch", "https://download.pytorch.org/"),
         ("Hugging Face", "https://huggingface.co/"),
-        ("Ollama", "https://ollama.com/")
+        ("Ollama", "https://ollama.com/"),
+        ("Ollama registry", "https://registry.ollama.ai/")
     };
 
     [StructLayout(LayoutKind.Sequential)]
