@@ -34,7 +34,9 @@ public sealed class OllamaLocalModelSetupService
     public OllamaLocalModelSetupService()
         : this(
             new LocalChatModelService(),
-            new LocalResourceSetupCoordinator(new LocalResourceManager()))
+            new LocalResourceSetupCoordinator(
+                new LocalResourceManager(),
+                new LocalResourceDownloadService()))
     {
     }
 
