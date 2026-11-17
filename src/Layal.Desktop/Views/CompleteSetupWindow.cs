@@ -76,6 +76,9 @@ public sealed class CompleteSetupWindow : Window
             16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8));
         var preflightText = CreateText(
             _preflight.PlatformDescription + Environment.NewLine +
+            _preflight.CpuDescription + Environment.NewLine +
+            "RAM: " + _preflight.MemoryDescription + Environment.NewLine +
+            "GPU: " + _preflight.GpuDescription + Environment.NewLine +
             _preflight.StorageDescription + Environment.NewLine +
             (_preflight.Warning ?? T(
                 "سيُحدّث المعالج أحجام التنزيل من بيانات المصادر الفعلية؛ لا يفترض حجمًا ثابتًا للموارد التي لا تعلن حجمًا موثوقًا.",
