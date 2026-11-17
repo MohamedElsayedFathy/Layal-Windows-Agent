@@ -3,6 +3,7 @@ namespace Layal.SpeechLanguage;
 public enum SpeechLanguageKind
 {
     Unknown,
+    ArabicUnspecified,
     ArabicStandard,
     EgyptianArabic,
     English,
@@ -50,6 +51,14 @@ public sealed record LanguageDetectionResult(
     int ArabicLetterCount,
     int LatinLetterCount);
 
+public sealed record ArabicDialectEvidence(
+    SpeechLanguageKind Dialect,
+    int EgyptianWeight,
+    int StandardArabicWeight,
+    IReadOnlyList<string> EgyptianMarkers,
+    IReadOnlyList<string> StandardArabicMarkers,
+    double Confidence);
+
 public sealed class LinguisticEntry
 {
     public string Id { get; init; } = string.Empty;
@@ -70,6 +79,7 @@ public sealed class LinguisticEntry
     public List<string> Examples { get; init; } = new();
     public List<string> Topics { get; init; } = new();
     public bool IsDialectMarker { get; init; }
+    public int DialectEvidenceWeight { get; init; }
 }
 
 public sealed class ConversationTopic
@@ -144,6 +154,7 @@ public sealed record SpeechLanguageAnalysis(
 
     public string GetLanguageLabel(bool arabic) => Language.PrimaryLanguage switch
     {
+        SpeechLanguageKind.ArabicUnspecified => arabic ? "العربية — اللهجة غير محددة" : "Arabic (dialect unspecified)",
         SpeechLanguageKind.ArabicStandard => arabic ? "العربية الفصحى" : "Modern Standard Arabic",
         SpeechLanguageKind.EgyptianArabic => arabic ? "اللهجة المصرية" : "Egyptian Arabic",
         SpeechLanguageKind.English => arabic ? "الإنجليزية" : "English",
