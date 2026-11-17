@@ -9,7 +9,7 @@ namespace Layal.Tests;
 public sealed class CompleteSetupResourcePlanServiceTests
 {
     [TestMethod]
-    public void PlanSumsOnlyKnownSizesAndListsUnknownRequiredDownloads()
+    public void PlanSumsKnownCatalogReferencesAndListsUnknownRequiredResources()
     {
         var states = LocalResourceCatalog.All
             .Where(resource => resource.Required && resource.Kind == LocalResourceKind.EmbeddedData)
