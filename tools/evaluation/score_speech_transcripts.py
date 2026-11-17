@@ -12,6 +12,7 @@ import json
 import re
 import sys
 import unicodedata
+import wave
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path, PurePosixPath
@@ -166,10 +167,11 @@ def _validate_recording(case: dict, prefix: str, errors: list[str]) -> None:
             errors.append(f"{prefix} consent.recordedAt must be an ISO-8601 timestamp.")
 
     review = case.get("referenceReview")
-    review_approved = isinstance(review, dict) and review.get("status") == "approved"
-    if not isinstance(review, dict) or review.get("status") not in {"pending", "approved"}:
+    review_status = review.get("status") if isinstance(review, dict) else None
+    review_approved = review_status == "approved"
+    if not isinstance(review_status, str) or review_status not in {"pending", "approved"}:
         errors.append(f"{prefix} recorded case requires referenceReview.status 'pending' or 'approved'.")
-    elif review.get("status") == "approved":
+    elif review_status == "approved":
         reviewer_id = review.get("reviewerId")
         if not isinstance(reviewer_id, str) or not PSEUDONYMOUS_ID.fullmatch(reviewer_id) or not reviewer_id.startswith("rev-"):
             errors.append(f"{prefix} approved reference requires a pseudonymous reviewerId such as 'rev-001'.")
@@ -242,6 +244,19 @@ def validate_audio_files(payload: dict, manifest_path: Path) -> list[str]:
             errors.append(f"Case '{case['id']}' audioAsset resolves outside the Speech/audio directory.")
         elif not candidate.is_file():
             errors.append(f"Case '{case['id']}' audioAsset file does not exist: {case['audioAsset']}.")
+        else:
+            try:
+                with wave.open(str(candidate), "rb") as audio:
+                    channels = audio.getnchannels()
+                    sample_rate = audio.getframerate()
+                    sample_width = audio.getsampwidth()
+                if (channels, sample_rate, sample_width) != (1, 16000, 2):
+                    errors.append(
+                        f"Case '{case['id']}' WAV must be mono 16 kHz / 16-bit PCM; "
+                        f"found {channels} channel(s), {sample_rate} Hz, {sample_width * 8}-bit."
+                    )
+            except (wave.Error, OSError) as error:
+                errors.append(f"Case '{case['id']}' audioAsset is not a readable PCM WAV: {error}.")
     return errors
 
 
