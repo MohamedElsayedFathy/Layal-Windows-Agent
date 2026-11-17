@@ -15,6 +15,7 @@ public static class LocalResourceIds
     public const string WhisperRuntime = "whisper-runtime";
     public const string WhisperModel = "whisper-model";
     public const string OllamaRuntime = "ollama-runtime";
+    public const string OllamaRuntimeInstaller = "ollama-runtime-installer";
     public const string ChatModel = "chat-model-qwen35-2b";
     public const string OcrArabic = "ocr-ara";
     public const string OcrEnglish = "ocr-eng";
@@ -143,6 +144,17 @@ public static class LocalResourceCatalog
                 null,
                 null,
                 "Verify the Authenticode signature and executable version before first use."),
+
+            new LocalResourceDefinition(
+                LocalResourceIds.OllamaRuntimeInstaller,
+                "Ollama Windows official installer fallback",
+                "0.40.16",
+                "https://github.com/ollama/ollama/releases/download/v0.40.16/OllamaSetup.exe",
+                LocalResourceKind.Runtime,
+                false,
+                1_857_663_944,
+                "84db4f756ddc9e091142a85cdc0f7ae5db68bc9b3e075f114388b326f8ed912d",
+                "Verify the pinned official release archive SHA-256 and Ollama Inc. Authenticode publisher before a silent per-user install; then verify the installed runtime."),
 
             new LocalResourceDefinition(
                 LocalResourceIds.ChatModel,
