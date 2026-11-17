@@ -84,7 +84,7 @@ public sealed class OllamaLocalModelSetupService
             string.Equals(runtimeRoot, downloadRoot, StringComparison.OrdinalIgnoreCase))
         {
             LocalResourceStorageCapacityGuard.EnsureAvailable(
-                RuntimeCapacityDirectory, downloadBytes, runtimeReferenceBytes);
+                RuntimeCapacityDirectory, checked(downloadBytes * 2), runtimeReferenceBytes);
             return;
         }
 
