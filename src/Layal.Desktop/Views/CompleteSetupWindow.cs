@@ -175,7 +175,8 @@ public sealed class CompleteSetupWindow : Window
         _progressBar.Minimum = 0;
         _progressBar.Maximum = 100;
         _progressBar.Height = 14;
-        _progressBar.IsIndeterminate = true;
+        _progressBar.IsIndeterminate = false;
+        _progressBar.Visibility = Visibility.Collapsed;
         _progressBar.Margin = new Thickness(0, 0, 0, 12);
         AutomationProperties.SetName(_progressBar, T("تقدم الإعداد", "Setup progress"));
         panel.Children.Add(_progressBar);
@@ -314,6 +315,7 @@ public sealed class CompleteSetupWindow : Window
         _setupCancellation = new CancellationTokenSource();
         var token = _setupCancellation.Token;
         _isRunning = true;
+        _progressBar.Visibility = Visibility.Visible;
         _progressBar.IsIndeterminate = true;
         _progressBar.Value = 0;
         UpdateButtons();
@@ -416,6 +418,8 @@ public sealed class CompleteSetupWindow : Window
         finally
         {
             _isRunning = false;
+            _progressBar.IsIndeterminate = false;
+            _progressBar.Visibility = Visibility.Collapsed;
             _setupCancellation?.Dispose();
             _setupCancellation = null;
             UpdateButtons();
