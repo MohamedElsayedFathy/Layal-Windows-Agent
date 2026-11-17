@@ -97,7 +97,8 @@ public partial class App : Application
 
         // Share one speech runtime between setup and the main window. This preserves the
         // verified VoiceTut process after the first-run wizard closes.
-        AppRuntime.LocalVoiceRuntime = new LocalVoiceService();
+        var localVoiceRuntime = new LocalVoiceService();
+        AppRuntime.LocalVoiceRuntime = localVoiceRuntime;
         if (!_isScheduledReminderLaunch && !dataPaths.IsolatedAcceptance)
         {
             var resourceManager = new LocalResourceManager();
@@ -114,11 +115,11 @@ public partial class App : Application
 
             if (!setupIsReady)
             {
-                var setupWindow = new CompleteSetupWindow(dataRoot, AppRuntime.LocalVoiceRuntime);
+                var setupWindow = new CompleteSetupWindow(dataRoot, localVoiceRuntime);
                 setupWindow.ShowDialog();
                 if (!setupWindow.CanContinueToMainWindow)
                 {
-                    try { AppRuntime.LocalVoiceRuntime.Dispose(); }
+                    try { localVoiceRuntime.Dispose(); }
                     catch (Exception exception) { WriteCrashLog("Dispose first-run speech runtime", exception); }
                     AppRuntime.LocalVoiceRuntime = null;
                     Shutdown();
