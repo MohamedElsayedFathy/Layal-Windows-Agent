@@ -46,8 +46,12 @@ public static class CompleteSetupResourcePlanService
             .Select(resource => resource.DisplayName)
             .ToArray();
 
+        var ollamaRuntimeIsReady =
+            stateById.TryGetValue(LocalResourceIds.OllamaRuntime, out var ollamaState) &&
+            ollamaState == LocalResourceLifecycle.Ready;
         var conditional = LocalResourceCatalog.All
             .Where(resource => !resource.Required &&
+                (resource.Id != LocalResourceIds.OllamaRuntimeInstaller || !ollamaRuntimeIsReady) &&
                 resource.Kind != LocalResourceKind.EmbeddedData &&
                 resource.ExpectedSizeBytes is > 0 &&
                 (!stateById.TryGetValue(resource.Id, out var state) ||
