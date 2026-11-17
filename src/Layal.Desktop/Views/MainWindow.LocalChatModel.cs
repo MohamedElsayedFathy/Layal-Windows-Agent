@@ -73,10 +73,19 @@ public partial class MainWindow
             if (!ReferenceEquals(_localChatSetupCancellation, cancellation)) return;
             SetAccessibleStatusText(LocalChatModelStatusText, message);
         });
+        var downloadProgress = new Progress<LocalResourceDownloadProgress>(state =>
+        {
+            if (!ReferenceEquals(_localChatSetupCancellation, cancellation) || state.TotalBytes <= 0)
+                return;
+            LocalChatModelProgressBar.IsIndeterminate = false;
+            LocalChatModelProgressBar.Value = Math.Clamp(
+                state.DownloadedBytes * 100d / state.TotalBytes, 0d, 100d);
+        });
 
         try
         {
-            await _ollamaLocalModelSetupService.InstallAndPrepareAsync(progress, cancellation.Token);
+            await _ollamaLocalModelSetupService.InstallAndPrepareAsync(
+                progress, cancellation.Token, downloadProgress);
 
             var settings = AppRuntime.Settings.Clone();
             settings.LocalChatModelBaseUrl = LocalChatModelService.DefaultBaseUrl;

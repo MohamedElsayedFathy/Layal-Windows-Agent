@@ -39,6 +39,7 @@ public sealed class LocalResourceDownloadService : IDisposable
         "download.pytorch.org",
         "pypi.org",
         "files.pythonhosted.org",
+        "www.python.org",
         "ollama.com",
         "registry.ollama.ai"
     };
@@ -69,6 +70,7 @@ public sealed class LocalResourceDownloadService : IDisposable
         _ownsClient = httpClient is null;
         _httpClient = httpClient ?? new HttpClient(new SocketsHttpHandler
         {
+            AllowAutoRedirect = false,
             ConnectTimeout = TimeSpan.FromSeconds(20),
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             AutomaticDecompression = DecompressionMethods.None
@@ -85,7 +87,8 @@ public sealed class LocalResourceDownloadService : IDisposable
         LocalResourceDefinition resource,
         string destinationPath,
         IProgress<LocalResourceDownloadProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<LocalResourceDownloadProgress, CancellationToken, ValueTask>? progressCallback = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
         var normalizedDestination = Path.GetFullPath(destinationPath);
@@ -98,7 +101,8 @@ public sealed class LocalResourceDownloadService : IDisposable
             {
                 try
                 {
-                    await DownloadAttemptAsync(resource, normalizedDestination, progress, cancellationToken)
+                    await DownloadAttemptAsync(
+                        resource, normalizedDestination, progress, cancellationToken, progressCallback)
                         .ConfigureAwait(false);
                     return;
                 }
@@ -119,7 +123,8 @@ public sealed class LocalResourceDownloadService : IDisposable
         LocalResourceDefinition resource,
         string destinationPath,
         IProgress<LocalResourceDownloadProgress>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<LocalResourceDownloadProgress, CancellationToken, ValueTask>? progressCallback)
     {
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
@@ -150,8 +155,10 @@ public sealed class LocalResourceDownloadService : IDisposable
         if (await MatchesExpectedFileAsync(destination, expectedSize, expectedHash, cancellationToken)
             .ConfigureAwait(false))
         {
-            progress?.Report(new LocalResourceDownloadProgress(
-                resource.Id, expectedSize, expectedSize, 0, 0));
+            await ReportProgressAsync(
+                resource,
+                new LocalResourceDownloadProgress(resource.Id, expectedSize, expectedSize, 0, 0),
+                progress, progressCallback, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -174,8 +181,10 @@ public sealed class LocalResourceDownloadService : IDisposable
             {
                 File.Move(partialPath, destination, overwrite: true);
                 TryDeleteFile(metadataPath);
-                progress?.Report(new LocalResourceDownloadProgress(
-                    resource.Id, expectedSize, expectedSize, 0, 0));
+                await ReportProgressAsync(
+                    resource,
+                    new LocalResourceDownloadProgress(resource.Id, expectedSize, expectedSize, 0, 0),
+                    progress, progressCallback, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -208,11 +217,8 @@ public sealed class LocalResourceDownloadService : IDisposable
             }
         }
 
-        using var response = await _httpClient.SendAsync(
-            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-
-        var finalUri = response.RequestMessage?.RequestUri ?? source;
-        ValidateApprovedHttpsUri(finalUri);
+        using var response = await SendWithValidatedRedirectsAsync(
+            request, cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable &&
             offset == expectedSize &&
@@ -320,8 +326,10 @@ public sealed class LocalResourceDownloadService : IDisposable
                     var remaining = speed > 0
                         ? Math.Max(0, (expectedSize - downloaded) / speed)
                         : (double?)null;
-                    progress?.Report(new LocalResourceDownloadProgress(
-                        resource.Id, downloaded, expectedSize, speed, remaining));
+                    await ReportProgressAsync(
+                        resource,
+                        new LocalResourceDownloadProgress(resource.Id, downloaded, expectedSize, speed, remaining),
+                        progress, progressCallback, cancellationToken).ConfigureAwait(false);
                 }
 
                 await output.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -339,14 +347,43 @@ public sealed class LocalResourceDownloadService : IDisposable
 
             File.Move(partialPath, destination, overwrite: true);
             TryDeleteFile(metadataPath);
-            progress?.Report(new LocalResourceDownloadProgress(
-                resource.Id, expectedSize, expectedSize,
-                Math.Max(0, (expectedSize - offset) / Math.Max(stopwatch.Elapsed.TotalSeconds, 0.001)), 0));
+            await ReportProgressAsync(
+                resource,
+                new LocalResourceDownloadProgress(
+                    resource.Id, expectedSize, expectedSize,
+                    Math.Max(0, (expectedSize - offset) / Math.Max(stopwatch.Elapsed.TotalSeconds, 0.001)), 0),
+                progress, progressCallback, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             Array.Clear(buffer);
         }
+    }
+
+    public static Task<bool> VerifyFileAsync(
+        LocalResourceDefinition resource,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        if (resource.ExpectedSizeBytes is not > 0 || !resource.HasPinnedSha256)
+            throw new InvalidOperationException(
+                "A local resource verification requires a catalog-pinned byte size and SHA-256: " + resource.Id);
+        return MatchesExpectedFileAsync(
+            path, resource.ExpectedSizeBytes.Value, resource.ExpectedSha256!, cancellationToken);
+    }
+
+    private static async Task ReportProgressAsync(
+        LocalResourceDefinition resource,
+        LocalResourceDownloadProgress value,
+        IProgress<LocalResourceDownloadProgress>? progress,
+        Func<LocalResourceDownloadProgress, CancellationToken, ValueTask>? progressCallback,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report(value);
+        if (progressCallback is not null)
+            await progressCallback(value, cancellationToken).ConfigureAwait(false);
     }
 
     private static bool IsTransientHttpFailure(HttpRequestException exception)
@@ -449,10 +486,129 @@ public sealed class LocalResourceDownloadService : IDisposable
         return CryptographicOperations.FixedTimeEquals(hash, expected);
     }
 
+    private const int MaximumValidatedRedirects = 5;
+
+    /// <summary>
+    /// Follows HTTPS redirects manually so every target is checked against the approved-host
+    /// allowlist before any request is sent to that host. The download pipeline uses GET only.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithValidatedRedirectsAsync(
+        HttpRequestMessage initialRequest,
+        CancellationToken cancellationToken)
+    {
+        if (initialRequest.Method != HttpMethod.Get)
+            throw new InvalidOperationException("Validated resource redirects currently support GET requests only.");
+
+        var currentRequest = initialRequest;
+        var ownsCurrentRequest = false;
+
+        for (var redirectCount = 0; ; redirectCount++)
+        {
+            var currentUri = currentRequest.RequestUri
+                ?? throw new InvalidOperationException("The resource download request has no URI.");
+            ValidateApprovedHttpsUri(currentUri);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.SendAsync(
+                    currentRequest,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw;
+            }
+
+            if (!IsRedirectStatusCode(response.StatusCode))
+            {
+                try
+                {
+                    // Also verify the effective URI returned by the handler. The production
+                    // handler disables automatic redirects; this is defense in depth for injected clients.
+                    ValidateApprovedHttpsUri(response.RequestMessage?.RequestUri ?? currentUri);
+                }
+                catch
+                {
+                    response.Dispose();
+                    if (ownsCurrentRequest)
+                        currentRequest.Dispose();
+                    throw;
+                }
+
+                if (ownsCurrentRequest)
+                {
+                    // The final URI has already been validated; the response body remains
+                    // readable after disposing the request because resource downloads are GET-only.
+                    response.RequestMessage = null;
+                    currentRequest.Dispose();
+                }
+                return response;
+            }
+
+            if (redirectCount >= MaximumValidatedRedirects)
+            {
+                response.Dispose();
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw new InvalidDataException(
+                    "The resource download exceeded the maximum number of validated redirects.");
+            }
+
+            if (response.Headers.Location is not { } location)
+            {
+                response.Dispose();
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw new InvalidDataException(
+                    "The resource download server returned a redirect without a Location header.");
+            }
+
+            Uri nextUri;
+            try
+            {
+                nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
+                // Validate before constructing/sending the next HTTP request. This blocks
+                // unapproved hosts, HTTP downgrade redirects, user-info URLs, and loopback targets.
+                ValidateApprovedHttpsUri(nextUri);
+            }
+            catch
+            {
+                response.Dispose();
+                if (ownsCurrentRequest)
+                    currentRequest.Dispose();
+                throw;
+            }
+
+            var nextRequest = new HttpRequestMessage(HttpMethod.Get, nextUri);
+            foreach (var header in currentRequest.Headers)
+                nextRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+            response.Dispose();
+            if (ownsCurrentRequest)
+                currentRequest.Dispose();
+
+            currentRequest = nextRequest;
+            ownsCurrentRequest = true;
+        }
+    }
+
+    private static bool IsRedirectStatusCode(HttpStatusCode statusCode) =>
+        statusCode is HttpStatusCode.MovedPermanently or
+            HttpStatusCode.Redirect or
+            HttpStatusCode.SeeOther or
+            HttpStatusCode.TemporaryRedirect or
+            HttpStatusCode.PermanentRedirect;
+
     private void ValidateApprovedHttpsUri(Uri uri)
     {
         if (!uri.IsAbsoluteUri ||
             !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            uri.IsLoopback ||
+            uri.Port != 443 ||
             !string.IsNullOrEmpty(uri.UserInfo) ||
             !_approvedHosts.Contains(uri.IdnHost))
             throw new InvalidOperationException("The resource download URL is not an approved HTTPS source.");

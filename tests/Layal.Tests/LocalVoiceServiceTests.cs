@@ -28,6 +28,21 @@ public sealed class LocalVoiceServiceTests
     }
 
     [TestMethod]
+    public void VoiceTutSetupProgressParsesOnlyBoundedPercentValues()
+    {
+        var method = typeof(VoiceTutLocalService).GetMethod(
+            "TryParsePercent",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(method);
+
+        Assert.AreEqual(73.5d, (double?)method!.Invoke(null, new object?[] { "Downloading model 73.5%|########" }));
+        Assert.AreEqual(0d, (double?)method.Invoke(null, new object?[] { "0% complete" }));
+        Assert.AreEqual(100d, (double?)method.Invoke(null, new object?[] { "100% complete" }));
+        Assert.IsNull(method.Invoke(null, new object?[] { "Preparing model without a percentage" }));
+        Assert.IsNull(method.Invoke(null, new object?[] { "Downloading 130% (invalid)" }));
+    }
+
+    [TestMethod]
     public void VoiceTutUsesAStableFemaleChildLikeVoiceDesignPrompt()
     {
         Assert.AreEqual("female, child, very high pitch", VoiceTutLocalService.DefaultVoiceDesign);

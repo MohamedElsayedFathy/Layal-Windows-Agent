@@ -212,8 +212,14 @@ public sealed class DocumentTextExtractionService
             notice);
     }
 
-    private static Engine CreateLocalOcrEngine()
+    private static readonly LocalEmbeddedResourceSetupService OcrResourceSetup = new();
+
+    private static Engine CreateLocalOcrEngine(CancellationToken cancellationToken)
     {
+        // This method is reached only from the worker thread used for native OCR.
+        // Block here so OCR cannot run before both bundled models pass their pinned Git identity checks.
+        OcrResourceSetup.EnsureOcrResourcesReadyAsync(cancellationToken).GetAwaiter().GetResult();
+
         var tessdataDirectory = Path.Combine(AppContext.BaseDirectory, "tessdata");
         var arabicModel = Path.Combine(tessdataDirectory, "ara.traineddata");
         var englishModel = Path.Combine(tessdataDirectory, "eng.traineddata");
@@ -255,7 +261,7 @@ public sealed class DocumentTextExtractionService
         var truncated = decoder.Frames.Count > framesToProcess;
         var output = new StringBuilder(Math.Min(MaximumTextCharacters, 2048));
         var processedFrames = 0;
-        using var engine = CreateLocalOcrEngine();
+        using var engine = CreateLocalOcrEngine(cancellationToken);
 
         for (var frameIndex = 0; frameIndex < framesToProcess && output.Length < MaximumTextCharacters; frameIndex++)
         {
@@ -371,7 +377,7 @@ public sealed class DocumentTextExtractionService
                         if (!ReferenceEquals(recognitionBytes, imageBytes))
                             normalizedImageBytes = recognitionBytes;
 
-                        engine ??= CreateLocalOcrEngine();
+                        engine ??= CreateLocalOcrEngine(cancellationToken);
                         var recognizedText = RecognizeImageBytes(recognitionBytes, engine, cancellationToken);
                         if (string.IsNullOrWhiteSpace(recognizedText))
                             continue;

@@ -69,6 +69,26 @@ public sealed class LocalChatModelService
         return _client.ProbeAsync(validatedBaseUrl, string.Empty, cancellationToken);
     }
 
+    public async Task<string> RunModelSmokeTestAsync(
+        string baseUrl,
+        string modelId,
+        CancellationToken cancellationToken = default)
+    {
+        var messages = new[]
+        {
+            new ChatMessage
+            {
+                Role = "user",
+                Content = "Reply with a brief confirmation that the local model is ready."
+            }
+        };
+        var reply = await GetReplyAsync(baseUrl, modelId, messages, cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(reply) || reply.Length > 2048)
+            throw new InvalidOperationException("The local model did not return a valid smoke-test response.");
+        return reply.Trim();
+    }
+
     public async Task<string> GetReplyAsync(
         string baseUrl,
         string modelId,

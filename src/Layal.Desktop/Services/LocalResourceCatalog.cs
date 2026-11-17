@@ -15,6 +15,7 @@ public static class LocalResourceIds
     public const string WhisperRuntime = "whisper-runtime";
     public const string WhisperModel = "whisper-model";
     public const string OllamaRuntime = "ollama-runtime";
+    public const string OllamaRuntimeInstaller = "ollama-runtime-installer";
     public const string ChatModel = "chat-model-qwen35-2b";
     public const string OcrArabic = "ocr-ara";
     public const string OcrEnglish = "ocr-eng";
@@ -38,7 +39,9 @@ public sealed record LocalResourceDefinition(
     bool Required,
     long? ExpectedSizeBytes,
     string? ExpectedSha256,
-    string VerificationPolicy)
+    string VerificationPolicy,
+    long? ExpectedGitBlobSizeBytes = null,
+    string? ExpectedGitBlobSha1 = null)
 {
     public bool HasPinnedSha256 =>
         ExpectedSha256 is { Length: 64 } &&
@@ -57,13 +60,13 @@ public static class LocalResourceCatalog
             new LocalResourceDefinition(
                 LocalResourceIds.PythonRuntime,
                 "Python x64",
-                "3.10–3.12",
-                "https://www.python.org/downloads/windows/",
+                "3.11–3.13 (managed fallback 3.13.17)",
+                "https://www.python.org/ftp/python/3.13.17/python-3.13.17-amd64.exe",
                 LocalResourceKind.Runtime,
                 true,
-                null,
-                null,
-                "Verify Authenticode signature, x64 architecture, and supported Python version."),
+                29_941_280,
+                "5da012101ba2e17113a9a1cd901e9ce1441086f2b7ecb5de06ec94163899a190",
+                "Verify the pinned installer SHA-256 and Python Software Foundation Authenticode publisher; install per-user under Layal LocalAi without changing PATH; verify Python x64 and version 3.13.17."),
 
             new LocalResourceDefinition(
                 LocalResourceIds.PyTorch,
@@ -143,6 +146,17 @@ public static class LocalResourceCatalog
                 "Verify the Authenticode signature and executable version before first use."),
 
             new LocalResourceDefinition(
+                LocalResourceIds.OllamaRuntimeInstaller,
+                "Ollama Windows official installer fallback",
+                "0.40.16",
+                "https://github.com/ollama/ollama/releases/download/v0.40.16/OllamaSetup.exe",
+                LocalResourceKind.Runtime,
+                false,
+                1_857_663_944,
+                "84db4f756ddc9e091142a85cdc0f7ae5db68bc9b3e075f114388b326f8ed912d",
+                "Verify the pinned official release archive SHA-256 and Ollama Inc. Authenticode publisher before a silent per-user install; then verify the installed runtime."),
+
+            new LocalResourceDefinition(
                 LocalResourceIds.ChatModel,
                 "Qwen3.5 local chat model",
                 "qwen3.5:2b",
@@ -162,7 +176,9 @@ public static class LocalResourceCatalog
                 true,
                 null,
                 null,
-                "Verify the packaged file exists and matches the application resource manifest."),
+                "Verify the packaged file length and Git blob SHA-1 from the pinned tessdata_fast commit.",
+                1_432_056,
+                "c8d129c67821c1592cac46836686b057ecc203dc"),
 
             new LocalResourceDefinition(
                 LocalResourceIds.OcrEnglish,
@@ -173,7 +189,9 @@ public static class LocalResourceCatalog
                 true,
                 null,
                 null,
-                "Verify the packaged file exists and matches the application resource manifest.")
+                "Verify the packaged file length and Git blob SHA-1 from the pinned tessdata_fast commit.",
+                4_113_088,
+                "bbef4675053b5b468cdb477053e28b1c698ba08e")
         });
 
     static LocalResourceCatalog()
@@ -201,6 +219,13 @@ public static class LocalResourceCatalog
 
             if ((item.ExpectedSizeBytes is null) != (item.ExpectedSha256 is null))
                 throw new InvalidOperationException("A directly downloadable catalog resource must pin both size and SHA-256: " + item.Id);
+
+            if ((item.ExpectedGitBlobSizeBytes is null) != (item.ExpectedGitBlobSha1 is null))
+                throw new InvalidOperationException("An embedded Git-verified resource must pin both size and Git blob SHA-1: " + item.Id);
+            if (item.ExpectedGitBlobSizeBytes is <= 0 ||
+                (item.ExpectedGitBlobSha1 is not null &&
+                 (item.ExpectedGitBlobSha1.Length != 40 || !item.ExpectedGitBlobSha1.All(Uri.IsHexDigit))))
+                throw new InvalidOperationException("Invalid pinned Git blob identity in local resource catalog entry: " + item.Id);
         }
     }
 
