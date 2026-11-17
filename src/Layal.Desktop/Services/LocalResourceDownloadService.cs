@@ -39,6 +39,7 @@ public sealed class LocalResourceDownloadService : IDisposable
         "download.pytorch.org",
         "pypi.org",
         "files.pythonhosted.org",
+        "www.python.org",
         "ollama.com",
         "registry.ollama.ai"
     };
