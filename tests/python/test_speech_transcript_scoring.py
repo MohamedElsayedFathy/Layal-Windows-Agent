@@ -162,6 +162,22 @@ class SpeechTranscriptScoringTests(unittest.TestCase):
                 audio.writeframes(b"\\x00\\x00" * 160)
             self.assertEqual([], MODULE.validate_audio_files(payload, manifest))
 
+    def test_audio_file_check_rejects_symlinked_audio_root(self):
+        case = self.recorded_case()
+        payload = {"schemaVersion": 1, "cases": [case]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            external_audio = root / "external-audio"
+            external_audio.mkdir()
+            manifest = root / "speech-reference-set.json"
+            audio_dir = root / "audio"
+            try:
+                audio_dir.symlink_to(external_audio, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("Directory symlinks are unavailable on this runner.")
+            errors = MODULE.validate_audio_files(payload, manifest)
+            self.assertTrue(any("must be a real directory" in error for error in errors))
+
     def test_audio_file_check_rejects_wrong_sample_format(self):
         case = self.recorded_case()
         payload = {"schemaVersion": 1, "cases": [case]}
