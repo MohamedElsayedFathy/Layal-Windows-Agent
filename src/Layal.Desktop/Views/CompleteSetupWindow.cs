@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -7,6 +9,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Forms = System.Windows.Forms;
 using Layal.Services;
 
 namespace Layal.Views;
@@ -32,6 +35,13 @@ public sealed class CompleteSetupWindow : Window
     private readonly TextBlock _connectivityText = new();
     private readonly ProgressBar _progressBar = new();
     private readonly TextBox _diagnostics = new();
+    private readonly TextBlock _resourceDirectoryText = new();
+    private readonly Button _chooseResourceDirectoryButton = new();
+    private readonly List<TextBlock> _themeTextBlocks = new();
+    private readonly List<Border> _themeCards = new();
+    private Border? _rootBorder;
+    private bool? _connectivityReachable;
+    private bool _restartRequested;
     private CancellationTokenSource? _setupCancellation;
     private CancellationTokenSource? _connectivityCancellation;
     private bool _connectivityCheckInProgress;
@@ -40,13 +50,14 @@ public sealed class CompleteSetupWindow : Window
 
     public bool CanContinueToMainWindow { get; private set; }
     public bool SetupCompleted { get; private set; }
+    public bool RestartRequested => _restartRequested;
 
     public CompleteSetupWindow(string dataRoot, LocalVoiceService voiceService)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         _voiceService = voiceService ?? throw new ArgumentNullException(nameof(voiceService));
         _isArabic = string.Equals(AppRuntime.Settings.Language, "ar", StringComparison.OrdinalIgnoreCase);
-        _preflight = CompleteSetupPreflightService.Inspect(dataRoot);
+        _preflight = CompleteSetupPreflightService.Inspect(LocalVoiceService.DataRoot);
 
         Title = T("إعداد ليال الكامل", "Layal complete setup");
         Width = 860;
@@ -59,7 +70,10 @@ public sealed class CompleteSetupWindow : Window
             : new SolidColorBrush(Color.FromRgb(243, 246, 255));
         FlowDirection = _isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Content = BuildContent();
+        SystemParameters.StaticPropertyChanged += OnSystemParametersStaticPropertyChanged;
+        Closed += (_, _) => SystemParameters.StaticPropertyChanged -= OnSystemParametersStaticPropertyChanged;
         Closing += OnClosing;
+        ApplySystemTheme();
         UpdateButtons();
     }
 
@@ -92,6 +106,35 @@ public sealed class CompleteSetupWindow : Window
         {
             Children = { platformText, preflightText }
         }));
+
+        var resourceLocationPanel = new StackPanel();
+        resourceLocationPanel.Children.Add(CreateText(
+            T("مجلد موارد الذكاء الاصطناعي", "AI resource folder"),
+            16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)));
+        _resourceDirectoryText.Text = LocalVoiceService.DataRoot;
+        _resourceDirectoryText.TextWrapping = TextWrapping.Wrap;
+        _resourceDirectoryText.FontSize = 12;
+        AutomationProperties.SetName(
+            _resourceDirectoryText,
+            T("مسار تخزين موارد ليال المحلية", "Layal local resource storage path"));
+        resourceLocationPanel.Children.Add(_resourceDirectoryText);
+        _chooseResourceDirectoryButton.Content = T("اختيار مجلد أو قرص آخر", "Choose another folder or drive");
+        _chooseResourceDirectoryButton.Margin = new Thickness(0, 10, 0, 0);
+        _chooseResourceDirectoryButton.Padding = new Thickness(12, 7, 12, 7);
+        AutomationProperties.SetName(
+            _chooseResourceDirectoryButton,
+            T("اختيار مجلد موارد محلي بديل", "Choose an alternative local resource folder"));
+        AutomationProperties.SetHelpText(
+            _chooseResourceDirectoryButton,
+            T("ينقل موارد ليال الحالية إلى مجلد فارغ ويتحقق من كل ملف. لا يحذف المجلد الأصلي.",
+              "Copies existing Layal resources to an empty folder and verifies every file. The original folder is retained."));
+        _chooseResourceDirectoryButton.Click += async (_, _) => await ChooseResourceDirectoryAsync();
+        resourceLocationPanel.Children.Add(_chooseResourceDirectoryButton);
+        resourceLocationPanel.Children.Add(CreateText(
+            T("يجب أن يكون المجلد على قرص محلي جاهز وفارغ. تُنقل أوزان النماذج وكاش pip وHugging Face وملفات نموذج Ollama. تُعاد إنشاء بيئة Python وvenv في المكان الجديد لأن مساراتها مرتبطة بالموقع. تظل المحادثات والذاكرة والمستندات في مكانها. أغلق Ollama أولًا.",
+              "Choose an empty folder on a ready local drive. Model weights, pip/Hugging Face caches and the Ollama model store are copied. Python and its venv are recreated because their paths are location-bound. Chats, memory and documents stay where they are. Exit Ollama first."),
+            12, FontWeights.Normal, new Thickness(0, 8, 0, 0)));
+        panel.Children.Add(CreateCard(resourceLocationPanel));
 
         _connectivityText.Text = T(
             "سيتم فحص الاتصال بالمصادر الرسمية بعد موافقتك على الإعداد.",
@@ -245,6 +288,8 @@ public sealed class CompleteSetupWindow : Window
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         _startButton.Content = T("ابدأ الإعداد الكامل", "Start full setup");
+        AutomationProperties.SetName(_startButton, T("بدء الإعداد الكامل لموارد ليال", "Start full Layal resource setup"));
+        AutomationProperties.SetHelpText(_startButton, T("ينزّل ويجهز الموارد المحلية بعد موافقتك.", "Downloads and prepares local resources after your consent."));
         _startButton.MinWidth = 170;
         _startButton.Padding = new Thickness(16, 10, 16, 10);
         _startButton.Margin = new Thickness(0, 0, 8, 0);
@@ -252,12 +297,15 @@ public sealed class CompleteSetupWindow : Window
         _startButton.Click += async (_, _) => await StartSetupAsync();
 
         _limitedModeButton.Content = T("المتابعة بالوضع المحدود", "Continue in limited mode");
+        AutomationProperties.SetName(_limitedModeButton, T("المتابعة مؤقتًا بالوضع المحدود", "Continue temporarily in limited mode"));
+        AutomationProperties.SetHelpText(_limitedModeButton, T("لا يسجل هذا الاختيار اكتمال الإعداد؛ سيظهر المعالج مرة أخرى.", "This does not mark setup complete; the wizard will appear again."));
         _limitedModeButton.MinWidth = 190;
         _limitedModeButton.Padding = new Thickness(16, 10, 16, 10);
         _limitedModeButton.Margin = new Thickness(0, 0, 8, 0);
         _limitedModeButton.Click += (_, _) => ContinueInLimitedMode();
 
         _cancelButton.Content = T("إغلاق", "Close");
+        AutomationProperties.SetName(_cancelButton, T("إغلاق معالج الإعداد", "Close setup wizard"));
         _cancelButton.MinWidth = 90;
         _cancelButton.Padding = new Thickness(16, 10, 16, 10);
         _cancelButton.Click += (_, _) => CancelOrClose();
@@ -273,7 +321,7 @@ public sealed class CompleteSetupWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Content = panel
         };
-        return new Border
+        _rootBorder = new Border
         {
             Margin = new Thickness(14),
             Padding = new Thickness(2),
@@ -285,6 +333,7 @@ public sealed class CompleteSetupWindow : Window
             Background = SystemParameters.HighContrast ? SystemColors.WindowBrush : Brushes.White,
             Child = scroll
         };
+        return _rootBorder;
     }
 
     private async Task RefreshConnectivityAsync()
@@ -309,6 +358,7 @@ public sealed class CompleteSetupWindow : Window
                     ? T("متاح (HTTP ", "reachable (HTTP ") + endpoint.Detail + ")"
                     : T("غير متاح — ", "unavailable — ") + endpoint.Detail));
             _connectivityText.Text = string.Join(Environment.NewLine, lines);
+            _connectivityReachable = report.HasAnyReachableSource;
             _connectivityText.Foreground = SystemParameters.HighContrast
                 ? SystemColors.WindowTextBrush
                 : report.HasAnyReachableSource
@@ -330,6 +380,7 @@ public sealed class CompleteSetupWindow : Window
             _connectivityText.Text = T(
                 "تعذر إكمال فحص الاتصال: ", "Connectivity inspection could not complete: ") +
                 (exception.Message.Length > 500 ? exception.Message[..500] + "…" : exception.Message);
+            _connectivityReachable = false;
             _connectivityText.Foreground = SystemParameters.HighContrast
                 ? SystemColors.WindowTextBrush
                 : new SolidColorBrush(Color.FromRgb(168, 50, 74));
@@ -348,6 +399,153 @@ public sealed class CompleteSetupWindow : Window
                 // An older cancelled check must not clear the progress state of a newer consent check.
                 cancellation.Dispose();
             }
+        }
+    }
+
+    private async Task ChooseResourceDirectoryAsync()
+    {
+        if (_isRunning || _restartRequested) return;
+        CancellationTokenSource? migrationCancellation = null;
+
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = T(
+                "اختر مجلدًا فارغًا على قرص محلي لتخزين موارد الذكاء الاصطناعي. ستظل المحادثات والذاكرة والمستندات في مكانها.",
+                "Choose an empty folder on a local drive for AI resources. Chats, memory and documents remain where they are."),
+            SelectedPath = Path.GetDirectoryName(LocalVoiceService.DataRoot) ?? LocalVoiceService.DataRoot,
+            ShowNewFolderButton = true,
+            UseDescriptionForTitle = true
+        };
+        if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
+            return;
+
+        try
+        {
+            var source = LocalVoiceService.DataRoot;
+            var destination = LocalAiResourcePathPolicy.Validate(dialog.SelectedPath, source);
+            if (LocalAiResourcePathPolicy.SamePath(source, destination))
+                return;
+
+            if (await _chatSetup.IsServerRunningAsync(CancellationToken.None).ConfigureAwait(true))
+                throw new InvalidOperationException(T(
+                    "خادم Ollama يعمل الآن. أغلق Ollama بالكامل من أيقونة شريط النظام ثم أعد اختيار المجلد. لم يتم نقل أو تعديل أي ملف.",
+                    "The Ollama server is currently running. Fully exit Ollama from the system tray, then choose the folder again. No files were moved or changed."));
+
+            static bool IsInside(string parent, string candidate)
+            {
+                var relative = Path.GetRelativePath(Path.GetFullPath(parent), Path.GetFullPath(candidate));
+                return !Path.IsPathRooted(relative) &&
+                       relative != "." && relative != ".." &&
+                       !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                       !relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
+
+            var migrationSources = new List<LocalAiResourceMigrationSource>
+            {
+                new(source, ".")
+            };
+            var oldOllamaModels = OllamaLocalModelSetupService.ModelsDirectory;
+            var modelsInsideResourceRoot = LocalAiResourcePathPolicy.SamePath(oldOllamaModels, source) ||
+                                           IsInside(source, oldOllamaModels);
+            var resourceInsideOllamaRoot = IsInside(oldOllamaModels, source);
+            if (resourceInsideOllamaRoot && !LocalAiResourcePathPolicy.SamePath(oldOllamaModels, source))
+                throw new InvalidOperationException(T(
+                    "مجلد موارد Layal يقع داخل مجلد نماذج Ollama الحالي. غيّر OLLAMA_MODELS إلى مجلد مستقل قبل النقل.",
+                    "Layal's resource folder is nested inside the current Ollama model folder. Configure OLLAMA_MODELS to a separate folder before migrating."));
+
+            string newOllamaModelsDirectory;
+            if (modelsInsideResourceRoot)
+            {
+                var relativeModelPath = Path.GetRelativePath(source, oldOllamaModels);
+                newOllamaModelsDirectory = relativeModelPath == "."
+                    ? destination
+                    : Path.GetFullPath(Path.Combine(destination, relativeModelPath));
+            }
+            else
+            {
+                if (Directory.Exists(oldOllamaModels))
+                    migrationSources.Add(new LocalAiResourceMigrationSource(oldOllamaModels, "ollama-models"));
+                newOllamaModelsDirectory = Path.Combine(destination, "ollama-models");
+            }
+
+            migrationCancellation = new CancellationTokenSource();
+            _setupCancellation = migrationCancellation;
+            _isRunning = true;
+            _chooseResourceDirectoryButton.IsEnabled = false;
+            UpdateButtons();
+            _statusText.Text = T("جارٍ نسخ موارد ليال ونموذج Ollama والتحقق من كل ملف إلى المجلد الجديد…",
+                                 "Copying Layal resources and the Ollama model store, verifying every file…");
+            var copyProgress = new Progress<(long CopiedBytes, long TotalBytes, string CurrentFile)>(item =>
+            {
+                _statusText.Text = string.Format(
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    T("نقل الموارد: {0} من {1} — {2}",
+                      "Moving resources: {0} of {1} — {2}"),
+                    CompleteSetupPreflightService.FormatBytes(item.CopiedBytes),
+                    CompleteSetupPreflightService.FormatBytes(item.TotalBytes),
+                    item.CurrentFile);
+            });
+            var result = await LocalAiResourceDataMigrationService.MigrateAsync(
+                migrationSources, destination, copyProgress, migrationCancellation.Token).ConfigureAwait(true);
+
+            var previousResourceDirectory = AppRuntime.Settings.LocalAiDataDirectory;
+            var previousModelsDirectory = AppRuntime.Settings.OllamaModelsDirectory;
+            AppRuntime.Settings.LocalAiDataDirectory = destination;
+            AppRuntime.Settings.OllamaModelsDirectory = newOllamaModelsDirectory;
+            try
+            {
+                AppRuntime.SettingsStore.Save(AppRuntime.Settings);
+            }
+            catch
+            {
+                AppRuntime.Settings.LocalAiDataDirectory = previousResourceDirectory;
+                AppRuntime.Settings.OllamaModelsDirectory = previousModelsDirectory;
+                throw;
+            }
+
+            _restartRequested = true;
+            _isRunning = false;
+            if (ReferenceEquals(_setupCancellation, migrationCancellation))
+                _setupCancellation = null;
+            migrationCancellation.Dispose();
+            _consent.IsChecked = false;
+            _resourceDirectoryText.Text = destination;
+            _statusText.Text = T(
+                "تم نقل " + result.CopiedFiles.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                " ملف والتحقق من سلامته. ستُعاد تشغيل ليال لتشغيل كل الخدمات على المسار الجديد. المجلد الأصلي لم يُحذف.",
+                "Copied and verified " + result.CopiedFiles.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                " files. Layal will restart so all services use the new location. The original folder was retained.");
+            AppendLog(_statusText.Text);
+            UpdateButtons();
+            DialogResult = false;
+        }
+        catch (OperationCanceledException) when (migrationCancellation?.IsCancellationRequested == true)
+        {
+            _statusText.Text = T("تم إلغاء نقل الموارد. المجلد الأصلي لم يتغير.",
+                                 "Resource migration was cancelled. The original folder was not changed.");
+            _chooseResourceDirectoryButton.IsEnabled = true;
+            AppendLog(_statusText.Text);
+        }
+        catch (Exception exception)
+        {
+            var detail = string.IsNullOrWhiteSpace(exception.Message)
+                ? exception.GetType().Name
+                : exception.Message;
+            if (detail.Length > 1000) detail = detail[..1000] + "…";
+            _statusText.Text = T("تعذر تغيير مجلد الموارد: ", "Could not change the resource folder: ") + detail;
+            AppendLog(_statusText.Text);
+            _chooseResourceDirectoryButton.IsEnabled = true;
+        }
+        finally
+        {
+            if (ReferenceEquals(_setupCancellation, migrationCancellation))
+            {
+                _setupCancellation?.Dispose();
+                _setupCancellation = null;
+            }
+            if (!_restartRequested)
+                _isRunning = false;
+            UpdateButtons();
         }
     }
 
@@ -403,7 +601,28 @@ public sealed class CompleteSetupWindow : Window
         var speechProgress = new Progress<LocalSpeechProgress>(progress =>
         {
             _statusText.Text = progress.Message;
-            if (progress.Percent.HasValue)
+            if (progress.DownloadedBytes.HasValue &&
+                progress.TotalBytes is > 0)
+            {
+                _progressBar.IsIndeterminate = false;
+                _progressBar.Value = Math.Clamp(
+                    progress.Percent ?? progress.DownloadedBytes.Value * 100d / progress.TotalBytes.Value,
+                    0d, 100d);
+                var speed = progress.BytesPerSecond is > 0
+                    ? CompleteSetupPreflightService.FormatBytes(
+                        (long)Math.Max(0, progress.BytesPerSecond.Value)) + "/s"
+                    : T("جارٍ الحساب", "calculating");
+                var eta = progress.RemainingSeconds.HasValue
+                    ? TimeSpan.FromSeconds(Math.Clamp(
+                        progress.RemainingSeconds.Value, 0, 365 * 24 * 60 * 60)).ToString(@"h\:mm\:ss")
+                    : T("جارٍ الحساب", "calculating");
+                _statusText.Text =
+                    progress.Message + " — " +
+                    CompleteSetupPreflightService.FormatBytes(progress.DownloadedBytes.Value) +
+                    " / " + CompleteSetupPreflightService.FormatBytes(progress.TotalBytes.Value) +
+                    " — " + speed + " — " + T("المتبقي ", "remaining ") + eta;
+            }
+            else if (progress.Percent.HasValue)
             {
                 _progressBar.IsIndeterminate = false;
                 _progressBar.Value = Math.Clamp(progress.Percent.Value, 0, 100);
@@ -416,6 +635,40 @@ public sealed class CompleteSetupWindow : Window
 
         try
         {
+            var beforeSetup = await _resourceManager.GetSnapshotAsync(token).ConfigureAwait(true);
+            var storagePlan = CompleteSetupResourcePlanService.Calculate(beforeSetup);
+            var knownReferenceBytes = storagePlan.KnownReferenceBytes;
+            var temporarySafetyReserve = knownReferenceBytes / 4;
+            var reservations = new List<LocalResourceStorageReservation>
+            {
+                new(
+                    LocalVoiceService.DataRoot,
+                    checked(knownReferenceBytes + temporarySafetyReserve))
+            };
+
+            var chatModelAlreadyReady = beforeSetup.Any(item =>
+                string.Equals(item.ResourceId, LocalResourceIds.ChatModel, StringComparison.Ordinal) &&
+                item.State == LocalResourceLifecycle.Ready);
+            if (!chatModelAlreadyReady && !OllamaLocalModelSetupService.HasDefaultModelManifest())
+                reservations.Add(new LocalResourceStorageReservation(
+                    OllamaLocalModelSetupService.ModelsDirectory,
+                    3_100_000_000 + 512L * 1024 * 1024));
+
+            if (!OllamaLocalModelSetupService.IsRuntimeInstalled)
+            {
+                reservations.Add(new LocalResourceStorageReservation(
+                    OllamaLocalModelSetupService.RuntimeCapacityDirectory, 4_000_000_000));
+                if (!OllamaLocalModelSetupService.IsWinGetAvailable &&
+                    OllamaLocalModelSetupService.FallbackInstallerExpectedBytes > 0)
+                {
+                    reservations.Add(new LocalResourceStorageReservation(
+                        LocalVoiceService.DataRoot,
+                        checked(OllamaLocalModelSetupService.FallbackInstallerExpectedBytes * 2)));
+                }
+            }
+
+            LocalResourceCombinedCapacityGuard.EnsureAvailable(reservations);
+
             _statusText.Text = T("التحقق من موارد OCR المضمّنة…", "Verifying bundled OCR resources…");
             await _ocrSetup.EnsureOcrResourcesReadyAsync(token).ConfigureAwait(true);
             AppendLog(T("تم التحقق من OCR العربي والإنجليزي.", "Arabic and English OCR resources verified."));
@@ -456,6 +709,19 @@ public sealed class CompleteSetupWindow : Window
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
             _statusText.Text = T("تم إيقاف الإعداد بأمان. الموارد التي اكتمل التحقق منها محفوظة.", "Setup was safely cancelled. Resources that passed verification remain available.");
+            AppendLog(_statusText.Text);
+        }
+        catch (InsufficientStorageException exception)
+        {
+            _statusText.Text = T(
+                "المساحة غير كافية على " + exception.DirectoryPath + ". المطلوب " +
+                CompleteSetupPreflightService.FormatBytes(exception.RequiredBytes) + " والمتاح " +
+                CompleteSetupPreflightService.FormatBytes(exception.AvailableBytes) +
+                ". لم يتم حذف الموارد السليمة. اختر مجلدًا على قرص آخر ثم أعد المحاولة.",
+                "Insufficient free space at " + exception.DirectoryPath + ". Required " +
+                CompleteSetupPreflightService.FormatBytes(exception.RequiredBytes) + ", available " +
+                CompleteSetupPreflightService.FormatBytes(exception.AvailableBytes) +
+                ". Verified resources were not deleted. Choose a folder on another drive and retry.");
             AppendLog(_statusText.Text);
         }
         catch (Exception exception)
@@ -516,40 +782,108 @@ public sealed class CompleteSetupWindow : Window
             : _hasAttemptedSetup
                 ? T("أعد المحاولة", "Retry setup")
                 : T("ابدأ الإعداد الكامل", "Start full setup");
-        _startButton.IsEnabled = !_isRunning && !_connectivityCheckInProgress &&
+        _startButton.IsEnabled = !_isRunning && !_restartRequested && !_connectivityCheckInProgress &&
                                  _preflight.IsSupported && _consent.IsChecked == true;
-        _limitedModeButton.IsEnabled = !_isRunning;
-        _cancelButton.IsEnabled = true;
+        _chooseResourceDirectoryButton.IsEnabled = !_isRunning && !_restartRequested;
+        _limitedModeButton.IsEnabled = !_isRunning && !_restartRequested;
+        _cancelButton.IsEnabled = !_restartRequested;
         _cancelButton.Content = _isRunning ? T("إيقاف", "Stop") : T("إغلاق", "Close");
+        if (_restartRequested) _cancelButton.Content = T("إعادة التشغيل…", "Restarting…");
     }
 
-    private Border CreateCard(UIElement child) => new()
+    private Border CreateCard(UIElement child)
     {
-        Margin = new Thickness(0, 0, 0, 14),
-        Padding = new Thickness(18),
-        CornerRadius = new CornerRadius(14),
-        BorderThickness = new Thickness(1),
-        BorderBrush = SystemParameters.HighContrast
-            ? SystemColors.WindowTextBrush
-            : new SolidColorBrush(Color.FromRgb(213, 220, 240)),
-        Background = SystemParameters.HighContrast
-            ? SystemColors.WindowBrush
-            : new SolidColorBrush(Color.FromRgb(250, 251, 255)),
-        Child = child
-    };
+        var card = new Border
+        {
+            Margin = new Thickness(0, 0, 0, 14),
+            Padding = new Thickness(18),
+            CornerRadius = new CornerRadius(14),
+            BorderThickness = new Thickness(1),
+            BorderBrush = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(213, 220, 240)),
+            Background = SystemParameters.HighContrast
+                ? SystemColors.WindowBrush
+                : new SolidColorBrush(Color.FromRgb(250, 251, 255)),
+            Child = child
+        };
+        _themeCards.Add(card);
+        return card;
+    }
 
-    private TextBlock CreateText(string text, double size, FontWeight weight, Thickness margin) => new()
+    private TextBlock CreateText(string text, double size, FontWeight weight, Thickness margin)
     {
-        Text = text,
-        FontSize = size,
-        FontWeight = weight,
-        TextWrapping = TextWrapping.Wrap,
-        TextAlignment = _isArabic ? TextAlignment.Right : TextAlignment.Left,
-        Margin = margin,
-        Foreground = SystemParameters.HighContrast
-            ? SystemColors.WindowTextBrush
-            : new SolidColorBrush(Color.FromRgb(29, 43, 73))
-    };
+        var block = new TextBlock
+        {
+            Text = text,
+            FontSize = size,
+            FontWeight = weight,
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = _isArabic ? TextAlignment.Right : TextAlignment.Left,
+            Margin = margin,
+            Foreground = SystemParameters.HighContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(29, 43, 73))
+        };
+        _themeTextBlocks.Add(block);
+        return block;
+    }
+
+    private void OnSystemParametersStaticPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (!string.IsNullOrEmpty(args.PropertyName) &&
+            !string.Equals(args.PropertyName, nameof(SystemParameters.HighContrast), StringComparison.Ordinal))
+            return;
+
+        Dispatcher.BeginInvoke(new Action(ApplySystemTheme));
+    }
+
+    private void ApplySystemTheme() =>
+        ApplySystemTheme(SystemParameters.HighContrast);
+
+    private void ApplySystemTheme(bool highContrast)
+    {
+        Background = highContrast
+            ? SystemColors.WindowBrush
+            : new SolidColorBrush(Color.FromRgb(243, 246, 255));
+
+        if (_rootBorder is not null)
+        {
+            _rootBorder.Background = highContrast ? SystemColors.WindowBrush : Brushes.White;
+            _rootBorder.BorderBrush = highContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(213, 220, 240));
+        }
+
+        foreach (var card in _themeCards)
+        {
+            card.Background = highContrast
+                ? SystemColors.WindowBrush
+                : new SolidColorBrush(Color.FromRgb(250, 251, 255));
+            card.BorderBrush = highContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(213, 220, 240));
+        }
+
+        foreach (var block in _themeTextBlocks)
+            block.Foreground = highContrast
+                ? SystemColors.WindowTextBrush
+                : new SolidColorBrush(Color.FromRgb(29, 43, 73));
+
+        if (_connectivityReachable.HasValue)
+            _connectivityText.Foreground = highContrast
+                ? SystemColors.WindowTextBrush
+                : _connectivityReachable.Value
+                    ? new SolidColorBrush(Color.FromRgb(23, 115, 79))
+                    : new SolidColorBrush(Color.FromRgb(168, 50, 74));
+        else
+            _connectivityText.Foreground = SystemColors.WindowTextBrush;
+
+        _resourceDirectoryText.Foreground = SystemColors.WindowTextBrush;
+        _statusText.Foreground = SystemColors.WindowTextBrush;
+        _diagnostics.Foreground = SystemColors.WindowTextBrush;
+        _diagnostics.Background = SystemColors.WindowBrush;
+    }
 
     private void AppendLog(string message)
     {

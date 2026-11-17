@@ -255,6 +255,32 @@ public sealed class VoiceTutLocalService : IDisposable
         }
 
         progress?.Report(new LocalSpeechProgress("تحميل أوزان VoiceTut المثبتة والتحقق من نسخة النموذج…", 62));
+        var modelDefinition = LocalResourceCatalog.GetRequired(LocalResourceIds.VoiceTutModel);
+        if (modelDefinition.ExpectedFiles is null)
+            throw new InvalidDataException("VoiceTut model file integrity pins are missing from the resource catalog.");
+        var missingModelBytes = modelDefinition.ExpectedFiles.Sum(file => file.ExpectedSizeBytes);
+        try
+        {
+            await LocalResourceFileIntegrityVerifier.VerifyAsync(
+                ModelSnapshotRoot, ModelCacheRoot, modelDefinition.ExpectedFiles, cancellationToken)
+                .ConfigureAwait(false);
+            missingModelBytes = 0;
+        }
+        catch (InvalidDataException exception) when (
+            exception.Message.Contains("outside", StringComparison.OrdinalIgnoreCase) ||
+            exception.Message.Contains("reparse point", StringComparison.OrdinalIgnoreCase) ||
+            exception.Message.Contains("escapes", StringComparison.OrdinalIgnoreCase))
+        {
+            throw;
+        }
+        catch (Exception exception) when (
+            exception is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            // Missing or corrupted pinned files will be repaired by snapshot_download below.
+        }
+        LocalResourceStorageCapacityGuard.EnsureAvailable(
+            ModelCacheRoot, missingModelBytes, missingModelBytes);
+
         await _resourceCoordinator.ExecuteAsync(
             LocalResourceIds.VoiceTutModel,
             token => EnsureServerStartedAsync(token, progress),
@@ -747,6 +773,11 @@ public sealed class VoiceTutLocalService : IDisposable
         EnsureNoReparsePoints(downloadsDirectory);
         var installerPath = Path.Combine(downloadsDirectory, "python-3.13.17-amd64.exe");
         var installRoot = ManagedPythonRoot;
+        if (!await MatchesPinnedResourceFileAsync(installerPath, resource, cancellationToken).ConfigureAwait(false))
+            LocalResourceStorageCapacityGuard.EnsureAvailable(
+                downloadsDirectory,
+                resource.ExpectedSizeBytes!.Value,
+                checked(resource.ExpectedSizeBytes.Value * 4));
 
         progress?.Report(new LocalSpeechProgress(
             "لم يتم العثور على Python x64 متوافق؛ جارٍ تنزيل Python 3.13.17 الرسمي إلى مجلد ليال…", 6));
@@ -817,6 +848,26 @@ public sealed class VoiceTutLocalService : IDisposable
         progress?.Report(new LocalSpeechProgress(
             "أصبح Python 3.13.17 x64 جاهزًا داخل مجلد بيانات ليال.", 100));
         return ManagedPythonExecutablePath;
+    }
+
+    private static async Task<bool> MatchesPinnedResourceFileAsync(
+        string path,
+        LocalResourceDefinition resource,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path) ||
+            resource.ExpectedSizeBytes is not > 0 ||
+            !resource.HasPinnedSha256)
+            return false;
+        var info = new FileInfo(path);
+        if (info.Length != resource.ExpectedSizeBytes.Value)
+            return false;
+        await using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var actual = await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
+        var expected = Convert.FromHexString(resource.ExpectedSha256!);
+        return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 
     private static void EnsureManagedPythonRootSafe()
@@ -1010,8 +1061,43 @@ public sealed class VoiceTutLocalService : IDisposable
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
-        foreach (var argument in arguments)
-            start.ArgumentList.Add(argument);
+        var sharedTemporary = Path.Combine(Root, "temp");
+        Directory.CreateDirectory(sharedTemporary);
+        EnsureNoReparsePoints(sharedTemporary);
+        start.Environment["TEMP"] = sharedTemporary;
+        start.Environment["TMP"] = sharedTemporary;
+
+        var isLayalPython = string.Equals(
+            Path.GetFullPath(executable),
+            Path.GetFullPath(PythonExecutablePath),
+            StringComparison.OrdinalIgnoreCase);
+        var isPipInstall = isLayalPython && arguments.Length >= 3 &&
+            arguments[0] == "-m" && arguments[1] == "pip" && arguments[2] == "install";
+        string? pipCapacityDirectory = null;
+        if (isLayalPython)
+        {
+            var pipCache = Path.Combine(Root, "pip-cache");
+            Directory.CreateDirectory(pipCache);
+            EnsureNoReparsePoints(pipCache);
+            start.Environment["PIP_CACHE_DIR"] = pipCache;
+            if (isPipInstall)
+                pipCapacityDirectory = Root;
+        }
+        if (isPipInstall)
+        {
+            start.ArgumentList.Add("-m");
+            start.ArgumentList.Add("pip");
+            start.ArgumentList.Add("install");
+            start.ArgumentList.Add("--progress-bar");
+            start.ArgumentList.Add("raw");
+            foreach (var argument in arguments.Skip(3))
+                start.ArgumentList.Add(argument);
+        }
+        else
+        {
+            foreach (var argument in arguments)
+                start.ArgumentList.Add(argument);
+        }
 
         using var process = new Process { StartInfo = start };
         try
@@ -1027,12 +1113,21 @@ public sealed class VoiceTutLocalService : IDisposable
 
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout);
-        var stdoutTask = PumpCommandOutputAsync(process.StandardOutput, progress);
-        var stderrTask = PumpCommandOutputAsync(process.StandardError, progress);
+        var stdoutTask = PumpCommandOutputAsync(process.StandardOutput, progress, pipCapacityDirectory);
+        var stderrTask = PumpCommandOutputAsync(process.StandardError, progress, pipCapacityDirectory);
 
         try
         {
-            await process.WaitForExitAsync(timeoutSource.Token).ConfigureAwait(false);
+            var exitTask = process.WaitForExitAsync(timeoutSource.Token);
+            var firstCompleted = await Task.WhenAny(exitTask, stdoutTask, stderrTask).ConfigureAwait(false);
+            if (firstCompleted.IsFaulted)
+            {
+                TryKill(process);
+                try { await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
+                catch { }
+                await firstCompleted.ConfigureAwait(false);
+            }
+            await exitTask.ConfigureAwait(false);
             var output = await stdoutTask.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
             var error = await stderrTask.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
 
@@ -1077,13 +1172,21 @@ public sealed class VoiceTutLocalService : IDisposable
 
     private static async Task<string> PumpCommandOutputAsync(
         StreamReader reader,
-        IProgress<LocalSpeechProgress>? progress)
+        IProgress<LocalSpeechProgress>? progress,
+        string? pipCapacityDirectory = null)
     {
         var captured = new StringBuilder();
         const int maximumCaptureCharacters = 256 * 1024;
 
         while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
         {
+            if (pipCapacityDirectory is not null &&
+                PipDownloadSizeParser.TryParseAnnouncedBytes(line, out var announcedBytes))
+                LocalResourceStorageCapacityGuard.EnsureAvailable(
+                    pipCapacityDirectory,
+                    announcedBytes,
+                    checked(announcedBytes * 2));
+
             if (captured.Length < maximumCaptureCharacters)
             {
                 var remaining = maximumCaptureCharacters - captured.Length;
@@ -1092,9 +1195,25 @@ public sealed class VoiceTutLocalService : IDisposable
 
             var clean = line.Trim();
             if (clean.Length > 0)
-                progress?.Report(new LocalSpeechProgress(
-                    clean.Length <= 240 ? clean : clean[..240] + "…",
-                    TryParsePercent(clean)));
+            {
+                var message = clean.Length <= 240 ? clean : clean[..240] + "…";
+                if (PipDownloadSizeParser.TryParseProgressLine(clean, out var pipProgress))
+                {
+                    progress?.Report(new LocalSpeechProgress(
+                        message,
+                        pipProgress.TotalBytes > 0
+                            ? pipProgress.DownloadedBytes * 100d / pipProgress.TotalBytes
+                            : null,
+                        pipProgress.DownloadedBytes,
+                        pipProgress.TotalBytes,
+                        pipProgress.BytesPerSecond,
+                        pipProgress.RemainingSeconds));
+                }
+                else
+                {
+                    progress?.Report(new LocalSpeechProgress(message, TryParsePercent(clean)));
+                }
+            }
         }
 
         return captured.ToString();
