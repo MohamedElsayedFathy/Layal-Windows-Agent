@@ -139,6 +139,23 @@ public sealed class CompleteSetupWindow : Window
                 "Qwen3.5 2B: نحو 2.7–3.1 GB. أوزان VoiceTut: نحو 2.47 GB. PyTorch CPU: نحو 619.4 MB (قد تختلف حزم CUDA). Whisper: نحو 148 MB للنموذج، وقرابة 8 MB للمحرك. Python الاحتياطي: نحو 29.9 MB. يتطلب Ollama نحو 4 GB على الأقل لملفات البرنامج. أحجام اعتماديات pip المؤقتة وبعض الملفات غير ثابتة؛ لذلك هذه قيم مرجعية وليست إجمالي تنزيل أو مساحة نهائيًا مضمونًا.",
                 "Qwen3.5 2B: approximately 2.7–3.1 GB. VoiceTut weights: approximately 2.47 GB. PyTorch CPU: approximately 619.4 MB (CUDA packages differ). Whisper: approximately 148 MB for the model and about 8 MB for the runtime. Python fallback: about 29.9 MB. Ollama requires at least 4 GB for program files. Pip dependencies and temporary files vary, so these are references, not a guaranteed aggregate download or final-storage estimate."),
             13, FontWeights.Normal, new Thickness(0)));
+        var resourcePlan = CompleteSetupResourcePlanService.Calculate(
+            _resourceManager.GetSnapshotAsync().GetAwaiter().GetResult());
+        var unknownSizeText = resourcePlan.UnknownSizeResources.Count == 0
+            ? T("لا توجد موارد تنزيل مطلوبة بأحجام مجهولة وفق حالة الموارد الحالية.",
+                "No pending required downloads have unknown catalog sizes.")
+            : string.Join(", ", resourcePlan.UnknownSizeResources);
+        referenceSizes.Children.Add(CreateText(
+            T(
+                "حسب حالة الموارد الحالية، مجموع الأحجام المثبتة المعروفة للموارد المطلوبة غير الجاهزة هو " +
+                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownDownloadBytes) +
+                ". موارد ذات حجم متغير/غير مثبت: " + unknownSizeText +
+                ". هذا حد أدنى جزئي فقط، ولا يمثل مساحة التثبيت أو الكاش أو الملفات المؤقتة.",
+                "Based on current resource state, the sum of pinned sizes for pending required downloads is " +
+                CompleteSetupPreflightService.FormatBytes(resourcePlan.KnownDownloadBytes) +
+                ". Variable/unpinned resource sizes: " + unknownSizeText +
+                ". This is a partial lower bound only; it is not final installation, cache, or temporary storage."),
+            12, FontWeights.Normal, new Thickness(0, 10, 0, 0)));
         panel.Children.Add(CreateCard(referenceSizes));
 
         _consent.Content = CreateText(
