@@ -35,7 +35,7 @@ public sealed class CompleteSetupWindowAccessibilityTests
             }
             finally
             {
-                App.SuppressStartupForTests = false;
+                // The test never constructs an Application or runs app startup.
             }
         });
         thread.SetApartmentState(ApartmentState.STA);
@@ -51,11 +51,8 @@ public sealed class CompleteSetupWindowAccessibilityTests
     private static void RunWizardAccessibilitySmoke()
     {
         using var temp = new TestTempDirectory();
-        App.SuppressStartupForTests = true;
-        var app = new App();
-        app.InitializeComponent();
-        app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
+        // Do not instantiate a second WPF Application in this test AppDomain.
+        // The existing WPF visual smoke tests own the single Application singleton.
         var previousSettings = AppRuntime.Settings;
         var previousSettingsStore = AppRuntime.SettingsStore;
         var previousDataRoot = AppRuntime.DataRoot;
@@ -157,7 +154,6 @@ public sealed class CompleteSetupWindowAccessibilityTests
             AppRuntime.Settings = previousSettings;
             AppRuntime.SettingsStore = previousSettingsStore;
             AppRuntime.DataRoot = previousDataRoot;
-            app.Shutdown();
         }
     }
 
