@@ -147,6 +147,36 @@ class SpeechTranscriptScoringTests(unittest.TestCase):
         self.assertTrue(any("must not reference audioAsset" in error for error in errors))
         self.assertTrue(any("must not store consent metadata" in error for error in errors))
 
+    def test_transcript_only_cases_reject_asr_hypotheses(self):
+        for recording_status in ("not-recorded", None):
+            with self.subTest(recording_status=recording_status):
+                case = {
+                    "id": "transcript-only",
+                    "locale": "en",
+                    "referenceText": "Please open the settings page.",
+                    "hypotheses": {"whisper_cpp_base": "Please open settings."},
+                }
+                if recording_status is not None:
+                    case["recordingStatus"] = recording_status
+                errors = MODULE.validate_manifest({"schemaVersion": 1, "cases": [case]})
+                self.assertTrue(any("cannot contain ASR hypotheses" in error for error in errors))
+
+    def test_scoring_requires_recorded_audio_and_approved_human_reference(self):
+        approved = self.recorded_case()
+        self.assertTrue(MODULE._is_scoring_eligible(approved))
+
+        unrecorded = self.recorded_case()
+        unrecorded["recordingStatus"] = "not-recorded"
+        self.assertFalse(MODULE._is_scoring_eligible(unrecorded))
+
+        missing_status = self.recorded_case()
+        missing_status.pop("recordingStatus")
+        self.assertFalse(MODULE._is_scoring_eligible(missing_status))
+
+        pending_review = self.recorded_case()
+        pending_review["referenceReview"]["status"] = "pending"
+        self.assertFalse(MODULE._is_scoring_eligible(pending_review))
+
     def test_audio_file_check_requires_existing_file_inside_audio_directory(self):
         case = self.recorded_case()
         payload = {"schemaVersion": 1, "cases": [case]}

@@ -127,6 +127,16 @@ def _valid_timestamp(value: object) -> bool:
         return False
 
 
+def _is_scoring_eligible(case: dict) -> bool:
+    """Only score hypotheses backed by a recorded sample and approved human reference."""
+    review = case.get("referenceReview")
+    return (
+        case.get("recordingStatus", "not-recorded") == "recorded"
+        and isinstance(review, dict)
+        and review.get("status") == "approved"
+    )
+
+
 def _validate_recording(case: dict, prefix: str, errors: list[str]) -> None:
     status = case.get("recordingStatus", "not-recorded")
     if not isinstance(status, str) or status not in {"not-recorded", "recorded"}:
@@ -137,6 +147,12 @@ def _validate_recording(case: dict, prefix: str, errors: list[str]) -> None:
             errors.append(f"{prefix} must not reference audioAsset while recordingStatus is not-recorded.")
         if case.get("consent") is not None:
             errors.append(f"{prefix} must not store consent metadata without a recording.")
+        hypotheses = case.get("hypotheses", {})
+        if isinstance(hypotheses, dict) and hypotheses:
+            errors.append(
+                f"{prefix} cannot contain ASR hypotheses before a consented recording "
+                "and human-approved reference transcript exist."
+            )
         return
 
     audio_asset = case.get("audioAsset")
@@ -332,6 +348,9 @@ def main() -> int:
 
     totals: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0, 0, 0, 0, 0, 0])
     for case in cases:
+        # Defense in depth: unrecorded or unapproved transcript rows never enter metrics.
+        if not _is_scoring_eligible(case):
+            continue
         locale = case["locale"]
         reference = case["referenceText"]
         hypotheses = case.get("hypotheses", {})
