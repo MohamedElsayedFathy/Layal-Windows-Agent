@@ -128,7 +128,7 @@ def _valid_timestamp(value: object) -> bool:
 
 def _validate_recording(case: dict, prefix: str, errors: list[str]) -> None:
     status = case.get("recordingStatus", "not-recorded")
-    if status not in {"not-recorded", "recorded"}:
+    if not isinstance(status, str) or status not in {"not-recorded", "recorded"}:
         errors.append(f"{prefix} has unsupported recordingStatus '{status}'.")
         return
     if status == "not-recorded":
