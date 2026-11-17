@@ -42,6 +42,18 @@ class SpeechTranscriptScoringTests(unittest.TestCase):
         word_errors, words, char_errors, characters = MODULE.score_pair("hello world", "")
         self.assertEqual((2, 2, 10, 10), (word_errors, words, char_errors, characters))
 
+    def test_critical_token_metric_detects_lost_arabic_negation(self):
+        self.assertEqual((1, 1), MODULE.score_critical_tokens("أنا مش موافق", "أنا موافق"))
+
+    def test_critical_token_metric_detects_changed_numbers(self):
+        self.assertEqual((1, 1), MODULE.score_critical_tokens("الملف رقم 42", "الملف رقم 43"))
+
+    def test_critical_token_metric_ignores_non_critical_edits(self):
+        self.assertEqual((0, 0), MODULE.score_critical_tokens("من فضلك افتح الملف", "لو سمحت افتح المستند"))
+
+    def test_critical_token_metric_counts_missing_negation_and_number(self):
+        self.assertEqual((2, 2), MODULE.score_critical_tokens("Do not upload file 12", "Upload file"))
+
     def test_invalid_locale_shape_is_reported_without_crashing(self):
         payload = {
             "schemaVersion": 1,
