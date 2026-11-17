@@ -3,11 +3,11 @@ namespace Layal.SpeechLanguage;
 public enum SpeechLanguageKind
 {
     Unknown,
-    ArabicUnspecified,
     ArabicStandard,
     EgyptianArabic,
     English,
-    Mixed
+    Mixed,
+    ArabicUnspecified
 }
 
 public enum DialogueIntent
