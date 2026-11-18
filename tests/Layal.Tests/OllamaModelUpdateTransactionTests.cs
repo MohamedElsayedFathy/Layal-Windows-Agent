@@ -41,7 +41,7 @@ public sealed class OllamaModelUpdateTransactionTests
     public async Task RejectsCandidateAndRestoresPreviousModelWithoutCommittingPin()
     {
         var calls = new List<string>();
-        var exception = await Assert.ThrowsExceptionAsync<InvalidDataException>(() =>
+        var exception = await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
             OllamaModelUpdateTransaction.ExecuteAsync(
                 "layal-rollback:qwen",
                 _ => { calls.Add("backup"); return Task.CompletedTask; },
@@ -64,7 +64,7 @@ public sealed class OllamaModelUpdateTransactionTests
         var calls = new List<string>();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 
-        await Assert.ThrowsExceptionAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
             OllamaModelUpdateTransaction.ExecuteAsync(
                 "layal-rollback:qwen",
                 _ => { calls.Add("backup"); return Task.CompletedTask; },
@@ -93,7 +93,7 @@ public sealed class OllamaModelUpdateTransactionTests
     [TestMethod]
     public async Task ReportsRollbackAliasAndBothFailuresWhenRestoreCannotBeVerified()
     {
-        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() =>
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             OllamaModelUpdateTransaction.ExecuteAsync(
                 "layal-rollback:qwen-20261118",
                 _ => Task.CompletedTask,
