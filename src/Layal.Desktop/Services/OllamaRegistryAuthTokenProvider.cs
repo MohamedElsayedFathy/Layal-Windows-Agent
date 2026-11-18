@@ -29,7 +29,8 @@ internal static class OllamaRegistryAuthTokenProvider
         HttpClient httpClient,
         Uri registryUri,
         string challengeHeader,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? userProfileDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(registryUri);
@@ -50,7 +51,7 @@ internal static class OllamaRegistryAuthTokenProvider
         }
 
         var tokenUri = BuildTokenUri(realmUri, service, scope);
-        var authorization = CreateOllamaSignatureAuthorization(tokenUri);
+        var authorization = CreateOllamaSignatureAuthorization(tokenUri, userProfileDirectory);
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(RequestTimeout);
@@ -172,10 +173,15 @@ internal static class OllamaRegistryAuthTokenProvider
     private static string EncodeQueryComponent(string value) =>
         Uri.EscapeDataString(value).Replace("%20", "+", StringComparison.Ordinal);
 
-    private static string CreateOllamaSignatureAuthorization(Uri tokenUri)
+    private static string CreateOllamaSignatureAuthorization(
+        Uri tokenUri,
+        string? userProfileDirectory)
     {
+        var profileDirectory = string.IsNullOrWhiteSpace(userProfileDirectory)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            : Path.GetFullPath(userProfileDirectory);
         var keyPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            profileDirectory,
             ".ollama",
             "id_ed25519");
 
