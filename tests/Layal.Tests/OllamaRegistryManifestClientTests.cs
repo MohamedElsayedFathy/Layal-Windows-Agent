@@ -74,8 +74,9 @@ public sealed class OllamaRegistryManifestClientTests
         var result = await sut.FetchDefaultModelManifestAsync();
 
         Assert.AreEqual(parentDigest, result.ManifestDigest);
-        Assert.AreEqual(childDigest, result.ModelDigests[0]);
+        Assert.AreEqual(2, result.ModelDigests.Count);
         Assert.IsTrue(result.ContainsModelDigest(childDigest));
+        Assert.IsTrue(result.ContainsModelDigest(parentDigest));
         Assert.IsFalse(result.ContainsModelDigest(new string('a', 64)));
         Assert.AreEqual("application/vnd.ollama.manifest.list.v2+json", result.MediaType);
     }
