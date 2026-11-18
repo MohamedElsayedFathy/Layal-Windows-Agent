@@ -57,6 +57,16 @@ function Invoke-OllamaCli {
     }
 }
 
+function Get-ProgressProperty {
+    param(
+        [Parameter(Mandatory = $true)]$Record,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    $property = $Record.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+
 function Get-InstalledQwen {
     $tags = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 30
     $model = @($tags.models) | Where-Object {
@@ -101,14 +111,19 @@ function Invoke-QwenPull {
             if ($line.Length -gt 65536) { throw "Ollama sent a progress record larger than 64 KiB." }
 
             $record = $line | ConvertFrom-Json
-            if ($record.error) { throw "Ollama pull failed: $($record.error)" }
+            $pullError = Get-ProgressProperty -Record $record -Name "error"
+            if (-not [string]::IsNullOrWhiteSpace([string]$pullError)) {
+                throw "Ollama pull failed: $pullError"
+            }
 
-            if ($null -ne $record.completed) {
-                $completed = [long]$record.completed
+            $completedValue = Get-ProgressProperty -Record $record -Name "completed"
+            if ($null -ne $completedValue) {
+                $completed = [long]$completedValue
                 if ($completed -gt $maxCompleted) { $maxCompleted = $completed }
+                $digestValue = Get-ProgressProperty -Record $record -Name "digest"
                 if ($CancelAfterPartialBlob -and $completed -ge 8MB -and
-                    -not [string]::IsNullOrWhiteSpace([string]$record.digest)) {
-                    $cancelDigest = [string]$record.digest
+                    -not [string]::IsNullOrWhiteSpace([string]$digestValue)) {
+                    $cancelDigest = [string]$digestValue
                     $cancellation.Cancel()
                     return [pscustomobject]@{
                         Cancelled = $true
@@ -118,7 +133,8 @@ function Invoke-QwenPull {
                     }
                 }
             }
-            if ($record.status -eq "success") { $success = $true }
+            $statusValue = Get-ProgressProperty -Record $record -Name "status"
+            if ($statusValue -eq "success") { $success = $true }
         }
 
         if ($CancelAfterPartialBlob) {
@@ -235,16 +251,22 @@ try {
             if ($null -eq $line) { break }
             if ($line.Length -eq 0) { continue }
             $record = $line | ConvertFrom-Json
-            if ($record.error) { throw "Resumed Ollama pull failed: $($record.error)" }
-            if ($null -ne $record.completed) {
-                $completed = [long]$record.completed
+            $pullError = Get-ProgressProperty -Record $record -Name "error"
+            if (-not [string]::IsNullOrWhiteSpace([string]$pullError)) {
+                throw "Resumed Ollama pull failed: $pullError"
+            }
+            $completedValue = Get-ProgressProperty -Record $record -Name "completed"
+            if ($null -ne $completedValue) {
+                $completed = [long]$completedValue
                 if ($completed -gt $retryCompleted) { $retryCompleted = $completed }
-                if ($record.digest -eq $firstAttempt.BlobDigest -and
+                $digestValue = Get-ProgressProperty -Record $record -Name "digest"
+                if ($digestValue -eq $firstAttempt.BlobDigest -and
                     $completed -ge $firstAttempt.CompletedBytes) {
                     $resumeObserved = $true
                 }
             }
-            if ($record.status -eq "success") { $pullSuccess = $true; break }
+            $statusValue = Get-ProgressProperty -Record $record -Name "status"
+            if ($statusValue -eq "success") { $pullSuccess = $true; break }
         }
     }
     finally {
