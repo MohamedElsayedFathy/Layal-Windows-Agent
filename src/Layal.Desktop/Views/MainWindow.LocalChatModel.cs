@@ -127,6 +127,90 @@ public partial class MainWindow
         }
     }
 
+    private async void UpdateLocalChatModelButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_localChatSetupCancellation is not null) return;
+        if (_chatCancellation is not null || _voiceConversationCancellation is not null ||
+            _voiceTestCancellation is not null || _localAiSetupCancellation is not null)
+        {
+            SetAccessibleStatusText(LocalChatModelStatusText,
+                IsArabic
+                    ? "أوقف المحادثة أو إعداد الصوت الحالي قبل تحديث نموذج المحادثة."
+                    : "Stop the current chat or speech setup before updating the chat model.");
+            return;
+        }
+
+        var consent = LayalDialogService.Show(
+            this,
+            IsArabic
+                ? "سيتم فحص إصدار Qwen في Ollama Registry. إذا توفر إصدار أحدث، ستُنشأ نسخة رجوع محلية قبل التحديث. لن يتغير مرجع الثقة إلا بعد مطابقة البصمة واختبار المحادثة؛ وإذا فشل التحديث فستُستعاد النسخة السابقة. قد يحتاج التحديث مساحة إضافية مؤقتة تصل إلى حجم النموذج."
+                : "Layal will check Ollama Registry for a newer Qwen model. Before updating, it creates a local rollback copy. The trusted digest changes only after Registry verification and a successful chat health check; otherwise the previous model is restored. Temporary free space of up to one additional model copy may be required.",
+            IsArabic ? "تحديث نموذج المحادثة بأمان" : "Safely update local chat model",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (consent != MessageBoxResult.Yes) return;
+
+        var cancellation = new CancellationTokenSource();
+        _localChatSetupCancellation = cancellation;
+        SetupLocalChatModelButton.IsEnabled = false;
+        UpdateLocalChatModelButton.IsEnabled = false;
+        CancelLocalChatModelSetupButton.Visibility = Visibility.Visible;
+        CancelLocalChatModelSetupButton.IsEnabled = true;
+        LocalChatModelProgressBar.Visibility = Visibility.Visible;
+        LocalChatModelProgressBar.IsIndeterminate = true;
+        LocalChatModelStatusText.Foreground = ThemeBrush("Layal.Cyan", System.Windows.Media.Brushes.SteelBlue);
+
+        var progress = new Progress<string>(message =>
+        {
+            if (!ReferenceEquals(_localChatSetupCancellation, cancellation)) return;
+            SetAccessibleStatusText(LocalChatModelStatusText, message);
+        });
+        var downloadProgress = new Progress<LocalResourceDownloadProgress>(state =>
+        {
+            if (!ReferenceEquals(_localChatSetupCancellation, cancellation) || state.TotalBytes <= 0)
+                return;
+            LocalChatModelProgressBar.IsIndeterminate = false;
+            LocalChatModelProgressBar.Value = Math.Clamp(
+                state.DownloadedBytes * 100d / state.TotalBytes, 0d, 100d);
+        });
+
+        try
+        {
+            await _ollamaLocalModelSetupService.UpdateModelAsync(
+                progress, cancellation.Token, downloadProgress);
+            SetAccessibleStatusText(LocalChatModelStatusText,
+                IsArabic
+                    ? "تم تحديث نموذج Qwen والتحقق من بصمته وصحة المحادثة المحلية."
+                    : "Qwen was updated and its Registry digest and local chat health check passed.");
+            LocalChatModelStatusText.Foreground = ThemeBrush("Layal.Success", System.Windows.Media.Brushes.ForestGreen);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            SetAccessibleStatusText(LocalChatModelStatusText,
+                IsArabic
+                    ? "أُلغي التحديث؛ تحقّق Layal من استعادة النسخة السابقة قبل إنهاء العملية."
+                    : "The update was cancelled; Layal verified rollback of the previous model before finishing.");
+            LocalChatModelStatusText.Foreground = ThemeBrush("Layal.Warning", System.Windows.Media.Brushes.DarkGoldenrod);
+        }
+        catch (Exception ex)
+        {
+            SetAccessibleStatusText(LocalChatModelStatusText,
+                UiLocalization.FormatTechnicalError("تعذر تحديث نموذج المحادثة المحلي", "Could not update the local chat model", ex, IsArabic));
+            LocalChatModelStatusText.Foreground = ThemeBrush("Layal.Danger", System.Windows.Media.Brushes.Firebrick);
+        }
+        finally
+        {
+            if (ReferenceEquals(_localChatSetupCancellation, cancellation))
+                _localChatSetupCancellation = null;
+            cancellation.Dispose();
+            SetupLocalChatModelButton.IsEnabled = true;
+            UpdateLocalChatModelButton.IsEnabled = true;
+            CancelLocalChatModelSetupButton.Visibility = Visibility.Collapsed;
+            CancelLocalChatModelSetupButton.IsEnabled = false;
+            LocalChatModelProgressBar.IsIndeterminate = false;
+            LocalChatModelProgressBar.Visibility = Visibility.Collapsed;
+        }
+    }
+
     private void CancelLocalChatModelSetupButton_Click(object sender, RoutedEventArgs e)
     {
         _localChatSetupCancellation?.Cancel();
