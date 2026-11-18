@@ -51,7 +51,7 @@
 |---|---|
 | manifest عادي: حساب SHA-256 من bytes ومطابقة `Docker-Content-Digest` عند وجوده | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
 | manifest list: استخراج بصمات الأبناء وبصمة الأم | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
-| جلب manifest حي من Registry | نجح HTTP 200 العام على Qwen دون challenge؛ تحققت بصمة الجسم وJSON في Windows CI على run 44325954089. لم يكن هذا إثباتًا لتبادل token موقّع لأن Registry لم يصدر 401 |
+| جلب manifest حي من Registry | أعاد Registry HTTP 200 مباشرةً دون challenge في run 44325954089. فشل ذلك الاختبار القديم فقط لأنه كان يشترط 401، ولم يصل إلى فحص جسم الرد؛ أُصلح الاختبار الآن ليتحقق من JSON والبصمة عند 200، أو يجرب التوقيع عند 401. النتيجة الجديدة قيد التنفيذ |
 | اختبار صيغة مفتاح Ollama الفعلية | يفتح الاختبار مفتاح OpenSSH الحقيقي من ملف Ollama في Windows، وينفذ probe لتوقيع SSH عبر handler محلي فقط، ثم يفك `Signature.Blob` ويتحقق من التوقيع بالمفتاح العام؛ لا يُرسل المفتاح الخاص أو probe token إلى الشبكة |
 | رفض اختلاف رأس `Docker-Content-Digest` عن البايتات | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
 | رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
@@ -67,7 +67,7 @@
 
 ## الحالة الحالية
 
-الكود واختبارات الوحدة ومسار التحديث/الرجوع موجودة على `feature/phase-c-qwen-registry-digest`، ولم تُدمج في `main` بعد. الاختبارات الجديدة التي تتحقق من صيغة OpenSSH، والتبادل الحي مع Registry، ودورة التنزيل والإلغاء/الاستئناف على Windows، ما زالت قيد التنفيذ في GitHub Actions على هذا الفرع. لذلك لا يوجد حتى الآن digest فعلي معتمد أو حجم تنزيل مقاس أو نتيجة health check حي مسجلة. لا تُعلن Phase C مكتملة قبل نجاح هذه الـ workflows ومراجعة evidence الذي تنتجه.
+الكود واختبارات الوحدة ومسار التحديث/الرجوع موجودة على `feature/phase-c-qwen-registry-digest`، ولم تُدمج في `main` بعد. Registry الخاص بوسم Qwen أعاد HTTP 200 عامًا دون تحدي في التجربة الأولى؛ لذلك لا ندّعي نجاح تبادل token موقّع. تم تعديل الاختبار ليتحقق من manifest عند الوصول العام أو ينفذ التوقيع إذا صدر 401. ما زالت نتائج البناء والاختبارات على الرأس الأخير، إضافة إلى التنزيل والإلغاء/الاستئناف والـ digest والـ health check الحي، قيد التحقق. لا تُعلن Phase C مكتملة قبل نجاح هذه الـ workflows ومراجعة evidence الذي تنتجه.
 ## مراجع التنفيذ الرسمية
 
 - Ollama Registry challenge, token request, and signed authorization: [`server/auth.go`](https://github.com/ollama/ollama/blob/main/server/auth.go) and [`auth/auth.go`](https://github.com/ollama/ollama/blob/main/auth/auth.go).
