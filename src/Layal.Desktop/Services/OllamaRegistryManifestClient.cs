@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -68,9 +70,9 @@ public sealed class OllamaRegistryManifestClient
 
         var body = await ReadBoundedAsync(response.Content, MaximumManifestBytes, cancellationToken)
             .ConfigureAwait(false);
-        var mediaType = ValidateManifestBody(body);
-
         var computedDigest = Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant();
+        var manifestDetails = ValidateManifestBody(body, computedDigest);
+        var mediaType = manifestDetails.MediaType;
         var registryDigest = TryReadRegistryDigest(response);
         if (registryDigest is not null &&
             !OllamaModelDigestPolicy.Matches(registryDigest, computedDigest))
@@ -83,6 +85,7 @@ public sealed class OllamaRegistryManifestClient
             "qwen3.5:2b",
             DefaultManifestUri.AbsoluteUri,
             computedDigest,
+            manifestDetails.ModelDigests,
             mediaType,
             body.LongLength,
             DateTimeOffset.UtcNow);
@@ -163,7 +166,7 @@ public sealed class OllamaRegistryManifestClient
         return output.ToArray();
     }
 
-    private static string ValidateManifestBody(byte[] body)
+    private static ManifestDetails ValidateManifestBody(byte[] body, string computedDigest)
     {
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
@@ -180,14 +183,45 @@ public sealed class OllamaRegistryManifestClient
         }
 
         var mediaType = mediaTypeElement.GetString() ?? string.Empty;
-        if (string.Equals(mediaType, OllamaManifestListMediaType, StringComparison.Ordinal))
+        if (string.Equals(mediaType, OllamaManifestListMediaType, StringComparison.Ordinal) ||
+            string.Equals(mediaType, "application/vnd.oci.image.index.v1+json", StringComparison.Ordinal))
         {
             if (!root.TryGetProperty("manifests", out var manifests) ||
                 manifests.ValueKind != JsonValueKind.Array ||
                 manifests.GetArrayLength() == 0)
                 throw new InvalidDataException("Ollama Registry returned an empty manifest list.");
 
-            return mediaType;
+            var modelDigests = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var descriptor in manifests.EnumerateArray())
+            {
+                if (descriptor.ValueKind != JsonValueKind.Object ||
+                    !descriptor.TryGetProperty("mediaType", out var childMediaType) ||
+                    childMediaType.ValueKind != JsonValueKind.String ||
+                    !descriptor.TryGetProperty("digest", out var digestElement) ||
+                    digestElement.ValueKind != JsonValueKind.String)
+                    continue;
+
+                var childType = childMediaType.GetString();
+                if (!string.Equals(childType, DockerManifestMediaType, StringComparison.Ordinal) &&
+                    !string.Equals(childType, "application/vnd.oci.image.manifest.v1+json", StringComparison.Ordinal))
+                    continue;
+
+                var digestValue = digestElement.GetString() ?? string.Empty;
+                const string prefix = "sha256:";
+                if (!digestValue.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Ollama Registry returned a child manifest with a non-SHA-256 digest.");
+
+                var childDigest = digestValue[prefix.Length..];
+                if (!OllamaModelDigestPolicy.IsValidSha256Digest(childDigest))
+                    throw new InvalidDataException("Ollama Registry returned a child manifest with an invalid SHA-256 digest.");
+
+                modelDigests.Add(childDigest.ToLowerInvariant());
+            }
+
+            if (modelDigests.Count == 0)
+                throw new InvalidDataException("Ollama Registry manifest list contains no supported model manifests.");
+
+            return new ManifestDetails(mediaType, modelDigests.OrderBy(value => value, StringComparer.Ordinal).ToArray());
         }
 
         if (string.Equals(mediaType, DockerManifestMediaType, StringComparison.Ordinal) ||
@@ -199,21 +233,13 @@ public sealed class OllamaRegistryManifestClient
                 layers.ValueKind != JsonValueKind.Array)
                 throw new InvalidDataException("Ollama Registry returned an incomplete model manifest.");
 
-            return mediaType;
-        }
-
-        if (string.Equals(mediaType, "application/vnd.oci.image.index.v1+json", StringComparison.Ordinal))
-        {
-            if (!root.TryGetProperty("manifests", out var manifests) ||
-                manifests.ValueKind != JsonValueKind.Array ||
-                manifests.GetArrayLength() == 0)
-                throw new InvalidDataException("Ollama Registry returned an empty OCI manifest index.");
-
-            return mediaType;
+            return new ManifestDetails(mediaType, new[] { computedDigest });
         }
 
         throw new InvalidDataException("Ollama Registry returned an unrecognized manifest media type.");
     }
+
+    private sealed record ManifestDetails(string MediaType, IReadOnlyList<string> ModelDigests);
 
     private static string? TryReadRegistryDigest(HttpResponseMessage response)
     {
@@ -243,7 +269,12 @@ public sealed class OllamaRegistryManifestClient
 public sealed record OllamaRegistryManifestSnapshot(
     string ModelId,
     string ManifestUri,
-    string Digest,
+    string ManifestDigest,
+    IReadOnlyList<string> ModelDigests,
     string MediaType,
     long ManifestSizeBytes,
-    DateTimeOffset RetrievedAtUtc);
+    DateTimeOffset RetrievedAtUtc)
+{
+    public bool ContainsModelDigest(string digest) =>
+        ModelDigests.Any(candidate => OllamaModelDigestPolicy.Matches(candidate, digest));
+}
