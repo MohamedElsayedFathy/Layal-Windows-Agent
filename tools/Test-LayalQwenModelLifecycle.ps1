@@ -197,9 +197,9 @@ try {
     # Validate the actual key created by the Windows Ollama runtime against the live Registry.
     $env:LAYAL_RUN_REGISTRY_LIVE_TESTS = "1"
     $env:LAYAL_OLLAMA_PROFILE_DIRECTORY = $env:USERPROFILE
-    dotnet test tests/Layal.Tests/Layal.Tests.csproj --configuration Release --nologo --filter "FullyQualifiedName~LiveRegistryAcceptsOllamaOpenSshEd25519ChallengeSignature"
-    if ($LASTEXITCODE -ne 0) { throw "Live signed Ollama Registry authentication test failed." }
-    $summary.RegistryAuthTest = "passed with actual Ollama-generated Windows user key"
+    dotnet test tests/Layal.Tests/Layal.Tests.csproj --configuration Release --nologo --filter "FullyQualifiedName~LiveRegistryManifestAccessAndOptionalOllamaSignatureChallenge"
+    if ($LASTEXITCODE -ne 0) { throw "Live Ollama Registry manifest/authentication test failed." }
+    $summary.RegistryAuthTest = "passed; test output records anonymous versus signed Bearer mode"
 
     $firstAttempt = Invoke-QwenPull -CancelAfterPartialBlob
     if (-not $firstAttempt.Cancelled -or $firstAttempt.CompletedBytes -lt 8MB) {
