@@ -414,6 +414,16 @@
       "licenseTextPath": "licenses/MIT-SSH.NET.txt",
       "copyright": "Copyright (c) Renci, Oleg Kapeljushnik, Gert Driesen and contributors",
       "reviewStatus": "Upstream NuGet metadata and repository MIT license checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "BouncyCastle.Cryptography",
+      "licenseExpression": "MIT",
+      "versionPolicy": "transitive dependency of SSH.NET 2026.0.1; version 2.7.0 resolved in the Windows product SBOM",
+      "sourceUrl": "https://www.nuget.org/packages/BouncyCastle.Cryptography/2.7.0",
+      "licenseUrl": "https://github.com/bcgit/bc-csharp/blob/master/crypto/License.html",
+      "licenseTextPath": "licenses/MIT-BouncyCastle.txt",
+      "copyright": "Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc.",
+      "reviewStatus": "NuGet metadata declares MIT; upstream documentation separately states the modified Bzip2 library is Apache-2.0. The license exception is documented in THIRD_PARTY_NOTICES.md; human legal review remains pending."
     }
   ],
   "provenanceReview": {
