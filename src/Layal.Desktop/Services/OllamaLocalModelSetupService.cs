@@ -821,6 +821,149 @@ public sealed class OllamaLocalModelSetupService
     private static string ModelDigestManifestPath => Path.Combine(
         LocalVoiceService.DataRoot, "resource-manifests", "qwen3.5-2b.json");
 
+    private static string ModelUpdateJournalPath => ModelDigestManifestPath + ".update.json";
+
+    private async Task WriteModelUpdateJournalAsync(
+        string rollbackModelId,
+        OllamaModelDigestManifest previousPin,
+        CancellationToken cancellationToken)
+    {
+        if (!rollbackModelId.StartsWith("layal-rollback:qwen35-", StringComparison.Ordinal) ||
+            !IsRegistryTrustedPin(previousPin))
+            throw new InvalidDataException("The Qwen update journal contains an invalid rollback reference or prior pin.");
+
+        var path = Path.GetFullPath(ModelUpdateJournalPath);
+        var directory = Path.GetDirectoryName(path)
+            ?? throw new InvalidOperationException("The Qwen update journal has no parent directory.");
+        EnsureNoReparsePoints(directory);
+        Directory.CreateDirectory(directory);
+        EnsureNoReparsePoints(directory);
+        if (File.Exists(path))
+            throw new InvalidOperationException(
+                "An earlier Qwen update recovery journal already exists. Recover it before starting another update.");
+
+        var journal = new OllamaModelUpdateJournal(
+            rollbackModelId, previousPin, DateTimeOffset.UtcNow);
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await using (var output = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                4096, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(
+                    output, journal, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            File.Move(temporary, path);
+        }
+        finally
+        {
+            try { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private async Task RecoverInterruptedModelUpdateAsync(
+        string executable,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var path = Path.GetFullPath(ModelUpdateJournalPath);
+        var directory = Path.GetDirectoryName(path)
+            ?? throw new InvalidOperationException("The Qwen update journal has no parent directory.");
+        EnsureNoReparsePoints(directory);
+        if (!File.Exists(path))
+            return;
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The Qwen update journal must not be a reparse point.");
+
+        var info = new FileInfo(path);
+        if (info.Length <= 0 || info.Length > 32 * 1024)
+            throw new InvalidDataException("The Qwen update journal has an invalid size.");
+
+        await using var input = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var journal = await JsonSerializer.DeserializeAsync<OllamaModelUpdateJournal>(
+            input, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (journal is null ||
+            string.IsNullOrWhiteSpace(journal.RollbackModelId) ||
+            !journal.RollbackModelId.StartsWith("layal-rollback:qwen35-", StringComparison.Ordinal) ||
+            journal.PreviousPin is null ||
+            !IsRegistryTrustedPin(journal.PreviousPin))
+            throw new InvalidDataException("The Qwen update recovery journal is malformed or untrusted.");
+
+        progress?.Report("اكتشاف تحديث Qwen غير مكتمل؛ استعادة النسخة السابقة تلقائيًا…");
+        // Recovery is deliberately non-cancellable once the journal has been accepted:
+        // leaving model files and their digest pin out of sync is less safe than finishing rollback.
+        await RunCommandAsync(
+            executable,
+            new[] { "cp", journal.RollbackModelId, DefaultModelId },
+            null,
+            CancellationToken.None).ConfigureAwait(false);
+        await RestoreModelDigestManifestAsync(journal.PreviousPin, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        var restoredDigest = await GetInstalledModelDigestAsync(CancellationToken.None).ConfigureAwait(false);
+        OllamaModelDigestPolicy.EnsureMatches(journal.PreviousPin.Digest, restoredDigest ?? string.Empty);
+        await _chatService.RunModelSmokeTestAsync(
+            LocalChatModelService.DefaultBaseUrl, DefaultModelId, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        File.Delete(path);
+        try
+        {
+            await RunCommandAsync(
+                executable,
+                new[] { "rm", journal.RollbackModelId },
+                null,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch
+        {
+            progress?.Report("تم استرداد Qwen، لكن بقيت نسخة رجوع قديمة يمكن تنظيفها لاحقًا.");
+        }
+    }
+
+    private async Task RestoreModelDigestManifestAsync(
+        OllamaModelDigestManifest previousPin,
+        CancellationToken cancellationToken)
+    {
+        if (!IsRegistryTrustedPin(previousPin))
+            throw new InvalidDataException("Cannot restore an untrusted Qwen Registry pin.");
+
+        var path = Path.GetFullPath(ModelDigestManifestPath);
+        var directory = Path.GetDirectoryName(path)
+            ?? throw new InvalidOperationException("The Qwen digest pin has no parent directory.");
+        EnsureNoReparsePoints(directory);
+        Directory.CreateDirectory(directory);
+        EnsureNoReparsePoints(directory);
+        if (File.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The Qwen digest pin must not be a reparse point.");
+
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".rollback.tmp";
+        try
+        {
+            await using (var output = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                4096, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(
+                    output, previousPin, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            try { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
     private static bool IsRegistryTrustedPin(OllamaModelDigestManifest pin) =>
         string.Equals(
             pin.RegistryHost,
