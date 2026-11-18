@@ -1176,6 +1176,10 @@
                                 HorizontalAlignment="Left" Margin="4,6,4,0"
                                 AutomationProperties.Name="تجهيز نموذج المحادثة المحلي"
                                 AutomationProperties.HelpText="يثبت Ollama عند الحاجة وينزل نموذج Qwen3.5 2B بعد موافقتك، بحجم متوقع 2.7 إلى 3.1 جيجابايت."/>
+                        <Button x:Name="UpdateLocalChatModelButton" Content="تحديث نموذج Qwen بأمان" Click="UpdateLocalChatModelButton_Click"
+                                HorizontalAlignment="Left" Margin="4,6,4,0"
+                                AutomationProperties.Name="تحديث نموذج Qwen بأمان"
+                                AutomationProperties.HelpText="ينشئ نسخة رجوع محلية، ويتحقق من digest عبر Ollama Registry، ولا يعتمد التحديث إلا بعد نجاح اختبار المحادثة. يمكن إلغاء العملية واستعادة النسخة السابقة."/>
                         <Button x:Name="CancelLocalChatModelSetupButton" Content="إلغاء تجهيز المحادثة" Click="CancelLocalChatModelSetupButton_Click"
                                 HorizontalAlignment="Left" Margin="4,6,4,0" Visibility="Collapsed" IsEnabled="False"
                                 AutomationProperties.Name="إلغاء تنزيل نموذج المحادثة المحلي"/>
