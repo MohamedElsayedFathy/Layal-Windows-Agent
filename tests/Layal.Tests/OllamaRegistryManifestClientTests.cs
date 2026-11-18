@@ -133,7 +133,7 @@ public sealed class OllamaRegistryManifestClientTests
         }));
         var sut = new OllamaRegistryManifestClient(client);
 
-        await Assert.ThrowsExceptionAsync<System.IO.InvalidDataException>(
+        await AssertThrowsAsync<System.IO.InvalidDataException>(
             () => sut.FetchDefaultModelManifestAsync());
     }
 
@@ -164,7 +164,7 @@ public sealed class OllamaRegistryManifestClientTests
             }));
         var sut = new OllamaRegistryManifestClient(client);
 
-        await Assert.ThrowsExceptionAsync<HttpRequestException>(
+        await AssertThrowsAsync<HttpRequestException>(
             () => sut.FetchDefaultModelManifestAsync());
     }
 
@@ -178,7 +178,7 @@ public sealed class OllamaRegistryManifestClientTests
         }));
         var sut = new OllamaRegistryManifestClient(client);
 
-        await Assert.ThrowsExceptionAsync<System.IO.InvalidDataException>(
+        await AssertThrowsAsync<System.IO.InvalidDataException>(
             () => sut.FetchDefaultModelManifestAsync());
     }
 
@@ -192,8 +192,29 @@ public sealed class OllamaRegistryManifestClientTests
         }));
         var sut = new OllamaRegistryManifestClient(client);
 
-        await Assert.ThrowsExceptionAsync<System.IO.InvalidDataException>(
+        await AssertThrowsAsync<System.IO.InvalidDataException>(
             () => sut.FetchDefaultModelManifestAsync());
+    }
+
+    private static async Task AssertThrowsAsync<TException>(Func<Task> action)
+        where TException : Exception
+    {
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        catch (TException)
+        {
+            return;
+        }
+        catch (Exception exception)
+        {
+            Assert.Fail(
+                $"Expected {typeof(TException).Name}, but received {exception.GetType().Name}: {exception.Message}");
+            return;
+        }
+
+        Assert.Fail($"Expected {typeof(TException).Name}, but the action completed successfully.");
     }
 
     private static HttpResponseMessage OkResponse() => new(HttpStatusCode.OK)
