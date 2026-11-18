@@ -34,6 +34,11 @@ $stderrPath = Join-Path $logDirectory "ollama-serve.stderr.log"
 $server = $null
 $client = [System.Net.Http.HttpClient]::new()
 $client.Timeout = [System.Threading.Timeout]::InfiniteTimeSpan
+$registryHandler = [System.Net.Http.SocketsHttpHandler]::new()
+$registryHandler.AllowAutoRedirect = $false
+$registryHandler.ConnectTimeout = [TimeSpan]::FromSeconds(20)
+$registryClient = [System.Net.Http.HttpClient]::new($registryHandler)
+$registryClient.Timeout = [System.Threading.Timeout]::InfiniteTimeSpan
 $summary = [ordered]@{
     Result = "failed"
     Model = "qwen3.5:2b"
@@ -43,6 +48,10 @@ $summary = [ordered]@{
     CancelledAfterBytes = 0L
     ResumedFromBytes = 0L
     FinalDigest = $null
+    RegistryManifestDigest = $null
+    RegistryManifestBytes = 0L
+    RegistryModelDigests = @()
+    RegistryDigestMatch = "not-run"
     DownloadedBlobBytes = 0L
     ChatHealth = "not-run"
     Rollback = "not-run"
@@ -164,6 +173,280 @@ function Invoke-QwenPull {
         if ($null -ne $response) { $response.Dispose() }
         $request.Dispose()
         $cancellation.Dispose()
+    }
+}
+
+function Get-QwenRegistryManifest {
+    $request = [System.Net.Http.HttpRequestMessage]::new(
+        [System.Net.Http.HttpMethod]::Get,
+        "https://registry.ollama.ai/v2/library/qwen3.5/manifests/2b")
+    $request.Headers.Accept.ParseAdd("application/vnd.ollama.manifest.list.v2+json")
+    $request.Headers.Accept.ParseAdd("application/vnd.docker.distribution.manifest.v2+json")
+    $request.Headers.Accept.ParseAdd("application/vnd.oci.image.index.v1+json")
+    $request.Headers.Accept.ParseAdd("application/vnd.oci.image.manifest.v1+json")
+    $request.Headers.AcceptEncoding.ParseAdd("identity")
+    $response = $null
+
+    try {
+        $response = $registryClient.SendAsync(
+            $request,
+            [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+        if ($response.StatusCode -ne [System.Net.HttpStatusCode]::OK) {
+            throw "The public Qwen Registry manifest request returned HTTP $([int]$response.StatusCode); redirects and unauthenticated non-200 responses are rejected in this lifecycle check."
+        }
+
+        if ($null -ne $response.Content.Headers.ContentLength -and
+            $response.Content.Headers.ContentLength -gt 1MB) {
+            throw "The live Qwen Registry manifest exceeded the 1 MiB evidence limit."
+        }
+
+        $body = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+        if ($body.Length -le 0 -or $body.Length -gt 1MB) {
+            throw "The live Qwen Registry manifest body is empty or oversized."
+        }
+
+        $manifestDigest = [Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData($body)).ToLowerInvariant()
+        if ($response.Headers.Contains("Docker-Content-Digest")) {
+            $headerValues = @($response.Headers.GetValues("Docker-Content-Digest"))
+            if ($headerValues.Count -ne 1 -or
+                ([string]$headerValues[0]).ToLowerInvariant() -ne ("sha256:" + $manifestDigest)) {
+                throw "The live Registry Docker-Content-Digest header does not match the exact manifest body bytes."
+            }
+        }
+
+        $manifest = [System.Text.Encoding]::UTF8.GetString($body) | ConvertFrom-Json
+        if ([int]$manifest.schemaVersion -ne 2) {
+            throw "The live Qwen Registry manifest did not declare schemaVersion 2."
+        }
+
+        $mediaType = [string]$manifest.mediaType
+        $acceptedDigests = [System.Collections.Generic.List[string]]::new()
+        if ($mediaType -in @(
+            "application/vnd.ollama.manifest.list.v2+json",
+            "application/vnd.oci.image.index.v1+json"
+        )) {
+            $children = @($manifest.manifests)
+            foreach ($descriptor in $children) {
+                $childType = [string](Get-ProgressProperty -Record $descriptor -Name "mediaType")
+                $childDigestValue = [string](Get-ProgressProperty -Record $descriptor -Name "digest")
+                if ($childType -notin @(
+                    "application/vnd.docker.distribution.manifest.v2+json",
+                    "application/vnd.oci.image.manifest.v1+json"
+                )) {
+                    continue
+                }
+                if ($childDigestValue -notmatch '^sha256:[0-9a-fA-F]{64}    $body = @{
+        model = "qwen3.5:2b"
+        messages = @(@{ role = "user"; content = "Reply with the single word READY." })
+        stream = $false
+        options = @{ num_predict = 16 }
+    } | ConvertTo-Json -Depth 8
+    $reply = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:11434/api/chat" -ContentType "application/json" -Body $body -TimeoutSec 180
+    if ([string]::IsNullOrWhiteSpace([string]$reply.message.content)) {
+        throw "Qwen local chat health check returned an empty response."
+    }
+}
+
+try {
+    Get-Process -Name ollama -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    $portDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
+    while ([DateTimeOffset]::UtcNow -lt $portDeadline -and
+           (Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue)) {
+        Start-Sleep -Milliseconds 500
+    }
+    if (Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue) {
+        throw "Port 11434 is still in use. The isolated lifecycle test refuses to reuse another server."
+    }
+
+    $server = Start-Process -FilePath $OllamaExePath -ArgumentList @("serve") -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+
+    $deadline = [DateTimeOffset]::UtcNow.AddMinutes(2)
+    $serverReady = $false
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        if ($server.HasExited) { throw "The isolated Ollama server exited during startup. See $stderrPath" }
+        try {
+            $null = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:11434/api/version" -TimeoutSec 3
+            $serverReady = $true
+            break
+        }
+        catch { Start-Sleep -Seconds 2 }
+    }
+    if (-not $serverReady) { throw "The isolated Ollama server did not start within two minutes." }
+
+    $keyPath = Join-Path $env:USERPROFILE ".ollama/id_ed25519"
+    if (-not (Test-Path -LiteralPath $keyPath -PathType Leaf)) {
+        throw "Ollama did not initialize its expected Ed25519 user key at $keyPath."
+    }
+
+    # Validate the actual key created by the Windows Ollama runtime against the live Registry.
+    $env:LAYAL_RUN_REGISTRY_LIVE_TESTS = "1"
+    $env:LAYAL_OLLAMA_PROFILE_DIRECTORY = $env:USERPROFILE
+    dotnet test tests/Layal.Tests/Layal.Tests.csproj --configuration Release --nologo --filter "FullyQualifiedName~LiveRegistryManifestAccessAndOptionalOllamaSignatureChallenge"
+    if ($LASTEXITCODE -ne 0) { throw "Live Ollama Registry manifest/authentication test failed." }
+    $summary.RegistryManifestAccess = "passed; test output records anonymous versus signed Bearer mode"
+
+    $firstAttempt = Invoke-QwenPull -CancelAfterPartialBlob
+    if (-not $firstAttempt.Cancelled -or $firstAttempt.CompletedBytes -lt 8MB) {
+        throw "The cancellation run did not interrupt a real partially downloaded model blob."
+    }
+    $summary.CancelledAfterBytes = [long]$firstAttempt.CompletedBytes
+
+    # Reissue the pull and prove progress resumes from the interrupted blob's retained bytes.
+    $retryRequest = [System.Net.Http.HttpRequestMessage]::new(
+        [System.Net.Http.HttpMethod]::Post,
+        "http://127.0.0.1:11434/api/pull")
+    $retryRequest.Content = [System.Net.Http.StringContent]::new(
+        '{"model":"qwen3.5:2b","stream":true}',
+        [System.Text.Encoding]::UTF8,
+        "application/json")
+    $retryResponse = $client.SendAsync(
+        $retryRequest,
+        [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+    if (-not $retryResponse.IsSuccessStatusCode) {
+        throw "The resumed Ollama pull returned HTTP $([int]$retryResponse.StatusCode)."
+    }
+    $retryStream = $retryResponse.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+    $retryReader = [System.IO.StreamReader]::new($retryStream, [System.Text.Encoding]::UTF8)
+    $retryCancellation = [System.Threading.CancellationTokenSource]::new([TimeSpan]::FromMinutes(55))
+    $retryCompleted = 0L
+    $resumeObserved = $false
+    $pullSuccess = $false
+    $retryDeadline = [DateTimeOffset]::UtcNow.AddMinutes(55)
+    try {
+        while ([DateTimeOffset]::UtcNow -lt $retryDeadline) {
+            $line = $retryReader.ReadLineAsync($retryCancellation.Token).GetAwaiter().GetResult()
+            if ($null -eq $line) { break }
+            if ($line.Length -eq 0) { continue }
+            $record = $line | ConvertFrom-Json
+            $pullError = Get-ProgressProperty -Record $record -Name "error"
+            if (-not [string]::IsNullOrWhiteSpace([string]$pullError)) {
+                throw "Resumed Ollama pull failed: $pullError"
+            }
+            $completedValue = Get-ProgressProperty -Record $record -Name "completed"
+            if ($null -ne $completedValue) {
+                $completed = [long]$completedValue
+                if ($completed -gt $retryCompleted) { $retryCompleted = $completed }
+                $digestValue = Get-ProgressProperty -Record $record -Name "digest"
+                if ($digestValue -eq $firstAttempt.BlobDigest -and
+                    $completed -ge $firstAttempt.CompletedBytes) {
+                    $resumeObserved = $true
+                }
+            }
+            $statusValue = Get-ProgressProperty -Record $record -Name "status"
+            if ($statusValue -eq "success") { $pullSuccess = $true; break }
+        }
+    }
+    finally {
+        $retryCancellation.Dispose()
+        $retryReader.Dispose()
+        $retryResponse.Dispose()
+        $retryRequest.Dispose()
+    }
+    if (-not $pullSuccess) { throw "The resumed model pull did not complete before the 55-minute deadline." }
+    if (-not $resumeObserved) { throw "The retry did not report continued progress for the previously interrupted blob." }
+
+    $summary.ResumedFromBytes = [long]$firstAttempt.CompletedBytes
+    $installed = Get-InstalledQwen
+    if ($null -eq $installed -or $installed.digest -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "The installed Qwen model did not report a complete SHA-256 digest via /api/tags."
+    }
+    $summary.FinalDigest = ([string]$installed.digest).ToLowerInvariant()
+
+    $registrySnapshot = Get-QwenRegistryManifest
+    $summary.RegistryManifestDigest = $registrySnapshot.ManifestDigest
+    $summary.RegistryManifestBytes = $registrySnapshot.ManifestSizeBytes
+    $summary.RegistryModelDigests = @($registrySnapshot.ModelDigests)
+    if (@($registrySnapshot.ModelDigests) -notcontains $summary.FinalDigest) {
+        throw "The installed Qwen digest $($summary.FinalDigest) is not listed in the live verified Registry manifest."
+    }
+    $summary.RegistryDigestMatch = "passed"
+
+    Invoke-QwenChatHealth
+    $summary.ChatHealth = "passed"
+
+    $backupAlias = "layal-rollback:phase-c-acceptance"
+    Invoke-OllamaCli -Arguments @("cp", "qwen3.5:2b", $backupAlias)
+    $backup = @((Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:11434/api/tags").models) |
+        Where-Object { $_.name -eq $backupAlias -or $_.model -eq $backupAlias } |
+        Select-Object -First 1
+    if ($null -eq $backup -or $backup.digest -ne $installed.digest) {
+        throw "The isolated rollback copy did not preserve the original model digest."
+    }
+
+    # Simulate a failed update by removing the mutable tag, then restore it from the rollback alias.
+    Invoke-OllamaCli -Arguments @("rm", "qwen3.5:2b")
+    $removed = Get-InstalledQwen
+    if ($null -ne $removed) { throw "The original tag still exists after the rollback test removed it." }
+
+    Invoke-OllamaCli -Arguments @("cp", $backupAlias, "qwen3.5:2b")
+    $restored = Get-InstalledQwen
+    if ($null -eq $restored -or $restored.digest -ne $installed.digest) {
+        throw "Ollama rollback copy did not restore the exact previous model digest."
+    }
+    Invoke-QwenChatHealth
+    $summary.Rollback = "passed: restored exact digest and reran chat health check"
+    Invoke-OllamaCli -Arguments @("rm", $backupAlias)
+
+    $blobDirectory = Join-Path $modelDirectory "blobs"
+    if (Test-Path -LiteralPath $blobDirectory -PathType Container) {
+        $summary.DownloadedBlobBytes = [long]((Get-ChildItem -LiteralPath $blobDirectory -File -Recurse | Measure-Object -Property Length -Sum).Sum)
+    }
+    if ($summary.DownloadedBlobBytes -le 0 -or $summary.DownloadedBlobBytes -gt 3100000000) {
+        throw "The actual Qwen blob total ($($summary.DownloadedBlobBytes) bytes) is outside the model setup upper bound of 3,100,000,000 bytes."
+    }
+    $summary.Result = "passed"
+}
+finally {
+    $client.Dispose()
+    $registryClient.Dispose()
+    if ($null -ne $server -and -not $server.HasExited) {
+        Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+        Wait-Process -Id $server.Id -Timeout 15 -ErrorAction SilentlyContinue
+    }
+    $summary.CompletedAtUtc = [DateTimeOffset]::UtcNow.ToString("O")
+    $summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory "qwen-lifecycle-summary.json") -Encoding utf8
+}
+
+if ($summary.Result -ne "passed") {
+    throw "Qwen model lifecycle acceptance failed. Evidence: $EvidenceDirectory"
+}
+Write-Host "Qwen model lifecycle acceptance: PASS"
+Get-Content -LiteralPath (Join-Path $EvidenceDirectory "qwen-lifecycle-summary.json")
+) {
+                    throw "The live Registry manifest list contains a malformed supported child digest."
+                }
+                $childDigest = $childDigestValue.Substring(7).ToLowerInvariant()
+                if (-not $acceptedDigests.Contains($childDigest)) {
+                    $acceptedDigests.Add($childDigest)
+                }
+            }
+            if ($acceptedDigests.Count -eq 0) {
+                throw "The live Qwen Registry manifest list contains no supported child image manifests."
+            }
+        }
+        elseif ($mediaType -notin @(
+            "application/vnd.docker.distribution.manifest.v2+json",
+            "application/vnd.oci.image.manifest.v1+json"
+        )) {
+            throw "The live Qwen Registry returned an unsupported manifest media type: $mediaType"
+        }
+
+        // Accept the exact parent digest as well for Ollama versions that expose it in /api/tags.
+        if (-not $acceptedDigests.Contains($manifestDigest)) {
+            $acceptedDigests.Add($manifestDigest)
+        }
+
+        return [pscustomobject]@{
+            ManifestDigest = $manifestDigest
+            ManifestSizeBytes = [long]$body.Length
+            MediaType = $mediaType
+            ModelDigests = @($acceptedDigests.ToArray())
+        }
+    }
+    finally {
+        if ($null -ne $response) { $response.Dispose() }
+        $request.Dispose()
     }
 }
 
