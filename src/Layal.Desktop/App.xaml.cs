@@ -103,7 +103,11 @@ public partial class App : Application
         // verified VoiceTut process after the first-run wizard closes.
         var localVoiceRuntime = new LocalVoiceService();
         AppRuntime.LocalVoiceRuntime = localVoiceRuntime;
-        if (!_isScheduledReminderLaunch && !dataPaths.IsolatedAcceptance)
+        var shouldShowCompleteSetup = CompleteSetupStartupPolicy.ShouldShow(
+            _isScheduledReminderLaunch,
+            dataPaths.IsolatedAcceptance,
+            Environment.GetEnvironmentVariable(CompleteSetupStartupPolicy.AcceptanceOverrideEnvironmentVariable));
+        if (shouldShowCompleteSetup)
         {
             var resourceManager = new LocalResourceManager();
             var setupIsReady = false;
