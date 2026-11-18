@@ -171,3 +171,12 @@ PdfPig and Open XML SDK are used for local extraction from user-selected PDF, DO
 - License text: licenses/MIT-Dotnet-Extensions.txt
 
 These packages are pulled transitively by the local OCR engine's dependency graph. Their package metadata identifies MIT licensing; project-level legal review remains pending.
+
+## SSH.NET
+
+- Package: SSH.NET version 2026.0.1 (direct dependency)
+- License declared by upstream NuGet metadata: MIT
+- Project/source: https://github.com/sshnet/SSH.NET
+- Package metadata: https://www.nuget.org/packages/SSH.NET/2026.0.1
+- License text: licenses/MIT-SSH.NET.txt
+- This dependency is used only to parse the Ollama-owned local Ed25519 key and sign the Ollama Registry token challenge. The private key remains on the local machine; it is not transmitted. Project compatibility and legal review remain separate release gates.
