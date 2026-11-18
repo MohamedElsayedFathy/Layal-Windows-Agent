@@ -209,12 +209,15 @@ internal static class OllamaRegistryAuthTokenProvider
         var encodedEmptyBodyHash = Convert.ToBase64String(Encoding.UTF8.GetBytes(emptyBodyHashHex));
         var signedPayload = Encoding.UTF8.GetBytes(
             "GET," + tokenUri.AbsoluteUri + "," + encodedEmptyBodyHash);
-        var signedBlob = signer.Sign(signedPayload);
+        // Key.Sign returns the raw Ed25519 signature bytes. HostAlgorithm.Sign
+        // would wrap those bytes in an extra SSH SignatureKeyData envelope, but
+        // Ollama's token service expects Signature.Blob (the raw 64-byte signature).
+        var signatureBlob = keyFile.Key.Sign(signedPayload);
 
         // Ollama's registry protocol uses the base64 SSH public-key blob followed
-        // by the base64 SSH signature blob. Neither private key bytes nor PEM data
-        // leave this process.
-        return Convert.ToBase64String(signer.Data) + ":" + Convert.ToBase64String(signedBlob);
+        // by the base64 raw Ed25519 signature blob. Neither private key bytes nor
+        // PEM data leave this process.
+        return Convert.ToBase64String(signer.Data) + ":" + Convert.ToBase64String(signatureBlob);
     }
 
     private static async Task<byte[]> ReadBoundedAsync(
