@@ -293,6 +293,9 @@ try {
     if (Test-Path -LiteralPath $blobDirectory -PathType Container) {
         $summary.DownloadedBlobBytes = [long]((Get-ChildItem -LiteralPath $blobDirectory -File -Recurse | Measure-Object -Property Length -Sum).Sum)
     }
+    if ($summary.DownloadedBlobBytes -le 0 -or $summary.DownloadedBlobBytes -gt 3100000000) {
+        throw "The actual Qwen blob total ($($summary.DownloadedBlobBytes) bytes) is outside the model setup upper bound of 3,100,000,000 bytes."
+    }
     $summary.Result = "passed"
 }
 finally {
