@@ -12,6 +12,8 @@
 
 ## Phase C implementation started — Qwen Registry identity (feature branch; not merged)
 
+Operational details and the trust-boundary/test matrix are in [`QWEN_MODEL_LIFECYCLE_AR.md`](QWEN_MODEL_LIFECYCLE_AR.md).
+
 **Branch:** `feature/phase-c-qwen-registry-digest` from `main` at `0fd44c1e664fadf090f9e937e815bba684c1dc59`.
 
 - Added a fixed HTTPS Registry client for `qwen3.5:2b` at `registry.ollama.ai`, with redirect rejection, bounded manifest reads, supported schema/media-type checks, raw-body SHA-256 calculation, and comparison with `Docker-Content-Digest` when the Registry returns that header.
