@@ -263,7 +263,7 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
-                    "{\\"token\\":\\"phase-c-local-key-probe\\"}",
+                    "{\"token\":\"phase-c-local-key-probe\"}",
                     Encoding.UTF8,
                     "application/json")
             };
@@ -272,7 +272,7 @@ public sealed class OllamaRegistryAuthTokenProviderTests
         var token = await OllamaRegistryAuthTokenProvider.GetBearerTokenAsync(
             client,
             OllamaRegistryManifestClient.DefaultManifestUri,
-            "Bearer realm=\\"https://registry.ollama.ai/v2/token\\",service=\\"ollama\\",scope=\\"-\\"",
+            "Bearer realm=\"https://registry.ollama.ai/v2/token\",service=\"ollama\",scope=\"-\"",
             cancellationToken,
             profileDirectory);
 
