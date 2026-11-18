@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -105,15 +106,24 @@ internal static class OllamaRegistryAuthTokenProvider
 
     private static Uri BuildTokenUri(Uri realm, string service, string scope)
     {
-        var builder = new UriBuilder(realm);
-        var query = new System.Collections.Generic.List<string>();
-        var existingQuery = builder.Query.TrimStart('?');
+        // Match Go's url.Values.Encode() used by Ollama's registry challenge:
+        // keys are sorted ordinally and values are URL-encoded using form-query rules.
+        var values = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+        var existingQuery = realm.Query.TrimStart('?');
         if (!string.IsNullOrEmpty(existingQuery))
-            query.Add(existingQuery);
+        {
+            foreach (var pair in existingQuery.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var separator = pair.IndexOf('=');
+                var key = DecodeQueryComponent(separator < 0 ? pair : pair[..separator]);
+                var value = DecodeQueryComponent(separator < 0 ? string.Empty : pair[(separator + 1)..]);
+                AddQueryValue(values, key, value);
+            }
+        }
 
-        query.Add("service=" + Uri.EscapeDataString(service));
+        AddQueryValue(values, "service", service);
         foreach (var item in scope.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            query.Add("scope=" + Uri.EscapeDataString(item));
+            AddQueryValue(values, "scope", item);
 
         var nonceBytes = RandomNumberGenerator.GetBytes(16);
         var nonce = Convert.ToBase64String(nonceBytes)
@@ -122,12 +132,45 @@ internal static class OllamaRegistryAuthTokenProvider
             .Replace('/', '_');
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        query.Add("ts=" + timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        query.Add("nonce=" + Uri.EscapeDataString(nonce));
-        builder.Query = string.Join("&", query);
+        AddQueryValue(
+            values,
+            "ts",
+            timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddQueryValue(values, "nonce", nonce);
 
+        var queryParts = new List<string>();
+        foreach (var entry in values)
+        {
+            foreach (var value in entry.Value)
+                queryParts.Add(EncodeQueryComponent(entry.Key) + "=" + EncodeQueryComponent(value));
+        }
+
+        var builder = new UriBuilder(realm)
+        {
+            Query = string.Join("&", queryParts)
+        };
         return builder.Uri;
     }
+
+    private static void AddQueryValue(
+        SortedDictionary<string, List<string>> values,
+        string key,
+        string value)
+    {
+        if (!values.TryGetValue(key, out var list))
+        {
+            list = new List<string>();
+            values.Add(key, list);
+        }
+
+        list.Add(value);
+    }
+
+    private static string DecodeQueryComponent(string value) =>
+        Uri.UnescapeDataString(value.Replace("+", " ", StringComparison.Ordinal));
+
+    private static string EncodeQueryComponent(string value) =>
+        Uri.EscapeDataString(value).Replace("%20", "+", StringComparison.Ordinal);
 
     private static string CreateOllamaSignatureAuthorization(Uri tokenUri)
     {
