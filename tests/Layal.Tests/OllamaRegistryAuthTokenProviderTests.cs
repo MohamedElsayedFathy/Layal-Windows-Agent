@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -64,8 +65,16 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             Assert.AreEqual(2, authorizationParts.Length);
 
             var publicKeyBlob = Convert.FromBase64String(authorizationParts[0]);
-            var signature = Convert.FromBase64String(authorizationParts[1]);
-            Assert.AreEqual(64, signature.Length);
+            var signatureBlob = Convert.FromBase64String(authorizationParts[1]);
+            var signatureOffset = 0;
+            var signatureAlgorithm = ReadSshString(signatureBlob, ref signatureOffset);
+            Assert.AreEqual("ssh-ed25519", Encoding.ASCII.GetString(signatureAlgorithm));
+            var rawSignature = ReadSshString(signatureBlob, ref signatureOffset);
+            Assert.AreEqual(64, rawSignature.Length);
+            Assert.AreEqual(
+                signatureBlob.Length,
+                signatureOffset,
+                "The SSH signature blob must not contain trailing data.");
 
             var sshPublicKey = new SshKeyData(publicKeyBlob);
             Assert.AreEqual("ssh-ed25519", sshPublicKey.Name);
@@ -78,8 +87,8 @@ public sealed class OllamaRegistryAuthTokenProviderTests
                 "GET," + tokenRequestUri!.AbsoluteUri + "," + encodedEmptyBodyHash);
 
             Assert.IsTrue(
-                publicKey.VerifySignature(signedPayload, signature),
-                "The Authorization signature must verify against the public key sent to the Registry.");
+                publicKey.VerifySignature(signedPayload, rawSignature),
+                "The SSH-encoded Authorization signature must verify against the public key sent to the Registry.");
         }
         finally
         {
@@ -88,6 +97,22 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
+    }
+
+    private static byte[] ReadSshString(byte[] blob, ref int offset)
+    {
+        if (offset < 0 || blob.Length - offset < sizeof(uint))
+            throw new InvalidDataException("The SSH signature blob ended before a string length.");
+
+        var length = BinaryPrimitives.ReadUInt32BigEndian(blob.AsSpan(offset, sizeof(uint)));
+        offset += sizeof(uint);
+        if (length > int.MaxValue || length > (uint)(blob.Length - offset))
+            throw new InvalidDataException("The SSH signature blob contains an invalid string length.");
+
+        var value = new byte[(int)length];
+        Buffer.BlockCopy(blob, offset, value, 0, value.Length);
+        offset += value.Length;
+        return value;
     }
 
     private static string BuildPkcs8Ed25519Pem(byte[] seed)
