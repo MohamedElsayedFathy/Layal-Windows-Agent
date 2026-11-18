@@ -180,12 +180,12 @@ jobs:
       - name: Run automated tests
         run: dotnet test Layal.sln --configuration Release --no-build --no-restore --nologo --logger "trx;LogFileName=Layal.Tests.trx" --results-directory artifacts/test-results
 
-      - name: Verify live Ollama Registry Ed25519 challenge and manifest
+      - name: Verify live Ollama Registry manifest and optional Bearer challenge
         shell: pwsh
         env:
           LAYAL_RUN_REGISTRY_LIVE_TESTS: "1"
         run: |
-          dotnet test tests/Layal.Tests/Layal.Tests.csproj --configuration Release --no-build --no-restore --nologo --filter "FullyQualifiedName~LiveRegistryAcceptsOllamaOpenSshEd25519ChallengeSignature"
+          dotnet test tests/Layal.Tests/Layal.Tests.csproj --configuration Release --no-build --no-restore --nologo --filter "FullyQualifiedName~LiveRegistryManifestAccessAndOptionalOllamaSignatureChallenge"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload native desktop acceptance evidence
