@@ -221,6 +221,10 @@ public sealed class OllamaRegistryManifestClient
             if (modelDigests.Count == 0)
                 throw new InvalidDataException("Ollama Registry manifest list contains no supported model manifests.");
 
+            // Current Ollama /api/tags reports the selected child digest for a
+            // manifest list; older runtimes may report the parent manifest digest.
+            // Both values are cryptographically anchored by this exact Registry body.
+            modelDigests.Add(computedDigest);
             return new ManifestDetails(mediaType, modelDigests.OrderBy(value => value, StringComparer.Ordinal).ToArray());
         }
 
