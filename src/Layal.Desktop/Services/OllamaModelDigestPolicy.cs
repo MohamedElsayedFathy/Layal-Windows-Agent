@@ -5,8 +5,9 @@ using System.Security.Cryptography;
 namespace Layal.Services;
 
 /// <summary>
-/// Validates full Ollama model digests and detects drift against the locally persisted
-/// first-verified digest pin. This is a local drift pin, not a publisher-signed upstream pin.
+/// Validates full Ollama model digests and detects drift against a locally persisted pin
+/// that is populated only after the installed digest matches the official Ollama Registry
+/// manifest. The local pin is not a separate publisher signature.
 /// </summary>
 public static class OllamaModelDigestPolicy
 {
