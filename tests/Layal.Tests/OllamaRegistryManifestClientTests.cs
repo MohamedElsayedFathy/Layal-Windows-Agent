@@ -151,7 +151,7 @@ public sealed class OllamaRegistryManifestClientTests
 
         Assert.AreEqual(
             Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant(),
-            result.Digest);
+            result.ManifestDigest);
     }
 
     [TestMethod]
