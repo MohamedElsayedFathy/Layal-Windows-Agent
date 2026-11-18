@@ -38,7 +38,8 @@ $summary = [ordered]@{
     Result = "failed"
     Model = "qwen3.5:2b"
     IsolatedModelsDirectory = $modelDirectory
-    RegistryAuthTest = "not-run"
+    RegistryManifestAccess = "not-run"
+    RegistryChallengeMode = "see test output"
     CancelledAfterBytes = 0L
     ResumedFromBytes = 0L
     FinalDigest = $null
@@ -199,7 +200,7 @@ try {
     $env:LAYAL_OLLAMA_PROFILE_DIRECTORY = $env:USERPROFILE
     dotnet test tests/Layal.Tests/Layal.Tests.csproj --configuration Release --nologo --filter "FullyQualifiedName~LiveRegistryManifestAccessAndOptionalOllamaSignatureChallenge"
     if ($LASTEXITCODE -ne 0) { throw "Live Ollama Registry manifest/authentication test failed." }
-    $summary.RegistryAuthTest = "passed; test output records anonymous versus signed Bearer mode"
+    $summary.RegistryManifestAccess = "passed; test output records anonymous versus signed Bearer mode"
 
     $firstAttempt = Invoke-QwenPull -CancelAfterPartialBlob
     if (-not $firstAttempt.Cancelled -or $firstAttempt.CompletedBytes -lt 8MB) {
