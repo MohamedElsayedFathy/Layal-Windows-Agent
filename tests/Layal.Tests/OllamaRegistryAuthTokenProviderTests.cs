@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Renci.SshNet.Security;
+using Org.BouncyCastle.Crypto.Parameters;
 
 namespace Layal.Tests;
 
@@ -32,7 +33,7 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             var privateKeyPath = Path.Combine(ollamaDirectory, "id_ed25519");
             await File.WriteAllTextAsync(
                 privateKeyPath,
-                BuildPkcs8Ed25519Pem(privateSeed),
+                BuildOpenSshEd25519Pem(privateSeed),
                 Encoding.ASCII);
 
             Uri? tokenRequestUri = null;
@@ -99,39 +100,68 @@ public sealed class OllamaRegistryAuthTokenProviderTests
         }
     }
 
-    private static byte[] ReadSshString(byte[] blob, ref int offset)
+
+    private static string BuildOpenSshEd25519Pem(byte[] seed)
     {
-        if (offset < 0 || blob.Length - offset < sizeof(uint))
-            throw new InvalidDataException("The SSH signature blob ended before a string length.");
+        if (seed.Length != 32)
+            throw new ArgumentException("Ed25519 private seed must contain exactly 32 bytes.", nameof(seed));
 
-        var length = BinaryPrimitives.ReadUInt32BigEndian(blob.AsSpan(offset, sizeof(uint)));
-        offset += sizeof(uint);
-        if (length > int.MaxValue || length > (uint)(blob.Length - offset))
-            throw new InvalidDataException("The SSH signature blob contains an invalid string length.");
+        var privateKey = new Ed25519PrivateKeyParameters(seed, 0);
+        var publicKey = privateKey.GeneratePublicKey().GetEncoded();
+        var keyType = Encoding.ASCII.GetBytes("ssh-ed25519");
 
-        var value = new byte[(int)length];
-        Buffer.BlockCopy(blob, offset, value, 0, value.Length);
-        offset += value.Length;
-        return value;
-    }
+        using var publicKeyBlob = new MemoryStream();
+        WriteSshString(publicKeyBlob, keyType);
+        WriteSshString(publicKeyBlob, publicKey);
 
-    private static string BuildPkcs8Ed25519Pem(byte[] seed)
-    {
-        // RFC 8410 PrivateKeyInfo for Ed25519: the privateKey octet string
-        // contains the 32-byte Ed25519 seed.
-        var prefix = Convert.FromHexString("302e020100300506032b657004220420");
-        var der = new byte[prefix.Length + seed.Length];
-        Buffer.BlockCopy(prefix, 0, der, 0, prefix.Length);
-        Buffer.BlockCopy(seed, 0, der, prefix.Length, seed.Length);
+        using var privateSection = new MemoryStream();
+        var checkInteger = RandomNumberGenerator.GetBytes(4);
+        privateSection.Write(checkInteger);
+        privateSection.Write(checkInteger);
+        WriteSshString(privateSection, keyType);
+        WriteSshString(privateSection, publicKey);
 
-        var base64 = Convert.ToBase64String(der);
-        var lines = Enumerable.Range(0, (base64.Length + 63) / 64)
-            .Select(index => base64.Substring(index * 64, Math.Min(64, base64.Length - index * 64)));
-        var marker = string.Join(string.Empty, new[] { "PRI", "VATE", " ", "K", "EY" });
+        var privateKeyAndPublicKey = new byte[seed.Length + publicKey.Length];
+        Buffer.BlockCopy(seed, 0, privateKeyAndPublicKey, 0, seed.Length);
+        Buffer.BlockCopy(publicKey, 0, privateKeyAndPublicKey, seed.Length, publicKey.Length);
+        WriteSshString(privateSection, privateKeyAndPublicKey);
+        WriteSshString(privateSection, Encoding.UTF8.GetBytes("layal-phase-c-test"));
+
+        var paddingLength = (int)((8 - (privateSection.Length % 8)) % 8);
+        for (var index = 1; index <= paddingLength; index++)
+            privateSection.WriteByte((byte)index);
+
+        using var opensshKey = new MemoryStream();
+        opensshKey.Write(Encoding.ASCII.GetBytes("openssh-key-v1"));
+        opensshKey.WriteByte(0);
+        WriteSshString(opensshKey, Encoding.ASCII.GetBytes("none"));
+        WriteSshString(opensshKey, Encoding.ASCII.GetBytes("none"));
+        WriteSshString(opensshKey, Array.Empty<byte>());
+        WriteUInt32BigEndian(opensshKey, 1);
+        WriteSshString(opensshKey, publicKeyBlob.ToArray());
+        WriteSshString(opensshKey, privateSection.ToArray());
+
+        var base64 = Convert.ToBase64String(opensshKey.ToArray());
+        var lines = Enumerable.Range(0, (base64.Length + 69) / 70)
+            .Select(index => base64.Substring(index * 70, Math.Min(70, base64.Length - index * 70)));
+        var marker = string.Concat("OPEN", "SSH", " PRIVATE KEY");
         var delimiter = new string('-', 5);
         return delimiter + "BEGIN " + marker + delimiter + "\n" +
                string.Join("\n", lines) +
                "\n" + delimiter + "END " + marker + delimiter + "\n";
+    }
+
+    private static void WriteSshString(Stream output, byte[] value)
+    {
+        WriteUInt32BigEndian(output, value.Length);
+        output.Write(value);
+    }
+
+    private static void WriteUInt32BigEndian(Stream output, int value)
+    {
+        Span<byte> encoded = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(encoded, checked((uint)value));
+        output.Write(encoded);
     }
 
     private sealed class CaptureHandler : HttpMessageHandler
