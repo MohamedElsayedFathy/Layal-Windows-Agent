@@ -467,6 +467,7 @@ public sealed class OllamaLocalModelSetupService
                 VerifyOllamaRuntimeAsync,
                 cancellationToken).ConfigureAwait(false);
             await EnsureServerReadyAsync(executable, null, cancellationToken).ConfigureAwait(false);
+            await RecoverInterruptedModelUpdateAsync(executable, null, cancellationToken).ConfigureAwait(false);
 
             await _resourceCoordinator.EnsureReadyAsync(
                 LocalResourceIds.ChatModel,
@@ -969,8 +970,6 @@ public sealed class OllamaLocalModelSetupService
             if (existing is null || !IsRegistryTrustedPin(existing))
                 throw new InvalidDataException("The expected previous Qwen Registry pin is missing or untrusted.");
             OllamaModelDigestPolicy.EnsureMatches(expectedPreviousDigest, existing.Digest);
-            if (OllamaModelDigestPolicy.Matches(existing.Digest, digest))
-                return;
         }
         else if (existing is not null)
         {
