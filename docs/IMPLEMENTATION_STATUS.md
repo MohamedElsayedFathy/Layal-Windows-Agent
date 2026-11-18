@@ -2,13 +2,25 @@
 
 ## Phase B closeout — 18 November 2026
 
-**Status: COMPLETE — USER-ACCEPTED WITH DOCUMENTED LIMITATIONS.** Latest main head before this documentation closeout is `67ecd3c76f88b03ceb1c7ff33284042fc56c9e12` (PR #203). The project owner explicitly requested that Phase B be closed and accepted the remaining Complete Setup wizard accessibility/storage checks on an assumed-success basis; this acceptance does not extend to the main window or the full application's accessibility matrix. This is an owner acceptance decision, not a claim that every manual test was independently executed or produced a PASS report.
+**Status: COMPLETE — USER-ACCEPTED WITH DOCUMENTED LIMITATIONS.** Latest `main` head after the Phase B documentation closeout is `0fd44c1e664fadf090f9e937e815bba684c1dc59` (PR #204). PR #203 added the PowerShell Complete Setup checker; PR #204 records the owner's Phase B closeout and limitations. The project owner explicitly requested that Phase B be closed and accepted the remaining Complete Setup wizard accessibility/storage checks on an assumed-success basis; this acceptance does not extend to the main window or the full application's accessibility matrix. This is an owner acceptance decision, not a claim that every manual test was independently executed or produced a PASS report.
 
 - The user previously confirmed that the Complete Setup focus indicator was visible and the Tab/Shift+Tab order was logical.
 - The PowerShell live checker did not complete in the recorded session: it correctly stopped before testing because Consent=On and StartEnabled=True. It did not launch Narrator, toggle High Contrast, or run its keyboard assertions. The owner nevertheless accepted the outstanding Narrator/NVDA and High Contrast items for Phase B closeout.
 - Comprehensive fixed sizes for every pip/CUDA/WinGet/temp dependency remain unavailable. Those values stay explicitly unknown; the owner accepts this documented limitation. No guaranteed final download/storage total is claimed.
 - This closeout applies to Phase B only. It does not close the broader Windows live-acceptance checklist, Phase C/D work, signing/legal gates, or change the public-release decision from NO-GO.
 
+
+## Phase C implementation started — Qwen Registry identity (feature branch; not merged)
+
+**Branch:** `feature/phase-c-qwen-registry-digest` from `main` at `0fd44c1e664fadf090f9e937e815bba684c1dc59`.
+
+- Added a fixed HTTPS Registry client for `qwen3.5:2b` at `registry.ollama.ai`, with redirect rejection, bounded manifest reads, supported schema/media-type checks, raw-body SHA-256 calculation, and comparison with `Docker-Content-Digest` when the Registry returns that header.
+- Added the Ollama Bearer challenge flow. It signs the Registry token request using the local Ollama Ed25519 private key; only the signed public-key/signature authorization value is transmitted, and the challenge realm must match the exact HTTPS Registry authority.
+- Manifest-list handling records the parent manifest digest and its supported child image-manifest digests. The installed digest from `/api/tags` is accepted only when it equals one of the advertised child digests; it is not incorrectly compared to the parent list digest.
+- A new local Registry-backed pin stores model ID, installed child digest, Registry host/manifest URI/media type/size/time, parent manifest digest, and the allowed child digests. A legacy TOFU pin is promoted only after the installed digest matches Registry metadata. Subsequent normal startup can validate the installed model offline against the saved pin. Missing model with an existing pin remains blocked pending an explicit reset/update workflow.
+- Added fixture-based client tests for a single manifest, a manifest list, challenge/token retry, digest-header mismatch, redirects, unknown media types, and oversized response bodies.
+
+**Not yet proven:** no CI result is recorded here; these fixture tests have not yet been run by this branch's Windows workflow. No live Registry digest is hard-coded into documentation, and no live Windows model download, resume, mismatch rejection, update/rollback, measured model size, or real-device health check has yet been completed. The implementation establishes TLS/Registry manifest integrity, not a separate publisher signature for Qwen. Model variants and automatic GPU/VRAM selection remain deferred until reproducible target-device benchmarks exist.
 
 ## Current source milestone — 0.5.8 after Phase B closeout, accessibility acceptance and speech-language update (2026-11-18)
 
