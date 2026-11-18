@@ -278,6 +278,180 @@ public sealed class OllamaLocalModelSetupService
         progress?.Report("اكتمل التحقق من نموذج Qwen ومطابقة digest المحلي بمرجع Ollama Registry.");
     }
 
+    /// <summary>
+    /// Explicitly updates the pinned Qwen model. The current model is copied to a
+    /// rollback alias and journaled before the mutable tag is pulled. The old pin is
+    /// replaced only after Registry digest matching and a local chat smoke test.
+    /// </summary>
+    public async Task UpdateModelAsync(
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default,
+        IProgress<LocalResourceDownloadProgress>? downloadProgress = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var executable = FindOllamaExecutable()
+            ?? throw new InvalidOperationException("Ollama is not installed. Set up local chat before requesting an update.");
+
+        await EnsureServerReadyAsync(executable, progress, cancellationToken).ConfigureAwait(false);
+        await RecoverInterruptedModelUpdateAsync(executable, progress, cancellationToken).ConfigureAwait(false);
+
+        var previousPin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
+        if (previousPin is null || !IsRegistryTrustedPin(previousPin))
+            throw new InvalidOperationException(
+                "A Registry-backed Qwen digest pin is required before an update. Complete the initial verified setup first.");
+
+        var installedDigest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
+        OllamaModelDigestPolicy.EnsureMatches(previousPin.Digest, installedDigest ?? string.Empty);
+
+        progress?.Report("التحقق من أحدث manifest في Ollama Registry قبل بدء التحديث…");
+        var registryManifest = await _registryClient.FetchDefaultModelManifestAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (registryManifest.ContainsModelDigest(installedDigest!))
+        {
+            progress?.Report("النموذج المثبت يطابق بالفعل أحد digests الحالية في Registry؛ لا يوجد تحديث مطلوب.");
+            return;
+        }
+
+        // Keep the previous model blobs reachable while the mutable model tag is replaced.
+        LocalResourceStorageCapacityGuard.EnsureAvailable(
+            ModelsDirectory,
+            checked(ModelSizeUpperBoundBytes * 2),
+            512L * 1024 * 1024);
+
+        var rollbackAlias = "layal-rollback:qwen35-" + Guid.NewGuid().ToString("N")[..12];
+        var journalWritten = false;
+        var rollbackVerified = false;
+        var updateCommitted = false;
+
+        try
+        {
+            var updatedDigest = await OllamaModelUpdateTransaction.ExecuteAsync(
+                rollbackAlias,
+                async token =>
+                {
+                    progress?.Report("إنشاء نسخة رجوع آمنة من نموذج Qwen الحالي…");
+                    await RunCommandAsync(
+                        executable,
+                        new[] { "cp", DefaultModelId, rollbackAlias },
+                        null,
+                        token).ConfigureAwait(false);
+                    try
+                    {
+                        await WriteModelUpdateJournalAsync(
+                            rollbackAlias, previousPin, token).ConfigureAwait(false);
+                        journalWritten = true;
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            await RunCommandAsync(
+                                executable, new[] { "rm", rollbackAlias }, null, CancellationToken.None)
+                                .ConfigureAwait(false);
+                        }
+                        catch { /* Preserve the journal-write failure; no model mutation has started. */ }
+                        throw;
+                    }
+                },
+                async token =>
+                {
+                    progress?.Report("تنزيل إصدار Qwen الأحدث مع الإبقاء على نسخة الرجوع…");
+                    await PullModelAsync(progress, downloadProgress, token).ConfigureAwait(false);
+                    var digest = await GetInstalledModelDigestAsync(token).ConfigureAwait(false);
+                    if (!OllamaModelDigestPolicy.IsValidSha256Digest(digest))
+                        throw new InvalidDataException("Ollama did not report a valid digest after the model update.");
+                    return digest!;
+                },
+                async (candidateDigest, token) =>
+                {
+                    if (!registryManifest.ContainsModelDigest(candidateDigest))
+                        return false;
+
+                    progress?.Report("مطابقة digest الجديد مع Registry وتشغيل اختبار صحة المحادثة…");
+                    await _chatService.RunModelSmokeTestAsync(
+                        LocalChatModelService.DefaultBaseUrl, DefaultModelId, token).ConfigureAwait(false);
+                    return true;
+                },
+                async (candidateDigest, token) =>
+                {
+                    await SaveRegistryModelDigestManifestAsync(
+                        candidateDigest,
+                        registryManifest,
+                        token,
+                        expectedPreviousDigest: previousPin.Digest).ConfigureAwait(false);
+                },
+                async _ =>
+                {
+                    progress?.Report("فشل التحديث؛ استعادة نسخة Qwen السابقة…");
+                    await RunCommandAsync(
+                        executable,
+                        new[] { "cp", rollbackAlias, DefaultModelId },
+                        null,
+                        CancellationToken.None).ConfigureAwait(false);
+                    await RestoreModelDigestManifestAsync(previousPin, CancellationToken.None)
+                        .ConfigureAwait(false);
+                },
+                async _ =>
+                {
+                    var restoredDigest = await GetInstalledModelDigestAsync(CancellationToken.None)
+                        .ConfigureAwait(false);
+                    OllamaModelDigestPolicy.EnsureMatches(previousPin.Digest, restoredDigest ?? string.Empty);
+                    await _chatService.RunModelSmokeTestAsync(
+                        LocalChatModelService.DefaultBaseUrl, DefaultModelId, CancellationToken.None)
+                        .ConfigureAwait(false);
+                    rollbackVerified = true;
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            updateCommitted = true;
+            progress?.Report(
+                "نجح تحديث Qwen. تم اعتماد digest الجديد بعد مطابقة Registry واختبار المحادثة: " +
+                updatedDigest);
+        }
+        catch
+        {
+            if (!rollbackVerified)
+            {
+                progress?.Report(
+                    "تعذر إثبات اكتمال الرجوع؛ تم الاحتفاظ بسجل التعافي ونسخة الرجوع. لا تحذف مجلد النموذج حتى يكتمل الاسترداد.");
+            }
+            throw;
+        }
+        finally
+        {
+            if ((updateCommitted || rollbackVerified) && journalWritten)
+            {
+                try
+                {
+                    if (File.Exists(ModelUpdateJournalPath))
+                        File.Delete(ModelUpdateJournalPath);
+                }
+                catch (Exception exception) when (
+                    exception is IOException or UnauthorizedAccessException)
+                {
+                    progress?.Report("اكتملت العملية، لكن تعذر حذف سجل التعافي؛ ستتم مراجعته عند التشغيل التالي.");
+                }
+
+                // The rollback alias is removed only after the recovery journal is gone.
+                if (!File.Exists(ModelUpdateJournalPath))
+                {
+                    try
+                    {
+                        await RunCommandAsync(
+                            executable,
+                            new[] { "rm", rollbackAlias },
+                            null,
+                            CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        progress?.Report("تعذر حذف نسخة الرجوع المؤقتة؛ يمكن حذفها لاحقًا بعد التأكد من سلامة النموذج الحالي.");
+                    }
+                }
+            }
+        }
+    }
+
     public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -605,6 +779,11 @@ public sealed class OllamaLocalModelSetupService
         string? RegistryManifestDigest = null,
         string[]? RegistryModelDigests = null);
 
+    private sealed record OllamaModelUpdateJournal(
+        string RollbackModelId,
+        OllamaModelDigestManifest PreviousPin,
+        DateTimeOffset StartedAtUtc);
+
     private async Task<string?> GetInstalledModelDigestAsync(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(
@@ -768,7 +947,8 @@ public sealed class OllamaLocalModelSetupService
     private async Task SaveRegistryModelDigestManifestAsync(
         string digest,
         OllamaRegistryManifestSnapshot registryManifest,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? expectedPreviousDigest = null)
     {
         if (!OllamaModelDigestPolicy.IsValidSha256Digest(digest))
             throw new InvalidDataException("Ollama did not return a valid full SHA-256 model digest.");
@@ -782,7 +962,15 @@ public sealed class OllamaLocalModelSetupService
         EnsureNoReparsePoints(directory);
 
         var existing = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
-        if (existing is not null)
+        if (expectedPreviousDigest is not null)
+        {
+            if (existing is null || !IsRegistryTrustedPin(existing))
+                throw new InvalidDataException("The expected previous Qwen Registry pin is missing or untrusted.");
+            OllamaModelDigestPolicy.EnsureMatches(expectedPreviousDigest, existing.Digest);
+            if (OllamaModelDigestPolicy.Matches(existing.Digest, digest))
+                return;
+        }
+        else if (existing is not null)
         {
             OllamaModelDigestPolicy.EnsureMatches(existing.Digest, digest);
             if (IsRegistryTrustedPin(existing))
