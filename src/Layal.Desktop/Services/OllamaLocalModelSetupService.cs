@@ -314,6 +314,22 @@ public sealed class OllamaLocalModelSetupService
             return;
         }
 
+        // A manifest-list parent can change while the installed child remains a
+        // valid member. Refresh provenance without re-downloading identical weights.
+        if (registryManifest.ContainsModelDigest(installedDigest!))
+        {
+            progress?.Report("النموذج المثبت ما زال ضمن manifest الحالي؛ تحديث مرجع Registry دون إعادة تنزيل الأوزان…");
+            await _chatService.RunModelSmokeTestAsync(
+                LocalChatModelService.DefaultBaseUrl, DefaultModelId, cancellationToken).ConfigureAwait(false);
+            await SaveRegistryModelDigestManifestAsync(
+                installedDigest!,
+                registryManifest,
+                cancellationToken,
+                expectedPreviousDigest: previousPin.Digest).ConfigureAwait(false);
+            progress?.Report("تم تحديث مرجع Registry للنموذج المثبت؛ لم تكن هناك حاجة لإعادة تنزيله.");
+            return;
+        }
+
         // Keep the previous model blobs reachable while the mutable model tag is replaced.
         LocalResourceStorageCapacityGuard.EnsureAvailable(
             ModelsDirectory,
@@ -455,10 +471,15 @@ public sealed class OllamaLocalModelSetupService
         }
         catch
         {
-            if (!rollbackVerified)
+            if (!rollbackVerified && File.Exists(ModelUpdateJournalPath))
             {
                 progress?.Report(
                     "تعذر إثبات اكتمال الرجوع؛ تم الاحتفاظ بسجل التعافي ونسخة الرجوع. لا تحذف مجلد النموذج حتى يكتمل الاسترداد.");
+            }
+            else if (!rollbackVerified)
+            {
+                progress?.Report(
+                    "تعذر بدء تحديث Qwen أو إنشاء نسخة الرجوع؛ لم يبدأ استبدال النموذج. راجع رسالة الخطأ ثم أعد المحاولة.");
             }
             throw;
         }
