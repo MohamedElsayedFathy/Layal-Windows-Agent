@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Renci.SshNet.Security;
+using Org.BouncyCastle.Crypto.Parameters;
 
 namespace Layal.Tests;
 
@@ -31,7 +33,7 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             var privateKeyPath = Path.Combine(ollamaDirectory, "id_ed25519");
             await File.WriteAllTextAsync(
                 privateKeyPath,
-                BuildPkcs8Ed25519Pem(privateSeed),
+                BuildOpenSshEd25519Pem(privateSeed),
                 Encoding.ASCII);
 
             Uri? tokenRequestUri = null;
@@ -90,23 +92,135 @@ public sealed class OllamaRegistryAuthTokenProviderTests
         }
     }
 
-    private static string BuildPkcs8Ed25519Pem(byte[] seed)
-    {
-        // RFC 8410 PrivateKeyInfo for Ed25519: the privateKey octet string
-        // contains the 32-byte Ed25519 seed.
-        var prefix = Convert.FromHexString("302e020100300506032b657004220420");
-        var der = new byte[prefix.Length + seed.Length];
-        Buffer.BlockCopy(prefix, 0, der, 0, prefix.Length);
-        Buffer.BlockCopy(seed, 0, der, prefix.Length, seed.Length);
 
-        var base64 = Convert.ToBase64String(der);
-        var lines = Enumerable.Range(0, (base64.Length + 63) / 64)
-            .Select(index => base64.Substring(index * 64, Math.Min(64, base64.Length - index * 64)));
-        var marker = string.Join(string.Empty, new[] { "PRI", "VATE", " ", "K", "EY" });
+    [TestMethod]
+    [Timeout(120000)]
+    public async Task LiveRegistryAcceptsOllamaOpenSshEd25519ChallengeSignature()
+    {
+        if (!string.Equals(
+            Environment.GetEnvironmentVariable("LAYAL_RUN_REGISTRY_LIVE_TESTS"),
+            "1",
+            StringComparison.Ordinal))
+        {
+            Assert.Inconclusive("Set LAYAL_RUN_REGISTRY_LIVE_TESTS=1 to enable the live Ollama Registry check.");
+        }
+
+        var profileDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "layal-phase-c-registry-live-" + Guid.NewGuid().ToString("N"));
+        var ollamaDirectory = Path.Combine(profileDirectory, ".ollama");
+        var privateSeed = RandomNumberGenerator.GetBytes(32);
+
+        try
+        {
+            Directory.CreateDirectory(ollamaDirectory);
+            await File.WriteAllTextAsync(
+                Path.Combine(ollamaDirectory, "id_ed25519"),
+                BuildOpenSshEd25519Pem(privateSeed),
+                Encoding.ASCII);
+
+            using var handler = new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                ConnectTimeout = TimeSpan.FromSeconds(20),
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+            };
+            using var client = new HttpClient(handler)
+            {
+                Timeout = Timeout.InfiniteTimeSpan
+            };
+            var registryClient = new OllamaRegistryManifestClient(
+                client,
+                (registryUri, challenge, cancellationToken) =>
+                    OllamaRegistryAuthTokenProvider.GetBearerTokenAsync(
+                        client,
+                        registryUri,
+                        challenge,
+                        cancellationToken,
+                        profileDirectory),
+                TimeSpan.FromSeconds(90));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(110));
+
+            var snapshot = await registryClient.FetchDefaultModelManifestAsync(timeout.Token);
+
+            Assert.AreEqual("qwen3.5:2b", snapshot.ModelId);
+            Assert.IsTrue(OllamaModelDigestPolicy.IsValidSha256Digest(snapshot.ManifestDigest));
+            Assert.IsTrue(snapshot.ManifestSizeBytes is > 0 and <= 1024 * 1024);
+            Assert.IsTrue(snapshot.ModelDigests.Count > 0);
+            Assert.IsTrue(
+                snapshot.ModelDigests.All(OllamaModelDigestPolicy.IsValidSha256Digest),
+                "The live Registry response must contain only full SHA-256 model digests.");
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(privateSeed);
+            try { Directory.Delete(profileDirectory, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static string BuildOpenSshEd25519Pem(byte[] seed)
+    {
+        if (seed.Length != 32)
+            throw new ArgumentException("Ed25519 private seed must contain exactly 32 bytes.", nameof(seed));
+
+        var privateKey = new Ed25519PrivateKeyParameters(seed, 0);
+        var publicKey = privateKey.GeneratePublicKey().GetEncoded();
+        var keyType = Encoding.ASCII.GetBytes("ssh-ed25519");
+
+        using var publicKeyBlob = new MemoryStream();
+        WriteSshString(publicKeyBlob, keyType);
+        WriteSshString(publicKeyBlob, publicKey);
+
+        using var privateSection = new MemoryStream();
+        var checkInteger = RandomNumberGenerator.GetBytes(4);
+        privateSection.Write(checkInteger);
+        privateSection.Write(checkInteger);
+        WriteSshString(privateSection, keyType);
+        WriteSshString(privateSection, publicKey);
+
+        var privateKeyAndPublicKey = new byte[seed.Length + publicKey.Length];
+        Buffer.BlockCopy(seed, 0, privateKeyAndPublicKey, 0, seed.Length);
+        Buffer.BlockCopy(publicKey, 0, privateKeyAndPublicKey, seed.Length, publicKey.Length);
+        WriteSshString(privateSection, privateKeyAndPublicKey);
+        WriteSshString(privateSection, Encoding.UTF8.GetBytes("layal-phase-c-test"));
+
+        var paddingLength = (int)((8 - (privateSection.Length % 8)) % 8);
+        for (var index = 1; index <= paddingLength; index++)
+            privateSection.WriteByte((byte)index);
+
+        using var opensshKey = new MemoryStream();
+        opensshKey.Write(Encoding.ASCII.GetBytes("openssh-key-v1"));
+        opensshKey.WriteByte(0);
+        WriteSshString(opensshKey, Encoding.ASCII.GetBytes("none"));
+        WriteSshString(opensshKey, Encoding.ASCII.GetBytes("none"));
+        WriteSshString(opensshKey, Array.Empty<byte>());
+        WriteUInt32BigEndian(opensshKey, 1);
+        WriteSshString(opensshKey, publicKeyBlob.ToArray());
+        WriteSshString(opensshKey, privateSection.ToArray());
+
+        var base64 = Convert.ToBase64String(opensshKey.ToArray());
+        var lines = Enumerable.Range(0, (base64.Length + 69) / 70)
+            .Select(index => base64.Substring(index * 70, Math.Min(70, base64.Length - index * 70)));
+        var marker = string.Concat("OPEN", "SSH", " PRIVATE KEY");
         var delimiter = new string('-', 5);
         return delimiter + "BEGIN " + marker + delimiter + "\n" +
                string.Join("\n", lines) +
                "\n" + delimiter + "END " + marker + delimiter + "\n";
+    }
+
+    private static void WriteSshString(Stream output, byte[] value)
+    {
+        WriteUInt32BigEndian(output, value.Length);
+        output.Write(value);
+    }
+
+    private static void WriteUInt32BigEndian(Stream output, int value)
+    {
+        Span<byte> encoded = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(encoded, checked((uint)value));
+        output.Write(encoded);
     }
 
     private sealed class CaptureHandler : HttpMessageHandler
