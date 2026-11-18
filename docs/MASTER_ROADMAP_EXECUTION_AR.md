@@ -22,6 +22,8 @@
 
 **بدء Phase C — فرع تنفيذ قيد المراجعة:** أُنشئ `feature/phase-c-qwen-registry-digest` من `main` بعد PR #204. يتضمن الفرع عميلًا مقيدًا لطلب manifest الخاص بـ `qwen3.5:2b` من `registry.ollama.ai` عبر HTTPS، ودعم Bearer challenge وفق تدفق Ollama باستخدام توقيع مفتاح Ed25519 المحلي دون إرسال المفتاح الخاص، وحساب SHA-256 للبايتات الخام والتحقق من `Docker-Content-Digest` عند وجوده. يدعم التحقق قوائم manifest؛ لأن `/api/tags` قد يعرض بصمة child manifest الذي اختاره Ollama لا بصمة القائمة الأم. قبل اعتماد pin جديد، يجب أن تتطابق بصمة النموذج المحلية مع أحد child digests المعلنة في القائمة. الكود والاختبارات fixture موجودة على الفرع، لكن لا يُسجل أي PASS قبل انتهاء CI والتحقق الحقيقي على Windows. لم يُثبت بعد الحجم الفعلي أو health check على جهاز المستخدم، ولم تُنفذ بعد اختبارات الاستئناف/التحديث/rollback. هذا المسار يثبت تطابق المحتوى مع Registry عبر TLS وdigest manifest، وليس توقيعًا منفصلًا من ناشر Qwen.
 
+تفاصيل السلوك وحدود الثقة ومصفوفة التحقق محفوظة في [`docs/QWEN_MODEL_LIFECYCLE_AR.md`](QWEN_MODEL_LIFECYCLE_AR.md).
+
 ## 2. معاني الحالة — لا تخلط بين التنفيذ والقبول
 
 | الحالة | معناها |
