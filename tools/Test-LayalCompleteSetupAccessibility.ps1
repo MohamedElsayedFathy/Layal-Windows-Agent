@@ -350,15 +350,39 @@ try {
         $narratorPath = Join-Path $env:WINDIR 'System32\Narrator.exe'
         if (-not (Test-Path -LiteralPath $narratorPath -PathType Leaf)) {
             $screenReaderStatus = 'BLOCKED: Narrator.exe not found.'
+            $results.Add([pscustomobject]@{
+                Test = 'Windows Narrator process'
+                Result = 'BLOCKED'
+                Details = $screenReaderStatus
+            })
         }
         else {
             $existingNarrator = Get-Process -Name 'Narrator' -ErrorAction SilentlyContinue
             if (-not $existingNarrator) {
                 Start-Process -FilePath $narratorPath | Out-Null
                 $narratorStartedByScript = $true
-                Start-Sleep -Seconds 2
+                $narratorDeadline = (Get-Date).AddSeconds(5)
+                do {
+                    Start-Sleep -Milliseconds 200
+                    $existingNarrator = Get-Process -Name 'Narrator' -ErrorAction SilentlyContinue
+                } while (-not $existingNarrator -and (Get-Date) -lt $narratorDeadline)
             }
-            $screenReaderStatus = 'Narrator process is running; spoken output is NOT VERIFIED by PowerShell.'
+            if ($existingNarrator) {
+                $screenReaderStatus = 'Narrator process is running; spoken output is NOT VERIFIED by PowerShell.'
+                $results.Add([pscustomobject]@{
+                    Test = 'Windows Narrator process'
+                    Result = 'PASS'
+                    Details = 'Narrator process was found. Speech content and intelligibility still require listening.'
+                })
+            }
+            else {
+                $screenReaderStatus = 'BLOCKED: Narrator process did not start or could not be detected.'
+                $results.Add([pscustomobject]@{
+                    Test = 'Windows Narrator process'
+                    Result = 'BLOCKED'
+                    Details = $screenReaderStatus
+                })
+            }
         }
     }
     else {
@@ -434,9 +458,23 @@ try {
                 try {
                     [LayalCompleteSetupAccessibilityNative]::SetHighContrastEnabled([bool]$originalHighContrast)
                     Start-Sleep -Seconds 2
+                    $restoredHighContrast = [LayalCompleteSetupAccessibilityNative]::IsHighContrastEnabled()
+                    if ($restoredHighContrast -ne [bool]$originalHighContrast) {
+                        throw "Windows High Contrast did not return to its original state ($originalHighContrast)."
+                    }
+                    $results.Add([pscustomobject]@{
+                        Test = 'Restore original Windows High Contrast state'
+                        Result = 'PASS'
+                        Details = "Original High Contrast state ($originalHighContrast) was restored and verified."
+                    })
                 }
                 catch {
                     $highContrastStatus = 'RESTORE ERROR: ' + $_.Exception.Message
+                    $results.Add([pscustomobject]@{
+                        Test = 'Restore original Windows High Contrast state'
+                        Result = 'FAIL'
+                        Details = $highContrastStatus
+                    })
                     Write-Warning $highContrastStatus
                 }
             }
@@ -538,10 +576,24 @@ try {
     $focusResults | Export-Csv -LiteralPath $focusCsv -NoTypeInformation -Encoding UTF8
     $controlReport | Export-Csv -LiteralPath $controlCsv -NoTypeInformation -Encoding UTF8
 
+    $failedChecks = @($results | Where-Object { $_.Result -eq 'FAIL' })
+    $blockedChecks = @($results | Where-Object { $_.Result -eq 'BLOCKED' })
+    $automatedResult = if ($failedChecks.Count -gt 0) {
+        'FAIL'
+    }
+    elseif ($blockedChecks.Count -gt 0) {
+        'INCOMPLETE'
+    }
+    else {
+        'PASS'
+    }
+
     $report = [pscustomobject]@{
         SchemaVersion = 1
         CreatedAtLocal = [DateTimeOffset]::Now.ToString('o')
-        Result = 'PASS'
+        Result = $automatedResult
+        FailedChecks = $failedChecks.Count
+        BlockedChecks = $blockedChecks.Count
         SessionDirectory = $sessionRoot
         Executable = $expectedExe
         ProcessId = $process.Id
@@ -572,7 +624,9 @@ try {
     $report | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $reportPath -Encoding UTF8
 
     Write-Host ''
-    Write-Host 'Complete Setup PowerShell accessibility check: PASS' -ForegroundColor Green
+    $resultColor = if ($automatedResult -eq 'PASS') { 'Green' } elseif ($automatedResult -eq 'FAIL') { 'Red' } else { 'Yellow' }
+    Write-Host "Complete Setup PowerShell accessibility check: $automatedResult" -ForegroundColor $resultColor
+    Write-Host "Failed checks: $($failedChecks.Count); blocked checks: $($blockedChecks.Count)"
     Write-Host "UIA required elements: $(@($controlReport | Where-Object { $_.Required -and $_.Found }).Count)/$(@($controlReport | Where-Object Required).Count)"
     Write-Host "Keyboard focus targets: $($distinctFocusTargets.Count) distinct; Tab=$TabSteps; Shift+Tab=PASS"
     Write-Host "Consent: $consentState; Start full setup enabled: $startEnabled"
