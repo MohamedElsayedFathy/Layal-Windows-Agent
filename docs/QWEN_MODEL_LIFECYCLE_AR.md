@@ -51,3 +51,11 @@
 ## الحالة الحالية
 
 الكود والاختبارات fixture موضوعة على الفرع \`feature/phase-c-qwen-registry-digest\`، وليست مدمجة في \`main\` بعد. لا يوجد في هذا السجل digest حي أو حجم تنزيل فعلي أو health-check ناجح على جهاز المستخدم. لا تُعلن Phase C مكتملة قبل اجتياز Windows CI والاختبارات الحية المنعزلة وتوثيق نتائجها.
+
+## مراجع التنفيذ الرسمية
+
+- Ollama Registry challenge, token request, and signed authorization: [`server/auth.go`](https://github.com/ollama/ollama/blob/main/server/auth.go) and [`auth/auth.go`](https://github.com/ollama/ollama/blob/main/auth/auth.go).
+- Ollama manifest media types and child-manifest digest calculation: [`manifest/manifest.go`](https://github.com/ollama/ollama/blob/main/manifest/manifest.go).
+- Ollama `/api/tags` selected-child behavior for manifest lists: [`server/model_list.go`](https://github.com/ollama/ollama/blob/main/server/model_list.go).
+- SSH.NET package version and upstream license: [NuGet SSH.NET 2026.0.1](https://www.nuget.org/packages/SSH.NET/2026.0.1) and [upstream LICENSE](https://github.com/sshnet/SSH.NET/blob/develop/LICENSE).
+- SSH.NET's transitive BouncyCastle package and its MIT / modified-Bzip2 Apache 2.0 note: [NuGet BouncyCastle.Cryptography 2.7.0](https://www.nuget.org/packages/BouncyCastle.Cryptography/2.7.0) and [upstream README](https://github.com/bcgit/bc-csharp/blob/master/README.md).
