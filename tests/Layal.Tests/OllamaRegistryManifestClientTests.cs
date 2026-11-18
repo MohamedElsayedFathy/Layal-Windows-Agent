@@ -4,6 +4,8 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Layal.Services;
@@ -122,6 +124,29 @@ public sealed class OllamaRegistryManifestClientTests
     }
 
     [TestMethod]
+    public async Task AppliesRequestTimeoutWhileReadingManifestBody()
+    {
+        using var client = new HttpClient(new StubHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new BlockingReadContent()
+            }));
+        var sut = new OllamaRegistryManifestClient(
+            client,
+            requestTimeout: TimeSpan.FromMilliseconds(100));
+        using var safetyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        var stopwatch = Stopwatch.StartNew();
+
+        await AssertThrowsAsync<OperationCanceledException>(
+            () => sut.FetchDefaultModelManifestAsync(safetyTimeout.Token));
+
+        stopwatch.Stop();
+        Assert.IsTrue(
+            stopwatch.Elapsed < TimeSpan.FromSeconds(2),
+            "The manifest body read ignored the configured Registry request timeout.");
+    }
+
+    [TestMethod]
     public async Task RejectsRegistryDigestHeaderThatDoesNotMatchTheBody()
     {
         using var client = new HttpClient(new StubHandler(_ =>
@@ -221,6 +246,61 @@ public sealed class OllamaRegistryManifestClientTests
     {
         Content = new StringContent(ManifestBody, Encoding.UTF8, "application/json")
     };
+
+    private sealed class BlockingReadContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context) =>
+            Task.CompletedTask;
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return true;
+        }
+
+        protected override Task<Stream> CreateContentReadStreamAsync() =>
+            Task.FromResult<Stream>(new BlockingReadStream());
+
+        protected override Task<Stream> CreateContentReadStreamAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<Stream>(new BlockingReadStream());
+    }
+
+    private sealed class BlockingReadStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            return 0;
+        }
+
+        public override async Task<int> ReadAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            return 0;
+        }
+    }
 
     private sealed class StubHandler : HttpMessageHandler
     {
