@@ -222,6 +222,11 @@ public sealed class OllamaRegistryAuthTokenProviderTests
                     Assert.AreEqual(1, values.Length);
                     Assert.AreEqual("sha256:" + digest, values[0], ignoreCase: true);
                 }
+
+                Console.WriteLine(
+                    exercisedSignedChallenge
+                        ? "RegistryAuthMode=signed-bearer"
+                        : "RegistryAuthMode=anonymous-public");
             }
             finally
             {
