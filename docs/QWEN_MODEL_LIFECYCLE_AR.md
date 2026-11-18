@@ -37,16 +37,16 @@
 
 | الاختبار | الحالة |
 |---|---|
-| manifest عادي: حساب SHA-256 من bytes ومطابقة `Docker-Content-Digest` عند وجوده | نجح ضمن Windows CI على الرأس `745ae53f82a8ab8ce431cd61c7773ca1907b5765` |
-| manifest list: استخراج بصمات الأبناء وبصمة الأم | نجح ضمن Windows CI على الرأس `745ae53f82a8ab8ce431cd61c7773ca1907b5765` |
+| manifest عادي: حساب SHA-256 من bytes ومطابقة `Docker-Content-Digest` عند وجوده | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
+| manifest list: استخراج بصمات الأبناء وبصمة الأم | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
 | challenge Bearer ثم إعادة طلب manifest بالتوكن | نجح كاختبار retry بمزوّد token اصطناعي؛ لا يختبر قبول Registry الحي للتوقيع |
-| اختبار مزوّد المصادقة الفعلي: قراءة مفتاح Ed25519 مؤقت، إصدار التوقيع الخام، والتحقق منه بمفتاح SSH العام المرسل | نجح ضمن اختبارات C# على الرأس `745ae53f82a8ab8ce431cd61c7773ca1907b5765` |
-| رفض اختلاف رأس `Docker-Content-Digest` عن البايتات | نجح ضمن Windows CI على الرأس `745ae53f82a8ab8ce431cd61c7773ca1907b5765` |
-| رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | نجح ضمن Windows CI على الرأس `745ae53f82a8ab8ce431cd61c7773ca1907b5765` |
-| انتهاء مهلة Registry أثناء قراءة body بطيئة/معلّقة | نجح اختبار regression بإعداد مهلة قصيرة على الرأس `745ae53f82a8ab8ce431cd61c7773ca1907b5765` |
-| Windows build واختبارات C# وحزمة التوزيع واختبار دورة حياة المثبّت | نجحت: run 44309223698 |
-| Full Windows PowerShell acceptance ورفع الأدلة | نجح: run 44309223619 |
-| NuGet advisory/license audit وfull-history Gitleaks | نجح: run 44309223203 |
+| اختبار مزوّد المصادقة الفعلي: قراءة مفتاح Ed25519 مؤقت، إصدار التوقيع الخام، والتحقق منه بمفتاح SSH العام المرسل | نجح ضمن اختبارات C# على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
+| رفض اختلاف رأس `Docker-Content-Digest` عن البايتات | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
+| رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
+| انتهاء مهلة Registry أثناء قراءة body بطيئة/معلّقة | نجح اختبار regression بإعداد مهلة قصيرة على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
+| Windows build واختبارات C# وحزمة التوزيع واختبار دورة حياة المثبّت | نجحت: run 44310907405 |
+| Full Windows PowerShell acceptance ورفع الأدلة | نجح: run 44310907333 |
+| NuGet advisory/license audit وfull-history Gitleaks | نجح: run 44310907496 |
 | اختبار توقيع Ed25519 بمفتاح Ollama فعلي والتحقق من token على Registry الحي | لم يُنفّذ؛ يحتاج Windows profile مُهيأ بواسطة Ollama |
 | تنزيل حقيقي على Windows، الإلغاء والاستئناف، إثبات رفض digest مختلف، health check فعلي | لم يُنفّذ |
 | update/rollback على نسخة Models محلية تجريبية معزولة | لم يُنفّذ |
@@ -55,7 +55,7 @@
 
 ## الحالة الحالية
 
-الكود والاختبارات موجودة على الفرع `feature/phase-c-qwen-registry-digest`، ولم تُدمج في `main` بعد. نجحت اختبارات manifest التسعة واختبار توقيع Ed25519 وفحوص Windows وSecurity/Supply-chain على الرأس `745ae53f82a8ab8ce431cd61c7773ca1907b5765` (runs 44309223698 و44309223619 و44309223203). اختبار التوقيع يستخدم مفتاحًا مؤقتًا مولدًا داخل الاختبار ولا يمثل تبادلًا حيًا مع Registry. لا يوجد في هذا السجل digest حي أو حجم تنزيل فعلي أو health-check ناجح على جهاز المستخدم. لا تُعلن Phase C مكتملة قبل الاختبارات الحية المنعزلة وتوثيق نتائجها.
+الكود والاختبارات موجودة على الفرع `feature/phase-c-qwen-registry-digest`، ولم تُدمج في `main` بعد. نجحت اختبارات manifest التسعة واختبار توقيع Ed25519 وفحوص Windows وSecurity/Supply-chain على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` (runs 44310907405 و44310907333 و44310907496). اختبار التوقيع يستخدم مفتاحًا مؤقتًا مولدًا داخل الاختبار ولا يمثل تبادلًا حيًا مع Registry. لا يوجد في هذا السجل digest حي أو حجم تنزيل فعلي أو health-check ناجح على جهاز المستخدم. لا تُعلن Phase C مكتملة قبل الاختبارات الحية المنعزلة وتوثيق نتائجها.
 ## مراجع التنفيذ الرسمية
 
 - Ollama Registry challenge, token request, and signed authorization: [`server/auth.go`](https://github.com/ollama/ollama/blob/main/server/auth.go) and [`auth/auth.go`](https://github.com/ollama/ollama/blob/main/auth/auth.go).
