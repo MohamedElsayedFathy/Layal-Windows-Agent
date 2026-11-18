@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -750,7 +751,15 @@ public sealed class OllamaLocalModelSetupService
             !OllamaModelDigestPolicy.IsValidSha256Digest(manifest.Digest))
             throw new InvalidDataException("The Qwen digest manifest is malformed or does not match the configured model.");
 
-        if (manifest.RegistryHost is not null && !IsRegistryTrustedPin(manifest))
+        var hasRegistryMetadata =
+            manifest.RegistryHost is not null ||
+            manifest.ManifestUri is not null ||
+            manifest.ManifestMediaType is not null ||
+            manifest.ManifestSizeBytes.HasValue ||
+            manifest.RegistryVerifiedAtUtc.HasValue ||
+            manifest.RegistryManifestDigest is not null ||
+            manifest.RegistryModelDigests is not null;
+        if (hasRegistryMetadata && !IsRegistryTrustedPin(manifest))
             throw new InvalidDataException("The Qwen Registry provenance metadata is incomplete or invalid.");
 
         return manifest with { Digest = manifest.Digest.ToLowerInvariant() };
@@ -804,7 +813,7 @@ public sealed class OllamaLocalModelSetupService
             }
 
             // First install is create-only. A legacy TOFU pin is promoted only after
-            // exact equality with the independently retrieved Registry manifest.
+            // its installed digest appears in the independently retrieved Registry manifest.
             if (existing is null)
                 File.Move(temporary, ModelDigestManifestPath);
             else
