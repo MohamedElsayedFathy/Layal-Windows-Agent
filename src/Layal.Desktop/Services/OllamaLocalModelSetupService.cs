@@ -595,51 +595,14 @@ public sealed class OllamaLocalModelSetupService
     private sealed record OllamaModelDigestManifest(
         string ModelId,
         string Digest,
-        DateTimeOffset VerifiedAtUtc);
-
-    private async Task<string?> GetInstalledModelDigestAsync(CancellationToken cancellationToken)
-    {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get, new Uri(new Uri(OllamaApiBaseUrl), "api/tags"));
-        using var response = await PullClient.SendAsync(
-            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException(
-                $"Ollama model inventory returned HTTP {(int)response.StatusCode}.");
-
-        using var document = await JsonDocument.ParseAsync(
-            await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false),
-            cancellationToken: cancellationToken).ConfigureAwait(false);
-        if (!document.RootElement.TryGetProperty("models", out var models) ||
-            models.ValueKind != JsonValueKind.Array)
-            return null;
-
-        foreach (var model in models.EnumerateArray())
-        {
-            var name = TryReadString(model, "name");
-            var modelId = TryReadString(model, "model");
-            if (!string.Equals(name, DefaultModelId, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(modelId, DefaultModelId, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var digest = TryReadString(model, "digest");
-            return string.IsNullOrWhiteSpace(digest) ? null : digest;
-        }
-        return null;
-    }
-
-    private static string ModelDigestManifestPath => Path.Combine(
-        LocalVoiceService.DataRoot, "resource-manifests", "qwen3.5-2b.json");
-
-    private sealed record OllamaModelDigestManifest(
-        string ModelId,
-        string Digest,
         DateTimeOffset VerifiedAtUtc,
         string? RegistryHost = null,
         string? ManifestUri = null,
         string? ManifestMediaType = null,
         long? ManifestSizeBytes = null,
-        DateTimeOffset? RegistryVerifiedAtUtc = null);
+        DateTimeOffset? RegistryVerifiedAtUtc = null,
+        string? RegistryManifestDigest = null,
+        string[]? RegistryModelDigests = null);
 
     private async Task<string?> GetInstalledModelDigestAsync(CancellationToken cancellationToken)
     {
@@ -686,7 +649,12 @@ public sealed class OllamaLocalModelSetupService
             StringComparison.Ordinal) &&
         !string.IsNullOrWhiteSpace(pin.ManifestMediaType) &&
         pin.ManifestSizeBytes is > 0 &&
-        pin.RegistryVerifiedAtUtc.HasValue;
+        pin.RegistryVerifiedAtUtc.HasValue &&
+        OllamaModelDigestPolicy.IsValidSha256Digest(pin.RegistryManifestDigest) &&
+        pin.RegistryModelDigests is { Length: > 0 } &&
+        pin.RegistryModelDigests.Any(candidate =>
+            OllamaModelDigestPolicy.IsValidSha256Digest(candidate) &&
+            OllamaModelDigestPolicy.Matches(candidate, pin.Digest));
 
     private Task<bool> VerifyPinnedModelAsync(
         string executable,
@@ -718,9 +686,12 @@ public sealed class OllamaLocalModelSetupService
             if (!string.Equals(registryManifest.ModelId, DefaultModelId, StringComparison.Ordinal))
                 throw new InvalidDataException("The Registry manifest belongs to a different Qwen model.");
 
-            // The registry manifest is fetched before pull. Comparing the local Ollama
-            // digest after pull detects tag movement between those two operations.
-            OllamaModelDigestPolicy.EnsureMatches(registryManifest.Digest, actualDigest!);
+            // /api/tags may report the selected child manifest for a manifest list,
+            // not the parent list digest. Require the installed digest to be one of
+            // the exact child digests advertised by the Registry response.
+            if (!registryManifest.ContainsModelDigest(actualDigest!))
+                throw new InvalidDataException(
+                    "The installed Qwen digest is not present in the verified Ollama Registry manifest.");
         }
         else if (pin is null)
         {
@@ -792,7 +763,9 @@ public sealed class OllamaLocalModelSetupService
     {
         if (!OllamaModelDigestPolicy.IsValidSha256Digest(digest))
             throw new InvalidDataException("Ollama did not return a valid full SHA-256 model digest.");
-        OllamaModelDigestPolicy.EnsureMatches(registryManifest.Digest, digest);
+        if (!registryManifest.ContainsModelDigest(digest))
+            throw new InvalidDataException(
+                "The installed Qwen digest is not present in the verified Ollama Registry manifest.");
 
         var directory = Path.GetDirectoryName(ModelDigestManifestPath)!;
         EnsureNoReparsePoints(directory);
@@ -815,7 +788,9 @@ public sealed class OllamaLocalModelSetupService
             registryManifest.ManifestUri,
             registryManifest.MediaType,
             registryManifest.ManifestSizeBytes,
-            registryManifest.RetrievedAtUtc);
+            registryManifest.RetrievedAtUtc,
+            registryManifest.ManifestDigest,
+            registryManifest.ModelDigests.ToArray());
         var temporary = ModelDigestManifestPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
