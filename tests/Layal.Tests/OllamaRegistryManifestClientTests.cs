@@ -38,8 +38,9 @@ public sealed class OllamaRegistryManifestClientTests
         var result = await sut.FetchDefaultModelManifestAsync();
 
         Assert.AreEqual("qwen3.5:2b", result.ModelId);
-        Assert.AreEqual(digest, result.Digest);
+        Assert.AreEqual(digest, result.ManifestDigest);
         Assert.AreEqual(body.LongLength, result.ManifestSizeBytes);
+        Assert.AreEqual(digest, result.ModelDigests[0]);
         Assert.AreEqual(
             "https://registry.ollama.ai/v2/library/qwen3.5/manifests/2b",
             observedRequest!.RequestUri!.AbsoluteUri);
@@ -47,6 +48,36 @@ public sealed class OllamaRegistryManifestClientTests
         Assert.IsTrue(observedRequest.Headers.Accept.ToString().Contains(
             "application/vnd.docker.distribution.manifest.v2+json",
             StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task ExtractsAllowedChildManifestDigestsFromOllamaManifestList()
+    {
+        const string childDigest = "c97eb11d70b1acdc88af01eef566c1fe4f7fbe93eb1afc06871132f293ff425a";
+        var manifestList = Encoding.UTF8.GetBytes(
+            "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.ollama.manifest.list.v2+json\"," +
+            "\"manifests\":[{\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\"," +
+            "\"digest\":\"sha256:" + childDigest + "\",\"size\":123,\"runner\":\"llamacpp\",\"format\":\"gguf\"}]}");
+        var parentDigest = Convert.ToHexString(SHA256.HashData(manifestList)).ToLowerInvariant();
+
+        using var client = new HttpClient(new StubHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(manifestList)
+            };
+            response.Headers.TryAddWithoutValidation("Docker-Content-Digest", "sha256:" + parentDigest);
+            return response;
+        }));
+        var sut = new OllamaRegistryManifestClient(client);
+
+        var result = await sut.FetchDefaultModelManifestAsync();
+
+        Assert.AreEqual(parentDigest, result.ManifestDigest);
+        Assert.AreEqual(childDigest, result.ModelDigests[0]);
+        Assert.IsTrue(result.ContainsModelDigest(childDigest));
+        Assert.IsFalse(result.ContainsModelDigest(new string('a', 64)));
+        Assert.AreEqual("application/vnd.ollama.manifest.list.v2+json", result.MediaType);
     }
 
     [TestMethod]
