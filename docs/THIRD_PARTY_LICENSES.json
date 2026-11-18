@@ -404,6 +404,16 @@
       "licenseTextPath": "licenses/MIT-NAudio.txt",
       "copyright": "Copyright (c) Mark Heath and NAudio contributors",
       "reviewStatus": "Upstream package metadata checked; project compatibility and legal review remain pending."
+    },
+    {
+      "id": "SSH.NET",
+      "licenseExpression": "MIT",
+      "versionPolicy": "direct dependency pinned to 2026.0.1",
+      "sourceUrl": "https://www.nuget.org/packages/SSH.NET/2026.0.1",
+      "licenseUrl": "https://github.com/sshnet/SSH.NET/blob/develop/LICENSE",
+      "licenseTextPath": "licenses/MIT-SSH.NET.txt",
+      "copyright": "Copyright (c) Renci, Oleg Kapeljushnik, Gert Driesen and contributors",
+      "reviewStatus": "Upstream NuGet metadata and repository MIT license checked; project compatibility and legal review remain pending."
     }
   ],
   "provenanceReview": {
