@@ -151,6 +151,10 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             };
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(110));
 
+            // Exercise the exact local OpenSSH key (including Ollama's generated Windows key)
+            // without sending a synthetic challenge or token request to the public Registry.
+            await AssertProfileKeyCanSignChallengeAsync(profileDirectory, timeout.Token);
+
             using var initialRequest = CreateManifestRequest();
             using var initialResponse = await client.SendAsync(
                 initialRequest,
@@ -244,6 +248,62 @@ public sealed class OllamaRegistryAuthTokenProviderTests
                 catch (UnauthorizedAccessException) { }
             }
         }
+    }
+
+    private static async Task AssertProfileKeyCanSignChallengeAsync(
+        string profileDirectory,
+        CancellationToken cancellationToken)
+    {
+        Uri? tokenRequestUri = null;
+        string? authorization = null;
+        using var client = new HttpClient(new CaptureHandler(request =>
+        {
+            tokenRequestUri = request.RequestUri;
+            authorization = request.Headers.GetValues("Authorization").Single();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\\"token\\":\\"phase-c-local-key-probe\\"}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        }));
+
+        var token = await OllamaRegistryAuthTokenProvider.GetBearerTokenAsync(
+            client,
+            OllamaRegistryManifestClient.DefaultManifestUri,
+            "Bearer realm=\\"https://registry.ollama.ai/v2/token\\",service=\\"ollama\\",scope=\\"-\\"",
+            cancellationToken,
+            profileDirectory);
+
+        Assert.AreEqual("phase-c-local-key-probe", token);
+        Assert.IsNotNull(tokenRequestUri);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(authorization));
+
+        var authorizationParts = authorization!.Split(':');
+        Assert.AreEqual(2, authorizationParts.Length);
+        var publicKeyBlob = Convert.FromBase64String(authorizationParts[0]);
+        var signatureBlob = Convert.FromBase64String(authorizationParts[1]);
+        var signatureOffset = 0;
+        var signatureAlgorithm = ReadSshString(signatureBlob, ref signatureOffset);
+        Assert.AreEqual("ssh-ed25519", Encoding.ASCII.GetString(signatureAlgorithm));
+        var rawSignature = ReadSshString(signatureBlob, ref signatureOffset);
+        Assert.AreEqual(64, rawSignature.Length);
+        Assert.AreEqual(signatureBlob.Length, signatureOffset);
+
+        var sshPublicKey = new SshKeyData(publicKeyBlob);
+        Assert.AreEqual("ssh-ed25519", sshPublicKey.Name);
+        using var publicKey = new ED25519Key(sshPublicKey);
+        var emptyBodyHashHex = Convert.ToHexString(SHA256.HashData(Array.Empty<byte>()))
+            .ToLowerInvariant();
+        var encodedEmptyBodyHash = Convert.ToBase64String(Encoding.UTF8.GetBytes(emptyBodyHashHex));
+        var signedPayload = Encoding.UTF8.GetBytes(
+            "GET," + tokenRequestUri!.AbsoluteUri + "," + encodedEmptyBodyHash);
+        Assert.IsTrue(
+            publicKey.VerifySignature(signedPayload, rawSignature),
+            "The Ollama profile's SSH signature must verify against its embedded public key.");
+
+        Console.WriteLine("OllamaLocalKeyProbe=passed");
     }
 
     private static HttpRequestMessage CreateManifestRequest()
