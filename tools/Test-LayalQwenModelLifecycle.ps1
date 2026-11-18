@@ -164,8 +164,14 @@ function Invoke-QwenChatHealth {
 }
 
 try {
+    Get-Process -Name ollama -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    $portDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
+    while ([DateTimeOffset]::UtcNow -lt $portDeadline -and
+           (Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue)) {
+        Start-Sleep -Milliseconds 500
+    }
     if (Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue) {
-        throw "Port 11434 is already in use. The isolated lifecycle test refuses to reuse an existing Ollama server."
+        throw "Port 11434 is still in use. The isolated lifecycle test refuses to reuse another server."
     }
 
     $server = Start-Process -FilePath $OllamaExePath -ArgumentList @("serve") -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
@@ -217,13 +223,14 @@ try {
     }
     $retryStream = $retryResponse.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
     $retryReader = [System.IO.StreamReader]::new($retryStream, [System.Text.Encoding]::UTF8)
+    $retryCancellation = [System.Threading.CancellationTokenSource]::new([TimeSpan]::FromMinutes(55))
     $retryCompleted = 0L
     $resumeObserved = $false
     $pullSuccess = $false
     $retryDeadline = [DateTimeOffset]::UtcNow.AddMinutes(55)
     try {
         while ([DateTimeOffset]::UtcNow -lt $retryDeadline) {
-            $line = $retryReader.ReadLineAsync().GetAwaiter().GetResult()
+            $line = $retryReader.ReadLineAsync($retryCancellation.Token).GetAwaiter().GetResult()
             if ($null -eq $line) { break }
             if ($line.Length -eq 0) { continue }
             $record = $line | ConvertFrom-Json
@@ -240,6 +247,7 @@ try {
         }
     }
     finally {
+        $retryCancellation.Dispose()
         $retryReader.Dispose()
         $retryResponse.Dispose()
         $retryRequest.Dispose()
