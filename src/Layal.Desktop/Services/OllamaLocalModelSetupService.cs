@@ -870,12 +870,29 @@ public sealed class OllamaLocalModelSetupService
 
     private static string ModelUpdateJournalPath => ModelDigestManifestPath + ".update.json";
 
+    private static bool IsValidRollbackModelId(string value)
+    {
+        const string prefix = "layal-rollback:qwen35-";
+        if (value.Length != prefix.Length + 12 ||
+            !value.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+
+        for (var index = prefix.Length; index < value.Length; index++)
+        {
+            var character = value[index];
+            if (character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
+                return false;
+        }
+
+        return true;
+    }
+
     private async Task WriteModelUpdateJournalAsync(
         string rollbackModelId,
         OllamaModelDigestManifest previousPin,
         CancellationToken cancellationToken)
     {
-        if (!rollbackModelId.StartsWith("layal-rollback:qwen35-", StringComparison.Ordinal) ||
+        if (!IsValidRollbackModelId(rollbackModelId) ||
             !IsRegistryTrustedPin(previousPin))
             throw new InvalidDataException("The Qwen update journal contains an invalid rollback reference or prior pin.");
 
@@ -930,16 +947,22 @@ public sealed class OllamaLocalModelSetupService
         if (info.Length <= 0 || info.Length > 32 * 1024)
             throw new InvalidDataException("The Qwen update journal has an invalid size.");
 
-        await using var input = new FileStream(
+        OllamaModelUpdateJournal? journal;
+        await using (var input = new FileStream(
             path, FileMode.Open, FileAccess.Read, FileShare.Read,
-            4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        var journal = await JsonSerializer.DeserializeAsync<OllamaModelUpdateJournal>(
-            input, cancellationToken: cancellationToken).ConfigureAwait(false);
+            4096, FileOptions.Asynchronous | FileOptions.SequentialScan))
+        {
+            journal = await JsonSerializer.DeserializeAsync<OllamaModelUpdateJournal>(
+                input, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+
         if (journal is null ||
             string.IsNullOrWhiteSpace(journal.RollbackModelId) ||
-            !journal.RollbackModelId.StartsWith("layal-rollback:qwen35-", StringComparison.Ordinal) ||
+            !IsValidRollbackModelId(journal.RollbackModelId) ||
             journal.PreviousPin is null ||
-            !IsRegistryTrustedPin(journal.PreviousPin))
+            !IsRegistryTrustedPin(journal.PreviousPin) ||
+            journal.StartedAtUtc == default ||
+            journal.StartedAtUtc > DateTimeOffset.UtcNow.AddMinutes(5))
             throw new InvalidDataException("The Qwen update recovery journal is malformed or untrusted.");
 
         progress?.Report("اكتشاف تحديث Qwen غير مكتمل؛ استعادة النسخة السابقة تلقائيًا…");
