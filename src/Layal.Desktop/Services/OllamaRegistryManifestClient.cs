@@ -26,7 +26,6 @@ public sealed class OllamaRegistryManifestClient
     private static readonly HttpClient SharedClient = new(new SocketsHttpHandler
     {
         AllowAutoRedirect = false,
-        UseProxy = false,
         ConnectTimeout = TimeSpan.FromSeconds(12),
         PooledConnectionLifetime = TimeSpan.FromMinutes(2)
     })
@@ -35,10 +34,17 @@ public sealed class OllamaRegistryManifestClient
     };
 
     private readonly HttpClient _httpClient;
+    private readonly Func<Uri, string, CancellationToken, Task<string>> _getBearerTokenAsync;
 
-    public OllamaRegistryManifestClient(HttpClient? httpClient = null)
+    public OllamaRegistryManifestClient(
+        HttpClient? httpClient = null,
+        Func<Uri, string, CancellationToken, Task<string>>? getBearerTokenAsync = null)
     {
         _httpClient = httpClient ?? SharedClient;
+        _getBearerTokenAsync = getBearerTokenAsync ??
+            ((registryUri, challenge, cancellationToken) =>
+                OllamaRegistryAuthTokenProvider.GetBearerTokenAsync(
+                    _httpClient, registryUri, challenge, cancellationToken));
     }
 
     public async Task<OllamaRegistryManifestSnapshot> FetchDefaultModelManifestAsync(
@@ -46,16 +52,10 @@ public sealed class OllamaRegistryManifestClient
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, DefaultManifestUri);
-        request.Headers.Accept.ParseAdd(OllamaManifestListMediaType);
-        request.Headers.Accept.ParseAdd(DockerManifestMediaType);
-        request.Headers.Accept.ParseAdd("application/vnd.oci.image.index.v1+json");
-        request.Headers.Accept.ParseAdd("application/vnd.oci.image.manifest.v1+json");
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
 
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
+        using var response = await SendManifestRequestAsync(timeout.Token).ConfigureAwait(false);
 
         // Redirects are intentionally not followed: the trust boundary is the exact
         // HTTPS Ollama Registry host and a tag must not silently move to another host.
@@ -86,6 +86,53 @@ public sealed class OllamaRegistryManifestClient
             mediaType,
             body.LongLength,
             DateTimeOffset.UtcNow);
+    }
+
+    private async Task<HttpResponseMessage> SendManifestRequestAsync(
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateManifestRequest();
+        var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+            return response;
+
+        var challenge = response.Headers.WwwAuthenticate
+            .FirstOrDefault(item => string.Equals(item.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+        response.Dispose();
+
+        if (string.IsNullOrWhiteSpace(challenge))
+            throw new InvalidDataException("Ollama Registry returned 401 without a Bearer challenge.");
+
+        var bearerToken = await _getBearerTokenAsync(
+            DefaultManifestUri,
+            challenge,
+            cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(bearerToken))
+            throw new InvalidDataException("Ollama Registry authentication returned an empty token.");
+
+        using var authenticatedRequest = CreateManifestRequest();
+        authenticatedRequest.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
+        return await _httpClient.SendAsync(
+            authenticatedRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static HttpRequestMessage CreateManifestRequest()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, DefaultManifestUri);
+        request.Headers.Accept.ParseAdd(OllamaManifestListMediaType);
+        request.Headers.Accept.ParseAdd(DockerManifestMediaType);
+        request.Headers.Accept.ParseAdd("application/vnd.oci.image.index.v1+json");
+        request.Headers.Accept.ParseAdd("application/vnd.oci.image.manifest.v1+json");
+        request.Headers.AcceptEncoding.ParseAdd("identity");
+        return request;
     }
 
     private static async Task<byte[]> ReadBoundedAsync(
