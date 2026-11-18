@@ -37,12 +37,13 @@
 
 | الاختبار | الحالة |
 |---|---|
-| manifest عادي: حساب SHA-256 من bytes ومطابقة \`Docker-Content-Digest\` عند وجوده | أضيف كاختبار fixture؛ ينتظر Windows CI |
-| manifest list: استخراج بصمات الأبناء وبصمة الأم | أضيف كاختبار fixture؛ ينتظر Windows CI |
-| challenge Bearer ثم إعادة طلب manifest بالتوكن | أضيف كاختبار fixture بمزوّد token اصطناعي؛ ينتظر Windows CI |
-| رفض اختلاف رأس \`Docker-Content-Digest\` عن البايتات | أضيف كاختبار fixture؛ ينتظر Windows CI |
-| رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | أضيف كاختبارات fixture؛ تنتظر Windows CI |
-| اختبار توقيع Ed25519 بمفتاح Ollama فعلي والتحقق من token على Registry الحي | لم يُنفّذ |
+| manifest عادي: حساب SHA-256 من bytes ومطابقة `Docker-Content-Digest` عند وجوده | نجح ضمن Windows CI على الرأس السابق؛ إعادة تشغيل CI مطلوبة للرأس الذي يتضمن إصلاح timeout |
+| manifest list: استخراج بصمات الأبناء وبصمة الأم | نجح ضمن Windows CI على الرأس السابق؛ إعادة تشغيل CI مطلوبة للرأس الحالي |
+| challenge Bearer ثم إعادة طلب manifest بالتوكن | نجح كاختبار retry بمزوّد token اصطناعي؛ لا يختبر توقيع Ed25519 الحقيقي |
+| رفض اختلاف رأس `Docker-Content-Digest` عن البايتات | نجح ضمن Windows CI على الرأس السابق؛ إعادة تشغيل CI مطلوبة للرأس الحالي |
+| رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | نجح ضمن Windows CI على الرأس السابق؛ إعادة تشغيل CI مطلوبة للرأس الحالي |
+| انتهاء مهلة Registry أثناء قراءة body بطيئة/معلّقة | أُضيف اختبار regression بإعداد مهلة قصيرة؛ ينتظر نتيجة CI على الرأس المحدّث |
+| اختبار توقيع Ed25519 بمفتاح Ollama فعلي والتحقق من token على Registry الحي | لم يُنفّذ؛ يحتاج Windows profile مُهيأ بواسطة Ollama |
 | تنزيل حقيقي على Windows، الإلغاء والاستئناف، إثبات رفض digest مختلف، health check فعلي | لم يُنفّذ |
 | update/rollback على نسخة Models محلية تجريبية معزولة | لم يُنفّذ |
 | قياس الحجم الفعلي المنزّل ومواءمته مع المساحة المحجوزة | لم يُنفّذ؛ الحجم الدقيق يظل غير مثبت حتى القياس |
@@ -50,8 +51,7 @@
 
 ## الحالة الحالية
 
-الكود والاختبارات fixture موضوعة على الفرع \`feature/phase-c-qwen-registry-digest\`، وليست مدمجة في \`main\` بعد. لا يوجد في هذا السجل digest حي أو حجم تنزيل فعلي أو health-check ناجح على جهاز المستخدم. لا تُعلن Phase C مكتملة قبل اجتياز Windows CI والاختبارات الحية المنعزلة وتوثيق نتائجها.
-
+الكود والاختبارات موجودة على الفرع `feature/phase-c-qwen-registry-digest`، ولم تُدمج في `main` بعد. نجحت الاختبارات السابقة وWindows/security CI على الرأس `601f60e044067056c83bd4f17c6353d94af2cf2a` (runs 44301802442 و44301802443 و44301803124). أُصلحت مهلة قراءة manifest وأُضيف اختبار regression، وتنتظر هذه التغييرات إعادة CI. لا يوجد في هذا السجل digest حي أو حجم تنزيل فعلي أو health-check ناجح على جهاز المستخدم. لا تُعلن Phase C مكتملة قبل اجتياز CI المحدّث والاختبارات الحية المنعزلة وتوثيق نتائجها.
 ## مراجع التنفيذ الرسمية
 
 - Ollama Registry challenge, token request, and signed authorization: [`server/auth.go`](https://github.com/ollama/ollama/blob/main/server/auth.go) and [`auth/auth.go`](https://github.com/ollama/ollama/blob/main/auth/auth.go).
