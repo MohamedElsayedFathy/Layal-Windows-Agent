@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -46,6 +47,46 @@ public sealed class OllamaRegistryManifestClientTests
         Assert.IsTrue(observedRequest.Headers.Accept.ToString().Contains(
             "application/vnd.docker.distribution.manifest.v2+json",
             StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task RetriesManifestRequestWithBearerTokenAfterOllamaChallenge()
+    {
+        var requestCount = 0;
+        var tokenProviderCalls = 0;
+        using var client = new HttpClient(new StubHandler(request =>
+        {
+            requestCount++;
+            if (requestCount == 1)
+            {
+                var unauthorized = new HttpResponseMessage(HttpStatusCode.Unauthorized);
+                unauthorized.Headers.WwwAuthenticate.Add(new AuthenticationHeaderValue(
+                    "Bearer",
+                    "realm=\"https://registry.ollama.ai/v2/token\",service=\"ollama\",scope=\"-\""));
+                return unauthorized;
+            }
+
+            Assert.AreEqual("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.AreEqual("phase-c-test-token", request.Headers.Authorization?.Parameter);
+            return OkResponse();
+        }));
+
+        var sut = new OllamaRegistryManifestClient(
+            client,
+            (registryUri, challenge, _) =>
+            {
+                tokenProviderCalls++;
+                Assert.AreEqual(OllamaRegistryManifestClient.DefaultManifestUri, registryUri);
+                Assert.IsTrue(challenge.StartsWith("Bearer ", StringComparison.Ordinal));
+                Assert.IsTrue(challenge.Contains("service=\"ollama\"", StringComparison.Ordinal));
+                return Task.FromResult("phase-c-test-token");
+            });
+
+        var result = await sut.FetchDefaultModelManifestAsync();
+
+        Assert.AreEqual(2, requestCount);
+        Assert.AreEqual(1, tokenProviderCalls);
+        Assert.AreEqual("qwen3.5:2b", result.ModelId);
     }
 
     [TestMethod]
