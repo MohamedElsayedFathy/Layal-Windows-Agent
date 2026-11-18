@@ -158,11 +158,10 @@ public sealed class OllamaRegistryAuthTokenProviderTests
                 initialRequest,
                 HttpCompletionOption.ResponseHeadersRead,
                 timeout.Token);
-            if (challengeResponse.StatusCode != HttpStatusCode.Unauthorized)
-            {
-                Assert.Inconclusive(
-                    "The Registry did not issue a Bearer challenge for this manifest request; signed-token exchange was not exercised.");
-            }
+            Assert.AreEqual(
+                HttpStatusCode.Unauthorized,
+                challengeResponse.StatusCode,
+                "The signed-token acceptance test requires an actual 401 Bearer challenge from the Registry.");
 
             var challenge = challengeResponse.Headers.WwwAuthenticate
                 .FirstOrDefault(item => string.Equals(
