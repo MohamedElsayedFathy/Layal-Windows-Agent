@@ -105,19 +105,31 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             Assert.Inconclusive("Set LAYAL_RUN_REGISTRY_LIVE_TESTS=1 to enable the live Ollama Registry check.");
         }
 
-        var profileDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "layal-phase-c-registry-live-" + Guid.NewGuid().ToString("N"));
+        var configuredProfile = Environment.GetEnvironmentVariable("LAYAL_OLLAMA_PROFILE_DIRECTORY");
+        var ownsProfile = string.IsNullOrWhiteSpace(configuredProfile);
+        var profileDirectory = ownsProfile
+            ? Path.Combine(
+                Path.GetTempPath(),
+                "layal-phase-c-registry-live-" + Guid.NewGuid().ToString("N"))
+            : Path.GetFullPath(configuredProfile!);
+        var privateSeed = ownsProfile ? RandomNumberGenerator.GetBytes(32) : null;
         var ollamaDirectory = Path.Combine(profileDirectory, ".ollama");
-        var privateSeed = RandomNumberGenerator.GetBytes(32);
 
         try
         {
-            Directory.CreateDirectory(ollamaDirectory);
-            await File.WriteAllTextAsync(
-                Path.Combine(ollamaDirectory, "id_ed25519"),
-                BuildOpenSshEd25519Pem(privateSeed),
-                Encoding.ASCII);
+            if (ownsProfile)
+            {
+                Directory.CreateDirectory(ollamaDirectory);
+                await File.WriteAllTextAsync(
+                    Path.Combine(ollamaDirectory, "id_ed25519"),
+                    BuildOpenSshEd25519Pem(privateSeed!),
+                    Encoding.ASCII);
+            }
+            else if (!File.Exists(Path.Combine(ollamaDirectory, "id_ed25519")))
+            {
+                Assert.Fail(
+                    "The requested Ollama profile does not contain .ollama/id_ed25519. Start Ollama once to initialize its keypair.");
+            }
 
             using var handler = new SocketsHttpHandler
             {
@@ -129,35 +141,83 @@ public sealed class OllamaRegistryAuthTokenProviderTests
             {
                 Timeout = Timeout.InfiniteTimeSpan
             };
-            var registryClient = new OllamaRegistryManifestClient(
-                client,
-                (registryUri, challenge, cancellationToken) =>
-                    OllamaRegistryAuthTokenProvider.GetBearerTokenAsync(
-                        client,
-                        registryUri,
-                        challenge,
-                        cancellationToken,
-                        profileDirectory),
-                TimeSpan.FromSeconds(90));
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(110));
 
-            var snapshot = await registryClient.FetchDefaultModelManifestAsync(timeout.Token);
+            // First request must obtain the actual Registry challenge. The test then
+            // signs the token URL with the exact OpenSSH key file being validated.
+            using var initialRequest = CreateManifestRequest();
+            using var challengeResponse = await client.SendAsync(
+                initialRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                timeout.Token);
+            if (challengeResponse.StatusCode != HttpStatusCode.Unauthorized)
+            {
+                Assert.Inconclusive(
+                    "The Registry did not issue a Bearer challenge for this manifest request; signed-token exchange was not exercised.");
+            }
 
-            Assert.AreEqual("qwen3.5:2b", snapshot.ModelId);
-            Assert.IsTrue(OllamaModelDigestPolicy.IsValidSha256Digest(snapshot.ManifestDigest));
-            Assert.IsTrue(snapshot.ManifestSizeBytes is > 0 and <= 1024 * 1024);
-            Assert.IsTrue(snapshot.ModelDigests.Count > 0);
-            Assert.IsTrue(
-                snapshot.ModelDigests.All(OllamaModelDigestPolicy.IsValidSha256Digest),
-                "The live Registry response must contain only full SHA-256 model digests.");
+            var challenge = challengeResponse.Headers.WwwAuthenticate
+                .FirstOrDefault(item => string.Equals(
+                    item.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
+                ?.ToString();
+            Assert.IsFalse(string.IsNullOrWhiteSpace(challenge), "The Registry 401 response must contain a Bearer challenge.");
+
+            var bearerToken = await OllamaRegistryAuthTokenProvider.GetBearerTokenAsync(
+                client,
+                OllamaRegistryManifestClient.DefaultManifestUri,
+                challenge!,
+                timeout.Token,
+                profileDirectory);
+
+            using var authenticatedRequest = CreateManifestRequest();
+            authenticatedRequest.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
+            using var manifestResponse = await client.SendAsync(
+                authenticatedRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                timeout.Token);
+
+            Assert.AreEqual(
+                HttpStatusCode.OK,
+                manifestResponse.StatusCode,
+                "The live Registry must accept the signed token request and return the protected Qwen manifest.");
+
+            var body = await manifestResponse.Content.ReadAsByteArrayAsync(timeout.Token);
+            Assert.IsTrue(body.Length is > 0 and <= 1024 * 1024);
+            using var document = System.Text.Json.JsonDocument.Parse(body);
+            Assert.AreEqual(System.Text.Json.JsonValueKind.Object, document.RootElement.ValueKind);
+
+            var digest = Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant();
+            if (manifestResponse.Headers.TryGetValues("Docker-Content-Digest", out var digestHeaders))
+            {
+                var values = digestHeaders.ToArray();
+                Assert.AreEqual(1, values.Length);
+                Assert.AreEqual("sha256:" + digest, values[0], ignoreCase: true);
+            }
         }
         finally
         {
-            CryptographicOperations.ZeroMemory(privateSeed);
-            try { Directory.Delete(profileDirectory, recursive: true); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            if (privateSeed is not null)
+                CryptographicOperations.ZeroMemory(privateSeed);
+            if (ownsProfile)
+            {
+                try { Directory.Delete(profileDirectory, recursive: true); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
+    }
+
+    private static HttpRequestMessage CreateManifestRequest()
+    {
+        var request = new HttpRequestMessage(
+            HttpMethod.Get, OllamaRegistryManifestClient.DefaultManifestUri);
+        request.Headers.Accept.ParseAdd("application/vnd.ollama.manifest.list.v2+json");
+        request.Headers.Accept.ParseAdd("application/vnd.docker.distribution.manifest.v2+json");
+        request.Headers.Accept.ParseAdd("application/vnd.oci.image.index.v1+json");
+        request.Headers.Accept.ParseAdd("application/vnd.oci.image.manifest.v1+json");
+        request.Headers.AcceptEncoding.ParseAdd("identity");
+        return request;
     }
 
     private static string BuildOpenSshEd25519Pem(byte[] seed)
