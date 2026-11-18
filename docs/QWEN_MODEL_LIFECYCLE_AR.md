@@ -52,7 +52,7 @@
 | manifest عادي: حساب SHA-256 من bytes ومطابقة `Docker-Content-Digest` عند وجوده | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
 | manifest list: استخراج بصمات الأبناء وبصمة الأم | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
 | جلب manifest حي من Registry | نجح HTTP 200 العام على Qwen دون challenge؛ تحققت بصمة الجسم وJSON في Windows CI على run 44325954089. لم يكن هذا إثباتًا لتبادل token موقّع لأن Registry لم يصدر 401 |
-| اختبار صيغة مفتاح Ollama الفعلية | أضيف إنشاء مفتاح OpenSSH-format داخل الاختبار للتحقق من قارئ SSH.NET؛ وأضيف تشغيل الاختبار بمفتاح Windows الذي ينشئه Ollama في workflow المعزول؛ النتيجة الحية قيد التنفيذ |
+| اختبار صيغة مفتاح Ollama الفعلية | يفتح الاختبار مفتاح OpenSSH الحقيقي من ملف Ollama في Windows، وينفذ probe لتوقيع SSH عبر handler محلي فقط، ثم يفك `Signature.Blob` ويتحقق من التوقيع بالمفتاح العام؛ لا يُرسل المفتاح الخاص أو probe token إلى الشبكة |
 | رفض اختلاف رأس `Docker-Content-Digest` عن البايتات | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
 | رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
 | انتهاء مهلة Registry أثناء قراءة body بطيئة/معلّقة | نجح اختبار regression بإعداد مهلة قصيرة على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
