@@ -306,9 +306,11 @@ public sealed class OllamaLocalModelSetupService
         progress?.Report("التحقق من أحدث manifest في Ollama Registry قبل بدء التحديث…");
         var registryManifest = await _registryClient.FetchDefaultModelManifestAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (registryManifest.ContainsModelDigest(installedDigest!))
+        if (OllamaModelDigestPolicy.Matches(
+            previousPin.RegistryManifestDigest ?? string.Empty,
+            registryManifest.ManifestDigest))
         {
-            progress?.Report("النموذج المثبت يطابق بالفعل أحد digests الحالية في Registry؛ لا يوجد تحديث مطلوب.");
+            progress?.Report("بصمة manifest الحالية مطابقة للبصمة المثبتة؛ لا يوجد تحديث مطلوب.");
             return;
         }
 
