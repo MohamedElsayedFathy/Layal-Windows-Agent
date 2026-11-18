@@ -262,20 +262,74 @@ public sealed class LinguisticReference
         return DialogueIntent.Unknown;
     }
 
-    public bool IsEgyptianText(string? text)
+    public ArabicDialectEvidence DetectArabicDialect(string? text)
     {
         var normalized = SpeechTextNormalizer.NormalizeForLookup(text);
         if (normalized.Length == 0)
-            return false;
+        {
+            return new ArabicDialectEvidence(
+                SpeechLanguageKind.ArabicUnspecified, 0, 0,
+                Array.Empty<string>(), Array.Empty<string>(), 0.35);
+        }
 
-        var padded = " " + normalized + " ";
-        return _entries
-            .Where(entry => entry.IsDialectMarker && string.Equals(entry.Dialect, "egyptian", StringComparison.OrdinalIgnoreCase))
-            .Any(entry =>
+        var egyptian = GetMatchedDialectMarkers(normalized, "egyptian");
+        var standardArabic = GetMatchedDialectMarkers(normalized, "msa");
+        var egyptianWeight = egyptian.Values.Sum();
+        var standardArabicWeight = standardArabic.Values.Sum();
+        var margin = Math.Abs(egyptianWeight - standardArabicWeight);
+
+        SpeechLanguageKind dialect;
+        if (egyptianWeight >= 3 && egyptianWeight - standardArabicWeight >= 2)
+            dialect = SpeechLanguageKind.EgyptianArabic;
+        else if (standardArabicWeight >= 3 && standardArabicWeight - egyptianWeight >= 2)
+            dialect = SpeechLanguageKind.ArabicStandard;
+        else
+            dialect = SpeechLanguageKind.ArabicUnspecified;
+
+        var confidence = dialect == SpeechLanguageKind.ArabicUnspecified
+            ? (Math.Max(egyptianWeight, standardArabicWeight) == 0 ? 0.45 : 0.58)
+            : Math.Min(0.98, 0.72 + (Math.Max(egyptianWeight, standardArabicWeight) - 3) * 0.04
+                + Math.Max(0, margin - 2) * 0.02);
+
+        return new ArabicDialectEvidence(
+            dialect,
+            egyptianWeight,
+            standardArabicWeight,
+            egyptian.Keys.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+            standardArabic.Keys.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+            confidence);
+    }
+
+    public bool IsEgyptianText(string? text) =>
+        DetectArabicDialect(text).Dialect == SpeechLanguageKind.EgyptianArabic;
+
+    private Dictionary<string, int> GetMatchedDialectMarkers(string normalizedText, string dialect)
+    {
+        var padded = " " + normalizedText + " ";
+        var matches = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var entry in _entries)
+        {
+            if (!entry.IsDialectMarker ||
+                entry.DialectEvidenceWeight <= 0 ||
+                !string.Equals(entry.Language, "ar", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(entry.Dialect, dialect, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var candidate in entry.Forms.Prepend(entry.Term))
             {
-                var marker = SpeechTextNormalizer.NormalizeForLookup(entry.Term);
-                return marker.Length > 0 && padded.Contains(" " + marker + " ", StringComparison.Ordinal);
-            });
+                var marker = SpeechTextNormalizer.NormalizeForLookup(candidate);
+                if (marker.Length == 0 || !padded.Contains(" " + marker + " ", StringComparison.Ordinal))
+                    continue;
+
+                if (!matches.TryGetValue(marker, out var currentWeight) ||
+                    entry.DialectEvidenceWeight > currentWeight)
+                {
+                    matches[marker] = entry.DialectEvidenceWeight;
+                }
+            }
+        }
+
+        return matches;
     }
 
     private static int ScoreEntry(

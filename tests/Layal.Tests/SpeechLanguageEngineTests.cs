@@ -33,6 +33,84 @@ public sealed class SpeechLanguageEngineTests
     }
 
     [TestMethod]
+    public void ArabicUnspecifiedDoesNotRenumberExistingPublicLanguageKinds()
+    {
+        Assert.AreEqual(0, (int)SpeechLanguageKind.Unknown);
+        Assert.AreEqual(1, (int)SpeechLanguageKind.ArabicStandard);
+        Assert.AreEqual(2, (int)SpeechLanguageKind.EgyptianArabic);
+        Assert.AreEqual(3, (int)SpeechLanguageKind.English);
+        Assert.AreEqual(4, (int)SpeechLanguageKind.Mixed);
+        Assert.AreEqual(5, (int)SpeechLanguageKind.ArabicUnspecified);
+    }
+
+    [TestMethod]
+    public void LeavesArabicUnspecifiedWhenDialectEvidenceIsWeakOrAbsent()
+    {
+        var generic = _engine.Analyze("تمام، شكرًا لك.");
+        Assert.AreEqual(SpeechLanguageKind.ArabicUnspecified, generic.Language.PrimaryLanguage);
+        Assert.AreEqual("العربية — اللهجة غير محددة", generic.GetLanguageLabel(arabic: true));
+    }
+
+    [TestMethod]
+    public void UsesExplicitEgyptianFormsAndDistinctMarkersAsDialectEvidence()
+    {
+        Assert.AreEqual(
+            SpeechLanguageKind.EgyptianArabic,
+            _engine.Analyze("ازيك").Language.PrimaryLanguage);
+        Assert.AreEqual(
+            SpeechLanguageKind.EgyptianArabic,
+            _engine.Analyze("عاوز أروح دلوقتي").Language.PrimaryLanguage);
+
+        var evidence = _engine.Reference.DetectArabicDialect("عاوز أروح دلوقتي");
+        Assert.AreEqual(SpeechLanguageKind.EgyptianArabic, evidence.Dialect);
+        Assert.IsTrue(evidence.EgyptianWeight >= 3);
+        Assert.IsTrue(evidence.EgyptianMarkers.Count >= 3);
+    }
+
+    [TestMethod]
+    public void RecognizesFormalArabicLexicalAndTimeMarkers()
+    {
+        Assert.AreEqual(
+            SpeechLanguageKind.ArabicStandard,
+            _engine.Analyze("أريد هذا الآن").Language.PrimaryLanguage);
+    }
+
+    [TestMethod]
+    public void MixedTextKeepsAnUndeterminedArabicSegmentSeparateFromEnglish()
+    {
+        var analysis = _engine.Analyze("تمام hello");
+        Assert.AreEqual(SpeechLanguageKind.Mixed, analysis.Language.PrimaryLanguage);
+        Assert.IsTrue(analysis.Language.Segments.Any(segment =>
+            segment.Language == SpeechLanguageKind.ArabicUnspecified));
+        Assert.IsTrue(analysis.Language.Segments.Any(segment =>
+            segment.Language == SpeechLanguageKind.English));
+    }
+
+    [TestMethod]
+    public void EveryConfiguredArabicDialectMarkerHasABoundedWeight()
+    {
+        var markers = _engine.Reference.Entries
+            .Where(entry => entry.IsDialectMarker)
+            .ToArray();
+
+        Assert.IsTrue(markers.Length >= 100);
+        Assert.IsTrue(markers.All(entry =>
+            entry.DialectEvidenceWeight is >= 1 and <= 3));
+        Assert.IsTrue(markers.Any(entry => entry.Dialect == "egyptian"));
+        Assert.IsTrue(markers.Any(entry => entry.Dialect == "msa"));
+    }
+
+    [TestMethod]
+    public void DetectsStandardArabicFromMultipleFormalMarkers()
+    {
+        var analysis = _engine.Analyze("كيف حالك؟ أحتاج إلى معرفة التفاصيل.");
+        Assert.AreEqual(SpeechLanguageKind.ArabicStandard, analysis.Language.PrimaryLanguage);
+        var evidence = _engine.Reference.DetectArabicDialect(analysis.NormalizedText);
+        Assert.IsTrue(evidence.StandardArabicWeight >= 3);
+        Assert.IsTrue(evidence.StandardArabicWeight - evidence.EgyptianWeight >= 2);
+    }
+
+    [TestMethod]
     public void DetectsEnglishAndMixedArabicEnglish()
     {
         Assert.AreEqual(SpeechLanguageKind.English, _engine.Analyze("Hello, how are you?").Language.PrimaryLanguage);
@@ -74,7 +152,7 @@ public sealed class SpeechLanguageEngineTests
     public void ReferenceCoverageIncludesLexiconGrammarDialogueAndVerbs()
     {
         var coverage = _engine.Reference.GetCoverage();
-        Assert.AreEqual("2.0.0", coverage.ReferenceVersion);
+        Assert.AreEqual("2.1.0", coverage.ReferenceVersion);
         Assert.IsTrue(coverage.LexicalEntries >= 200);
         Assert.IsTrue(coverage.ConversationTopics >= 20);
         Assert.IsTrue(coverage.GrammarRules >= 60);
