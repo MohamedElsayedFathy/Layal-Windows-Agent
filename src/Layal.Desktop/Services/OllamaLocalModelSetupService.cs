@@ -880,7 +880,9 @@ public sealed class OllamaLocalModelSetupService
         for (var index = prefix.Length; index < value.Length; index++)
         {
             var character = value[index];
-            if (character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
+            var isDecimalDigit = character >= '0' && character <= '9';
+            var isLowerHexDigit = character >= 'a' && character <= 'f';
+            if (!isDecimalDigit && !isLowerHexDigit)
                 return false;
         }
 
@@ -948,12 +950,19 @@ public sealed class OllamaLocalModelSetupService
             throw new InvalidDataException("The Qwen update journal has an invalid size.");
 
         OllamaModelUpdateJournal? journal;
-        await using (var input = new FileStream(
-            path, FileMode.Open, FileAccess.Read, FileShare.Read,
-            4096, FileOptions.Asynchronous | FileOptions.SequentialScan))
+        try
         {
-            journal = await JsonSerializer.DeserializeAsync<OllamaModelUpdateJournal>(
-                input, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await using (var input = new FileStream(
+                path, FileMode.Open, FileAccess.Read, FileShare.Read,
+                4096, FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                journal = await JsonSerializer.DeserializeAsync<OllamaModelUpdateJournal>(
+                    input, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException("The Qwen update recovery journal contains invalid JSON.", exception);
         }
 
         if (journal is null ||
