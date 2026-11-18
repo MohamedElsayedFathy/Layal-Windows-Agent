@@ -215,15 +215,31 @@ internal static class OllamaRegistryAuthTokenProvider
         var encodedEmptyBodyHash = Convert.ToBase64String(Encoding.UTF8.GetBytes(emptyBodyHashHex));
         var signedPayload = Encoding.UTF8.GetBytes(
             "GET," + tokenUri.AbsoluteUri + "," + encodedEmptyBodyHash);
-        // Key.Sign returns the raw Ed25519 signature bytes. HostAlgorithm.Sign
-        // would wrap those bytes in an extra SSH SignatureKeyData envelope, but
-        // Ollama's token service expects Signature.Blob (the raw 64-byte signature).
-        var signatureBlob = keyFile.Key.Sign(signedPayload);
+        // Ollama's Go client sends ssh.Signature.Blob, not the raw 64-byte
+        // Ed25519 signature. The SSH blob is two length-prefixed strings:
+        // "ssh-ed25519" followed by the raw signature bytes.
+        var rawSignature = keyFile.Key.Sign(signedPayload);
+        if (rawSignature.Length != 64)
+            throw new InvalidDataException("The local Ollama Ed25519 key produced an invalid signature length.");
 
-        // Ollama's registry protocol uses the base64 SSH public-key blob followed
-        // by the base64 raw Ed25519 signature blob. Neither private key bytes nor
-        // PEM data leave this process.
+        using var signatureStream = new MemoryStream();
+        WriteSshString(signatureStream, Encoding.ASCII.GetBytes("ssh-ed25519"));
+        WriteSshString(signatureStream, rawSignature);
+        var signatureBlob = signatureStream.ToArray();
+
+        // Only the public-key blob and SSH-formatted signature are transmitted.
+        // Neither private key bytes nor PEM data leave this process.
         return Convert.ToBase64String(signer.Data) + ":" + Convert.ToBase64String(signatureBlob);
+    }
+
+    private static void WriteSshString(Stream destination, byte[] value)
+    {
+        var length = (uint)value.Length;
+        destination.WriteByte((byte)(length >> 24));
+        destination.WriteByte((byte)(length >> 16));
+        destination.WriteByte((byte)(length >> 8));
+        destination.WriteByte((byte)length);
+        destination.Write(value, 0, value.Length);
     }
 
     private static async Task<byte[]> ReadBoundedAsync(
