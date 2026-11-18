@@ -321,7 +321,6 @@ public sealed class OllamaLocalModelSetupService
             512L * 1024 * 1024);
 
         var rollbackAlias = "layal-rollback:qwen35-" + Guid.NewGuid().ToString("N")[..12];
-        var journalWritten = false;
         var rollbackVerified = false;
         var updateCommitted = false;
 
@@ -341,7 +340,6 @@ public sealed class OllamaLocalModelSetupService
                             token).ConfigureAwait(false);
                         await WriteModelUpdateJournalAsync(
                             rollbackAlias, previousPin, token).ConfigureAwait(false);
-                        journalWritten = true;
                     }
                     catch
                     {
@@ -414,7 +412,6 @@ public sealed class OllamaLocalModelSetupService
             {
                 if (File.Exists(ModelUpdateJournalPath))
                     File.Delete(ModelUpdateJournalPath);
-                journalWritten = false;
             }
             catch (Exception journalError) when (
                 journalError is IOException or UnauthorizedAccessException)
@@ -439,7 +436,6 @@ public sealed class OllamaLocalModelSetupService
                     updateCommitted = false;
                     if (File.Exists(ModelUpdateJournalPath))
                         File.Delete(ModelUpdateJournalPath);
-                    journalWritten = false;
                 }
                 catch (Exception rollbackError)
                 {
