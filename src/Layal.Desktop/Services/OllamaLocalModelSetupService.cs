@@ -332,26 +332,27 @@ public sealed class OllamaLocalModelSetupService
                 async token =>
                 {
                     progress?.Report("إنشاء نسخة رجوع آمنة من نموذج Qwen الحالي…");
-                    await RunCommandAsync(
-                        executable,
-                        new[] { "cp", DefaultModelId, rollbackAlias },
-                        null,
-                        token).ConfigureAwait(false);
                     try
                     {
+                        await RunCommandAsync(
+                            executable,
+                            new[] { "cp", DefaultModelId, rollbackAlias },
+                            null,
+                            token).ConfigureAwait(false);
                         await WriteModelUpdateJournalAsync(
                             rollbackAlias, previousPin, token).ConfigureAwait(false);
                         journalWritten = true;
                     }
                     catch
                     {
+                        // A failed backup/journal step occurs before the target tag is mutated.
                         try
                         {
                             await RunCommandAsync(
                                 executable, new[] { "rm", rollbackAlias }, null, CancellationToken.None)
                                 .ConfigureAwait(false);
                         }
-                        catch { /* Preserve the journal-write failure; no model mutation has started. */ }
+                        catch { /* Preserve the original backup/journal failure. */ }
                         throw;
                     }
                 },
@@ -406,6 +407,52 @@ public sealed class OllamaLocalModelSetupService
                 cancellationToken).ConfigureAwait(false);
 
             updateCommitted = true;
+            // Removing the journal is the durable commit marker. If that fails,
+            // restore the previous model+pin rather than reporting a commit that
+            // startup recovery would silently undo later.
+            try
+            {
+                if (File.Exists(ModelUpdateJournalPath))
+                    File.Delete(ModelUpdateJournalPath);
+                journalWritten = false;
+            }
+            catch (Exception journalError) when (
+                journalError is IOException or UnauthorizedAccessException)
+            {
+                progress?.Report("تعذر إغلاق سجل التعافي بعد التحديث؛ استعادة الإصدار السابق بدل إعلان نجاح غير دائم…");
+                try
+                {
+                    await RunCommandAsync(
+                        executable,
+                        new[] { "cp", rollbackAlias, DefaultModelId },
+                        null,
+                        CancellationToken.None).ConfigureAwait(false);
+                    await RestoreModelDigestManifestAsync(previousPin, CancellationToken.None)
+                        .ConfigureAwait(false);
+                    var restoredDigest = await GetInstalledModelDigestAsync(CancellationToken.None)
+                        .ConfigureAwait(false);
+                    OllamaModelDigestPolicy.EnsureMatches(previousPin.Digest, restoredDigest ?? string.Empty);
+                    await _chatService.RunModelSmokeTestAsync(
+                        LocalChatModelService.DefaultBaseUrl, DefaultModelId, CancellationToken.None)
+                        .ConfigureAwait(false);
+                    rollbackVerified = true;
+                    updateCommitted = false;
+                    if (File.Exists(ModelUpdateJournalPath))
+                        File.Delete(ModelUpdateJournalPath);
+                    journalWritten = false;
+                }
+                catch (Exception rollbackError)
+                {
+                    throw new InvalidOperationException(
+                        "The Qwen update could not clear its recovery journal and the previous model could not be fully restored. Preserve the rollback alias and journal for startup recovery.",
+                        new AggregateException(journalError, rollbackError));
+                }
+
+                throw new IOException(
+                    "Qwen was restored to its previous verified version because its update journal could not be cleared.",
+                    journalError);
+            }
+
             progress?.Report(
                 "نجح تحديث Qwen. تم اعتماد digest الجديد بعد مطابقة Registry واختبار المحادثة: " +
                 updatedDigest);
@@ -421,7 +468,7 @@ public sealed class OllamaLocalModelSetupService
         }
         finally
         {
-            if ((updateCommitted || rollbackVerified) && journalWritten)
+            if (updateCommitted || rollbackVerified)
             {
                 try
                 {
@@ -431,7 +478,7 @@ public sealed class OllamaLocalModelSetupService
                 catch (Exception exception) when (
                     exception is IOException or UnauthorizedAccessException)
                 {
-                    progress?.Report("اكتملت العملية، لكن تعذر حذف سجل التعافي؛ ستتم مراجعته عند التشغيل التالي.");
+                    progress?.Report("تعذر حذف سجل التعافي؛ ستظل نسخة الرجوع محفوظة ليكتمل الاسترداد في التشغيل التالي.");
                 }
 
                 // The rollback alias is removed only after the recovery journal is gone.
