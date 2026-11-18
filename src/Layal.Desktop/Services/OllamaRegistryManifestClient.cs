@@ -37,12 +37,18 @@ public sealed class OllamaRegistryManifestClient
 
     private readonly HttpClient _httpClient;
     private readonly Func<Uri, string, CancellationToken, Task<string>> _getBearerTokenAsync;
+    private readonly TimeSpan _requestTimeout;
 
     public OllamaRegistryManifestClient(
         HttpClient? httpClient = null,
-        Func<Uri, string, CancellationToken, Task<string>>? getBearerTokenAsync = null)
+        Func<Uri, string, CancellationToken, Task<string>>? getBearerTokenAsync = null,
+        TimeSpan? requestTimeout = null)
     {
+        if (requestTimeout.HasValue && requestTimeout.Value <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(requestTimeout));
+
         _httpClient = httpClient ?? SharedClient;
+        _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(30);
         _getBearerTokenAsync = getBearerTokenAsync ??
             ((registryUri, challenge, cancellationToken) =>
                 OllamaRegistryAuthTokenProvider.GetBearerTokenAsync(
@@ -55,7 +61,7 @@ public sealed class OllamaRegistryManifestClient
         cancellationToken.ThrowIfCancellationRequested();
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        timeout.CancelAfter(_requestTimeout);
 
         using var response = await SendManifestRequestAsync(timeout.Token).ConfigureAwait(false);
 
@@ -68,7 +74,7 @@ public sealed class OllamaRegistryManifestClient
         if (response.Content.Headers.ContentLength is > MaximumManifestBytes)
             throw new InvalidDataException("The Ollama Registry manifest exceeds the allowed size.");
 
-        var body = await ReadBoundedAsync(response.Content, MaximumManifestBytes, cancellationToken)
+        var body = await ReadBoundedAsync(response.Content, MaximumManifestBytes, timeout.Token)
             .ConfigureAwait(false);
         var computedDigest = Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant();
         var manifestDetails = ValidateManifestBody(body, computedDigest);
