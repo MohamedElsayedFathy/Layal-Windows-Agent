@@ -222,8 +222,7 @@ internal static class OllamaRegistryAuthTokenProvider
         int maximumBytes,
         CancellationToken cancellationToken)
     {
-        if (content.Headers.ContentLength is > 0 and var contentLength &&
-            contentLength > maximumBytes)
+        if (content.Headers.ContentLength is long contentLength && contentLength > maximumBytes)
             throw new InvalidDataException("Ollama Registry token response exceeds the allowed size.");
 
         await using var input = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
