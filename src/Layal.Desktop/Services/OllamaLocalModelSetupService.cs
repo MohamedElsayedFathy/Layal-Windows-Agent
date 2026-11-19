@@ -422,7 +422,7 @@ public sealed class OllamaLocalModelSetupService
                         .ConfigureAwait(false);
                     OllamaModelDigestPolicy.EnsureMatches(previousPin.Digest, restoredDigest ?? string.Empty);
                     await _chatService.RunModelSmokeTestAsync(
-                        LocalChatModelService.DefaultBaseUrl, journal.PreviousPin.ModelId, CancellationToken.None)
+                        LocalChatModelService.DefaultBaseUrl, previousPin.ModelId, CancellationToken.None)
                         .ConfigureAwait(false);
                     rollbackVerified = true;
                 },
@@ -885,9 +885,9 @@ public sealed class OllamaLocalModelSetupService
         foreach (var model in models.EnumerateArray())
         {
             var name = TryReadString(model, "name");
-            var modelId = TryReadString(model, "model");
+            var modelName = TryReadString(model, "model");
             if (!string.Equals(name, targetModelId, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(modelId, targetModelId, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(modelName, targetModelId, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var digest = TryReadString(model, "digest");
@@ -1032,7 +1032,7 @@ public sealed class OllamaLocalModelSetupService
             CancellationToken.None, journal.PreviousPin.ModelId).ConfigureAwait(false);
         OllamaModelDigestPolicy.EnsureMatches(journal.PreviousPin.Digest, restoredDigest ?? string.Empty);
         await _chatService.RunModelSmokeTestAsync(
-            LocalChatModelService.DefaultBaseUrl, SelectedModelId, CancellationToken.None)
+            LocalChatModelService.DefaultBaseUrl, journal.PreviousPin.ModelId, CancellationToken.None)
             .ConfigureAwait(false);
 
         File.Delete(path);
