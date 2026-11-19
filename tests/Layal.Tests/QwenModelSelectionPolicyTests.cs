@@ -67,7 +67,7 @@ public sealed class QwenModelSelectionPolicyTests
             AvailableDedicatedGpuMemoryBytes: 13L * 1024 * 1024 * 1024,
             GpuName: "NVIDIA test adapter"));
 
-        Assert.AreEqual("qwen3.5:4b", selection.Variant.ModelId);
+        Assert.AreEqual("qwen3.5:9b", selection.Variant.ModelId);
         Assert.IsTrue(selection.MemoryBudgetSatisfied);
         Assert.IsTrue(selection.UsesDedicatedGpuBudget);
     }
@@ -83,7 +83,7 @@ public sealed class QwenModelSelectionPolicyTests
             AvailableDedicatedGpuMemoryBytes: null,
             GpuName: "Integrated graphics"));
 
-        Assert.AreEqual("qwen3.5:9b", selection.Variant.ModelId);
+        Assert.AreEqual("qwen3.5:4b", selection.Variant.ModelId);
         Assert.IsTrue(selection.MemoryBudgetSatisfied);
         Assert.IsFalse(selection.UsesDedicatedGpuBudget);
         StringAssert.Contains(selection.Rationale, "available system RAM");
