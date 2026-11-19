@@ -221,7 +221,11 @@ class WhisperBenchmarkTests(unittest.TestCase):
             with mock.patch.object(
                 MODULE.subprocess,
                 "run",
-                return_value=SimpleNamespace(returncode=1, stdout="", stderr="simulated Whisper failure"),
+                return_value=SimpleNamespace(
+                    returncode=1,
+                    stdout="",
+                    stderr=f"simulated Whisper failure at {root / 'audio' / 'eg-recorded-001.wav'}",
+                ),
             ):
                 report_path, scoring_path, report = MODULE.run_benchmark(
                     root, manifest, root / "evaluation", "test-run", 2, 30
@@ -229,6 +233,8 @@ class WhisperBenchmarkTests(unittest.TestCase):
 
             self.assertTrue(report_path.is_file())
             self.assertEqual(1, report["summary"]["failedSamples"])
+            self.assertNotIn(str(root / "audio" / "eg-recorded-001.wav"), report["failures"][0]["error"])
+            self.assertIn("<local path>", report["failures"][0]["error"])
             scoring = json.loads(scoring_path.read_text(encoding="utf-8"))
             self.assertNotIn(MODULE.ENGINE_ID, scoring["cases"][0]["hypotheses"])
             self.assertEqual(original, json.loads(manifest.read_text(encoding="utf-8")))
