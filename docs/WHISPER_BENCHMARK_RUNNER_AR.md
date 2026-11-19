@@ -106,9 +106,7 @@ python tools/evaluation/run_whisper_benchmark.py --data-root $LayalDataRoot --ma
 بعد نجاح التشغيل، استخدم مسار ملف *.scoring-manifest.json الذي طبعته الأداة:
 
 ~~~powershell
-python tools/evaluation/score_speech_transcripts.py `
-  --manifest "D:\LayalData\evaluation\whisper\whisper-benchmark-run.scoring-manifest.json" `
-  --engine whisper_cpp_base
+python tools/evaluation/score_speech_transcripts.py --manifest "<الصق هنا مسار ملف scoring-manifest الذي طبعته الأداة>" --engine whisper_cpp_base
 ~~~
 
 الأداة الحالية تحسب WER وCER ومعدل أخطاء الرموز الحرجة للنفي والأرقام، لكل لغة/تنوع على حدة. راجع الأخطاء يدويًا، خصوصًا «مش/ما/لا/not»، والأرقام، وأسماء الأشخاص والتطبيقات والملفات. لا تعتبر المتوسط وحده دليل قبول.
