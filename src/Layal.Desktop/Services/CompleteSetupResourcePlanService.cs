@@ -45,10 +45,13 @@ public static class CompleteSetupResourcePlanService
 
         var knownBytes = knownReferences.Sum(resource => resource.ExpectedSizeBytes!.Value) +
             pending.SelectMany(resource => resource.ExpectedFiles ?? Array.Empty<LocalResourceFilePin>())
-                .Sum(file => file.ExpectedSizeBytes);
+                .Sum(file => file.ExpectedSizeBytes) +
+            (pending.Any(resource => resource.Id == LocalResourceIds.ChatModel)
+                ? QwenModelVariantCatalog.GetRequired(LocalResourceCatalog.CurrentChatModelId).MaximumDownloadBytes
+                : 0L);
 
         var unknown = pending
-            .Where(resource => resource.Kind != LocalResourceKind.EmbeddedData)
+            .Where(resource => resource.Kind != LocalResourceKind.EmbeddedData && resource.Kind != LocalResourceKind.ChatModel)
             .Where(resource => resource.ExpectedSizeBytes is null or <= 0)
             .Select(resource => resource.DisplayName)
             .ToArray();
