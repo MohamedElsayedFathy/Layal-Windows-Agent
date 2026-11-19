@@ -45,10 +45,8 @@ public sealed class CompleteSetupResourcePlanServiceTests
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
 
-        Assert.AreEqual(
-            2_461_768_130L +
-            QwenModelVariantCatalog.GetRequired(LocalResourceCatalog.CurrentChatModelId).MaximumDownloadBytes,
-            plan.KnownReferenceBytes);
+        Assert.AreEqual(2_461_768_130L, plan.KnownReferenceBytes,
+            "The Qwen resource is already Ready in this fixture, so its selected model size must not be counted as pending.");
         Assert.IsTrue(plan.HasUnknownSizes);
         CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "VoiceTut Egyptian Arabic and English model");
     }
