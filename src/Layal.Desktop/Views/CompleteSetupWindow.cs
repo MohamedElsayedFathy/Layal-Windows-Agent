@@ -902,9 +902,11 @@ public sealed class CompleteSetupWindow : Window
                     checked(knownReferenceBytes + temporarySafetyReserve))
             };
 
+            var chatModelDefinition = LocalResourceCatalog.GetRequired(LocalResourceIds.ChatModel);
             var chatModelAlreadyReady = beforeSetup.Any(item =>
                 string.Equals(item.ResourceId, LocalResourceIds.ChatModel, StringComparison.Ordinal) &&
-                item.State == LocalResourceLifecycle.Ready);
+                item.State == LocalResourceLifecycle.Ready &&
+                string.Equals(item.DefinitionVersion, chatModelDefinition.Version, StringComparison.Ordinal));
             if (!chatModelAlreadyReady && !OllamaLocalModelSetupService.HasDefaultModelManifest())
                 reservations.Add(new LocalResourceStorageReservation(
                     OllamaLocalModelSetupService.ModelsDirectory,
