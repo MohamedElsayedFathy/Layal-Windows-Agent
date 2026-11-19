@@ -21,7 +21,8 @@ public sealed class CompleteSetupReadinessPolicyTests
                 null,
                 null,
                 null,
-                DateTimeOffset.UtcNow))
+                DateTimeOffset.UtcNow,
+                resource.Version))
             .ToArray();
 
         Assert.IsTrue(CompleteSetupReadinessPolicy.IsComplete(states));
@@ -41,7 +42,8 @@ public sealed class CompleteSetupReadinessPolicyTests
                 null,
                 null,
                 null,
-                DateTimeOffset.UtcNow))
+                DateTimeOffset.UtcNow,
+                resource.Version))
             .ToList();
 
         states.RemoveAt(states.Count - 1);
@@ -59,11 +61,38 @@ public sealed class CompleteSetupReadinessPolicyTests
             null,
             null,
             "verification failed",
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            failed.Version);
 
         Assert.IsFalse(CompleteSetupReadinessPolicy.IsComplete(states));
         Assert.IsTrue(CompleteSetupReadinessPolicy.GetMissingRequiredResources(states)
             .Any(resource => resource.Id == failed.Id));
+    }
+
+    [TestMethod]
+    public void StaleOrLegacyReadyEntriesDoNotSatisfyFirstRunReadiness()
+    {
+        var states = LocalResourceCatalog.All
+            .Where(resource => resource.Required)
+            .Select(resource => new LocalResourceStateEntry(
+                resource.Id,
+                LocalResourceLifecycle.Ready,
+                0,
+                null,
+                null,
+                null,
+                null,
+                DateTimeOffset.UtcNow,
+                resource.Id == LocalResourceIds.WhisperModel ? "older-version" : resource.Version))
+            .ToArray();
+
+        Assert.IsFalse(CompleteSetupReadinessPolicy.IsComplete(states));
+        Assert.IsTrue(CompleteSetupReadinessPolicy.GetMissingRequiredResources(states)
+            .Any(resource => resource.Id == LocalResourceIds.WhisperModel));
+
+        var legacyStates = states.Select(item => item with { DefinitionVersion = null }).ToArray();
+        Assert.IsFalse(CompleteSetupReadinessPolicy.IsComplete(legacyStates),
+            "Unversioned legacy Ready entries must be revalidated, not trusted.");
     }
 
     [TestMethod]
@@ -79,7 +108,8 @@ public sealed class CompleteSetupReadinessPolicyTests
                 null,
                 null,
                 null,
-                DateTimeOffset.UtcNow))
+                DateTimeOffset.UtcNow,
+                resource.Version))
             .ToArray();
 
         Assert.IsTrue(CompleteSetupReadinessPolicy.IsComplete(states));

@@ -24,6 +24,14 @@ public sealed record VoiceTutGenerationSettings(
 
 public sealed class VoiceTutLocalService : IDisposable
 {
+    private sealed class ResourceScopedProgress(
+        IProgress<LocalSpeechProgress> inner,
+        string resourceId) : IProgress<LocalSpeechProgress>
+    {
+        public void Report(LocalSpeechProgress value) =>
+            inner.Report(value with { ResourceId = resourceId });
+    }
+
     public const string ModelId = "mohammedaly22/VoiceTut-TTS";
     public static readonly string ModelRevision = "b36bdf4416864d84f47ca77ce3decf34f6ab16cc";
     public const string OmniVoiceCommit = "08be0b4ccbac3e13e374e86fbfead4b4cac343e2";
@@ -115,7 +123,10 @@ public sealed class VoiceTutLocalService : IDisposable
 
         if (!installMatches)
         {
-            progress?.Report(new LocalSpeechProgress("فحص Python 3.11–3.13 وتجهيز بيئة VoiceTut المعزولة…", 5));
+            progress?.Report(new LocalSpeechProgress(
+                "فحص Python 3.11–3.13 وتجهيز بيئة VoiceTut المعزولة…",
+                5,
+                ResourceId: LocalResourceIds.PythonRuntime));
             if (File.Exists(PythonExecutablePath) &&
                 !await VerifyPythonRuntimeAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -153,7 +164,10 @@ public sealed class VoiceTutLocalService : IDisposable
                 VerifyPythonRuntimeAsync,
                 cancellationToken).ConfigureAwait(false);
 
-            progress?.Report(new LocalSpeechProgress("تثبيت PyTorch محليًا (CUDA إن كان تشغيلها مدعومًا، وإلا CPU)…", 18));
+            progress?.Report(new LocalSpeechProgress(
+                "تثبيت PyTorch محليًا (CUDA إن كان تشغيلها مدعومًا، وإلا CPU)…",
+                18,
+                ResourceId: LocalResourceIds.PyTorch));
             var cudaDeviceDetected = await IsNvidiaRuntimeAvailableAsync(cancellationToken).ConfigureAwait(false);
             await _resourceCoordinator.ExecuteAsync(
                 LocalResourceIds.PyTorch,
@@ -163,7 +177,7 @@ public sealed class VoiceTutLocalService : IDisposable
                     {
                         "-m", "pip", "install", "--disable-pip-version-check",
                         "--upgrade", "pip"
-                    }, ProcessInstallTimeout, token, "تحديث pip", progress).ConfigureAwait(false);
+                    }, ProcessInstallTimeout, token, "تحديث pip", progress, LocalResourceIds.PyTorch).ConfigureAwait(false);
 
                     var torchIndex = cudaDeviceDetected
                         ? "https://download.pytorch.org/whl/cu128"
@@ -173,7 +187,7 @@ public sealed class VoiceTutLocalService : IDisposable
                         "-m", "pip", "install", "--disable-pip-version-check",
                         "--index-url", torchIndex, "--extra-index-url", "https://pypi.org/simple",
                         "torch==2.8.0", "torchaudio==2.8.0"
-                    }, ProcessInstallTimeout, token, "تثبيت PyTorch", progress).ConfigureAwait(false);
+                    }, ProcessInstallTimeout, token, "تثبيت PyTorch", progress, LocalResourceIds.PyTorch).ConfigureAwait(false);
 
                     if (cudaDeviceDetected)
                     {
@@ -184,39 +198,44 @@ public sealed class VoiceTutLocalService : IDisposable
                         if (!cudaProbe.Output.Contains("CUDA_AVAILABLE=True", StringComparison.OrdinalIgnoreCase))
                         {
                             progress?.Report(new LocalSpeechProgress(
-                                "لم يؤكد PyTorch قابلية تشغيل CUDA؛ جارٍ التحويل إلى إصدار CPU المتوافق دون تغيير تعريف بطاقة الرسوميات."));
+                                "لم يؤكد PyTorch قابلية تشغيل CUDA؛ جارٍ التحويل إلى إصدار CPU المتوافق دون تغيير تعريف بطاقة الرسوميات.",
+                                ResourceId: LocalResourceIds.PyTorch));
                             await RunPythonAsync(new[]
                             {
                                 "-m", "pip", "install", "--disable-pip-version-check", "--force-reinstall",
                                 "--index-url", "https://download.pytorch.org/whl/cpu",
                                 "--extra-index-url", "https://pypi.org/simple",
                                 "torch==2.8.0", "torchaudio==2.8.0"
-                            }, ProcessInstallTimeout, token, "تثبيت PyTorch CPU", progress).ConfigureAwait(false);
+                            }, ProcessInstallTimeout, token, "تثبيت PyTorch CPU", progress, LocalResourceIds.PyTorch).ConfigureAwait(false);
                         }
                     }
                 },
                 VerifyTorchRuntimeAsync,
                 cancellationToken).ConfigureAwait(false);
 
-            progress?.Report(new LocalSpeechProgress("تثبيت OmniVoice بإصدار Git ثابت…", 42));
+            progress?.Report(new LocalSpeechProgress(
+                "تثبيت OmniVoice بإصدار Git ثابت…", 42,
+                ResourceId: LocalResourceIds.OmniVoice));
             await _resourceCoordinator.ExecuteAsync(
                 LocalResourceIds.OmniVoice,
                 token => RunPythonAsync(new[]
                 {
                     "-m", "pip", "install", "--disable-pip-version-check",
                     $"https://github.com/k2-fsa/OmniVoice/archive/{OmniVoiceCommit}.zip"
-                }, ProcessInstallTimeout, token, "تثبيت OmniVoice", progress),
+                }, ProcessInstallTimeout, token, "تثبيت OmniVoice", progress, LocalResourceIds.OmniVoice),
                 VerifyOmniVoicePackageAsync,
                 cancellationToken).ConfigureAwait(false);
 
-            progress?.Report(new LocalSpeechProgress("تثبيت VoiceTut بإصدار Git ثابت…"));
+            progress?.Report(new LocalSpeechProgress(
+                "تثبيت VoiceTut بإصدار Git ثابت…",
+                ResourceId: LocalResourceIds.VoiceTut));
             await _resourceCoordinator.ExecuteAsync(
                 LocalResourceIds.VoiceTut,
                 token => RunPythonAsync(new[]
                 {
                     "-m", "pip", "install", "--disable-pip-version-check",
                     $"https://github.com/MohammedAly22/VoiceTuT-TTS/archive/{VoiceTutCommit}.zip"
-                }, ProcessInstallTimeout, token, "تثبيت VoiceTut", progress),
+                }, ProcessInstallTimeout, token, "تثبيت VoiceTut", progress, LocalResourceIds.VoiceTut),
                 VerifyVoiceTutPackageAsync,
                 cancellationToken).ConfigureAwait(false);
 
@@ -254,7 +273,10 @@ public sealed class VoiceTutLocalService : IDisposable
                 LocalResourceIds.VoiceTut, VerifyVoiceTutPackageAsync, cancellationToken).ConfigureAwait(false);
         }
 
-        progress?.Report(new LocalSpeechProgress("تحميل أوزان VoiceTut المثبتة والتحقق من نسخة النموذج…", 62));
+        progress?.Report(new LocalSpeechProgress(
+            "تحميل أوزان VoiceTut المثبتة والتحقق من نسخة النموذج…",
+            62,
+            ResourceId: LocalResourceIds.VoiceTutModel));
         var modelDefinition = LocalResourceCatalog.GetRequired(LocalResourceIds.VoiceTutModel);
         if (modelDefinition.ExpectedFiles is null)
             throw new InvalidDataException("VoiceTut model file integrity pins are missing from the resource catalog.");
@@ -292,7 +314,9 @@ public sealed class VoiceTutLocalService : IDisposable
             throw new InvalidOperationException("لم يؤكد VoiceTut اكتمال تثبيت الموارد المحلية المطلوبة.");
 
         progress?.Report(new LocalSpeechProgress(
-            "VoiceTut جاهز محليًا: Voice Design فقط، دون أصوات مرجعية أو استنساخ.", 100));
+            "VoiceTut جاهز محليًا: Voice Design فقط، دون أصوات مرجعية أو استنساخ.",
+            100,
+            ResourceId: LocalResourceIds.VoiceTutModel));
     }
 
     public async Task<bool> ValidateCachedResourcesAsync(CancellationToken cancellationToken = default)
@@ -697,7 +721,8 @@ public sealed class VoiceTutLocalService : IDisposable
             if (string.IsNullOrWhiteSpace(e.Data)) return;
             AppendStartupLog(e.Data);
             Trace.WriteLine("[VoiceTut] " + e.Data);
-            progress?.Report(new LocalSpeechProgress(e.Data, TryParsePercent(e.Data)));
+            progress?.Report(new LocalSpeechProgress(
+                e.Data, TryParsePercent(e.Data), ResourceId: LocalResourceIds.VoiceTutModel));
         };
         process.Exited += (_, _) => Trace.TraceError("VoiceTut local server exited with code {0}.", TryGetExitCode(process));
         if (!process.Start())
@@ -706,7 +731,10 @@ public sealed class VoiceTutLocalService : IDisposable
         process.BeginErrorReadLine();
         lock (_processSync) _serverProcess = process;
 
-        progress?.Report(new LocalSpeechProgress("تشغيل نموذج VoiceTut محليًا لأول مرة؛ يُجهّز النموذج ويُحمّل الأوزان…", 72));
+        progress?.Report(new LocalSpeechProgress(
+            "تشغيل نموذج VoiceTut محليًا لأول مرة؛ يُجهّز النموذج ويُحمّل الأوزان…",
+            72,
+            ResourceId: LocalResourceIds.VoiceTutModel));
         try
         {
             var deadline = DateTimeOffset.UtcNow.Add(ModelStartupTimeout);
@@ -756,10 +784,15 @@ public sealed class VoiceTutLocalService : IDisposable
         TimeSpan timeout,
         CancellationToken cancellationToken,
         string operation,
-        IProgress<LocalSpeechProgress>? progress = null)
+        IProgress<LocalSpeechProgress>? progress = null,
+        string? resourceId = null)
     {
+        IProgress<LocalSpeechProgress>? scopedProgress = progress;
+        if (progress is not null && !string.IsNullOrWhiteSpace(resourceId))
+            scopedProgress = new ResourceScopedProgress(progress, resourceId);
+
         await RunCommandAsync(
-            PythonExecutablePath, arguments, timeout, cancellationToken, operation, progress)
+            PythonExecutablePath, arguments, timeout, cancellationToken, operation, scopedProgress)
             .ConfigureAwait(false);
     }
 
@@ -780,7 +813,9 @@ public sealed class VoiceTutLocalService : IDisposable
                 checked(resource.ExpectedSizeBytes.Value * 4));
 
         progress?.Report(new LocalSpeechProgress(
-            "لم يتم العثور على Python x64 متوافق؛ جارٍ تنزيل Python 3.13.17 الرسمي إلى مجلد ليال…", 6));
+            "لم يتم العثور على Python x64 متوافق؛ جارٍ تنزيل Python 3.13.17 الرسمي إلى مجلد ليال…",
+            6,
+            ResourceId: LocalResourceIds.PythonRuntime));
 
         var downloadProgress = new Progress<LocalResourceDownloadProgress>(state =>
         {
@@ -792,7 +827,12 @@ public sealed class VoiceTutLocalService : IDisposable
                 : "—";
             progress?.Report(new LocalSpeechProgress(
                 $"تنزيل Python: {state.DownloadedBytes:N0} / {state.TotalBytes:N0} bytes — {speed}",
-                percent));
+                percent,
+                state.DownloadedBytes,
+                state.TotalBytes,
+                state.BytesPerSecond,
+                state.RemainingSeconds,
+                LocalResourceIds.PythonRuntime));
         });
 
         await _resourceCoordinator.DownloadAsync(
@@ -828,7 +868,9 @@ public sealed class VoiceTutLocalService : IDisposable
                     "AssociateFiles=0"
                 };
                 progress?.Report(new LocalSpeechProgress(
-                    "تم التحقق من ناشر Python؛ جارٍ تثبيت البيئة الخاصة بليال دون تعديل PATH…", 96));
+                    "تم التحقق من ناشر Python؛ جارٍ تثبيت البيئة الخاصة بليال دون تعديل PATH…",
+                    96,
+                    ResourceId: LocalResourceIds.PythonRuntime));
                 await RunCommandAsync(
                     installerPath,
                     arguments,
@@ -846,7 +888,9 @@ public sealed class VoiceTutLocalService : IDisposable
             throw new InvalidOperationException("لم يجتز Python المثبّت داخل مجلد ليال فحص الإصدار والمعمارية.");
 
         progress?.Report(new LocalSpeechProgress(
-            "أصبح Python 3.13.17 x64 جاهزًا داخل مجلد بيانات ليال.", 100));
+            "أصبح Python 3.13.17 x64 جاهزًا داخل مجلد بيانات ليال.",
+            100,
+            ResourceId: LocalResourceIds.PythonRuntime));
         return ManagedPythonExecutablePath;
     }
 

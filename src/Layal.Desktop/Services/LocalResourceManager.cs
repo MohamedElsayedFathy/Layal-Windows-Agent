@@ -27,11 +27,13 @@ public sealed record LocalResourceStateEntry(
     double? BytesPerSecond,
     double? RemainingSeconds,
     string? ErrorMessage,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    string? DefinitionVersion = null);
 
 /// <summary>
 /// Persists resource lifecycle and byte-level progress separately from the resource files.
 /// A resource is only marked Ready after its owner completes integrity and health checks.
+/// Persisted Ready states are invalidated when the catalog definition version changes.
 /// </summary>
 public sealed class LocalResourceManager
 {
@@ -316,7 +318,8 @@ public sealed class LocalResourceManager
                      (!double.IsFinite(item.RemainingSeconds.Value) || item.RemainingSeconds.Value < 0)))
                     throw new InvalidDataException("The local resource state file contains an invalid entry.");
 
-                if (LocalResourceCatalog.TryGet(pair.Key, out _))
+                if (LocalResourceCatalog.TryGet(pair.Key, out var definition) &&
+                    string.Equals(item.DefinitionVersion, definition!.Version, StringComparison.Ordinal))
                     persisted[pair.Key] = item;
             }
         }
@@ -370,8 +373,12 @@ public sealed class LocalResourceManager
         }
     }
 
-    private static LocalResourceStateEntry NewEntry(string id, LocalResourceLifecycle state) =>
-        new(id, state, 0, null, null, null, null, DateTimeOffset.UtcNow);
+    private static LocalResourceStateEntry NewEntry(string id, LocalResourceLifecycle state)
+    {
+        var definition = LocalResourceCatalog.GetRequired(id);
+        return new LocalResourceStateEntry(
+            id, state, 0, null, null, null, null, DateTimeOffset.UtcNow, definition.Version);
+    }
 
     private static void EnsureTransition(LocalResourceLifecycle from, LocalResourceLifecycle to)
     {

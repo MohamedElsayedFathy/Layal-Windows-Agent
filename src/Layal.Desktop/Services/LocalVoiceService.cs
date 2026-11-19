@@ -15,7 +15,8 @@ public sealed record LocalSpeechProgress(
     long? DownloadedBytes = null,
     long? TotalBytes = null,
     double? BytesPerSecond = null,
-    double? RemainingSeconds = null);
+    double? RemainingSeconds = null,
+    string? ResourceId = null);
 
 /// <summary>
 /// Local speech recognition is performed by Whisper; synthesis is performed by the
@@ -120,7 +121,7 @@ public sealed class LocalVoiceService
         await _resourceCoordinator.DownloadAsync(
             LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperRuntime),
             whisperArchive,
-            CreateDownloadProgress(progress, "تنزيل محرك تحويل الكلام إلى نص (Whisper)…"),
+            CreateDownloadProgress(progress, "تنزيل محرك تحويل الكلام إلى نص (Whisper)…", LocalResourceIds.WhisperRuntime),
             cancellationToken,
             async token =>
             {
@@ -142,7 +143,7 @@ public sealed class LocalVoiceService
         await _resourceCoordinator.DownloadAsync(
             LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperModel),
             WhisperModelPath,
-            CreateDownloadProgress(progress, "تنزيل نموذج فهم الكلام العربي والإنجليزي (Whisper)…"),
+            CreateDownloadProgress(progress, "تنزيل نموذج فهم الكلام العربي والإنجليزي (Whisper)…", LocalResourceIds.WhisperModel),
             cancellationToken).ConfigureAwait(false);
 
         await _voiceTutService.EnsureReadyAsync(progress, cancellationToken);
@@ -440,7 +441,8 @@ public sealed class LocalVoiceService
 
     private static IProgress<LocalResourceDownloadProgress>? CreateDownloadProgress(
         IProgress<LocalSpeechProgress>? progress,
-        string message)
+        string message,
+        string resourceId)
     {
         if (progress is null) return null;
 
@@ -458,7 +460,14 @@ public sealed class LocalVoiceService
                     .ToString(@"mm\\:ss", System.Globalization.CultureInfo.InvariantCulture);
                 details += $" · {remainingText}";
             }
-            progress.Report(new LocalSpeechProgress(message + " " + details, percent));
+            progress.Report(new LocalSpeechProgress(
+                message + " " + details,
+                percent,
+                value.DownloadedBytes,
+                value.TotalBytes,
+                value.BytesPerSecond,
+                value.RemainingSeconds,
+                resourceId));
         });
     }
 

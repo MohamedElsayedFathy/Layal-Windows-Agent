@@ -71,7 +71,44 @@ public sealed class LocalResourceManagerTests
         Assert.AreEqual(LocalResourceLifecycle.Ready, restored.State);
         Assert.AreEqual(4096L, restored.BytesDownloaded);
         Assert.AreEqual(definition.ExpectedSizeBytes, restored.TotalBytes);
+        Assert.AreEqual(definition.Version, restored.DefinitionVersion);
         Assert.IsTrue(File.Exists(statePath));
+    }
+
+    [TestMethod]
+    public async Task ReadyStateFromAnOlderCatalogDefinitionIsInvalidatedAndMustBeReverified()
+    {
+        using var temp = new TestTempDirectory();
+        var path = Path.Combine(temp.Path, "resource-state.json");
+        var definition = LocalResourceCatalog.GetRequired(LocalResourceIds.WhisperModel);
+        var staleEntry = new LocalResourceStateEntry(
+            definition.Id,
+            LocalResourceLifecycle.Ready,
+            definition.ExpectedSizeBytes!.Value,
+            definition.ExpectedSizeBytes,
+            null,
+            null,
+            null,
+            DateTimeOffset.UtcNow,
+            "older-catalog-version");
+        var document = new
+        {
+            SchemaVersion = 1,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Resources = new Dictionary<string, LocalResourceStateEntry>(StringComparer.Ordinal)
+            {
+                [definition.Id] = staleEntry
+            }
+        };
+        await File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(document));
+
+        var manager = new LocalResourceManager(path);
+        var current = (await manager.GetSnapshotAsync()).Single(item => item.ResourceId == definition.Id);
+
+        Assert.AreEqual(LocalResourceLifecycle.Pending, current.State,
+            "A Ready marker from another catalog version must never satisfy first-run readiness.");
+        Assert.AreEqual(0L, current.BytesDownloaded);
+        Assert.AreEqual(definition.Version, current.DefinitionVersion);
     }
 
     [TestMethod]

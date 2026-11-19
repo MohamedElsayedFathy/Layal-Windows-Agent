@@ -1,5 +1,17 @@
 # Layal implementation status register
 
+## Complete First-Run Setup A/B/C hardening — 19 November 2026
+
+**Implementation status: changes prepared in branch `fix/complete-setup-resource-truth-2026-11-19`; Windows CI is the acceptance gate.** The current main already contains the resource catalog/manager, automatic Python/PyTorch/Whisper/VoiceTut/Ollama/Qwen/OCR setup, and the first-run wizard. This hardening adds two safeguards:
+
+- Persisted resource readiness now carries the catalog definition version. A Ready record from an older or legacy unversioned catalog entry is discarded and the resource returns to Pending so the setup path revalidates it.
+- Complete Setup displays an independent status/progress row for every catalog resource. Byte counts, speed, and ETA are displayed only when a measured total is available; unknown-size installer stages remain indeterminate rather than showing invented percentages.
+- WPF accessibility tests assert every catalog resource has its own named status and progress row.
+
+This does **not** claim the entire first-run acceptance matrix is finished. Narrator/NVDA and High Contrast still need a real interactive Windows evidence run; exact pip/CUDA/temp download totals remain unknown and must continue to be labelled as such. Qwen3.5 2B remains the validated baseline; automatic selection among other variants is not enabled without target-device memory/performance benchmarks. No release signing or public-release approval is implied.
+
+---
+
 ## Phase B closeout — 18 November 2026
 
 **Status: COMPLETE — USER-ACCEPTED WITH DOCUMENTED LIMITATIONS.** Latest `main` head after the Phase B documentation closeout is `0fd44c1e664fadf090f9e937e815bba684c1dc59` (PR #204). PR #203 added the PowerShell Complete Setup checker; PR #204 records the owner's Phase B closeout and limitations. The project owner explicitly requested that Phase B be closed and accepted the remaining Complete Setup wizard accessibility/storage checks on an assumed-success basis; this acceptance does not extend to the main window or the full application's accessibility matrix. This is an owner acceptance decision, not a claim that every manual test was independently executed or produced a PASS report.

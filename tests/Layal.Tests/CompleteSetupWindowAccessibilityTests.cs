@@ -94,6 +94,23 @@ public sealed class CompleteSetupWindowAccessibilityTests
             var status = GetField<TextBlock>(window, "_statusText");
             var progress = GetField<ProgressBar>(window, "_progressBar");
             var diagnostics = GetField<TextBox>(window, "_diagnostics");
+            var resourceProgressPanel = GetField<StackPanel>(window, "_resourceProgressPanel");
+
+            Assert.AreEqual(
+                LocalResourceCatalog.All.Count,
+                resourceProgressPanel.Children.Count,
+                "Every catalog resource must have its own visible first-run status row.");
+            for (var index = 0; index < resourceProgressPanel.Children.Count; index++)
+            {
+                var row = resourceProgressPanel.Children[index] as StackPanel;
+                Assert.IsNotNull(row, "Each resource status row must have a stable WPF container.");
+                AssertAccessibleName(row!, "resource status row " + index);
+                Assert.AreEqual(4, row!.Children.Count);
+                AssertAccessibleName(row.Children[2], "individual resource progress " + index);
+                var state = row.Children[1] as TextBlock;
+                Assert.IsNotNull(state);
+                Assert.AreEqual(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(state!));
+            }
 
             Assert.IsFalse(consent.IsChecked == true,
                 "The wizard must not treat consent as granted on first display.");

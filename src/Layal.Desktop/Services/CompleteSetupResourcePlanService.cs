@@ -27,12 +27,15 @@ public static class CompleteSetupResourcePlanService
 
         var stateById = states
             .GroupBy(item => item.ResourceId, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Last().State, StringComparer.Ordinal);
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
+        bool IsCurrentReady(LocalResourceDefinition resource) =>
+            stateById.TryGetValue(resource.Id, out var state) &&
+            state.State == LocalResourceLifecycle.Ready &&
+            string.Equals(state.DefinitionVersion, resource.Version, StringComparison.Ordinal);
 
         var pending = LocalResourceCatalog.All
-            .Where(resource => resource.Required &&
-                (!stateById.TryGetValue(resource.Id, out var state) ||
-                 state != LocalResourceLifecycle.Ready))
+            .Where(resource => resource.Required && !IsCurrentReady(resource))
             .ToArray();
 
         var knownReferences = pending
@@ -50,16 +53,14 @@ public static class CompleteSetupResourcePlanService
             .Select(resource => resource.DisplayName)
             .ToArray();
 
-        var ollamaRuntimeIsReady =
-            stateById.TryGetValue(LocalResourceIds.OllamaRuntime, out var ollamaState) &&
-            ollamaState == LocalResourceLifecycle.Ready;
+        var ollamaRuntimeIsReady = IsCurrentReady(
+            LocalResourceCatalog.GetRequired(LocalResourceIds.OllamaRuntime));
         var conditional = LocalResourceCatalog.All
             .Where(resource => !resource.Required &&
                 (resource.Id != LocalResourceIds.OllamaRuntimeInstaller || !ollamaRuntimeIsReady) &&
                 resource.Kind != LocalResourceKind.EmbeddedData &&
                 resource.ExpectedSizeBytes is > 0 &&
-                (!stateById.TryGetValue(resource.Id, out var state) ||
-                 state != LocalResourceLifecycle.Ready))
+                !IsCurrentReady(resource))
             .ToArray();
 
         return new CompleteSetupResourcePlan(

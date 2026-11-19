@@ -14,7 +14,8 @@ public sealed class CompleteSetupResourcePlanServiceTests
         var states = LocalResourceCatalog.All
             .Where(resource => resource.Required && resource.Kind == LocalResourceKind.EmbeddedData)
             .Select(resource => new LocalResourceStateEntry(
-                resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow))
+                resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow,
+                resource.Version))
             .ToArray();
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
@@ -36,7 +37,8 @@ public sealed class CompleteSetupResourcePlanServiceTests
         var states = LocalResourceCatalog.All
             .Where(resource => resource.Required && resource.Id != LocalResourceIds.VoiceTutModel)
             .Select(resource => new LocalResourceStateEntry(
-                resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow))
+                resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow,
+                resource.Version))
             .ToArray();
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
@@ -47,12 +49,41 @@ public sealed class CompleteSetupResourcePlanServiceTests
     }
 
     [TestMethod]
+    public void StaleReadyResourceRemainsPendingInStoragePlan()
+    {
+        var staleId = LocalResourceIds.WhisperModel;
+        var states = LocalResourceCatalog.All
+            .Where(resource => resource.Required)
+            .Select(resource => new LocalResourceStateEntry(
+                resource.Id,
+                LocalResourceLifecycle.Ready,
+                0,
+                null,
+                null,
+                null,
+                null,
+                DateTimeOffset.UtcNow,
+                resource.Id == staleId ? "old-definition" : resource.Version))
+            .ToArray();
+
+        var plan = CompleteSetupResourcePlanService.Calculate(states);
+
+        Assert.AreEqual(1, plan.PendingRequiredResources);
+        Assert.AreEqual(
+            LocalResourceCatalog.GetRequired(staleId).ExpectedSizeBytes!.Value,
+            plan.KnownReferenceBytes);
+        Assert.IsFalse(plan.HasUnknownSizes,
+            "All currently unknown-size resources in this test are marked ready with the current definition.");
+    }
+
+    [TestMethod]
     public void ReadyResourcesAreExcludedFromPendingSizePlan()
     {
         var states = LocalResourceCatalog.All
             .Where(resource => resource.Required)
             .Select(resource => new LocalResourceStateEntry(
-                resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow))
+                resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow,
+                resource.Version))
             .ToArray();
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
