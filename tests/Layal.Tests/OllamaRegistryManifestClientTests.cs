@@ -53,6 +53,51 @@ public sealed class OllamaRegistryManifestClientTests
     }
 
     [TestMethod]
+    public async Task ResolvesSelectedFourBTagFromTheOfficialRegistryWithoutChangingTheDefaultAlias()
+    {
+        var body = Encoding.UTF8.GetBytes(ManifestBody);
+        var digest = Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant();
+        HttpRequestMessage? observedRequest = null;
+        using var client = new HttpClient(new StubHandler(request =>
+        {
+            observedRequest = request;
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(body)
+            };
+            response.Headers.TryAddWithoutValidation("Docker-Content-Digest", "sha256:" + digest);
+            return response;
+        }));
+        var sut = new OllamaRegistryManifestClient(client);
+
+        var result = await sut.FetchModelManifestAsync("qwen3.5:4b");
+
+        Assert.AreEqual("qwen3.5:4b", result.ModelId);
+        Assert.AreEqual(
+            "https://registry.ollama.ai/v2/library/qwen3.5/manifests/4b",
+            observedRequest!.RequestUri!.AbsoluteUri);
+        Assert.AreEqual(OllamaRegistryManifestClient.DefaultManifestUri,
+            OllamaRegistryManifestClient.BuildManifestUri(QwenModelVariantCatalog.DefaultModelId));
+    }
+
+    [TestMethod]
+    public async Task RejectsQwenTagsOutsideTheAllowListBeforeSendingNetworkRequests()
+    {
+        var requestCount = 0;
+        using var client = new HttpClient(new StubHandler(_ =>
+        {
+            requestCount++;
+            return OkResponse();
+        }));
+        var sut = new OllamaRegistryManifestClient(client);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => sut.FetchModelManifestAsync("qwen3.5:27b"));
+
+        Assert.AreEqual(0, requestCount);
+    }
+
+    [TestMethod]
     public async Task ExtractsAllowedChildManifestDigestsFromOllamaManifestList()
     {
         const string childDigest = "c97eb11d70b1acdc88af01eef566c1fe4f7fbe93eb1afc06871132f293ff425a";
