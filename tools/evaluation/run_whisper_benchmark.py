@@ -384,7 +384,7 @@ def run_benchmark(
             "executableSha256": resources["executable_sha256"],
             "model": WHISPER_MODEL_RELATIVE_PATH.as_posix(),
             "modelSha256": resources["model_sha256"],
-            "dataRootPath": str(Path(data_root).resolve()),
+            "dataRoot": "Layal LocalAi resource directory (absolute path intentionally omitted)",
         },
         "device": {
             "os": platform.platform(),
