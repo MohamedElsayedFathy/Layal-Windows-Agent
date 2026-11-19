@@ -1,6 +1,6 @@
 # تشغيل Whisper Benchmark المحلي — Phase D1
 
-**الحالة:** أضيفت أداة التشغيل والاختبارات الآلية إلى فرع feat/phase-d-speech-evaluation-20261119. لا توجد حتى الآن نتائج دقة فعلية؛ مجموعة الاختبار النصية وحدها ليست تسجيلات صوتية ذهبية.
+**الحالة:** أداة التشغيل واختباراتها موجودة على main بعد دمج PR #209. أداة تجهيز مساحة الجمع أضيفت في فرع feat/phase-d-speech-corpus-intake-20261119. لا توجد حتى الآن تسجيلات فعلية أو نتائج دقة؛ مجموعة الاختبار النصية ليست تسجيلات صوتية ذهبية.
 
 ## الهدف
 
@@ -18,11 +18,18 @@
 
 ## تجهيز مجموعة التقييم
 
-1. أنشئ مجلدًا محليًا خارج نسخة Git، مثل D:\LayalSpeechEvaluation.
-2. انسخ tests/TestAssets/Speech/speech-reference-set.json من المستودع.
-3. أنشئ مجلد audio بجوار ملف JSON، وضع فيه ملفات WAV التي وافق أصحابها صراحة على تقييمها.
-4. احتفظ ببنية الحالات وأضف حقول التسجيل والموافقة والمراجعة لكل تسجيل. لا تكتب consent.granted: true إلا بعد الحصول على موافقة فعلية، واستخدم case id بسيطًا مثل eg-001 أو mix-02، ولا تستخدم اسمًا أو بريدًا أو رقم هاتف في case id أو speakerId أو reviewerId.
-5. لا تعتمد transcript المرجعي تلقائيًا من النص الموجود في ملف الاختبار؛ قارنه بالصوت، وصححه، ثم اجعل referenceReview.status تساوي approved.
+1. جهّز مساحة خاصة خارج المستودع باستخدام الأداة الجديدة:
+
+~~~powershell
+$CollectionDir = "D:\\LayalSpeechEvaluation\\Session-001"
+python tools/evaluation/prepare_speech_collection.py --output-dir $CollectionDir
+~~~
+
+2. راجع `CONSENT_FORM_AR.md` واستكمل معلومات الجهة ووسيلة التواصل والتخزين والوصول ومدة الاحتفاظ والحذف قبل الحصول على موافقة المتطوع.
+3. بعد موافقة فعلية ضمن نطاق `research-evaluation`، ضع ملفات WAV في `audio/` بأسماء الحالات المقترحة في `recording-sheet.csv`.
+4. حدّث نسخة `speech-reference-set.json` المحلية فقط بعد التسجيل: `recordingStatus=recorded` و`audioAsset` و`speakerId` المستعار وبيانات الموافقة الحقيقية. لا تكتب `consent.granted: true` قبل الموافقة.
+5. استمع إلى كل ملف وصحح النص حسب الكلام الفعلي، ثم اعتمد `referenceReview.status=approved` وأضف مراجعًا مستعارًا ووقت المراجعة الحقيقي.
+6. لا تنسخ التسجيلات أو نموذج الموافقة المعرّف بالهوية أو تقارير التفريغ إلى Git أو PR. تفاصيل البروتوكول في [SPEECH_DATA_COLLECTION_AR.md](SPEECH_DATA_COLLECTION_AR.md).
 
 مثال لحالة مسجلة بعد إتمام الموافقة والمراجعة فعليًا:
 
