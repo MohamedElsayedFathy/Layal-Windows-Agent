@@ -23,7 +23,7 @@ public static class CompleteSetupReadinessPolicy
             states
                 .Where(item => item.State == LocalResourceLifecycle.Ready &&
                     definitionsById.TryGetValue(item.ResourceId, out var definition) &&
-                    string.Equals(item.DefinitionVersion, definition.Version, StringComparison.Ordinal))
+                    string.Equals(item.DefinitionVersion, LocalResourceCatalog.GetCurrentDefinitionVersion(definition), StringComparison.Ordinal))
                 .Select(item => item.ResourceId),
             StringComparer.Ordinal);
 
