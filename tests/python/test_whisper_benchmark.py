@@ -172,6 +172,7 @@ class WhisperBenchmarkTests(unittest.TestCase):
             audio_path = root / "audio" / "eg-recorded-001.wav"
             self.write_audio(audio_path)
             original = self.recorded_manifest()
+            original["cases"][0]["privateNote"] = "must-not-leave-source-manifest"
             manifest.write_text(json.dumps(original), encoding="utf-8")
             output_dir = root / "evaluation"
 
@@ -202,6 +203,7 @@ class WhisperBenchmarkTests(unittest.TestCase):
                 "أنا مش موافق على الرقم 42",
                 scoring["cases"][0]["hypotheses"][MODULE.ENGINE_ID],
             )
+            self.assertNotIn("privateNote", scoring["cases"][0])
             self.assertEqual(original, json.loads(manifest.read_text(encoding="utf-8")))
             self.assertFalse(any(output_dir.glob("layal-whisper-*")))
 
