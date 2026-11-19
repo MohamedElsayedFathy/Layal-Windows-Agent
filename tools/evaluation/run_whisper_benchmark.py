@@ -41,6 +41,7 @@ MAX_AUDIO_BYTES = 64 * 1024 * 1024
 MAX_AUDIO_SECONDS = 120.0
 DEFAULT_TIMEOUT_SECONDS = 300
 PSEUDONYMOUS_SPEAKER_PATTERN = re.compile(r"^spk-[a-z0-9][a-z0-9-]{2,30}$")
+CASE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def _load_scorer():
@@ -223,6 +224,8 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
     for case in payload["cases"]:
         if not SCORER._is_scoring_eligible(case):
             continue
+        if not isinstance(case.get("id"), str) or not CASE_ID_PATTERN.fullmatch(case["id"]):
+            raise ValueError("Recorded case IDs must be non-identifying tokens containing only letters, digits, dashes, or underscores.")
         speaker_id = case.get("speakerId", "")
         if not isinstance(speaker_id, str) or not PSEUDONYMOUS_SPEAKER_PATTERN.fullmatch(speaker_id):
             raise ValueError(f"Case {case['id']} has a non-pseudonymous speaker identifier.")
@@ -293,8 +296,9 @@ def transcribe_one(
     threads: int,
     timeout_seconds: int,
 ) -> dict[str, Any]:
-    output_prefix = temporary_root / (sample["id"] + "-transcription")
-    audio_snapshot = temporary_root / (sample["id"] + "-input.wav")
+    safe_case_token = hashlib.sha256(sample["id"].encode("utf-8")).hexdigest()[:20]
+    output_prefix = temporary_root / (safe_case_token + "-transcription")
+    audio_snapshot = temporary_root / (safe_case_token + "-input.wav")
     try:
         shutil.copyfile(sample["audio_path"], audio_snapshot)
         if sha256_file(audio_snapshot) != sample["audio_sha256"]:
