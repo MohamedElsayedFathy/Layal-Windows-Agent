@@ -99,7 +99,7 @@ class WhisperBenchmarkTests(unittest.TestCase):
             self.assertEqual(MODULE.WHISPER_MODEL_SHA256, verified["model_sha256"])
 
             (root / MODULE.WHISPER_INSTALL_RELATIVE_PATH / "ggml-base.dll").write_bytes(b"tampered")
-            with self.assertRaisesRegex(ValueError, "does not match the pinned archive"):
+            with self.assertRaisesRegex(ValueError, "unexpected size|does not match the pinned archive"):
                 MODULE.verify_whisper_resources(root)
 
     def test_resource_verification_rejects_tampered_model_before_launch(self):
