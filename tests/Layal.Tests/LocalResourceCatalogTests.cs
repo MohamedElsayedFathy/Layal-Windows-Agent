@@ -1,10 +1,13 @@
+using System;
 using System.Linq;
+using Layal;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Layal.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class LocalResourceCatalogTests
 {
     [TestMethod]
@@ -61,6 +64,34 @@ public sealed class LocalResourceCatalogTests
             "408f669b7e2b045fdf54201d815bd364e6667dbd845115da81239c40bc6dcfd1",
             tokenizer.ExpectedSha256);
         Assert.IsTrue(tokenizer.HasPinnedSha256);
+    }
+
+    [TestMethod]
+    public void SelectedQwenVariantIsPartOfTheChatResourceDefinitionIdentity()
+    {
+        var previous = AppRuntime.Settings.LocalChatModelId;
+        try
+        {
+            AppRuntime.Settings.LocalChatModelId = "qwen3.5:2b";
+            var definition = LocalResourceCatalog.GetRequired(LocalResourceIds.ChatModel);
+            var twoBIdentity = LocalResourceCatalog.GetCurrentDefinitionVersion(definition);
+            Assert.AreEqual("qwen3.5-family-v1|qwen3.5:2b", twoBIdentity);
+
+            AppRuntime.Settings.LocalChatModelId = "qwen3.5:4b";
+            var fourBIdentity = LocalResourceCatalog.GetCurrentDefinitionVersion(definition);
+            Assert.AreEqual("qwen3.5-family-v1|qwen3.5:4b", fourBIdentity);
+            Assert.AreNotEqual(twoBIdentity, fourBIdentity);
+
+            AppRuntime.Settings.LocalChatModelId = "qwen3.5:27b";
+            Assert.AreEqual(
+                "qwen3.5-family-v1|qwen3.5:2b",
+                LocalResourceCatalog.GetCurrentDefinitionVersion(definition),
+                "Unapproved model IDs must normalize to the established baseline.");
+        }
+        finally
+        {
+            AppRuntime.Settings.LocalChatModelId = previous;
+        }
     }
 
     [TestMethod]

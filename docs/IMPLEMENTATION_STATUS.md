@@ -1,14 +1,16 @@
 # Layal implementation status register
 
-## Complete First-Run Setup A/B/C hardening — 19 November 2026
+## A/B/C final hardening — 19 November 2026
 
-**Implementation status: changes prepared in branch `fix/complete-setup-resource-truth-2026-11-19`; Windows CI is the acceptance gate.** The current main already contains the resource catalog/manager, automatic Python/PyTorch/Whisper/VoiceTut/Ollama/Qwen/OCR setup, and the first-run wizard. This hardening adds two safeguards:
+**Implementation status: prepared in branch `feature/phase-b-qwen-hardware-selection-2026-11-19`; Windows CI is the acceptance gate.** The branch is based on `main` after PR #206. It closes the remaining code-level consistency gaps in resource management, first-run reporting, and Qwen variant selection.
 
-- Persisted resource readiness now carries the catalog definition version. A Ready record from an older or legacy unversioned catalog entry is discarded and the resource returns to Pending so the setup path revalidates it.
-- Complete Setup displays an independent status/progress row for every catalog resource. Byte counts, speed, and ETA are displayed only when a measured total is available; unknown-size installer stages remain indeterminate rather than showing invented percentages.
-- WPF accessibility tests assert every catalog resource has its own named status and progress row.
+- Persisted resource readiness carries the current catalog-definition identity. For the chat model, that identity also includes the selected Qwen tag; stale or legacy Ready entries return to Pending and cannot bypass startup readiness, storage planning, or model download reservation.
+- Complete Setup renders an independent live status/progress row for every catalog resource. Real byte counts, speed, ETA, and current step are attached to the owning resource. Unknown-size pip/CUDA/install stages remain indeterminate rather than showing invented percentages.
+- Qwen3.5 selection now supports the allow-listed `0.8b`, `2b`, `4b`, and `9b` tags. It uses measured available system RAM and, when available, the largest single NVIDIA adapter's measured free VRAM. It never combines memory across separate GPUs or infers free VRAM from an adapter name. The selected tag drives storage planning, Ollama pull, Registry manifest URI, local digest pin, health check, update/rollback, and recovery journal.
+- A family-wide recovery journal supports interrupted-update recovery across tag changes, including the legacy 2B journal filename. The hardware budget is re-measured when the user starts setup; full setup is blocked when safe RAM capacity cannot be measured or does not satisfy the smallest variant's budget.
+- Regression tests cover variant allow-listing, RAM/VRAM selection boundaries, per-variant readiness identity, selected-tag Registry resolution, storage accounting, and stale Ready invalidation.
 
-This does **not** claim the entire first-run acceptance matrix is finished. Narrator/NVDA and High Contrast still need a real interactive Windows evidence run; exact pip/CUDA/temp download totals remain unknown and must continue to be labelled as such. Qwen3.5 2B remains the validated baseline; automatic selection among other variants is not enabled without target-device memory/performance benchmarks. No release signing or public-release approval is implied.
+**Acceptance boundaries remain explicit:** Narrator/NVDA spoken output and full interactive High Contrast still require a real Windows evidence run. Exact pip/CUDA/temp dependency totals remain unknown and must stay labelled unknown. CI's synthetic hardware-policy tests do not substitute for inference speed/latency benchmarks on the user's target hardware. Authenticode signing, rights/legal closure, and public-release approval are separate; no release GO is implied.
 
 ---
 
@@ -28,7 +30,7 @@ This does **not** claim the entire first-run acceptance matrix is finished. Narr
 
 Operational behavior, trust boundaries and detailed evidence are documented in [`QWEN_MODEL_LIFECYCLE_AR.md`](QWEN_MODEL_LIFECYCLE_AR.md).
 
-- The fixed HTTPS Registry client requests the official `qwen3.5:2b` manifest, rejects redirects, bounds response size, validates supported media types, hashes the exact body bytes, and compares `Docker-Content-Digest` when supplied.
+- The fixed HTTPS Registry client resolves only allow-listed Qwen3.5 tags (`0.8b`, `2b`, `4b`, `9b`), rejects redirects, bounds response size, validates supported media types, hashes the exact body bytes, and compares `Docker-Content-Digest` when supplied. The live Windows lifecycle evidence recorded under PR #205 exercised the 2B baseline.
 - Ollama Bearer challenge handling uses the local Ed25519 key and exact SSH `Signature.Blob` wire format. The token realm must be HTTPS and on the exact Registry authority; private key bytes never leave the local profile.
 - The live public Registry request returned HTTP 200 without a Bearer challenge. The actual Ollama Windows profile key was independently opened and used in a local signature probe whose signature was verified against its public key. No live signed Bearer-token acceptance is claimed because Registry did not issue a 401 challenge.
 - Manifest-list handling accepts the parent and supported child image-manifest digests. The local Registry-backed pin records model identity, provenance, manifest size/time, parent digest and accepted model digests. Startup validation can work offline against an established pin and fails closed on missing or changed content.
@@ -44,7 +46,7 @@ Operational behavior, trust boundaries and detailed evidence are documented in [
 
 **Post-merge verification:** the Security/Supply-chain workflow on merge commit `d85a06b9` also passed ([run 44474783285](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44474783285)). The post-merge Windows Build recheck was still running when this status entry was updated ([run 44474783315](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44474783315)); the four successful PR-head workflows above are the acceptance evidence for the merged source.
 
-**Remaining boundaries:** this does not claim a separate publisher signature from Qwen; it establishes TLS/Registry-manifest digest integrity. A live signed Bearer exchange remains conditional on the Registry returning a real 401 challenge. RAM/VRAM performance comparisons, model variants and automatic GPU/VRAM selection remain deferred until repeatable target-device benchmarks exist. Manual acceptance on the user's own Windows device, code signing, and legal/asset closure remain separate from CI and do not become complete merely because Phase C passed.
+**Remaining boundaries:** this does not claim a separate publisher signature from Qwen; it establishes TLS/Registry-manifest digest integrity. A live signed Bearer exchange remains conditional on the Registry returning a real 401 challenge. Automatic variant selection is now implemented against measured RAM and single-adapter free VRAM; repeatable inference speed/latency comparisons on representative target devices remain open. Manual acceptance on the user's own Windows device, code signing, and legal/asset closure remain separate from CI and do not become complete merely because Phase C passed.
 
 ## Current source milestone — 0.5.8 after Phase B closeout, accessibility acceptance and speech-language update (2026-11-18)
 

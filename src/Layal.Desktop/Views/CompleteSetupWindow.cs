@@ -32,6 +32,10 @@ public sealed class CompleteSetupWindow : Window
     private readonly LocalEmbeddedResourceSetupService _ocrSetup = new();
     private readonly LocalVoiceService _voiceService;
     private readonly CompleteSetupPreflight _preflight;
+    private QwenModelSelection _qwenSelection;
+    private readonly TextBlock _qwenModelText = new();
+    private readonly TextBlock _qwenSelectionDetailsText = new();
+    private readonly TextBlock _qwenMemoryWarningText = new();
 
     private readonly CheckBox _consent = new();
     private readonly Button _startButton = new();
@@ -70,6 +74,13 @@ public sealed class CompleteSetupWindow : Window
         _voiceService = voiceService ?? throw new ArgumentNullException(nameof(voiceService));
         _isArabic = string.Equals(AppRuntime.Settings.Language, "ar", StringComparison.OrdinalIgnoreCase);
         _preflight = CompleteSetupPreflightService.Inspect(LocalVoiceService.DataRoot);
+        _qwenSelection = QwenModelSelectionPolicy.Select(new QwenHardwareProfile(
+            _preflight.TotalPhysicalMemoryBytes,
+            _preflight.AvailablePhysicalMemoryBytes,
+            Environment.ProcessorCount,
+            _preflight.TotalDedicatedVideoMemoryBytes,
+            _preflight.AvailableDedicatedVideoMemoryBytes,
+            _preflight.GpuDescription));
 
         Title = T("إعداد ليال الكامل", "Layal complete setup");
         Width = 860;
@@ -177,10 +188,21 @@ public sealed class CompleteSetupWindow : Window
         resources.Children.Add(CreateText(
             T("الموارد التي سيجهزها المسار الكامل", "Resources included in full setup"),
             16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)));
-        resources.Children.Add(CreateText(
-            T("• المحادثة المحلية: Ollama + Qwen3.5 2B، مع اختبار استدلال محلي",
-              "• Local chat: Ollama + Qwen3.5 2B, followed by a local inference test"),
-            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
+        _qwenModelText.FontSize = 14;
+        _qwenModelText.Margin = new Thickness(0, 3, 0, 3);
+        resources.Children.Add(_qwenModelText);
+        _qwenSelectionDetailsText.FontSize = 12;
+        _qwenSelectionDetailsText.Margin = new Thickness(0, 6, 0, 4);
+        AutomationProperties.SetName(
+            _qwenSelectionDetailsText,
+            T("سبب اختيار حجم نموذج Qwen", "Reason for selected Qwen model size"));
+        resources.Children.Add(_qwenSelectionDetailsText);
+        _qwenMemoryWarningText.FontSize = 12;
+        _qwenMemoryWarningText.FontWeight = FontWeights.SemiBold;
+        _qwenMemoryWarningText.Margin = new Thickness(0, 4, 0, 0);
+        AutomationProperties.SetLiveSetting(_qwenMemoryWarningText, AutomationLiveSetting.Polite);
+        resources.Children.Add(_qwenMemoryWarningText);
+        UpdateQwenSelectionDisplay();
         resources.Children.Add(CreateText(
             T("• الصوت المحلي: Python وPyTorch وOmniVoice وVoiceTut وأوزانه، بالإضافة إلى Whisper",
               "• Local speech: Python, PyTorch, OmniVoice, VoiceTut and its model weights, plus Whisper"),
@@ -252,8 +274,8 @@ public sealed class CompleteSetupWindow : Window
             16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)));
         referenceSizes.Children.Add(CreateText(
             T(
-                "Qwen3.5 2B: نحو 2.7–3.1 GB. أوزان VoiceTut: نحو 2.47 GB. PyTorch CPU: نحو 619.4 MB (قد تختلف حزم CUDA). Whisper: نحو 148 MB للنموذج، وقرابة 8 MB للمحرك. Python الاحتياطي: نحو 29.9 MB. يتطلب Ollama نحو 4 GB على الأقل لملفات البرنامج. أحجام اعتماديات pip المؤقتة وبعض الملفات غير ثابتة؛ لذلك هذه قيم مرجعية وليست إجمالي تنزيل أو مساحة نهائيًا مضمونًا.",
-                "Qwen3.5 2B: approximately 2.7–3.1 GB. VoiceTut weights: approximately 2.47 GB. PyTorch CPU: approximately 619.4 MB (CUDA packages differ). Whisper: approximately 148 MB for the model and about 8 MB for the runtime. Python fallback: about 29.9 MB. Ollama requires at least 4 GB for program files. Pip dependencies and temporary files vary, so these are references, not a guaranteed aggregate download or final-storage estimate."),
+                "نموذج Qwen المختار (" + _qwenSelection.Variant.ModelId + "): " + _qwenSelection.Variant.SizeDescription + ". أوزان VoiceTut: نحو 2.47 GB. PyTorch CPU: نحو 619.4 MB (قد تختلف حزم CUDA). Whisper: نحو 148 MB للنموذج، وقرابة 8 MB للمحرك. Python الاحتياطي: نحو 29.9 MB. يتطلب Ollama نحو 4 GB على الأقل لملفات البرنامج. أحجام اعتماديات pip المؤقتة وبعض الملفات غير ثابتة؛ لذلك هذه قيم مرجعية وليست إجمالي تنزيل أو مساحة نهائيًا مضمونًا.",
+                "Selected Qwen model (" + _qwenSelection.Variant.ModelId + "): " + _qwenSelection.Variant.SizeDescription + ". VoiceTut weights: approximately 2.47 GB. PyTorch CPU: approximately 619.4 MB (CUDA packages differ). Whisper: approximately 148 MB for the model and about 8 MB for the runtime. Python fallback: about 29.9 MB. Ollama requires at least 4 GB for program files. Pip dependencies and temporary files vary, so these are references, not a guaranteed aggregate download or final-storage estimate."),
             13, FontWeights.Normal, new Thickness(0)));
         CompleteSetupResourcePlan resourcePlan;
         var resourcePlanWarning = string.Empty;
@@ -636,7 +658,7 @@ public sealed class CompleteSetupWindow : Window
             LocalResourceIds.WhisperModel => "نموذج Whisper",
             LocalResourceIds.OllamaRuntime => "محرك Ollama",
             LocalResourceIds.OllamaRuntimeInstaller => "مثبّت Ollama الاحتياطي",
-            LocalResourceIds.ChatModel => "نموذج المحادثة Qwen3.5 2B",
+            LocalResourceIds.ChatModel => "نموذج المحادثة " + LocalResourceCatalog.CurrentChatModelId,
             LocalResourceIds.OcrArabic => "بيانات OCR العربية",
             LocalResourceIds.OcrEnglish => "بيانات OCR الإنجليزية",
             _ => resource.DisplayName
@@ -666,7 +688,9 @@ public sealed class CompleteSetupWindow : Window
             var required = LocalResourceCatalog.All.Where(item => item.Required).ToArray();
             var ready = required.Count(item => states.TryGetValue(item.Id, out var state) &&
                                                 state.State == LocalResourceLifecycle.Ready &&
-                                                string.Equals(state.DefinitionVersion, item.Version, StringComparison.Ordinal));
+                                                string.Equals(state.DefinitionVersion,
+                                                    LocalResourceCatalog.GetCurrentDefinitionVersion(item),
+                                                    StringComparison.Ordinal));
             var active = required.Count(item => states.TryGetValue(item.Id, out var state) &&
                                                  state.State is LocalResourceLifecycle.Downloading or
                                                      LocalResourceLifecycle.Verifying or LocalResourceLifecycle.Installed);
@@ -778,7 +802,7 @@ public sealed class CompleteSetupWindow : Window
             progressBar.Value = 100;
             row.DetailText.Text = T(
                 "تم تأكيد الإصدار: ", "Verified definition version: ") +
-                (state.DefinitionVersion ?? resource.Version);
+                (state.DefinitionVersion ?? LocalResourceCatalog.GetCurrentDefinitionVersion(resource));
         }
         else if (state.State == LocalResourceLifecycle.Failed)
         {
@@ -793,11 +817,52 @@ public sealed class CompleteSetupWindow : Window
         }
     }
 
+    private void UpdateQwenSelectionDisplay()
+    {
+        _qwenModelText.Text = T(
+            "• المحادثة المحلية: Ollama + " + _qwenSelection.Variant.ModelId +
+                " — الحجم المرجعي " + _qwenSelection.Variant.SizeDescription,
+            "• Local chat: Ollama + " + _qwenSelection.Variant.ModelId +
+                " — reference download " + _qwenSelection.Variant.SizeDescription);
+        _qwenSelectionDetailsText.Text = _qwenSelection.Rationale;
+        _qwenMemoryWarningText.Text = _qwenSelection.MemoryBudgetSatisfied
+            ? string.Empty
+            : T(
+                "تعذّر إثبات ميزانية الذاكرة اللازمة حتى لأصغر نموذج. أغلق التطبيقات التي تستهلك الذاكرة وأعد المحاولة؛ لن يبدأ التنزيل الكامل بالتخمين.",
+                "The available memory budget could not be verified even for the smallest model. Close memory-heavy applications and retry; full setup will not start on an estimate.");
+        _qwenMemoryWarningText.Visibility = _qwenSelection.MemoryBudgetSatisfied
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        UpdateButtons();
+    }
+
     private async Task StartSetupAsync()
     {
         if (_isRunning || _consent.IsChecked != true || !_preflight.IsSupported)
             return;
 
+        // Re-read free RAM/VRAM at the moment the user starts setup; the wizard may
+        // have remained open while other applications changed the available budget.
+        var currentPreflight = CompleteSetupPreflightService.Inspect(LocalVoiceService.DataRoot);
+        _qwenSelection = QwenModelSelectionPolicy.Select(new QwenHardwareProfile(
+            currentPreflight.TotalPhysicalMemoryBytes,
+            currentPreflight.AvailablePhysicalMemoryBytes,
+            Environment.ProcessorCount,
+            currentPreflight.TotalDedicatedVideoMemoryBytes,
+            currentPreflight.AvailableDedicatedVideoMemoryBytes,
+            currentPreflight.GpuDescription));
+        UpdateQwenSelectionDisplay();
+        if (!_qwenSelection.MemoryBudgetSatisfied)
+        {
+            _statusText.Text = T(
+                "لا يمكن بدء التنزيل قبل توفير ذاكرة كافية للنموذج المحلي. أغلق التطبيقات الأخرى وأعد فتح المعالج لإعادة قياس الذاكرة.",
+                "Full setup cannot start until enough memory is available for the local model. Close other applications and reopen the wizard to remeasure memory.");
+            AppendLog(_statusText.Text);
+            return;
+        }
+
+        AppRuntime.Settings.LocalChatModelId = _qwenSelection.Variant.ModelId;
+        AppRuntime.SettingsStore.Save(AppRuntime.Settings);
         _hasAttemptedSetup = true;
         _setupCancellation = new CancellationTokenSource();
         var token = _setupCancellation.Token;
@@ -840,7 +905,7 @@ public sealed class CompleteSetupWindow : Window
                     LocalResourceIds.OllamaRuntimeInstaller,
                     StringComparison.Ordinal)
                     ? T("مثبّت Ollama", "Ollama installer")
-                    : T("نموذج المحادثة Qwen3.5 2B", "Qwen3.5 2B chat model");
+                    : GetLocalizedResourceName(LocalResourceCatalog.GetRequired(LocalResourceIds.ChatModel));
                 _statusText.Text = string.Format(
                     System.Globalization.CultureInfo.CurrentCulture,
                     T("تنزيل {0}: {1} من {2} — {3} — المتبقي {4}",
@@ -906,11 +971,14 @@ public sealed class CompleteSetupWindow : Window
             var chatModelAlreadyReady = beforeSetup.Any(item =>
                 string.Equals(item.ResourceId, LocalResourceIds.ChatModel, StringComparison.Ordinal) &&
                 item.State == LocalResourceLifecycle.Ready &&
-                string.Equals(item.DefinitionVersion, chatModelDefinition.Version, StringComparison.Ordinal));
+                string.Equals(item.DefinitionVersion,
+                    LocalResourceCatalog.GetCurrentDefinitionVersion(chatModelDefinition),
+                    StringComparison.Ordinal));
             if (!chatModelAlreadyReady && !OllamaLocalModelSetupService.HasDefaultModelManifest())
                 reservations.Add(new LocalResourceStorageReservation(
                     OllamaLocalModelSetupService.ModelsDirectory,
-                    3_100_000_000 + 512L * 1024 * 1024));
+                    checked(QwenModelVariantCatalog.GetRequired(_chatSetup.SelectedModelId).MaximumDownloadBytes +
+                            512L * 1024 * 1024)));
 
             if (!OllamaLocalModelSetupService.IsRuntimeInstalled)
             {
@@ -935,7 +1003,7 @@ public sealed class CompleteSetupWindow : Window
             await _chatSetup.InstallAndPrepareAsync(chatProgress, token, modelProgress).ConfigureAwait(true);
             AppRuntime.Settings.UseLocalAi = true;
             AppRuntime.Settings.LocalChatModelBaseUrl = LocalChatModelService.DefaultBaseUrl;
-            AppRuntime.Settings.LocalChatModelId = OllamaLocalModelSetupService.DefaultModelId;
+            AppRuntime.Settings.LocalChatModelId = _chatSetup.SelectedModelId;
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
             AppendLog(T("نجح اختبار المحادثة المحلية وحُفظت إعداداتها.", "Local chat smoke test passed and its settings were saved."));
 
@@ -1043,7 +1111,8 @@ public sealed class CompleteSetupWindow : Window
                 ? T("أعد المحاولة", "Retry setup")
                 : T("ابدأ الإعداد الكامل", "Start full setup");
         _startButton.IsEnabled = !_isRunning && !_restartRequested && !_connectivityCheckInProgress &&
-                                 _preflight.IsSupported && _consent.IsChecked == true;
+                                 _preflight.IsSupported && _qwenSelection.MemoryBudgetSatisfied &&
+                                 _consent.IsChecked == true;
         _chooseResourceDirectoryButton.IsEnabled = !_isRunning && !_restartRequested;
         _limitedModeButton.IsEnabled = !_isRunning && !_restartRequested;
         _cancelButton.IsEnabled = !_restartRequested;

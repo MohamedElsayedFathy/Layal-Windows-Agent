@@ -18,7 +18,12 @@ public sealed record CompleteSetupPreflight(
     string GpuDescription,
     string StorageDescription,
     long? AvailableBytes,
-    string? Warning);
+    string? Warning,
+    long? TotalPhysicalMemoryBytes = null,
+    long? AvailablePhysicalMemoryBytes = null,
+    long? TotalDedicatedVideoMemoryBytes = null,
+    long? AvailableDedicatedVideoMemoryBytes = null,
+    string GpuMemorySource = "unknown");
 
 public sealed record CompleteSetupConnectivityEndpoint(
     string Name,
@@ -146,11 +151,16 @@ public static class CompleteSetupPreflightService
             isSupportedWindows && isX64,
             platform,
             cpu,
-            memory,
-            gpu,
+            memory.Description,
+            gpu.Description,
             storage,
             availableBytes,
-            warning);
+            warning,
+            memory.TotalBytes,
+            memory.AvailableBytes,
+            gpu.TotalDedicatedBytes,
+            gpu.AvailableDedicatedBytes,
+            gpu.MemorySource);
     }
 
     public static async Task<CompleteSetupConnectivityReport> InspectConnectivityAsync(
@@ -245,10 +255,22 @@ public static class CompleteSetupPreflightService
                + " " + units[index];
     }
 
-    private static string InspectPhysicalMemory()
+    private sealed record PhysicalMemoryDetails(
+        string Description,
+        long? TotalBytes,
+        long? AvailableBytes);
+
+    private sealed record VideoAdapterDetails(
+        string Description,
+        long? TotalDedicatedBytes,
+        long? AvailableDedicatedBytes,
+        string MemorySource);
+
+    private static PhysicalMemoryDetails InspectPhysicalMemory()
     {
         if (!OperatingSystem.IsWindows())
-            return "Physical RAM details are available only on Windows.";
+            return new PhysicalMemoryDetails(
+                "Physical RAM details are available only on Windows.", null, null);
 
         try
         {
@@ -257,70 +279,169 @@ public static class CompleteSetupPreflightService
                 Length = (uint)Marshal.SizeOf<MemoryStatusEx>()
             };
             if (!GlobalMemoryStatusEx(ref status))
-                return "Physical RAM details could not be read.";
+                return new PhysicalMemoryDetails(
+                    "Physical RAM details could not be read.", null, null);
 
-            return FormatBytes(checked((long)status.TotalPhysical)) + " total | " +
-                   FormatBytes(checked((long)status.AvailablePhysical)) + " currently available";
+            var total = checked((long)status.TotalPhysical);
+            var available = checked((long)status.AvailablePhysical);
+            return new PhysicalMemoryDetails(
+                FormatBytes(total) + " total | " + FormatBytes(available) + " currently available",
+                total,
+                available);
         }
         catch (Exception exception) when (
             exception is DllNotFoundException or EntryPointNotFoundException or OverflowException)
         {
-            return "Physical RAM details unavailable: " + exception.GetType().Name;
+            return new PhysicalMemoryDetails(
+                "Physical RAM details unavailable: " + exception.GetType().Name, null, null);
         }
     }
 
-    private static string InspectVideoControllers()
+    private static VideoAdapterDetails InspectVideoControllers()
     {
         if (!OperatingSystem.IsWindows())
-            return "Video adapter details are available only on Windows.";
+            return new VideoAdapterDetails(
+                "Video adapter details are available only on Windows.", null, null, "unavailable");
 
+        var description = "Video adapter name and driver version could not be queried.";
         var systemDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System);
         var powershell = Path.Combine(
             systemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (!File.Exists(powershell))
-            return "Video adapter name and driver version could not be queried.";
+        if (File.Exists(powershell))
+        {
+            const string script =
+                "$ErrorActionPreference='Stop'; " +
+                "Get-CimInstance -ClassName Win32_VideoController | " +
+                "ForEach-Object { " +
+                "$vram='unknown'; if ($null -ne $_.AdapterRAM) { $vram=[string]$_.AdapterRAM }; " +
+                "Write-Output ($_.Name + ' | driver ' + $_.DriverVersion + ' | adapter RAM bytes ' + $vram) }";
 
-        const string script =
-            "$ErrorActionPreference='Stop'; " +
-            "Get-CimInstance -ClassName Win32_VideoController | " +
-            "ForEach-Object { " +
-            "$vram='unknown'; if ($null -ne $_.AdapterRAM) { $vram=[string]$_.AdapterRAM }; " +
-            "Write-Output ($_.Name + ' | driver ' + $_.DriverVersion + ' | adapter RAM bytes ' + $vram) }";
+            var start = new ProcessStartInfo(powershell)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true
+            };
+            start.ArgumentList.Add("-NoLogo");
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-NonInteractive");
+            start.ArgumentList.Add("-Command");
+            start.ArgumentList.Add(script);
 
-        var start = new ProcessStartInfo(powershell)
+            using var process = new Process { StartInfo = start };
+            try
+            {
+                if (process.Start() && process.WaitForExit(4000))
+                {
+                    var output = process.StandardOutput.ReadToEnd().Trim();
+                    if (!string.IsNullOrWhiteSpace(output))
+                        description = output.Length <= 700 ? output : output[..700] + "…";
+                }
+                else if (!process.HasExited)
+                {
+                    try { process.Kill(entireProcessTree: true); } catch { }
+                    description = "Video adapter query timed out.";
+                }
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or System.ComponentModel.Win32Exception or
+                    IOException or UnauthorizedAccessException)
+            {
+                description = "Video adapter details unavailable: " + exception.GetType().Name;
+            }
+        }
+
+        var nvidiaMemory = InspectNvidiaGpuMemory();
+        if (nvidiaMemory is null)
+            return new VideoAdapterDetails(
+                description + Environment.NewLine +
+                "Dedicated GPU free memory unavailable; model selection will use system RAM only.",
+                null,
+                null,
+                "unavailable");
+
+        return new VideoAdapterDetails(
+            description + Environment.NewLine +
+            "NVIDIA VRAM (nvidia-smi): " + FormatBytes(nvidiaMemory.Value.TotalBytes) +
+            " total | " + FormatBytes(nvidiaMemory.Value.FreeBytes) + " free",
+            nvidiaMemory.Value.TotalBytes,
+            nvidiaMemory.Value.FreeBytes,
+            "nvidia-smi");
+    }
+
+    private static (long TotalBytes, long FreeBytes)? InspectNvidiaGpuMemory()
+    {
+        var executable = FindNvidiaSmi();
+        if (executable is null) return null;
+
+        var start = new ProcessStartInfo(executable)
         {
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardOutput = true
+            RedirectStandardOutput = true,
+            RedirectStandardError = false
         };
-        start.ArgumentList.Add("-NoLogo");
-        start.ArgumentList.Add("-NoProfile");
-        start.ArgumentList.Add("-NonInteractive");
-        start.ArgumentList.Add("-Command");
-        start.ArgumentList.Add(script);
+        start.ArgumentList.Add("--query-gpu=memory.total,memory.free");
+        start.ArgumentList.Add("--format=csv,noheader,nounits");
 
         using var process = new Process { StartInfo = start };
         try
         {
-            if (!process.Start())
-                return "Video adapter name and driver version could not be queried.";
-
-            if (!process.WaitForExit(4000))
+            if (!process.Start()) return null;
+            if (!process.WaitForExit(3000))
             {
                 try { process.Kill(entireProcessTree: true); } catch { }
-                return "Video adapter query timed out; GPU acceleration will be selected by runtime checks.";
+                return null;
             }
 
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            return string.IsNullOrWhiteSpace(output)
-                ? "No video adapter details were returned; GPU acceleration will be selected by runtime checks."
-                : output.Length <= 700 ? output : output[..700] + "…";
+            long selectedTotalMiB = 0;
+            long selectedFreeMiB = 0;
+            var rows = process.StandardOutput.ReadToEnd().Split(
+                new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var found = 0;
+            foreach (var row in rows)
+            {
+                var values = row.Split(',');
+                if (values.Length != 2 ||
+                    !long.TryParse(values[0].Trim(), System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out var deviceTotal) ||
+                    !long.TryParse(values[1].Trim(), System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out var deviceFree) ||
+                    deviceTotal <= 0 || deviceFree < 0 || deviceFree > deviceTotal)
+                    continue;
+
+                // Ollama may use a single adapter for this model. Never add VRAM
+                // from distinct devices: doing so can claim a model fits when no
+                // individual device has enough free memory.
+                if (deviceFree > selectedFreeMiB)
+                {
+                    selectedTotalMiB = deviceTotal;
+                    selectedFreeMiB = deviceFree;
+                }
+                found++;
+            }
+
+            if (found == 0 || selectedTotalMiB <= 0) return null;
+            return (checked(selectedTotalMiB * 1024 * 1024), checked(selectedFreeMiB * 1024 * 1024));
         }
         catch (Exception exception) when (
             exception is InvalidOperationException or System.ComponentModel.Win32Exception or
-                IOException or UnauthorizedAccessException)
+                IOException or UnauthorizedAccessException or OverflowException)
         {
-            return "Video adapter details unavailable: " + exception.GetType().Name;
+            return null;
         }
+    }
+
+    private static string? FindNvidiaSmi()
+    {
+        var candidates = new List<string>();
+        var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        candidates.AddRange(path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(directory => Path.Combine(directory.Trim().Trim('"'), "nvidia-smi.exe")));
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if (!string.IsNullOrWhiteSpace(programFiles))
+            candidates.Add(Path.Combine(programFiles, "NVIDIA Corporation", "NVSMI", "nvidia-smi.exe"));
+
+        return candidates.FirstOrDefault(File.Exists);
     }
 }
