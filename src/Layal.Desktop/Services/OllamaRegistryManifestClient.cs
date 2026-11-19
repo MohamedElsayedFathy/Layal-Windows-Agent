@@ -18,8 +18,17 @@ namespace Layal.Services;
 public sealed class OllamaRegistryManifestClient
 {
     public const string RegistryHost = "registry.ollama.ai";
-    public static readonly Uri DefaultManifestUri =
-        new("https://registry.ollama.ai/v2/library/qwen3.5/manifests/2b");
+    public static readonly Uri DefaultManifestUri = BuildManifestUri(QwenModelVariantCatalog.DefaultModelId);
+
+    public static Uri BuildManifestUri(string modelId)
+    {
+        if (!QwenModelVariantCatalog.TryGet(modelId, out var variant) || variant is null)
+            throw new InvalidOperationException("Only an allow-listed Qwen3.5 model variant can be resolved from the Registry.");
+
+        var separator = variant.ModelId.IndexOf(':');
+        var tag = variant.ModelId[(separator + 1)..];
+        return new Uri("https://" + RegistryHost + "/v2/library/qwen3.5/manifests/" + tag);
+    }
 
     private const int MaximumManifestBytes = 1024 * 1024;
     private const string DockerManifestMediaType = "application/vnd.docker.distribution.manifest.v2+json";
@@ -55,15 +64,23 @@ public sealed class OllamaRegistryManifestClient
                     _httpClient, registryUri, challenge, cancellationToken));
     }
 
-    public async Task<OllamaRegistryManifestSnapshot> FetchDefaultModelManifestAsync(
+    public Task<OllamaRegistryManifestSnapshot> FetchDefaultModelManifestAsync(
+        CancellationToken cancellationToken = default) =>
+        FetchModelManifestAsync(QwenModelVariantCatalog.DefaultModelId, cancellationToken);
+
+    public async Task<OllamaRegistryManifestSnapshot> FetchModelManifestAsync(
+        string modelId,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!QwenModelVariantCatalog.TryGet(modelId, out var variant) || variant is null)
+            throw new InvalidOperationException("Only an allow-listed Qwen3.5 model variant can be resolved from the Registry.");
+        var manifestUri = BuildManifestUri(variant.ModelId);
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_requestTimeout);
 
-        using var response = await SendManifestRequestAsync(timeout.Token).ConfigureAwait(false);
+        using var response = await SendManifestRequestAsync(manifestUri, timeout.Token).ConfigureAwait(false);
 
         // Redirects are intentionally not followed: the trust boundary is the exact
         // HTTPS Ollama Registry host and a tag must not silently move to another host.
@@ -88,8 +105,8 @@ public sealed class OllamaRegistryManifestClient
         }
 
         return new OllamaRegistryManifestSnapshot(
-            "qwen3.5:2b",
-            DefaultManifestUri.AbsoluteUri,
+            variant.ModelId,
+            manifestUri.AbsoluteUri,
             computedDigest,
             manifestDetails.ModelDigests,
             mediaType,
@@ -98,9 +115,10 @@ public sealed class OllamaRegistryManifestClient
     }
 
     private async Task<HttpResponseMessage> SendManifestRequestAsync(
+        Uri manifestUri,
         CancellationToken cancellationToken)
     {
-        using var request = CreateManifestRequest();
+        using var request = CreateManifestRequest(manifestUri);
         var response = await _httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -118,13 +136,13 @@ public sealed class OllamaRegistryManifestClient
             throw new InvalidDataException("Ollama Registry returned 401 without a Bearer challenge.");
 
         var bearerToken = await _getBearerTokenAsync(
-            DefaultManifestUri,
+            manifestUri,
             challenge,
             cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(bearerToken))
             throw new InvalidDataException("Ollama Registry authentication returned an empty token.");
 
-        using var authenticatedRequest = CreateManifestRequest();
+        using var authenticatedRequest = CreateManifestRequest(manifestUri);
         authenticatedRequest.Headers.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
         return await _httpClient.SendAsync(
@@ -133,9 +151,9 @@ public sealed class OllamaRegistryManifestClient
             cancellationToken).ConfigureAwait(false);
     }
 
-    private static HttpRequestMessage CreateManifestRequest()
+    private static HttpRequestMessage CreateManifestRequest(Uri manifestUri)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, DefaultManifestUri);
+        var request = new HttpRequestMessage(HttpMethod.Get, manifestUri);
         request.Headers.Accept.ParseAdd(OllamaManifestListMediaType);
         request.Headers.Accept.ParseAdd(DockerManifestMediaType);
         request.Headers.Accept.ParseAdd("application/vnd.oci.image.index.v1+json");
