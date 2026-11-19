@@ -43,7 +43,7 @@ public sealed class CompleteSetupWindow : Window
     private readonly TextBox _diagnostics = new();
     private readonly StackPanel _resourceProgressPanel = new();
     private readonly Dictionary<string, ResourceProgressRow> _resourceProgressRows = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, LocalResourceDownloadProgress> _liveResourceDownloads = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LocalSpeechProgress> _liveResourceProgress = new(StringComparer.Ordinal);
     private readonly DispatcherTimer _resourceProgressTimer = new() { Interval = TimeSpan.FromMilliseconds(650) };
     private TextBlock _resourceProgressSummary = new();
     private bool _isRefreshingResourceProgress;
@@ -657,10 +657,10 @@ public sealed class CompleteSetupWindow : Window
                     !_resourceProgressRows.ContainsKey(resource.Id))
                     continue;
 
-                _liveResourceDownloads.TryGetValue(resource.Id, out var liveProgress);
+                _liveResourceProgress.TryGetValue(resource.Id, out var liveProgress);
                 UpdateResourceProgressRow(resource, state, liveProgress);
                 if (state.State != LocalResourceLifecycle.Downloading)
-                    _liveResourceDownloads.Remove(resource.Id);
+                    _liveResourceProgress.Remove(resource.Id);
             }
 
             var required = LocalResourceCatalog.All.Where(item => item.Required).ToArray();
@@ -695,7 +695,7 @@ public sealed class CompleteSetupWindow : Window
     private void UpdateResourceProgressRow(
         LocalResourceDefinition resource,
         LocalResourceStateEntry state,
-        LocalResourceDownloadProgress? liveProgress)
+        LocalSpeechProgress? liveProgress)
     {
         var row = _resourceProgressRows[resource.Id];
         var progressBar = row.ProgressBar;
@@ -721,7 +721,7 @@ public sealed class CompleteSetupWindow : Window
         if (state.State == LocalResourceLifecycle.Downloading)
         {
             var downloaded = liveProgress?.DownloadedBytes ?? state.BytesDownloaded;
-            long? total = liveProgress is { TotalBytes: > 0 }
+            long? total = liveProgress?.TotalBytes is > 0
                 ? liveProgress.TotalBytes
                 : state.TotalBytes;
             var speed = liveProgress?.BytesPerSecond ?? state.BytesPerSecond ?? 0;
@@ -806,7 +806,14 @@ public sealed class CompleteSetupWindow : Window
         });
         var modelProgress = new Progress<LocalResourceDownloadProgress>(progress =>
         {
-            _liveResourceDownloads[progress.ResourceId] = progress;
+            _liveResourceProgress[progress.ResourceId] = new LocalSpeechProgress(
+                T("تنزيل المورد المحلي", "Downloading local resource"),
+                progress.TotalBytes > 0 ? progress.DownloadedBytes * 100d / progress.TotalBytes : null,
+                progress.DownloadedBytes,
+                progress.TotalBytes,
+                progress.BytesPerSecond,
+                progress.RemainingSeconds,
+                progress.ResourceId);
             if (progress.TotalBytes > 0)
             {
                 _progressBar.IsIndeterminate = false;
@@ -837,6 +844,8 @@ public sealed class CompleteSetupWindow : Window
         });
         var speechProgress = new Progress<LocalSpeechProgress>(progress =>
         {
+            if (!string.IsNullOrWhiteSpace(progress.ResourceId))
+                _liveResourceProgress[progress.ResourceId] = progress;
             _statusText.Text = progress.Message;
             if (progress.DownloadedBytes.HasValue &&
                 progress.TotalBytes is > 0)
