@@ -152,6 +152,18 @@ class WhisperBenchmarkTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "consent.granted=true"):
                 MODULE.validate_manifest_and_audio(manifest)
 
+
+    def test_recorded_case_rejects_path_like_case_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "speech-reference-set.json"
+            self.write_audio(root / "audio" / "eg-recorded-001.wav")
+            payload = self.recorded_manifest()
+            payload["cases"][0]["id"] = "../escape"
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "case IDs must be non-identifying tokens"):
+                MODULE.validate_manifest_and_audio(manifest)
+
     def test_successful_run_writes_separate_report_and_scoring_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
