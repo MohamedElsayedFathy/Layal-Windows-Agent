@@ -28,7 +28,7 @@ public static class QwenModelVariantCatalog
             Create("qwen3.5:0.8b", "1.2–1.3 GB", 1_300_000_000, minimumLogicalProcessors: 2),
             Create("qwen3.5:2b", "2.7–3.1 GB", 3_100_000_000, minimumLogicalProcessors: 4),
             Create("qwen3.5:4b", "3.3–4.0 GB", 4_000_000_000, minimumLogicalProcessors: 6),
-            Create("qwen3.5:9b", "6.6–7.6 GB", 7_600_000_000, minimumLogicalProcessors: 8, gpuOnly: true)
+            Create("qwen3.5:9b", "6.6–7.6 GB", 7_600_000_000, minimumLogicalProcessors: 8)
         });
 
     private static QwenModelVariant Create(
@@ -38,14 +38,14 @@ public static class QwenModelVariantCatalog
         int minimumLogicalProcessors,
         bool gpuOnly = false)
     {
-        const long cpuHeadroomBytes = 2L * 1024 * 1024 * 1024;
-        const long gpuHeadroomBytes = 1536L * 1024 * 1024;
+        const long cpuRuntimeReserveBytes = 2L * 1024 * 1024 * 1024;
+        const long gpuRuntimeReserveBytes = 1024L * 1024 * 1024;
         return new QwenModelVariant(
             modelId,
             sizeDescription,
             maximumDownloadBytes,
-            checked(maximumDownloadBytes + gpuHeadroomBytes),
-            checked(maximumDownloadBytes + cpuHeadroomBytes),
+            checked((long)Math.Ceiling(maximumDownloadBytes * 1.5d) + gpuRuntimeReserveBytes),
+            checked((maximumDownloadBytes * 2) + cpuRuntimeReserveBytes),
             minimumLogicalProcessors,
             gpuOnly);
     }
@@ -115,7 +115,7 @@ public static class QwenModelSelectionPolicy
                     true,
                     $"Measured free NVIDIA VRAM: {Format(profile.AvailableDedicatedGpuMemoryBytes.Value)}; " +
                     $"measured available system RAM: {Format(ramAvailable)}. " +
-                    $"The selection reserves at least 1.5 GiB beyond the published model download ceiling.");
+                    $"The selection reserves 50% above the published model download ceiling plus 1 GiB of runtime memory.");
             }
         }
 
@@ -131,7 +131,6 @@ public static class QwenModelSelectionPolicy
         if (availableRam is long measuredRam && measuredRam > 0)
         {
             var cpuCandidate = QwenModelVariantCatalog.All
-                .Where(item => !item.GpuOnly)
                 .Where(item => processors >= item.MinimumLogicalProcessors)
                 .Where(item => measuredRam >= item.MinimumCpuWorkingSetBytes)
                 .OrderByDescending(item => item.MaximumDownloadBytes)
@@ -145,7 +144,7 @@ public static class QwenModelSelectionPolicy
                     true,
                     false,
                     $"{source}: {Format(measuredRam)}; logical processors: {processors}. " +
-                    $"The selection reserves at least 2 GiB beyond the published model download ceiling. " +
+                    $"The selection budgets twice the published model download ceiling plus 2 GiB of runtime headroom. " +
                     "GPU capacity was not used because a reliable free-VRAM reading was unavailable or insufficient.");
             }
 
