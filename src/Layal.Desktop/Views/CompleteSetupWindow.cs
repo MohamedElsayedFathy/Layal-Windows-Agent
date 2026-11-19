@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Forms = System.Windows.Forms;
 using Layal.Services;
 
@@ -20,6 +21,11 @@ namespace Layal.Views;
 /// </summary>
 public sealed class CompleteSetupWindow : Window
 {
+    private sealed record ResourceProgressRow(
+        TextBlock StateText,
+        ProgressBar ProgressBar,
+        TextBlock DetailText);
+
     private readonly bool _isArabic;
     private readonly LocalResourceManager _resourceManager = new();
     private readonly OllamaLocalModelSetupService _chatSetup = new();
@@ -35,6 +41,12 @@ public sealed class CompleteSetupWindow : Window
     private readonly TextBlock _connectivityText = new();
     private readonly ProgressBar _progressBar = new();
     private readonly TextBox _diagnostics = new();
+    private readonly StackPanel _resourceProgressPanel = new();
+    private readonly Dictionary<string, ResourceProgressRow> _resourceProgressRows = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LocalResourceDownloadProgress> _liveResourceDownloads = new(StringComparer.Ordinal);
+    private readonly DispatcherTimer _resourceProgressTimer = new() { Interval = TimeSpan.FromMilliseconds(650) };
+    private TextBlock _resourceProgressSummary = new();
+    private bool _isRefreshingResourceProgress;
     private readonly TextBlock _resourceDirectoryText = new();
     private readonly Button _chooseResourceDirectoryButton = new();
     private readonly List<TextBlock> _themeTextBlocks = new();
@@ -71,7 +83,13 @@ public sealed class CompleteSetupWindow : Window
         FlowDirection = _isArabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Content = BuildContent();
         SystemParameters.StaticPropertyChanged += OnSystemParametersStaticPropertyChanged;
-        Closed += (_, _) => SystemParameters.StaticPropertyChanged -= OnSystemParametersStaticPropertyChanged;
+        Closed += (_, _) =>
+        {
+            _resourceProgressTimer.Stop();
+            SystemParameters.StaticPropertyChanged -= OnSystemParametersStaticPropertyChanged;
+        };
+        _resourceProgressTimer.Tick += async (_, _) => await RefreshResourceProgressAsync();
+        Loaded += async (_, _) => await RefreshResourceProgressAsync();
         Closing += OnClosing;
         ApplySystemTheme();
         UpdateButtons();
@@ -172,6 +190,61 @@ public sealed class CompleteSetupWindow : Window
               "• OCR: verify the bundled Arabic and English language data"),
             14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
         panel.Children.Add(CreateCard(resources));
+
+        var resourceProgressCard = new StackPanel();
+        resourceProgressCard.Children.Add(CreateText(
+            T("حالة كل مورد على حدة", "Individual resource status"),
+            16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)));
+        _resourceProgressSummary = CreateText(
+            T("جارٍ قراءة حالة الموارد المحفوظة…", "Reading saved resource states…"),
+            12, FontWeights.Normal, new Thickness(0, 0, 0, 8));
+        AutomationProperties.SetName(
+            _resourceProgressSummary,
+            T("ملخص جاهزية الموارد", "Resource readiness summary"));
+        AutomationProperties.SetLiveSetting(_resourceProgressSummary, AutomationLiveSetting.Polite);
+        resourceProgressCard.Children.Add(_resourceProgressSummary);
+        foreach (var resource in LocalResourceCatalog.All
+                     .OrderBy(item => item.Required ? 0 : 1)
+                     .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture))
+        {
+            var resourceName = GetLocalizedResourceName(resource);
+            var row = new StackPanel { Margin = new Thickness(0, 5, 0, 7) };
+            AutomationProperties.SetName(
+                row,
+                T("حالة المورد: ", "Resource status: ") + resourceName);
+            var nameText = CreateText(resourceName, 13, FontWeights.SemiBold, new Thickness(0, 0, 0, 2));
+            AutomationProperties.SetName(nameText, resourceName);
+            var stateText = CreateText(
+                T("بانتظار التحقق من الحالة", "Waiting for resource state"),
+                12, FontWeights.Normal, new Thickness(0, 0, 0, 2));
+            AutomationProperties.SetName(
+                stateText,
+                T("حالة ", "Status of ") + resourceName);
+            AutomationProperties.SetLiveSetting(stateText, AutomationLiveSetting.Polite);
+            var progress = new ProgressBar
+            {
+                Minimum = 0,
+                Maximum = 100,
+                Height = 8,
+                Margin = new Thickness(0, 3, 0, 3),
+                Visibility = Visibility.Collapsed
+            };
+            AutomationProperties.SetName(
+                progress,
+                T("تقدم المورد ", "Progress for ") + resourceName);
+            var detailText = CreateText(string.Empty, 11, FontWeights.Normal, new Thickness(0));
+            AutomationProperties.SetName(
+                detailText,
+                T("تفاصيل المورد ", "Details for ") + resourceName);
+            row.Children.Add(nameText);
+            row.Children.Add(stateText);
+            row.Children.Add(progress);
+            row.Children.Add(detailText);
+            _resourceProgressRows.Add(resource.Id, new ResourceProgressRow(stateText, progress, detailText));
+            _resourceProgressPanel.Children.Add(row);
+        }
+        resourceProgressCard.Children.Add(_resourceProgressPanel);
+        panel.Children.Add(CreateCard(resourceProgressCard));
 
         var referenceSizes = new StackPanel();
         referenceSizes.Children.Add(CreateText(
@@ -549,6 +622,167 @@ public sealed class CompleteSetupWindow : Window
         }
     }
 
+    private string GetLocalizedResourceName(LocalResourceDefinition resource)
+    {
+        if (!_isArabic) return resource.DisplayName;
+        return resource.Id switch
+        {
+            LocalResourceIds.PythonRuntime => "بيئة Python x64",
+            LocalResourceIds.PyTorch => "PyTorch وTorchAudio",
+            LocalResourceIds.OmniVoice => "مكتبة OmniVoice",
+            LocalResourceIds.VoiceTut => "مكتبة VoiceTut",
+            LocalResourceIds.VoiceTutModel => "أوزان نموذج VoiceTut",
+            LocalResourceIds.WhisperRuntime => "محرك Whisper",
+            LocalResourceIds.WhisperModel => "نموذج Whisper",
+            LocalResourceIds.OllamaRuntime => "محرك Ollama",
+            LocalResourceIds.OllamaRuntimeInstaller => "مثبّت Ollama الاحتياطي",
+            LocalResourceIds.ChatModel => "نموذج المحادثة Qwen3.5 2B",
+            LocalResourceIds.OcrArabic => "بيانات OCR العربية",
+            LocalResourceIds.OcrEnglish => "بيانات OCR الإنجليزية",
+            _ => resource.DisplayName
+        };
+    }
+
+    private async Task RefreshResourceProgressAsync()
+    {
+        if (_isRefreshingResourceProgress || !IsLoaded) return;
+        _isRefreshingResourceProgress = true;
+        try
+        {
+            var snapshot = await _resourceManager.GetSnapshotAsync();
+            var states = snapshot.ToDictionary(item => item.ResourceId, StringComparer.Ordinal);
+            foreach (var resource in LocalResourceCatalog.All)
+            {
+                if (!states.TryGetValue(resource.Id, out var state) ||
+                    !_resourceProgressRows.ContainsKey(resource.Id))
+                    continue;
+
+                _liveResourceDownloads.TryGetValue(resource.Id, out var liveProgress);
+                UpdateResourceProgressRow(resource, state, liveProgress);
+                if (state.State != LocalResourceLifecycle.Downloading)
+                    _liveResourceDownloads.Remove(resource.Id);
+            }
+
+            var required = LocalResourceCatalog.All.Where(item => item.Required).ToArray();
+            var ready = required.Count(item => states.TryGetValue(item.Id, out var state) &&
+                                                state.State == LocalResourceLifecycle.Ready &&
+                                                string.Equals(state.DefinitionVersion, item.Version, StringComparison.Ordinal));
+            var active = required.Count(item => states.TryGetValue(item.Id, out var state) &&
+                                                 state.State is LocalResourceLifecycle.Downloading or
+                                                     LocalResourceLifecycle.Verifying or LocalResourceLifecycle.Installed);
+            var failed = required.Count(item => states.TryGetValue(item.Id, out var state) &&
+                                                 state.State == LocalResourceLifecycle.Failed);
+            _resourceProgressSummary.Text = string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                T("الموارد الجاهزة: {0}/{1} — قيد العمل: {2} — بها أخطاء: {3}",
+                  "Ready resources: {0}/{1} — active: {2} — failed: {3}"),
+                ready, required.Length, active, failed);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidOperationException or
+                System.Security.SecurityException or System.Text.Json.JsonException)
+        {
+            _resourceProgressSummary.Text = T(
+                "تعذرت قراءة حالة الموارد المحفوظة؛ لن يُفترض أن أي مورد جاهز دون تحقق.",
+                "Saved resource state could not be read; no resource will be assumed ready without verification.");
+        }
+        finally
+        {
+            _isRefreshingResourceProgress = false;
+        }
+    }
+
+    private void UpdateResourceProgressRow(
+        LocalResourceDefinition resource,
+        LocalResourceStateEntry state,
+        LocalResourceDownloadProgress? liveProgress)
+    {
+        var row = _resourceProgressRows[resource.Id];
+        var progressBar = row.ProgressBar;
+        if (!resource.Required && state.State == LocalResourceLifecycle.Pending)
+        {
+            row.StateText.Text = T("اختياري — لا يحتاجه مسار التثبيت الحالي", "Optional — not required by the selected setup path");
+            row.DetailText.Text = T("يُستخدم هذا المورد الاحتياطي فقط عند الحاجة.", "This fallback resource is used only when needed.");
+            progressBar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        row.StateText.Text = state.State switch
+        {
+            LocalResourceLifecycle.Pending => T("بانتظار التنفيذ", "Waiting to run"),
+            LocalResourceLifecycle.Downloading => T("جارٍ التنزيل أو التثبيت", "Downloading or installing"),
+            LocalResourceLifecycle.Verifying => T("جارٍ التحقق من الهوية والسلامة", "Verifying identity and integrity"),
+            LocalResourceLifecycle.Installed => T("تم التثبيت — جارٍ فحص الصحة", "Installed — health check in progress"),
+            LocalResourceLifecycle.Ready => T("جاهز وتم التحقق منه", "Ready and verified"),
+            LocalResourceLifecycle.Failed => T("فشل المورد", "Resource failed"),
+            _ => T("حالة غير معروفة", "Unknown state")
+        };
+
+        if (state.State == LocalResourceLifecycle.Downloading)
+        {
+            var downloaded = liveProgress?.DownloadedBytes ?? state.BytesDownloaded;
+            long? total = liveProgress is { TotalBytes: > 0 }
+                ? liveProgress.TotalBytes
+                : state.TotalBytes;
+            var speed = liveProgress?.BytesPerSecond ?? state.BytesPerSecond ?? 0;
+            var remaining = liveProgress?.RemainingSeconds ?? state.RemainingSeconds;
+            progressBar.Visibility = Visibility.Visible;
+            if (total is > 0)
+            {
+                progressBar.IsIndeterminate = false;
+                progressBar.Value = Math.Clamp(downloaded * 100d / total.Value, 0d, 100d);
+                var speedText = CompleteSetupPreflightService.FormatBytes(
+                    (long)Math.Max(0, speed)) + "/s";
+                var etaText = remaining.HasValue
+                    ? TimeSpan.FromSeconds(Math.Clamp(remaining.Value, 0, 365 * 24 * 60 * 60)).ToString(@"h\:mm\:ss")
+                    : T("جارٍ الحساب", "calculating");
+                row.DetailText.Text =
+                    CompleteSetupPreflightService.FormatBytes(downloaded) + " / " +
+                    CompleteSetupPreflightService.FormatBytes(total.Value) + " — " +
+                    speedText + " — " + T("المتبقي ", "remaining ") + etaText;
+            }
+            else
+            {
+                progressBar.IsIndeterminate = true;
+                row.DetailText.Text = T(
+                    "المصدر لا يعلن حجمًا موثوقًا لهذه الخطوة؛ تُعرض حالة العمل دون نسبة تقديرية.",
+                    "The source does not publish a reliable size for this step; activity is shown without an estimated percentage.");
+            }
+            return;
+        }
+
+        if (state.State is LocalResourceLifecycle.Verifying or LocalResourceLifecycle.Installed)
+        {
+            progressBar.Visibility = Visibility.Visible;
+            progressBar.IsIndeterminate = true;
+            row.DetailText.Text = T(
+                "لا يُعلن المورد جاهزًا إلا بعد اكتمال التحقق واختبار الصحة.",
+                "The resource is not marked ready until integrity and health checks pass.");
+            return;
+        }
+
+        progressBar.IsIndeterminate = false;
+        if (state.State == LocalResourceLifecycle.Ready)
+        {
+            progressBar.Visibility = Visibility.Visible;
+            progressBar.Value = 100;
+            row.DetailText.Text = T(
+                "تم تأكيد الإصدار: ", "Verified definition version: ") +
+                (state.DefinitionVersion ?? resource.Version);
+        }
+        else if (state.State == LocalResourceLifecycle.Failed)
+        {
+            progressBar.Visibility = Visibility.Collapsed;
+            var error = state.ErrorMessage ?? T("لا تتوفر تفاصيل إضافية.", "No additional error details are available.");
+            row.DetailText.Text = error.Length <= 320 ? error : error[..320] + "…";
+        }
+        else
+        {
+            progressBar.Visibility = Visibility.Collapsed;
+            row.DetailText.Text = T("لم يبدأ تجهيز هذا المورد بعد.", "This resource has not started yet.");
+        }
+    }
+
     private async Task StartSetupAsync()
     {
         if (_isRunning || _consent.IsChecked != true || !_preflight.IsSupported)
@@ -558,6 +792,8 @@ public sealed class CompleteSetupWindow : Window
         _setupCancellation = new CancellationTokenSource();
         var token = _setupCancellation.Token;
         _isRunning = true;
+        _resourceProgressTimer.Start();
+        await RefreshResourceProgressAsync();
         _progressBar.Visibility = Visibility.Visible;
         _progressBar.IsIndeterminate = true;
         _progressBar.Value = 0;
@@ -570,6 +806,7 @@ public sealed class CompleteSetupWindow : Window
         });
         var modelProgress = new Progress<LocalResourceDownloadProgress>(progress =>
         {
+            _liveResourceDownloads[progress.ResourceId] = progress;
             if (progress.TotalBytes > 0)
             {
                 _progressBar.IsIndeterminate = false;
@@ -740,6 +977,8 @@ public sealed class CompleteSetupWindow : Window
             _progressBar.Visibility = Visibility.Collapsed;
             _setupCancellation?.Dispose();
             _setupCancellation = null;
+            await RefreshResourceProgressAsync();
+            _resourceProgressTimer.Stop();
             UpdateButtons();
         }
     }
