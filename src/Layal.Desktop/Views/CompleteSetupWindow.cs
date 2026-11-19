@@ -736,7 +736,12 @@ public sealed class CompleteSetupWindow : Window
                 var etaText = remaining.HasValue
                     ? TimeSpan.FromSeconds(Math.Clamp(remaining.Value, 0, 365 * 24 * 60 * 60)).ToString(@"h\:mm\:ss")
                     : T("جارٍ الحساب", "calculating");
-                row.DetailText.Text =
+                var stageText = string.IsNullOrWhiteSpace(liveProgress?.Message)
+                    ? string.Empty
+                    : (liveProgress.Message.Length <= 140
+                        ? liveProgress.Message
+                        : liveProgress.Message[..140] + "…") + " — ";
+                row.DetailText.Text = stageText +
                     CompleteSetupPreflightService.FormatBytes(downloaded) + " / " +
                     CompleteSetupPreflightService.FormatBytes(total.Value) + " — " +
                     speedText + " — " + T("المتبقي ", "remaining ") + etaText;
@@ -744,9 +749,14 @@ public sealed class CompleteSetupWindow : Window
             else
             {
                 progressBar.IsIndeterminate = true;
-                row.DetailText.Text = T(
-                    "المصدر لا يعلن حجمًا موثوقًا لهذه الخطوة؛ تُعرض حالة العمل دون نسبة تقديرية.",
-                    "The source does not publish a reliable size for this step; activity is shown without an estimated percentage.");
+                var unknownStage = string.IsNullOrWhiteSpace(liveProgress?.Message)
+                    ? string.Empty
+                    : (liveProgress.Message.Length <= 140
+                        ? liveProgress.Message
+                        : liveProgress.Message[..140] + "…") + " — ";
+                row.DetailText.Text = unknownStage + T(
+                    "الحجم غير محدد لهذه الخطوة؛ تُعرض حالة العمل دون نسبة تقديرية.",
+                    "The size is unknown for this step; activity is shown without an estimated percentage.");
             }
             return;
         }
