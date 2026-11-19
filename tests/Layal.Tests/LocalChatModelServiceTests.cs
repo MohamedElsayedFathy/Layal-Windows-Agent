@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Layal.Services;
@@ -71,6 +72,9 @@ public sealed class LocalChatModelServiceTests
         Assert.AreEqual("http://127.0.0.1:11434/v1/chat/completions", handler.LastRequestUri?.AbsoluteUri);
         StringAssert.Contains(handler.LastRequestBody ?? string.Empty, "\"model\":\"qwen3.5:2b\"");
         StringAssert.Contains(handler.LastRequestBody ?? string.Empty, "\"role\":\"user\"");
+        using var payload = JsonDocument.Parse(handler.LastRequestBody ?? "{}");
+        Assert.AreEqual(64, payload.RootElement.GetProperty("max_tokens").GetInt32());
+        Assert.AreEqual("none", payload.RootElement.GetProperty("reasoning_effort").GetString());
         Assert.IsNull(handler.LastAuthorizationScheme);
     }
 

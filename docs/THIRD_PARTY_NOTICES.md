@@ -171,3 +171,20 @@ PdfPig and Open XML SDK are used for local extraction from user-selected PDF, DO
 - License text: licenses/MIT-Dotnet-Extensions.txt
 
 These packages are pulled transitively by the local OCR engine's dependency graph. Their package metadata identifies MIT licensing; project-level legal review remains pending.
+
+## SSH.NET
+
+- Package: SSH.NET version 2026.0.1 (direct dependency)
+- License declared by upstream NuGet metadata: MIT
+- Project/source: https://github.com/sshnet/SSH.NET
+- Package metadata: https://www.nuget.org/packages/SSH.NET/2026.0.1
+- License text: licenses/MIT-SSH.NET.txt
+- This dependency is used only to parse the Ollama-owned local Ed25519 key and sign the Ollama Registry token challenge. The private key remains on the local machine; it is not transmitted. Project compatibility and legal review remain separate release gates.
+
+## BouncyCastle.Cryptography
+
+- Package: BouncyCastle.Cryptography version 2.7.0 (transitive dependency of SSH.NET 2026.0.1; resolved in the Windows product SBOM)
+- NuGet package metadata declares the main library under the MIT X Consortium license: https://www.nuget.org/packages/BouncyCastle.Cryptography/2.7.0
+- Upstream README states that a modified Bzip2 library included in this software is licensed under Apache License 2.0. The Apache 2.0 license text is retained at `licenses/Apache-2.0-OpenCvSharp.txt`; the Bouncy Castle MIT license text is retained at `licenses/MIT-BouncyCastle.txt`.
+- Source: https://github.com/bcgit/bc-csharp
+- This inventory reflects upstream statements, not a completed legal compatibility or redistribution review.

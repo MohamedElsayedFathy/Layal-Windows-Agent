@@ -82,8 +82,19 @@ public sealed class LocalChatModelService
                 Content = "Reply with a brief confirmation that the local model is ready."
             }
         };
-        var reply = await GetReplyAsync(baseUrl, modelId, messages, cancellationToken)
-            .ConfigureAwait(false);
+        var validatedBaseUrl = ValidateBaseUrl(baseUrl);
+        var validatedModelId = ValidateModelId(modelId);
+        // Qwen-family models may spend their entire default output budget in reasoning.
+        // A smoke test only needs a short user-visible answer, so explicitly suppress thinking
+        // and reserve a bounded output budget for the final response.
+        var reply = await _client.ChatAsync(
+            validatedBaseUrl,
+            validatedModelId,
+            string.Empty,
+            messages,
+            cancellationToken,
+            maxTokens: 64,
+            reasoningEffort: "none").ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(reply) || reply.Length > 2048)
             throw new InvalidOperationException("The local model did not return a valid smoke-test response.");
         return reply.Trim();

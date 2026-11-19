@@ -1,0 +1,65 @@
+name: Phase C live Qwen model lifecycle
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/phase-c-qwen-lifecycle.yml"
+      - "src/Layal.Desktop/Services/Ollama*.cs"
+      - "src/Layal.Desktop/Views/MainWindow.LocalChatModel.cs"
+      - "src/Layal.Desktop/Views/MainWindow.xaml"
+      - "tests/Layal.Tests/Ollama*.cs"
+      - "tools/Test-LayalQwenModelLifecycle.ps1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-qwen-lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 100
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.404
+
+      - name: Install official Ollama Windows runtime
+        shell: pwsh
+        run: |
+          $existing = Get-Command ollama.exe -ErrorAction SilentlyContinue
+          if ($null -eq $existing) {
+            $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+            if ($null -eq $winget) { throw "winget is not available on this Windows runner; cannot install the official Ollama runtime." }
+            & $winget.Source install --id Ollama.Ollama --exact --source winget --silent --accept-package-agreements --accept-source-agreements
+            if ($LASTEXITCODE -ne 0) { throw "Official Ollama installation failed with exit code $LASTEXITCODE." }
+          }
+          $candidates = @(
+            (Get-Command ollama.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source),
+            (Join-Path $env:LOCALAPPDATA "Programs/Ollama/ollama.exe"),
+            (Join-Path $env:ProgramFiles "Ollama/ollama.exe")
+          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_ -PathType Leaf) }
+          $ollama = $candidates | Select-Object -First 1
+          if ([string]::IsNullOrWhiteSpace($ollama)) { throw "Ollama was installed but ollama.exe could not be located." }
+          "OLLAMA_EXE_PATH=$ollama" >> $env:GITHUB_ENV
+          & $ollama --version
+
+      - name: Run real Registry auth, interrupted download/resume, digest, health and rollback checks
+        shell: pwsh
+        run: ./tools/Test-LayalQwenModelLifecycle.ps1
+
+      - name: Upload live Qwen lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Layal-${{ github.sha }}-qwen-live-lifecycle
+          path: |
+            artifacts/qwen-model-lifecycle/**
+            ${{ runner.temp }}/layal-qwen-lifecycle-*/logs/**
+          if-no-files-found: warn
+          retention-days: 14

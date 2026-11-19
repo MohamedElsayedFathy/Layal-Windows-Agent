@@ -58,17 +58,45 @@ public sealed class OpenAiCompatibleClient
         return $"Connection successful (HTTP {(int)response.StatusCode}).";
     }
 
-    public async Task<string> ChatAsync(string baseUrl, string model, string apiKey, IReadOnlyList<ChatMessage> messages,
-        CancellationToken cancellationToken = default)
+    public Task<string> ChatAsync(
+        string baseUrl,
+        string model,
+        string apiKey,
+        IReadOnlyList<ChatMessage> messages,
+        CancellationToken cancellationToken = default) =>
+        ChatAsync(baseUrl, model, apiKey, messages, cancellationToken, null, null);
+
+    /// <summary>
+    /// Sends a non-streaming chat request with optional output and reasoning controls.
+    /// These controls are used by the local-model smoke test without changing normal provider chats.
+    /// </summary>
+    public async Task<string> ChatAsync(
+        string baseUrl,
+        string model,
+        string apiKey,
+        IReadOnlyList<ChatMessage> messages,
+        CancellationToken cancellationToken,
+        int? maxTokens,
+        string? reasoningEffort)
     {
         if (messages.Count == 0) throw new ArgumentException("At least one message is required.", nameof(messages));
+        if (maxTokens is <= 0 or > 8192)
+            throw new ArgumentOutOfRangeException(nameof(maxTokens), "Maximum output tokens must be between 1 and 8192.");
+        if (reasoningEffort is not null &&
+            (reasoningEffort.Length is < 1 or > 32 || reasoningEffort.Any(char.IsControl)))
+            throw new ArgumentException("The reasoning-effort value is invalid.", nameof(reasoningEffort));
+
         var uri = BuildUri(baseUrl, "chat/completions");
-        var payload = new
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            model,
-            messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
-            stream = false
+            ["model"] = model,
+            ["messages"] = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
+            ["stream"] = false
         };
+        if (maxTokens.HasValue)
+            payload["max_tokens"] = maxTokens.Value;
+        if (!string.IsNullOrWhiteSpace(reasoningEffort))
+            payload["reasoning_effort"] = reasoningEffort;
         var client = _clientFactory(TimeSpan.FromSeconds(120));
         using var clientLifetime = GetClientLifetime(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, uri);
