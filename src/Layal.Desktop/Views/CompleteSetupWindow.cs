@@ -950,7 +950,8 @@ public sealed class CompleteSetupWindow : Window
             if (!chatModelAlreadyReady && !OllamaLocalModelSetupService.HasDefaultModelManifest())
                 reservations.Add(new LocalResourceStorageReservation(
                     OllamaLocalModelSetupService.ModelsDirectory,
-                    3_100_000_000 + 512L * 1024 * 1024));
+                    checked(QwenModelVariantCatalog.GetRequired(_chatSetup.SelectedModelId).MaximumDownloadBytes +
+                            512L * 1024 * 1024)));
 
             if (!OllamaLocalModelSetupService.IsRuntimeInstalled)
             {
@@ -975,7 +976,7 @@ public sealed class CompleteSetupWindow : Window
             await _chatSetup.InstallAndPrepareAsync(chatProgress, token, modelProgress).ConfigureAwait(true);
             AppRuntime.Settings.UseLocalAi = true;
             AppRuntime.Settings.LocalChatModelBaseUrl = LocalChatModelService.DefaultBaseUrl;
-            AppRuntime.Settings.LocalChatModelId = OllamaLocalModelSetupService.DefaultModelId;
+            AppRuntime.Settings.LocalChatModelId = _chatSetup.SelectedModelId;
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
             AppendLog(T("نجح اختبار المحادثة المحلية وحُفظت إعداداتها.", "Local chat smoke test passed and its settings were saved."));
 
