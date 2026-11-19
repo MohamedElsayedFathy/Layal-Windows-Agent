@@ -80,26 +80,24 @@ $LayalDataRoot = Join-Path $env:LOCALAPPDATA "Layal\LocalAi"
 من جذر المستودع:
 
 ~~~powershell
-python tools/evaluation/run_whisper_benchmark.py \`
-  --data-root $LayalDataRoot \`
-  --manifest "D:\LayalSpeechEvaluation\speech-reference-set.json"
+python tools/evaluation/run_whisper_benchmark.py --data-root $LayalDataRoot --manifest "D:\LayalSpeechEvaluation\speech-reference-set.json"
 ~~~
 
 النتيجة الافتراضية تحفظ داخل:
 
-<data-root>\evaluation\whisper\
+مجلد موارد LocalAi\evaluation\whisper\
 
 وينشأ ملفان لكل تشغيل:
 
-- whisper-benchmark-<run-id>.json: نسخة Whisper المثبتة، بصمات الموارد، معلومات عامة غير تعريفية عن الجهاز، حالة كل عينة، نص التفريغ، زمن التنفيذ، وReal-Time Factor.
-- whisper-benchmark-<run-id>.scoring-manifest.json: نسخة من manifest الأصلي بعد إضافة فرضيات المحرك الناجحة فقط. يبقى المصدر الأصلي دون تعديل.
+- whisper-benchmark-{run-id}.json: نسخة Whisper المثبتة، بصمات الموارد، معلومات عامة غير تعريفية عن الجهاز، حالة كل عينة، نص التفريغ، زمن التنفيذ، وReal-Time Factor.
+- whisper-benchmark-{run-id}.scoring-manifest.json: نسخة من manifest الأصلي بعد إضافة فرضيات المحرك الناجحة فقط. يبقى المصدر الأصلي دون تعديل.
 
 خيارات اختيارية:
 
 - --threads 1 إلى --threads 8 لضبط عدد الخيوط.
 - --timeout-seconds 300 لضبط مهلة العينة (من 10 إلى 3600 ثانية).
-- --output-dir <مسار محلي> لتغيير مكان الأدلة.
-- --prefix <اسم> لتغيير بادئة ملفات النتائج.
+- --output-dir مسار-محلي لتغيير مكان الأدلة.
+- --prefix اسم لتغيير بادئة ملفات النتائج.
 
 التشغيل تسلسلي لتقليل تداخل قياسات الزمن والموارد. wallClockMs يشمل بدء عملية Whisper، وrealTimeFactor يساوي زمن التنفيذ مقسومًا على مدة الصوت؛ القيمة الأقل من 1 تعني أن التنفيذ أسرع من الزمن الحقيقي. هذا ليس قياسًا لزمن أول token ولا قياسًا لاستهلاك RAM/VRAM.
 
