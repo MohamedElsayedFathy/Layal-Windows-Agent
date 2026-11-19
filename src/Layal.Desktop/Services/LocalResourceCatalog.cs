@@ -17,7 +17,7 @@ public static class LocalResourceIds
     public const string WhisperModel = "whisper-model";
     public const string OllamaRuntime = "ollama-runtime";
     public const string OllamaRuntimeInstaller = "ollama-runtime-installer";
-    public const string ChatModel = "chat-model-qwen35-2b";
+    public const string ChatModel = "chat-model-qwen35";
     public const string OcrArabic = "ocr-ara";
     public const string OcrEnglish = "ocr-eng";
 }
@@ -182,7 +182,7 @@ public static class LocalResourceCatalog
             new LocalResourceDefinition(
                 LocalResourceIds.ChatModel,
                 "Qwen3.5 local chat model",
-                "qwen3.5:2b",
+                "qwen3.5-family-v1",
                 "https://ollama.com/library/qwen3.5",
                 LocalResourceKind.ChatModel,
                 true,
@@ -272,6 +272,17 @@ public static class LocalResourceCatalog
     }
 
     public static IReadOnlyList<LocalResourceDefinition> All => Definitions;
+    public static string CurrentChatModelId =>
+        QwenModelVariantCatalog.GetRequired(Layal.AppRuntime.Settings.LocalChatModelId).ModelId;
+
+    public static string GetCurrentDefinitionVersion(LocalResourceDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        return string.Equals(definition.Id, LocalResourceIds.ChatModel, StringComparison.Ordinal)
+            ? definition.Version + "|" + CurrentChatModelId
+            : definition.Version;
+    }
+
 
     public static LocalResourceDefinition GetRequired(string id)
     {
