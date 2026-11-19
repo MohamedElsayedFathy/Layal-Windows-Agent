@@ -16,6 +16,7 @@ import os
 import platform
 import re
 import stat
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -37,7 +38,6 @@ ENGINE_ID = "whisper_cpp_base"
 MAX_AUDIO_BYTES = 64 * 1024 * 1024
 MAX_AUDIO_SECONDS = 120.0
 DEFAULT_TIMEOUT_SECONDS = 300
-SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 PSEUDONYMOUS_SPEAKER_PATTERN = re.compile(r"^spk-[a-z0-9][a-z0-9-]{2,30}$")
 
 
@@ -90,7 +90,7 @@ def _validate_archive_member(name: str) -> str:
         not value
         or member.is_absolute()
         or ":" in value
-        or any(part in {"", ".", ".."} for part in member.parts)
+        or any(part in {"", ".", ".."} for part in value.split("/"))
     ):
         raise ValueError(f"Unsafe path in the pinned Whisper archive: {name!r}")
     return member.as_posix()
@@ -215,6 +215,8 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
             raise ValueError(f"Case {case['id']} resolves outside the manifest audio directory.")
         if _is_reparse_point(audio_path):
             raise ValueError(f"Case {case['id']} audio file is a reparse point.")
+        if audio_path.stat().st_size <= 44 or audio_path.stat().st_size > MAX_AUDIO_BYTES:
+            raise ValueError(f"Case {case['id']} WAV size must be greater than 44 bytes and no more than 64 MiB.")
         with wave.open(str(audio_path), "rb") as wav:
             duration = wav.getnframes() / float(wav.getframerate())
             if duration <= 0 or duration > MAX_AUDIO_SECONDS:
@@ -405,8 +407,8 @@ def run_benchmark(
             "eligibleSamples": len(samples),
             "passedSamples": len(results),
             "failedSamples": len(failures),
-            "medianWallClockMs": round(sorted(elapsed_values)[len(elapsed_values) // 2], 2) if elapsed_values else None,
-            "medianRealTimeFactor": round(sorted(rtf_values)[len(rtf_values) // 2], 6) if rtf_values else None,
+            "medianWallClockMs": round(statistics.median(elapsed_values), 2) if elapsed_values else None,
+            "medianRealTimeFactor": round(statistics.median(rtf_values), 6) if rtf_values else None,
         },
         "samples": results,
         "failures": failures,
