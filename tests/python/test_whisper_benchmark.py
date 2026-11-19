@@ -166,6 +166,9 @@ class WhisperBenchmarkTests(unittest.TestCase):
             def fake_whisper(command, **kwargs):
                 self.assertFalse(kwargs["shell"])
                 self.assertEqual("auto", command[command.index("-l") + 1])
+                audio_snapshot = Path(command[command.index("-f") + 1])
+                self.assertTrue(audio_snapshot.is_file())
+                self.assertTrue(audio_snapshot.name.endswith("-input.wav"))
                 prefix = Path(command[command.index("-of") + 1])
                 prefix.with_suffix(".json").write_text(json.dumps({
                     "transcription": [{"text": "أنا مش موافق على الرقم 42"}],
