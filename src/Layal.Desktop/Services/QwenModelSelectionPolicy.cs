@@ -10,8 +10,7 @@ public sealed record QwenModelVariant(
     long MaximumDownloadBytes,
     long MinimumGpuWorkingSetBytes,
     long MinimumCpuWorkingSetBytes,
-    int MinimumLogicalProcessors,
-    bool GpuOnly);
+    int MinimumLogicalProcessors);
 
 /// <summary>
 /// Device-supported Qwen3.5 variants. Byte ceilings use the official Ollama library's
@@ -35,8 +34,7 @@ public static class QwenModelVariantCatalog
         string modelId,
         string sizeDescription,
         long maximumDownloadBytes,
-        int minimumLogicalProcessors,
-        bool gpuOnly = false)
+        int minimumLogicalProcessors)
     {
         const long cpuRuntimeReserveBytes = 2L * 1024 * 1024 * 1024;
         const long gpuRuntimeReserveBytes = 1024L * 1024 * 1024;
@@ -46,8 +44,7 @@ public static class QwenModelVariantCatalog
             maximumDownloadBytes,
             checked((long)Math.Ceiling(maximumDownloadBytes * 1.5d) + gpuRuntimeReserveBytes),
             checked((maximumDownloadBytes * 2) + cpuRuntimeReserveBytes),
-            minimumLogicalProcessors,
-            gpuOnly);
+            minimumLogicalProcessors);
     }
 
     public static IReadOnlyList<QwenModelVariant> All => Variants;
@@ -90,14 +87,16 @@ public sealed record QwenModelSelection(
 /// </summary>
 public static class QwenModelSelectionPolicy
 {
-    private const long MinimumSystemHeadroomForGpuBytes = 3L * 1024 * 1024 * 1024;
+    private const long MinimumSystemHeadroomForGpuBytes = 4L * 1024 * 1024 * 1024;
 
     public static QwenModelSelection Select(QwenHardwareProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
         var processors = Math.Max(0, profile.LogicalProcessorCount);
-        if (profile.AvailableDedicatedGpuMemoryBytes is > 0 &&
+        if (profile.TotalDedicatedGpuMemoryBytes is > 0 &&
+            profile.AvailableDedicatedGpuMemoryBytes is > 0 &&
+            profile.AvailableDedicatedGpuMemoryBytes.Value <= profile.TotalDedicatedGpuMemoryBytes.Value &&
             profile.AvailableRamBytes is long ramAvailable &&
             ramAvailable >= MinimumSystemHeadroomForGpuBytes)
         {
@@ -120,14 +119,6 @@ public static class QwenModelSelectionPolicy
         }
 
         var availableRam = profile.AvailableRamBytes;
-        var ramWasEstimated = false;
-        if (availableRam is null && profile.TotalRamBytes is long totalRam && totalRam > 0)
-        {
-            const long operatingSystemReserveBytes = 3L * 1024 * 1024 * 1024;
-            availableRam = Math.Max(0, totalRam - operatingSystemReserveBytes);
-            ramWasEstimated = true;
-        }
-
         if (availableRam is long measuredRam && measuredRam > 0)
         {
             var cpuCandidate = QwenModelVariantCatalog.All
@@ -138,12 +129,11 @@ public static class QwenModelSelectionPolicy
 
             if (cpuCandidate is not null)
             {
-                var source = ramWasEstimated ? "estimated from total system RAM" : "measured available system RAM";
                 return new QwenModelSelection(
                     cpuCandidate,
                     true,
                     false,
-                    $"{source}: {Format(measuredRam)}; logical processors: {processors}. " +
+                    $"Measured available system RAM: {Format(measuredRam)}; logical processors: {processors}. " +
                     $"The selection budgets twice the published model download ceiling plus 2 GiB of runtime headroom. " +
                     "GPU capacity was not used because a reliable free-VRAM reading was unavailable or insufficient.");
             }
