@@ -207,6 +207,32 @@ class WhisperBenchmarkTests(unittest.TestCase):
             self.assertEqual(original, json.loads(manifest.read_text(encoding="utf-8")))
             self.assertFalse(any(output_dir.glob("layal-whisper-*")))
 
+
+    def test_failed_sample_does_not_reuse_stale_whisper_hypothesis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_resources(root)
+            manifest = root / "speech-reference-set.json"
+            self.write_audio(root / "audio" / "eg-recorded-001.wav")
+            original = self.recorded_manifest()
+            original["cases"][0]["hypotheses"][MODULE.ENGINE_ID] = "old transcript from a prior run"
+            manifest.write_text(json.dumps(original), encoding="utf-8")
+
+            with mock.patch.object(
+                MODULE.subprocess,
+                "run",
+                return_value=SimpleNamespace(returncode=1, stdout="", stderr="simulated Whisper failure"),
+            ):
+                report_path, scoring_path, report = MODULE.run_benchmark(
+                    root, manifest, root / "evaluation", "test-run", 2, 30
+                )
+
+            self.assertTrue(report_path.is_file())
+            self.assertEqual(1, report["summary"]["failedSamples"])
+            scoring = json.loads(scoring_path.read_text(encoding="utf-8"))
+            self.assertNotIn(MODULE.ENGINE_ID, scoring["cases"][0]["hypotheses"])
+            self.assertEqual(original, json.loads(manifest.read_text(encoding="utf-8")))
+
     def test_invalid_resources_block_subprocess_execution(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
