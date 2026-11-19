@@ -277,7 +277,8 @@ function Invoke-QwenChatHealth {
         model = "qwen3.5:2b"
         messages = @(@{ role = "user"; content = "Reply with the single word READY." })
         stream = $false
-        options = @{ num_predict = 16 }
+        think = $false
+        options = @{ num_predict = 64 }
     } | ConvertTo-Json -Depth 8
     $reply = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:11434/api/chat" -ContentType "application/json" -Body $body -TimeoutSec 180
     if ([string]::IsNullOrWhiteSpace([string]$reply.message.content)) {
