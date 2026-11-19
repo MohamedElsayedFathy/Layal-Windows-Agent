@@ -22,7 +22,7 @@ public sealed class CompleteSetupReadinessPolicyTests
                 null,
                 null,
                 DateTimeOffset.UtcNow,
-                resource.Version))
+                LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToArray();
 
         Assert.IsTrue(CompleteSetupReadinessPolicy.IsComplete(states));
@@ -43,7 +43,7 @@ public sealed class CompleteSetupReadinessPolicyTests
                 null,
                 null,
                 DateTimeOffset.UtcNow,
-                resource.Version))
+                LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToList();
 
         states.RemoveAt(states.Count - 1);
@@ -83,7 +83,7 @@ public sealed class CompleteSetupReadinessPolicyTests
                 null,
                 null,
                 DateTimeOffset.UtcNow,
-                resource.Id == LocalResourceIds.WhisperModel ? "older-version" : resource.Version))
+                resource.Id == LocalResourceIds.WhisperModel ? "older-version" : LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToArray();
 
         Assert.IsFalse(CompleteSetupReadinessPolicy.IsComplete(states));
@@ -109,7 +109,7 @@ public sealed class CompleteSetupReadinessPolicyTests
                 null,
                 null,
                 DateTimeOffset.UtcNow,
-                resource.Version))
+                LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToArray();
 
         Assert.IsTrue(CompleteSetupReadinessPolicy.IsComplete(states));
