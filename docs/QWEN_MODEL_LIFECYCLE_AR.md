@@ -81,7 +81,7 @@
 
 ## اختيار Qwen variants حسب موارد الجهاز — PR #207
 
-يحافظ PR #205 على دليل دورة الحياة الحية الأصلي كما هو: الاختبار الفعلي على Windows استخدم `qwen3.5:2b` في مجلد Ollama مؤقت معزول. يضيف PR #207 دعم variants أخرى دون إعادة كتابة ذلك الدليل التاريخي:
+دُمج PR #207 في `main` على merge commit `ae7b94e513fd355afd4d8430b4ca1c903754e665`. يحافظ هذا التحديث على دليل دورة الحياة الحية الأصلي من PR #205 كما هو: الاختبار الفعلي على Windows استخدم `qwen3.5:2b` في مجلد Ollama مؤقت معزول. دعم variants الأخرى أصبح ضمن الكود المدمج، لكن لا نعيد كتابة الدليل التاريخي أو ندّعي أن كل tag تم تنزيله واختباره حيًا:
 
 - قائمة tags المسموح بها: `qwen3.5:0.8b` و`qwen3.5:2b` و`qwen3.5:4b` و`qwen3.5:9b`. مسارات Registry تُبنى من tag بعد التحقق من القائمة البيضاء؛ لا يُقبل أي tag عشوائي.
 - لكل tag ملف pin منفصل: `qwen3.5-0.8b.json` أو `qwen3.5-2b.json` أو `qwen3.5-4b.json` أو `qwen3.5-9b.json`. يحوي كل ملف هوية النموذج وبيانات manifest التي اجتازت تحقق TLS/Registry وdigest النموذج المحلي. تغيير الاختيار لا يعيد استخدام pin الخاص بـ tag آخر.
@@ -91,5 +91,6 @@
 - يعيد المعالج قياس RAM/VRAM عند ضغط «ابدأ». يتم حفظ tag المختار قبل تنزيل Ollama، ويستخدم الاختيار نفسه في Registry manifest و`ollama pull` وhealth check وملف pin وعمليات update/rollback.
 - سجل تعافي واحد باسم `qwen3.5.update.json` يعمل على مستوى عائلة Qwen، ويحتوي `ModelId` للنسخة السابقة. هذا يتيح استرداد tag سابق حتى إذا تغير الاختيار بين تشغيلين. يتعرف أيضًا على اسم سجل 2B القديم `qwen3.5-2b.json.update.json`. إذا وُجد السجل الحديث والقديم معًا يتوقف التطبيق بدل التخمين بين حالتي استرداد.
 - اختبارات السياسة تغطي حدود الذاكرة ورفض tag غير مسموح به، لكنها اختبارات أجهزة اصطناعية. لا تُعد قياسًا لسرعة التوليد أو زمن الاستجابة على جهاز المستخدم.
+- بوابات CI على رأس PR #207 نجحت: [Windows Build/installer — 44504262880](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504262880)، [PowerShell acceptance — 44504262948](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504262948)، [Security/Supply-chain — 44504263055](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504263055)، [Qwen live lifecycle — 44504263151](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504263151). نجح فحص Security بعد الدمج في [44505850946](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44505850946). إعادة Windows Build على merge commit [44505851078](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44505851078) كانت لا تزال في خطوة التغليف ورفع الأدلة أثناء تحديث الوثيقة.
 
 **مراجع tags وأحجام التنزيل المرجعية:** https://ollama.com/library/qwen3.5/tags. هذه أحجام تنزيل للأوزان وليست حدًا مباشرًا لذاكرة التشغيل، ولذلك تضيف سياسة Layal هامش ذاكرة مستقلًا. الأداء الفعلي ما زال يحتاج benchmark على أجهزة تمثيلية قبل إعلان أن variant بعينه هو الأسرع أو الأنسب.
