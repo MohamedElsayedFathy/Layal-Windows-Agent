@@ -319,7 +319,7 @@ public sealed class LocalResourceManager
                     throw new InvalidDataException("The local resource state file contains an invalid entry.");
 
                 if (LocalResourceCatalog.TryGet(pair.Key, out var definition) &&
-                    string.Equals(item.DefinitionVersion, definition!.Version, StringComparison.Ordinal))
+                    string.Equals(item.DefinitionVersion, LocalResourceCatalog.GetCurrentDefinitionVersion(definition!), StringComparison.Ordinal))
                     persisted[pair.Key] = item;
             }
         }
@@ -377,7 +377,8 @@ public sealed class LocalResourceManager
     {
         var definition = LocalResourceCatalog.GetRequired(id);
         return new LocalResourceStateEntry(
-            id, state, 0, null, null, null, null, DateTimeOffset.UtcNow, definition.Version);
+            id, state, 0, null, null, null, null, DateTimeOffset.UtcNow,
+            LocalResourceCatalog.GetCurrentDefinitionVersion(definition));
     }
 
     private static void EnsureTransition(LocalResourceLifecycle from, LocalResourceLifecycle to)
