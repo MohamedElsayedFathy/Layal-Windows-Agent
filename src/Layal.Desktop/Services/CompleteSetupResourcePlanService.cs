@@ -32,7 +32,7 @@ public static class CompleteSetupResourcePlanService
         bool IsCurrentReady(LocalResourceDefinition resource) =>
             stateById.TryGetValue(resource.Id, out var state) &&
             state.State == LocalResourceLifecycle.Ready &&
-            string.Equals(state.DefinitionVersion, resource.Version, StringComparison.Ordinal);
+            string.Equals(state.DefinitionVersion, LocalResourceCatalog.GetCurrentDefinitionVersion(resource), StringComparison.Ordinal);
 
         var pending = LocalResourceCatalog.All
             .Where(resource => resource.Required && !IsCurrentReady(resource))
