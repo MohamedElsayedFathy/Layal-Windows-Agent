@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import io
 import importlib.util
 import json
 import os
@@ -106,9 +107,10 @@ def verify_whisper_resources(data_root: Path) -> dict[str, Any]:
     model_path = root / WHISPER_MODEL_RELATIVE_PATH
 
     _require_plain_file(archive_path, "Pinned Whisper runtime archive")
-    if archive_path.stat().st_size != WHISPER_ARCHIVE_SIZE:
+    archive_bytes = archive_path.read_bytes()
+    if len(archive_bytes) != WHISPER_ARCHIVE_SIZE:
         raise ValueError("Whisper runtime archive size does not match the pinned Layal resource.")
-    archive_digest = sha256_file(archive_path)
+    archive_digest = hashlib.sha256(archive_bytes).hexdigest()
     if archive_digest != WHISPER_ARCHIVE_SHA256:
         raise ValueError("Whisper runtime archive SHA-256 does not match the pinned Layal resource.")
 
@@ -124,7 +126,7 @@ def verify_whisper_resources(data_root: Path) -> dict[str, Any]:
 
     expected: dict[str, zipfile.ZipInfo] = {}
     executable_members: list[str] = []
-    with zipfile.ZipFile(archive_path, "r") as archive:
+    with zipfile.ZipFile(io.BytesIO(archive_bytes), "r") as archive:
         for info in archive.infolist():
             if info.is_dir():
                 continue
@@ -210,11 +212,18 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
         speaker_id = case.get("speakerId", "")
         if not isinstance(speaker_id, str) or not PSEUDONYMOUS_SPEAKER_PATTERN.fullmatch(speaker_id):
             raise ValueError(f"Case {case['id']} has a non-pseudonymous speaker identifier.")
-        audio_path = (manifest_path.parent / "audio" / Path(*PurePosixPath(case["audioAsset"]).parts[1:])).resolve(strict=True)
-        if not audio_path.is_relative_to((manifest_path.parent / "audio").resolve(strict=True)):
+        audio_root = manifest_path.parent / "audio"
+        if _is_reparse_point(audio_root):
+            raise ValueError("Speech audio directory must not be a symbolic link or Windows reparse point.")
+        audio_path = audio_root.joinpath(*PurePosixPath(case["audioAsset"]).parts[1:])
+        current_path = audio_root
+        for segment in PurePosixPath(case["audioAsset"]).parts[1:]:
+            current_path = current_path / segment
+            if _is_reparse_point(current_path):
+                raise ValueError(f"Case {case['id']} audio path contains a reparse point.")
+        audio_path = audio_path.resolve(strict=True)
+        if not audio_path.is_relative_to(audio_root.resolve(strict=True)):
             raise ValueError(f"Case {case['id']} resolves outside the manifest audio directory.")
-        if _is_reparse_point(audio_path):
-            raise ValueError(f"Case {case['id']} audio file is a reparse point.")
         if audio_path.stat().st_size <= 44 or audio_path.stat().st_size > MAX_AUDIO_BYTES:
             raise ValueError(f"Case {case['id']} WAV size must be greater than 44 bytes and no more than 64 MiB.")
         with wave.open(str(audio_path), "rb") as wav:
