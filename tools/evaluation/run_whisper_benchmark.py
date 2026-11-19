@@ -8,7 +8,6 @@ before launching the same whisper-cli command shape used by LocalVoiceService.
 from __future__ import annotations
 
 import argparse
-import copy
 import hashlib
 import io
 import importlib.util
@@ -405,11 +404,17 @@ def run_benchmark(
                 failures.append({"caseId": sample["id"], "error": f"{type(error).__name__}: {error}"})
                 print(f"FAIL {sample['id']}: {type(error).__name__}: {error}", file=sys.stderr)
 
-    scoring_manifest = copy.deepcopy(manifest)
     hypotheses_by_id = {item["caseId"]: item["transcript"] for item in results}
-    for case in scoring_manifest["cases"]:
+    safe_case_fields = (
+        "id", "locale", "referenceText", "recordingStatus", "audioAsset",
+        "speakerId", "consent", "referenceReview", "hypotheses",
+    )
+    scoring_manifest = {"schemaVersion": manifest["schemaVersion"], "cases": []}
+    for source_case in manifest["cases"]:
+        case = {key: source_case[key] for key in safe_case_fields if key in source_case}
         if case.get("id") in hypotheses_by_id:
             case.setdefault("hypotheses", {})[ENGINE_ID] = hypotheses_by_id[case["id"]]
+        scoring_manifest["cases"].append(case)
 
     elapsed_values = [item["wallClockMs"] for item in results]
     rtf_values = [item["realTimeFactor"] for item in results]
