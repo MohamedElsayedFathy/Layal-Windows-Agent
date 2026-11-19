@@ -397,7 +397,7 @@ public static class CompleteSetupPreflightService
             long selectedTotalMiB = 0;
             long selectedFreeMiB = 0;
             var rows = process.StandardOutput.ReadToEnd().Split(
-                new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries);
+                new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             var found = 0;
             foreach (var row in rows)
             {
