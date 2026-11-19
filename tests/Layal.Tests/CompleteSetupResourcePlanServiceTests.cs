@@ -15,7 +15,7 @@ public sealed class CompleteSetupResourcePlanServiceTests
             .Where(resource => resource.Required && resource.Kind == LocalResourceKind.EmbeddedData)
             .Select(resource => new LocalResourceStateEntry(
                 resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow,
-                resource.Version))
+                LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToArray();
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
@@ -23,7 +23,9 @@ public sealed class CompleteSetupResourcePlanServiceTests
         Assert.IsTrue(plan.KnownReferenceBytes > 0);
         Assert.IsTrue(plan.PendingRequiredResources > 0);
         Assert.IsTrue(plan.HasUnknownSizes);
-        CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "Qwen3.5 local chat model");
+        Assert.IsTrue(plan.KnownReferenceBytes >=
+            QwenModelVariantCatalog.GetRequired(LocalResourceCatalog.CurrentChatModelId).MaximumDownloadBytes,
+            "The selected Qwen tag must contribute its published size ceiling to the capacity plan.");
         CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "PyTorch and TorchAudio");
         CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "VoiceTut Egyptian Arabic and English model");
         CollectionAssert.Contains(
@@ -38,12 +40,15 @@ public sealed class CompleteSetupResourcePlanServiceTests
             .Where(resource => resource.Required && resource.Id != LocalResourceIds.VoiceTutModel)
             .Select(resource => new LocalResourceStateEntry(
                 resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow,
-                resource.Version))
+                LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToArray();
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
 
-        Assert.AreEqual(2_461_768_130L, plan.KnownReferenceBytes);
+        Assert.AreEqual(
+            2_461_768_130L +
+            QwenModelVariantCatalog.GetRequired(LocalResourceCatalog.CurrentChatModelId).MaximumDownloadBytes,
+            plan.KnownReferenceBytes);
         Assert.IsTrue(plan.HasUnknownSizes);
         CollectionAssert.Contains(plan.UnknownSizeResources.ToArray(), "VoiceTut Egyptian Arabic and English model");
     }
@@ -63,7 +68,7 @@ public sealed class CompleteSetupResourcePlanServiceTests
                 null,
                 null,
                 DateTimeOffset.UtcNow,
-                resource.Id == staleId ? "old-definition" : resource.Version))
+                resource.Id == staleId ? "old-definition" : LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToArray();
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
@@ -83,7 +88,7 @@ public sealed class CompleteSetupResourcePlanServiceTests
             .Where(resource => resource.Required)
             .Select(resource => new LocalResourceStateEntry(
                 resource.Id, LocalResourceLifecycle.Ready, 0, null, null, null, null, DateTimeOffset.UtcNow,
-                resource.Version))
+                LocalResourceCatalog.GetCurrentDefinitionVersion(resource)))
             .ToArray();
 
         var plan = CompleteSetupResourcePlanService.Calculate(states);
