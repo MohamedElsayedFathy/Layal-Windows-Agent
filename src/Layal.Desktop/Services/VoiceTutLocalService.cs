@@ -813,7 +813,9 @@ public sealed class VoiceTutLocalService : IDisposable
                 checked(resource.ExpectedSizeBytes.Value * 4));
 
         progress?.Report(new LocalSpeechProgress(
-            "لم يتم العثور على Python x64 متوافق؛ جارٍ تنزيل Python 3.13.17 الرسمي إلى مجلد ليال…", 6));
+            "لم يتم العثور على Python x64 متوافق؛ جارٍ تنزيل Python 3.13.17 الرسمي إلى مجلد ليال…",
+            6,
+            ResourceId: LocalResourceIds.PythonRuntime));
 
         var downloadProgress = new Progress<LocalResourceDownloadProgress>(state =>
         {
@@ -825,7 +827,12 @@ public sealed class VoiceTutLocalService : IDisposable
                 : "—";
             progress?.Report(new LocalSpeechProgress(
                 $"تنزيل Python: {state.DownloadedBytes:N0} / {state.TotalBytes:N0} bytes — {speed}",
-                percent));
+                percent,
+                state.DownloadedBytes,
+                state.TotalBytes,
+                state.BytesPerSecond,
+                state.RemainingSeconds,
+                LocalResourceIds.PythonRuntime));
         });
 
         await _resourceCoordinator.DownloadAsync(
@@ -861,7 +868,9 @@ public sealed class VoiceTutLocalService : IDisposable
                     "AssociateFiles=0"
                 };
                 progress?.Report(new LocalSpeechProgress(
-                    "تم التحقق من ناشر Python؛ جارٍ تثبيت البيئة الخاصة بليال دون تعديل PATH…", 96));
+                    "تم التحقق من ناشر Python؛ جارٍ تثبيت البيئة الخاصة بليال دون تعديل PATH…",
+                    96,
+                    ResourceId: LocalResourceIds.PythonRuntime));
                 await RunCommandAsync(
                     installerPath,
                     arguments,
@@ -879,7 +888,9 @@ public sealed class VoiceTutLocalService : IDisposable
             throw new InvalidOperationException("لم يجتز Python المثبّت داخل مجلد ليال فحص الإصدار والمعمارية.");
 
         progress?.Report(new LocalSpeechProgress(
-            "أصبح Python 3.13.17 x64 جاهزًا داخل مجلد بيانات ليال.", 100));
+            "أصبح Python 3.13.17 x64 جاهزًا داخل مجلد بيانات ليال.",
+            100,
+            ResourceId: LocalResourceIds.PythonRuntime));
         return ManagedPythonExecutablePath;
     }
 
