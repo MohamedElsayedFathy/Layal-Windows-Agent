@@ -2,13 +2,22 @@
 
 ## A/B/C final hardening — 19 November 2026
 
-**Implementation status: prepared in branch `feature/phase-b-qwen-hardware-selection-2026-11-19`; Windows CI is the acceptance gate.** The branch is based on `main` after PR #206. It closes the remaining code-level consistency gaps in resource management, first-run reporting, and Qwen variant selection.
+**Implementation status: MERGED into `main` by PR [#207](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/207) on 19 November 2026.** Merge commit: `ae7b94e513fd355afd4d8430b4ca1c903754e665`. The reviewed PR head `6a35fb15ffe20f1645a764315c24499be9d90c95` passed Windows Build/installer, PowerShell acceptance, Security/Supply-chain, and live Qwen lifecycle workflows. Post-merge Security on the merge commit also passed; a fresh post-merge Windows Build was still running at the time of this documentation update.
 
 - Persisted resource readiness carries the current catalog-definition identity. For the chat model, that identity also includes the selected Qwen tag; stale or legacy Ready entries return to Pending and cannot bypass startup readiness, storage planning, or model download reservation.
 - Complete Setup renders an independent live status/progress row for every catalog resource. Real byte counts, speed, ETA, and current step are attached to the owning resource. Unknown-size pip/CUDA/install stages remain indeterminate rather than showing invented percentages.
 - Qwen3.5 selection now supports the allow-listed `0.8b`, `2b`, `4b`, and `9b` tags. It uses measured available system RAM and, when available, the largest single NVIDIA adapter's measured free VRAM. It never combines memory across separate GPUs or infers free VRAM from an adapter name. The selected tag drives storage planning, Ollama pull, Registry manifest URI, local digest pin, health check, update/rollback, and recovery journal.
 - A family-wide recovery journal supports interrupted-update recovery across tag changes, including the legacy 2B journal filename. The hardware budget is re-measured when the user starts setup; full setup is blocked when safe RAM capacity cannot be measured or does not satisfy the smallest variant's budget.
 - Regression tests cover variant allow-listing, RAM/VRAM selection boundaries, per-variant readiness identity, selected-tag Registry resolution, storage accounting, and stale Ready invalidation.
+
+
+
+**PR #207 acceptance evidence (reviewed head):**
+- [Windows build, 832+ .NET tests, native desktop tests, installer lifecycle, source package, installer/portable ZIP, SBOM and SHA-256 — run 44504262880](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504262880): PASS.
+- [Full Windows PowerShell acceptance — run 44504262948](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504262948): PASS.
+- [Security, NuGet advisory/license audit and full-history Gitleaks — run 44504263055](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504263055): PASS.
+- [Live Qwen lifecycle on isolated Windows Ollama — run 44504263151](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44504263151): PASS. This exercised the existing 2B baseline and isolated model store; it is not a performance benchmark for every variant.
+- [Post-merge Security/Supply-chain — run 44505850946](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44505850946): PASS on merge commit `ae7b94e...`. Post-merge Windows Build run [44505851078](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44505851078) was still executing the unsigned package/installer and artifact-upload stage during this update.
 
 **Acceptance boundaries remain explicit:** Narrator/NVDA spoken output and full interactive High Contrast still require a real Windows evidence run. Exact pip/CUDA/temp dependency totals remain unknown and must stay labelled unknown. CI's synthetic hardware-policy tests do not substitute for inference speed/latency benchmarks on the user's target hardware. Authenticode signing, rights/legal closure, and public-release approval are separate; no release GO is implied.
 
