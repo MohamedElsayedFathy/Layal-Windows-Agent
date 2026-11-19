@@ -84,6 +84,16 @@ def _require_plain_file(path: Path, label: str) -> None:
         raise FileNotFoundError(f"{label} was not found: {path}")
 
 
+def _require_no_reparse_components(root: Path, path: Path, label: str) -> None:
+    current = root
+    if _is_reparse_point(current):
+        raise ValueError(f"{label} root must not be a reparse point: {current}")
+    for segment in path.relative_to(root).parts:
+        current = current / segment
+        if _is_reparse_point(current):
+            raise ValueError(f"{label} path contains a symbolic link or Windows reparse point: {current}")
+
+
 def _validate_archive_member(name: str) -> str:
     value = name.replace("\\", "/")
     member = PurePosixPath(value)
@@ -106,6 +116,9 @@ def verify_whisper_resources(data_root: Path) -> dict[str, Any]:
     install_root = root / WHISPER_INSTALL_RELATIVE_PATH
     model_path = root / WHISPER_MODEL_RELATIVE_PATH
 
+    _require_no_reparse_components(root, archive_path, "Whisper archive")
+    _require_no_reparse_components(root, install_root, "Whisper installation")
+    _require_no_reparse_components(root, model_path, "Whisper model")
     _require_plain_file(archive_path, "Pinned Whisper runtime archive")
     archive_bytes = archive_path.read_bytes()
     if len(archive_bytes) != WHISPER_ARCHIVE_SIZE:
