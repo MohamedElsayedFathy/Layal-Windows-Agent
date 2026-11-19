@@ -412,6 +412,10 @@ def run_benchmark(
     scoring_manifest = {"schemaVersion": manifest["schemaVersion"], "cases": []}
     for source_case in manifest["cases"]:
         case = {key: source_case[key] for key in safe_case_fields if key in source_case}
+        hypotheses = case.get("hypotheses")
+        if isinstance(hypotheses, dict):
+            # A failed sample in this run must never inherit a stale result from an earlier run.
+            hypotheses.pop(ENGINE_ID, None)
         if case.get("id") in hypotheses_by_id:
             case.setdefault("hypotheses", {})[ENGINE_ID] = hypotheses_by_id[case["id"]]
         scoring_manifest["cases"].append(case)
