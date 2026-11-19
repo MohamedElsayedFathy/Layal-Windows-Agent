@@ -49,25 +49,28 @@
 
 | الاختبار | الحالة |
 |---|---|
-| manifest عادي: حساب SHA-256 من bytes ومطابقة `Docker-Content-Digest` عند وجوده | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
-| manifest list: استخراج بصمات الأبناء وبصمة الأم | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
-| جلب manifest حي من Registry | أعاد Registry HTTP 200 مباشرةً دون challenge في run 44325954089. فشل ذلك الاختبار القديم فقط لأنه كان يشترط 401، ولم يصل إلى فحص جسم الرد؛ أُصلح الاختبار الآن ليتحقق من JSON والبصمة عند 200، أو يجرب التوقيع عند 401. النتيجة الجديدة قيد التنفيذ |
-| اختبار صيغة مفتاح Ollama الفعلية | يفتح الاختبار مفتاح OpenSSH الحقيقي من ملف Ollama في Windows، وينفذ probe لتوقيع SSH عبر handler محلي فقط، ثم يفك `Signature.Blob` ويتحقق من التوقيع بالمفتاح العام؛ لا يُرسل المفتاح الخاص أو probe token إلى الشبكة |
-| رفض اختلاف رأس `Docker-Content-Digest` عن البايتات | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
-| رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | نجح ضمن Windows CI على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
-| انتهاء مهلة Registry أثناء قراءة body بطيئة/معلّقة | نجح اختبار regression بإعداد مهلة قصيرة على الرأس `b5e93dd2be6e0b240ef0d205022cbec6c7406a22` |
-| Windows build واختبارات C# وحزمة التوزيع واختبار دورة حياة المثبّت | نجحت: run 44310907405 |
-| Full Windows PowerShell acceptance ورفع الأدلة | نجح: run 44310907333 |
-| NuGet advisory/license audit وfull-history Gitleaks | نجح: run 44310907496 |
-| قبول Bearer token حي من Registry عند صدور 401 | مسار الإنتاج يوقّع challenge ويعيد طلب manifest عند 401. اختبار Qwen العام الحالي أعاد 200 دون challenge؛ لذلك لم يُثبت قبول token موقّع من Registry بعد. الـlocal-key probe يثبت أن مفتاح Ollama الفعلي قابل للقراءة والتوقيع محليًا فقط، ولا يُسجّل كقبول Registry |
-| تنزيل حقيقي على Windows، الإلغاء والاستئناف، digest محلي، وhealth check | أُضيف اختبار على خادم Ollama بمجلد Models مؤقت؛ التنزيل والقياس ما زالا قيد التشغيل ولم تُسجل نتيجة PASS بعد |
-| update/rollback على نسخة Models محلية تجريبية معزولة | أُضيف مسار تحديث آمن داخل التطبيق واختبارات transaction، واختبار Windows حي لـ `ollama cp/rm` والاسترجاع؛ النتائج الجديدة قيد التنفيذ |
-| قياس الحجم الفعلي المنزّل ومواءمته مع المساحة المحجوزة | Workflow الجديد يكتب مجموع أحجام ملفات blobs الفعلية في evidence؛ القياس النهائي لم يصدر بعد |
-| قياس RAM/VRAM/سرعة inference ومقارنة variants | مؤجل؛ لا يوجد benchmark قابل للتكرار بعد |
+| manifest عادي: حساب SHA-256 من bytes ومطابقة `Docker-Content-Digest` عند وجوده | PASS ضمن Windows Build run [44473228618](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44473228618) |
+| manifest list: استخراج بصمات الأبناء وبصمة الأم | PASS ضمن Windows Build run 44473228618؛ وتمت مطابقة digest النموذج المثبت مع إحدى بصمات manifest الفرعية في الاختبار الحي |
+| جلب manifest حي من Registry | PASS: HTTP 200 عام دون Bearer challenge؛ جسم JSON وبصمة SHA-256 وحجم manifest (470 بايت) تحققت في Qwen lifecycle run [44473228601](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44473228601) |
+| اختبار صيغة مفتاح Ollama الفعلية | PASS: فتح مفتاح OpenSSH الذي أنشأه Ollama على Windows، إنشاء توقيع SSH محلي، وفك `Signature.Blob` والتحقق من التوقيع بالمفتاح العام؛ لا يُرسل المفتاح الخاص أو probe token إلى الشبكة |
+| رفض اختلاف رأس `Docker-Content-Digest` عن البايتات | PASS ضمن Windows Build run 44473228618 |
+| رفض التحويلات والأنواع غير المدعومة والردود الكبيرة | PASS ضمن Windows Build run 44473228618 |
+| انتهاء مهلة Registry أثناء قراءة body بطيئة/معلّقة | PASS باختبارات regression ضمن Windows Build run 44473228618 |
+| Windows build واختبارات C# وفحوص الواجهة وحزمة التوزيع واختبار دورة حياة المثبّت | PASS: run [44473228618](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44473228618) |
+| Full Windows PowerShell acceptance ورفع الأدلة | PASS: run [44473228725](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44473228725) |
+| NuGet advisory/license audit وfull-history Gitleaks | PASS: run [44473228604](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/actions/runs/44473228604) |
+| قبول Bearer token حي من Registry عند صدور 401 | لم يُصدر Registry تحديًا في الاختبار العام (أعاد 200)، لذلك لا ندّعي قبول Bearer حيًا. مسار الإنتاج واختبار 401 الاصطناعي يغطيان التوقيع وإعادة الطلب؛ مفتاح Ollama الحقيقي اجتاز local signing probe |
+| تنزيل حقيقي على Windows، الإلغاء والاستئناف، digest محلي، وhealth check | PASS: أُلغي التنزيل عند 14,583,224 بايت ثم اكتمل الاستئناف؛ digest المثبت `0689d44085e06d165161a8a9a1731344278cfb5aade63a3c3dbdb48ab54b130a` طابق Registry؛ نجح اختبار المحادثة |
+| update/rollback على نسخة Models محلية تجريبية معزولة | PASS: `ollama cp/rm` استعاد النسخة السابقة ببصمتها نفسها ثم اجتاز اختبار الصحة مرة أخرى |
+| قياس الحجم الفعلي المنزّل ومواءمته مع المساحة المحجوزة | PASS: مجموع blobs الفعلي `2,683,398,180` بايت (أقل من حد 3.1 GB)؛ manifest الأب `0b28bbb3449dcb370c881ce3afacc557047fc7ecbcacaeb280c92c2bf9f11beb` وحجمه 470 بايت |
+| قياس RAM/VRAM/سرعة inference ومقارنة variants | مؤجل؛ لا يوجد benchmark قابل للتكرار على جهاز مستهدف بعد |
 
 ## الحالة الحالية
 
-الكود واختبارات الوحدة ومسار التحديث/الرجوع موجودة على `feature/phase-c-qwen-registry-digest`، ولم تُدمج في `main` بعد. Registry الخاص بوسم Qwen أعاد HTTP 200 عامًا دون تحدي في التجربة الأولى؛ لذلك لا ندّعي نجاح تبادل token موقّع. تم تعديل الاختبار ليتحقق من manifest عند الوصول العام أو ينفذ التوقيع إذا صدر 401. ما زالت نتائج البناء والاختبارات على الرأس الأخير، إضافة إلى التنزيل والإلغاء/الاستئناف والـ digest والـ health check الحي، قيد التحقق. لا تُعلن Phase C مكتملة قبل نجاح هذه الـ workflows ومراجعة evidence الذي تنتجه.
+**Phase C merged and CI-accepted.** PR [#205](https://github.com/MohamedElsayedFathy/Layal-Windows-Agent/pull/205) دُمج في `main` على merge commit `d85a06b9a64f9fa931779e00957b62abee6b7aab` بتاريخ 19 نوفمبر 2026. نجحت Windows Build وحزمة التوزيع واختبارات الوحدة والواجهة ودورة حياة المثبّت، ونجح Full Windows acceptance وSecurity/Supply-chain وQwen live lifecycle على رأس PR قبل الدمج. إعادة فحص Security بعد الدمج نجحت؛ إعادة Windows Build على merge commit كانت قيد التنفيذ وقت تحديث الوثيقة. 
+
+أدلة Qwen الحية تخص خادم Ollama على Windows ومجلد Models مؤقتًا معزولًا، ولا تمثل قياس أداء على جهاز المستخدم. الـRegistry العام أعاد HTTP 200 دون challenge؛ لذلك لا يُدّعى نجاح تبادل Bearer موقّع على Registry. الـlocal-key probe يثبت قدرة مفتاح Ollama الحقيقي على التوقيع محليًا فقط. لا تمثل آلية Registry توقيعًا مستقلًا من ناشر Qwen. قبول الجهاز المستهدف، وتوقيع الكود، ومراجعة حقوق الأصول/التراخيص، ومقارنة RAM/VRAM تظل بوابات منفصلة.
+
 ## مراجع التنفيذ الرسمية
 
 - Ollama Registry challenge, token request, and signed authorization: [`server/auth.go`](https://github.com/ollama/ollama/blob/main/server/auth.go) and [`auth/auth.go`](https://github.com/ollama/ollama/blob/main/auth/auth.go).
