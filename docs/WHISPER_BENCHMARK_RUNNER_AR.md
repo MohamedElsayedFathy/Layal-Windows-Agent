@@ -106,8 +106,8 @@ python tools/evaluation/run_whisper_benchmark.py --data-root $LayalDataRoot --ma
 بعد نجاح التشغيل، استخدم مسار ملف *.scoring-manifest.json الذي طبعته الأداة:
 
 ~~~powershell
-python tools/evaluation/score_speech_transcripts.py \`
-  --manifest "<مسار ملف whisper-benchmark-<run-id>.scoring-manifest.json>" \`
+python tools/evaluation/score_speech_transcripts.py `
+  --manifest "D:\LayalData\evaluation\whisper\whisper-benchmark-run.scoring-manifest.json" `
   --engine whisper_cpp_base
 ~~~
 
@@ -116,7 +116,7 @@ python tools/evaluation/score_speech_transcripts.py \`
 ## اختبارات المطور وCI
 
 ~~~powershell
-python -m unittest tests.python.test_whisper_benchmark
+python -m unittest discover -s tests/python -p "test_whisper_benchmark.py"
 python -m unittest discover -s tests/python -p "test_*.py"
 ~~~
 
