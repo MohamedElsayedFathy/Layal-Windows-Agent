@@ -397,7 +397,15 @@ def run_benchmark(
         temporary_root = Path(temporary)
         for sample in samples:
             try:
-                result = transcribe_one(resources, sample, temporary_root, threads, timeout_seconds)
+                # Mirror LocalVoiceService: revalidate pinned model/runtime before every transcription.
+                current_resources = verify_whisper_resources(data_root)
+                if (
+                    current_resources["archive_sha256"] != resources["archive_sha256"]
+                    or current_resources["model_sha256"] != resources["model_sha256"]
+                    or current_resources["executable_sha256"] != resources["executable_sha256"]
+                ):
+                    raise RuntimeError("Pinned Whisper resources changed during the benchmark run.")
+                result = transcribe_one(current_resources, sample, temporary_root, threads, timeout_seconds)
                 results.append(result)
                 print(f"PASS {sample['id']} [{sample['locale']}] {result['wallClockMs']:.0f} ms; RTF {result['realTimeFactor']:.3f}")
             except Exception as error:  # Preserve per-case diagnostics and finish the remaining corpus.
