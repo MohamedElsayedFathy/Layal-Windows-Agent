@@ -246,7 +246,7 @@ public sealed class OllamaLocalModelSetupService
         {
             throw new InvalidOperationException(
                 "The previously verified Qwen model is missing, but its local digest pin remains. " +
-                "Automatic download from the mutable qwen3.5:2b tag is blocked. " +
+                "Automatic download from the mutable selected Qwen3.5 tag is blocked. " +
                 "Use an explicit model-reset workflow before replacing this pin.");
         }
 
@@ -257,7 +257,7 @@ public sealed class OllamaLocalModelSetupService
         if (existingPin is null || !IsRegistryTrustedPin(existingPin))
         {
             progress?.Report("التحقق من هوية نموذج Qwen عبر Ollama Registry قبل اعتماد التنزيل…");
-            registryManifest = await _registryClient.FetchDefaultModelManifestAsync(cancellationToken)
+            registryManifest = await _registryClient.FetchModelManifestAsync(SelectedModelId, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -312,7 +312,7 @@ public sealed class OllamaLocalModelSetupService
         OllamaModelDigestPolicy.EnsureMatches(previousPin.Digest, installedDigest ?? string.Empty);
 
         progress?.Report("التحقق من أحدث manifest في Ollama Registry قبل بدء التحديث…");
-        var registryManifest = await _registryClient.FetchDefaultModelManifestAsync(cancellationToken)
+        var registryManifest = await _registryClient.FetchModelManifestAsync(SelectedModelId, cancellationToken)
             .ConfigureAwait(false);
         if (OllamaModelDigestPolicy.Matches(
             previousPin.RegistryManifestDigest ?? string.Empty,
