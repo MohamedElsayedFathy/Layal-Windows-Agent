@@ -10,7 +10,8 @@ public sealed record QwenModelVariant(
     long MaximumDownloadBytes,
     long MinimumGpuWorkingSetBytes,
     long MinimumCpuWorkingSetBytes,
-    int MinimumLogicalProcessors);
+    int MinimumLogicalProcessors,
+    bool RequiresDedicatedGpuMemory);
 
 /// <summary>
 /// Device-supported Qwen3.5 variants. Byte ceilings use the official Ollama library's
@@ -27,14 +28,15 @@ public static class QwenModelVariantCatalog
             Create("qwen3.5:0.8b", "1.2–1.3 GB", 1_300_000_000, minimumLogicalProcessors: 2),
             Create("qwen3.5:2b", "2.7–3.1 GB", 3_100_000_000, minimumLogicalProcessors: 4),
             Create("qwen3.5:4b", "3.3–4.0 GB", 4_000_000_000, minimumLogicalProcessors: 6),
-            Create("qwen3.5:9b", "6.6–7.6 GB", 7_600_000_000, minimumLogicalProcessors: 8)
+            Create("qwen3.5:9b", "6.6–7.6 GB", 7_600_000_000, minimumLogicalProcessors: 8, requiresDedicatedGpuMemory: true)
         });
 
     private static QwenModelVariant Create(
         string modelId,
         string sizeDescription,
         long maximumDownloadBytes,
-        int minimumLogicalProcessors)
+        int minimumLogicalProcessors,
+        bool requiresDedicatedGpuMemory = false)
     {
         const long cpuRuntimeReserveBytes = 2L * 1024 * 1024 * 1024;
         const long gpuRuntimeReserveBytes = 1024L * 1024 * 1024;
@@ -44,7 +46,8 @@ public static class QwenModelVariantCatalog
             maximumDownloadBytes,
             checked((long)Math.Ceiling(maximumDownloadBytes * 1.5d) + gpuRuntimeReserveBytes),
             checked((maximumDownloadBytes * 2) + cpuRuntimeReserveBytes),
-            minimumLogicalProcessors);
+            minimumLogicalProcessors,
+            requiresDedicatedGpuMemory);
     }
 
     public static IReadOnlyList<QwenModelVariant> All => Variants;
@@ -122,6 +125,7 @@ public static class QwenModelSelectionPolicy
         if (availableRam is long measuredRam && measuredRam > 0)
         {
             var cpuCandidate = QwenModelVariantCatalog.All
+                .Where(item => !item.RequiresDedicatedGpuMemory)
                 .Where(item => processors >= item.MinimumLogicalProcessors)
                 .Where(item => measuredRam >= item.MinimumCpuWorkingSetBytes)
                 .OrderByDescending(item => item.MaximumDownloadBytes)
@@ -135,7 +139,7 @@ public static class QwenModelSelectionPolicy
                     false,
                     $"Measured available system RAM: {Format(measuredRam)}; logical processors: {processors}. " +
                     $"The selection budgets twice the published model download ceiling plus 2 GiB of runtime headroom. " +
-                    "GPU capacity was not used because a reliable free-VRAM reading was unavailable or insufficient.");
+                    "GPU capacity was not used because a reliable free-VRAM reading was unavailable or insufficient. The 9B variant is reserved for measured dedicated-GPU memory until CPU performance is benchmarked.");
             }
 
             var smallest = QwenModelVariantCatalog.GetRequired("qwen3.5:0.8b");
