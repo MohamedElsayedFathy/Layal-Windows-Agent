@@ -355,6 +355,19 @@ def transcribe_one(
             pass
 
 
+def _redact_local_paths(message: str, paths: list[Path]) -> str:
+    """Remove known local filesystem paths before persisting benchmark diagnostics."""
+    redacted = message
+    for path in paths:
+        try:
+            variants = {str(path), str(path.resolve(strict=False)), path.as_posix(), path.resolve(strict=False).as_posix()}
+        except (OSError, RuntimeError):
+            variants = {str(path), path.as_posix()}
+        for value in sorted((item for item in variants if item), key=len, reverse=True):
+            redacted = redacted.replace(value, "<local path>")
+    return redacted
+
+
 def _write_json_atomically(path: Path, payload: dict[str, Any], force: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if _is_reparse_point(path.parent):
@@ -409,8 +422,15 @@ def run_benchmark(
                 results.append(result)
                 print(f"PASS {sample['id']} [{sample['locale']}] {result['wallClockMs']:.0f} ms; RTF {result['realTimeFactor']:.3f}")
             except Exception as error:  # Preserve per-case diagnostics and finish the remaining corpus.
-                failures.append({"caseId": sample["id"], "error": f"{type(error).__name__}: {error}"})
-                print(f"FAIL {sample['id']}: {type(error).__name__}: {error}", file=sys.stderr)
+                safe_message = _redact_local_paths(
+                    str(error),
+                    [
+                        data_root, manifest_path, output_dir, temporary_root,
+                        sample["audio_path"], resources["executable"], resources["model"],
+                    ],
+                )
+                failures.append({"caseId": sample["id"], "error": f"{type(error).__name__}: {safe_message}"})
+                print(f"FAIL {sample['id']}: {type(error).__name__}: {safe_message}", file=sys.stderr)
 
     hypotheses_by_id = {item["caseId"]: item["transcript"] for item in results}
     safe_case_fields = (
