@@ -133,7 +133,8 @@ public sealed class QwenModelSelectionPolicyTests
             GpuName: "unknown"));
 
         Assert.AreEqual(QwenModelVariantCatalog.DefaultModelId, selection.Variant.ModelId);
-        Assert.IsTrue(selection.MemoryBudgetSatisfied);
+        Assert.IsFalse(selection.MemoryBudgetSatisfied,
+            "Full setup must not proceed when memory capacity cannot be measured.");
         Assert.IsFalse(selection.UsesDedicatedGpuBudget);
     }
 
