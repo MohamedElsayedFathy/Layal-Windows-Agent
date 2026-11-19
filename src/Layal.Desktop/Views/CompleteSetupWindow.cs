@@ -32,7 +32,10 @@ public sealed class CompleteSetupWindow : Window
     private readonly LocalEmbeddedResourceSetupService _ocrSetup = new();
     private readonly LocalVoiceService _voiceService;
     private readonly CompleteSetupPreflight _preflight;
-    private readonly QwenModelSelection _qwenSelection;
+    private QwenModelSelection _qwenSelection;
+    private readonly TextBlock _qwenModelText = new();
+    private readonly TextBlock _qwenSelectionDetailsText = new();
+    private readonly TextBlock _qwenMemoryWarningText = new();
 
     private readonly CheckBox _consent = new();
     private readonly Button _startButton = new();
@@ -185,28 +188,21 @@ public sealed class CompleteSetupWindow : Window
         resources.Children.Add(CreateText(
             T("الموارد التي سيجهزها المسار الكامل", "Resources included in full setup"),
             16, FontWeights.SemiBold, new Thickness(0, 0, 0, 8)));
-        resources.Children.Add(CreateText(
-            T("• المحادثة المحلية: Ollama + " + _qwenSelection.Variant.ModelId +
-                  " — الحجم المرجعي " + _qwenSelection.Variant.SizeDescription,
-              "• Local chat: Ollama + " + _qwenSelection.Variant.ModelId +
-                  " — reference download " + _qwenSelection.Variant.SizeDescription),
-            14, FontWeights.Normal, new Thickness(0, 3, 0, 3)));
-        var qwenSelectionDetails = CreateText(
-            _qwenSelection.Rationale,
-            12, FontWeights.Normal, new Thickness(0, 6, 0, 4));
+        _qwenModelText.FontSize = 14;
+        _qwenModelText.Margin = new Thickness(0, 3, 0, 3);
+        resources.Children.Add(_qwenModelText);
+        _qwenSelectionDetailsText.FontSize = 12;
+        _qwenSelectionDetailsText.Margin = new Thickness(0, 6, 0, 4);
         AutomationProperties.SetName(
-            qwenSelectionDetails,
+            _qwenSelectionDetailsText,
             T("سبب اختيار حجم نموذج Qwen", "Reason for selected Qwen model size"));
-        resources.Children.Add(qwenSelectionDetails);
-        if (!_qwenSelection.MemoryBudgetSatisfied)
-        {
-            var warning = CreateText(
-                T("الذاكرة المتاحة لا تحقق الحد الآمن حتى لأصغر نموذج محلي. أغلق التطبيقات التي تستهلك الذاكرة ثم أعد فتح ليال؛ سيظل وضع الاستخدام المحدود متاحًا.",
-                  "Available memory is below the conservative floor even for the smallest local model. Close memory-heavy applications and reopen Layal; limited mode remains available."),
-                12, FontWeights.SemiBold, new Thickness(0, 4, 0, 0));
-            AutomationProperties.SetLiveSetting(warning, AutomationLiveSetting.Polite);
-            resources.Children.Add(warning);
-        }
+        resources.Children.Add(_qwenSelectionDetailsText);
+        _qwenMemoryWarningText.FontSize = 12;
+        _qwenMemoryWarningText.FontWeight = FontWeights.SemiBold;
+        _qwenMemoryWarningText.Margin = new Thickness(0, 4, 0, 0);
+        AutomationProperties.SetLiveSetting(_qwenMemoryWarningText, AutomationLiveSetting.Polite);
+        resources.Children.Add(_qwenMemoryWarningText);
+        UpdateQwenSelectionDisplay();
         resources.Children.Add(CreateText(
             T("• الصوت المحلي: Python وPyTorch وOmniVoice وVoiceTut وأوزانه، بالإضافة إلى Whisper",
               "• Local speech: Python, PyTorch, OmniVoice, VoiceTut and its model weights, plus Whisper"),
@@ -821,10 +817,41 @@ public sealed class CompleteSetupWindow : Window
         }
     }
 
+    private void UpdateQwenSelectionDisplay()
+    {
+        _qwenModelText.Text = T(
+            "• المحادثة المحلية: Ollama + " + _qwenSelection.Variant.ModelId +
+                " — الحجم المرجعي " + _qwenSelection.Variant.SizeDescription,
+            "• Local chat: Ollama + " + _qwenSelection.Variant.ModelId +
+                " — reference download " + _qwenSelection.Variant.SizeDescription);
+        _qwenSelectionDetailsText.Text = _qwenSelection.Rationale;
+        _qwenMemoryWarningText.Text = _qwenSelection.MemoryBudgetSatisfied
+            ? string.Empty
+            : T(
+                "تعذّر إثبات ميزانية الذاكرة اللازمة حتى لأصغر نموذج. أغلق التطبيقات التي تستهلك الذاكرة وأعد المحاولة؛ لن يبدأ التنزيل الكامل بالتخمين.",
+                "The available memory budget could not be verified even for the smallest model. Close memory-heavy applications and retry; full setup will not start on an estimate.");
+        _qwenMemoryWarningText.Visibility = _qwenSelection.MemoryBudgetSatisfied
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        UpdateButtons();
+    }
+
     private async Task StartSetupAsync()
     {
         if (_isRunning || _consent.IsChecked != true || !_preflight.IsSupported)
             return;
+
+        // Re-read free RAM/VRAM at the moment the user starts setup; the wizard may
+        // have remained open while other applications changed the available budget.
+        var currentPreflight = CompleteSetupPreflightService.Inspect(LocalVoiceService.DataRoot);
+        _qwenSelection = QwenModelSelectionPolicy.Select(new QwenHardwareProfile(
+            currentPreflight.TotalPhysicalMemoryBytes,
+            currentPreflight.AvailablePhysicalMemoryBytes,
+            Environment.ProcessorCount,
+            currentPreflight.TotalDedicatedVideoMemoryBytes,
+            currentPreflight.AvailableDedicatedVideoMemoryBytes,
+            currentPreflight.GpuDescription));
+        UpdateQwenSelectionDisplay();
         if (!_qwenSelection.MemoryBudgetSatisfied)
         {
             _statusText.Text = T(
