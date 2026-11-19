@@ -78,3 +78,18 @@
 - Ollama `/api/tags` selected-child behavior for manifest lists: [`server/model_list.go`](https://github.com/ollama/ollama/blob/main/server/model_list.go).
 - SSH.NET package version and upstream license: [NuGet SSH.NET 2026.0.1](https://www.nuget.org/packages/SSH.NET/2026.0.1) and [upstream LICENSE](https://github.com/sshnet/SSH.NET/blob/develop/LICENSE).
 - SSH.NET's transitive BouncyCastle package and its MIT / modified-Bzip2 Apache 2.0 note: [NuGet BouncyCastle.Cryptography 2.7.0](https://www.nuget.org/packages/BouncyCastle.Cryptography/2.7.0) and [upstream README](https://github.com/bcgit/bc-csharp/blob/master/README.md).
+
+## اختيار Qwen variants حسب موارد الجهاز — PR #207
+
+يحافظ PR #205 على دليل دورة الحياة الحية الأصلي كما هو: الاختبار الفعلي على Windows استخدم `qwen3.5:2b` في مجلد Ollama مؤقت معزول. يضيف PR #207 دعم variants أخرى دون إعادة كتابة ذلك الدليل التاريخي:
+
+- قائمة tags المسموح بها: `qwen3.5:0.8b` و`qwen3.5:2b` و`qwen3.5:4b` و`qwen3.5:9b`. مسارات Registry تُبنى من tag بعد التحقق من القائمة البيضاء؛ لا يُقبل أي tag عشوائي.
+- لكل tag ملف pin منفصل: `qwen3.5-0.8b.json` أو `qwen3.5-2b.json` أو `qwen3.5-4b.json` أو `qwen3.5-9b.json`. يحوي كل ملف هوية النموذج وبيانات manifest التي اجتازت تحقق TLS/Registry وdigest النموذج المحلي. تغيير الاختيار لا يعيد استخدام pin الخاص بـ tag آخر.
+- يقيس Windows RAM المتاحة من `GlobalMemoryStatusEx`. إذا توفر `nvidia-smi`، يقرأ VRAM الحرة لكل محول NVIDIA ويختار أكبر سعة حرة على محول منفرد. لا تُجمع ذاكرة محولين منفصلين ولا تُستخدم قيمة AdapterRAM من WMI كأنها ذاكرة حرة.
+- ميزانية GPU المحافظة هي 150% من سقف حجم التنزيل المرجعي، مضافًا إليها 1 GiB لتشغيل النموذج، مع 4 GiB على الأقل من RAM النظام المتاحة. ميزانية CPU هي ضعف سقف التنزيل مضافًا إليه 2 GiB تشغيل. عند غياب VRAM موثوقة، يعتمد الاختيار على RAM/CPU فقط.
+- حتى تتوفر قياسات أداء قابلة للتكرار على CPU، لا يختار مسار CPU-only نموذج 9B. يسمح 9B فقط عند وجود VRAM حرة مقاسة على محول NVIDIA واحد تكفي ميزانيته. عند تعذر قياس RAM الحرة أو عدم كفايتها حتى لأصغر variant، يظل وضع الإعداد الكامل محظورًا ولا يُخمّن التطبيق أن الجهاز قادر.
+- يعيد المعالج قياس RAM/VRAM عند ضغط «ابدأ». يتم حفظ tag المختار قبل تنزيل Ollama، ويستخدم الاختيار نفسه في Registry manifest و`ollama pull` وhealth check وملف pin وعمليات update/rollback.
+- سجل تعافي واحد باسم `qwen3.5.update.json` يعمل على مستوى عائلة Qwen، ويحتوي `ModelId` للنسخة السابقة. هذا يتيح استرداد tag سابق حتى إذا تغير الاختيار بين تشغيلين. يتعرف أيضًا على اسم سجل 2B القديم `qwen3.5-2b.json.update.json`. إذا وُجد السجل الحديث والقديم معًا يتوقف التطبيق بدل التخمين بين حالتي استرداد.
+- اختبارات السياسة تغطي حدود الذاكرة ورفض tag غير مسموح به، لكنها اختبارات أجهزة اصطناعية. لا تُعد قياسًا لسرعة التوليد أو زمن الاستجابة على جهاز المستخدم.
+
+**مراجع tags وأحجام التنزيل المرجعية:** https://ollama.com/library/qwen3.5/tags. هذه أحجام تنزيل للأوزان وليست حدًا مباشرًا لذاكرة التشغيل، ولذلك تضيف سياسة Layal هامش ذاكرة مستقلًا. الأداء الفعلي ما زال يحتاج benchmark على أجهزة تمثيلية قبل إعلان أن variant بعينه هو الأسرع أو الأنسب.
