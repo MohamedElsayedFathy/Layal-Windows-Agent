@@ -238,6 +238,7 @@ public sealed class OllamaLocalModelSetupService
         }
 
         await EnsureServerReadyAsync(executable, progress, cancellationToken).ConfigureAwait(false);
+        await RecoverInterruptedModelUpdateAsync(executable, progress, cancellationToken).ConfigureAwait(false);
 
         var existingPin = await ReadModelDigestManifestAsync(cancellationToken).ConfigureAwait(false);
         var installedDigest = await GetInstalledModelDigestAsync(cancellationToken).ConfigureAwait(false);
@@ -903,6 +904,11 @@ public sealed class OllamaLocalModelSetupService
     private static string ModelUpdateJournalPath => Path.Combine(
         LocalVoiceService.DataRoot, "resource-manifests", "qwen3.5.update.json");
 
+    // Older releases used a model-specific journal name. Keep recovery compatibility
+    // so an interrupted 2B update from an earlier build is rolled back before reuse.
+    private static string LegacyDefaultModelUpdateJournalPath => Path.Combine(
+        LocalVoiceService.DataRoot, "resource-manifests", "qwen3.5-2b.json.update.json");
+
     private static string GetModelDigestManifestPath(string modelId)
     {
         if (!QwenModelVariantCatalog.TryGet(modelId, out var variant) || variant is null)
@@ -979,12 +985,19 @@ public sealed class OllamaLocalModelSetupService
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        var path = Path.GetFullPath(ModelUpdateJournalPath);
-        var directory = Path.GetDirectoryName(path)
+        var familyPath = Path.GetFullPath(ModelUpdateJournalPath);
+        var legacyPath = Path.GetFullPath(LegacyDefaultModelUpdateJournalPath);
+        var directory = Path.GetDirectoryName(familyPath)
             ?? throw new InvalidOperationException("The Qwen update journal has no parent directory.");
         EnsureNoReparsePoints(directory);
-        if (!File.Exists(path))
+        var hasFamilyJournal = File.Exists(familyPath);
+        var hasLegacyJournal = File.Exists(legacyPath);
+        if (hasFamilyJournal && hasLegacyJournal)
+            throw new InvalidDataException(
+                "Both current and legacy Qwen recovery journals exist. Resolve the ambiguous recovery state before using the model.");
+        if (!hasFamilyJournal && !hasLegacyJournal)
             return;
+        var path = hasFamilyJournal ? familyPath : legacyPath;
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new InvalidDataException("The Qwen update journal must not be a reparse point.");
 
