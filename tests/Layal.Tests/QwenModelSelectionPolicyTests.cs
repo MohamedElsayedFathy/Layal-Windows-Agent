@@ -67,13 +67,13 @@ public sealed class QwenModelSelectionPolicyTests
             AvailableDedicatedGpuMemoryBytes: 13L * 1024 * 1024 * 1024,
             GpuName: "NVIDIA test adapter"));
 
-        Assert.AreEqual("qwen3.5:9b", selection.Variant.ModelId);
+        Assert.AreEqual("qwen3.5:4b", selection.Variant.ModelId);
         Assert.IsTrue(selection.MemoryBudgetSatisfied);
         Assert.IsTrue(selection.UsesDedicatedGpuBudget);
     }
 
     [TestMethod]
-    public void CpuOnlySelectionUsesAvailableSystemRamAndCanChooseNineBWithEnoughHeadroom()
+    public void CpuOnlySelectionCapsAtFourBUntilNineBCpuPerformanceIsBenchmarked()
     {
         var selection = QwenModelSelectionPolicy.Select(new QwenHardwareProfile(
             TotalRamBytes: 32L * 1024 * 1024 * 1024,
@@ -87,6 +87,7 @@ public sealed class QwenModelSelectionPolicyTests
         Assert.IsTrue(selection.MemoryBudgetSatisfied);
         Assert.IsFalse(selection.UsesDedicatedGpuBudget);
         StringAssert.Contains(selection.Rationale, "available system RAM");
+        StringAssert.Contains(selection.Rationale, "9B variant is reserved");
     }
 
     [TestMethod]
