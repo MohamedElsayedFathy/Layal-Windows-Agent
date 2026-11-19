@@ -16,6 +16,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import stat
 import statistics
 import subprocess
@@ -293,51 +294,62 @@ def transcribe_one(
     timeout_seconds: int,
 ) -> dict[str, Any]:
     output_prefix = temporary_root / (sample["id"] + "-transcription")
-    command = [
-        str(resources["executable"]),
-        "-m", str(resources["model"]),
-        "-f", str(sample["audio_path"]),
-        "-l", "auto",
-        "-oj",
-        "-otxt",
-        "-of", str(output_prefix),
-        "-np",
-        "-t", str(threads),
-    ]
-    started = time.perf_counter()
+    audio_snapshot = temporary_root / (sample["id"] + "-input.wav")
     try:
-        completed = subprocess.run(
-            command,
-            shell=False,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout_seconds,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise TimeoutError(f"Whisper timed out after {timeout_seconds} seconds.") from error
-    elapsed_ms = (time.perf_counter() - started) * 1000.0
-    if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout or "").strip()
-        raise RuntimeError(f"Whisper exited with code {completed.returncode}: {detail[-1200:]}")
-    json_path = output_prefix.with_suffix(".json")
-    text_path = output_prefix.with_suffix(".txt")
-    transcript = _extract_transcript(json_path, text_path)
-    duration = sample["audio_duration_seconds"]
-    return {
-        "caseId": sample["id"],
-        "locale": sample["locale"],
-        "speakerId": sample["speaker_id"],
-        "audioSha256": sample["audio_sha256"],
-        "audioDurationSeconds": round(duration, 4),
-        "wallClockMs": round(elapsed_ms, 2),
-        "realTimeFactor": round((elapsed_ms / 1000.0) / duration, 6),
-        "transcript": transcript,
-        "status": "passed",
-    }
+        shutil.copyfile(sample["audio_path"], audio_snapshot)
+        if sha256_file(audio_snapshot) != sample["audio_sha256"]:
+            raise RuntimeError("The source WAV changed after validation; the sample was not benchmarked.")
+
+        command = [
+            str(resources["executable"]),
+            "-m", str(resources["model"]),
+            "-f", str(audio_snapshot),
+            "-l", "auto",
+            "-oj",
+            "-otxt",
+            "-of", str(output_prefix),
+            "-np",
+            "-t", str(threads),
+        ]
+        started = time.perf_counter()
+        try:
+            completed = subprocess.run(
+                command,
+                shell=False,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise TimeoutError(f"Whisper timed out after {timeout_seconds} seconds.") from error
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "").strip()
+            raise RuntimeError(f"Whisper exited with code {completed.returncode}: {detail[-1200:]}")
+        json_path = output_prefix.with_suffix(".json")
+        text_path = output_prefix.with_suffix(".txt")
+        transcript = _extract_transcript(json_path, text_path)
+        duration = sample["audio_duration_seconds"]
+        return {
+            "caseId": sample["id"],
+            "locale": sample["locale"],
+            "speakerId": sample["speaker_id"],
+            "audioSha256": sample["audio_sha256"],
+            "audioDurationSeconds": round(duration, 4),
+            "wallClockMs": round(elapsed_ms, 2),
+            "realTimeFactor": round((elapsed_ms / 1000.0) / duration, 6),
+            "transcript": transcript,
+            "status": "passed",
+        }
+    finally:
+        try:
+            audio_snapshot.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def _write_json_atomically(path: Path, payload: dict[str, Any], force: bool) -> None:
