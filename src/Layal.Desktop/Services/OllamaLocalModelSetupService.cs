@@ -18,9 +18,10 @@ namespace Layal.Services;
 public sealed class OllamaLocalModelSetupService
 {
     public static readonly string DefaultModelId = QwenModelVariantCatalog.DefaultModelId;
+    public static readonly string ModelSizeDescription = "2.7–3.1 GB";
     public string SelectedModelId => LocalResourceCatalog.CurrentChatModelId;
     private QwenModelVariant SelectedVariant => QwenModelVariantCatalog.GetRequired(SelectedModelId);
-    public string ModelSizeDescription => SelectedVariant.SizeDescription;
+    public string SelectedModelSizeDescription => SelectedVariant.SizeDescription;
     private long ModelSizeUpperBoundBytes => SelectedVariant.MaximumDownloadBytes;
     private static readonly TimeSpan ServerStartupTimeout = TimeSpan.FromSeconds(45);
 
@@ -276,7 +277,7 @@ public sealed class OllamaLocalModelSetupService
                 throw new InvalidOperationException(
                     "A trusted Qwen Registry manifest is required before the first model download.");
 
-            progress?.Report($"تنزيل نموذج المحادثة المحلي {SelectedModelId} (الحجم المتوقع {ModelSizeDescription})…");
+            progress?.Report($"تنزيل نموذج المحادثة المحلي {SelectedModelId} (الحجم المتوقع {SelectedModelSizeDescription})…");
             await _resourceCoordinator.ExecuteAsync(
                 LocalResourceIds.ChatModel,
                 token => PullModelAsync(progress, downloadProgress, token),
