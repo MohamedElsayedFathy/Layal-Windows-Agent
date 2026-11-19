@@ -160,9 +160,9 @@ public static class QwenModelSelectionPolicy
         var fallback = QwenModelVariantCatalog.GetRequired(QwenModelVariantCatalog.DefaultModelId);
         return new QwenModelSelection(
             fallback,
-            true,
             false,
-            "Memory telemetry is unavailable. The established Qwen3.5 2B baseline is retained; setup must still pass the actual local model health check.");
+            false,
+            "Reliable free system-memory telemetry is unavailable. The 2B baseline is shown as a fallback recommendation, but full setup is blocked until RAM can be measured safely.");
     }
 
     private static string Format(long bytes) =>
