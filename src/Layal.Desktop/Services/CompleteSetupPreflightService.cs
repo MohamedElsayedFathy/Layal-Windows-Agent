@@ -394,8 +394,8 @@ public static class CompleteSetupPreflightService
                 return null;
             }
 
-            long totalMiB = 0;
-            long freeMiB = 0;
+            long selectedTotalMiB = 0;
+            long selectedFreeMiB = 0;
             var rows = process.StandardOutput.ReadToEnd().Split(
                 new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries);
             var found = 0;
@@ -410,13 +410,19 @@ public static class CompleteSetupPreflightService
                     deviceTotal <= 0 || deviceFree < 0 || deviceFree > deviceTotal)
                     continue;
 
-                totalMiB = checked(totalMiB + deviceTotal);
-                freeMiB = checked(freeMiB + deviceFree);
+                // Ollama may use a single adapter for this model. Never add VRAM
+                // from distinct devices: doing so can claim a model fits when no
+                // individual device has enough free memory.
+                if (deviceFree > selectedFreeMiB)
+                {
+                    selectedTotalMiB = deviceTotal;
+                    selectedFreeMiB = deviceFree;
+                }
                 found++;
             }
 
-            if (found == 0) return null;
-            return (checked(totalMiB * 1024 * 1024), checked(freeMiB * 1024 * 1024));
+            if (found == 0 || selectedTotalMiB <= 0) return null;
+            return (checked(selectedTotalMiB * 1024 * 1024), checked(selectedFreeMiB * 1024 * 1024));
         }
         catch (Exception exception) when (
             exception is InvalidOperationException or System.ComponentModel.Win32Exception or
