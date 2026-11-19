@@ -379,7 +379,7 @@ public static class CompleteSetupPreflightService
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
-            RedirectStandardError = true
+            RedirectStandardError = false
         };
         start.ArgumentList.Add("--query-gpu=memory.total,memory.free");
         start.ArgumentList.Add("--format=csv,noheader,nounits");
