@@ -287,7 +287,25 @@ function Invoke-QwenChatHealth {
 }
 
 try {
-    Get-Process -Name ollama -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    # The official Windows installer launches both the server and the tray app in
+    # the background. The tray app can respawn the server, so stop only Ollama
+    # processes installed beside the exact executable selected for this CI run.
+    $ollamaInstallDirectory = [System.IO.Path]::GetFullPath((Split-Path -Parent $OllamaExePath)).TrimEnd('\')
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
+        $ownedOllamaProcesses = @(Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -in @("ollama.exe", "ollama app.exe") -and
+                -not [string]::IsNullOrWhiteSpace([string]$_.ExecutablePath) -and
+                ([System.IO.Path]::GetFullPath([string]$_.ExecutablePath)).StartsWith(
+                    $ollamaInstallDirectory + '\',
+                    [System.StringComparison]::OrdinalIgnoreCase)
+            })
+        if ($ownedOllamaProcesses.Count -eq 0) { break }
+        foreach ($ownedProcess in $ownedOllamaProcesses) {
+            Stop-Process -Id ([int]$ownedProcess.ProcessId) -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 1
+    }
     $portDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
     while ([DateTimeOffset]::UtcNow -lt $portDeadline -and
            (Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue)) {
