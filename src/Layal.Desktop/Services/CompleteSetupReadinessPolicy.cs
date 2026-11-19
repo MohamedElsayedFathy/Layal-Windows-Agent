@@ -17,9 +17,13 @@ public static class CompleteSetupReadinessPolicy
         IEnumerable<LocalResourceStateEntry> states)
     {
         ArgumentNullException.ThrowIfNull(states);
+        var definitionsById = LocalResourceCatalog.All.ToDictionary(
+            resource => resource.Id, StringComparer.Ordinal);
         var readyIds = new HashSet<string>(
             states
-                .Where(item => item.State == LocalResourceLifecycle.Ready)
+                .Where(item => item.State == LocalResourceLifecycle.Ready &&
+                    definitionsById.TryGetValue(item.ResourceId, out var definition) &&
+                    string.Equals(item.DefinitionVersion, definition.Version, StringComparison.Ordinal))
                 .Select(item => item.ResourceId),
             StringComparer.Ordinal);
 
