@@ -1388,6 +1388,24 @@ public sealed class MainWindowVisualSmokeTests
                 $"{fieldName} must be explicitly associated with {labelName} for screen readers.");
             Assert.IsFalse(string.IsNullOrWhiteSpace(label.Text),
                 $"{labelName} must have visible, localized label text.");
+
+            Assert.AreEqual(
+                label.Text,
+                AutomationProperties.GetName(field),
+                $"{fieldName} must expose its visible localized label as an explicit accessible name.");
+
+            Assert.AreEqual(
+                fieldName,
+                AutomationProperties.GetAutomationId(field),
+                $"{fieldName} must expose a stable UI Automation ID.");
+
+            var fieldPeer = UIElementAutomationPeer.CreatePeerForElement(field);
+            Assert.IsNotNull(fieldPeer,
+                $"{fieldName} must expose a WPF UI Automation peer.");
+            Assert.AreEqual(
+                label.Text,
+                fieldPeer!.GetName(),
+                $"{fieldName} must expose its visible localized label through the UI Automation peer Name.");
         }
 
         var status = window.FindName("ApiConnectionsStatus") as TextBlock
@@ -1400,6 +1418,7 @@ public sealed class MainWindowVisualSmokeTests
             isArabic ? "حالة اتصالات API" : "API connections status",
             AutomationProperties.GetName(status),
             "The API status region must expose a localized accessible name.");
+
     }
 
     private static void AssertCaptionControlsFollowKeyboardTabOrder(MainWindow window)
