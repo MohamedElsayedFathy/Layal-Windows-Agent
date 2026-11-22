@@ -1389,15 +1389,22 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsFalse(string.IsNullOrWhiteSpace(label.Text),
                 $"{labelName} must have visible, localized label text.");
 
-            // Verify the effective name exposed by WPF UI Automation, not only the
-            // attached LabeledBy relationship. Screen readers consume this peer name.
+            // Verify that the UI Automation peer exports the label relationship.
+            // WPF exposes the associated TextBlock through GetLabeledBy(); the
+            // control's own Name property is not required to duplicate the label text.
             var fieldPeer = UIElementAutomationPeer.CreatePeerForElement(field);
             Assert.IsNotNull(fieldPeer,
                 $"{fieldName} must expose a UI Automation peer.");
+            var labeledByPeer = fieldPeer!.GetLabeledBy();
+            Assert.IsNotNull(labeledByPeer,
+                $"{fieldName} must expose its associated label through UI Automation.");
+            var labelPeer = UIElementAutomationPeer.CreatePeerForElement(label);
+            Assert.IsNotNull(labelPeer,
+                $"{labelName} must expose a UI Automation peer.");
             Assert.AreEqual(
-                label.Text,
-                fieldPeer!.GetName(),
-                $"{fieldName} must expose its localized visible label as its effective UI Automation name.");
+                labelPeer!.GetName(),
+                labeledByPeer!.GetName(),
+                $"{fieldName} must reference the localized visible label through its UI Automation LabeledBy property.");
         }
 
         var status = window.FindName("ApiConnectionsStatus") as TextBlock
