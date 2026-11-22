@@ -27,21 +27,23 @@
 ~~~powershell
 $ModelDir = "D:\LayalSpeechEvaluation\Models\QwenCleo"
 $ModelRevision = "ضع-هنا-40-خانة-لـ-HuggingFace-commit"
-$WhisperScoringManifest = "D:\LayalSpeechEvaluation\Reports\whisper-benchmark-...scoring-manifest.json"
+$CollectionManifest = "D:\LayalSpeechEvaluation\Session-001\speech-reference-set.json"
+$WhisperScoringManifest = "D:\LayalSpeechEvaluation\Reports\whisper\whisper-benchmark-...scoring-manifest.json"
+$QwenScoringManifest = "D:\LayalSpeechEvaluation\Reports\qwencleo\qwencleo-benchmark-...scoring-manifest.json"
 $OutputDir = "D:\LayalSpeechEvaluation\Reports\qwencleo"
-python tools/evaluation/run_qwencleo_benchmark.py --model-dir $ModelDir --model-revision $ModelRevision --manifest $WhisperScoringManifest --output-dir $OutputDir --device auto
+python tools/evaluation/run_qwencleo_benchmark.py --model-dir $ModelDir --model-revision $ModelRevision --manifest $CollectionManifest --output-dir $OutputDir --device auto
 ~~~
 
 خيارات الجهاز: `auto` يختار CUDA إن كان متاحًا وإلا CPU؛ `cuda:0` يفرض GPU؛ `cpu` يفرض المعالج. لا يعني اختيار `auto` أن الذاكرة كافية؛ إذا فشل تحميل النموذج فراجع RAM/VRAM وسجل الخطأ ولا تغيّر إعدادات الإنتاج لتجاوزه.
 
-يمرر المثال ملف scoring الناتج من Whisper كمدخل، حتى يحتفظ الناتج بفرضية `whisper_cpp_base` ويضيف `qwencleo_asr_17b`. بذلك يمكن قياس المحركين على نفس الحالات:
+يجب أن يشير `--manifest` إلى **manifest الجمع الأصلي** الموجود بجوار مجلد `audio/`، وليس ملف scoring الناتج من Whisper؛ ملف scoring محفوظ في مجلد آخر ولا يحتوي ملفات WAV بجواره. شغّل Whisper وQwenCleo من manifest الجمع نفسه، ثم احسب كل محرك من ملف scoring الذي أنتجه:
 
 ~~~powershell
-python tools/evaluation/score_speech_transcripts.py --manifest "D:\LayalSpeechEvaluation\Reports\qwencleo\qwencleo-benchmark-...scoring-manifest.json" --engine whisper_cpp_base
-python tools/evaluation/score_speech_transcripts.py --manifest "D:\LayalSpeechEvaluation\Reports\qwencleo\qwencleo-benchmark-...scoring-manifest.json" --engine qwencleo_asr_17b
+python tools/evaluation/score_speech_transcripts.py --manifest $WhisperScoringManifest --engine whisper_cpp_base
+python tools/evaluation/score_speech_transcripts.py --manifest $QwenScoringManifest --engine qwencleo_asr_17b
 ~~~
 
-يعرض التقرير WER وCER وCritical-token error rate لكل تنوع على حدة. راجع خصوصًا النفي والأرقام وأسماء الملفات والكلمات الإنجليزية داخل الكلام المصري. لا تقارن نتائج المحركين إذا لم تتطابق معرفات العينات وبصمات WAV والمراجع المعتمدة.
+يعرض كل تقرير WER وCER وCritical-token error rate لكل تنوع على حدة. راجع خصوصًا النفي والأرقام وأسماء الملفات والكلمات الإنجليزية داخل الكلام المصري. قبل المقارنة، طابق case IDs وبصمات WAV بين تقريرَي تشغيل Whisper وQwenCleo، وتأكد أن كليهما استخدم نسخة manifest والمراجع البشرية نفسها.
 
 ## ما يسجله المشغّل
 
