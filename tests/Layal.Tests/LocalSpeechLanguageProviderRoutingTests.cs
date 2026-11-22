@@ -52,7 +52,7 @@ public sealed class LocalSpeechLanguageProviderRoutingTests
     [TestMethod]
     public void MixedTextUsesMsaRouteWhenEveryArabicSegmentHasMsaEvidence()
     {
-        var analysis = _engine.Analyze("كيف حالك؟ Please review the details.");
+        var analysis = _engine.Analyze("كيف حالك؟ أحتاج إلى معرفة التفاصيل. Please review the final report.");
         Assert.AreEqual(SpeechLanguageKind.Mixed, analysis.Language.PrimaryLanguage);
         Assert.AreEqual("ar", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
     }
