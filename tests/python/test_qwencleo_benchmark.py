@@ -68,6 +68,22 @@ class QwenCleoBenchmarkTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_model_manifest_and_output_paths_inside_repository_are_rejected(self):
+        inside_repo = MODULE.REPOSITORY_ROOT / "tests" / "private-local-evaluation"
+        with self.assertRaisesRegex(ValueError, "outside the Git repository"):
+            MODULE._require_outside_repository(inside_repo, "Local evaluation data")
+
+    def test_repository_manifest_is_rejected_before_shared_validator_runs(self):
+        inside_manifest = MODULE.REPOSITORY_ROOT / "tests" / "private-speech-reference-set.json"
+        validator = mock.Mock()
+        with mock.patch.object(MODULE.WHISPER_RUNNER, "validate_manifest_and_audio", validator):
+            with self.assertRaisesRegex(ValueError, "outside the Git repository"):
+                MODULE.run_benchmark(
+                    inside_manifest, self.model_dir, REVISION,
+                    self.root / "evaluation", "cpu", mock.Mock(),
+                )
+        validator.assert_not_called()
+
     def test_model_snapshot_is_hashed_and_revision_must_be_immutable(self):
         root, inventory = MODULE.inspect_model_snapshot(self.model_dir, REVISION)
         self.assertEqual(self.model_dir.resolve(), root)
@@ -163,11 +179,14 @@ class QwenCleoBenchmarkTests(unittest.TestCase):
         payload["cases"][0]["consent"]["granted"] = False
         self.manifest_path.write_text(json.dumps(payload), encoding="utf-8")
         loader = mock.Mock()
-        with self.assertRaisesRegex(ValueError, "consent.granted=true"):
-            MODULE.run_benchmark(
-                self.manifest_path, self.model_dir, REVISION, self.root / "evaluation", "cpu", loader
-            )
+        with mock.patch.object(MODULE, "inspect_model_snapshot") as inspect:
+            with self.assertRaisesRegex(ValueError, "consent.granted=true"):
+                MODULE.run_benchmark(
+                    self.manifest_path, self.model_dir, REVISION,
+                    self.root / "evaluation", "cpu", loader,
+                )
         loader.assert_not_called()
+        inspect.assert_not_called()
 
     def test_failed_sample_does_not_reuse_stale_hypothesis(self):
         class FailingModel:
