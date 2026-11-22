@@ -180,6 +180,7 @@ def load_local_model(model_dir: Path, device: str) -> tuple[Any, dict[str, Any]]
         str(model_dir),
         dtype=dtype,
         device_map=device,
+        max_new_tokens=256,
         local_files_only=True,
     )
     try:
@@ -191,6 +192,7 @@ def load_local_model(model_dir: Path, device: str) -> tuple[Any, dict[str, Any]]
         "dtype": str(dtype).replace("torch.", ""),
         "torchVersion": str(torch.__version__),
         "qwenAsrVersion": qwen_asr_version,
+        "maxNewTokens": 256,
         "cudaVersion": getattr(torch.version, "cuda", None),
         "gpu": gpu,
         "torchModule": torch,
