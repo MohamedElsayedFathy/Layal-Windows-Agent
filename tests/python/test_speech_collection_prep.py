@@ -186,5 +186,19 @@ class SpeechCollectionPreparationTests(unittest.TestCase):
 
 
 
+    def test_rejects_boolean_schema_version_and_non_string_locale(self):
+        payload = self.seed_payload()
+        payload["schemaVersion"] = True
+        self.write_seed(payload)
+        with self.assertRaisesRegex(ValueError, "schemaVersion=1"):
+            MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
+
+        payload = self.seed_payload()
+        payload["cases"][0]["locale"] = ["ar-EG"]
+        self.write_seed(payload)
+        with self.assertRaisesRegex(ValueError, "locale is not supported"):
+            MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
+
+
 if __name__ == "__main__":
     unittest.main()
