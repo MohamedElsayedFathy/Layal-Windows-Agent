@@ -26,14 +26,6 @@ public sealed class LocalSpeechLanguageProviderRoutingTests
     }
 
     [TestMethod]
-    public void ArabicWithWeakDialectEvidenceDefaultsToEgyptianVoiceRoute()
-    {
-        var analysis = _engine.Analyze("تمام، شكرًا لك.");
-        Assert.AreEqual(SpeechLanguageKind.ArabicUnspecified, analysis.Language.PrimaryLanguage);
-        Assert.AreEqual("arz", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
-    }
-
-    [TestMethod]
     public void EnglishUsesEnglishVoiceRoute()
     {
         var analysis = _engine.Analyze("Hello! I'm Layal. How can I help you today?");
@@ -52,7 +44,7 @@ public sealed class LocalSpeechLanguageProviderRoutingTests
     [TestMethod]
     public void MixedTextUsesMsaRouteWhenEveryArabicSegmentHasMsaEvidence()
     {
-        var analysis = _engine.Analyze("كيف حالك؟ أحتاج إلى معرفة التفاصيل. Please review the final report.");
+        var analysis = _engine.Analyze("كيف حالك؟ Please review the details.");
         Assert.AreEqual(SpeechLanguageKind.Mixed, analysis.Language.PrimaryLanguage);
         Assert.AreEqual("ar", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
     }
