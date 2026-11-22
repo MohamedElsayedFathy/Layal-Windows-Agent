@@ -60,7 +60,7 @@ public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, IS
     }
 
     /// <summary>
-    /// Maps Layal's reviewed transcript classifications to VoiceTut language identifiers.
+    /// Maps Layal's text-language classifications to VoiceTut language identifiers.
     /// Ambiguous Arabic uses Egyptian, Layal's primary Arabic locale, rather than assuming MSA.
     /// </summary>
     public static string SelectLanguageCode(SpeechLanguageAnalysis analysis)
