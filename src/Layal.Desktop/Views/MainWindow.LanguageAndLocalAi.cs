@@ -566,6 +566,11 @@ public partial class MainWindow
             ? "أضف اتصالات REST/JSON للتكاملات الخارجية. كتالوج هذه الاتصالات منفصل عن نواة ليال؛ لن يستخدمها لتوليد الردود أو التخطيط أو اتخاذ القرارات."
             : "Add REST/JSON connections for external integrations. This catalog is separate from Layal's native core and is not used to generate replies, plan, or make decisions.";
         ApiConnectionsListLabel.Text = ar ? "التطبيقات المتصلة" : "Connected applications";
+        System.Windows.Automation.AutomationProperties.SetName(ApiConnectionList, ar ? "اتصالات API المحفوظة" : "Saved API connections");
+        System.Windows.Automation.AutomationProperties.SetHelpText(ApiConnectionList, ar
+            ? "اختر اتصالًا محفوظًا لعرض إعداداته أو تعديله."
+            : "Select a saved connection to view or edit its settings.");
+        System.Windows.Automation.AutomationProperties.SetName(ApiConnectionsStatus, ar ? "حالة اتصالات API" : "API connections status");
         ApiConnectionSearchInput.ToolTip = ar ? "ابحث بالاسم أو عنوان API أو التفاصيل" : "Search by name, API URL, or details";
         System.Windows.Automation.AutomationProperties.SetName(ApiConnectionSearchInput, ar ? "البحث في اتصالات API" : "Search API connections");
         System.Windows.Automation.AutomationProperties.SetHelpText(ApiConnectionSearchInput, ar

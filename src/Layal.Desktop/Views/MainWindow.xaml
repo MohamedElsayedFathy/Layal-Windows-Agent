@@ -1016,7 +1016,9 @@
                                      AutomationProperties.HelpText="يبحث في اسم الاتصال وعنوان API والتفاصيل دون البحث في مفاتيح المصادقة."
                                      TextChanged="ApiConnectionSearchInput_TextChanged"/>
                             <ListBox x:Name="ApiConnectionList" ItemsSource="{Binding ApiConnections}" SelectionChanged="ApiConnectionList_SelectionChanged"
-                                     Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" Padding="8" MinHeight="220">
+                                     Background="{DynamicResource Layal.GlassFill}" BorderBrush="{DynamicResource Layal.GlassBorderBrush}" Padding="8" MinHeight="220"
+                                     AutomationProperties.Name="اتصالات API المحفوظة"
+                                     AutomationProperties.HelpText="اختر اتصالًا محفوظًا لعرض إعداداته أو تعديله.">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{StaticResource Layal.CardGradient}" CornerRadius="10" Padding="10" Margin="2" BorderBrush="{StaticResource Layal.Border}" BorderThickness="1">
@@ -1055,35 +1057,35 @@
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="ApiConnectionNameLabel" Text="اسم التطبيق / الاتصال" Margin="4,2,4,0"/>
-                                <TextBox x:Name="ApiConnectionNameInput" MinHeight="40" ToolTip="Notion, GitHub, CRM..." />
+                                <TextBox x:Name="ApiConnectionNameInput" MinHeight="40" ToolTip="Notion, GitHub, CRM..." AutomationProperties.LabeledBy="{Binding ElementName=ApiConnectionNameLabel}" />
                                 <TextBlock x:Name="ApiConnectionBaseUrlLabel" Text="عنوان API الأساسي (إجباري)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiConnectionBaseUrlInput" FlowDirection="LeftToRight" MinHeight="40" ToolTip="https://api.example.com/v1"/>
+                                <TextBox x:Name="ApiConnectionBaseUrlInput" FlowDirection="LeftToRight" MinHeight="40" ToolTip="https://api.example.com/v1" AutomationProperties.LabeledBy="{Binding ElementName=ApiConnectionBaseUrlLabel}"/>
                                 <TextBlock x:Name="ApiConnectionModelIdLabel" Text="معرّف النموذج (اختياري، مطلوب عند استخدامه كـ API ليال)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiConnectionModelIdInput" FlowDirection="LeftToRight" MinHeight="40" ToolTip="gpt-4.1-mini or provider model ID"/>
+                                <TextBox x:Name="ApiConnectionModelIdInput" FlowDirection="LeftToRight" MinHeight="40" ToolTip="gpt-4.1-mini or provider model ID" AutomationProperties.LabeledBy="{Binding ElementName=ApiConnectionModelIdLabel}"/>
                                 <TextBlock x:Name="ApiConnectionImageLabel" Text="صورة التطبيق (اختياري)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiConnectionImagePathInput" IsReadOnly="True" MinHeight="40" ToolTip="الصورة تُنسخ إلى مجلد بيانات ليال المحلي."/>
+                                <TextBox x:Name="ApiConnectionImagePathInput" IsReadOnly="True" MinHeight="40" ToolTip="الصورة تُنسخ إلى مجلد بيانات ليال المحلي." AutomationProperties.LabeledBy="{Binding ElementName=ApiConnectionImageLabel}"/>
                                 <WrapPanel Margin="0,4,0,0">
                                     <Button x:Name="ChooseApiImageButton" Content="اختيار صورة..." Click="ChooseApiImageButton_Click"/>
                                     <Button x:Name="ClearApiImageButton" Content="مسح الصورة" Click="ClearApiImageButton_Click"/>
                                 </WrapPanel>
                                 <TextBlock x:Name="ApiAuthTypeLabel" Text="طريقة المصادقة" Margin="4,8,4,0"/>
-                                <ComboBox x:Name="ApiAuthTypeComboBox" MinHeight="40" SelectedIndex="1">
+                                <ComboBox x:Name="ApiAuthTypeComboBox" MinHeight="40" SelectedIndex="1" AutomationProperties.LabeledBy="{Binding ElementName=ApiAuthTypeLabel}">
                                     <ComboBoxItem Content="بدون مصادقة / None" Tag="None"/>
                                     <ComboBoxItem Content="Bearer token" Tag="Bearer"/>
                                     <ComboBoxItem Content="Custom header (API key)" Tag="CustomHeader"/>
                                 </ComboBox>
                                 <TextBlock x:Name="ApiAuthHeaderNameLabel" Text="اسم ترويسة المصادقة (Custom header)" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiAuthHeaderNameInput" FlowDirection="LeftToRight" Text="X-API-Key" MinHeight="40"/>
+                                <TextBox x:Name="ApiAuthHeaderNameInput" FlowDirection="LeftToRight" Text="X-API-Key" MinHeight="40" AutomationProperties.LabeledBy="{Binding ElementName=ApiAuthHeaderNameLabel}"/>
                                 <TextBlock x:Name="ApiAuthSecretLabel" Text="Token / API key / header value" Margin="4,8,4,0"/>
-                                <PasswordBox x:Name="ApiAuthSecretInput" FlowDirection="LeftToRight" MinHeight="40"/>
+                                <PasswordBox x:Name="ApiAuthSecretInput" FlowDirection="LeftToRight" MinHeight="40" AutomationProperties.LabeledBy="{Binding ElementName=ApiAuthSecretLabel}"/>
                                 <TextBlock x:Name="ApiAdditionalHeadersLabel" Text="ترويسات HTTP إضافية غير سرية (JSON)" Margin="4,8,4,0"/>
                                 <TextBox x:Name="ApiAdditionalHeadersInput" FlowDirection="LeftToRight" MinHeight="58" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                                         ToolTip="Example additional header: Notion-Version"/>
+                                         ToolTip="Example additional header: Notion-Version" AutomationProperties.LabeledBy="{Binding ElementName=ApiAdditionalHeadersLabel}"/>
                                 <TextBlock x:Name="ApiTestPathLabel" Text="مسار اختبار الاتصال (GET)، مثل health أو users/me" Margin="4,8,4,0"/>
-                                <TextBox x:Name="ApiTestPathInput" FlowDirection="LeftToRight" MinHeight="40"/>
+                                <TextBox x:Name="ApiTestPathInput" FlowDirection="LeftToRight" MinHeight="40" AutomationProperties.LabeledBy="{Binding ElementName=ApiTestPathLabel}"/>
                                 <TextBlock x:Name="ApiInstructionsLabel" Text="التفاصيل وملاحظات API (اختياري، بدون أسرار)" Margin="4,8,4,0"/>
                                 <TextBox x:Name="ApiInstructionsInput" MinHeight="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                                         ToolTip="اكتب المسارات وطريقة الاستخدام التي تريد أن تعرفها ليال."/>
+                                         ToolTip="اكتب المسارات وطريقة الاستخدام التي تريد أن تعرفها ليال." AutomationProperties.LabeledBy="{Binding ElementName=ApiInstructionsLabel}"/>
                                 <WrapPanel Margin="0,10,0,0">
                                     <Button x:Name="SaveApiConnectionButton" Content="حفظ الاتصال" Click="SaveApiConnectionButton_Click"/>
                                     <Button x:Name="UseAsLayalApiButton" Content="استخدام هذا كـ API ليال" Click="UseAsLayalApiButton_Click"/>
@@ -1094,7 +1096,8 @@
                         </ScrollViewer>
                         </Border>
                     </Grid>
-                    <TextBlock x:Name="ApiConnectionsStatus" Grid.Row="2" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0"/>
+                    <TextBlock x:Name="ApiConnectionsStatus" Grid.Row="2" Text="" Foreground="{DynamicResource Layal.Success}" TextWrapping="Wrap" Margin="4,10,4,0"
+                               AutomationProperties.Name="حالة اتصالات API" AutomationProperties.LiveSetting="Polite"/>
                 </Grid>
 </Border>
             </TabItem>
