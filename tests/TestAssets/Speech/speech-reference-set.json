@@ -302,6 +302,1206 @@
       "speakerId": null,
       "consentRequired": true,
       "hypotheses": {}
+    },
+    {
+      "id": "eg-011",
+      "locale": "ar-EG",
+      "referenceText": "أنا صحيت بدري النهارده عشان ألحق أول ميعاد.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-012",
+      "locale": "ar-EG",
+      "referenceText": "ممكن تبعتيلي الملف على الإيميل بعد ما تراجعيه؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-013",
+      "locale": "ar-EG",
+      "referenceText": "خلينا نقسم الشغل على خطوتين بدل ما نعمله كله مرة واحدة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-014",
+      "locale": "ar-EG",
+      "referenceText": "النت فصل فجأة، فاستنيت شوية لحد ما رجع تاني.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-015",
+      "locale": "ar-EG",
+      "referenceText": "أنا محتاج أعرف الفرق بين النسخة القديمة والنسخة الجديدة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-016",
+      "locale": "ar-EG",
+      "referenceText": "لو سمحت وطّي صوت السماعة سنة بسيطة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-017",
+      "locale": "ar-EG",
+      "referenceText": "مش هقدر أحضر الاجتماع، بس هبعت الملاحظات قبل معاده.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-018",
+      "locale": "ar-EG",
+      "referenceText": "حطي الموبايل على الترابيزة جنب الكوباية الزرقا.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-019",
+      "locale": "ar-EG",
+      "referenceText": "هو البرنامج حفظ التعديلات ولا لسه؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-020",
+      "locale": "ar-EG",
+      "referenceText": "أنا جرّبت الحل ده مرتين ولسه نفس المشكلة موجودة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-021",
+      "locale": "ar-EG",
+      "referenceText": "معلش اتكلم أبطأ شوية عشان أقدر أكتب وراك.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-022",
+      "locale": "ar-EG",
+      "referenceText": "هنبدأ الساعة تسعة ونص ونخلص قبل الضهر.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-023",
+      "locale": "ar-EG",
+      "referenceText": "الملف كبير، فممكن ياخد دقيقة لحد ما يفتح.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-024",
+      "locale": "ar-EG",
+      "referenceText": "عايز أغيّر اسم المجلد من غير ما ألمس الملفات اللي جواه.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-025",
+      "locale": "ar-EG",
+      "referenceText": "ما تضغطيش على إرسال غير لما أراجع الرسالة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-026",
+      "locale": "ar-EG",
+      "referenceText": "المفتاح الاحتياطي موجود في الدرج اللي على اليمين.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-027",
+      "locale": "ar-EG",
+      "referenceText": "أنا سمعت أول الكلام، لكن آخر كلمتين ما كانوش واضحين.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-028",
+      "locale": "ar-EG",
+      "referenceText": "ممكن تشرحيلي الخطوات من البداية وبالترتيب؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-029",
+      "locale": "ar-EG",
+      "referenceText": "الطلب اتسجل، ورقم المتابعة ظاهر على الشاشة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-030",
+      "locale": "ar-EG",
+      "referenceText": "لو النتيجة مش مظبوطة، ارجعي للإعدادات الافتراضية.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-031",
+      "locale": "ar-EG",
+      "referenceText": "هشتري تذكرة بعد ما أتأكد من ميعاد الرجوع.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-032",
+      "locale": "ar-EG",
+      "referenceText": "الشارع زحمة النهارده، فممكن نتأخر عشر دقايق.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-033",
+      "locale": "ar-EG",
+      "referenceText": "عايز نسخة PDF ونسخة Word من نفس المستند.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-034",
+      "locale": "ar-EG",
+      "referenceText": "سيبي النافذة مفتوحة لحد ما التحميل يخلص.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-035",
+      "locale": "ar-EG",
+      "referenceText": "أنا مش موافق على مشاركة التسجيل خارج الجهاز.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-036",
+      "locale": "ar-EG",
+      "referenceText": "ممكن تقرأي الرقم تاني؟ هو سبعة ولا تسعة؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-037",
+      "locale": "ar-EG",
+      "referenceText": "هنقارن النتيجتين باستخدام نفس البيانات ونفس الإعدادات.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-038",
+      "locale": "ar-EG",
+      "referenceText": "الاجتماع اتنقل لبعد العصر بدل الصبح.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-039",
+      "locale": "ar-EG",
+      "referenceText": "لو سمحتي، اقفلي التنبيهات أثناء التسجيل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "eg-040",
+      "locale": "ar-EG",
+      "referenceText": "أنا قلت احفظ الملف، ما قلتش امسحي النسخة القديمة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-011",
+      "locale": "ar",
+      "referenceText": "تبدأ عملية التحديث بعد إغلاق جميع التطبيقات المفتوحة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-012",
+      "locale": "ar",
+      "referenceText": "يرجى إدخال رمز التحقق ثم متابعة الخطوات الظاهرة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-013",
+      "locale": "ar",
+      "referenceText": "لا يمكن استعادة الملف بعد حذفه نهائيًا من سلة المحذوفات.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-014",
+      "locale": "ar",
+      "referenceText": "تختلف جودة التسجيل باختلاف الميكروفون والبيئة المحيطة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-015",
+      "locale": "ar",
+      "referenceText": "ينبغي الاحتفاظ بنسخة أصلية قبل إجراء أي تعديل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-016",
+      "locale": "ar",
+      "referenceText": "تأكد من أن الاتصال بالشبكة مستقر قبل بدء التنزيل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-017",
+      "locale": "ar",
+      "referenceText": "تعرض الشاشة رسالة توضح سبب تعذر إكمال العملية.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-018",
+      "locale": "ar",
+      "referenceText": "يمكن للمستخدم إيقاف التسجيل مؤقتًا ثم استئنافه لاحقًا.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-019",
+      "locale": "ar",
+      "referenceText": "تُحفظ النتائج محليًا ولا تُرسل إلى خدمة خارجية.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-020",
+      "locale": "ar",
+      "referenceText": "يرجى قراءة التعليمات كاملة قبل الموافقة على جمع البيانات.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-021",
+      "locale": "ar",
+      "referenceText": "تتضمن المراجعة التحقق من الأسماء والأرقام وعلامات النفي.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-022",
+      "locale": "ar",
+      "referenceText": "يجب ألا يحتوي اسم الملف على معلومات تحدد هوية المتحدث.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-023",
+      "locale": "ar",
+      "referenceText": "تُقارن النماذج باستخدام مجموعة التسجيلات المرجعية نفسها.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-024",
+      "locale": "ar",
+      "referenceText": "إذا انقطع التيار الكهربائي، فتحقق من سلامة الملفات قبل المتابعة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-025",
+      "locale": "ar",
+      "referenceText": "تعتمد صلاحية النتيجة على دقة النص المرجعي ومراجعة التسجيل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-026",
+      "locale": "ar",
+      "referenceText": "يمكن تغيير اللغة من قائمة الإعدادات في أعلى النافذة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-027",
+      "locale": "ar",
+      "referenceText": "لن يبدأ الاختبار ما لم تكن جميع المتطلبات الأساسية متاحة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-028",
+      "locale": "ar",
+      "referenceText": "تُرسل الملاحظات إلى مسؤول المشروع عبر وسيلة التواصل المحددة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-029",
+      "locale": "ar",
+      "referenceText": "يرجى الانتظار حتى يكتمل فحص الملفات قبل إغلاق التطبيق.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-030",
+      "locale": "ar",
+      "referenceText": "يجب توثيق وقت الموافقة الفعلي بصورة مستقلة عن وقت التسجيل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-031",
+      "locale": "ar",
+      "referenceText": "تحتوي هذه الصفحة على ملخص الخطوات والنتائج والتحذيرات.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-032",
+      "locale": "ar",
+      "referenceText": "لا تستخدم بيانات أشخاص آخرين دون الحصول على إذن صريح.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-033",
+      "locale": "ar",
+      "referenceText": "تُعد هذه العينة غير صالحة إذا تداخل معها صوت متحدث آخر.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-034",
+      "locale": "ar",
+      "referenceText": "يعرض التقرير متوسط زمن الاستجابة واستهلاك الذاكرة والمعالج.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-035",
+      "locale": "ar",
+      "referenceText": "يمكن تصدير الجدول بصيغة مناسبة للمراجعة دون تضمين بيانات الهوية.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-036",
+      "locale": "ar",
+      "referenceText": "تتطلب المقارنة العادلة تثبيت إصدار النموذج وإعدادات التشغيل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-037",
+      "locale": "ar",
+      "referenceText": "يُراجع النص وفق الكلمات المنطوقة، لا وفق الصياغة المتوقعة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-038",
+      "locale": "ar",
+      "referenceText": "يرجى تحديد المجلد المحلي الذي يحتوي على ملفات التسجيل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-039",
+      "locale": "ar",
+      "referenceText": "تظل حالة المراجعة معلقة حتى يستمع المراجع إلى التسجيل كاملًا.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "msa-040",
+      "locale": "ar",
+      "referenceText": "لا تعني نتيجة الاختبار الناجحة اعتماد الميزة للاستخدام الإنتاجي.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-011",
+      "locale": "en",
+      "referenceText": "Please save the draft before closing the application.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-012",
+      "locale": "en",
+      "referenceText": "The second recording contains a short pause after the first sentence.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-013",
+      "locale": "en",
+      "referenceText": "Do not replace the original file until the backup is verified.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-014",
+      "locale": "en",
+      "referenceText": "Could you repeat the last number more slowly?",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-015",
+      "locale": "en",
+      "referenceText": "The report should include errors, timing, and memory usage.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-016",
+      "locale": "en",
+      "referenceText": "I selected the wrong microphone from the device list.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-017",
+      "locale": "en",
+      "referenceText": "Keep the window open while the local model is loading.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-018",
+      "locale": "en",
+      "referenceText": "The meeting starts at quarter past ten on Thursday.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-019",
+      "locale": "en",
+      "referenceText": "We need the same audio samples for both model evaluations.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-020",
+      "locale": "en",
+      "referenceText": "Nothing should be uploaded without the speaker's explicit permission.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-021",
+      "locale": "en",
+      "referenceText": "Press the escape key to cancel the current operation.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-022",
+      "locale": "en",
+      "referenceText": "The blue folder contains the latest test results.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-023",
+      "locale": "en",
+      "referenceText": "Please distinguish between a missing file and an empty file.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-024",
+      "locale": "en",
+      "referenceText": "The update was postponed because the required checks were pending.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-025",
+      "locale": "en",
+      "referenceText": "I heard the notification, but I did not see the message.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-026",
+      "locale": "en",
+      "referenceText": "Could you compare version two with version three?",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-027",
+      "locale": "en",
+      "referenceText": "The reference transcript must match the words that were spoken.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-028",
+      "locale": "en",
+      "referenceText": "Turn off automatic punctuation for this evaluation run.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-029",
+      "locale": "en",
+      "referenceText": "The device uses twelve gigabytes of memory.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-030",
+      "locale": "en",
+      "referenceText": "Wait until the progress indicator reaches one hundred percent.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-031",
+      "locale": "en",
+      "referenceText": "She asked whether the recording could be deleted later.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-032",
+      "locale": "en",
+      "referenceText": "We should test both quiet speech and normal speaking volume.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-033",
+      "locale": "en",
+      "referenceText": "The package was installed successfully without an internet connection.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-034",
+      "locale": "en",
+      "referenceText": "Please read the entire sentence, including the final word.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-035",
+      "locale": "en",
+      "referenceText": "The speaker changed the wording during the second attempt.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-036",
+      "locale": "en",
+      "referenceText": "An accurate transcript is more important than a fluent rewrite.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-037",
+      "locale": "en",
+      "referenceText": "Save the results in a private folder outside the repository.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-038",
+      "locale": "en",
+      "referenceText": "The system must reject audio files longer than two minutes.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-039",
+      "locale": "en",
+      "referenceText": "Can you tell whether the word is fifteen or fifty?",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "en-040",
+      "locale": "en",
+      "referenceText": "Every approved transcript needs a reviewer ID and a real timestamp.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-011",
+      "locale": "mixed",
+      "referenceText": "افتحي الـSettings وبعدها اختاري Privacy من القائمة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-012",
+      "locale": "mixed",
+      "referenceText": "محتاج أعمل restart للـservice بعد تحديث الـconfiguration.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-013",
+      "locale": "mixed",
+      "referenceText": "الـdownload وقف عند seventy percent ورجع يكمل تاني.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-014",
+      "locale": "mixed",
+      "referenceText": "من فضلك اعملي copy للـfolder قبل ما نغيّر الـfiles.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-015",
+      "locale": "mixed",
+      "referenceText": "الـmicrophone level منخفض، ارفعيه شوية من Sound Settings.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-016",
+      "locale": "mixed",
+      "referenceText": "أنا رفعت الـbuild على فرع testing ولسه مستني الـchecks.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-017",
+      "locale": "mixed",
+      "referenceText": "اعملي search عن كلمة timeout جوه الـlog file.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-018",
+      "locale": "mixed",
+      "referenceText": "الـspeech model لازم يشتغل offline من غير network access.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-019",
+      "locale": "mixed",
+      "referenceText": "ممكن تبعتي الـCSV بعد ما تتأكدي إن الأعمدة مظبوطة؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-020",
+      "locale": "mixed",
+      "referenceText": "الـbackup اكتمل، لكن الـrestore test لسه ما اتعملش.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-021",
+      "locale": "mixed",
+      "referenceText": "اضغطي على زرار Cancel لو ظهر أي warning غير متوقع.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-022",
+      "locale": "mixed",
+      "referenceText": "الـCPU usage عالي بسبب process شغال في الخلفية.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-023",
+      "locale": "mixed",
+      "referenceText": "هنقيس الـlatency والـWER على نفس مجموعة الـaudio samples.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-024",
+      "locale": "mixed",
+      "referenceText": "ما تعمليش commit لأي WAV أو consent form على GitHub.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-025",
+      "locale": "mixed",
+      "referenceText": "الـapp طلب permission للـmicrophone قبل بداية التسجيل.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-026",
+      "locale": "mixed",
+      "referenceText": "اكتبي الـspeaker ID بالشكل spk-002 من غير اسم حقيقي.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-027",
+      "locale": "mixed",
+      "referenceText": "الـreference transcript محتاج human review قبل تشغيل ASR.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-028",
+      "locale": "mixed",
+      "referenceText": "لو الـWi-Fi فصل، كمّلي التقييم باستخدام local files فقط.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-029",
+      "locale": "mixed",
+      "referenceText": "الـinstaller موجود في مجلد artifacts ومعاه SHA256 manifest.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-030",
+      "locale": "mixed",
+      "referenceText": "أنا عايز أشوف الفرق بين CPU mode وGPU mode في التقرير.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-031",
+      "locale": "mixed",
+      "referenceText": "الـnotification ظهرت مرتين، لكن الـaction اتنفذ مرة واحدة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-032",
+      "locale": "mixed",
+      "referenceText": "اعملي export للـresults بصيغة JSON وخليها local.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-033",
+      "locale": "mixed",
+      "referenceText": "الـaudio file لازم يكون mono PCM WAV بتردد 16 kHz.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-034",
+      "locale": "mixed",
+      "referenceText": "ما تستخدميش cloud transcription في مجموعة التقييم دي.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-035",
+      "locale": "mixed",
+      "referenceText": "الـtest case فشل لأن expected output مش مطابق للنتيجة.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-036",
+      "locale": "mixed",
+      "referenceText": "ممكن تفتحي الـREADME وتراجعي خطوات first run؟",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-037",
+      "locale": "mixed",
+      "referenceText": "الـmodel download مش مطلوب لو الـsnapshot موجود محليًا.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-038",
+      "locale": "mixed",
+      "referenceText": "الـreviewer وافق على النص بعد ما سمع التسجيل كاملًا.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-039",
+      "locale": "mixed",
+      "referenceText": "خلي الـrecording status pending لحد ما نتحقق من الملف.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
+    },
+    {
+      "id": "mix-040",
+      "locale": "mixed",
+      "referenceText": "الـrelease candidate مش جاهز قبل ما كل acceptance checks تنجح.",
+      "audioAsset": null,
+      "recordingStatus": "not-recorded",
+      "speakerId": null,
+      "consentRequired": true,
+      "hypotheses": {}
     }
   ]
 }
