@@ -157,5 +157,34 @@ class SpeechCollectionPreparationTests(unittest.TestCase):
                     MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
 
 
+    def test_rejects_root_manifest_marked_as_recorded(self):
+        payload = self.seed_payload()
+        payload["recordingStatus"] = "recorded"
+        self.write_seed(payload)
+        with self.assertRaisesRegex(ValueError, "root recordingStatus must be not-recorded"):
+            MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
+
+    def test_rejects_unrecognized_metadata_instead_of_copying_it(self):
+        payload = self.seed_payload()
+        payload["participantName"] = "Personal identifying metadata"
+        self.write_seed(payload)
+        with self.assertRaisesRegex(ValueError, "unsupported root metadata fields"):
+            MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
+
+        payload = self.seed_payload()
+        payload["cases"][0]["participantName"] = "Personal identifying metadata"
+        self.write_seed(payload)
+        with self.assertRaisesRegex(ValueError, "unsupported metadata fields"):
+            MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
+
+    def test_requires_explicit_consent_policy_on_every_seed_case(self):
+        payload = self.seed_payload()
+        payload["cases"][0]["consentRequired"] = False
+        self.write_seed(payload)
+        with self.assertRaisesRegex(ValueError, "must require explicit consent"):
+            MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
+
+
+
 if __name__ == "__main__":
     unittest.main()
