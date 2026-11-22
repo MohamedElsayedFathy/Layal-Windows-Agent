@@ -20,12 +20,12 @@ class SpeechTranscriptScoringTests(unittest.TestCase):
     def test_reference_manifest_is_valid_and_has_expected_language_coverage(self):
         payload = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
         self.assertEqual([], MODULE.validate_manifest(payload))
-        self.assertEqual(30, len(payload["cases"]))
+        self.assertEqual(150, len(payload["cases"]))
 
         counts = {}
         for case in payload["cases"]:
             counts[case["locale"]] = counts.get(case["locale"], 0) + 1
-        self.assertEqual({"ar-EG": 10, "ar": 6, "en": 6, "mixed": 8}, counts)
+        self.assertEqual({"ar-EG": 40, "ar": 36, "en": 36, "mixed": 38}, counts)
 
     def test_normalization_is_conservative_for_arabic_diacritics_and_punctuation(self):
         self.assertEqual("انت عايز ايه", MODULE.normalize("إِنْتَ عايز إيه؟"))
