@@ -1,6 +1,6 @@
 # تشغيل Whisper Benchmark المحلي — Phase D1
 
-**الحالة:** أداة التشغيل واختباراتها موجودة على main بعد دمج PR #209. أداة تجهيز مساحة الجمع أضيفت في فرع feat/phase-d-speech-corpus-intake-20261119. لا توجد حتى الآن تسجيلات فعلية أو نتائج دقة؛ مجموعة الاختبار النصية ليست تسجيلات صوتية ذهبية.
+**الحالة:** أداة تشغيل Whisper واختباراتها موجودة على `main` بعد دمج PR #209، وأداة تجهيز مساحة الجمع موجودة على `main` بعد دمج PR #210. لا توجد حتى الآن تسجيلات فعلية أو نتائج دقة؛ مجموعة الاختبار النصية ليست تسجيلات صوتية ذهبية.
 
 ## الهدف
 
@@ -87,7 +87,7 @@ $LayalDataRoot = Join-Path $env:LOCALAPPDATA "Layal\LocalAi"
 من جذر المستودع:
 
 ~~~powershell
-python tools/evaluation/run_whisper_benchmark.py --data-root $LayalDataRoot --manifest "D:\LayalSpeechEvaluation\speech-reference-set.json"
+python tools/evaluation/run_whisper_benchmark.py --data-root $LayalDataRoot --manifest (Join-Path $CollectionDir "speech-reference-set.json")
 ~~~
 
 النتيجة الافتراضية تحفظ داخل:
