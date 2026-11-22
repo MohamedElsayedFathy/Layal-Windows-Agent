@@ -39,8 +39,9 @@ public sealed class SafeBrowserUploadService
     /// </summary>
     public SafeBrowserUploadFile PrepareUpload(string relativePath)
     {
-        var value = (relativePath ?? string.Empty).Trim().Replace('\\', '/');
+        var value = (relativePath ?? string.Empty).Replace('\\', '/');
         if (value.Length is < 1 or > 400 ||
+            value != value.Trim() ||
             Path.IsPathRooted(value) ||
             value.StartsWith("/", StringComparison.Ordinal) ||
             value.Contains(':') ||
@@ -48,8 +49,9 @@ public sealed class SafeBrowserUploadService
             throw new InvalidOperationException("Upload paths must be bounded, printable, workspace-relative paths.");
 
         var segments = value.Split('/');
-        if (segments.Any(segment => segment.Length == 0 || segment is "." or ".."))
-            throw new InvalidOperationException("Upload paths cannot contain empty, '.' or '..' path segments.");
+        if (segments.Any(segment =>
+                segment is "." or ".." || !WindowsPathSegmentPolicy.IsSafeSegment(segment)))
+            throw new InvalidOperationException("Upload paths cannot contain traversal, invalid Windows names, or reserved device names.");
 
         EnsureWorkspacePathIsRegular();
         var current = _workspaceRoot;
