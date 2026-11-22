@@ -165,7 +165,7 @@ def validate_request(payload: dict[str, Any]) -> tuple[str, str, str, int, float
         raise ValueError(f"النص أطول من الحد المسموح ({MAX_TEXT_CHARS} حرف).")
 
     language = str(payload.get("language") or "arz").strip().lower()
-    if language not in {"arz", "en"}:
+    if language not in {"arz", "ar", "en"}:
         raise ValueError("اللغة المسموحة هي المصرية/العربية أو الإنجليزية.")
 
     instruction = str(payload.get("instruct") or DEFAULT_INSTRUCTION).strip()
@@ -266,7 +266,7 @@ class Handler(BaseHTTPRequestHandler):
                 if len(text) > MAX_TEXT_CHARS:
                     raise ValueError("النص أطول من الحد المسموح.")
                 language = str(payload.get("language") or "arz")
-                if language not in {"arz", "en"}:
+                if language not in {"arz", "ar", "en"}:
                     raise ValueError("اللغة غير مدعومة.")
                 normalized = STATE.engine.normalizer.normalize(text, language=language)
                 self._json(200, {"normalizedText": normalized, "language": language})

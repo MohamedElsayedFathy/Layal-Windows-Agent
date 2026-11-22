@@ -512,7 +512,7 @@ public sealed class VoiceTutLocalService : IDisposable
         var language = string.IsNullOrWhiteSpace(languageCode)
             ? fallbackLanguage
             : languageCode.Trim().ToLowerInvariant();
-        if (language is not ("arz" or "en"))
+        if (language is not ("arz" or "ar" or "en"))
             language = fallbackLanguage;
         var instruction = ValidateVoiceInstruction(settings.VoiceDesignInstruction);
         var requestBody = JsonSerializer.Serialize(new

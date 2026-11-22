@@ -91,9 +91,9 @@ class VoiceTutEvaluationTests(unittest.TestCase):
         self.assertEqual(32, values[3])
         self.assertTrue(values[6])
 
-        unsupported_msa = dict(request, text="كيف حالك؟", language="ar")
-        with self.assertRaises(ValueError):
-            BRIDGE.validate_request(unsupported_msa)
+        # VoiceTut resolves "ar" to Egyptian "arz"; it is not a separate MSA model.
+        arabic_alias = dict(request, text="كيف حالك؟", language="ar")
+        self.assertEqual("ar", BRIDGE.validate_request(arabic_alias)[1])
         exploratory_msa = dict(request, text="كيف حالك؟", language="arz")
         self.assertEqual("arz", BRIDGE.validate_request(exploratory_msa)[1])
 
