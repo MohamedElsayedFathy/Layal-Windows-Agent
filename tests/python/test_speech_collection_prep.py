@@ -75,7 +75,13 @@ class SpeechCollectionPreparationTests(unittest.TestCase):
         self.assertTrue((output / "CONSENT_FORM_AR.md").is_file())
 
         copied = json.loads((output / "speech-reference-set.json").read_text(encoding="utf-8"))
-        self.assertEqual(self.seed_payload(), copied)
+        expected = {
+            "schemaVersion": 1,
+            "description": "Transcript-only speech collection prompts; no recordings, consent, or approved references.",
+            "recordingStatus": "not-recorded",
+            "cases": self.seed_payload()["cases"],
+        }
+        self.assertEqual(expected, copied)
         for case in copied["cases"]:
             self.assertEqual("not-recorded", case["recordingStatus"])
             self.assertIsNone(case["audioAsset"])
