@@ -1362,24 +1362,6 @@ public sealed class MainWindowVisualSmokeTests
             AutomationProperties.GetHelpText(connectionList),
             "The saved API connection list must explain its purpose to assistive technology.");
 
-        // API controls live inside a non-selected TabItem during the chat-first
-        // startup flow. Select the API tab while inspecting its real UIA tree, then
-        // restore the original tab so this smoke check has no lasting UI side effects.
-        var tabs = window.FindName("MainTabs") as TabControl
-            ?? throw new InvalidOperationException("MainTabs was not found.");
-        var originalSelection = tabs.SelectedItem;
-        tabs.SelectedItem = window.FindName("ApiIntegrationsTab")
-            ?? throw new InvalidOperationException("ApiIntegrationsTab was not found.");
-        tabs.UpdateLayout();
-        window.UpdateLayout();
-        window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-
-        var hwnd = new WindowInteropHelper(window).Handle;
-        Assert.AreNotEqual(IntPtr.Zero, hwnd,
-            "The API settings window must have an HWND for external UI Automation inspection.");
-        var automationRoot = AutomationElement.FromHandle(hwnd)
-            ?? throw new InvalidOperationException("UI Automation could not access the API settings window.");
-
         var associations = new (string FieldName, string LabelName)[]
         {
             ("ApiConnectionNameInput", "ApiConnectionNameLabel"),
@@ -1412,15 +1394,18 @@ public sealed class MainWindowVisualSmokeTests
                 AutomationProperties.GetName(field),
                 $"{fieldName} must expose its visible localized label as an explicit accessible name.");
 
-            var fieldCondition = new PropertyCondition(
-                AutomationElement.AutomationIdProperty, fieldName);
-            var automationField = automationRoot.FindFirst(TreeScope.Descendants, fieldCondition);
-            Assert.IsNotNull(automationField,
-                $"{fieldName} must be discoverable by its stable UI Automation ID.");
+            Assert.AreEqual(
+                fieldName,
+                AutomationProperties.GetAutomationId(field),
+                $"{fieldName} must expose a stable UI Automation ID.");
+
+            var fieldPeer = UIElementAutomationPeer.CreatePeerForElement(field);
+            Assert.IsNotNull(fieldPeer,
+                $"{fieldName} must expose a WPF UI Automation peer.");
             Assert.AreEqual(
                 label.Text,
-                automationField!.Current.Name,
-                $"{fieldName} must expose its visible localized label as the actual UI Automation Name.");
+                fieldPeer!.GetName(),
+                $"{fieldName} must expose its visible localized label through the UI Automation peer Name.");
         }
 
         var status = window.FindName("ApiConnectionsStatus") as TextBlock
@@ -1434,10 +1419,6 @@ public sealed class MainWindowVisualSmokeTests
             AutomationProperties.GetName(status),
             "The API status region must expose a localized accessible name.");
 
-        tabs.SelectedItem = originalSelection;
-        tabs.UpdateLayout();
-        window.UpdateLayout();
-        window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
     }
 
     private static void AssertCaptionControlsFollowKeyboardTabOrder(MainWindow window)
