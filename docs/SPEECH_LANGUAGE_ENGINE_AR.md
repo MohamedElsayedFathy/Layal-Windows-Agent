@@ -10,7 +10,7 @@
 3. التعرف المحلي عبر Whisper.cpp من خلال `LocalSpeechLanguageProvider`.
 4. تحليل النص المكتشف عبر `SpeechLanguageEngine` والمرجع المحلي.
 5. عرض التفريغ للمستخدم قبل إرساله إلى المحادثة؛ ولا يصبح transcript إذنًا لتنفيذ أمر.
-6. تحويل الرد إلى كلام عبر VoiceTut المحلي بوضع Voice Design فقط.
+6. تحليل نص الرد عبر `SpeechLanguageEngine` لاختيار مسار VoiceTut المناسب، ثم تحويل الرد إلى كلام محلي عبر Voice Design فقط.
 
 لم يعد Piper محرك الإنتاج في هذا المسار. التكامل الحالي لا يستخدم reference audio ولا voice cloning ولا يضيف cloud fallback.
 
@@ -49,6 +49,18 @@
 | جداول تصريف الأفعال | 34 |
 
 تشمل الواجهات `Find` و`FindGrammar` و`FindVerbParadigms` و`FindDialoguePatterns` و`FindTopics` و`GetCoverage`. المرجع عملي قابل للمراجعة والتوسعة، وليس ادعاءً بحصر كل مفردات أو قواعد اللغات الثلاث.
+
+## توجيه لغة النطق المحلي
+
+يستخدم `LocalSpeechLanguageProvider` تصنيف النص نفسه قبل إرسال طلب TTS إلى VoiceTut:
+
+- `EgyptianArabic` → `arz`.
+- `ArabicStandard` → `arz` كتجربة استكشافية على مسار VoiceTut المصري؛ لا يُعلن دعم مستقل للفصحى.
+- `English` → `en`.
+- `Mixed` → `arz`؛ VoiceTut يدعم المزج العربي/الإنجليزي على مسار المصرية، ولا يوجد مسار MSA مستقل.
+- `ArabicUnspecified` → `arz` باعتبار المصرية اللهجة العربية الأساسية لليال.
+
+هذا التصنيف نصي ومعجمي، ولا يستمع إلى الصوت لتحديد اللهجة. إرسال نص فصيح إلى `arz` اختبار استكشافي ولا يثبت دعم الفصحى.
 
 ## ما تم اختباره آليًا
 

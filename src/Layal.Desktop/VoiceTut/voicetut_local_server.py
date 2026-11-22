@@ -34,6 +34,7 @@ MODEL_FILE_MANIFEST = {
     },
 }
 MAX_TEXT_CHARS = 6000
+MAX_INSTRUCTION_CHARS = 500
 MAX_BODY_BYTES = 1_000_000
 DEFAULT_INSTRUCTION = "female, child, very high pitch"
 LOG = logging.getLogger("layal.voicetut")
@@ -168,8 +169,8 @@ def validate_request(payload: dict[str, Any]) -> tuple[str, str, str, int, float
         raise ValueError("اللغة المسموحة هي المصرية/العربية أو الإنجليزية.")
 
     instruction = str(payload.get("instruct") or DEFAULT_INSTRUCTION).strip()
-    if not instruction or len(instruction) > 300:
-        raise ValueError("وصف الصوت غير صالح.")
+    if not instruction or len(instruction) > MAX_INSTRUCTION_CHARS:
+        raise ValueError("وصف الصوت غير صالح؛ الحد الأقصى 500 حرف.")
     lowered = instruction.casefold()
     if "female" not in lowered:
         raise ValueError("يجب أن يظل تصميم الصوت أنثويًا (female).")

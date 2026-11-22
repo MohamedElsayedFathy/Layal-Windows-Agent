@@ -346,7 +346,8 @@ public sealed class LocalVoiceService
         CancellationToken cancellationToken = default,
         string? outputDeviceId = null,
         string? deliveryStyleId = null,
-        VoiceTutGenerationSettings? generationSettings = null)
+        VoiceTutGenerationSettings? generationSettings = null,
+        string? languageCode = null)
     {
         if (!IsReady)
             throw new InvalidOperationException("جهّز موارد الصوت المحلي أولًا من الإعدادات.");
@@ -356,10 +357,16 @@ public sealed class LocalVoiceService
             2.0,
             1.0,
             true);
-        var effectiveSpeed = Math.Clamp(settings.Speed / VoiceDeliveryStylePolicy.GetLocalLengthScale(deliveryStyleId), 0.5, 2.0);
-        var adjusted = settings with { Speed = effectiveSpeed };
+        var style = VoiceDeliveryStylePolicy.Normalize(deliveryStyleId);
+        var effectiveSpeed = Math.Clamp(settings.Speed / VoiceDeliveryStylePolicy.GetLocalLengthScale(style), 0.5, 2.0);
+        var adjusted = settings with
+        {
+            Speed = effectiveSpeed,
+            VoiceDesignInstruction = VoiceDeliveryStylePolicy.BuildLocalVoiceInstruction(
+                settings.VoiceDesignInstruction, style)
+        };
         await _voiceTutService.SpeakAsync(
-            NormalizeTextForSpeech(text), outputDeviceId, adjusted, cancellationToken).ConfigureAwait(false);
+            NormalizeTextForSpeech(text), outputDeviceId, adjusted, cancellationToken, languageCode).ConfigureAwait(false);
         VoiceMetricsUpdated?.Invoke(this, _voiceTutService.LastMetricsSummary);
     }
 

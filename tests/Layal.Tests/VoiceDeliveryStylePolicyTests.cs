@@ -9,12 +9,12 @@ public sealed class VoiceDeliveryStylePolicyTests
 {
     private static readonly string[] Styles =
     [
-        "natural", "gentle", "bright", "clear",
-        "empathetic", "serious", "energetic", "playful"
+        "playful", "natural", "gentle", "bright",
+        "clear", "empathetic", "serious", "energetic"
     ];
 
     [TestMethod]
-    public void EveryNamedStyleIsSupportedAndUnknownValuesFallBackToNatural()
+    public void EveryNamedStyleIsSupportedAndUnknownValuesFallBackToPlayful()
     {
         foreach (var style in Styles)
         {
@@ -25,13 +25,14 @@ public sealed class VoiceDeliveryStylePolicyTests
             Assert.IsFalse(string.IsNullOrWhiteSpace(VoiceDeliveryStylePolicy.GetDisplayName(style, false)));
         }
 
-        Assert.AreEqual("natural", VoiceDeliveryStylePolicy.Normalize(null));
-        Assert.AreEqual("natural", VoiceDeliveryStylePolicy.Normalize(" UNKNOWN "));
+        Assert.AreEqual("playful", VoiceDeliveryStylePolicy.DefaultStyle);
+        Assert.AreEqual("playful", VoiceDeliveryStylePolicy.Normalize(null));
+        Assert.AreEqual("playful", VoiceDeliveryStylePolicy.Normalize(" UNKNOWN "));
         Assert.IsFalse(VoiceDeliveryStylePolicy.IsSupported("unknown"));
     }
 
     [TestMethod]
-    public void LocalPiperPresetsUseDistinctConservativePaceAndPauseValues()
+    public void LocalVoiceTutPresetsUseDistinctConservativePaceAndPauseValues()
     {
         var scales = Styles.Select(VoiceDeliveryStylePolicy.GetLocalLengthScale).ToArray();
         var pauses = Styles.Select(VoiceDeliveryStylePolicy.GetLocalSentenceSilenceSeconds).ToArray();
@@ -47,8 +48,21 @@ public sealed class VoiceDeliveryStylePolicyTests
         Assert.AreEqual(Styles.Length, pauses.Distinct().Count(), "Every style must have a distinct sentence-pause preset.");
         Assert.IsTrue(scales.All(scale => scale is >= 0.90 and <= 1.15));
         Assert.IsTrue(pauses.All(pause => pause is >= 0.10 and <= 0.45));
-        Assert.AreEqual(1.00, VoiceDeliveryStylePolicy.GetLocalLengthScale("invalid"), 0.0001);
-        Assert.AreEqual(0.20, VoiceDeliveryStylePolicy.GetLocalSentenceSilenceSeconds("invalid"), 0.0001);
+        Assert.AreEqual(0.97, VoiceDeliveryStylePolicy.GetLocalLengthScale("invalid"), 0.0001);
+        Assert.AreEqual(0.14, VoiceDeliveryStylePolicy.GetLocalSentenceSilenceSeconds("invalid"), 0.0001);
+    }
+
+    [TestMethod]
+    public void LocalVoiceInstructionPreservesTheSelectedIdentityAndAddsThePlayfulCue()
+    {
+        const string identity = "female, child, very high pitch";
+        var result = VoiceDeliveryStylePolicy.BuildLocalVoiceInstruction(identity, "playful");
+
+        Assert.IsTrue(result.StartsWith(identity + "; ", System.StringComparison.Ordinal));
+        StringAssert.Contains(result, "playful");
+        Assert.AreEqual(identity, VoiceTutLocalService.DefaultVoiceDesign);
+        Assert.AreEqual("playful", VoiceDeliveryStylePolicy.DefaultStyle);
+        Assert.AreEqual(0.97, VoiceDeliveryStylePolicy.GetLocalLengthScale("playful"), 0.0001);
     }
 
     [TestMethod]

@@ -495,7 +495,8 @@ public sealed class VoiceTutLocalService : IDisposable
         string text,
         string? outputDeviceId,
         VoiceTutGenerationSettings settings,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? languageCode = null)
     {
         ThrowIfDisposed();
         var value = LocalVoiceService.NormalizeTextForSpeech(text);
@@ -507,7 +508,12 @@ public sealed class VoiceTutLocalService : IDisposable
             await EnsureServerStartedAsync(cancellationToken, null);
 
         var hasArabic = value.Any(IsArabicLetter);
-        var language = hasArabic ? "arz" : "en";
+        var fallbackLanguage = hasArabic ? "arz" : "en";
+        var language = string.IsNullOrWhiteSpace(languageCode)
+            ? fallbackLanguage
+            : languageCode.Trim().ToLowerInvariant();
+        if (language is not ("arz" or "ar" or "en"))
+            language = fallbackLanguage;
         var instruction = ValidateVoiceInstruction(settings.VoiceDesignInstruction);
         var requestBody = JsonSerializer.Serialize(new
         {
@@ -1287,8 +1293,8 @@ public sealed class VoiceTutLocalService : IDisposable
     private static string ValidateVoiceInstruction(string? instruction)
     {
         var value = string.IsNullOrWhiteSpace(instruction) ? DefaultVoiceDesign : instruction.Trim();
-        if (value.Length > 300 || !value.Contains("female", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("يجب أن يتضمن وصف الصوت كلمة female وألا يتجاوز 300 حرف.");
+        if (value.Length > 500 || !value.Contains("female", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("يجب أن يتضمن وصف الصوت كلمة female وألا يتجاوز 500 حرف.");
         if (new[] { "ref_audio", "reference audio", "speaker=", "clone", "voice cloning" }
             .Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("يدعم تكامل ليال تصميم الصوت فقط ولا يقبل استنساخ صوت أو ملفًا مرجعيًا.");

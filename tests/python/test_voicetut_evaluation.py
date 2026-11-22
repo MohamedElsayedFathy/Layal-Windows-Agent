@@ -31,6 +31,11 @@ class VoiceTutEvaluationTests(unittest.TestCase):
             {"EgyptianArabic", "English", "MixedArabicEnglish"},
             MODULE.SUPPORTED_LANGUAGES,
         )
+        self.assertEqual(8, len(MODULE.DELIVERY_STYLES))
+        self.assertIn("playful", MODULE.DELIVERY_STYLES)
+        self.assertEqual("playful", MODULE.DEFAULT_DELIVERY_STYLE)
+        self.assertEqual(8, len(MODULE.STYLE_SPEED_MULTIPLIERS))
+        self.assertIn("playful", MODULE.STYLE_INSTRUCTIONS)
 
     def test_fixed_voice_persona_set_has_all_four_language_groups(self):
         payload = MODULE.load_prompt_set(PROMPT_PATH)
@@ -44,6 +49,16 @@ class VoiceTutEvaluationTests(unittest.TestCase):
             "English": 4,
             "MixedArabicEnglish": 4,
         }, counts)
+
+    def test_style_cues_and_speed_preserve_one_default_identity(self):
+        base = "female, child, very high pitch"
+        playful = MODULE.build_voice_instruction(base, "playful")
+        self.assertTrue(playful.startswith(base + "; "))
+        self.assertIn("playful", playful.casefold())
+        self.assertGreater(MODULE.effective_style_speed(1.0, "energetic"), 1.0)
+        self.assertLess(MODULE.effective_style_speed(1.0, "gentle"), 1.0)
+        with self.assertRaises(ValueError):
+            MODULE.build_voice_instruction(base, "unknown")
 
     def test_evaluation_output_ids_are_safe_relative_file_tokens(self):
         self.assertEqual("egy-01", MODULE.safe_case_id("egy-01"))
@@ -76,6 +91,17 @@ class VoiceTutEvaluationTests(unittest.TestCase):
         self.assertEqual(32, values[3])
         self.assertTrue(values[6])
 
+        # VoiceTut resolves "ar" to Egyptian "arz"; it is not a separate MSA model.
+        arabic_alias = dict(request, text="كيف حالك؟", language="ar")
+        self.assertEqual("ar", BRIDGE.validate_request(arabic_alias)[1])
+        exploratory_msa = dict(request, text="كيف حالك؟", language="arz")
+        self.assertEqual("arz", BRIDGE.validate_request(exploratory_msa)[1])
+
+        composed = dict(request, instruct=MODULE.build_voice_instruction(
+            "female, child, very high pitch", "playful"))
+        self.assertLessEqual(len(composed["instruct"]), BRIDGE.MAX_INSTRUCTION_CHARS)
+        self.assertIn("playful", BRIDGE.validate_request(composed)[2].casefold())
+
         for invalid_prompt in ("male, adult", "female, ref_audio clone", "female, reference audio imitation"):
             invalid = dict(request, instruct=invalid_prompt)
             with self.assertRaises(ValueError):
@@ -100,6 +126,8 @@ class VoiceTutEvaluationTests(unittest.TestCase):
             BRIDGE.validate_request(request)
 
     def test_model_source_is_pinned_and_voice_references_are_excluded(self):
+        self.assertEqual({"playful", "natural", "gentle", "bright", "clear", "empathetic", "serious", "energetic"},
+                         set(MODULE.DELIVERY_STYLES))
         source = MODULE_PATH.read_text(encoding="utf-8")
         self.assertEqual(40, len(MODULE.MODEL_REVISION))
         self.assertIn('references=str(disabled_refs)', source)
