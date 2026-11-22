@@ -234,7 +234,12 @@ public sealed class WorkspaceSnapshotServiceTests
         var targetMemory = new MemoryService(Path.Combine(temp.Path, "target-memory.dpapi"));
         var target = new WorkspaceSnapshotService(targetTasks, targetMemory, workspace);
 
-        foreach (var unsafePath in new[] { "CON.txt", "report.txt:secret", ".git/config", "folder./file.txt", "NUL" })
+        foreach (var unsafePath in new[]
+        {
+            "CON.txt", "report.txt:secret", ".git/config", "folder./file.txt", "NUL",
+            "CONIN$.txt", "CONOUT$.txt", "COM¹.txt", "COM².txt", "COM³.txt",
+            "LPT¹.txt", "LPT².txt", "LPT³.txt", "NUL .txt", "folder /file.txt"
+        })
         {
             var node = JsonNode.Parse(backup) ?? throw new AssertFailedException("Backup JSON was empty.");
             node["Files"]![0]![nameof(WorkspaceFileManifestEntry.RelativePath)] = unsafePath;
