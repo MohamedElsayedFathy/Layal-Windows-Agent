@@ -1362,6 +1362,12 @@ public sealed class MainWindowVisualSmokeTests
             AutomationProperties.GetHelpText(connectionList),
             "The saved API connection list must explain its purpose to assistive technology.");
 
+        var hwnd = new WindowInteropHelper(window).Handle;
+        Assert.AreNotEqual(IntPtr.Zero, hwnd,
+            "The API settings window must have an HWND for external UI Automation inspection.");
+        var automationRoot = AutomationElement.FromHandle(hwnd)
+            ?? throw new InvalidOperationException("UI Automation could not access the API settings window.");
+
         var associations = new (string FieldName, string LabelName)[]
         {
             ("ApiConnectionNameInput", "ApiConnectionNameLabel"),
@@ -1389,22 +1395,20 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsFalse(string.IsNullOrWhiteSpace(label.Text),
                 $"{labelName} must have visible, localized label text.");
 
-            // Verify that the UI Automation peer exports the label relationship.
-            // WPF exposes the associated TextBlock through GetLabeledBy(); the
-            // control's own Name property is not required to duplicate the label text.
-            var fieldPeer = UIElementAutomationPeer.CreatePeerForElement(field);
-            Assert.IsNotNull(fieldPeer,
-                $"{fieldName} must expose a UI Automation peer.");
-            var labeledByPeer = fieldPeer!.GetLabeledBy();
-            Assert.IsNotNull(labeledByPeer,
-                $"{fieldName} must expose its associated label through UI Automation.");
-            var labelPeer = UIElementAutomationPeer.CreatePeerForElement(label);
-            Assert.IsNotNull(labelPeer,
-                $"{labelName} must expose a UI Automation peer.");
             Assert.AreEqual(
-                labelPeer!.GetName(),
-                labeledByPeer!.GetName(),
-                $"{fieldName} must reference the localized visible label through its UI Automation LabeledBy property.");
+                label.Text,
+                AutomationProperties.GetName(field),
+                $"{fieldName} must expose its visible localized label as an explicit accessible name.");
+
+            var fieldCondition = new PropertyCondition(
+                AutomationElement.AutomationIdProperty, fieldName);
+            var automationField = automationRoot.FindFirst(TreeScope.Descendants, fieldCondition);
+            Assert.IsNotNull(automationField,
+                $"{fieldName} must be discoverable by its stable UI Automation ID.");
+            Assert.AreEqual(
+                label.Text,
+                automationField!.Current.Name,
+                $"{fieldName} must expose its visible localized label as the actual UI Automation Name.");
         }
 
         var status = window.FindName("ApiConnectionsStatus") as TextBlock
