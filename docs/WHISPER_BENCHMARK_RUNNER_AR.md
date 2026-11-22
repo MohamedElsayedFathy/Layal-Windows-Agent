@@ -18,10 +18,10 @@
 
 ## تجهيز مجموعة التقييم
 
-1. جهّز مساحة خاصة خارج المستودع باستخدام الأداة الجديدة:
+1. جهّز مساحة عمل محلية خارج المستودع باستخدام الأداة الجديدة:
 
 ~~~powershell
-$CollectionDir = "D:\\LayalSpeechEvaluation\\Session-001"
+$CollectionDir = "D:\LayalSpeechEvaluation\Session-001"
 python tools/evaluation/prepare_speech_collection.py --output-dir $CollectionDir
 ~~~
 
@@ -29,7 +29,7 @@ python tools/evaluation/prepare_speech_collection.py --output-dir $CollectionDir
 3. بعد موافقة فعلية ضمن نطاق `research-evaluation`، ضع ملفات WAV في `audio/` بأسماء الحالات المقترحة في `recording-sheet.csv`.
 4. حدّث نسخة `speech-reference-set.json` المحلية فقط بعد التسجيل: `recordingStatus=recorded` و`audioAsset` و`speakerId` المستعار وبيانات الموافقة الحقيقية. لا تكتب `consent.granted: true` قبل الموافقة.
 5. استمع إلى كل ملف وصحح النص حسب الكلام الفعلي، ثم اعتمد `referenceReview.status=approved` وأضف مراجعًا مستعارًا ووقت المراجعة الحقيقي.
-6. لا تنسخ التسجيلات أو نموذج الموافقة المعرّف بالهوية أو تقارير التفريغ إلى Git أو PR. تفاصيل البروتوكول في [SPEECH_DATA_COLLECTION_AR.md](SPEECH_DATA_COLLECTION_AR.md).
+6. لا تنسخ التسجيلات أو نموذج الموافقة المعرّف بالهوية أو تقارير التفريغ إلى Git أو PR. الأداة لا تضبط Windows ACL ولا تشفّر المجلد؛ اختر وجهة محلية محمية بصلاحيات وصول مناسبة. تفاصيل البروتوكول في [SPEECH_DATA_COLLECTION_AR.md](SPEECH_DATA_COLLECTION_AR.md).
 
 مثال لحالة مسجلة بعد إتمام الموافقة والمراجعة فعليًا:
 
