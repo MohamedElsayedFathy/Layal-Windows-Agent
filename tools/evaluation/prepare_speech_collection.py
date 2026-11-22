@@ -120,7 +120,11 @@ def _load_seed_manifest(seed_manifest: Path) -> dict[str, Any]:
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise ValueError(f"Cannot read seed manifest: {error}") from error
 
-    if not isinstance(payload, dict) or payload.get("schemaVersion") != 1:
+    if (
+        not isinstance(payload, dict)
+        or type(payload.get("schemaVersion")) is not int
+        or payload.get("schemaVersion") != 1
+    ):
         raise ValueError("Seed manifest must be a JSON object with schemaVersion=1.")
     allowed_root_keys = {"schemaVersion", "description", "recordingStatus", "cases"}
     unexpected_root_keys = set(payload) - allowed_root_keys
@@ -154,7 +158,8 @@ def _load_seed_manifest(seed_manifest: Path) -> dict[str, Any]:
         if case_id in seen_ids:
             raise ValueError(f"Duplicate case id: {case_id}")
         seen_ids.add(case_id)
-        if case.get("locale") not in SUPPORTED_LOCALES:
+        locale = case.get("locale")
+        if not isinstance(locale, str) or locale not in SUPPORTED_LOCALES:
             raise ValueError(f"{prefix}.locale is not supported.")
         if not isinstance(case.get("referenceText"), str) or not case["referenceText"].strip():
             raise ValueError(f"{prefix}.referenceText must be non-empty text.")
