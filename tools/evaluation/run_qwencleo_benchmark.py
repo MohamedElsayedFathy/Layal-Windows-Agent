@@ -32,6 +32,7 @@ UPSTREAM_MODEL_CARD = "https://huggingface.co/mohammedaly22/QwenCleo-ASR"
 MODEL_REVISION_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_MODEL_FILES = 4096
 MAX_MODEL_BYTES = 32 * 1024 * 1024 * 1024
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_whisper_runner():
@@ -79,10 +80,18 @@ def _require_no_reparse_components(path: Path, label: str) -> None:
             raise ValueError(f"{label} path contains a symbolic link or Windows reparse point.")
 
 
+def _require_outside_repository(path: Path, label: str) -> None:
+    repository_root = REPOSITORY_ROOT.resolve()
+    candidate = path.expanduser().resolve(strict=False)
+    if candidate == repository_root or candidate.is_relative_to(repository_root):
+        raise ValueError(f"{label} must be outside the Git repository to prevent accidental commits of local data.")
+
+
 def inspect_model_snapshot(model_dir: Path, model_revision: str) -> tuple[Path, list[dict[str, Any]]]:
     """Validate and hash an already-present model snapshot without following links."""
     if not isinstance(model_revision, str) or not MODEL_REVISION_PATTERN.fullmatch(model_revision):
         raise ValueError("--model-revision must be the immutable 40-character Hugging Face commit SHA.")
+    _require_outside_repository(model_dir, "Model directory")
     _require_no_reparse_components(model_dir, "Model directory")
     root = model_dir.expanduser().resolve(strict=True)
     if not root.is_dir():
@@ -288,19 +297,27 @@ def run_benchmark(
     device: str = "auto",
     model_loader: Callable[[Path, str], tuple[Any, dict[str, Any]]] | None = None,
 ) -> tuple[Path, Path, dict[str, Any]]:
-    model_root, model_inventory = inspect_model_snapshot(model_dir, model_revision)
-    _require_no_reparse_components(manifest_path, "Speech manifest")
-    source_manifest, samples = WHISPER_RUNNER.validate_manifest_and_audio(manifest_path)
     if device not in {"auto", "cpu", "cuda:0"}:
         raise ValueError("Supported devices are auto, cpu, and cuda:0.")
+    _require_outside_repository(manifest_path, "Speech manifest")
+    _require_outside_repository(model_dir, "Model directory")
+    _require_outside_repository(output_dir, "Output directory")
+    _require_no_reparse_components(manifest_path, "Speech manifest")
+    _require_no_reparse_components(output_dir, "Output directory")
+    source_manifest, samples = WHISPER_RUNNER.validate_manifest_and_audio(manifest_path)
+    # Validate consent/audio before hashing a potentially multi-gigabyte model snapshot.
+    model_root, model_inventory = inspect_model_snapshot(model_dir, model_revision)
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _require_no_reparse_components(output_dir, "Output directory")
+    if _is_reparse_point(output_dir) or not output_dir.is_dir():
+        raise ValueError("Output directory must be a regular local directory.")
     load_started = time.perf_counter()
     model, runtime = (model_loader or load_local_model)(model_root, device)
+    if not isinstance(runtime, dict):
+        raise RuntimeError("QwenCleo runtime metadata was not returned as an object.")
     model_load_ms = round((time.perf_counter() - load_started) * 1000.0, 2)
-    torch_module = runtime.get("torchModule") if isinstance(runtime, dict) else None
-
-    _require_no_reparse_components(output_dir, "Output directory")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    torch_module = runtime.get("torchModule")
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + os.urandom(4).hex()
     report_path = output_dir / f"qwencleo-benchmark-{run_id}.json"
     scoring_path = output_dir / f"qwencleo-benchmark-{run_id}.scoring-manifest.json"
@@ -316,9 +333,9 @@ def run_benchmark(
                 shutil.copyfile(sample["audio_path"], audio_snapshot)
                 if sha256_file(audio_snapshot) != sample["audio_sha256"]:
                     raise RuntimeError("The source WAV changed after validation; the sample was not benchmarked.")
-                current = dict(sample)
-                current["audio_path"] = audio_snapshot
-                result = _transcribe_one(model, current)
+                current_sample = dict(sample)
+                current_sample["audio_path"] = audio_snapshot
+                result = _transcribe_one(model, current_sample)
                 results.append(result)
                 print(
                     f"{result['caseId']}: {result['audioDurationSeconds']:.2f}s audio | "
@@ -345,8 +362,7 @@ def run_benchmark(
                 peak_cuda_bytes = int(torch_module.cuda.max_memory_allocated(0))
         except Exception:
             peak_cuda_bytes = None
-    if isinstance(runtime, dict):
-        runtime = {key: value for key, value in runtime.items() if key != "torchModule"}
+    runtime = {key: value for key, value in runtime.items() if key != "torchModule"}
 
     report = {
         "schemaVersion": 1,
@@ -356,9 +372,9 @@ def run_benchmark(
             "id": ENGINE_ID,
             "displayName": "QwenCleo-ASR 1.7B (optional evaluation challenger)",
             "expectedModelId": MODEL_ID,
-            "modelOriginVerificationStatus": "not-performed; local file hashes are recorded, but repository origin is not cryptographically authenticated",
             "modelRevision": model_revision.lower(),
             "modelRevisionProvidedByOperator": True,
+            "modelOriginVerificationStatus": "not-performed; local file hashes are recorded, but repository origin is not cryptographically authenticated",
             "modelFiles": model_inventory,
             "upstreamModelCard": UPSTREAM_MODEL_CARD,
             "declaredLicense": "Apache-2.0 (upstream model card claim)",
@@ -391,6 +407,7 @@ def run_benchmark(
             "humanApprovedReferenceRequired": True,
             "modelLoadedWithLocalFilesOnly": True,
             "productionIntegrationChanged": False,
+            "privateInputsAndReportsMustStayOutsideRepository": True,
             "pureEnglishCaveat": "Upstream model card says the model is not optimized for pure-English audio.",
         },
         "summary": {
@@ -405,7 +422,6 @@ def run_benchmark(
     _write_json_atomically(report_path, report)
     _write_json_atomically(scoring_path, scoring_manifest)
     return report_path, scoring_path, report
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
