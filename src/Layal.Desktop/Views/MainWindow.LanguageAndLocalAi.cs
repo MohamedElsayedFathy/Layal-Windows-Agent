@@ -592,6 +592,19 @@ public partial class MainWindow
         ApiAdditionalHeadersLabel.Text = ar ? "ترويسات HTTP إضافية غير سرية (JSON)" : "Additional non-secret HTTP headers (JSON)";
         ApiTestPathLabel.Text = ar ? "مسار اختبار الاتصال (GET)، مثل health أو users/me" : "Connection test path (GET), e.g. health or users/me";
         ApiInstructionsLabel.Text = ar ? "التفاصيل وملاحظات API (اختياري، بدون أسرار)" : "Details and API notes (optional; do not include secrets)";
+        // Explicitly mirror each visible, localized label into the UIA Name property.
+        // LabeledBy remains in place for label relationships, while Name guarantees a
+        // non-empty announcement across WPF control peers and assistive technologies.
+        AutomationProperties.SetName(ApiConnectionNameInput, ApiConnectionNameLabel.Text);
+        AutomationProperties.SetName(ApiConnectionBaseUrlInput, ApiConnectionBaseUrlLabel.Text);
+        AutomationProperties.SetName(ApiConnectionModelIdInput, ApiConnectionModelIdLabel.Text);
+        AutomationProperties.SetName(ApiConnectionImagePathInput, ApiConnectionImageLabel.Text);
+        AutomationProperties.SetName(ApiAuthTypeComboBox, ApiAuthTypeLabel.Text);
+        AutomationProperties.SetName(ApiAuthHeaderNameInput, ApiAuthHeaderNameLabel.Text);
+        AutomationProperties.SetName(ApiAuthSecretInput, ApiAuthSecretLabel.Text);
+        AutomationProperties.SetName(ApiAdditionalHeadersInput, ApiAdditionalHeadersLabel.Text);
+        AutomationProperties.SetName(ApiTestPathInput, ApiTestPathLabel.Text);
+        AutomationProperties.SetName(ApiInstructionsInput, ApiInstructionsLabel.Text);
         SaveApiConnectionButton.Content = ar ? "حفظ الاتصال" : "Save connection";
         UseAsLayalApiButton.Content = ar ? "استخدام هذا كـ API ليال" : "Use as Layal API";
         TestApiConnectionButton.Content = ar ? "اختبار API" : "Test API";
