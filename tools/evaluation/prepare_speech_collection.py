@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare a private, local workspace for collecting consented Layal speech samples.
+"""Prepare a local workspace for collecting consented Layal speech samples.
 
 This tool copies transcript prompts only. It does not record audio, assert consent,
 approve references, or upload any data. The output directory must be outside the
@@ -26,7 +26,7 @@ CASE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{2,40}$")
 
 PACKAGE_README = """# مساحة جمع بيانات الكلام — Layal
 
-هذه المساحة محلية وخاصة. تحتوي على نصوص طلب التسجيل وملف manifest ومجلد فارغ للصوت.
+هذه مساحة عمل محلية تحتوي على نصوص طلب التسجيل وملف manifest ومجلد فارغ للصوت.
 **لم يُسجَّل أي صوت، ولم تُسجَّل أي موافقة أو مراجعة بشرية عند إنشاء الحزمة.**
 
 ## الملفات
@@ -41,6 +41,8 @@ PACKAGE_README = """# مساحة جمع بيانات الكلام — Layal
 1. اقرأ نموذج الموافقة مع المتحدث، وأجب عن أسئلته، ولا تبدأ التسجيل حتى يوافق طوعًا ويوقّع/يوثق النموذج.
 2. استكمل جهة المشروع ووسيلة التواصل ومكان التخزين وموعد/مدة الحذف في نموذج الموافقة قبل استخدامه.
 3. احتفظ بنموذج الموافقة المعرّف بالهوية في تخزين محلي آمن منفصل عن ملفات الصوت وmanifest. لا تضع الاسم أو التوقيع أو بيانات الاتصال في Git أو manifest.
+   
+المجلد الناتج يرث صلاحيات الوصول من المجلد الأب؛ الأداة لا تغيّر Windows ACL ولا تشفّر الملفات. اختر موقعًا لا يصل إليه إلا الأشخاص المخولون، ولا تستخدم مجلد شبكة أو مجلدًا مشتركًا.
 4. أنشئ رمزًا مستعارًا مثل `spk-001` للمتحدث ورمزًا مثل `rev-001` لمراجع النص. لا تستخدم اسمًا أو بريدًا أو رقم هاتف.
 5. سجّل جملة واحدة لكل ملف باسم `<case_id>.wav` داخل `audio/`. لا تسجل بيانات حساسة أو كلمات مرور أو أسماء/عناوين أو معلومات تخص أشخاصًا آخرين.
 6. احتفظ بالصوت الأصلي محليًا، ثم حدّث الحالة المقابلة في manifest فقط بعد التسجيل الفعلي: `recordingStatus=recorded` و`audioAsset=audio/<case_id>.wav` و`speakerId`، وأضف `consent` بنطاق `research-evaluation` ووقت الموافقة الفعلي.
@@ -120,15 +122,32 @@ def _load_seed_manifest(seed_manifest: Path) -> dict[str, Any]:
 
     if not isinstance(payload, dict) or payload.get("schemaVersion") != 1:
         raise ValueError("Seed manifest must be a JSON object with schemaVersion=1.")
+    allowed_root_keys = {"schemaVersion", "description", "recordingStatus", "cases"}
+    unexpected_root_keys = set(payload) - allowed_root_keys
+    if unexpected_root_keys:
+        raise ValueError("Seed manifest contains unsupported root metadata fields.")
+    if payload.get("recordingStatus") != "not-recorded":
+        raise ValueError("Seed manifest root recordingStatus must be not-recorded.")
+
     cases = payload.get("cases")
     if not isinstance(cases, list) or not cases:
         raise ValueError("Seed manifest must contain a non-empty cases array.")
 
+    allowed_case_keys = {
+        "id", "locale", "referenceText", "audioAsset", "recordingStatus",
+        "speakerId", "consentRequired", "hypotheses",
+    }
+    sanitized_cases: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     for index, case in enumerate(cases, start=1):
         prefix = f"cases[{index}]"
         if not isinstance(case, dict):
             raise ValueError(f"{prefix} must be an object.")
+        unexpected_case_keys = set(case) - allowed_case_keys
+        if unexpected_case_keys:
+            raise ValueError(f"{prefix} contains unsupported metadata fields.")
+        if case.get("consentRequired") is not True:
+            raise ValueError(f"{prefix} must require explicit consent.")
         case_id = case.get("id")
         if not isinstance(case_id, str) or not CASE_ID_PATTERN.fullmatch(case_id):
             raise ValueError(f"{prefix}.id must be a safe, non-identifying token.")
@@ -149,7 +168,14 @@ def _load_seed_manifest(seed_manifest: Path) -> dict[str, Any]:
         if not isinstance(hypotheses, dict) or hypotheses:
             raise ValueError(f"{prefix} must not contain ASR hypotheses.")
 
-    return payload
+        sanitized_cases.append({key: case.get(key) for key in allowed_case_keys if key in case})
+
+    return {
+        "schemaVersion": 1,
+        "description": "Transcript-only speech collection prompts; no recordings, consent, or approved references.",
+        "recordingStatus": "not-recorded",
+        "cases": sanitized_cases,
+    }
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -222,7 +248,7 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         required=True,
-        help="New private collection directory outside the repository; it must not already exist.",
+        help="New local collection directory outside the repository; it must not already exist.",
     )
     parser.add_argument(
         "--seed-manifest",
