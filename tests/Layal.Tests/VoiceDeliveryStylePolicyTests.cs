@@ -48,8 +48,8 @@ public sealed class VoiceDeliveryStylePolicyTests
         Assert.AreEqual(Styles.Length, pauses.Distinct().Count(), "Every style must have a distinct sentence-pause preset.");
         Assert.IsTrue(scales.All(scale => scale is >= 0.90 and <= 1.15));
         Assert.IsTrue(pauses.All(pause => pause is >= 0.10 and <= 0.45));
-        Assert.AreEqual(1.00, VoiceDeliveryStylePolicy.GetLocalLengthScale("invalid"), 0.0001);
-        Assert.AreEqual(0.20, VoiceDeliveryStylePolicy.GetLocalSentenceSilenceSeconds("invalid"), 0.0001);
+        Assert.AreEqual(0.97, VoiceDeliveryStylePolicy.GetLocalLengthScale("invalid"), 0.0001);
+        Assert.AreEqual(0.14, VoiceDeliveryStylePolicy.GetLocalSentenceSilenceSeconds("invalid"), 0.0001);
     }
 
     [TestMethod]
