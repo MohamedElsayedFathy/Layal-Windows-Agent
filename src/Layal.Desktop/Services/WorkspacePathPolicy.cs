@@ -1,18 +1,11 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
-
 namespace Layal.Services;
 
 /// <summary>Applies canonical workspace path and reparse-point restrictions shared by workspace tools.</summary>
 internal sealed class WorkspacePathPolicy
 {
-    // Windows reserves DOS device names even when an extension is appended. The superscript
-    // digits are explicitly recognized by Windows as COM/LPT device digits as well.
-    private static readonly Regex ReservedDeviceName =
-        new(@"^(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM(?:[1-9]|[¹²³])|LPT(?:[1-9]|[¹²³]))$",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private readonly string _workspaceRoot;
     internal WorkspacePathPolicy(string workspaceRoot) => _workspaceRoot = Path.GetFullPath(workspaceRoot);
 
@@ -33,22 +26,8 @@ internal sealed class WorkspacePathPolicy
         return fullPath;
     }
 
-    private static bool IsUnsafeWindowsSegment(string segment)
-    {
-        // Win32 silently normalizes trailing ASCII spaces and periods, so accepting them can
-        // redirect an apparently distinct workspace path to a different existing file.
-        if (segment.EndsWith(' ') || segment.EndsWith('.'))
-            return true;
-
-        if (segment.Any(char.IsControl) || segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            return true;
-
-        // Device aliases are recognized before the first extension separator. Trim spaces
-        // immediately before that separator too (for example, "NUL .txt").
-        var extensionSeparator = segment.IndexOf('.');
-        var deviceBaseName = (extensionSeparator < 0 ? segment : segment[..extensionSeparator]).TrimEnd(' ');
-        return ReservedDeviceName.IsMatch(deviceBaseName);
-    }
+    private static bool IsUnsafeWindowsSegment(string segment) =>
+        !WindowsPathSegmentPolicy.IsSafeSegment(segment);
 
     internal void EnsureNoReparsePoints(string path)
     {
