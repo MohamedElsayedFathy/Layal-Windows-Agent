@@ -579,31 +579,13 @@ public sealed class WorkspaceSnapshotService
 
         foreach (var segment in relativePath.Split('/'))
         {
-            if (segment.Length is < 1 or > 255 ||
-                segment.EndsWith(' ') || segment.EndsWith('.') ||
-                segment.Any(character => character is '<' or '>' or '"' or '|' or '?' or '*' or ':'))
-                throw new InvalidOperationException("A workspace restore path contains a Windows-invalid file or directory name.");
-
-            var deviceStem = segment.Split('.')[0].TrimEnd(' ', '.');
-            if (deviceStem.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
-                deviceStem.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
-                deviceStem.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
-                deviceStem.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
-                deviceStem.Equals("CONIN$", StringComparison.OrdinalIgnoreCase) ||
-                deviceStem.Equals("CONOUT$", StringComparison.OrdinalIgnoreCase) ||
-                IsNumberedWindowsDeviceName(deviceStem, "COM") ||
-                IsNumberedWindowsDeviceName(deviceStem, "LPT"))
-                throw new InvalidOperationException("Windows device names cannot be restored as workspace files.");
+            if (!WindowsPathSegmentPolicy.IsSafeSegment(segment))
+                throw new InvalidOperationException("A workspace restore path contains a Windows-invalid file or reserved device name.");
 
             if (ExcludedDirectories.Contains(segment))
                 throw new InvalidOperationException("A workspace backup cannot restore protected build or repository directories.");
         }
     }
-
-    private static bool IsNumberedWindowsDeviceName(string value, string prefix) =>
-        value.Length == prefix.Length + 1 &&
-        value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-        value[^1] is >= '1' and <= '9';
 
     private void EnsureWithinWorkspace(string fullPath)
     {
