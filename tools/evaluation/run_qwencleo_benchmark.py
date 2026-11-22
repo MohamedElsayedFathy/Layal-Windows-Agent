@@ -355,7 +355,8 @@ def run_benchmark(
         "engine": {
             "id": ENGINE_ID,
             "displayName": "QwenCleo-ASR 1.7B (optional evaluation challenger)",
-            "modelId": MODEL_ID,
+            "expectedModelId": MODEL_ID,
+            "modelOriginVerificationStatus": "not-performed; local file hashes are recorded, but repository origin is not cryptographically authenticated",
             "modelRevision": model_revision.lower(),
             "modelRevisionProvidedByOperator": True,
             "modelFiles": model_inventory,
