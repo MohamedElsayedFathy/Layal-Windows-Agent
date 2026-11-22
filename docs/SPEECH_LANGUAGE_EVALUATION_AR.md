@@ -149,7 +149,7 @@ python tools/evaluation/score_speech_transcripts.py --engine whisper_cpp_base
 ## 7. مراحل الدمج
 
 1. **Acceptance baseline:** جمع التسجيلات بإذن، تثبيت transcripts، وتشغيل Whisper الحالي.
-2. **ASR challenger:** تشغيل QwenCleo كمرشح اختياري على جهاز مناسب؛ لا يستبدل Whisper حتى يجتاز الدقة/الزمن/الموارد/الخصوصية.
+2. **ASR challenger:** أُضيف المشغّل الاختياري المحلي `tools/evaluation/run_qwencleo_benchmark.py` في PR #211. يتطلب snapshot محليًا مثبت الإصدار ونفس WAVs المصرح بها والمراجع بشريًا التي اختُبر عليها Whisper. لا توجد نتائج حتى تشغيله على هذه المجموعة؛ ولا يستبدل Whisper قبل اجتياز الدقة/الزمن/الموارد/الخصوصية ومراجعة الحقوق ومصدر بيانات التدريب.
 3. **Egyptian TTS evaluation:** تقييم VoiceTut الإنتاجي أولًا، ومقارنته بمرشح KemeTone للمقاطع المصرية فقط بعد حسم حقوق الصوت؛ لا يوجد Piper في مسار الإنتاج.
 4. **Conversation turn-taking:** ضغط للتسجيل/إيقاف/إلغاء، اكتشاف نهاية الكلام، زمن انتظار واضح، ثم دراسة Full-duplex والمقاطعة بعد استقرار الحزم السابقة.
 5. **Tool hand-off:** النص المستخرج يدخل الفهم المحلي، لكن parser/plan/approval/verification تبقى الحدود الحاسمة. لا ينفذ ASR النص مباشرةً كتعليمات ولا يتخطى الموافقات.
