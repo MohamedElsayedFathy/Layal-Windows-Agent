@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Layal.SpeechLanguage;
@@ -60,8 +59,8 @@ public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, IS
     }
 
     /// <summary>
-    /// Maps Layal's reviewed transcript classifications to VoiceTut language identifiers.
-    /// Ambiguous Arabic uses Egyptian, Layal's primary Arabic locale, rather than assuming MSA.
+    /// Maps Layal's text-language classifications to VoiceTut's documented runtime identifiers.
+    /// VoiceTut uses arz for Egyptian Arabic and en for English; MSA remains exploratory on arz.
     /// </summary>
     public static string SelectLanguageCode(SpeechLanguageAnalysis analysis)
     {
@@ -69,28 +68,11 @@ public sealed class LocalSpeechLanguageProvider : ISpeechRecognitionProvider, IS
         return analysis.Language.PrimaryLanguage switch
         {
             SpeechLanguageKind.English => "en",
-            SpeechLanguageKind.ArabicStandard => "ar",
+            SpeechLanguageKind.ArabicStandard => "arz",
             SpeechLanguageKind.EgyptianArabic => "arz",
-            SpeechLanguageKind.Mixed => SelectMixedLanguageCode(analysis),
+            SpeechLanguageKind.Mixed => "arz",
             SpeechLanguageKind.ArabicUnspecified => "arz",
             _ => "en"
         };
-    }
-
-    private static string SelectMixedLanguageCode(SpeechLanguageAnalysis analysis)
-    {
-        var arabicSegments = analysis.Language.Segments
-            .Where(segment => segment.Language is SpeechLanguageKind.ArabicStandard
-                or SpeechLanguageKind.EgyptianArabic
-                or SpeechLanguageKind.ArabicUnspecified)
-            .ToArray();
-
-        if (arabicSegments.Any(segment => segment.Language == SpeechLanguageKind.EgyptianArabic))
-            return "arz";
-        if (arabicSegments.Length > 0 &&
-            arabicSegments.All(segment => segment.Language == SpeechLanguageKind.ArabicStandard))
-            return "ar";
-
-        return "arz";
     }
 }

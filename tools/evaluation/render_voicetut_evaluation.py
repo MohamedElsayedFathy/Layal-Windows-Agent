@@ -3,8 +3,8 @@
 
 This tool uses Voice Design only. It deliberately excludes built-in reference
 speaker files, zero-shot reference audio and all cloning paths. ArabicStandard
-is rendered only as an explicitly exploratory case: the app can request VoiceTut's
-Arabic ("ar") route, but separate MSA quality is not yet accepted.
+is rendered only as an explicitly exploratory case: VoiceTut's documented runtime
+uses the Egyptian ("arz") route; it has no separately accepted MSA runtime route.
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ STYLE_INSTRUCTIONS = {
 }
 LANGUAGE_CODES = {
     "EgyptianArabic": "arz",
-    "ArabicStandard": "ar",  # exploratory only; not declared as supported
+    "ArabicStandard": "arz",  # exploratory MSA text on the documented Egyptian runtime route
     "English": "en",
     "MixedArabicEnglish": "arz",
 }
@@ -337,8 +337,8 @@ def main() -> int:
                 else:
                     record["productionSupported"] = False
                     record["note"] = (
-                        "Exploratory only: VoiceTut uses the Arabic ('ar') route here; MSA remains "
-                        "excluded from supportedLanguages until its quality is manually accepted."
+                        "Exploratory only: VoiceTut uses its documented Egyptian ('arz') route for MSA text; "
+                        "this does not establish separately supported MSA."
                     )
                     msa_exploratory.append(record)
 
@@ -383,7 +383,7 @@ def main() -> int:
             "notes": [
                 "No built-in reference speaker audio was downloaded or loaded.",
                 "Voice Design only; reference audio and voice cloning are disabled.",
-                "MSA uses VoiceTut's ar route for an exploratory comparison and remains excluded from supportedLanguages until manually accepted.",
+                "MSA text uses VoiceTut's documented Egyptian arz route for an exploratory comparison and remains excluded from supportedLanguages.",
                 "Each delivery style adds a text cue and conservative speed adjustment; full emotional realization remains model-dependent.",
                 "All eight styles are rendered for every fixed prompt; two independent human ratings per sample and manual acceptance are still required.",
             ],
@@ -395,7 +395,7 @@ def main() -> int:
         (args.output_dir / "msa-exploratory.json").write_text(
             json.dumps({
                 "supportedAsProduction": False,
-                "reason": "VoiceTut's Arabic (ar) route is rendered for exploration; this is not an accepted production MSA capability.",
+                "reason": "MSA text is rendered through VoiceTut's documented Egyptian (arz) route for exploration; this is not accepted production MSA support.",
                 "samples": msa_exploratory,
             }, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",

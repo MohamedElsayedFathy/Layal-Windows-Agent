@@ -22,7 +22,15 @@ public sealed class LocalSpeechLanguageProviderRoutingTests
     {
         var analysis = _engine.Analyze("كيف حالك؟ أحتاج إلى معرفة التفاصيل.");
         Assert.AreEqual(SpeechLanguageKind.ArabicStandard, analysis.Language.PrimaryLanguage);
-        Assert.AreEqual("ar", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
+        Assert.AreEqual("arz", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
+    }
+
+    [TestMethod]
+    public void ArabicWithWeakDialectEvidenceDefaultsToEgyptianVoiceRoute()
+    {
+        var analysis = _engine.Analyze("تمام، شكرًا لك.");
+        Assert.AreEqual(SpeechLanguageKind.ArabicUnspecified, analysis.Language.PrimaryLanguage);
+        Assert.AreEqual("arz", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
     }
 
     [TestMethod]
@@ -42,10 +50,10 @@ public sealed class LocalSpeechLanguageProviderRoutingTests
     }
 
     [TestMethod]
-    public void MixedTextUsesMsaRouteWhenEveryArabicSegmentHasMsaEvidence()
+    public void MixedTextUsesEgyptianRouteEvenWhenArabicSegmentsHaveMsaEvidence()
     {
-        var analysis = _engine.Analyze("كيف حالك؟ Please review the details.");
+        var analysis = _engine.Analyze("كيف حالك؟ أحتاج إلى معرفة التفاصيل. Please review the final report.");
         Assert.AreEqual(SpeechLanguageKind.Mixed, analysis.Language.PrimaryLanguage);
-        Assert.AreEqual("ar", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
+        Assert.AreEqual("arz", LocalSpeechLanguageProvider.SelectLanguageCode(analysis));
     }
 }

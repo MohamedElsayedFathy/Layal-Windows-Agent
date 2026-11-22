@@ -26,7 +26,7 @@ class VoiceTutEvaluationTests(unittest.TestCase):
         self.assertEqual(("arz", True), MODULE.normalize_language_code("EgyptianArabic"))
         self.assertEqual(("en", True), MODULE.normalize_language_code("English"))
         self.assertEqual(("arz", True), MODULE.normalize_language_code("MixedArabicEnglish"))
-        self.assertEqual(("ar", False), MODULE.normalize_language_code("ArabicStandard"))
+        self.assertEqual(("arz", False), MODULE.normalize_language_code("ArabicStandard"))
         self.assertEqual(
             {"EgyptianArabic", "English", "MixedArabicEnglish"},
             MODULE.SUPPORTED_LANGUAGES,
@@ -91,8 +91,11 @@ class VoiceTutEvaluationTests(unittest.TestCase):
         self.assertEqual(32, values[3])
         self.assertTrue(values[6])
 
-        msa = dict(request, text="كيف حالك؟", language="ar")
-        self.assertEqual("ar", BRIDGE.validate_request(msa)[1])
+        unsupported_msa = dict(request, text="كيف حالك؟", language="ar")
+        with self.assertRaises(ValueError):
+            BRIDGE.validate_request(unsupported_msa)
+        exploratory_msa = dict(request, text="كيف حالك؟", language="arz")
+        self.assertEqual("arz", BRIDGE.validate_request(exploratory_msa)[1])
 
         composed = dict(request, instruct=MODULE.build_voice_instruction(
             "female, child, very high pitch", "playful"))
