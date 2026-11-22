@@ -3,17 +3,17 @@ using System;
 namespace Layal.Services;
 
 /// <summary>
-/// Named delivery styles are presentation-only. They never alter assistant identity,
-/// safety rules, tool permissions, approval requirements, or the selected voice.
+/// Delivery styles tune the same selected voice identity and never alter safety rules,
+/// tool permissions, approval requirements, or assistant identity.
 /// </summary>
 public static class VoiceDeliveryStylePolicy
 {
-    public const string DefaultStyle = "natural";
+    public const string DefaultStyle = "playful";
 
     private static readonly string[] SupportedStyles =
     [
-        "natural", "gentle", "bright", "clear",
-        "empathetic", "serious", "energetic", "playful"
+        "playful", "natural", "gentle", "bright",
+        "clear", "empathetic", "serious", "energetic"
     ];
 
     public static string Normalize(string? styleId)
@@ -43,8 +43,30 @@ public static class VoiceDeliveryStylePolicy
         };
 
     /// <summary>
-    /// Piper's bundled voice models have fixed timbre and do not expose semantic emotion controls.
-    /// These local presets adjust phoneme pace only; sentence pauses are controlled separately.
+    /// Adds a bounded delivery cue while preserving Layal's one Voice Design identity.
+    /// Actual emotional nuance remains model-dependent and is not guaranteed.
+    /// </summary>
+    public static string BuildLocalVoiceInstruction(string? voiceDesignInstruction, string? styleId)
+    {
+        var identity = string.IsNullOrWhiteSpace(voiceDesignInstruction)
+            ? VoiceTutLocalService.DefaultVoiceDesign
+            : voiceDesignInstruction.Trim();
+        var cue = Normalize(styleId) switch
+        {
+            "gentle" => "Delivery style: soft, calm and unhurried; keep articulation clear.",
+            "bright" => "Delivery style: bright and lightly upbeat; use restrained lively emphasis.",
+            "clear" => "Delivery style: clear and measured; articulate carefully with short pauses.",
+            "empathetic" => "Delivery style: warm and reassuring; use a calm, unhurried delivery.",
+            "serious" => "Delivery style: serious and composed; use measured pacing.",
+            "energetic" => "Delivery style: energetic and encouraging; stay intelligible and do not shout.",
+            "playful" => "Delivery style: playful, cheerful and lightly lively; stay warm, natural and clear without exaggeration.",
+            _ => "Delivery style: natural and conversational; keep a balanced, friendly rhythm."
+        };
+        return identity + "; " + cue;
+    }
+
+    /// <summary>
+    /// VoiceTut pace multipliers complement the delivery cue without changing the selected identity.
     /// </summary>
     public static double GetLocalLengthScale(string? styleId) =>
         Normalize(styleId) switch

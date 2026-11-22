@@ -253,8 +253,10 @@ public partial class MainWindow
         if (!IsLoaded || VoiceDeliveryStyleSelector.SelectedItem is not ComboBoxItem item) return;
         var style = VoiceDeliveryStylePolicy.Normalize(item.Tag?.ToString());
         var previous = AppRuntime.Settings.VoiceDeliveryStyleId;
-        if (string.Equals(previous, style, StringComparison.Ordinal)) return;
+        var previousCustomized = AppRuntime.Settings.VoiceDeliveryStyleCustomized;
+        if (string.Equals(previous, style, StringComparison.Ordinal) && previousCustomized) return;
         AppRuntime.Settings.VoiceDeliveryStyleId = style;
+        AppRuntime.Settings.VoiceDeliveryStyleCustomized = true;
         try
         {
             AppRuntime.SettingsStore.Save(AppRuntime.Settings);
@@ -265,6 +267,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             AppRuntime.Settings.VoiceDeliveryStyleId = previous;
+            AppRuntime.Settings.VoiceDeliveryStyleCustomized = previousCustomized;
             VoiceDeliveryStyleSelector.SelectedValue = VoiceDeliveryStylePolicy.Normalize(previous);
             SetAccessibleStatusText(ProviderActionStatus,
                 UiLocalization.FormatTechnicalError("تعذر حفظ نبرة الإلقاء", "Could not save delivery style", ex, IsArabic));
@@ -349,7 +352,7 @@ public partial class MainWindow
                 !_localVoiceReady)
                 return;
             await _speechLanguageRuntime.SpeakAsync(
-                "أهلًا، أنا ليال. خلّينا نتكلم بهدوء، خطوة بخطوة. I will speak locally and clearly.",
+                "أهلًا! أنا ليال، مبسوطة إني معاك. يلا نبدأ وننجز حاجة حلوة سوا! Hi! I'm Layal, and I'm happy to help. Let's get started!",
                 new SpeechSynthesisOptions(
                     AppRuntime.Settings.AudioOutputDeviceId,
                     AppRuntime.Settings.VoiceDeliveryStyleId,

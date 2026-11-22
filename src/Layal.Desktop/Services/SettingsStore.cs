@@ -103,7 +103,19 @@ public sealed class SettingsStore
         settings.QuickAskHotkeyPreset = GlobalHotkeyService.NormalizePreset(settings.QuickAskHotkeyPreset);
         if (settings.AssistantPersona is not ("warm" or "focused" or "professional"))
             settings.AssistantPersona = "warm";
-        settings.VoiceDeliveryStyleId = VoiceDeliveryStylePolicy.Normalize(settings.VoiceDeliveryStyleId);
+        var savedVoiceStyle = (settings.VoiceDeliveryStyleId ?? string.Empty).Trim();
+        // Migrate the former natural default to playful. Preserve legacy non-default selections
+        // as explicit custom preferences, so an existing user choice is not silently replaced.
+        if (!settings.VoiceDeliveryStyleCustomized &&
+            VoiceDeliveryStylePolicy.IsSupported(savedVoiceStyle) &&
+            !string.Equals(savedVoiceStyle, "natural", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(savedVoiceStyle, VoiceDeliveryStylePolicy.DefaultStyle, StringComparison.OrdinalIgnoreCase))
+        {
+            settings.VoiceDeliveryStyleCustomized = true;
+        }
+        settings.VoiceDeliveryStyleId = settings.VoiceDeliveryStyleCustomized
+            ? VoiceDeliveryStylePolicy.Normalize(savedVoiceStyle)
+            : VoiceDeliveryStylePolicy.DefaultStyle;
         settings.VoiceDesignInstruction = (settings.VoiceDesignInstruction ?? VoiceTutLocalService.DefaultVoiceDesign).Trim();
         if (settings.VoiceDesignInstruction.Length is 0 or > 300 ||
             !settings.VoiceDesignInstruction.Contains("female", StringComparison.OrdinalIgnoreCase) ||

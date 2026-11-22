@@ -3,8 +3,8 @@
 
 This tool uses Voice Design only. It deliberately excludes built-in reference
 speaker files, zero-shot reference audio and all cloning paths. ArabicStandard
-is rendered only as an explicitly exploratory case: VoiceTut documents Egyptian
-Arabic and English, not a separate MSA model.
+is rendered only as an explicitly exploratory case: the app can request VoiceTut's
+Arabic ("ar") route, but separate MSA quality is not yet accepted.
 """
 from __future__ import annotations
 
@@ -24,12 +24,47 @@ MODEL_ID = "mohammedaly22/VoiceTut-TTS"
 MODEL_REVISION = "b36bdf4416864d84f47ca77ce3decf34f6ab16cc"
 DEFAULT_INSTRUCTION = "female, child, very high pitch"
 SUPPORTED_LANGUAGES = {"EgyptianArabic", "English", "MixedArabicEnglish"}
+DELIVERY_STYLES = (
+    "playful", "natural", "gentle", "bright",
+    "clear", "empathetic", "serious", "energetic",
+)
+DEFAULT_DELIVERY_STYLE = "playful"
+STYLE_SPEED_MULTIPLIERS = {
+    "natural": 1.00,
+    "gentle": 1.10,
+    "bright": 0.95,
+    "clear": 1.03,
+    "empathetic": 1.08,
+    "serious": 1.05,
+    "energetic": 0.92,
+    "playful": 0.97,
+}
+STYLE_INSTRUCTIONS = {
+    "natural": "Delivery style: natural and conversational; keep a balanced, friendly rhythm.",
+    "gentle": "Delivery style: soft, calm and unhurried; keep articulation clear.",
+    "bright": "Delivery style: bright and lightly upbeat; use restrained lively emphasis.",
+    "clear": "Delivery style: clear and measured; articulate carefully with short pauses.",
+    "empathetic": "Delivery style: warm and reassuring; use a calm, unhurried delivery.",
+    "serious": "Delivery style: serious and composed; use measured pacing.",
+    "energetic": "Delivery style: energetic and encouraging; stay intelligible and do not shout.",
+    "playful": "Delivery style: playful, cheerful and lightly lively; stay warm, natural and clear without exaggeration.",
+}
 LANGUAGE_CODES = {
     "EgyptianArabic": "arz",
-    "ArabicStandard": "arz",  # exploratory only; not declared as supported
+    "ArabicStandard": "ar",  # exploratory only; not declared as supported
     "English": "en",
     "MixedArabicEnglish": "arz",
 }
+
+def build_voice_instruction(base_instruction: str, style: str) -> str:
+    if style not in DELIVERY_STYLES:
+        raise ValueError(f"Unsupported delivery style: {style}")
+    return base_instruction.strip() + "; " + STYLE_INSTRUCTIONS[style]
+
+def effective_style_speed(base_speed: float, style: str) -> float:
+    if style not in STYLE_SPEED_MULTIPLIERS:
+        raise ValueError(f"Unsupported delivery style: {style}")
+    return max(0.5, min(2.0, base_speed / STYLE_SPEED_MULTIPLIERS[style]))
 
 
 def sha256_file(path: Path) -> str:
@@ -252,62 +287,67 @@ def main() -> int:
         for case in prompt_payload["testCases"]:
             case_id = safe_case_id(case["id"])
             language_code, production_supported = normalize_language_code(case["language"])
-            sample_rate, audio, render_ms, ttfa_ms = render_one(
-                engine=engine,
-                text=case["text"],
-                language_code=language_code,
-                instruction=instruction,
-                num_steps=args.num_steps,
-                guidance_scale=args.guidance_scale,
-                speed=args.speed,
-                normalize=True,
-            )
-            duration_seconds = len(audio) / float(sample_rate)
-            rtf = (render_ms / 1000.0) / duration_seconds if duration_seconds else None
-            file_name = f"voicetut__{case_id}__natural.wav"
-            audio_path = sample_root / file_name
-            sf.write(str(audio_path), audio, sample_rate, subtype="PCM_16")
-            digest = sha256_file(audio_path)
-            record = {
-                "caseId": case_id,
-                "audioPath": f"samples/{file_name}",
-                "audioSha256": digest,
-                "renderTimeMs": round(render_ms, 2),
-                "timeToFirstAudioMs": round(ttfa_ms, 2),
-                "audioDurationSeconds": round(duration_seconds, 4),
-                "sampleRateHz": sample_rate,
-                "realTimeFactor": round(rtf, 4) if rtf is not None else None,
-                "qualitySteps": args.num_steps,
-                "guidanceScale": args.guidance_scale,
-                "speed": args.speed,
-                "normalizationEnabled": True,
-                "humanRatings": [],
-            }
-            if production_supported:
-                manifest_samples.append({
-                    "caseId": case_id,
-                    "engineId": "voicetut-voice-design",
-                    "style": "natural",
-                    "audioPath": record["audioPath"],
-                    "audioSha256": digest,
-                    "renderTimeMs": record["renderTimeMs"],
-                    "timeToFirstAudioMs": record["timeToFirstAudioMs"],
-                    "ratings": [],
-                })
-            else:
-                record["productionSupported"] = False
-                record["note"] = (
-                    "Exploratory only: VoiceTut resolves this text through its Egyptian Arabic "
-                    "('arz') path; this is not evidence of a separately supported MSA voice."
+            for style in DELIVERY_STYLES:
+                styled_instruction = build_voice_instruction(instruction, style)
+                style_speed = effective_style_speed(args.speed, style)
+                sample_rate, audio, render_ms, ttfa_ms = render_one(
+                    engine=engine,
+                    text=case["text"],
+                    language_code=language_code,
+                    instruction=styled_instruction,
+                    num_steps=args.num_steps,
+                    guidance_scale=args.guidance_scale,
+                    speed=style_speed,
+                    normalize=True,
                 )
-                msa_exploratory.append(record)
+                duration_seconds = len(audio) / float(sample_rate)
+                rtf = (render_ms / 1000.0) / duration_seconds if duration_seconds else None
+                file_name = f"voicetut__{case_id}__{style}.wav"
+                audio_path = sample_root / file_name
+                sf.write(str(audio_path), audio, sample_rate, subtype="PCM_16")
+                digest = sha256_file(audio_path)
+                record = {
+                    "caseId": case_id,
+                    "style": style,
+                    "audioPath": f"samples/{file_name}",
+                    "audioSha256": digest,
+                    "renderTimeMs": round(render_ms, 2),
+                    "timeToFirstAudioMs": round(ttfa_ms, 2),
+                    "audioDurationSeconds": round(duration_seconds, 4),
+                    "sampleRateHz": sample_rate,
+                    "realTimeFactor": round(rtf, 4) if rtf is not None else None,
+                    "qualitySteps": args.num_steps,
+                    "guidanceScale": args.guidance_scale,
+                    "baseSpeed": args.speed,
+                    "effectiveSpeed": style_speed,
+                    "normalizationEnabled": True,
+                    "humanRatings": [],
+                }
+                if production_supported:
+                    manifest_samples.append({
+                        "caseId": case_id,
+                        "engineId": "voicetut-voice-design",
+                        "style": style,
+                        "audioPath": record["audioPath"],
+                        "audioSha256": digest,
+                        "renderTimeMs": record["renderTimeMs"],
+                        "timeToFirstAudioMs": record["timeToFirstAudioMs"],
+                        "ratings": [],
+                    })
+                else:
+                    record["productionSupported"] = False
+                    record["note"] = (
+                        "Exploratory only: VoiceTut uses the Arabic ('ar') route here; MSA remains "
+                        "excluded from supportedLanguages until its quality is manually accepted."
+                    )
+                    msa_exploratory.append(record)
 
-            del audio
-            print(
-                f"{case_id}: {duration_seconds:.2f}s audio | "
-                f"render {render_ms:.0f}ms | TTFA {ttfa_ms:.0f}ms | "
-                f"RTF {rtf:.3f}" if rtf is not None else f"{case_id}: rendered"
-            )
+                del audio
+                print(
+                    f"{case_id}/{style}: {duration_seconds:.2f}s | "
+                    f"render {render_ms:.0f}ms | TTFA {ttfa_ms:.0f}ms | "
+                    f"RTF {rtf:.3f}" if rtf is not None else f"{case_id}/{style}: rendered"
+                )
 
         manifest = {
             "schemaVersion": 1,
@@ -333,7 +373,8 @@ def main() -> int:
                 "supportedLanguages": [
                     "EgyptianArabic", "English", "MixedArabicEnglish"
                 ],
-                "supportedStyles": ["natural"],
+                "supportedStyles": list(DELIVERY_STYLES),
+                "defaultDeliveryStyle": DEFAULT_DELIVERY_STYLE,
             }],
             "samples": manifest_samples,
             "exploratoryMsaOutput": (
@@ -342,9 +383,9 @@ def main() -> int:
             "notes": [
                 "No built-in reference speaker audio was downloaded or loaded.",
                 "Voice Design only; reference audio and voice cloning are disabled.",
-                "MSA outputs are exploratory and are excluded from supportedLanguages and production coverage.",
-                "The UI delivery presets alter generation speed; they are not verified emotional styles.",
-                "Two independent human ratings per sample and manual acceptance are still required.",
+                "MSA uses VoiceTut's ar route for an exploratory comparison and remains excluded from supportedLanguages until manually accepted.",
+                "Each delivery style adds a text cue and conservative speed adjustment; full emotional realization remains model-dependent.",
+                "All eight styles are rendered for every fixed prompt; two independent human ratings per sample and manual acceptance are still required.",
             ],
         }
         args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -354,7 +395,7 @@ def main() -> int:
         (args.output_dir / "msa-exploratory.json").write_text(
             json.dumps({
                 "supportedAsProduction": False,
-                "reason": "VoiceTut documents Egyptian Arabic and English; this MSA pass used the Egyptian arz route and is exploratory only.",
+                "reason": "VoiceTut's Arabic (ar) route is rendered for exploration; this is not an accepted production MSA capability.",
                 "samples": msa_exploratory,
             }, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",

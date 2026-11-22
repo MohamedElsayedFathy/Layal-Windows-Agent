@@ -316,12 +316,12 @@ public partial class MainWindow
             : "Text style is independent from delivery style and voice identity; it never changes safety rules, confirmations, or tool permissions.");
         VoiceDeliveryStyleLabel.Text = ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style";
         VoiceDeliveryStyleDisclosure.Text = ar
-            ? "أنماط الإلقاء الثمانية تغيّر سرعة التوليد فقط. هوية الصوت تُحدَّد بصورة مستقلة من وصف Voice Design، والتعبير العاطفي الكامل غير مضمون."
-            : "The eight delivery presets adjust generation speed only. Voice identity is configured separately through Voice Design; full emotional prosody is not guaranteed.";
+            ? "كل نمط يضيف توجيهًا للإلقاء ويضبط السرعة مع الحفاظ على هوية الصوت. التعبير العاطفي الدقيق يعتمد على النموذج وليس مضمونًا بالكامل."
+            : "Each preset adds a delivery cue and adjusts pace while preserving the voice identity. Exact emotional expression depends on the model and is not fully guaranteed.";
         AutomationProperties.SetName(VoiceDeliveryStyleSelector, ar ? "نبرة الإلقاء الصوتي" : "Spoken delivery style");
         AutomationProperties.SetHelpText(VoiceDeliveryStyleSelector, ar
-            ? "اختر أحد ثمانية أنماط؛ تأثيرها العملي هنا تعديل سرعة التوليد فقط. لا تغيّر هوية الصوت أو قواعد الأمان أو صلاحيات الأدوات."
-            : "Choose one of eight presets; they only adjust synthesis speed here. They do not change voice identity, safety rules, or tool permissions.");
+            ? "اختر أحد ثمانية أنماط؛ يضيف كل نمط توجيهًا للإلقاء ويضبط السرعة دون تغيير هوية ليال أو قواعد الأمان أو صلاحيات الأدوات."
+            : "Choose one of eight presets; each adds a delivery cue and pace adjustment without changing Layal's voice identity, safety rules, or tool permissions.");
         foreach (ComboBoxItem styleItem in VoiceDeliveryStyleSelector.Items)
             styleItem.Content = VoiceDeliveryStylePolicy.GetDisplayName(styleItem.Tag?.ToString(), ar);
         CharacterDisplayModeLabel.Text = ar ? "الشخصية المعروضة" : "Displayed character";

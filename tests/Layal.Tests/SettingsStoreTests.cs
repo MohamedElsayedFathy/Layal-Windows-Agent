@@ -25,7 +25,8 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(-1.0, settings.MascotTop, 0.0001);
         Assert.IsFalse(settings.AllowWindowTitleInspection);
         Assert.AreEqual("warm", settings.AssistantPersona);
-        Assert.AreEqual("natural", settings.VoiceDeliveryStyleId);
+        Assert.AreEqual("playful", settings.VoiceDeliveryStyleId);
+        Assert.IsFalse(settings.VoiceDeliveryStyleCustomized);
         Assert.AreEqual(VoiceTutLocalService.DefaultVoiceDesign, settings.VoiceDesignInstruction);
         Assert.AreEqual(32, settings.VoiceQualitySteps);
         Assert.AreEqual(2.0, settings.VoiceGuidanceScale, 0.0001);
@@ -75,8 +76,47 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(string.Empty, settings.ModelId);
         Assert.AreEqual(1.8, settings.MascotScale, 0.0001);
         Assert.AreEqual(0.35, settings.MascotOpacity, 0.0001);
-        Assert.AreEqual("natural", settings.VoiceDeliveryStyleId);
+        Assert.AreEqual("playful", settings.VoiceDeliveryStyleId);
         Assert.AreEqual("duo", settings.MascotCharacterDisplayMode);
+    }
+
+    [TestMethod]
+    public void LegacyNaturalDefaultMigratesToPlayfulUntilTheUserCustomizesIt()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"),
+            """{"VoiceDeliveryStyleId":"natural"}""");
+
+        var settings = new SettingsStore(temp.Path).Load();
+
+        Assert.AreEqual("playful", settings.VoiceDeliveryStyleId);
+        Assert.IsFalse(settings.VoiceDeliveryStyleCustomized);
+    }
+
+    [TestMethod]
+    public void ExplicitNaturalSelectionRemainsAvailableWhenCustomizationMarkerIsPresent()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"),
+            """{"VoiceDeliveryStyleId":"natural","VoiceDeliveryStyleCustomized":true}""");
+
+        var settings = new SettingsStore(temp.Path).Load();
+
+        Assert.AreEqual("natural", settings.VoiceDeliveryStyleId);
+        Assert.IsTrue(settings.VoiceDeliveryStyleCustomized);
+    }
+
+    [TestMethod]
+    public void LegacyNonDefaultVoiceSelectionIsPreservedAsCustomized()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"),
+            """{"VoiceDeliveryStyleId":"gentle"}""");
+
+        var settings = new SettingsStore(temp.Path).Load();
+
+        Assert.AreEqual("gentle", settings.VoiceDeliveryStyleId);
+        Assert.IsTrue(settings.VoiceDeliveryStyleCustomized);
     }
 
     [TestMethod]
@@ -151,6 +191,7 @@ public sealed class SettingsStoreTests
             ThemePreset = "ocean",
             AssistantPersona = "focused",
             VoiceDeliveryStyleId = "gentle",
+            VoiceDeliveryStyleCustomized = true,
             VoiceDesignInstruction = "female, child, very high pitch",
             VoiceQualitySteps = 48,
             VoiceGuidanceScale = 2.5,
@@ -187,6 +228,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("123456789012-abcdefghijklmnop.apps.googleusercontent.com", reloaded.GmailOAuthClientId);
         Assert.AreEqual("focused", reloaded.AssistantPersona);
         Assert.AreEqual("gentle", reloaded.VoiceDeliveryStyleId);
+        Assert.IsTrue(reloaded.VoiceDeliveryStyleCustomized);
         Assert.AreEqual("female, child, very high pitch", reloaded.VoiceDesignInstruction);
         Assert.AreEqual(48, reloaded.VoiceQualitySteps);
         Assert.AreEqual(2.5, reloaded.VoiceGuidanceScale, 0.0001);
@@ -228,6 +270,7 @@ public sealed class SettingsStoreTests
             VoiceRepliesEnabled = false,
             AssistantPersona = "professional",
             VoiceDeliveryStyleId = "bright",
+            VoiceDeliveryStyleCustomized = true,
             VoiceDesignInstruction = "female, child, high pitch",
             VoiceQualitySteps = 56,
             VoiceGuidanceScale = 4.25,
@@ -264,6 +307,7 @@ public sealed class SettingsStoreTests
         Assert.IsFalse(candidate.VoiceRepliesEnabled);
         Assert.AreEqual("professional", candidate.AssistantPersona);
         Assert.AreEqual("bright", candidate.VoiceDeliveryStyleId);
+        Assert.IsTrue(candidate.VoiceDeliveryStyleCustomized);
         Assert.AreEqual("female, child, high pitch", candidate.VoiceDesignInstruction);
         Assert.AreEqual(56, candidate.VoiceQualitySteps);
         Assert.AreEqual(4.25, candidate.VoiceGuidanceScale, 0.0001);
@@ -293,6 +337,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual("dark", target.ThemeMode);
         Assert.AreEqual("professional", target.AssistantPersona);
         Assert.AreEqual("bright", target.VoiceDeliveryStyleId);
+        Assert.IsTrue(target.VoiceDeliveryStyleCustomized);
         Assert.AreEqual("female, child, high pitch", target.VoiceDesignInstruction);
         Assert.AreEqual(56, target.VoiceQualitySteps);
         Assert.AreEqual(4.25, target.VoiceGuidanceScale, 0.0001);

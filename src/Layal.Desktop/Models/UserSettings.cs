@@ -33,8 +33,10 @@ public sealed class UserSettings
     public string AudioOutputDeviceId { get; set; } = Layal.Services.AudioDeviceService.WindowsDefaultDeviceId;
     /// <summary>Conversational response style only; never changes safety rules, tool permissions, or confirmation requirements.</summary>
     public string AssistantPersona { get; set; } = "warm";
-    /// <summary>Optional local VoiceTut speech delivery pace; never changes generated text or task permissions.</summary>
+    /// <summary>Default local VoiceTut delivery style; never changes generated text or task permissions.</summary>
     public string VoiceDeliveryStyleId { get; set; } = Layal.Services.VoiceDeliveryStylePolicy.DefaultStyle;
+    /// <summary>True only after the user explicitly changes the default spoken delivery style.</summary>
+    public bool VoiceDeliveryStyleCustomized { get; set; } = false;
     /// <summary>VoiceTut Voice Design attributes; no reference audio or speaker cloning is used.</summary>
     public string VoiceDesignInstruction { get; set; } = Layal.Services.VoiceTutLocalService.DefaultVoiceDesign;
     public int VoiceQualitySteps { get; set; } = 32;
@@ -86,6 +88,7 @@ public sealed class UserSettings
         AudioOutputDeviceId = AudioOutputDeviceId,
         AssistantPersona = AssistantPersona,
         VoiceDeliveryStyleId = VoiceDeliveryStyleId,
+        VoiceDeliveryStyleCustomized = VoiceDeliveryStyleCustomized,
         VoiceDesignInstruction = VoiceDesignInstruction,
         VoiceQualitySteps = VoiceQualitySteps,
         VoiceGuidanceScale = VoiceGuidanceScale,
@@ -131,6 +134,7 @@ public sealed class UserSettings
         AudioOutputDeviceId = source.AudioOutputDeviceId;
         AssistantPersona = source.AssistantPersona;
         VoiceDeliveryStyleId = source.VoiceDeliveryStyleId;
+        VoiceDeliveryStyleCustomized = source.VoiceDeliveryStyleCustomized;
         VoiceDesignInstruction = source.VoiceDesignInstruction;
         VoiceQualitySteps = source.VoiceQualitySteps;
         VoiceGuidanceScale = source.VoiceGuidanceScale;

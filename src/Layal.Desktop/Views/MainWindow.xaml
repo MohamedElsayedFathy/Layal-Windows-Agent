@@ -1240,7 +1240,8 @@
                         <ComboBox x:Name="VoiceDeliveryStyleSelector" SelectedValuePath="Tag" MinWidth="260" MinHeight="40"
                                   SelectionChanged="VoiceDeliveryStyleSelector_SelectionChanged"
                                   AutomationProperties.Name="نبرة الإلقاء الصوتي"
-                                  AutomationProperties.HelpText="يضبط سرعة التوليد عبر VoiceTut فقط؛ لا يغيّر هوية الصوت أو يضمن مشاعر صوتية كاملة.">
+                                  AutomationProperties.HelpText="النمط الافتراضي مرح؛ كل نمط يضيف توجيهًا للإلقاء ويضبط السرعة دون تغيير هوية الصوت.">
+                            <ComboBoxItem Tag="playful" Content="مرحة وخفيفة"/>
                             <ComboBoxItem Tag="natural" Content="طبيعية وعفوية"/>
                             <ComboBoxItem Tag="gentle" Content="هادئة وناعمة"/>
                             <ComboBoxItem Tag="bright" Content="مبهجة بخفة"/>
@@ -1248,7 +1249,6 @@
                             <ComboBoxItem Tag="empathetic" Content="متعاطفة ومطمئنة"/>
                             <ComboBoxItem Tag="serious" Content="جادة ورصينة"/>
                             <ComboBoxItem Tag="energetic" Content="نشيطة وحيوية"/>
-                            <ComboBoxItem Tag="playful" Content="مرحة وخفيفة"/>
                         </ComboBox>
                         <TextBlock x:Name="VoiceDeliveryStyleDisclosure" Text="أنماط الإلقاء تضبط سرعة التوليد فقط؛ لا تدّعي تغيير هوية الصوت أو توليد مشاعر لا يدعمها النموذج."
                                    Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="4,4,4,8"

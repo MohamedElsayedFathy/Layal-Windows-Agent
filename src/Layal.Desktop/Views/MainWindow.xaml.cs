@@ -149,7 +149,8 @@ public partial class MainWindow : Window
             AppRuntime.Settings.VoiceQualitySteps,
             AppRuntime.Settings.VoiceGuidanceScale,
             AppRuntime.Settings.VoiceSpeed,
-            AppRuntime.Settings.VoiceTextNormalizationEnabled));
+            AppRuntime.Settings.VoiceTextNormalizationEnabled),
+            languageEngine: _speechLanguageEngine);
         _localVoiceService.VoiceMetricsUpdated += (_, summary) => Dispatcher.BeginInvoke(new Action(() =>
         {
             if (VoiceTutMetricsText is not null)
