@@ -259,7 +259,7 @@ def parse_args() -> argparse.Namespace:
         "--seed-manifest",
         type=Path,
         default=DEFAULT_SEED_MANIFEST,
-        help="Transcript-only starter manifest (defaults to Layal's 30-case speech set).",
+        help="Transcript-only starter manifest (defaults to Layal's expanded speech prompt set).",
     )
     return parser.parse_args()
 
