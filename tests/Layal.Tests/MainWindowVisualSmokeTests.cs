@@ -781,6 +781,7 @@ public sealed class MainWindowVisualSmokeTests
             AppRuntime.Settings.Language = language;
             applyTheme.Invoke(window, null);
             applyLanguage.Invoke(window, null);
+            AssertApiConnectionFormAccessibility(window, language);
             AssertExpanderHeaderAutomationPeers(window, language);
             Assert.AreEqual(language == "ar" ? "قياس موارد ليال الآن" : "Measure Layal resources",
                 performanceMetricsButton.Content as string);
@@ -1343,6 +1344,62 @@ public sealed class MainWindowVisualSmokeTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             System.Windows.Automation.AutomationProperties.GetName(window.FindName("BaseUrlInput") as DependencyObject)),
             "Provider fields must expose accessible names.");
+    }
+
+    private static void AssertApiConnectionFormAccessibility(MainWindow window, string language)
+    {
+        var isArabic = language == "ar";
+        var connectionList = window.FindName("ApiConnectionList") as ListBox
+            ?? throw new InvalidOperationException("ApiConnectionList was not found.");
+        Assert.AreEqual(
+            isArabic ? "اتصالات API المحفوظة" : "Saved API connections",
+            AutomationProperties.GetName(connectionList),
+            "The saved API connection list must expose a localized accessible name.");
+        Assert.AreEqual(
+            isArabic
+                ? "اختر اتصالًا محفوظًا لعرض إعداداته أو تعديله."
+                : "Select a saved connection to view or edit its settings.",
+            AutomationProperties.GetHelpText(connectionList),
+            "The saved API connection list must explain its purpose to assistive technology.");
+
+        var associations = new (string FieldName, string LabelName)[]
+        {
+            ("ApiConnectionNameInput", "ApiConnectionNameLabel"),
+            ("ApiConnectionBaseUrlInput", "ApiConnectionBaseUrlLabel"),
+            ("ApiConnectionModelIdInput", "ApiConnectionModelIdLabel"),
+            ("ApiConnectionImagePathInput", "ApiConnectionImageLabel"),
+            ("ApiAuthTypeComboBox", "ApiAuthTypeLabel"),
+            ("ApiAuthHeaderNameInput", "ApiAuthHeaderNameLabel"),
+            ("ApiAuthSecretInput", "ApiAuthSecretLabel"),
+            ("ApiAdditionalHeadersInput", "ApiAdditionalHeadersLabel"),
+            ("ApiTestPathInput", "ApiTestPathLabel"),
+            ("ApiInstructionsInput", "ApiInstructionsLabel")
+        };
+
+        foreach (var (fieldName, labelName) in associations)
+        {
+            var field = window.FindName(fieldName) as FrameworkElement
+                ?? throw new InvalidOperationException($"{fieldName} was not found.");
+            var label = window.FindName(labelName) as TextBlock
+                ?? throw new InvalidOperationException($"{labelName} was not found.");
+            Assert.AreSame(
+                label,
+                AutomationProperties.GetLabeledBy(field),
+                $"{fieldName} must be explicitly associated with {labelName} for screen readers.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(label.Text),
+                $"{labelName} must have visible, localized label text.");
+        }
+
+        var status = window.FindName("ApiConnectionsStatus") as TextBlock
+            ?? throw new InvalidOperationException("ApiConnectionsStatus was not found.");
+        Assert.AreEqual(
+            AutomationLiveSetting.Polite,
+            AutomationProperties.GetLiveSetting(status),
+            "API save/test/delete results must be announced as a non-interruptive live status.");
+        Assert.AreEqual(
+            isArabic ? "حالة اتصالات API" : "API connections status",
+            AutomationProperties.GetName(status),
+            "The API status region must expose a localized accessible name.");
     }
 
     private static void AssertCaptionControlsFollowKeyboardTabOrder(MainWindow window)
