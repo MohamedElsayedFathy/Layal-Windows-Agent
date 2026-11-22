@@ -115,7 +115,12 @@ public sealed class SafeBrowserDownloadServiceTests
         Assert.IsFalse(pathLike.Contains('/'));
         Assert.IsFalse(pathLike.Contains('\\'));
 
-        foreach (var reserved in new[] { "CON.pdf", "PRN.txt", "AUX.csv", "NUL.json", "COM1.pdf", "LPT9.txt" })
+        foreach (var reserved in new[]
+        {
+            "CON.pdf", "PRN.txt", "AUX.csv", "NUL.json", "COM1.pdf", "LPT9.txt",
+            "CONIN$.txt", "CONOUT$.pdf", "COM¹.pdf", "COM².txt", "COM³.csv",
+            "LPT¹.pdf", "LPT².txt", "LPT³.csv"
+        })
         {
             var safe = SafeBrowserDownloadService.SanitizeFileName(reserved, System.IO.Path.GetExtension(reserved));
             Assert.IsFalse(string.Equals(reserved, safe, StringComparison.OrdinalIgnoreCase),

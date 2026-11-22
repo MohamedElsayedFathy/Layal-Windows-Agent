@@ -118,18 +118,8 @@ public sealed class SafeBrowserDownloadService
             safe = "download" + fallbackExtension;
 
         var extension = Path.GetExtension(safe);
-        if (!AllowedExtensions.Contains(extension))
+        if (!AllowedExtensions.Contains(extension) || !WindowsPathSegmentPolicy.IsSafeSegment(safe))
             safe = "download" + fallbackExtension;
-
-        var baseName = Path.GetFileNameWithoutExtension(safe);
-        if (string.Equals(baseName, "CON", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(baseName, "PRN", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(baseName, "AUX", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(baseName, "NUL", StringComparison.OrdinalIgnoreCase) ||
-            System.Text.RegularExpressions.Regex.IsMatch(baseName, @"^(COM|LPT)[1-9]$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-        {
-            safe = "download" + Path.GetExtension(safe);
-        }
 
         return safe;
     }

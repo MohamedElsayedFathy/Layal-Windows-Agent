@@ -1322,7 +1322,20 @@ public sealed class AgentToolExecutorTests
     [DataRow("notes.txt:hidden")]
     [DataRow("nul.txt")]
     [DataRow("sub/COM1")]
-    public async Task AlternateStreamsAndReservedDeviceNamesAreRejected(string path)
+    [DataRow("conin$.txt")]
+    [DataRow("CONOUT$.txt")]
+    [DataRow("COM¹.txt")]
+    [DataRow("COM².txt")]
+    [DataRow("COM³.txt")]
+    [DataRow("LPT¹.csv")]
+    [DataRow("sub/LPT².txt")]
+    [DataRow("sub/LPT³.txt")]
+    [DataRow("NUL .txt")]
+    [DataRow("subfolder /notes.txt")]
+    [DataRow("notes.txt.")]
+    [DataRow(" notes.txt")]
+    [DataRow("notes.txt ")]
+    public async Task AlternateStreamsAndUnsafeWindowsPathSegmentsAreRejected(string path)
     {
         using var temp = new TestTempDirectory();
         var workspace = System.IO.Path.Combine(temp.Path, "workspace");

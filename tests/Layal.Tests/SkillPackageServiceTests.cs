@@ -571,7 +571,14 @@ public sealed class SkillPackageServiceTests
         var root = System.IO.Path.Combine(temp.Path, "installed");
         var service = new SkillPackageService(root);
 
-        foreach (var unsafePath in new[] { "sample-skill/../escape.txt", "sample-skill/CON.txt", "sample-skill/report.txt:secret" })
+        foreach (var unsafePath in new[]
+        {
+            "sample-skill/../escape.txt", "sample-skill/CON.txt", "sample-skill/report.txt:secret",
+            "sample-skill/CONIN$.txt", "sample-skill/CONOUT$.txt",
+            "sample-skill/COM¹.txt", "sample-skill/COM².txt", "sample-skill/COM³.txt",
+            "sample-skill/LPT¹.txt", "sample-skill/LPT².txt", "sample-skill/LPT³.txt",
+            "sample-skill/NUL .txt", "sample-skill/notes.txt."
+        })
         {
             var zipPath = CreateRawZip(temp.Path,
                 ("sample-skill/SKILL.md", "---\nname: sample-skill\ndescription: Safe metadata.\n---\nBody"),

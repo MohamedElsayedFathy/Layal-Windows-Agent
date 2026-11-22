@@ -380,15 +380,8 @@ public sealed class SkillPackageService
 
             foreach (var segment in segments)
             {
-                if (segment.Length > 255 || segment.EndsWith(" ", StringComparison.Ordinal) ||
-                    segment.EndsWith(".", StringComparison.Ordinal) ||
-                    segment.Any(character => character is '<' or '>' or '"' or '|' or '?' or '*' or ':' ||
-                        char.IsControl(character)))
-                    throw new InvalidOperationException("The skill archive contains a Windows-invalid path segment.");
-
-                var deviceStem = segment.Split('.')[0].TrimEnd(' ', '.');
-                if (IsReservedWindowsDeviceName(deviceStem))
-                    throw new InvalidOperationException("The skill archive contains a reserved Windows device name.");
+                if (!WindowsPathSegmentPolicy.IsSafeSegment(segment))
+                    throw new InvalidOperationException("The skill archive contains a Windows-invalid path segment or reserved device name.");
             }
 
             var unixMode = (entry.ExternalAttributes >> 16) & 0xF000;
@@ -438,20 +431,8 @@ public sealed class SkillPackageService
         }
     }
 
-    private static bool IsNumberedWindowsDeviceName(string value, string prefix) =>
-        value.Length == prefix.Length + 1 &&
-        value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-        value[^1] is >= '1' and <= '9';
-
     private static bool IsReservedWindowsDeviceName(string value) =>
-        value.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("CONIN$", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("CONOUT$", StringComparison.OrdinalIgnoreCase) ||
-        IsNumberedWindowsDeviceName(value, "COM") ||
-        IsNumberedWindowsDeviceName(value, "LPT");
+        WindowsPathSegmentPolicy.IsReservedDeviceName(value);
 
     private static bool IsValidSkillName(string? value) =>
         !string.IsNullOrWhiteSpace(value) &&

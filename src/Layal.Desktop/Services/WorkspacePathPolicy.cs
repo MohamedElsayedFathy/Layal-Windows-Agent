@@ -1,36 +1,33 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
-
 namespace Layal.Services;
 
 /// <summary>Applies canonical workspace path and reparse-point restrictions shared by workspace tools.</summary>
 internal sealed class WorkspacePathPolicy
 {
-    private static readonly Regex ReservedDeviceName =
-        new(@"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private readonly string _workspaceRoot;
     internal WorkspacePathPolicy(string workspaceRoot) => _workspaceRoot = Path.GetFullPath(workspaceRoot);
 
     internal string ResolvePath(string relativePath, bool allowEmpty = false)
     {
-        relativePath = (relativePath ?? string.Empty).Trim();
+        relativePath ??= string.Empty;
         if (allowEmpty && relativePath.Length == 0) return _workspaceRoot;
-        if (string.IsNullOrWhiteSpace(relativePath) || Path.IsPathRooted(relativePath))
-            throw new InvalidOperationException("Use a non-empty relative path inside LayalWorkspace.");
+        if (string.IsNullOrWhiteSpace(relativePath) || relativePath != relativePath.Trim() || Path.IsPathRooted(relativePath))
+            throw new InvalidOperationException("Use a non-empty relative path without surrounding whitespace inside LayalWorkspace.");
         var parts = relativePath.Replace('/', Path.DirectorySeparatorChar).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Any(p => p is "." or "..")) throw new InvalidOperationException("Relative paths cannot contain '.' or '..' path segments.");
-        // Alternate data streams ("file.txt:hidden") and Windows device names (NUL, CON, COM1...) are never valid workspace targets.
-        if (parts.Any(p => p.Contains(':') || ReservedDeviceName.IsMatch(p)))
-            throw new InvalidOperationException("Path segments cannot contain ':' or use reserved Windows device names.");
+        if (parts.Any(IsUnsafeWindowsSegment))
+            throw new InvalidOperationException("Path segments contain a Windows-invalid character, end in a space or period, or name a reserved Windows device.");
         var fullPath = Path.GetFullPath(Path.Combine(_workspaceRoot, relativePath));
         var relative = Path.GetRelativePath(_workspaceRoot, fullPath);
         if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
             throw new InvalidOperationException("The path escapes the approved workspace.");
         return fullPath;
     }
+
+    private static bool IsUnsafeWindowsSegment(string segment) =>
+        !WindowsPathSegmentPolicy.IsSafeSegment(segment);
 
     internal void EnsureNoReparsePoints(string path)
     {
