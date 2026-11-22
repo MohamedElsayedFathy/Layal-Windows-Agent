@@ -54,7 +54,13 @@ public sealed class SafeBrowserUploadServiceTests
         Directory.CreateDirectory(workspace);
         var service = new SafeBrowserUploadService(workspace);
 
-        foreach (var path in new[] { "", " ", "../outside.pdf", "folder/../outside.pdf", "/outside.pdf", @"C:\outside.pdf", "folder//file.pdf", "./file.pdf" })
+        foreach (var path in new[]
+        {
+            "", " ", "../outside.pdf", "folder/../outside.pdf", "/outside.pdf",
+            @"C:\outside.pdf", "folder//file.pdf", "./file.pdf",
+            " conin$.txt", "CONOUT$.txt", "COM¹.txt", "COM².txt", "COM³.txt",
+            "LPT¹.csv", "NUL .txt", "notes.txt.", "folder /notes.pdf", "notes.pdf "
+        })
             Assert.ThrowsExactly<InvalidOperationException>(() => service.PrepareUpload(path), "Path should be rejected: " + path);
     }
 
