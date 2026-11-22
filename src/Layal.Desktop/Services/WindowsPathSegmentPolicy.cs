@@ -10,7 +10,7 @@ namespace Layal.Services;
 internal static class WindowsPathSegmentPolicy
 {
     private static readonly char[] InvalidWindowsCharacters =
-        ['<', '>', ':', '"', '/', '\\\\', '|', '?', '*'];
+        ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
     internal static bool IsSafeSegment(string? segment)
     {
