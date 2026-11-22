@@ -1388,6 +1388,16 @@ public sealed class MainWindowVisualSmokeTests
                 $"{fieldName} must be explicitly associated with {labelName} for screen readers.");
             Assert.IsFalse(string.IsNullOrWhiteSpace(label.Text),
                 $"{labelName} must have visible, localized label text.");
+
+            // Verify the effective name exposed by WPF UI Automation, not only the
+            // attached LabeledBy relationship. Screen readers consume this peer name.
+            var fieldPeer = UIElementAutomationPeer.CreatePeerForElement(field);
+            Assert.IsNotNull(fieldPeer,
+                $"{fieldName} must expose a UI Automation peer.");
+            Assert.AreEqual(
+                label.Text,
+                fieldPeer!.GetName(),
+                $"{fieldName} must expose its localized visible label as its effective UI Automation name.");
         }
 
         var status = window.FindName("ApiConnectionsStatus") as TextBlock
