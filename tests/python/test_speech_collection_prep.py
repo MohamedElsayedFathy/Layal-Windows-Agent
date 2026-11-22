@@ -206,5 +206,26 @@ class SpeechCollectionPreparationTests(unittest.TestCase):
             MODULE.prepare_workspace(self.seed, self.root / "out", self.repo)
 
 
+    def test_default_speech_prompt_bank_has_balanced_transcript_only_coverage(self):
+        seed_path = ROOT / "tests" / "TestAssets" / "Speech" / "speech-reference-set.json"
+        payload = json.loads(seed_path.read_text(encoding="utf-8"))
+        cases = payload["cases"]
+        counts = {
+            locale: sum(case["locale"] == locale for case in cases)
+            for locale in ("ar-EG", "ar", "en", "mixed")
+        }
+
+        self.assertEqual(150, len(cases))
+        self.assertEqual({"ar-EG": 40, "ar": 36, "en": 36, "mixed": 38}, counts)
+        self.assertEqual(len(cases), len({case["id"] for case in cases}))
+        self.assertEqual("not-recorded", payload["recordingStatus"])
+        for case in cases:
+            self.assertIsNone(case["audioAsset"])
+            self.assertIsNone(case["speakerId"])
+            self.assertIs(True, case["consentRequired"])
+            self.assertEqual("not-recorded", case["recordingStatus"])
+            self.assertEqual({}, case["hypotheses"])
+
+
 if __name__ == "__main__":
     unittest.main()
