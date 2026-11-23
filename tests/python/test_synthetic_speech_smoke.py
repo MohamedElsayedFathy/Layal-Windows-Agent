@@ -4,7 +4,6 @@ import sys
 import tempfile
 import wave
 import unittest
-from collections import Counter
 from pathlib import Path
 from unittest import mock
 
@@ -179,6 +178,19 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         audio_path.write_bytes(audio_path.read_bytes() + b"tamper")
         with self.assertRaisesRegex(ValueError, "SHA-256 does not match"):
             RUN.validate_manifest_and_audio(summary["manifest_path"])
+
+
+    def test_smoke_runner_rejects_repository_output_before_creating_it(self):
+        summary = self.prepare(limit=4)
+        data_root = self.root / "layal-data"
+        data_root.mkdir()
+        output_dir = self.repository / "reports"
+
+        with mock.patch.object(RUN.RUNNER, "verify_whisper_resources", return_value={}):
+            with self.assertRaisesRegex(ValueError, "outside the Git repository"):
+                RUN.run_benchmark(data_root, summary["manifest_path"], output_dir)
+
+        self.assertFalse(output_dir.exists())
 
     def test_smoke_runner_outputs_transcripts_without_wer_cer_or_scoring_manifest(self):
         summary = self.prepare(limit=4)
