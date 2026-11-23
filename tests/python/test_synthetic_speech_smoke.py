@@ -4,6 +4,7 @@ import sys
 import tempfile
 import wave
 import struct
+from array import array
 import unittest
 from pathlib import Path
 from unittest import mock
