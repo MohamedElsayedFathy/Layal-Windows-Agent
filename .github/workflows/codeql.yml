@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   analyze:
+    if: github.ref == 'refs/heads/main'
     name: Analyze C# with CodeQL
     runs-on: windows-latest
     timeout-minutes: 90
