@@ -5,6 +5,7 @@ from pathlib import PurePosixPath
 
 LOCAL_ONLY_ROOT_DIRS = frozenset({"Layal"})
 LOCAL_ONLY_ROOT_FILES = frozenset({"layal_repo_audit.ps1"})
+LOCAL_ONLY_SUFFIXES = frozenset({".dpapi", ".log"})
 
 
 def _parts(path: str | PurePosixPath) -> tuple[str, ...]:
@@ -21,7 +22,7 @@ def is_local_only_path(path: str | PurePosixPath) -> bool:
         return True
     if len(parts) == 1 and parts[0] in LOCAL_ONLY_ROOT_FILES:
         return True
-    return parts[-1].lower().endswith(".dpapi")
+    return PurePosixPath(parts[-1]).suffix.lower() in LOCAL_ONLY_SUFFIXES
 
 
 def is_local_only_archive_member(member_name: str) -> bool:
