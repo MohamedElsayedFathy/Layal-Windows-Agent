@@ -258,6 +258,18 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
             self.prepare(output_name="blocked", limit=4)
         self.assertFalse(output.exists())
 
+    def test_runner_keeps_legacy_pcm_manifest_without_source_sample_format_compatible(self):
+        summary = self.prepare(limit=4)
+        manifest_path = summary["manifest_path"]
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for case in manifest["cases"]:
+            case.pop("sourceSampleFormat", None)
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+
+        _, samples = RUN.validate_manifest_and_audio(manifest_path)
+        self.assertEqual(4, len(samples))
+        self.assertTrue(all(sample["source_sample_format"] == "pcm-s16le" for sample in samples))
+
     def test_rejects_metadata_path_traversal(self):
         rows = self.make_rows()
         for index, row in enumerate(rows, start=1):
