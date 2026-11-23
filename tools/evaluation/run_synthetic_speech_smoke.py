@@ -81,6 +81,17 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
             raise ValueError(f"Case {case_id} has an unsupported locale; expected ar-EG.")
         prompt_text = case.get("promptText")
         model = case.get("sourceModel")
+        source_sample_rate = case.get("sourceSampleRate")
+        benchmark_sample_rate = case.get("sampleRate")
+        source_audio_hash = case.get("sourceAudioSha256")
+        conversion = case.get("conversion")
+        if source_sample_rate not in {16000, 24000} or benchmark_sample_rate != 16000:
+            raise ValueError(f"Case {case_id} has unsupported source or benchmark sample-rate provenance.")
+        if not isinstance(source_audio_hash, str) or not re.fullmatch(r"[a-f0-9]{64}", source_audio_hash):
+            raise ValueError(f"Case {case_id} has an invalid source audio SHA-256.")
+        expected_conversion = "none" if source_sample_rate == 16000 else "audioop.ratecv-24000-to-16000"
+        if conversion != expected_conversion:
+            raise ValueError(f"Case {case_id} has an unexpected sample-rate conversion marker.")
         if not isinstance(prompt_text, str) or not prompt_text.strip():
             raise ValueError(f"Case {case_id} has no promptText.")
         if model not in {"lahgtna", "chatterbox_egyptian", "egtts_v01", "habibi"}:
@@ -137,6 +148,10 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
             "locale": "ar-EG",
             "prompt_text": prompt_text,
             "source_model": model,
+            "source_sample_rate": source_sample_rate,
+            "source_audio_sha256": source_audio_hash,
+            "benchmark_sample_rate": benchmark_sample_rate,
+            "conversion": conversion,
             "audio_path": audio_path,
             "audio_sha256": actual_hash,
             "audio_duration_seconds": duration,
@@ -195,6 +210,10 @@ def run_benchmark(
                     resources, sample, temporary_root, threads, timeout_seconds
                 )
                 result["sourceModel"] = sample["source_model"]
+                result["sourceSampleRate"] = sample["source_sample_rate"]
+                result["benchmarkSampleRate"] = sample["benchmark_sample_rate"]
+                result["sourceAudioSha256"] = sample["source_audio_sha256"]
+                result["conversion"] = sample["conversion"]
                 result["promptText"] = sample["prompt_text"]
                 results.append(result)
             except Exception as error:
