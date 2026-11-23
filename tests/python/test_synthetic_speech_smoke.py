@@ -135,8 +135,8 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
 
     def test_rejects_metadata_path_traversal(self):
         rows = self.make_rows()
-        for row in rows:
-            row["file_name"] = "audio/../outside.wav"
+        for index, row in enumerate(rows, start=1):
+            row["file_name"] = f"audio/../outside_{index:04d}.wav"
         self.write_dataset(rows)
         output = self.root / "blocked"
         with self.assertRaisesRegex(ValueError, "unsafe or unsupported audio path"):
@@ -145,8 +145,9 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
 
     def test_rejects_audio_outside_required_whisper_wav_format(self):
         rows = self.make_rows()
-        selected = PREP._select_balanced(rows, 4, 20261123)
         self.write_dataset(rows)
+        _, _, normalized_rows = PREP._read_source(self.source)
+        selected = PREP._select_balanced(normalized_rows, 4, 20261123)
         bad = selected[0]
         self.write_wav(
             self.source / bad["file_name"],
