@@ -52,10 +52,20 @@ sample = hf_hub_download(
 with wave.open(sample, "rb") as audio:
     details = (audio.getcomptype(), audio.getnchannels(), audio.getframerate(), audio.getsampwidth())
 print("Sample WAV:", details)
-if details != ("NONE", 1, 16000, 2):
-    raise SystemExit("Sample format is not PCM mono 16 kHz / 16-bit; stop before downloading the full dataset.")
+if details not in {("NONE", 1, 16000, 2), ("NONE", 1, 24000, 2)}:
+    raise SystemExit("Sample format must be PCM mono 16-bit at 16 kHz or 24 kHz; stop before downloading the full dataset.")
+if details[2] == 24000:
+    print("24 kHz source confirmed: preparation converts a working copy to Whisper's 16 kHz input.")
 '@ | python -
 if ($LASTEXITCODE -ne 0) { throw "Sample WAV format is incompatible; stop here and share the printed details." }
+
+# audioop is built in on Python 3.12 and earlier. Python 3.13+ can use the
+# drop-in audioop-lts package for the local 24 kHz -> 16 kHz conversion.
+python -c "import audioop" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    python -m pip install --user audioop-lts
+    if ($LASTEXITCODE -ne 0) { throw "audioop-lts installation failed." }
+}
 
 $datasetDir = Join-Path $env:LOCALAPPDATA "Layal\SpeechEvaluation\source\Synthetic-Egy-Speech-Dataset"
 New-Item -ItemType Directory -Force -Path $datasetDir | Out-Null
@@ -93,11 +103,12 @@ if ($LASTEXITCODE -ne 0) { throw "Synthetic smoke subset preparation failed." }
 الأداة:
 - تتحقق من هوية بطاقة البيانات وتصريح MIT المعلن ووجود 1,000 صف metadata.
 - تختار 20 ملفًا بطريقة متوازنة وقابلة لإعادة الإنتاج عبر أسماء نماذج TTS الأربعة.
-- تتحقق من أمان المسارات، ووجود الملفات، وWAV PCM mono 16 kHz / 16-bit، والمدة والحجم.
-- تنسخ العينات المختارة فقط إلى مساحة خارج المستودع وتحسب SHA-256 لكل ملف.
+- تتحقق من أمان المسارات، ووجود الملفات، وWAV PCM mono 16-bit بمعدل 16 أو 24 kHz، والمدة والحجم.
+- تحول نسخة العمل من 24 kHz إلى 16 kHz محليًا لتوافق Whisper؛ لا تعدّل الملف الأصلي.
+- تحفظ بصمة WAV الأصلي والمحوّل ومعدل العينة والتحويل المستخدم في manifest.
 - لا تنشئ موافقة بشرية أو speakerId، ولا تضع الحالات في manifest التقييم البشري.
 
-إذا رفضت الأداة صيغة WAV، لا تتجاوز الفحص ولا تغيّر الملف يدويًا؛ أرسل رسالة الخطأ لنحدد طريقة تحويل محلية موثوقة مع تسجيل التحويل في provenance.
+تعتمد عملية التحويل على `audioop.ratecv` من وحدة Python `audioop`؛ وعلى Python 3.13+ يثبت الدليل بديل `audioop-lts` إذا لم تكن الوحدة متاحة. إذا كان معدل العينة أو ترميز WAV مختلفًا عن الصيغتين المدعومتين، لا تتجاوز الفحص ولا تغيّر الملف يدويًا؛ أرسل رسالة الخطأ.
 
 ## تشغيل Whisper smoke test
 
