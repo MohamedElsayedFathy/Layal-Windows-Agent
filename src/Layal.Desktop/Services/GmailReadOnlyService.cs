@@ -52,6 +52,8 @@ public sealed class GmailReadOnlyService
     private readonly HttpClient _http;
     private readonly DocumentTextExtractionService _documentTextExtractionService;
     private readonly SemaphoreSlim _tokenGate = new(1, 1);
+    private readonly object _credentialSync = new();
+    private long _credentialGeneration;
     private string? _cachedAccessToken;
     private DateTimeOffset _accessTokenExpiresAt;
 
@@ -69,9 +71,12 @@ public sealed class GmailReadOnlyService
     {
         get
         {
-            var credential = _credentialStore.Load(new GmailOAuthCredential());
-            return !string.IsNullOrWhiteSpace(credential.ClientId) &&
-                !string.IsNullOrWhiteSpace(credential.RefreshToken);
+            lock (_credentialSync)
+            {
+                var credential = _credentialStore.Load(new GmailOAuthCredential());
+                return !string.IsNullOrWhiteSpace(credential.ClientId) &&
+                    !string.IsNullOrWhiteSpace(credential.RefreshToken);
+            }
         }
     }
 
@@ -110,7 +115,18 @@ public sealed class GmailReadOnlyService
         clientId = ValidateOAuthClientId(clientId);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var previous = _credentialStore.Load(new GmailOAuthCredential());
+        GmailOAuthCredential previous;
+        long credentialGeneration;
+        lock (_credentialSync)
+        {
+            // Starting a new authorization supersedes any refresh that began against the
+            // previous credential. A concurrent Disconnect also invalidates this generation.
+            credentialGeneration = ++_credentialGeneration;
+            _cachedAccessToken = null;
+            _accessTokenExpiresAt = DateTimeOffset.MinValue;
+            previous = _credentialStore.Load(new GmailOAuthCredential());
+        }
+
         var verifier = CreatePkceVerifier();
         var challenge = CreatePkceChallenge(verifier);
         var state = Base64Url(RandomNumberGenerator.GetBytes(32));
@@ -266,21 +282,37 @@ public sealed class GmailReadOnlyService
             throw new InvalidOperationException(
                 "Google did not return a refresh token. Revoke this app in Google Account security, then connect again and approve the read-only Gmail scope.");
 
-        _credentialStore.Save(new GmailOAuthCredential
+        lock (_credentialSync)
         {
-            ClientId = clientId,
-            RefreshToken = refreshToken,
-            ConnectedAt = DateTimeOffset.Now
-        });
-        _cachedAccessToken = null;
-        _accessTokenExpiresAt = DateTimeOffset.MinValue;
+            if (credentialGeneration != _credentialGeneration)
+                throw new InvalidOperationException(
+                    "Gmail was disconnected or reconnected while sign-in was in progress. No credential was saved.");
+
+            _credentialStore.Save(new GmailOAuthCredential
+            {
+                ClientId = clientId,
+                RefreshToken = refreshToken,
+                ConnectedAt = DateTimeOffset.Now
+            });
+
+            // Invalidate any refresh started while the browser sign-in was in progress.
+            _credentialGeneration++;
+            _cachedAccessToken = null;
+            _accessTokenExpiresAt = DateTimeOffset.MinValue;
+        }
     }
 
     public void Disconnect()
     {
-        _credentialStore.Delete();
-        _cachedAccessToken = null;
-        _accessTokenExpiresAt = DateTimeOffset.MinValue;
+        lock (_credentialSync)
+        {
+            // A refresh or OAuth callback already in flight must not recreate this credential
+            // after the user explicitly disconnects the local Gmail integration.
+            _credentialGeneration++;
+            _credentialStore.Delete();
+            _cachedAccessToken = null;
+            _accessTokenExpiresAt = DateTimeOffset.MinValue;
+        }
     }
 
     public async Task<IReadOnlyList<GmailMessageSummary>> ListMessagesAsync(
@@ -413,21 +445,30 @@ public sealed class GmailReadOnlyService
 
     private async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(_cachedAccessToken) &&
-            _accessTokenExpiresAt > DateTimeOffset.UtcNow.AddMinutes(1))
-            return _cachedAccessToken;
-
-        await _tokenGate.WaitAsync(cancellationToken);
-        try
+        lock (_credentialSync)
         {
             if (!string.IsNullOrWhiteSpace(_cachedAccessToken) &&
                 _accessTokenExpiresAt > DateTimeOffset.UtcNow.AddMinutes(1))
                 return _cachedAccessToken;
+        }
 
-            var credential = _credentialStore.Load(new GmailOAuthCredential());
-            if (string.IsNullOrWhiteSpace(credential.ClientId) ||
-                string.IsNullOrWhiteSpace(credential.RefreshToken))
-                throw new InvalidOperationException("Connect Gmail from Layal first. No Gmail credential is stored.");
+        await _tokenGate.WaitAsync(cancellationToken);
+        try
+        {
+            GmailOAuthCredential credential;
+            long credentialGeneration;
+            lock (_credentialSync)
+            {
+                if (!string.IsNullOrWhiteSpace(_cachedAccessToken) &&
+                    _accessTokenExpiresAt > DateTimeOffset.UtcNow.AddMinutes(1))
+                    return _cachedAccessToken;
+
+                credentialGeneration = _credentialGeneration;
+                credential = _credentialStore.Load(new GmailOAuthCredential());
+                if (string.IsNullOrWhiteSpace(credential.ClientId) ||
+                    string.IsNullOrWhiteSpace(credential.RefreshToken))
+                    throw new InvalidOperationException("Connect Gmail from Layal first. No Gmail credential is stored.");
+            }
 
             using var request = new HttpRequestMessage(HttpMethod.Post, TokenEndpoint)
             {
@@ -450,17 +491,24 @@ public sealed class GmailReadOnlyService
             if (string.IsNullOrWhiteSpace(accessToken))
                 throw new InvalidOperationException("Google returned an empty access token.");
 
-            var rotatedRefreshToken = GetJsonString(json.RootElement, "refresh_token");
-            if (!string.IsNullOrWhiteSpace(rotatedRefreshToken) &&
-                !string.Equals(rotatedRefreshToken, credential.RefreshToken, StringComparison.Ordinal))
+            lock (_credentialSync)
             {
-                credential.RefreshToken = rotatedRefreshToken;
-                _credentialStore.Save(credential);
-            }
+                if (credentialGeneration != _credentialGeneration)
+                    throw new InvalidOperationException(
+                        "Gmail was disconnected or reconnected while the access token was refreshing. No token was cached or saved.");
 
-            _cachedAccessToken = accessToken;
-            _accessTokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn);
-            return accessToken;
+                var rotatedRefreshToken = GetJsonString(json.RootElement, "refresh_token");
+                if (!string.IsNullOrWhiteSpace(rotatedRefreshToken) &&
+                    !string.Equals(rotatedRefreshToken, credential.RefreshToken, StringComparison.Ordinal))
+                {
+                    credential.RefreshToken = rotatedRefreshToken;
+                    _credentialStore.Save(credential);
+                }
+
+                _cachedAccessToken = accessToken;
+                _accessTokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn);
+                return accessToken;
+            }
         }
         finally
         {
