@@ -8,6 +8,19 @@ namespace Layal.Tests;
 public sealed class BrowserAutomationServiceTests
 {
     [TestMethod]
+    public void DebugHttpHandlerRejectsRedirectsAndAmbientAuthentication()
+    {
+        using var handler = BrowserAutomationService.CreateRestrictedHttpHandler();
+
+        Assert.IsFalse(handler.AllowAutoRedirect,
+            "A loopback DevTools endpoint must not redirect Layal to another network target.");
+        Assert.IsFalse(handler.UseCookies,
+            "CDP discovery requests must not carry ambient cookies.");
+        Assert.IsFalse(handler.UseDefaultCredentials,
+            "CDP discovery requests must not attach Windows credentials.");
+    }
+
+    [TestMethod]
     public void HttpUrlValidationAllowsOnlyAbsoluteHttpAndHttpsWithoutEmbeddedCredentials()
     {
         Assert.AreEqual("https://example.com/path?q=1", BrowserAutomationService.ValidateHttpUrl(" https://example.com/path?q=1 ").AbsoluteUri);
