@@ -1,14 +1,17 @@
 [CmdletBinding()]
 param(
     [switch]$Apply,
-    [ValidateRange(1, 6)]
-    [int]$RequiredApprovingReviews = 1
+    # Keep the solo-maintainer default usable: pull requests and CI remain mandatory,
+    # while a second-person approval is opt-in when another trusted maintainer exists.
+    [ValidateRange(0, 6)]
+    [int]$RequiredApprovingReviews = 0
 )
 
 $ErrorActionPreference = 'Stop'
 $repository = 'MohamedElsayedFathy/Layal-Windows-Agent'
 $branch = 'main'
 $target = "$repository/$branch"
+$requireLastPushApproval = $RequiredApprovingReviews -gt 0
 
 $gh = Get-Command 'gh' -ErrorAction SilentlyContinue
 if (-not $gh) {
@@ -44,7 +47,7 @@ $policy = @{
         dismiss_stale_reviews = $true
         require_code_owner_reviews = $false
         required_approving_review_count = $RequiredApprovingReviews
-        require_last_push_approval = $true
+        require_last_push_approval = $requireLastPushApproval
     }
     restrictions = $null
     required_linear_history = $true
@@ -60,6 +63,14 @@ $body = $policy | ConvertTo-Json -Depth 8
 Write-Host "Target repository/branch: $target"
 Write-Host 'Policy preview:'
 Write-Host $body
+Write-Host ''
+Write-Host 'Pull requests and all required CI checks will be mandatory.'
+if ($RequiredApprovingReviews -eq 0) {
+    Write-Host 'Approvals: none required (compatible with a solo maintainer).'
+}
+else {
+    Write-Host "Approvals: $RequiredApprovingReviews required; approval of the latest push is mandatory."
+}
 
 if (-not $Apply) {
     Write-Host ''
@@ -95,8 +106,14 @@ $missingContexts = @($expectedContexts | Where-Object { $_ -notin $actualContext
 $resolutionEnabled = ($verify.required_conversation_resolution -eq $true) -or ($verify.required_conversation_resolution.enabled -eq $true)
 $adminsEnabled = ($verify.enforce_admins -eq $true) -or ($verify.enforce_admins.enabled -eq $true)
 $reviews = $verify.required_pull_request_reviews
-if ($missingContexts.Count -gt 0 -or -not $branchInfo.protected -or -not $adminsEnabled -or -not $resolutionEnabled -or
-    $reviews.required_approving_review_count -lt $RequiredApprovingReviews -or
+$lastPushApprovalEnabled = ($reviews.require_last_push_approval -eq $true) -or ($reviews.require_last_push_approval.enabled -eq $true)
+if ($null -eq $reviews -or
+    $missingContexts.Count -gt 0 -or
+    -not $branchInfo.protected -or
+    -not $adminsEnabled -or
+    -not $resolutionEnabled -or
+    $reviews.required_approving_review_count -ne $RequiredApprovingReviews -or
+    $lastPushApprovalEnabled -ne $requireLastPushApproval -or
     -not $verify.required_status_checks.strict -or
     $verify.allow_force_pushes.enabled -eq $true -or
     $verify.allow_deletions.enabled -eq $true) {
@@ -106,3 +123,4 @@ if ($missingContexts.Count -gt 0 -or -not $branchInfo.protected -or -not $admins
 Write-Host "PASS: branch protection is active and verified for $target."
 Write-Host "Required checks: $($expectedContexts -join '; ')"
 Write-Host "Required approvals: $($reviews.required_approving_review_count)"
+Write-Host "Require approval of latest push: $lastPushApprovalEnabled"
