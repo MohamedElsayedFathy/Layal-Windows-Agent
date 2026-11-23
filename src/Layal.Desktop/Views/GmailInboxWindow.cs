@@ -384,6 +384,11 @@ public sealed class GmailInboxWindow : Window
             _isArabic ? "فصل Gmail" : "Disconnect Gmail",
             MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return;
+        // A selected-message read has its own cancellation source and does not use the
+        // list/refresh operation flag. Stop it before deleting the local credential.
+        _readOperation?.Cancel();
+        _readOperation?.Dispose();
+        _readOperation = null;
         _service.Disconnect();
         _messageClear();
         _status.Text = _isArabic ? "تم حذف الرمز المحلي." : "Local token deleted.";
