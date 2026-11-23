@@ -33,7 +33,20 @@ public sealed class GmailReadOnlyService
     private const string GmailReadOnlyScope = "https://www.googleapis.com/auth/gmail.readonly";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     private const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
-    private static readonly HttpClient SharedHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    // OAuth authorization codes, PKCE verifiers, refresh tokens and bearer credentials must
+    // never be replayed to a redirect destination. Google endpoints are fixed HTTPS URLs;
+    // an unexpected 3xx response is surfaced to the caller and rejected.
+    private static readonly HttpClient SharedHttpClient = new(CreateRestrictedHttpHandler())
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+
+    internal static HttpClientHandler CreateRestrictedHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        UseDefaultCredentials = false
+    };
 
     private readonly ProtectedJsonStore<GmailOAuthCredential> _credentialStore;
     private readonly HttpClient _http;
