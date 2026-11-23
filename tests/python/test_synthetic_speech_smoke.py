@@ -205,7 +205,7 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         with wave.open(str(output_16k), "rb") as audio:
             converted = array("h")
             converted.frombytes(audio.readframes(audio.getnframes()))
-        self.assertEqual([-32768, -16384, 0, 16384, 32767], converted[:5])
+        self.assertEqual([-32768, -16384, 0, 16384, 32767], list(converted[:5]))
 
         original = self.source / float_16k["file_name"]
         self.assertEqual(b"\x03\x00", original.read_bytes()[20:22])
@@ -276,7 +276,7 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
             sample_width=2,
         )
         output = self.root / "blocked"
-        with self.assertRaisesRegex(ValueError, "must be uncompressed PCM WAV, mono, 16-bit"):
+        with self.assertRaisesRegex(ValueError, "must be mono"):
             self.prepare(output_name="blocked", limit=4)
         self.assertFalse(output.exists())
 
