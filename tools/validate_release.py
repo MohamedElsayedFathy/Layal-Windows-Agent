@@ -74,10 +74,10 @@ match = re.search(r"<Version>([^<]+)</Version>", project_text)
 version = match.group(1) if match else "unknown"
 
 sensitive_patterns = [
-    (re.compile(r"(?i)\\bsk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"), "possible provider API key"),
-    (re.compile(r"\\bgh[pousr]_[A-Za-z0-9]{25,}\\b"), "possible GitHub token"),
-    (re.compile(r"\\bgithub_pat_[A-Za-z0-9_]{20,}\\b"), "possible GitHub fine-grained token"),
-    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\\s+[A-Za-z0-9+/=\\r\\n]{100,}-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "private key material block"),
+    (re.compile(r"(?i)\bsk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"), "possible provider API key"),
+    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{25,}\b"), "possible GitHub token"),
+    (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"), "possible GitHub fine-grained token"),
+    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\s+[A-Za-z0-9+/=\r\n]{100,}-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "private key material block"),
 ]
 scan_suffixes = {".cs", ".csproj", ".sln", ".props", ".targets", ".xaml", ".json", ".toml", ".yml", ".yaml", ".md", ".ps1", ".bat", ".config", ".iss", ".py", ".xml", ".txt", ".sh"}
 for path in ROOT.rglob("*"):
@@ -113,7 +113,7 @@ if len(sys.argv) > 1:
                     if not any(n == rel or n.endswith("/" + rel) for n in names):
                         errors.append(f"Archive is missing required file: {rel}")
                 for name in names:
-                    normalized = name.replace("\\\\", "/")
+                    normalized = name.replace("\\", "/")
                     parts = normalized.split("/")
                     if is_local_only_archive_member(normalized):
                         errors.append(f"User-specific runtime data must not be included in source ZIP: {name}")
