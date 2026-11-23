@@ -113,13 +113,14 @@ public static class PermissionRequestClassifier
         "create_text_file" or "replace_text_in_file" or "save_memory" => PermissionActionCategory.Modify,
         "launch_allowed_program" or "open_notepad" or "activate_window" or "run_dotnet_build" or "run_dotnet_test" => PermissionActionCategory.Execute,
         "open_url" => PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare,
-        "browser_navigate" or "web_search" or "fact_check_claim" => PermissionActionCategory.ExternalShare,
+        "browser_navigate" or "web_search" or "fact_check_claim" => PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare,
         "browser_click" => PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare,
         "browser_fill" => PermissionActionCategory.Modify | PermissionActionCategory.ExternalShare,
         "browser_download" => PermissionActionCategory.Read | PermissionActionCategory.Modify | PermissionActionCategory.ExternalShare,
         "browser_upload_file" => PermissionActionCategory.ExternalShare | PermissionActionCategory.PublishOrUpload,
-        "click_ui_control" => PermissionActionCategory.Execute,
-        "fill_ui_text" or "set_ui_checkbox" => PermissionActionCategory.Modify | PermissionActionCategory.Execute,
+        "click_ui_control" => PermissionActionCategory.Execute | PermissionActionCategory.Modify | PermissionActionCategory.ExternalShare,
+        "fill_ui_text" => PermissionActionCategory.Modify | PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare,
+        "set_ui_checkbox" => PermissionActionCategory.Modify | PermissionActionCategory.Execute,
         "call_app_api" => ClassifyApiCall(arguments),
         _ => PermissionActionCategory.Unknown
     };
