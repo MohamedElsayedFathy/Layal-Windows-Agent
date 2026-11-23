@@ -128,6 +128,29 @@
 
 **تنبيه:** هذا المستند يجهّز خطوات الاختبار وسجل النتيجة فقط. لا يحوّل نجاح اختبارات `AutomationProperties.Name` أو `AutomationPeer.GetName()` إلى إثبات لجودة النطق. يظل اختبار Narrator/NVDA للنافذة الرئيسية **NOT TESTED** إلى أن ينفذه شخص على سطح مكتب Windows فعلي ويسجل النتيجة لكل قارئ ولكل لغة.
 
+
+### فاحص UI Automation المحلي لحقول API
+
+يمكن تشغيل فاحص مساعد على سطح مكتب Windows بعد فتح صفحة **تكاملات API** والضغط على **إضافة اتصال جديد**، مع إبقاء نافذة Layal مفتوحة. لا يحتاج الفاحص إلى إدخال قيم في أي حقل، ولا يضغط أزرارًا، ولا يقرأ قيم الحقول أو أسرارها.
+
+شغّل PowerShell 7 من جذر نسخة المستودع:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-LayalApiConnectionAccessibility.ps1 -ExpectedLanguage Arabic
+```
+
+بعد تغيير لغة Layal إلى الإنجليزية وإبقاء نموذج الاتصال مفتوحًا، شغّل:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-LayalApiConnectionAccessibility.ps1 -ExpectedLanguage English
+```
+
+يجب أن تكون Layal مفتوحة في نفس جلسة Windows التفاعلية، وأن تظهر عملية واحدة فقط باسم `Layal`. يمكن تحديد العملية صراحةً باستخدام `-ProcessId <PID>` عند وجود أكثر من نافذة. يرفض الفاحص العمل داخل GitHub Actions أو أي جلسة غير تفاعلية.
+
+ينشئ الفاحص ملفي `api-screenreader-uia-report.json` و`api-screenreader-uia-fields.csv` داخل `artifacts\accessibility-api-uia\<timestamp>`. يفحص لكل حقل: `AutomationId`، والاسم المحلي، ونوع التحكم، وإمكانية التركيز بلوحة المفاتيح، وحالة الظهور والتفعيل. كما يتحقق من أن حقل صورة التطبيق للقراءة فقط وأن حقل المصادقة معلّم كحقل كلمة مرور. لا يقرأ خاصية `Value` لأي عنصر ولا يلتقط الشاشة.
+
+**حدود هذا الفاحص:** نتيجة `PASS` تعني أن بيانات عناصر UI Automation المطلوبة موجودة ومتطابقة فقط. لا تعني أن Narrator أو NVDA نطق الاسم بشكل صحيح، ولا تختبر ترتيب النطق أو جودة اللغة أو التباين المرئي. يظل حقلا `NarratorSpokenOutput` و`NvdaSpokenOutput` في التقرير `NOT TESTED` دائمًا؛ يجب أن يستمع المختبِر فعليًا ويسجل نتيجة كل قارئ وكل لغة في الجدول أعلاه.
+
 ## معايير تسجيل النتيجة
 
 استخدم واحدة من الحالات: **PASS**، **FAIL**، **BLOCKED**، **NOT TESTED**، أو **USER ACCEPTED (ASSUMED; NOT INDEPENDENTLY VERIFIED)**. الحالة الأخيرة توثق تنازل/اعتماد المالك فقط، ولا تعادل PASS ولا تثبت اختبار Narrator/NVDA أو High Contrast. لا تسجّل A11Y-06/07/08 أو A11Y-13/14 PASS من خلال قراءة شجرة UI Automation وحدها؛ يلزم الاستماع إلى النطق ومشاهدة التباين الفعلي. أرفق وصفًا محددًا ولقطة/تسجيلًا عند وجود خلل، ولا تضع بيانات حساسة داخل دليل الاختبار.
