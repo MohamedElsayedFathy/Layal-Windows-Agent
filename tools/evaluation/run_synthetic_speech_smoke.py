@@ -89,7 +89,7 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
             raise ValueError(f"Case {case_id} has unsupported source or benchmark sample-rate provenance.")
         if not isinstance(source_audio_hash, str) or not re.fullmatch(r"[a-f0-9]{64}", source_audio_hash):
             raise ValueError(f"Case {case_id} has an invalid source audio SHA-256.")
-        expected_conversion = "none" if source_sample_rate == 16000 else "audioop.ratecv-24000-to-16000"
+        expected_conversion = "none" if source_sample_rate == 16000 else "binomial-5tap-linear-24000-to-16000"
         if conversion != expected_conversion:
             raise ValueError(f"Case {case_id} has an unexpected sample-rate conversion marker.")
         if not isinstance(prompt_text, str) or not prompt_text.strip():
