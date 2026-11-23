@@ -6,6 +6,11 @@ import sys
 import zipfile
 from pathlib import Path
 
+try:
+    from .local_data_policy import is_local_only_archive_member, is_local_only_path
+except ImportError:  # Direct script execution from tools/
+    from local_data_policy import is_local_only_archive_member, is_local_only_path
+
 ROOT = Path(__file__).resolve().parent.parent
 errors: list[str] = []
 required = [
@@ -19,6 +24,8 @@ required = [
     "docs/POWERSHELL_FINAL_ACCEPTANCE_AR.md",
     ".github/workflows/windows-final-acceptance.yml",
     "tools/package_source.py",
+    "tools/local_data_policy.py",
+    "tests/python/test_local_data_policy.py",
     ".github/workflows/windows-build.yml",
     "src/Layal.Desktop/Layal.Desktop.csproj",
     "src/Layal.Desktop/App.xaml",
@@ -67,26 +74,29 @@ match = re.search(r"<Version>([^<]+)</Version>", project_text)
 version = match.group(1) if match else "unknown"
 
 sensitive_patterns = [
-    (re.compile(r"(?i)\bsk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"), "possible provider API key"),
-    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{25,}\b"), "possible GitHub token"),
-    (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"), "possible GitHub fine-grained token"),
-    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\s+[A-Za-z0-9+/=\r\n]{100,}-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "private key material block"),
+    (re.compile(r"(?i)\\bsk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"), "possible provider API key"),
+    (re.compile(r"\\bgh[pousr]_[A-Za-z0-9]{25,}\\b"), "possible GitHub token"),
+    (re.compile(r"\\bgithub_pat_[A-Za-z0-9_]{20,}\\b"), "possible GitHub fine-grained token"),
+    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\\s+[A-Za-z0-9+/=\\r\\n]{100,}-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "private key material block"),
 ]
 scan_suffixes = {".cs", ".csproj", ".sln", ".props", ".targets", ".xaml", ".json", ".toml", ".yml", ".yaml", ".md", ".ps1", ".bat", ".config", ".iss", ".py", ".xml", ".txt", ".sh"}
 for path in ROOT.rglob("*"):
-    if not path.is_file() or any(part in {"bin", "obj", ".git", ".vs"} for part in path.parts):
+    if not path.is_file():
+        continue
+    relative = path.relative_to(ROOT)
+    if is_local_only_path(relative) or any(part in {"bin", "obj", ".git", ".vs", "__pycache__", ".venv", "venv", "hf-cache", ".cache"} for part in relative.parts):
         continue
     if path.suffix.lower() in {".pfx", ".p12", ".key"}:
-        errors.append(f"Private signing key file must never be committed: {path.relative_to(ROOT)}")
+        errors.append(f"Private signing key file must never be committed: {relative}")
     if path.suffix.lower() not in scan_suffixes:
         continue
     try:
         data = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
+    except (UnicodeDecodeError, OSError):
         continue
     for pattern, label in sensitive_patterns:
         if pattern.search(data):
-            errors.append(f"{label} pattern found in {path.relative_to(ROOT)}")
+            errors.append(f"{label} pattern found in {relative}")
 
 if len(sys.argv) > 1:
     archive_path = Path(sys.argv[1]).resolve()
@@ -103,9 +113,11 @@ if len(sys.argv) > 1:
                     if not any(n == rel or n.endswith("/" + rel) for n in names):
                         errors.append(f"Archive is missing required file: {rel}")
                 for name in names:
-                    normalized = name.replace("\\", "/")
+                    normalized = name.replace("\\\\", "/")
                     parts = normalized.split("/")
-                    if "bin" in parts or "obj" in parts or ".git" in parts or ".vs" in parts or "__pycache__" in parts:
+                    if is_local_only_archive_member(normalized):
+                        errors.append(f"User-specific runtime data must not be included in source ZIP: {name}")
+                    if "bin" in parts or "obj" in parts or ".git" in parts or ".vs" in parts or "__pycache__" in parts or ".venv" in parts or "venv" in parts or "hf-cache" in parts or ".cache" in parts:
                         errors.append(f"Build/cache output must not be included: {name}")
                     if "artifacts" in parts:
                         errors.append(f"Generated artifacts/logs must not be included in source ZIP: {name}")
