@@ -139,7 +139,10 @@ def _read_wav_container(path: Path, case_id: str) -> dict[str, Any]:
                 raise ValueError(f"Case {case_id} WAV has multiple data chunks.")
             audio_frames = payload[chunk_start:chunk_end]
 
-        offset = chunk_end + (chunk_size & 1)
+        next_offset = chunk_end + (chunk_size & 1)
+        if next_offset > riff_end:
+            raise ValueError(f"Case {case_id} WAV has a truncated RIFF chunk padding byte.")
+        offset = next_offset
 
     if format_chunk is None or audio_frames is None:
         raise ValueError(f"Case {case_id} WAV must contain exactly one fmt and data chunk.")
@@ -201,6 +204,8 @@ def _write_whisper_compatible_wav(
 ) -> tuple[str, str]:
     """Convert PCM16/IEEE-float32 mono WAV to Whisper's 16 kHz PCM16 input."""
     info = _read_wav_container(source_path, case_id)
+    if info["sample_rate"] != source_sample_rate:
+        raise ValueError(f"Case {case_id} source WAV changed after validation.")
     source_format = info["sample_format"]
     if source_sample_rate == WHISPER_SAMPLE_RATE and source_format == "pcm-s16le":
         shutil.copyfile(source_path, target_path)
