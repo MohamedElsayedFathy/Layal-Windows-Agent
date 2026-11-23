@@ -14,6 +14,7 @@ import math
 import os
 import random
 import re
+import struct
 import shutil
 import stat
 import sys
@@ -100,40 +101,96 @@ def _safe_source_audio(source_root: Path, relative_name: str, case_id: str) -> P
     return resolved
 
 
-def _validate_wav(path: Path, case_id: str) -> tuple[float, int]:
+def _read_wav_container(path: Path, case_id: str) -> dict[str, Any]:
+    """Read a bounded RIFF/WAVE container and identify PCM16 or IEEE-float32 samples."""
     size = path.stat().st_size
     if size <= 44 or size > MAX_AUDIO_BYTES:
         raise ValueError(
             f"Case {case_id} WAV must be greater than 44 bytes and no more than 64 MiB."
         )
-    try:
-        with wave.open(str(path), "rb") as audio:
-            channels = audio.getnchannels()
-            sample_rate = audio.getframerate()
-            sample_width = audio.getsampwidth()
-            frame_count = audio.getnframes()
-            compression = audio.getcomptype()
-    except (wave.Error, EOFError, OSError) as error:
-        raise ValueError(f"Case {case_id} is not a readable PCM WAV: {error}") from error
 
-    if (
-        compression != "NONE"
-        or channels != 1
-        or sample_width != 2
-        or sample_rate not in SUPPORTED_SOURCE_SAMPLE_RATES
-    ):
+    payload = path.read_bytes()
+    if len(payload) < 44 or payload[:4] != b"RIFF" or payload[8:12] != b"WAVE":
+        raise ValueError(f"Case {case_id} is not a supported little-endian RIFF/WAVE file.")
+
+    riff_end = struct.unpack_from("<I", payload, 4)[0] + 8
+    if riff_end != len(payload):
+        raise ValueError(f"Case {case_id} WAV has an invalid RIFF container length.")
+
+    offset = 12
+    format_chunk: bytes | None = None
+    audio_frames: bytes | None = None
+    while offset < riff_end:
+        if offset + 8 > riff_end:
+            raise ValueError(f"Case {case_id} WAV has a truncated RIFF chunk header.")
+        chunk_id = payload[offset:offset + 4]
+        chunk_size = struct.unpack_from("<I", payload, offset + 4)[0]
+        chunk_start = offset + 8
+        chunk_end = chunk_start + chunk_size
+        if chunk_end > riff_end:
+            raise ValueError(f"Case {case_id} WAV contains a truncated RIFF chunk.")
+
+        if chunk_id == b"fmt ":
+            if format_chunk is not None or chunk_size < 16:
+                raise ValueError(f"Case {case_id} WAV has a duplicate or invalid fmt chunk.")
+            format_chunk = payload[chunk_start:chunk_end]
+        elif chunk_id == b"data":
+            if audio_frames is not None:
+                raise ValueError(f"Case {case_id} WAV has multiple data chunks.")
+            audio_frames = payload[chunk_start:chunk_end]
+
+        offset = chunk_end + (chunk_size & 1)
+
+    if format_chunk is None or audio_frames is None:
+        raise ValueError(f"Case {case_id} WAV must contain exactly one fmt and data chunk.")
+
+    format_tag, channels, sample_rate, byte_rate, block_align, bits_per_sample = struct.unpack_from(
+        "<HHIIHH", format_chunk, 0
+    )
+    if format_tag == 1 and bits_per_sample == 16:
+        sample_format = "pcm-s16le"
+        bytes_per_sample = 2
+    elif format_tag == 3 and bits_per_sample == 32:
+        sample_format = "ieee-float32"
+        bytes_per_sample = 4
+    else:
+        raise ValueError(
+            f"Case {case_id} WAV format is unsupported; expected PCM 16-bit or IEEE float 32-bit, "
+            f"found formatTag={format_tag}, bitsPerSample={bits_per_sample}."
+        )
+
+    if channels != 1:
+        raise ValueError(f"Case {case_id} WAV must be mono; found {channels} channel(s).")
+    if sample_rate not in SUPPORTED_SOURCE_SAMPLE_RATES:
         supported_rates = ", ".join(str(rate) for rate in sorted(SUPPORTED_SOURCE_SAMPLE_RATES))
         raise ValueError(
-            f"Case {case_id} must be uncompressed PCM WAV, mono, 16-bit, at "
-            f"{supported_rates} Hz; found compression={compression}, channels={channels}, "
-            f"sampleRate={sample_rate}, sampleWidth={sample_width * 8}-bit."
+            f"Case {case_id} WAV sample rate must be one of {supported_rates} Hz; "
+            f"found {sample_rate} Hz."
         )
-    duration = frame_count / float(sample_rate)
+    expected_align = channels * bytes_per_sample
+    if block_align != expected_align or byte_rate != sample_rate * expected_align:
+        raise ValueError(f"Case {case_id} WAV has inconsistent byte-rate or block-alignment metadata.")
+    if not audio_frames or len(audio_frames) % block_align:
+        raise ValueError(f"Case {case_id} WAV has empty or misaligned audio data.")
+
+    return {
+        "sample_format": sample_format,
+        "sample_rate": sample_rate,
+        "channels": channels,
+        "bits_per_sample": bits_per_sample,
+        "frames": audio_frames,
+        "frame_count": len(audio_frames) // block_align,
+    }
+
+
+def _validate_wav(path: Path, case_id: str) -> tuple[float, int]:
+    info = _read_wav_container(path, case_id)
+    duration = info["frame_count"] / float(info["sample_rate"])
     if duration <= 0 or duration > MAX_AUDIO_SECONDS:
         raise ValueError(
             f"Case {case_id} duration must be greater than zero and at most {MAX_AUDIO_SECONDS:g} seconds."
         )
-    return duration, sample_rate
+    return duration, info["sample_rate"]
 
 
 def _write_whisper_compatible_wav(
@@ -141,59 +198,68 @@ def _write_whisper_compatible_wav(
     target_path: Path,
     source_sample_rate: int,
     case_id: str,
-) -> str:
-    """Copy 16 kHz input unchanged or resample 24 kHz mono PCM to Whisper's 16 kHz input."""
-    if source_sample_rate == WHISPER_SAMPLE_RATE:
+) -> tuple[str, str]:
+    """Convert PCM16/IEEE-float32 mono WAV to Whisper's 16 kHz PCM16 input."""
+    info = _read_wav_container(source_path, case_id)
+    source_format = info["sample_format"]
+    if source_sample_rate == WHISPER_SAMPLE_RATE and source_format == "pcm-s16le":
         shutil.copyfile(source_path, target_path)
-        return "none"
+        return "none", source_format
 
-    if source_sample_rate != 24000:
+    if source_sample_rate not in SUPPORTED_SOURCE_SAMPLE_RATES:
         raise ValueError(f"Case {case_id} has an unsupported source sample rate: {source_sample_rate}.")
 
-    with wave.open(str(source_path), "rb") as source:
-        if (
-            source.getcomptype() != "NONE"
-            or source.getnchannels() != 1
-            or source.getsampwidth() != 2
-            or source.getframerate() != source_sample_rate
-        ):
-            raise ValueError(f"Case {case_id} source WAV changed after validation.")
-        frames = source.readframes(source.getnframes())
+    if source_format == "pcm-s16le":
+        source_samples = array("h")
+        source_samples.frombytes(info["frames"])
+        if sys.byteorder != "little":
+            source_samples.byteswap()
+        conversion_prefix = ""
+    else:
+        source_samples = array("h")
+        for (sample,) in struct.iter_unpack("<f", info["frames"]):
+            if not math.isfinite(sample):
+                raise ValueError(f"Case {case_id} IEEE-float WAV contains a non-finite sample.")
+            quantized = round(max(-1.0, min(1.0, sample)) * 32768.0)
+            source_samples.append(max(-32768, min(32767, quantized)))
+        conversion_prefix = "ieee-float32-to-pcm16"
 
-    # Five-tap binomial low-pass ([1, 4, 6, 4, 1] / 16) before 3:2
-    # decimation, followed by linear interpolation to the exact 16 kHz grid.
-    # This is a deterministic pure-Python conversion; no external codec is used.
-    source_samples = array("h")
-    source_samples.frombytes(frames)
-    if sys.byteorder != "little":
-        source_samples.byteswap()
+    if len(source_samples) != info["frame_count"] or not source_samples:
+        raise ValueError(f"Case {case_id} source WAV frame count changed during decoding.")
 
-    sample_count = len(source_samples)
-    if sample_count == 0:
-        raise ValueError(f"Case {case_id} source WAV has no PCM frames.")
+    if source_sample_rate == WHISPER_SAMPLE_RATE:
+        converted = source_samples
+        conversion = conversion_prefix
+    else:
+        # Five-tap binomial low-pass ([1, 4, 6, 4, 1] / 16) before 3:2
+        # decimation, followed by linear interpolation to the exact 16 kHz grid.
+        # This is a deterministic pure-Python conversion; no external codec is used.
+        filtered = array("h")
+        sample_count = len(source_samples)
+        for index in range(sample_count):
+            total = (
+                source_samples[max(0, index - 2)]
+                + 4 * source_samples[max(0, index - 1)]
+                + 6 * source_samples[index]
+                + 4 * source_samples[min(sample_count - 1, index + 1)]
+                + source_samples[min(sample_count - 1, index + 2)]
+            )
+            filtered.append(max(-32768, min(32767, round(total / 16.0))))
 
-    filtered = array("h")
-    for index in range(sample_count):
-        total = (
-            source_samples[max(0, index - 2)]
-            + 4 * source_samples[max(0, index - 1)]
-            + 6 * source_samples[index]
-            + 4 * source_samples[min(sample_count - 1, index + 1)]
-            + source_samples[min(sample_count - 1, index + 2)]
-        )
-        filtered.append(max(-32768, min(32767, round(total / 16.0))))
+        output_count = (sample_count * 2 + 1) // 3
+        converted = array("h")
+        for output_index in range(output_count):
+            left_index, fraction = divmod(output_index * 3, 2)
+            left_index = min(left_index, sample_count - 1)
+            right_index = min(left_index + 1, sample_count - 1)
+            if fraction == 0:
+                value = filtered[left_index]
+            else:
+                value = round((filtered[left_index] + filtered[right_index]) / 2.0)
+            converted.append(max(-32768, min(32767, value)))
 
-    output_count = (sample_count * 2 + 1) // 3
-    converted = array("h")
-    for output_index in range(output_count):
-        left_index, fraction = divmod(output_index * 3, 2)
-        left_index = min(left_index, sample_count - 1)
-        right_index = min(left_index + 1, sample_count - 1)
-        if fraction == 0:
-            value = filtered[left_index]
-        else:
-            value = round((filtered[left_index] + filtered[right_index]) / 2.0)
-        converted.append(max(-32768, min(32767, value)))
+        resample_step = "binomial-5tap-linear-24000-to-16000"
+        conversion = f"{conversion_prefix + '-' if conversion_prefix else ''}{resample_step}"
 
     if sys.byteorder != "little":
         converted.byteswap()
@@ -203,8 +269,8 @@ def _write_whisper_compatible_wav(
         target.setsampwidth(2)
         target.setframerate(WHISPER_SAMPLE_RATE)
         target.writeframes(converted.tobytes())
-    return "binomial-5tap-linear-24000-to-16000"
 
+    return conversion or "none", source_format
 
 def _read_source(source_dir: Path) -> tuple[Path, Path, list[dict[str, Any]]]:
     source = source_dir.expanduser().resolve(strict=True)
@@ -338,7 +404,7 @@ def prepare_workspace(
             duration, source_sample_rate = _validate_wav(source_audio, row["id"])
             target_audio = audio_target / f'{row["id"]}.wav'
             source_hash = sha256_file(source_audio)
-            conversion = _write_whisper_compatible_wav(
+            conversion, source_sample_format = _write_whisper_compatible_wav(
                 source_audio, target_audio, source_sample_rate, row["id"]
             )
             if sha256_file(source_audio) != source_hash:
@@ -360,6 +426,7 @@ def prepare_workspace(
                 "audioAsset": f'audio/{row["id"]}.wav',
                 "sourceAudioSha256": source_hash,
                 "sourceSampleRate": source_sample_rate,
+                "sourceSampleFormat": source_sample_format,
                 "sampleRate": converted_sample_rate,
                 "conversion": conversion,
                 "audioSha256": converted_hash,
