@@ -62,7 +62,10 @@ concurrency:
     def test_signing_secrets_must_remain_in_approved_tag_step(self) -> None:
         workflow_path = ROOT / ".github" / "workflows" / "windows-build.yml"
         original = workflow_path.read_text(encoding="utf-8")
-        tampered = original.replace(
+        marker = "      - name: Build signed and verified release distribution"
+        prefix, found, signing_step = original.partition(marker)
+        self.assertTrue(found, "signing step must exist")
+        tampered = prefix + found + signing_step.replace(
             "if: success() && startsWith(github.ref, 'refs/tags/v') && steps.release_guard.outputs.approved == 'true'",
             "if: always()",
             1,
