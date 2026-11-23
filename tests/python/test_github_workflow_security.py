@@ -59,6 +59,17 @@ concurrency:
         errors = validate_workflow("sample.yml", workflow)
         self.assertTrue(any("pull_request_target" in item for item in errors))
 
+    def test_codeql_write_token_is_limited_to_main(self) -> None:
+        workflow_path = ROOT / ".github" / "workflows" / "codeql.yml"
+        original = workflow_path.read_text(encoding="utf-8")
+        tampered = original.replace(
+            "    if: github.ref == 'refs/heads/main'\n",
+            "",
+            1,
+        )
+        errors = validate_workflow("codeql.yml", tampered)
+        self.assertTrue(any("missing required CodeQL configuration" in item for item in errors))
+
     def test_signing_secrets_must_remain_in_approved_tag_step(self) -> None:
         workflow_path = ROOT / ".github" / "workflows" / "windows-build.yml"
         original = workflow_path.read_text(encoding="utf-8")
