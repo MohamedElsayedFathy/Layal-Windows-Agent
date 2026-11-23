@@ -8,10 +8,31 @@ import sys
 import zipfile
 from pathlib import Path
 
+try:
+    from .local_data_policy import is_local_only_path
+except ImportError:  # Direct script execution from tools/
+    from local_data_policy import is_local_only_path
+
 ROOT = Path(__file__).resolve().parent.parent
-EXCLUDED_DIRS = {".git", ".vs", "bin", "obj", "__pycache__", "artifacts"}
+EXCLUDED_DIRS = {
+    ".git", ".vs", "bin", "obj", "__pycache__", "artifacts",
+    ".venv", "venv", "hf-cache", ".cache",
+}
 EXCLUDED_NAMES = {".env", ".env.local", ".env.production", "secrets.json", "appsettings.Local.json", ".DS_Store"}
-EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".pfx", ".p12", ".pem", ".key", ".user", ".suo", ".tmp"}
+EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".pfx", ".p12", ".pem", ".key", ".user", ".suo", ".tmp", ".dpapi", ".log"}
+
+
+def should_exclude_path(relative: Path) -> bool:
+    """Central source-archive exclusion check for a repository-relative path."""
+    if is_local_only_path(relative):
+        return True
+    if any(part in EXCLUDED_DIRS for part in relative.parts):
+        return True
+    if relative.name in EXCLUDED_NAMES or relative.suffix.lower() in EXCLUDED_SUFFIXES:
+        return True
+    if relative.name.startswith(".env."):
+        return True
+    return False
 
 
 def main() -> int:
@@ -42,11 +63,7 @@ def main() -> int:
             if not path.is_file():
                 continue
             relative = path.relative_to(ROOT)
-            if any(part in EXCLUDED_DIRS for part in relative.parts):
-                continue
-            if path.name in EXCLUDED_NAMES or path.suffix.lower() in EXCLUDED_SUFFIXES:
-                continue
-            if path.name.startswith(".env."):
+            if should_exclude_path(relative):
                 continue
             archive.write(path, prefix + relative.as_posix())
             written += 1

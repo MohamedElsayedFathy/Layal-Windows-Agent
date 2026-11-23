@@ -14,6 +14,7 @@ __pycache__/
 !.env.example
 *.pfx
 *.p12
+**/*.dpapi
 
 # Test output and result reports
 TestResults/
@@ -24,3 +25,15 @@ src/Layal.Desktop/tessdata/*.traineddata
 
 # Consented speech evaluation recordings remain local and must not enter Git.
 tests/TestAssets/Speech/audio/
+
+# User-specific runtime state, models, caches, SDKs, datasets, logs, and reports.
+# The audit confirmed there are currently no tracked source files beneath /Layal/.
+/Layal/
+**/.venv/
+**/venv/
+**/hf-cache/
+**/.cache/
+*.log
+
+# One-off local inventory helper generated in the repository root.
+/layal_repo_audit.ps1
