@@ -249,8 +249,8 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
                 "archive_sha256": "a" * 64,
                 "model_sha256": "b" * 64,
                 "executable_sha256": "c" * 64,
-            }),
-            mock.patch.object(RUN.RUNNER, "transcribe_one", side_effect=fake_transcribe),
+            }) as verify_resources,
+            mock.patch.object(RUN.RUNNER, "transcribe_one", side_effect=fake_transcribe) as transcribe,
         ):
             report_path, report = RUN.run_benchmark(
                 data_root,
@@ -266,6 +266,149 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         self.assertTrue(all("promptText" in sample for sample in report["samples"]))
         self.assertTrue(all("sourceModel" in sample for sample in report["samples"]))
         self.assertFalse(list(output_dir.glob("*.scoring-manifest.json")))
+        self.assertEqual(5, verify_resources.call_count)  # initial pin + one verification per sample
+        self.assertEqual(4, transcribe.call_count)
+
+    def test_smoke_runner_stops_after_whisper_resource_integrity_changes(self):
+        summary = self.prepare(limit=4)
+        data_root = self.root / "layal-data"
+        data_root.mkdir()
+        output_dir = self.root / "reports"
+
+        pinned = {
+            "archive_sha256": "a" * 64,
+            "model_sha256": "b" * 64,
+            "executable_sha256": "c" * 64,
+        }
+        changed = {**pinned, "model_sha256": "d" * 64}
+        transcribe = mock.Mock(return_value={
+            "caseId": "placeholder",
+            "locale": "ar-EG",
+            "audioSha256": "e" * 64,
+            "audioDurationSeconds": 1.0,
+            "wallClockMs": 20.0,
+            "realTimeFactor": 0.02,
+            "transcript": "تفريغ تجريبي",
+            "status": "passed",
+        })
+
+        with (
+            mock.patch.object(
+                RUN.RUNNER, "verify_whisper_resources", side_effect=[pinned, pinned, changed]
+            ) as verify_resources,
+            mock.patch.object(RUN.RUNNER, "transcribe_one", side_effect=transcribe),
+        ):
+            report_path, report = RUN.run_benchmark(
+                data_root, summary["manifest_path"], output_dir
+            )
+
+        self.assertTrue(report_path.is_file())
+        self.assertEqual(1, report["summary"]["passedSamples"])
+        self.assertEqual(3, report["summary"]["failedSamples"])
+        self.assertEqual(3, len(report["failures"]))
+        self.assertIn("changed during the synthetic smoke run", report["failures"][0]["error"])
+        self.assertIn("Skipped because", report["failures"][1]["error"])
+        self.assertEqual(3, verify_resources.call_count)  # initial pin, sample 1, sample 2
+        self.assertEqual(1, transcribe.call_count)
+
+
+import csv
+import importlib.util
+
+REVIEW_PATH = ROOT / "tools" / "evaluation" / "export_synthetic_speech_review.py"
+REVIEW_SPEC = importlib.util.spec_from_file_location("export_synthetic_speech_review", REVIEW_PATH)
+REVIEW = importlib.util.module_from_spec(REVIEW_SPEC)
+assert REVIEW_SPEC and REVIEW_SPEC.loader
+sys.modules[REVIEW_SPEC.name] = REVIEW
+REVIEW_SPEC.loader.exec_module(REVIEW)
+
+
+class SyntheticSpeechReviewExportTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = SyntheticSpeechSmokeTests()
+        self.fixture.setUp()
+        summary = self.fixture.prepare(limit=4)
+        self.manifest_path = summary["manifest_path"]
+        self.manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        self.report_path = self.fixture.root / "synthetic-report.json"
+        self.write_report()
+
+    def tearDown(self):
+        self.fixture.tearDown()
+
+    def write_report(self, wer=None, cer=None, tamper_case=None):
+        samples = []
+        for case in self.manifest["cases"]:
+            audio_hash = "0" * 64 if case["id"] == tamper_case else case["audioSha256"]
+            samples.append({
+                "caseId": case["id"],
+                "locale": "ar-EG",
+                "audioSha256": audio_hash,
+                "sourceAudioSha256": case["sourceAudioSha256"],
+                "audioDurationSeconds": case["audioDurationSeconds"],
+                "sourceModel": case["sourceModel"],
+                "promptText": case["promptText"],
+                "transcript": "تفريغ اختباري",
+                "status": "passed",
+            })
+        self.report = {
+            "schemaVersion": 1,
+            "benchmarkType": "synthetic-speech-smoke",
+            "scoreEligibility": "not-eligible-for-WER-CER",
+            "dataset": self.manifest["dataset"],
+            "summary": {
+                "eligibleSamples": len(self.manifest["cases"]),
+                "passedSamples": len(samples),
+                "failedSamples": 0,
+            },
+            "samples": samples,
+            "failures": [],
+            "metrics": {"wer": wer, "cer": cer},
+        }
+        self.report_path.write_text(json.dumps(self.report, ensure_ascii=False), encoding="utf-8")
+
+    def test_exports_local_qualitative_review_sheet_without_scoring_manifest(self):
+        output = self.fixture.root / "review.csv"
+        csv_path, guide_path, count = REVIEW.export_review_sheet(
+            self.manifest_path, self.report_path, output
+        )
+        self.assertEqual(4, count)
+        self.assertTrue(csv_path.is_file())
+        self.assertTrue(guide_path.is_file())
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        self.assertEqual(4, len(rows))
+        self.assertEqual("NOT_REVIEWED", rows[0]["manual_review_status"])
+        self.assertEqual("تفريغ اختباري", rows[0]["whisper_transcript"])
+        self.assertTrue(rows[0]["audio_asset_relative_to_manifest"].startswith("audio/"))
+        self.assertEqual("", rows[0]["reviewer_heard_text_non_reference"])
+        self.assertFalse(list(self.fixture.root.glob("*.scoring-manifest.json")))
+        guide = guide_path.read_text(encoding="utf-8")
+        self.assertIn("ليس مرجعًا ذهبيًا", guide)
+        self.assertIn("لا تحسب WER أو CER", guide)
+
+    def test_refuses_any_report_that_contains_wer_or_cer(self):
+        self.write_report(wer=0.12)
+        with self.assertRaisesRegex(ValueError, "refuses reports containing WER/CER"):
+            REVIEW.export_review_sheet(
+                self.manifest_path, self.report_path, self.fixture.root / "blocked.csv"
+            )
+        self.assertFalse((self.fixture.root / "blocked.csv").exists())
+
+    def test_refuses_report_audio_hash_that_does_not_match_manifest(self):
+        case_id = self.manifest["cases"][0]["id"]
+        self.write_report(tamper_case=case_id)
+        with self.assertRaisesRegex(ValueError, "audio hash does not match"):
+            REVIEW.export_review_sheet(
+                self.manifest_path, self.report_path, self.fixture.root / "blocked.csv"
+            )
+        self.assertFalse((self.fixture.root / "blocked.csv").exists())
+
+    def test_refuses_review_output_inside_repository(self):
+        output = REVIEW.REPO_ROOT / ".synthetic-review-blocked.csv"
+        with self.assertRaisesRegex(ValueError, "outside the Git repository"):
+            REVIEW.export_review_sheet(self.manifest_path, self.report_path, output)
+        self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":
