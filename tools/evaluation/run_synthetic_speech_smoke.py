@@ -82,7 +82,7 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
         prompt_text = case.get("promptText")
         model = case.get("sourceModel")
         source_sample_rate = case.get("sourceSampleRate")
-        source_sample_format = case.get("sourceSampleFormat")
+        source_sample_format = case.get("sourceSampleFormat", "pcm-s16le")
         benchmark_sample_rate = case.get("sampleRate")
         source_audio_hash = case.get("sourceAudioSha256")
         conversion = case.get("conversion")
