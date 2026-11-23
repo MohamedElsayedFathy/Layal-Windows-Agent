@@ -184,8 +184,13 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         summary = self.prepare(limit=4)
         manifest = json.loads(summary["manifest_path"].read_text(encoding="utf-8"))
         cases = {case["id"]: case for case in manifest["cases"]}
+        _, runner_samples = RUN.validate_manifest_and_audio(summary["manifest_path"])
+        self.assertEqual(4, len(runner_samples))
+        runner_by_id = {sample["id"]: sample for sample in runner_samples}
 
         self.assertEqual("ieee-float32", cases[float_16k["id"]]["sourceSampleFormat"])
+        self.assertEqual("ieee-float32", runner_by_id[float_16k["id"]]["source_sample_format"])
+        self.assertEqual("ieee-float32", runner_by_id[float_24k["id"]]["source_sample_format"])
         self.assertEqual("ieee-float32-to-pcm16", cases[float_16k["id"]]["conversion"])
         self.assertEqual("ieee-float32", cases[float_24k["id"]]["sourceSampleFormat"])
         self.assertEqual(
@@ -352,6 +357,7 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         self.assertIsNone(report["metrics"]["cer"])
         self.assertTrue(all("promptText" in sample for sample in report["samples"]))
         self.assertTrue(all("sourceModel" in sample for sample in report["samples"]))
+        self.assertTrue(all(sample["sourceSampleFormat"] == "pcm-s16le" for sample in report["samples"]))
         self.assertFalse(list(output_dir.glob("*.scoring-manifest.json")))
         self.assertEqual(5, verify_resources.call_count)  # initial pin + one verification per sample
         self.assertEqual(4, transcribe.call_count)
