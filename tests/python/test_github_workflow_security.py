@@ -13,7 +13,7 @@ class GitHubWorkflowSecurityTests(unittest.TestCase):
         sha = "a" * 40
         workflow = f"""name: Sample
 concurrency:
-  group: \${{{{ github.workflow }}}}-\${{{{ github.ref }}}}
+  group: ${{{{ github.workflow }}}}-${{{{ github.ref }}}}
   cancel-in-progress: true
 permissions:
   contents: read
@@ -31,7 +31,7 @@ jobs:
     def test_external_actions_must_use_full_commit_shas(self) -> None:
         workflow = """name: Sample
 concurrency:
-  group: \${{ github.workflow }}-\${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
@@ -53,7 +53,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: \${{ github.workflow }}-\${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 """
         errors = validate_workflow("sample.yml", workflow)
