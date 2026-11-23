@@ -3,6 +3,7 @@ import json
 import sys
 import tempfile
 import wave
+import struct
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -47,6 +48,20 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
             audio.setsampwidth(sample_width)
             audio.setframerate(sample_rate)
             audio.writeframes(frames)
+
+    @staticmethod
+    def write_float_wav(path, sample_rate=16000, samples=None):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if samples is None:
+            samples = [0.0] * 320
+        frames = struct.pack("<" + "f" * len(samples), *samples)
+        fmt = struct.pack("<HHIIHH", 3, 1, sample_rate, sample_rate * 4, 4, 32)
+        chunks = (
+            b"fmt " + struct.pack("<I", len(fmt)) + fmt
+            + b"data" + struct.pack("<I", len(frames)) + frames
+        )
+        riff = b"WAVE" + chunks
+        path.write_bytes(b"RIFF" + struct.pack("<I", len(riff)) + riff)
 
     def make_rows(self):
         models = ["lahgtna", "chatterbox_egyptian", "egtts_v01", "habibi"]
@@ -145,6 +160,77 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
                 self.assertEqual(16000, audio.getframerate())
                 self.assertEqual(1, audio.getnchannels())
                 self.assertEqual(2, audio.getsampwidth())
+
+    def test_normalizes_ieee_float32_wav_sources_and_resamples_24khz(self):
+        rows = self.make_rows()
+        self.write_dataset(rows)
+        _, _, normalized_rows = PREP._read_source(self.source)
+        selected = PREP._select_balanced(normalized_rows, 4, 20261123)
+        float_16k = selected[0]
+        float_24k = selected[1]
+        pattern = [-1.0, -0.5, 0.0, 0.5, 1.0]
+        self.write_float_wav(
+            self.source / float_16k["file_name"],
+            sample_rate=16000,
+            samples=pattern * 64,
+        )
+        self.write_float_wav(
+            self.source / float_24k["file_name"],
+            sample_rate=24000,
+            samples=pattern * 96,
+        )
+
+        summary = self.prepare(limit=4)
+        manifest = json.loads(summary["manifest_path"].read_text(encoding="utf-8"))
+        cases = {case["id"]: case for case in manifest["cases"]}
+
+        self.assertEqual("ieee-float32", cases[float_16k["id"]]["sourceSampleFormat"])
+        self.assertEqual("ieee-float32-to-pcm16", cases[float_16k["id"]]["conversion"])
+        self.assertEqual("ieee-float32", cases[float_24k["id"]]["sourceSampleFormat"])
+        self.assertEqual(
+            "ieee-float32-to-pcm16-binomial-5tap-linear-24000-to-16000",
+            cases[float_24k["id"]]["conversion"],
+        )
+
+        for case_id in (float_16k["id"], float_24k["id"]):
+            output_audio = summary["output_dir"] / cases[case_id]["audioAsset"]
+            with wave.open(str(output_audio), "rb") as audio:
+                self.assertEqual("NONE", audio.getcomptype())
+                self.assertEqual(1, audio.getnchannels())
+                self.assertEqual(16000, audio.getframerate())
+                self.assertEqual(2, audio.getsampwidth())
+
+        output_16k = summary["output_dir"] / cases[float_16k["id"]]["audioAsset"]
+        with wave.open(str(output_16k), "rb") as audio:
+            converted = array("h")
+            converted.frombytes(audio.readframes(audio.getnframes()))
+        self.assertEqual([-32768, -16384, 0, 16384, 32767], converted[:5])
+
+        original = self.source / float_16k["file_name"]
+        self.assertEqual(b"\x03\x00", original.read_bytes()[20:22])
+        self.assertEqual(
+            PREP.sha256_file(original),
+            cases[float_16k["id"]]["sourceAudioSha256"],
+        )
+
+    def test_rejects_non_finite_ieee_float_samples_without_creating_output(self):
+        rows = self.make_rows()
+        self.write_dataset(rows)
+        _, _, normalized_rows = PREP._read_source(self.source)
+        selected = PREP._select_balanced(normalized_rows, 4, 20261123)
+        bad = selected[0]
+        self.write_float_wav(
+            self.source / bad["file_name"],
+            sample_rate=16000,
+            samples=[float("nan")] * 320,
+        )
+
+        output = self.root / "blocked-float"
+        with self.assertRaisesRegex(ValueError, "non-finite sample"):
+            PREP.prepare_workspace(
+                self.source, output, limit=4, seed=20261123, repository_root=self.repository
+            )
+        self.assertFalse(output.exists())
 
     def test_selection_is_deterministic_for_same_seed(self):
         first = self.prepare(output_name="smoke-a", limit=8)
