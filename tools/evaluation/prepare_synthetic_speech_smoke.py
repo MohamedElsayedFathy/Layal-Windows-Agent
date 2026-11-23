@@ -31,6 +31,8 @@ ALLOWED_MODELS = {"lahgtna", "chatterbox_egyptian", "egtts_v01", "habibi"}
 CASE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 MAX_AUDIO_BYTES = 64 * 1024 * 1024
 MAX_AUDIO_SECONDS = 120.0
+WHISPER_SAMPLE_RATE = 16000
+SUPPORTED_SOURCE_SAMPLE_RATES = {16000, 24000}
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 40
 
@@ -97,7 +99,7 @@ def _safe_source_audio(source_root: Path, relative_name: str, case_id: str) -> P
     return resolved
 
 
-def _validate_wav(path: Path, case_id: str) -> float:
+def _validate_wav(path: Path, case_id: str) -> tuple[float, int]:
     size = path.stat().st_size
     if size <= 44 or size > MAX_AUDIO_BYTES:
         raise ValueError(
@@ -113,10 +115,16 @@ def _validate_wav(path: Path, case_id: str) -> float:
     except (wave.Error, EOFError, OSError) as error:
         raise ValueError(f"Case {case_id} is not a readable PCM WAV: {error}") from error
 
-    if compression != "NONE" or (channels, sample_rate, sample_width) != (1, 16000, 2):
+    if (
+        compression != "NONE"
+        or channels != 1
+        or sample_width != 2
+        or sample_rate not in SUPPORTED_SOURCE_SAMPLE_RATES
+    ):
+        supported_rates = ", ".join(str(rate) for rate in sorted(SUPPORTED_SOURCE_SAMPLE_RATES))
         raise ValueError(
-            f"Case {case_id} must be uncompressed PCM WAV, mono, 16 kHz, 16-bit; "
-            f"found compression={compression}, channels={channels}, "
+            f"Case {case_id} must be uncompressed PCM WAV, mono, 16-bit, at "
+            f"{supported_rates} Hz; found compression={compression}, channels={channels}, "
             f"sampleRate={sample_rate}, sampleWidth={sample_width * 8}-bit."
         )
     duration = frame_count / float(sample_rate)
@@ -124,7 +132,51 @@ def _validate_wav(path: Path, case_id: str) -> float:
         raise ValueError(
             f"Case {case_id} duration must be greater than zero and at most {MAX_AUDIO_SECONDS:g} seconds."
         )
-    return duration
+    return duration, sample_rate
+
+
+def _write_whisper_compatible_wav(
+    source_path: Path,
+    target_path: Path,
+    source_sample_rate: int,
+    case_id: str,
+) -> str:
+    """Copy 16 kHz input unchanged or resample 24 kHz mono PCM to Whisper's 16 kHz input."""
+    if source_sample_rate == WHISPER_SAMPLE_RATE:
+        shutil.copyfile(source_path, target_path)
+        return "none"
+
+    if source_sample_rate != 24000:
+        raise ValueError(f"Case {case_id} has an unsupported source sample rate: {source_sample_rate}.")
+
+    try:
+        import audioop
+    except ImportError as error:
+        raise RuntimeError(
+            "24 kHz source audio requires Python's audioop module for local resampling. "
+            "On Python 3.13+, install the drop-in compatibility package with "
+            "'python -m pip install --user audioop-lts', then rerun preparation."
+        ) from error
+
+    with wave.open(str(source_path), "rb") as source:
+        if (
+            source.getcomptype() != "NONE"
+            or source.getnchannels() != 1
+            or source.getsampwidth() != 2
+            or source.getframerate() != source_sample_rate
+        ):
+            raise ValueError(f"Case {case_id} source WAV changed after validation.")
+        frames = source.readframes(source.getnframes())
+
+    converted_frames, _ = audioop.ratecv(
+        frames, 2, 1, source_sample_rate, WHISPER_SAMPLE_RATE, None
+    )
+    with wave.open(str(target_path), "wb") as target:
+        target.setnchannels(1)
+        target.setsampwidth(2)
+        target.setframerate(WHISPER_SAMPLE_RATE)
+        target.writeframes(converted_frames)
+    return "audioop.ratecv-24000-to-16000"
 
 
 def _read_source(source_dir: Path) -> tuple[Path, Path, list[dict[str, Any]]]:
@@ -256,12 +308,21 @@ def prepare_workspace(
         cases: list[dict[str, Any]] = []
         for row in selected:
             source_audio = _safe_source_audio(source, row["file_name"], row["id"])
-            duration = _validate_wav(source_audio, row["id"])
+            duration, source_sample_rate = _validate_wav(source_audio, row["id"])
             target_audio = audio_target / f'{row["id"]}.wav'
-            shutil.copyfile(source_audio, target_audio)
             source_hash = sha256_file(source_audio)
-            if sha256_file(target_audio) != source_hash:
-                raise RuntimeError(f"Copied WAV verification failed for case {row['id']}.")
+            conversion = _write_whisper_compatible_wav(
+                source_audio, target_audio, source_sample_rate, row["id"]
+            )
+            if sha256_file(source_audio) != source_hash:
+                raise RuntimeError(f"Source WAV changed during preparation for case {row['id']}.")
+            converted_hash = sha256_file(target_audio)
+            converted_duration, converted_sample_rate = _validate_wav(target_audio, row["id"])
+            if (
+                converted_sample_rate != WHISPER_SAMPLE_RATE
+                or abs(converted_duration - duration) > 0.01
+            ):
+                raise RuntimeError(f"Whisper WAV conversion verification failed for case {row['id']}.")
 
             cases.append({
                 "id": row["id"],
@@ -270,8 +331,12 @@ def prepare_workspace(
                 "sourceModel": row["source_model"],
                 "mcd": row["mcd"],
                 "audioAsset": f'audio/{row["id"]}.wav',
-                "audioSha256": source_hash,
-                "audioDurationSeconds": round(duration, 4),
+                "sourceAudioSha256": source_hash,
+                "sourceSampleRate": source_sample_rate,
+                "sampleRate": converted_sample_rate,
+                "conversion": conversion,
+                "audioSha256": converted_hash,
+                "audioDurationSeconds": round(converted_duration, 4),
             })
 
         model_counts = dict(sorted(Counter(case["sourceModel"] for case in cases).items()))
