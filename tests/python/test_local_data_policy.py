@@ -85,21 +85,22 @@ class LocalRuntimeDataPolicyTests(unittest.TestCase):
             ignored = subprocess.run(
                 ["git", "check-ignore", "--no-index", "--stdin"],
                 cwd=ROOT,
-                input="\n".join((*ignored_paths, *source_paths)) + "\n",
-                text=True,
+                input=("\n".join((*ignored_paths, *source_paths)) + "\n").encode("utf-8"),
                 capture_output=True,
                 check=False,
             )
         except FileNotFoundError:
             self.skipTest("Git executable is not available in this environment.")
 
-        self.assertIn(ignored.returncode, (0, 1), ignored.stderr)
-        matched = set(ignored.stdout.splitlines())
+        stderr = ignored.stderr.decode("utf-8", errors="replace")
+        stdout = ignored.stdout.decode("utf-8", errors="replace")
+        self.assertIn(ignored.returncode, (0, 1), stderr)
+        matched = set(stdout.splitlines())
         missing = set(ignored_paths) - matched
         unexpectedly_ignored = set(source_paths) & matched
         self.assertFalse(
             missing,
-            f"Expected local paths were not ignored: {sorted(missing)}; output={ignored.stdout!r}",
+            f"Expected local paths were not ignored: {sorted(missing)}; output={stdout!r}",
         )
         self.assertFalse(
             unexpectedly_ignored,
