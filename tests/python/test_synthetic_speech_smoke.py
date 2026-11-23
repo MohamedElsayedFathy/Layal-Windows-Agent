@@ -184,7 +184,7 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         summary = self.prepare(limit=4)
         data_root = self.root / "layal-data"
         data_root.mkdir()
-        output_dir = self.repository / "reports"
+        output_dir = RUN.REPO_ROOT / f".synthetic-smoke-blocked-{self.root.name}"
 
         with mock.patch.object(RUN.RUNNER, "verify_whisper_resources", return_value={}):
             with self.assertRaisesRegex(ValueError, "outside the Git repository"):
