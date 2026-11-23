@@ -112,6 +112,39 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         self.assertFalse(any("referenceReview" in case for case in manifest["cases"]))
         self.assertFalse(any("referenceText" in case for case in manifest["cases"]))
         self.assertTrue(all(case["locale"] == "ar-EG" for case in manifest["cases"]))
+        self.assertTrue(all(case["sourceSampleRate"] == 16000 for case in manifest["cases"]))
+        self.assertTrue(all(case["sampleRate"] == 16000 for case in manifest["cases"]))
+        self.assertTrue(all(case["conversion"] == "none" for case in manifest["cases"]))
+
+    def test_resamples_24khz_source_audio_and_records_both_audio_hashes(self):
+        rows = self.make_rows()
+        self.write_dataset(rows)
+        _, _, normalized_rows = PREP._read_source(self.source)
+        selected = PREP._select_balanced(normalized_rows, 4, 20261123)
+        selected_source_paths = {}
+        for row in selected:
+            source_path = self.source / row["file_name"]
+            self.write_wav(source_path, sample_rate=24000)
+            selected_source_paths[row["id"]] = source_path
+
+        summary = self.prepare(limit=4)
+        manifest = json.loads(summary["manifest_path"].read_text(encoding="utf-8"))
+        _, validated_samples = RUN.validate_manifest_and_audio(summary["manifest_path"])
+
+        self.assertEqual(4, len(validated_samples))
+        for case in manifest["cases"]:
+            self.assertEqual(24000, case["sourceSampleRate"])
+            self.assertEqual(16000, case["sampleRate"])
+            self.assertEqual("audioop.ratecv-24000-to-16000", case["conversion"])
+            self.assertEqual(
+                PREP.sha256_file(selected_source_paths[case["id"]]),
+                case["sourceAudioSha256"],
+            )
+            output_audio = summary["output_dir"] / case["audioAsset"]
+            with wave.open(str(output_audio), "rb") as audio:
+                self.assertEqual(16000, audio.getframerate())
+                self.assertEqual(1, audio.getnchannels())
+                self.assertEqual(2, audio.getsampwidth())
 
     def test_selection_is_deterministic_for_same_seed(self):
         first = self.prepare(output_name="smoke-a", limit=8)
@@ -156,7 +189,7 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
             sample_width=2,
         )
         output = self.root / "blocked"
-        with self.assertRaisesRegex(ValueError, "must be uncompressed PCM WAV, mono, 16 kHz, 16-bit"):
+        with self.assertRaisesRegex(ValueError, "must be uncompressed PCM WAV, mono, 16-bit"):
             self.prepare(output_name="blocked", limit=4)
         self.assertFalse(output.exists())
 
