@@ -177,16 +177,22 @@ def run_benchmark(
         raise ValueError("timeout_seconds must be between 10 and 3600.")
 
     manifest, samples = validate_manifest_and_audio(manifest_path)
-    resources = RUNNER.verify_whisper_resources(data_root)
 
     requested_output = output_dir.expanduser().absolute()
     for component in (requested_output, *requested_output.parents):
         if RUNNER._is_reparse_point(component):
-            raise ValueError("Synthetic smoke output path must not contain symbolic links or Windows reparse points.")
+            raise ValueError("Synthetic smoke reports must not contain symbolic links or Windows reparse points.")
 
     output_root = requested_output.resolve()
     if output_root == REPO_ROOT or output_root.is_relative_to(REPO_ROOT):
         raise ValueError("Synthetic smoke reports must be stored outside the Git repository.")
+
+    # Pin the verified resources for this run, then re-verify them before every sample.
+    resources = RUNNER.verify_whisper_resources(data_root)
+    resource_hash_keys = ("archive_sha256", "model_sha256", "executable_sha256")
+    resource_fingerprint = tuple(resources.get(key) for key in resource_hash_keys)
+    if not all(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value) for value in resource_fingerprint):
+        raise RuntimeError("Whisper resource verification did not return all pinned SHA-256 digests.")
 
     output_parent = output_root.parent
     output_parent.mkdir(parents=True, exist_ok=True)
@@ -204,10 +210,28 @@ def run_benchmark(
 
     with tempfile.TemporaryDirectory(prefix="layal-synthetic-smoke-") as temporary:
         temporary_root = Path(temporary)
-        for sample in samples:
+        for sample_index, sample in enumerate(samples):
+            # A resource verification failure stops the run; do not use a changed runtime/model.
+            try:
+                current_resources = RUNNER.verify_whisper_resources(data_root)
+                current_fingerprint = tuple(current_resources.get(key) for key in resource_hash_keys)
+                if current_fingerprint != resource_fingerprint:
+                    raise RuntimeError("Pinned Whisper resources changed during the synthetic smoke run.")
+            except Exception as error:
+                safe_message = RUNNER._redact_local_paths(
+                    str(error), [manifest_path, manifest_path.parent, data_root, output_root]
+                )
+                failures.append({"caseId": sample["id"], "error": safe_message[-1600:]})
+                for blocked_sample in samples[sample_index + 1:]:
+                    failures.append({
+                        "caseId": blocked_sample["id"],
+                        "error": "Skipped because Whisper resource integrity verification failed before this sample.",
+                    })
+                break
+
             try:
                 result = RUNNER.transcribe_one(
-                    resources, sample, temporary_root, threads, timeout_seconds
+                    current_resources, sample, temporary_root, threads, timeout_seconds
                 )
                 result["sourceModel"] = sample["source_model"]
                 result["sourceSampleRate"] = sample["source_sample_rate"]
