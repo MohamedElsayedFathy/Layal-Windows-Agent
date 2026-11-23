@@ -146,6 +146,7 @@ def validate_workflow(path: str, content: str) -> list[str]:
             "security-events: write",
             "languages: csharp",
             "build-mode: autobuild",
+            "if: github.ref == 'refs/heads/main'",
         ):
             if required not in content:
                 errors.append(f"codeql.yml: missing required CodeQL configuration '{required}'.")
