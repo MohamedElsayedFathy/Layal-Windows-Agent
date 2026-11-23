@@ -109,7 +109,10 @@ def _read_wav_container(path: Path, case_id: str) -> dict[str, Any]:
             f"Case {case_id} WAV must be greater than 44 bytes and no more than 64 MiB."
         )
 
-    payload = path.read_bytes()
+    with path.open("rb") as stream:
+        payload = stream.read(MAX_AUDIO_BYTES + 1)
+    if len(payload) != size or len(payload) > MAX_AUDIO_BYTES:
+        raise ValueError(f"Case {case_id} WAV changed or exceeded the 64 MiB limit while being read.")
     if len(payload) < 44 or payload[:4] != b"RIFF" or payload[8:12] != b"WAVE":
         raise ValueError(f"Case {case_id} is not a supported little-endian RIFF/WAVE file.")
 
