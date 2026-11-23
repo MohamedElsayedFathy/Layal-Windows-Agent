@@ -82,16 +82,27 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
         prompt_text = case.get("promptText")
         model = case.get("sourceModel")
         source_sample_rate = case.get("sourceSampleRate")
+        source_sample_format = case.get("sourceSampleFormat")
         benchmark_sample_rate = case.get("sampleRate")
         source_audio_hash = case.get("sourceAudioSha256")
         conversion = case.get("conversion")
         if source_sample_rate not in {16000, 24000} or benchmark_sample_rate != 16000:
             raise ValueError(f"Case {case_id} has unsupported source or benchmark sample-rate provenance.")
+        if source_sample_format not in {"pcm-s16le", "ieee-float32"}:
+            raise ValueError(f"Case {case_id} has unsupported source sample-format provenance.")
         if not isinstance(source_audio_hash, str) or not re.fullmatch(r"[a-f0-9]{64}", source_audio_hash):
             raise ValueError(f"Case {case_id} has an invalid source audio SHA-256.")
-        expected_conversion = "none" if source_sample_rate == 16000 else "binomial-5tap-linear-24000-to-16000"
+        conversion_markers = {
+            (16000, "pcm-s16le"): "none",
+            (24000, "pcm-s16le"): "binomial-5tap-linear-24000-to-16000",
+            (16000, "ieee-float32"): "ieee-float32-to-pcm16",
+            (24000, "ieee-float32"): (
+                "ieee-float32-to-pcm16-binomial-5tap-linear-24000-to-16000"
+            ),
+        }
+        expected_conversion = conversion_markers[(source_sample_rate, source_sample_format)]
         if conversion != expected_conversion:
-            raise ValueError(f"Case {case_id} has an unexpected sample-rate conversion marker.")
+            raise ValueError(f"Case {case_id} has an unexpected sample-format or sample-rate conversion marker.")
         if not isinstance(prompt_text, str) or not prompt_text.strip():
             raise ValueError(f"Case {case_id} has no promptText.")
         if model not in {"lahgtna", "chatterbox_egyptian", "egtts_v01", "habibi"}:
@@ -149,6 +160,7 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
             "prompt_text": prompt_text,
             "source_model": model,
             "source_sample_rate": source_sample_rate,
+            "source_sample_format": source_sample_format,
             "source_audio_sha256": source_audio_hash,
             "benchmark_sample_rate": benchmark_sample_rate,
             "conversion": conversion,
@@ -235,6 +247,7 @@ def run_benchmark(
                 )
                 result["sourceModel"] = sample["source_model"]
                 result["sourceSampleRate"] = sample["source_sample_rate"]
+                result["sourceSampleFormat"] = sample["source_sample_format"]
                 result["benchmarkSampleRate"] = sample["benchmark_sample_rate"]
                 result["sourceAudioSha256"] = sample["source_audio_sha256"]
                 result["conversion"] = sample["conversion"]
