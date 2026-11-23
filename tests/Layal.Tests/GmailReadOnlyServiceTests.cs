@@ -19,6 +19,19 @@ namespace Layal.Tests;
 public sealed class GmailReadOnlyServiceTests
 {
     [TestMethod]
+    public void DefaultHttpHandlerRejectsRedirectsAndAmbientAuthentication()
+    {
+        using var handler = GmailReadOnlyService.CreateRestrictedHttpHandler();
+
+        Assert.IsFalse(handler.AllowAutoRedirect,
+            "OAuth codes, PKCE verifiers and refresh tokens must not be replayed to redirect destinations.");
+        Assert.IsFalse(handler.UseCookies,
+            "The Gmail API client must not retain ambient browser or HTTP cookies.");
+        Assert.IsFalse(handler.UseDefaultCredentials,
+            "Gmail requests must not attach the current Windows credentials.");
+    }
+
+    [TestMethod]
     public void OAuthClientIdMustBeAnExpectedGoogleDesktopClientId()
     {
         const string clientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com";
