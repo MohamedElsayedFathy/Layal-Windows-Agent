@@ -92,6 +92,40 @@ public sealed class GmailReadOnlyServiceTests
     }
 
     [TestMethod]
+    public async Task DisconnectDuringTokenRefreshCannotRestoreTheDeletedCredential()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The Gmail credential store uses Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var credentialPath = Path.Combine(temp.Path, "gmail.dpapi");
+        new ProtectedJsonStore<GmailOAuthCredential>(credentialPath).Save(new GmailOAuthCredential
+        {
+            ClientId = "123456789012-abcdefghijklmnop.apps.googleusercontent.com",
+            RefreshToken = "original-refresh-token"
+        });
+
+        using var handler = new BlockingGmailTokenRefreshHandler();
+        using var client = new HttpClient(handler);
+        var service = new GmailReadOnlyService(credentialPath, client);
+
+        var pendingRead = service.ListMessagesAsync("newer_than:7d", 5);
+        await handler.TokenRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        service.Disconnect();
+        handler.CompleteRefresh(
+            """{"access_token":"late-access-token","refresh_token":"rotated-after-disconnect","expires_in":3600}""");
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => pendingRead);
+        Assert.IsFalse(service.IsConnected,
+            "An in-flight refresh must not write a rotated refresh token after local disconnect.");
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            service.ListMessagesAsync("newer_than:7d", 5));
+        Assert.AreEqual(1, handler.RequestCount,
+            "No Gmail mailbox request may be sent using an access token returned after disconnect.");
+    }
+
+    [TestMethod]
     public async Task ListMessagesAsyncUsesReadOnlyGetRequestsAndCapsTheRequestedPageSize()
     {
         if (!OperatingSystem.IsWindows())
@@ -592,6 +626,39 @@ public sealed class GmailReadOnlyServiceTests
     private static string Base64Url(byte[] value) =>
         Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
+
+    private sealed class BlockingGmailTokenRefreshHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource<HttpResponseMessage> _refreshResponse =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource<bool> TokenRequestStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int RequestCount { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestCount++;
+            if (request.RequestUri?.AbsoluteUri != "https://oauth2.googleapis.com/token" ||
+                request.Method != HttpMethod.Post)
+            {
+                throw new InvalidOperationException(
+                    "The test must not send a Gmail mailbox request before the disconnect race is resolved.");
+            }
+
+            TokenRequestStarted.TrySetResult(true);
+            return _refreshResponse.Task.WaitAsync(cancellationToken);
+        }
+
+        public void CompleteRefresh(string json) =>
+            _refreshResponse.TrySetResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            });
+    }
 
     private sealed class GmailListStubHandler : HttpMessageHandler
     {
