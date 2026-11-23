@@ -55,6 +55,8 @@ jobs:
         run: |
           python tools/validate_project.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/validate_github_workflows.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_distribution.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/validate_licenses.py --manifest-only --report artifacts/security/license-manifest-validation.md
