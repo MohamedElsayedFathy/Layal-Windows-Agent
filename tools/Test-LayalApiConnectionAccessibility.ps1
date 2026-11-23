@@ -149,16 +149,20 @@ foreach ($spec in $specs) {
             $nameMatches = [string]::Equals($actualName, $expectedName, [StringComparison]::Ordinal)
             $controlTypeMatches = $actualControlType -eq $spec.ControlType.ProgrammaticName
 
+            $semanticMatches = ($isKeyboardFocusable -eq $true)
+            if (-not $semanticMatches) {
+                $details = 'The API field is not exposed as keyboard focusable.'
+            }
             if ($spec.Password) {
-                $semanticMatches = ($isPassword -eq $true)
-                if (-not $semanticMatches) { $details = 'Password field was not exposed as IsPassword=true.' }
+                $semanticMatches = $semanticMatches -and ($isPassword -eq $true)
+                if ($isPassword -ne $true) { $details = 'Password field was not exposed as IsPassword=true.' }
             }
             elseif ($spec.ReadOnly) {
-                $semanticMatches = ($isReadOnly -eq $true)
-                if (-not $semanticMatches) { $details = 'Read-only image path was not exposed as ValuePattern.IsReadOnly=true.' }
+                $semanticMatches = $semanticMatches -and ($isReadOnly -eq $true)
+                if ($isReadOnly -ne $true) { $details = 'Read-only image path was not exposed as ValuePattern.IsReadOnly=true.' }
             }
             else {
-                $semanticMatches = ($isPassword -eq $false)
+                $semanticMatches = $semanticMatches -and ($isPassword -eq $false)
             }
 
             if (-not $nameMatches -and [string]::IsNullOrWhiteSpace($details)) {
