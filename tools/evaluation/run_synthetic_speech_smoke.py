@@ -164,7 +164,12 @@ def run_benchmark(
     manifest, samples = validate_manifest_and_audio(manifest_path)
     resources = RUNNER.verify_whisper_resources(data_root)
 
-    output_root = output_dir.expanduser().resolve()
+    requested_output = output_dir.expanduser().absolute()
+    for component in (requested_output, *requested_output.parents):
+        if RUNNER._is_reparse_point(component):
+            raise ValueError("Synthetic smoke output path must not contain symbolic links or Windows reparse points.")
+
+    output_root = requested_output.resolve()
     if output_root == REPO_ROOT or output_root.is_relative_to(REPO_ROOT):
         raise ValueError("Synthetic smoke reports must be stored outside the Git repository.")
 
