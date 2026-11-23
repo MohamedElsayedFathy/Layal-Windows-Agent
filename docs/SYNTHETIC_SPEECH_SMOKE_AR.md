@@ -38,6 +38,25 @@
 python -m pip install --user huggingface_hub
 if ($LASTEXITCODE -ne 0) { throw "huggingface_hub installation failed." }
 
+# افحص عينة واحدة أولًا قبل تنزيل المجموعة الكاملة (459 MB).
+@'
+from huggingface_hub import hf_hub_download
+import wave
+
+sample = hf_hub_download(
+    repo_id="MohamedGomaa30/Synthetic-Egy-Speech-Dataset",
+    repo_type="dataset",
+    filename="audio/egy_0001_lahgtna.wav",
+    revision="bf7ff28bd1737bc78d154ee9f9180a701f88cd1e",
+)
+with wave.open(sample, "rb") as audio:
+    details = (audio.getcomptype(), audio.getnchannels(), audio.getframerate(), audio.getsampwidth())
+print("Sample WAV:", details)
+if details != ("NONE", 1, 16000, 2):
+    raise SystemExit("Sample format is not PCM mono 16 kHz / 16-bit; stop before downloading the full dataset.")
+'@ | python -
+if ($LASTEXITCODE -ne 0) { throw "Sample WAV format is incompatible; stop here and share the printed details." }
+
 $datasetDir = Join-Path $env:LOCALAPPDATA "Layal\SpeechEvaluation\source\Synthetic-Egy-Speech-Dataset"
 New-Item -ItemType Directory -Force -Path $datasetDir | Out-Null
 $env:LAYAL_SYNTHETIC_SOURCE = $datasetDir
