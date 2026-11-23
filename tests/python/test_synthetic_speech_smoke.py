@@ -135,7 +135,7 @@ class SyntheticSpeechSmokeTests(unittest.TestCase):
         for case in manifest["cases"]:
             self.assertEqual(24000, case["sourceSampleRate"])
             self.assertEqual(16000, case["sampleRate"])
-            self.assertEqual("audioop.ratecv-24000-to-16000", case["conversion"])
+            self.assertEqual("binomial-5tap-linear-24000-to-16000", case["conversion"])
             self.assertEqual(
                 PREP.sha256_file(selected_source_paths[case["id"]]),
                 case["sourceAudioSha256"],
