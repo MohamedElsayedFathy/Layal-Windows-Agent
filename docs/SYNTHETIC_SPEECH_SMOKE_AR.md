@@ -131,3 +131,28 @@ if ($LASTEXITCODE -ne 0) { throw "Synthetic Whisper smoke test did not complete 
 لا تعدّل tests/TestAssets/Speech/speech-reference-set.json ولا مساحة التسجيل الأصلية. لا تمرّر synthetic-smoke-manifest.json إلى score_speech_transcripts.py أو run_whisper_benchmark.py.
 
 نتائج هذه الخطوة تُسمّى Synthetic Smoke Test فقط. قياس WER/CER النهائي يحتاج WAV بشريًا مرخصًا وموافقًا على استخدامه، مع transcript مستقل جرى التحقق منه بشريًا. استخدام مصدر صوت بشري عام لا يُعفي من مراجعة الترخيص وشروط المتحدثين، ولا يجوز تسجيل موافقة لم تحدث.
+
+
+## مراجعة الاستماع النوعية بعد تشغيل Whisper
+
+بعد إتمام run_synthetic_speech_smoke.py بنجاح، أنشئ ورقة مراجعة محلية من التقرير والـmanifest نفسيهما:
+
+~~~powershell
+$report = Get-ChildItem (Join-Path $layalDataRoot "evaluation\whisper-synthetic-smoke") -Filter "whisper-synthetic-smoke-*.json" |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+if (-not $report) { throw "No synthetic Whisper report was found." }
+
+$reviewCsv = Join-Path $smokeRoot "whisper-synthetic-human-review.csv"
+python .\tools\evaluation\export_synthetic_speech_review.py \`
+    --manifest (Join-Path $smokeRoot "synthetic-smoke-manifest.json") \`
+    --report $report.FullName \`
+    --output-csv $reviewCsv
+if ($LASTEXITCODE -ne 0) { throw "Synthetic speech review-sheet export failed." }
+~~~
+
+ينشئ ذلك CSV بترميز UTF-8 BOM وملف تعليمات عربي. يحتوي CSV على مسارات WAV النسبية، واسم مولّد TTS، وprompt التوليد باعتباره سياقًا فقط، وتفريغ Whisper، وخانات فارغة للمراجعة النوعية.
+
+استمع إلى كل ملف WAV محليًا، وسجّل وضوح الصوت والملاحظات والنص الذي سمعته عند الحاجة. لا تعتبر prompt مرجعًا ذهبيًا ولا تعتبر النص الذي تكتبه في ورقة المراجعة transcript معتمدًا. هذه مراجعة نوعية لصوت TTS الاصطناعي وليست قياس WER/CER أو بديلًا عن جمع كلام بشري بموافقة صريحة.
+
+يعيد مشغّل Whisper الآن التحقق من بصمات أرشيف Whisper والنموذج والملف التنفيذي قبل كل عينة. عند فشل التحقق أو تغيّر أي بصمة، يتوقف عن تشغيل العينات المتبقية ويسجلها كعينات محجوبة.
