@@ -64,6 +64,39 @@ public sealed class PermissionBrokerTests
     }
 
     [TestMethod]
+    public void BrowserAndExternalUiActionsRecordNetworkAndMutationRisk()
+    {
+        var empty = new JsonObject();
+        var navigate = PermissionRequestClassifier.Create(
+            "browser_navigate", JsonNode.Parse("""{"url":"https://example.test/"}""")!.AsObject(),
+            false, "Navigate", "details");
+        var search = PermissionRequestClassifier.Create(
+            "web_search", JsonNode.Parse("""{"query":"public example search"}""")!.AsObject(),
+            false, "Search", "details");
+        var click = PermissionRequestClassifier.Create(
+            "click_ui_control",
+            JsonNode.Parse("""{"window_title":"Example","control_type":"Button","automation_id":"Save"}""")!.AsObject(),
+            false, "Invoke control", "details");
+        var fill = PermissionRequestClassifier.Create(
+            "fill_ui_text",
+            JsonNode.Parse("""{"window_title":"Example","automation_id":"Message","text":"hello"}""")!.AsObject(),
+            false, "Enter text", "details");
+
+        Assert.AreEqual(PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare, navigate.Category);
+        Assert.AreEqual(PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare, search.Category);
+        Assert.AreEqual(
+            PermissionActionCategory.Execute | PermissionActionCategory.Modify | PermissionActionCategory.ExternalShare,
+            click.Category,
+            "A UI click can submit, navigate, or modify remote application state.");
+        Assert.AreEqual(
+            PermissionActionCategory.Modify | PermissionActionCategory.Execute | PermissionActionCategory.ExternalShare,
+            fill.Category,
+            "Text entry into an external application may sync or transmit the entered content.");
+        Assert.AreEqual(PermissionActionCategory.Read, PermissionRequestClassifier.Create(
+            "get_system_info", empty, false, "Read", "details").Category);
+    }
+
+    [TestMethod]
     public async Task BrokerPassesExactPromptAndAuditsDecisionWithoutLoggingSensitiveDetails()
     {
         var broker = new PermissionBroker();
