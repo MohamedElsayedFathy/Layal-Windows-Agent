@@ -22,7 +22,19 @@ public sealed class BrowserAutomationService
     private readonly string _profileDirectory;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly BrowserCdpTransport _cdpTransport;
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
+    // DevToolsActivePort is a local trust boundary. Never follow redirects from its
+    // loopback HTTP endpoints or attach ambient cookies/default credentials to CDP requests.
+    private readonly HttpClient _http = new(CreateRestrictedHttpHandler())
+    {
+        Timeout = TimeSpan.FromSeconds(3)
+    };
+
+    internal static HttpClientHandler CreateRestrictedHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        UseDefaultCredentials = false
+    };
     private readonly CancellationTokenSource _shutdownCancellation = new();
     private Process? _browserProcess;
     private bool _attachedToExistingSession;
