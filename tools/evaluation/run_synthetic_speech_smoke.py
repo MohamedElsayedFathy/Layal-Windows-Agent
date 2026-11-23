@@ -86,9 +86,9 @@ def validate_manifest_and_audio(manifest_path: Path) -> tuple[dict[str, Any], li
         benchmark_sample_rate = case.get("sampleRate")
         source_audio_hash = case.get("sourceAudioSha256")
         conversion = case.get("conversion")
-        if source_sample_rate not in {16000, 24000} or benchmark_sample_rate != 16000:
+        if source_sample_rate not in (16000, 24000) or benchmark_sample_rate != 16000:
             raise ValueError(f"Case {case_id} has unsupported source or benchmark sample-rate provenance.")
-        if source_sample_format not in {"pcm-s16le", "ieee-float32"}:
+        if source_sample_format not in ("pcm-s16le", "ieee-float32"):
             raise ValueError(f"Case {case_id} has unsupported source sample-format provenance.")
         if not isinstance(source_audio_hash, str) or not re.fullmatch(r"[a-f0-9]{64}", source_audio_hash):
             raise ValueError(f"Case {case_id} has an invalid source audio SHA-256.")
