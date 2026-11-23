@@ -144,9 +144,9 @@ $report = Get-ChildItem (Join-Path $layalDataRoot "evaluation\whisper-synthetic-
 if (-not $report) { throw "No synthetic Whisper report was found." }
 
 $reviewCsv = Join-Path $smokeRoot "whisper-synthetic-human-review.csv"
-python .\tools\evaluation\export_synthetic_speech_review.py \`
-    --manifest (Join-Path $smokeRoot "synthetic-smoke-manifest.json") \`
-    --report $report.FullName \`
+python .\tools\evaluation\export_synthetic_speech_review.py `
+    --manifest (Join-Path $smokeRoot "synthetic-smoke-manifest.json") `
+    --report $report.FullName `
     --output-csv $reviewCsv
 if ($LASTEXITCODE -ne 0) { throw "Synthetic speech review-sheet export failed." }
 ~~~
