@@ -7,6 +7,7 @@ WER/CER workflow. Synthetic prompt text is not treated as a human-verified trans
 from __future__ import annotations
 
 import argparse
+from array import array
 import hashlib
 import json
 import math
@@ -149,15 +150,6 @@ def _write_whisper_compatible_wav(
     if source_sample_rate != 24000:
         raise ValueError(f"Case {case_id} has an unsupported source sample rate: {source_sample_rate}.")
 
-    try:
-        import audioop
-    except ImportError as error:
-        raise RuntimeError(
-            "24 kHz source audio requires Python's audioop module for local resampling. "
-            "On Python 3.13+, install the drop-in compatibility package with "
-            "'python -m pip install --user audioop-lts', then rerun preparation."
-        ) from error
-
     with wave.open(str(source_path), "rb") as source:
         if (
             source.getcomptype() != "NONE"
@@ -168,15 +160,50 @@ def _write_whisper_compatible_wav(
             raise ValueError(f"Case {case_id} source WAV changed after validation.")
         frames = source.readframes(source.getnframes())
 
-    converted_frames, _ = audioop.ratecv(
-        frames, 2, 1, source_sample_rate, WHISPER_SAMPLE_RATE, None
-    )
+    # Five-tap binomial low-pass ([1, 4, 6, 4, 1] / 16) before 3:2
+    # decimation, followed by linear interpolation to the exact 16 kHz grid.
+    # This is a deterministic pure-Python conversion; no external codec is used.
+    source_samples = array("h")
+    source_samples.frombytes(frames)
+    if sys.byteorder != "little":
+        source_samples.byteswap()
+
+    sample_count = len(source_samples)
+    if sample_count == 0:
+        raise ValueError(f"Case {case_id} source WAV has no PCM frames.")
+
+    filtered = array("h")
+    for index in range(sample_count):
+        total = (
+            source_samples[max(0, index - 2)]
+            + 4 * source_samples[max(0, index - 1)]
+            + 6 * source_samples[index]
+            + 4 * source_samples[min(sample_count - 1, index + 1)]
+            + source_samples[min(sample_count - 1, index + 2)]
+        )
+        filtered.append(max(-32768, min(32767, round(total / 16.0))))
+
+    output_count = (sample_count * 2 + 1) // 3
+    converted = array("h")
+    for output_index in range(output_count):
+        left_index, fraction = divmod(output_index * 3, 2)
+        left_index = min(left_index, sample_count - 1)
+        right_index = min(left_index + 1, sample_count - 1)
+        if fraction == 0:
+            value = filtered[left_index]
+        else:
+            value = round((filtered[left_index] + filtered[right_index]) / 2.0)
+        converted.append(max(-32768, min(32767, value)))
+
+    if sys.byteorder != "little":
+        converted.byteswap()
+
     with wave.open(str(target_path), "wb") as target:
         target.setnchannels(1)
         target.setsampwidth(2)
         target.setframerate(WHISPER_SAMPLE_RATE)
-        target.writeframes(converted_frames)
-    return "audioop.ratecv-24000-to-16000"
+        target.writeframes(converted.tobytes())
+    return "binomial-5tap-linear-24000-to-16000"
 
 
 def _read_source(source_dir: Path) -> tuple[Path, Path, list[dict[str, Any]]]:
