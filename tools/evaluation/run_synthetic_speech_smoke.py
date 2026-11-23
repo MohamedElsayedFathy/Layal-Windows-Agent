@@ -164,12 +164,18 @@ def run_benchmark(
     manifest, samples = validate_manifest_and_audio(manifest_path)
     resources = RUNNER.verify_whisper_resources(data_root)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    if RUNNER._is_reparse_point(output_dir):
-        raise ValueError("Synthetic smoke output directory must not be a reparse point.")
-    output_root = output_dir.resolve(strict=True)
+    output_root = output_dir.expanduser().resolve()
     if output_root == REPO_ROOT or output_root.is_relative_to(REPO_ROOT):
         raise ValueError("Synthetic smoke reports must be stored outside the Git repository.")
+
+    output_parent = output_root.parent
+    output_parent.mkdir(parents=True, exist_ok=True)
+    if RUNNER._is_reparse_point(output_parent):
+        raise ValueError("Synthetic smoke output parent must not be a reparse point.")
+    output_root.mkdir(parents=True, exist_ok=True)
+    if RUNNER._is_reparse_point(output_root):
+        raise ValueError("Synthetic smoke output directory must not be a reparse point.")
+    output_root = output_root.resolve(strict=True)
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + os.urandom(4).hex()
     report_path = output_root / f"{prefix}-{run_id}.json"
