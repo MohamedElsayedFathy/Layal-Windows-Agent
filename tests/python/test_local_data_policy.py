@@ -26,6 +26,7 @@ class LocalRuntimeDataPolicyTests(unittest.TestCase):
             "Layal/SpeechEvaluation/source/metadata.jsonl",
             "Layal/logs/layal-errors.log",
             "some/other/user-store.dpapi",
+            "logs/layal-errors.log",
             "layal_repo_audit.ps1",
         )
         for value in local_paths:
