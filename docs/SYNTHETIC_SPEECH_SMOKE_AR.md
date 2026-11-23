@@ -59,13 +59,7 @@ if details[2] == 24000:
 '@ | python -
 if ($LASTEXITCODE -ne 0) { throw "Sample WAV format is incompatible; stop here and share the printed details." }
 
-# audioop is built in on Python 3.12 and earlier. Python 3.13+ can use the
-# drop-in audioop-lts package for the local 24 kHz -> 16 kHz conversion.
-python -c "import audioop" 2>$null
-if ($LASTEXITCODE -ne 0) {
-    python -m pip install --user audioop-lts
-    if ($LASTEXITCODE -ne 0) { throw "audioop-lts installation failed." }
-}
+# Conversion from 24 kHz to 16 kHz uses only Python's standard library.
 
 $datasetDir = Join-Path $env:LOCALAPPDATA "Layal\SpeechEvaluation\source\Synthetic-Egy-Speech-Dataset"
 New-Item -ItemType Directory -Force -Path $datasetDir | Out-Null
@@ -104,11 +98,11 @@ if ($LASTEXITCODE -ne 0) { throw "Synthetic smoke subset preparation failed." }
 - تتحقق من هوية بطاقة البيانات وتصريح MIT المعلن ووجود 1,000 صف metadata.
 - تختار 20 ملفًا بطريقة متوازنة وقابلة لإعادة الإنتاج عبر أسماء نماذج TTS الأربعة.
 - تتحقق من أمان المسارات، ووجود الملفات، وWAV PCM mono 16-bit بمعدل 16 أو 24 kHz، والمدة والحجم.
-- تحول نسخة العمل من 24 kHz إلى 16 kHz محليًا لتوافق Whisper؛ لا تعدّل الملف الأصلي.
+- تحول نسخة العمل من 24 kHz إلى 16 kHz محليًا بمرشح low-pass خماسي النقاط؛ لا تعدّل الملف الأصلي.
 - تحفظ بصمة WAV الأصلي والمحوّل ومعدل العينة والتحويل المستخدم في manifest.
 - لا تنشئ موافقة بشرية أو speakerId، ولا تضع الحالات في manifest التقييم البشري.
 
-تعتمد عملية التحويل على `audioop.ratecv` من وحدة Python `audioop`؛ وعلى Python 3.13+ يثبت الدليل بديل `audioop-lts` إذا لم تكن الوحدة متاحة. إذا كان معدل العينة أو ترميز WAV مختلفًا عن الصيغتين المدعومتين، لا تتجاوز الفحص ولا تغيّر الملف يدويًا؛ أرسل رسالة الخطأ.
+تستخدم عملية التحويل مرشح low-pass خماسي النقاط `[1, 4, 6, 4, 1] / 16` قبل خفض معدل العينة بنسبة 3:2. التنفيذ يعتمد على مكتبة Python القياسية ولا يحتاج تثبيت حزمة إضافية. إذا كان معدل العينة أو ترميز WAV مختلفًا عن الصيغتين المدعومتين، لا تتجاوز الفحص ولا تغيّر الملف يدويًا؛ أرسل رسالة الخطأ.
 
 ## تشغيل Whisper smoke test
 
