@@ -222,7 +222,7 @@ $report = [pscustomobject]@{
     LayalProcessId = $process.Id
     LayalWindowTitle = [string]$window.Current.Name
     FieldsExpected = $specs.Count
-    FieldsFound = @($rows | Where-Object { $_.Result -eq 'PASS' }).Count
+    FieldsPassed = @($rows | Where-Object { $_.Result -eq 'PASS' }).Count
     FailedFields = $failedRows.Count
     ScreenReaderProcessesDetected = @($screenReaderProcesses)
     NarratorSpokenOutput = 'NOT TESTED: a person must listen to the actual announcement.'
@@ -242,8 +242,10 @@ Write-Host ''
 Write-Host "Layal API UI Automation diagnostic: $diagnosticResult"
 Write-Host "Language: $language"
 Write-Host "Fields passed: $($specs.Count - $failedRows.Count)/$($specs.Count)"
-Write-Host "Narrator process detected: $(@($screenReaderProcesses | Where-Object ProcessName -eq 'Narrator').Count -gt 0)"
-Write-Host "NVDA process detected: $(@($screenReaderProcesses | Where-Object ProcessName -eq 'nvda').Count -gt 0)"
+$narratorDetected = @($screenReaderProcesses | Where-Object { $_.ProcessName -eq 'Narrator' }).Count -gt 0
+$nvdaDetected = @($screenReaderProcesses | Where-Object { $_.ProcessName -eq 'nvda' }).Count -gt 0
+Write-Host "Narrator process detected: $narratorDetected"
+Write-Host "NVDA process detected: $nvdaDetected"
 Write-Host "Report: $reportPath"
 Write-Host "Fields CSV: $csvPath"
 Write-Host 'IMPORTANT: UI Automation metadata PASS is not screen-reader speech acceptance. Narrator/NVDA spoken output remains NOT TESTED until a human listens.'
