@@ -337,10 +337,9 @@ def transcribe_one(
         text_path = output_prefix.with_suffix(".txt")
         transcript = _extract_transcript(json_path, text_path)
         duration = sample["audio_duration_seconds"]
-        return {
+        result = {
             "caseId": sample["id"],
             "locale": sample["locale"],
-            "speakerId": sample["speaker_id"],
             "audioSha256": sample["audio_sha256"],
             "audioDurationSeconds": round(duration, 4),
             "wallClockMs": round(elapsed_ms, 2),
@@ -348,6 +347,9 @@ def transcribe_one(
             "transcript": transcript,
             "status": "passed",
         }
+        if sample.get("speaker_id"):
+            result["speakerId"] = sample["speaker_id"]
+        return result
     finally:
         try:
             audio_snapshot.unlink()
