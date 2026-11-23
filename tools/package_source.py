@@ -19,7 +19,7 @@ EXCLUDED_DIRS = {
     ".venv", "venv", "hf-cache", ".cache",
 }
 EXCLUDED_NAMES = {".env", ".env.local", ".env.production", "secrets.json", "appsettings.Local.json", ".DS_Store"}
-EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".pfx", ".p12", ".pem", ".key", ".user", ".suo", ".tmp", ".dpapi"}
+EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".pfx", ".p12", ".pem", ".key", ".user", ".suo", ".tmp", ".dpapi", ".log"}
 
 
 def should_exclude_path(relative: Path) -> bool:
