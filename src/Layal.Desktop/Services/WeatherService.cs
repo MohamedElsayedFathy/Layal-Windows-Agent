@@ -35,9 +35,16 @@ public sealed class WeatherService
 {
     public const int MaximumResponseBytes = 1024 * 1024;
 
-    private static readonly HttpClient SharedHttpClient = new()
+    private static readonly HttpClient SharedHttpClient = new(CreateRestrictedHttpHandler())
     {
         Timeout = TimeSpan.FromSeconds(10)
+    };
+
+    internal static HttpClientHandler CreateRestrictedHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        UseDefaultCredentials = false
     };
 
     private readonly HttpClient _httpClient;
