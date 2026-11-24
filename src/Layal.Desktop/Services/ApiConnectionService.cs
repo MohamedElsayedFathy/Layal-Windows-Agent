@@ -69,6 +69,15 @@ public sealed class ApiConnectionService
         var normalized = ValidateAndNormalize(profile);
         lock (_gate)
         {
+            var index = _connections.FindIndex(x => string.Equals(x.Name, normalized.Name, StringComparison.OrdinalIgnoreCase));
+            var existing = index >= 0 ? _connections[index] : null;
+            if (IsRemoteHttpBaseUrl(normalized.BaseUrl) &&
+                (existing is null || !string.Equals(existing.BaseUrl, normalized.BaseUrl, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    "New or changed remote API connections must use HTTPS. Existing remote HTTP profiles remain stored for compatibility, but Layal will not send requests to them until their base URL is changed to HTTPS.");
+            }
+
             // Persist a candidate snapshot first. Do not expose an in-memory change if the
             // protected store rejects the write.
             var nextConnections = _connections.Select(Clone).ToList();
@@ -78,7 +87,6 @@ public sealed class ApiConnectionService
                     item.IsLayalProvider = false;
             }
 
-            var index = nextConnections.FindIndex(x => string.Equals(x.Name, normalized.Name, StringComparison.OrdinalIgnoreCase));
             if (index >= 0) nextConnections[index] = normalized;
             else nextConnections.Add(normalized);
 
@@ -566,6 +574,12 @@ public sealed class ApiConnectionService
         if (text.Length > 4096 || text.Any(char.IsControl))
             throw new InvalidOperationException("The optional API image path must be 4096 characters or fewer.");
         return text;
+    }
+
+    private static bool IsRemoteHttpBaseUrl(string baseUrl)
+    {
+        var uri = new Uri(baseUrl, UriKind.Absolute);
+        return uri.Scheme == Uri.UriSchemeHttp && !uri.IsLoopback;
     }
 
     private static string ValidateBaseUrl(string value)
