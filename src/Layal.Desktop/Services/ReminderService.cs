@@ -71,8 +71,6 @@ public sealed class ReminderService
         var normalizedTitle = (title ?? string.Empty).Trim();
         if (normalizedTitle.Length is < 1 or > MaximumTitleCharacters)
             throw new ArgumentException($"Reminder titles must contain 1–{MaximumTitleCharacters} characters.", nameof(title));
-        if (dueAt <= DateTimeOffset.Now)
-            throw new ArgumentOutOfRangeException(nameof(dueAt), "The reminder time must be in the future.");
         var normalizedRecurrence = NormalizeRecurrence(recurrence);
         var normalizedRelatedTaskId = NormalizeRelatedTaskId(relatedTaskId);
 
@@ -83,6 +81,11 @@ public sealed class ReminderService
                 string.Equals(candidate.Id, id, StringComparison.Ordinal));
             if (item is null)
                 return null;
+
+            // An overdue, still-active reminder may be renamed without picking a new time.
+            var keepsOverdueTime = item.IsActive && dueAt == item.DueAt;
+            if (!keepsOverdueTime && dueAt <= DateTimeOffset.Now)
+                throw new ArgumentOutOfRangeException(nameof(dueAt), "The reminder time must be in the future.");
 
             item.Title = normalizedTitle;
             item.DueAt = dueAt;
