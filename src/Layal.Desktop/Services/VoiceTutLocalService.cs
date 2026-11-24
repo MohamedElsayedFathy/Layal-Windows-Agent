@@ -43,11 +43,19 @@ public sealed class VoiceTutLocalService : IDisposable
     private const int MaximumTextCharacters = 6000;
     private static readonly TimeSpan ProcessInstallTimeout = TimeSpan.FromMinutes(45);
     private static readonly TimeSpan ModelStartupTimeout = TimeSpan.FromMinutes(20);
-    private static readonly HttpClient ApiClient = new(new SocketsHttpHandler
+    private static readonly HttpClient ApiClient = new(CreateApiHttpHandler())
     {
+        Timeout = Timeout.InfiniteTimeSpan
+    };
+
+    internal static SocketsHttpHandler CreateApiHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        UseProxy = false,
         ConnectTimeout = TimeSpan.FromSeconds(10),
         PooledConnectionLifetime = TimeSpan.FromMinutes(2)
-    }) { Timeout = Timeout.InfiniteTimeSpan };
+    };
 
     private readonly object _processSync = new();
     private readonly LocalResourceSetupCoordinator _resourceCoordinator;
