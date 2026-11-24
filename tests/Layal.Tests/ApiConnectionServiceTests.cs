@@ -188,7 +188,7 @@ public sealed class ApiConnectionServiceTests
         Assert.ThrowsExactly<InvalidOperationException>(() =>
             service.CreateRequestApproval("Remote HTTP", "GET", "health", "", ""));
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
-            service.SendAsync("Remote HTTP", "POST", "records", "", "{\\"private\\":true}"));
+            service.SendAsync("Remote HTTP", "POST", "records", "", """{"private":true}"""));
         Assert.IsNull(handler.LastRequestUri, "No remote HTTP request may be sent, including test and direct-send paths.");
 
         var anonymousProfile = new ApiConnectionProfile
@@ -206,7 +206,7 @@ public sealed class ApiConnectionServiceTests
     public async Task LoopbackHttpApiConnectionsRemainAvailableForLocalServices()
     {
         using var temp = new TestTempDirectory();
-        using var handler = new RecordingHandler(_ => JsonResponse("{\\"ok\\":true}"));
+        using var handler = new RecordingHandler(_ => JsonResponse("""{"ok":true}"""));
         using var client = new HttpClient(handler, disposeHandler: false)
         {
             Timeout = Timeout.InfiniteTimeSpan
