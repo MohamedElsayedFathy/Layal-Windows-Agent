@@ -123,14 +123,19 @@ public sealed class OllamaLocalModelSetupService
         }
     }
     private const string OllamaApiBaseUrl = "http://127.0.0.1:11434/";
-    private static readonly HttpClient PullClient = new(new SocketsHttpHandler
+    private static readonly HttpClient PullClient = new(CreatePullHttpHandler())
+    {
+        Timeout = Timeout.InfiniteTimeSpan
+    };
+
+    internal static SocketsHttpHandler CreatePullHttpHandler() => new()
     {
         AllowAutoRedirect = false,
         UseCookies = false,
         UseProxy = false,
         ConnectTimeout = TimeSpan.FromSeconds(10),
         PooledConnectionLifetime = TimeSpan.FromMinutes(2)
-    }) { Timeout = Timeout.InfiniteTimeSpan };
+    };
 
     private readonly LocalChatModelService _chatService;
     private readonly LocalResourceSetupCoordinator _resourceCoordinator;
