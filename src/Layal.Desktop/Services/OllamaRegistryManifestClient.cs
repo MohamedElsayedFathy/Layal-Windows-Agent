@@ -34,14 +34,17 @@ public sealed class OllamaRegistryManifestClient
     private const string DockerManifestMediaType = "application/vnd.docker.distribution.manifest.v2+json";
     private const string OllamaManifestListMediaType = "application/vnd.ollama.manifest.list.v2+json";
 
-    private static readonly HttpClient SharedClient = new(new SocketsHttpHandler
-    {
-        AllowAutoRedirect = false,
-        ConnectTimeout = TimeSpan.FromSeconds(12),
-        PooledConnectionLifetime = TimeSpan.FromMinutes(2)
-    })
+    private static readonly HttpClient SharedClient = new(CreateRegistryHttpHandler())
     {
         Timeout = Timeout.InfiniteTimeSpan
+    };
+
+    internal static SocketsHttpHandler CreateRegistryHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        ConnectTimeout = TimeSpan.FromSeconds(12),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(2)
     };
 
     private readonly HttpClient _httpClient;
