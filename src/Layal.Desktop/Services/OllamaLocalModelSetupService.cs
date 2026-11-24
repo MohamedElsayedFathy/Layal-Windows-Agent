@@ -126,6 +126,7 @@ public sealed class OllamaLocalModelSetupService
     private static readonly HttpClient PullClient = new(new SocketsHttpHandler
     {
         AllowAutoRedirect = false,
+        UseCookies = false,
         UseProxy = false,
         ConnectTimeout = TimeSpan.FromSeconds(10),
         PooledConnectionLifetime = TimeSpan.FromMinutes(2)
