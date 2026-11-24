@@ -1,6 +1,7 @@
 using System.IO;
-using System.Reflection;
 using System.Linq;
+using System.Net.Http;
+using System.Reflection;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -9,6 +10,52 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class LocalVoiceServiceTests
 {
+    [TestMethod]
+    public void WhisperDownloadHandlerDisablesAutomaticRedirectsAndCookies()
+    {
+        var factory = typeof(LocalVoiceService).GetMethod(
+            "CreateWhisperDownloadHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (SocketsHttpHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+    }
+
+    [TestMethod]
+    public void WhisperDownloadRedirectPolicyRequiresApprovedHttpsHosts()
+    {
+        var policy = typeof(LocalVoiceService).GetMethod(
+            "IsApprovedWhisperDownloadUri",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(policy);
+
+        bool Allows(string value) => (bool)policy.Invoke(null, new object[] { new Uri(value) })!;
+
+        Assert.IsTrue(Allows("https://github.com/ggml-org/whisper.cpp/archive.zip"));
+        Assert.IsTrue(Allows("https://release-assets.githubusercontent.com/file.zip?signature=redacted"));
+        Assert.IsTrue(Allows("https://cdn-lfs.huggingface.co/model.bin"));
+        Assert.IsFalse(Allows("http://github.com/ggml-org/whisper.cpp/archive.zip"));
+        Assert.IsFalse(Allows("https://evil.example/file.zip"));
+        Assert.IsFalse(Allows("https://github.com:8443/ggml-org/whisper.cpp/archive.zip"));
+        Assert.IsFalse(Allows("https://user:secret@github.com/ggml-org/whisper.cpp/archive.zip"));
+    }
+
+    [TestMethod]
+    public void VoiceTutApiHandlerDisablesRedirectsCookiesAndProxy()
+    {
+        var factory = typeof(VoiceTutLocalService).GetMethod(
+            "CreateApiHttpHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (SocketsHttpHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+        Assert.IsFalse(handler.UseProxy);
+    }
+
     [TestMethod]
     public void LocalVoiceSpeechPreparationRemovesMarkupAndUrlsWithoutChangingVisibleWords()
     {
