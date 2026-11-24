@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Reflection;
 using Layal.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -7,6 +8,20 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class OllamaLocalModelSetupServiceTests
 {
+    [TestMethod]
+    public void PullHttpHandlerDisablesRedirectsCookiesAndProxy()
+    {
+        var factory = typeof(OllamaLocalModelSetupService).GetMethod(
+            "CreatePullHttpHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (SocketsHttpHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+        Assert.IsFalse(handler.UseProxy);
+    }
+
     [TestMethod]
     public void DefaultSetupServiceWiresTheVerifiedResourceDownloader()
     {

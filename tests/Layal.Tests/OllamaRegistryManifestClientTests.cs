@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -16,6 +17,19 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class OllamaRegistryManifestClientTests
 {
+    [TestMethod]
+    public void DefaultRegistryHandlerDisablesAutomaticRedirectsAndCookies()
+    {
+        var factory = typeof(OllamaRegistryManifestClient).GetMethod(
+            "CreateRegistryHttpHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (SocketsHttpHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+    }
+
     private const string ManifestBody =
         "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"size\":42},\"layers\":[]}";
 

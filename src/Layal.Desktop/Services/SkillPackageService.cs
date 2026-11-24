@@ -21,13 +21,83 @@ public sealed class SkillPackageService
     private static readonly HttpClient SharedGitHubHttpClient = CreateGitHubHttpClient();
     private readonly HttpClient _githubHttpClient;
 
+    private const int MaximumGitHubArchiveRedirects = 4;
+
     private static HttpClient CreateGitHubHttpClient()
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
+        var client = new HttpClient(CreateGitHubHttpHandler()) { Timeout = TimeSpan.FromSeconds(45) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("LayalSkillImporter/0.4");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return client;
     }
+
+    internal static SocketsHttpHandler CreateGitHubHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        ConnectTimeout = TimeSpan.FromSeconds(15),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+    };
+
+    private static bool IsTrustedGitHubApiUri(Uri uri) =>
+        uri.IsAbsoluteUri &&
+        uri.Scheme == Uri.UriSchemeHttps &&
+        uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+        uri.Port == 443 &&
+        string.IsNullOrEmpty(uri.UserInfo) &&
+        string.IsNullOrEmpty(uri.Fragment);
+
+    private static bool IsTrustedGitHubArchiveRedirectUri(Uri uri) =>
+        uri.IsAbsoluteUri &&
+        uri.Scheme == Uri.UriSchemeHttps &&
+        uri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
+        uri.Port == 443 &&
+        string.IsNullOrEmpty(uri.UserInfo) &&
+        string.IsNullOrEmpty(uri.Fragment);
+
+    private async Task<HttpResponseMessage> SendGitHubArchiveRequestAsync(
+        Uri archiveUri,
+        CancellationToken cancellationToken)
+    {
+        if (!IsTrustedGitHubApiUri(archiveUri))
+            throw new InvalidOperationException("The GitHub archive request must start at the official HTTPS API endpoint.");
+
+        var current = archiveUri;
+        for (var redirectCount = 0; ; redirectCount++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, current);
+            var response = await _githubHttpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken).ConfigureAwait(false);
+
+            if (response.RequestMessage?.RequestUri is { } effectiveUri &&
+                !(IsTrustedGitHubApiUri(effectiveUri) || IsTrustedGitHubArchiveRedirectUri(effectiveUri)))
+            {
+                response.Dispose();
+                throw new InvalidOperationException("The GitHub archive response came from an untrusted redirect target.");
+            }
+
+            if (!IsGitHubRedirect(response.StatusCode))
+                return response;
+
+            var location = response.Headers.Location;
+            response.Dispose();
+            if (location is null)
+                throw new InvalidOperationException("GitHub returned an archive redirect without a Location header.");
+            if (redirectCount >= MaximumGitHubArchiveRedirects)
+                throw new InvalidOperationException("The GitHub archive exceeded the maximum number of validated redirects.");
+
+            var nextUri = location.IsAbsoluteUri ? location : new Uri(current, location);
+            if (!IsTrustedGitHubArchiveRedirectUri(nextUri))
+                throw new InvalidOperationException("GitHub archive redirects must use the official HTTPS codeload.github.com host.");
+
+            current = nextUri;
+        }
+    }
+
+    private static bool IsGitHubRedirect(System.Net.HttpStatusCode statusCode) =>
+        (int)statusCode is 301 or 302 or 303 or 307 or 308;
 
     public SkillPackageService(string root) : this(root, SharedGitHubHttpClient) { }
 
@@ -627,10 +697,11 @@ public sealed class SkillPackageService
         if (!Regex.IsMatch(commitSha, "^[0-9a-f]{40}$", RegexOptions.CultureInvariant))
             throw new InvalidOperationException("GitHub archive download requires a resolved 40-character commit SHA.");
 
-        // GitHub's documented zipball endpoint resolves a commit SHA and follows its
-        // 302 to the generated archive. HttpClient follows the redirect by default.
+        // GitHub's zipball endpoint redirects to codeload.github.com. The shared client
+        // disables automatic redirects; follow only validated HTTPS redirects to that host.
         var url = $"https://api.github.com/repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}/zipball/{commitSha}";
-        using var response = await _githubHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var response = await SendGitHubArchiveRequestAsync(new Uri(url, UriKind.Absolute), cancellationToken)
+            .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException(
                 $"GitHub archive download failed with HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).",

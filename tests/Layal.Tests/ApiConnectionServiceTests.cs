@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using Layal.Models;
 using Layal.Services;
@@ -159,6 +161,107 @@ public sealed class ApiConnectionServiceTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "%252e%252e%255cadmin"));
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TestAsync(profile, "https://other.example.test/data"));
         Assert.IsNull(handler.LastRequestUri);
+    }
+
+    [TestMethod]
+    public async Task RemoteHttpApiConnectionsAreRejectedBeforeAnyRequestOrApproval()
+    {
+        using var temp = new TestTempDirectory();
+        using var handler = new RecordingHandler(_ => JsonResponse("{}"));
+        using var client = new HttpClient(handler, disposeHandler: false)
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+        var storePath = Path.Combine(temp.Path, "api-connections.dpapi");
+        var service = new ApiConnectionService(storePath, client);
+        var profile = new ApiConnectionProfile
+        {
+            Name = "Remote HTTP",
+            BaseUrl = "http://api.example.test/v1",
+            AuthenticationType = "Bearer",
+            AuthSecret = "must-not-leave-over-http"
+        };
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.Save(profile));
+        Assert.AreEqual(0, service.GetAll().Count, "New remote HTTP profiles must not be saved.");
+
+        // Simulate a legacy profile already persisted before the HTTPS-only save policy.
+        new ProtectedJsonStore<List<ApiConnectionProfile>>(storePath).Save(new List<ApiConnectionProfile>
+        {
+            new()
+            {
+                Name = "Remote HTTP",
+                BaseUrl = "http://api.example.test/v1/",
+                AuthenticationType = "Bearer",
+                AuthSecret = "must-not-leave-over-http"
+            }
+        });
+        service = new ApiConnectionService(storePath, client);
+
+        var testError = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.TestAsync(profile, "health"));
+        StringAssert.Contains(testError.Message, "HTTPS");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            service.CreateRequestApproval("Remote HTTP", "GET", "health", "", ""));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            service.SendAsync("Remote HTTP", "POST", "records", "", """{"private":true}"""));
+        Assert.IsNull(handler.LastRequestUri, "No remote HTTP request may be sent, including legacy profiles and direct-send paths.");
+
+        foreach (var remoteBaseUrl in new[]
+        {
+            "http://api.example.test/v1",
+            "http://192.168.1.20/v1"
+        })
+        {
+            var anonymousProfile = new ApiConnectionProfile
+            {
+                Name = "Remote HTTP anonymous",
+                BaseUrl = remoteBaseUrl,
+                AuthenticationType = "None"
+            };
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                () => service.TestAsync(anonymousProfile, "health"));
+            Assert.IsNull(handler.LastRequestUri);
+        }
+    }
+
+    [TestMethod]
+    public async Task LoopbackHttpApiConnectionsRemainAvailableForLocalServices()
+    {
+        using var temp = new TestTempDirectory();
+        using var handler = new RecordingHandler(_ => JsonResponse("""{"ok":true}"""));
+        using var client = new HttpClient(handler, disposeHandler: false)
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+        var service = new ApiConnectionService(Path.Combine(temp.Path, "api-connections.dpapi"), client);
+        var profile = new ApiConnectionProfile
+        {
+            Name = "Local API",
+            BaseUrl = "http://127.0.0.1:11434/v1",
+            AuthenticationType = "None"
+        };
+        service.Save(profile);
+
+        var result = await service.TestAsync(profile, "models");
+
+        Assert.AreEqual("http://127.0.0.1:11434/v1/models", handler.LastRequestUri?.AbsoluteUri);
+        Assert.AreEqual(200, result.StatusCode);
+    }
+
+    [TestMethod]
+    public void DefaultApiHttpHandlerDisablesRedirectsCookiesAndDefaultCredentials()
+    {
+        var factory = typeof(ApiConnectionService).GetMethod(
+            "CreateRestrictedHttpHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (HttpClientHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+        Assert.IsFalse(handler.UseDefaultCredentials);
     }
 
     [TestMethod]

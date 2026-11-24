@@ -52,6 +52,15 @@ public sealed class LocalResourceDownloadService : IDisposable
         PropertyNameCaseInsensitive = true
     };
 
+    internal static SocketsHttpHandler CreateDownloadHttpHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        ConnectTimeout = TimeSpan.FromSeconds(20),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        AutomaticDecompression = DecompressionMethods.None
+    };
+
     private readonly HttpClient _httpClient;
     private readonly bool _ownsClient;
     private readonly HashSet<string> _approvedHosts;
@@ -68,13 +77,10 @@ public sealed class LocalResourceDownloadService : IDisposable
         IEnumerable<string>? approvedHosts = null)
     {
         _ownsClient = httpClient is null;
-        _httpClient = httpClient ?? new HttpClient(new SocketsHttpHandler
+        _httpClient = httpClient ?? new HttpClient(CreateDownloadHttpHandler())
         {
-            AllowAutoRedirect = false,
-            ConnectTimeout = TimeSpan.FromSeconds(20),
-            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-            AutomaticDecompression = DecompressionMethods.None
-        }) { Timeout = Timeout.InfiniteTimeSpan };
+            Timeout = Timeout.InfiniteTimeSpan
+        };
 
         _approvedHosts = new HashSet<string>(
             approvedHosts ?? DefaultApprovedHosts,

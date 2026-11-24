@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,20 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class WeatherServiceTests
 {
+    [TestMethod]
+    public void DefaultWeatherHttpHandlerDisablesRedirectsCookiesAndDefaultCredentials()
+    {
+        var factory = typeof(WeatherService).GetMethod(
+            "CreateRestrictedHttpHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (HttpClientHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+        Assert.IsFalse(handler.UseDefaultCredentials);
+    }
+
     [TestMethod]
     public async Task GetCurrentWeatherAsyncUsesGeocodingAndReturnsCurrentConditions()
     {

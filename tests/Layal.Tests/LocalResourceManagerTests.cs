@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -209,6 +210,19 @@ public sealed class LocalResourceManagerTests
 [TestClass]
 public sealed class LocalResourceDownloadServiceTests
 {
+    [TestMethod]
+    public void DefaultDownloadHandlerDisablesAutomaticRedirectsAndCookies()
+    {
+        var factory = typeof(LocalResourceDownloadService).GetMethod(
+            "CreateDownloadHttpHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (SocketsHttpHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+    }
+
     private const string Host = "downloads.example.test";
 
     [TestMethod]

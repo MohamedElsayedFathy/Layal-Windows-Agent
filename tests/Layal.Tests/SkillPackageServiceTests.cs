@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Layal.Services;
@@ -10,6 +11,99 @@ namespace Layal.Tests;
 [TestClass]
 public sealed class SkillPackageServiceTests
 {
+    [TestMethod]
+    public void DefaultGitHubHttpHandlerDisablesAutomaticRedirectsAndCookies()
+    {
+        var factory = typeof(SkillPackageService).GetMethod(
+            "CreateGitHubHttpHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(factory);
+
+        using var handler = (SocketsHttpHandler)factory.Invoke(null, null)!;
+        Assert.IsFalse(handler.AllowAutoRedirect);
+        Assert.IsFalse(handler.UseCookies);
+    }
+
+    [TestMethod]
+    public async Task GitHubArchiveFollowsValidatedHttpsCodeloadRedirect()
+    {
+        using var temp = new TestTempDirectory();
+        const string commitSha = "0123456789abcdef0123456789abcdef01234567";
+        var archivePath = CreateRawZip(temp.Path,
+            ("repository-snapshot/sample-skill/SKILL.md", "---\nname: sample-skill\ndescription: Redirected archive.\n---\nBody"));
+        var archiveBytes = File.ReadAllBytes(archivePath);
+        var handler = new StubGitHubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/repos/acme/skills/commits/main", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
+                };
+
+            if (request.RequestUri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/repos/acme/skills/zipball/{commitSha}", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.Redirect)
+                {
+                    Headers = { Location = new Uri($"https://codeload.github.com/acme/skills/legacy.zip/{commitSha}") }
+                };
+
+            if (request.RequestUri.Host.Equals("codeload.github.com", StringComparison.OrdinalIgnoreCase) &&
+                path.Equals($"/acme/skills/legacy.zip/{commitSha}", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(archiveBytes)
+                };
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new HttpClient(handler);
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"), client);
+
+        var imported = await service.ImportFromGitHubAsync(
+            "https://github.com/acme/skills/tree/main/sample-skill",
+            overwrite: false);
+
+        Assert.AreEqual("sample-skill", imported.Name);
+        Assert.AreEqual(3, handler.RequestedUris.Count);
+        Assert.AreEqual("api.github.com", handler.RequestedUris[1].Host);
+        Assert.AreEqual("codeload.github.com", handler.RequestedUris[2].Host);
+    }
+
+    [TestMethod]
+    public async Task GitHubArchiveRejectsUntrustedOrInsecureRedirectBeforeFollowingIt()
+    {
+        using var temp = new TestTempDirectory();
+        const string commitSha = "abcdef0123456789abcdef0123456789abcdef01";
+        var handler = new StubGitHubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Equals($"/repos/acme/skills/commits/main", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { sha = commitSha }), Encoding.UTF8, "application/json")
+                };
+
+            if (path.Equals($"/repos/acme/skills/zipball/{commitSha}", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.Redirect)
+                {
+                    Headers = { Location = new Uri("http://evil.example/archive.zip") }
+                };
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        using var client = new HttpClient(handler);
+        var service = new SkillPackageService(System.IO.Path.Combine(temp.Path, "installed"), client);
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            service.ImportFromGitHubAsync("https://github.com/acme/skills/tree/main/sample-skill", overwrite: false));
+
+        StringAssert.Contains(error.Message, "codeload.github.com");
+        Assert.AreEqual(2, handler.RequestedUris.Count, "An insecure redirect target must never receive a request.");
+        Assert.IsFalse(handler.RequestedUris.Any(uri => uri.Host.Equals("evil.example", StringComparison.OrdinalIgnoreCase)));
+    }
+
     [TestMethod]
     public void ImportsValidZipAndReadsSkillMarkdown()
     {
