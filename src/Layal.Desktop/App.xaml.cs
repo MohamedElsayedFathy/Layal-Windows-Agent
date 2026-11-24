@@ -384,8 +384,9 @@ public partial class App : Application
             // Keep the log bounded: restart it once it grows past ~1 MB.
             if (File.Exists(path) && new FileInfo(path).Length > 1_000_000)
                 File.Move(path, path + ".old", overwrite: true);
-            // Only exception type/stack are written; no settings, keys, prompts or file contents.
-            File.AppendAllText(path, $"[{DateTimeOffset.Now:O}] {source}: {exception?.GetType().FullName}: {exception?.Message}{Environment.NewLine}{exception?.StackTrace}{Environment.NewLine}{Environment.NewLine}");
+            // Exception messages can embed user-controlled paths, URLs, or payload fragments.
+            // Persist only type and stack metadata; keep potentially sensitive messages out of disk logs.
+            File.AppendAllText(path, CrashLogFormatter.Format(DateTimeOffset.Now, source, exception));
         }
         catch { /* logging must never throw */ }
     }
