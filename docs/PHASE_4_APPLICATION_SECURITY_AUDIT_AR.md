@@ -54,6 +54,7 @@
 ## نطاق مساحة العمل وصلاحياتها
 
 - مساحة العمل الوحيدة المعتمدة للمشروع هي `C:\Users\mohamed.fathy.MELHEGAZ\Desktop\Code\AI\Layal-Windows-Agent`. تقتصر عمليات فتح الملفات والتعديل والتحميل والاختبار على هذا المستودع.
+- نتيجة ACL المسجلة هنا تخص جذر المستودع نفسه فقط؛ لم يتضمن الأمر فحصًا تكراريًا لمحتوياته أو للمجلد الأب أو لأي مسارات أخرى.
 - أظهر فحص PowerShell للقراءة فقط لجذر المستودع المالك `MELHEGAZ\Mohamed.Fathy`.
 - أظهر `AreAccessRulesProtected = False`؛ أي إن وراثة صلاحيات NTFS مفعّلة على الجذر.
 - ظهرت ثلاث قواعد وصول فقط في نتيجة الجذر: `NT AUTHORITY\SYSTEM` و`BUILTIN\Administrators` و`MELHEGAZ\Mohamed.Fathy`، ولكل منها `FullControl` من النوع `Allow`، وجميعها موروثة (`IsInherited = True`) مع `ContainerInherit` و`ObjectInherit`.
