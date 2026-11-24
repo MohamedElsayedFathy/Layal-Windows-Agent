@@ -174,8 +174,10 @@ internal static class DialogueIntentDetector
     private static readonly string[] QuestionMarkers =
     [
         "ايه", "ماذا", "لماذا", "ليه", "ازاي", "كيف", "فين", "اين", "امتى", "متى",
-        "هل", "مين", "من", "what", "why", "when", "where", "how", "who", "which"
+        "مين", "what", "why", "when", "where", "how", "who", "which"
     ];
+    // Ambiguous words ("من" is also a preposition) only make a question when they open the sentence.
+    private static readonly string[] LeadingQuestionMarkers = ["هل", "من"];
     private static readonly string[] CommandStarts =
     [
         "افتح", "افتحي", "اعمل", "اعملي", "شغل", "شغلي", "انشئ", "اكتب", "اكتبي",
@@ -191,10 +193,12 @@ internal static class DialogueIntentDetector
         if (MatchesPhrase(value, Farewells)) return DialogueIntent.Farewell;
         if (MatchesPhrase(value, Gratitude)) return DialogueIntent.Gratitude;
         if (MatchesPhrase(value, Apologies)) return DialogueIntent.Apology;
-        if (text.Contains('?') || text.Contains('؟') || MatchesPhrase(value, QuestionMarkers))
-            return DialogueIntent.Question;
+        // Commands are checked before questions so "افتح الملف من المجلد" stays a command.
         if (CommandStarts.Any(start => StartsWithPhrase(value, SpeechTextNormalizer.NormalizeForLookup(start))))
             return DialogueIntent.Command;
+        if (text.Contains('?') || text.Contains('؟') || MatchesPhrase(value, QuestionMarkers) ||
+            LeadingQuestionMarkers.Any(marker => StartsWithPhrase(value, marker)))
+            return DialogueIntent.Question;
         return DialogueIntent.GeneralConversation;
     }
 
