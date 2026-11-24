@@ -208,15 +208,22 @@ public sealed class ApiConnectionServiceTests
             service.SendAsync("Remote HTTP", "POST", "records", "", """{"private":true}"""));
         Assert.IsNull(handler.LastRequestUri, "No remote HTTP request may be sent, including legacy profiles and direct-send paths.");
 
-        var anonymousProfile = new ApiConnectionProfile
+        foreach (var remoteBaseUrl in new[]
         {
-            Name = "Remote HTTP anonymous",
-            BaseUrl = "http://api.example.test/v1",
-            AuthenticationType = "None"
-        };
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => service.TestAsync(anonymousProfile, "health"));
-        Assert.IsNull(handler.LastRequestUri);
+            "http://api.example.test/v1",
+            "http://192.168.1.20/v1"
+        })
+        {
+            var anonymousProfile = new ApiConnectionProfile
+            {
+                Name = "Remote HTTP anonymous",
+                BaseUrl = remoteBaseUrl,
+                AuthenticationType = "None"
+            };
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                () => service.TestAsync(anonymousProfile, "health"));
+            Assert.IsNull(handler.LastRequestUri);
+        }
     }
 
     [TestMethod]
