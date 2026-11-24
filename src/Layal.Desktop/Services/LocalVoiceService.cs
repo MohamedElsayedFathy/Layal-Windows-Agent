@@ -39,11 +39,81 @@ public sealed class LocalVoiceService
     private const long MaximumArchiveBytes = 250 * 1024 * 1024;
     private const long MaximumAudioBytes = 64 * 1024 * 1024;
 
-    private static readonly HttpClient DownloadClient = new(new SocketsHttpHandler
+    private const int MaximumWhisperDownloadRedirects = 5;
+    private static readonly HashSet<string> ApprovedWhisperDownloadHosts = new(StringComparer.OrdinalIgnoreCase)
     {
+        "github.com",
+        "release-assets.githubusercontent.com",
+        "objects.githubusercontent.com",
+        "huggingface.co",
+        "cdn-lfs.huggingface.co",
+        "cas-bridge.xethub.hf.co"
+    };
+
+    private static readonly HttpClient DownloadClient = new(CreateWhisperDownloadHandler())
+    {
+        Timeout = Timeout.InfiniteTimeSpan
+    };
+
+    internal static SocketsHttpHandler CreateWhisperDownloadHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
         ConnectTimeout = TimeSpan.FromSeconds(20),
         PooledConnectionLifetime = TimeSpan.FromMinutes(5)
-    }) { Timeout = Timeout.InfiniteTimeSpan };
+    };
+
+    internal static bool IsApprovedWhisperDownloadUri(Uri uri) =>
+        uri.IsAbsoluteUri &&
+        uri.Scheme == Uri.UriSchemeHttps &&
+        uri.Port == 443 &&
+        string.IsNullOrEmpty(uri.UserInfo) &&
+        string.IsNullOrEmpty(uri.Fragment) &&
+        ApprovedWhisperDownloadHosts.Contains(uri.Host);
+
+    private static async Task<HttpResponseMessage> SendWhisperDownloadRequestAsync(
+        string url,
+        CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var current) ||
+            !IsApprovedWhisperDownloadUri(current))
+            throw new InvalidOperationException("The pinned Whisper download URL is not an approved HTTPS endpoint.");
+
+        for (var redirectCount = 0; ; redirectCount++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, current);
+            var response = await DownloadClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken).ConfigureAwait(false);
+
+            if (response.RequestMessage?.RequestUri is { } effectiveUri &&
+                !IsApprovedWhisperDownloadUri(effectiveUri))
+            {
+                response.Dispose();
+                throw new InvalidOperationException("The Whisper download response came from an unapproved redirect target.");
+            }
+
+            if (!IsWhisperRedirect(response.StatusCode))
+                return response;
+
+            var location = response.Headers.Location;
+            response.Dispose();
+            if (location is null)
+                throw new InvalidOperationException("The Whisper download server returned a redirect without a Location header.");
+            if (redirectCount >= MaximumWhisperDownloadRedirects)
+                throw new InvalidOperationException("The Whisper download exceeded the maximum number of validated redirects.");
+
+            var nextUri = location.IsAbsoluteUri ? location : new Uri(current, location);
+            if (!IsApprovedWhisperDownloadUri(nextUri))
+                throw new InvalidOperationException("The Whisper download redirect must remain on an approved HTTPS host.");
+
+            current = nextUri;
+        }
+    }
+
+    private static bool IsWhisperRedirect(System.Net.HttpStatusCode statusCode) =>
+        (int)statusCode is 301 or 302 or 303 or 307 or 308;
 
     public static string DataRoot
     {
@@ -512,7 +582,7 @@ public sealed class LocalVoiceService
             progress?.Report(new LocalSpeechProgress(progressMessage));
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromMinutes(20));
-            using var response = await DownloadClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            using var response = await SendWhisperDownloadRequestAsync(url, timeout.Token).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var declaredLength = response.Content.Headers.ContentLength;
             if (declaredLength.HasValue && declaredLength.Value > MaximumArchiveBytes && expectedSize <= MaximumArchiveBytes)
