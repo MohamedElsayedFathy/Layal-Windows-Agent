@@ -358,7 +358,7 @@ internal sealed class WorkspaceFileToolExecutor
     private const int MaxBackupFiles = 200;
 
     // Prevent the agent from changing inputs that control SDK selection, package sources, or build evaluation.
-    private static readonly HashSet<string> BuildControlFileNames = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> BuildControlFileNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "global.json", "nuget.config", "packages.lock.json", "dotnet-tools.json",
         "Directory.Build.props", "Directory.Build.targets", "Directory.Build.rsp", "Directory.Packages.props"

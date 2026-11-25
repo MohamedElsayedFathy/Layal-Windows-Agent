@@ -346,6 +346,29 @@ public sealed class AgentToolExecutor
             }
         }
 
+        // Build-control files in parent folders (up to the workspace root) also change what build/test runs
+        // (Directory.Build.props/targets, Directory.Packages.props, global.json, nuget.config, ...).
+        var ancestorFiles = new List<string>();
+        var ancestor = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(directory));
+        while (!string.IsNullOrEmpty(ancestor))
+        {
+            var relativeToRoot = Path.GetRelativePath(_workspaceRoot, ancestor);
+            if (relativeToRoot.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativeToRoot))
+                break;
+            EnsureNoReparsePoints(ancestor);
+            foreach (var controlName in WorkspaceFileToolExecutor.BuildControlFileNames)
+            {
+                var candidate = Path.Combine(ancestor, controlName);
+                if (!File.Exists(candidate))
+                    continue;
+                EnsureNoReparsePoints(candidate);
+                ancestorFiles.Add(candidate);
+            }
+            if (string.Equals(Path.GetFullPath(ancestor), _workspaceRoot, StringComparison.OrdinalIgnoreCase))
+                break;
+            ancestor = Path.GetDirectoryName(ancestor);
+        }
+
         files.Sort(StringComparer.Ordinal);
         long totalBytes = 0;
         var manifest = new StringBuilder();
@@ -359,8 +382,16 @@ public sealed class AgentToolExecutor
             manifest.Append(relative).Append('\0').Append(await ComputeFileSha256Async(file, token)).Append('\n');
         }
 
+        ancestorFiles.Sort(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in ancestorFiles)
+        {
+            token.ThrowIfCancellationRequested();
+            var relative = "^/" + Path.GetRelativePath(_workspaceRoot, file).Replace('\\', '/');
+            manifest.Append(relative).Append('\0').Append(await ComputeFileSha256Async(file, token)).Append('\n');
+        }
+
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(manifest.ToString())));
-        return (hash, files.Count);
+        return (hash, files.Count + ancestorFiles.Count);
     }
 
     private async Task<string> RunDotnetAsync(string verb, string relativeProjectFile, string configuration, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)

@@ -36,8 +36,14 @@ public sealed class WorkspaceSnapshotService
         ".txt", ".md", ".cs", ".json", ".xaml", ".xml", ".py", ".yml", ".yaml", ".toml", ".csv"
     };
 
+    /// <summary>
+    /// True only for an allowed extension AND a file name that is not a build-control file
+    /// (global.json, nuget.config, Directory.Build.props and the like). The agent's own write tool refuses
+    /// those names, so a backup must not be able to create them either.
+    /// </summary>
     public static bool IsRestorableExtension(string relativePath) =>
-        RestorableExtensions.Contains(Path.GetExtension(relativePath ?? string.Empty));
+        RestorableExtensions.Contains(Path.GetExtension(relativePath ?? string.Empty)) &&
+        !WorkspaceFileToolExecutor.BuildControlFileNames.Contains(Path.GetFileName(relativePath ?? string.Empty));
 
     private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
