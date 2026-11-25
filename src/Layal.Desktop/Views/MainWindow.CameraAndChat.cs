@@ -375,7 +375,8 @@ public partial class MainWindow
                         text,
                         AppRuntime.Settings.Language,
                         documentText,
-                        documentName),
+                        documentName,
+                        AppRuntime.IsPrivateChatActive),
                     _chatCancellation.Token);
             }
 

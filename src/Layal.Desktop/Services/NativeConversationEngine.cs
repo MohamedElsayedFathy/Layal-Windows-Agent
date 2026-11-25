@@ -26,10 +26,19 @@ public sealed class NativeConversationEngine
         _speechLanguageReferenceResponder = new SpeechLanguageReferenceResponder(SpeechLanguageEngine.CreateDefault());
     }
 
-    public string Respond(string input, string language, string? documentText = null, string? documentName = null)
+    /// <param name="privateChat">
+    /// When true (private chat mode) the engine neither persists learned aliases nor reads personal memory
+    /// or learning history. Callers on a private path must pass true.
+    /// </param>
+    public string Respond(
+        string input,
+        string language,
+        string? documentText = null,
+        string? documentName = null,
+        bool privateChat = false)
     {
         var isArabic = !string.Equals(language, "en", StringComparison.OrdinalIgnoreCase);
-        if (_learning.TryTeachFromUtterance(input, out var learningMessage, language))
+        if (!privateChat && _learning.TryTeachFromUtterance(input, out var learningMessage, language))
             return learningMessage;
         if (!string.IsNullOrWhiteSpace(documentText))
             return RespondToDocument(input, documentText, documentName ?? "attachment", isArabic);
@@ -53,7 +62,7 @@ public sealed class NativeConversationEngine
             NativeIntent.TeachAlias => isArabic
                 ? "علّميني اختصارًا بهذه الصيغة: «لما أقول [عبارة] اعملي [أمر]». سأحفظه محليًا، ولن ينفّذ إلا أمرًا موجودًا في قائمة قدراتي."
                 : "Teach me an alias with: “When I say [phrase], do [command]”. I will store it locally and only map it to a command already supported by my core.",
-            _ => RespondFromLocalKnowledge(input, isArabic)
+            _ => RespondFromLocalKnowledge(input, isArabic, privateChat)
         };
     }
 
@@ -128,10 +137,10 @@ public sealed class NativeConversationEngine
             + string.Join(Environment.NewLine, selected.Select((sentence, index) => $"{index + 1}. {sentence}"));
     }
 
-    private string RespondFromLocalKnowledge(string input, bool isArabic)
+    private string RespondFromLocalKnowledge(string input, bool isArabic, bool privateChat)
     {
         var terms = GetTerms(input);
-        if (terms.Count > 0)
+        if (!privateChat && terms.Count > 0)
         {
             var memories = _memory.GetAll()
                 .Select(note => new
@@ -156,7 +165,7 @@ public sealed class NativeConversationEngine
                         memories.Select(item => $"**{item.Note.Title}**{Environment.NewLine}{Trim(item.Note.Content, 1200)}"));
         }
 
-        var recent = _learning.GetRecentExperiences(10);
+        var recent = privateChat ? Array.Empty<NativeExperience>() : _learning.GetRecentExperiences(10);
         if (recent.Count > 0 && isArabic)
         {
             var verified = recent.Count(item => item.Verified);

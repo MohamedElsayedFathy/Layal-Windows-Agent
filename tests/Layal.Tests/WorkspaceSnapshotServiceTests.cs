@@ -279,6 +279,47 @@ public sealed class WorkspaceSnapshotServiceTests
     }
 
     [TestMethod]
+    public void RestorableExtensionAllowlistBlocksScriptsShortcutsAndExecutables()
+    {
+        foreach (var allowed in new[] { "notes.txt", "a/b.JSON", "data.csv", "x.md" })
+            Assert.IsTrue(WorkspaceSnapshotService.IsRestorableExtension(allowed), allowed);
+        foreach (var blocked in new[] { "run.bat", "run.cmd", "x.ps1", "x.js", "x.vbs", "x.lnk", "x.exe", "x.dll", "x.hta", "noextension", "x.txt.bat" })
+            Assert.IsFalse(WorkspaceSnapshotService.IsRestorableExtension(blocked), blocked);
+    }
+
+    [TestMethod]
+    public void ExportOmitsScriptContentAndImportRejectsTamperedBackupWithEmbeddedScript()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("Workspace stores use Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "ws");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "run.bat"), "echo hi");
+        File.WriteAllText(Path.Combine(workspace, "ok.txt"), "plain");
+        var service = new WorkspaceSnapshotService(
+            new TaskHistoryService(Path.Combine(temp.Path, "t.dpapi")),
+            new MemoryService(Path.Combine(temp.Path, "m.dpapi")),
+            workspace);
+
+        var backup = service.ExportJson(includeWorkspaceFileContents: true);
+        var preview = service.PreviewImportJson(backup);
+        Assert.AreEqual(1, preview.FilesWithContent, "Only the .txt file may carry content.");
+        Assert.IsFalse(preview.FileEntries!.Single(entry => entry.RelativePath == "run.bat").HasContent);
+
+        // Hand-built backup that embeds a valid-hash .bat payload must be rejected.
+        var payload = System.Text.Encoding.UTF8.GetBytes("echo pwned");
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(payload));
+        var tampered = "{\"SchemaVersion\":2,\"Tasks\":[],\"Memories\":[],\"Files\":[{\"RelativePath\":\"evil.bat\",\"SizeBytes\":" +
+            payload.Length + ",\"LastWriteTimeUtc\":\"2026-01-01T00:00:00+00:00\",\"IsDirectory\":false,\"ContentBase64\":\"" +
+            Convert.ToBase64String(payload) + "\",\"Sha256\":\"" + hash + "\"}]}";
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.PreviewImportJson(tampered));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.ImportJson(tampered, restoreWorkspaceFiles: true));
+        Assert.IsFalse(File.Exists(Path.Combine(workspace, "evil.bat")));
+    }
+
+    [TestMethod]
     public void EmbeddedWorkspaceFilesRequireExplicitRestoreAndNeverOverwriteExistingFiles()
     {
         if (!OperatingSystem.IsWindows())

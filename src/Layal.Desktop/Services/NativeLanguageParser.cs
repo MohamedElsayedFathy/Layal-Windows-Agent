@@ -73,27 +73,8 @@ public sealed class NativeLanguageParser
         if (normalized.Length == 0)
             return new NativeCommand(NativeIntent.Unknown, original);
 
-        if (ContainsAny(normalized, "لما اقول", "عندما اقول", "when i say"))
-            return new NativeCommand(NativeIntent.TeachAlias, original);
-        if (IsGreeting(normalized))
-            return new NativeCommand(NativeIntent.Greeting, original);
-        if (ContainsAny(normalized, "مين انتي", "من انتي", "عرفيني بنفسك", "who are you", "introduce yourself"))
-            return new NativeCommand(NativeIntent.Identity, original);
-        if (new[]
-            {
-                "تقدري تعملي ايه", "ايه قدراتك", "ما هي قدراتك", "ماذا تستطيعين",
-                "help", "what can you do"
-            }.Contains(normalized, StringComparer.Ordinal))
-            return new NativeCommand(NativeIntent.Capabilities, original);
-        if (ContainsAny(normalized, "الساعه كام", "الوقت كام", "كام الساعه", "الوقت الحالي", "current time", "what time is it", "time now"))
-            return new NativeCommand(NativeIntent.CurrentTime, original);
-        if (ContainsAny(normalized, "تاريخ النهارده", "تاريخ اليوم", "النهارده كام", "ما تاريخ اليوم", "today date", "what is the date", "date today"))
-            return new NativeCommand(NativeIntent.CurrentDate, original);
-        if (ContainsAny(normalized, "معلومات النظام", "مواصفات الجهاز", "معلومات الجهاز", "system info", "device info", "system information"))
-            return new NativeCommand(NativeIntent.SystemInfo, original);
-        if (ContainsAny(normalized, "مساحه العمل", "مجلد العمل", "workspace info", "workspace details"))
-            return new NativeCommand(NativeIntent.WorkspaceInfo, original);
-
+        // Strict, fully anchored commands run first. Loose "contains" intents (time, date, system info,
+        // alias teaching...) must not hijack them, e.g. "احفظ في الذاكرة: الساعة كام" is a memory save.
         var openUrl = OpenUrlPattern.Match(original);
         if (openUrl.Success)
             return new NativeCommand(NativeIntent.OpenUrl, original, Url: TrimTrailingPunctuation(openUrl.Groups["url"].Value));
@@ -134,6 +115,27 @@ public sealed class NativeLanguageParser
                 : string.Empty;
             return new NativeCommand(NativeIntent.ListWorkspaceFiles, original, Directory: directory);
         }
+
+        if (ContainsAny(normalized, "لما اقول", "عندما اقول", "when i say"))
+            return new NativeCommand(NativeIntent.TeachAlias, original);
+        if (IsGreeting(normalized))
+            return new NativeCommand(NativeIntent.Greeting, original);
+        if (ContainsAny(normalized, "مين انتي", "من انتي", "عرفيني بنفسك", "who are you", "introduce yourself"))
+            return new NativeCommand(NativeIntent.Identity, original);
+        if (new[]
+            {
+                "تقدري تعملي ايه", "ايه قدراتك", "ما هي قدراتك", "ماذا تستطيعين",
+                "help", "what can you do"
+            }.Contains(normalized, StringComparer.Ordinal))
+            return new NativeCommand(NativeIntent.Capabilities, original);
+        if (ContainsAny(normalized, "الساعه كام", "الوقت كام", "كام الساعه", "الوقت الحالي", "current time", "what time is it", "time now"))
+            return new NativeCommand(NativeIntent.CurrentTime, original);
+        if (ContainsAny(normalized, "تاريخ النهارده", "تاريخ اليوم", "النهارده كام", "ما تاريخ اليوم", "today date", "what is the date", "date today"))
+            return new NativeCommand(NativeIntent.CurrentDate, original);
+        if (ContainsAny(normalized, "معلومات النظام", "مواصفات الجهاز", "معلومات الجهاز", "system info", "device info", "system information"))
+            return new NativeCommand(NativeIntent.SystemInfo, original);
+        if (ContainsAny(normalized, "مساحه العمل", "مجلد العمل", "workspace info", "workspace details"))
+            return new NativeCommand(NativeIntent.WorkspaceInfo, original);
 
         var programId = ResolveProgram(normalized);
         if (programId is not null)
