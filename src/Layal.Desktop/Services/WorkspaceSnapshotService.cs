@@ -25,6 +25,20 @@ public sealed class WorkspaceSnapshotService
     public const int MaximumTotalFileContentBytes = 4 * 1024 * 1024;
     private const int MaximumFolderDepth = 4;
 
+    /// <summary>
+    /// Only plain data/text types may be embedded in or restored from a backup. Scripts, shortcuts and
+    /// executables (.bat, .cmd, .ps1, .js, .vbs, .lnk, .exe, ...) are never restored: the SHA-256 inside
+    /// the backup is an integrity check, not a signature, so an edited backup could carry any payload.
+    /// Mirrors the writable set of WorkspaceFileToolExecutor.
+    /// </summary>
+    public static readonly IReadOnlySet<string> RestorableExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ".txt", ".md", ".cs", ".json", ".xaml", ".xml", ".py", ".yml", ".yaml", ".toml", ".csv"
+    };
+
+    public static bool IsRestorableExtension(string relativePath) =>
+        RestorableExtensions.Contains(Path.GetExtension(relativePath ?? string.Empty));
+
     private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git", ".vs", "bin", "obj", "node_modules", ".cache"
@@ -265,6 +279,8 @@ public sealed class WorkspaceSnapshotService
             if (entry.IsDirectory || entry.Sha256 is null || entry.Sha256.Length != 64 ||
                 entry.Sha256.Any(character => !Uri.IsHexDigit(character)))
                 throw new InvalidOperationException("An embedded file entry has invalid type or hash metadata.");
+            if (!IsRestorableExtension(normalized))
+                throw new InvalidOperationException("The workspace backup embeds a file type that Layal does not restore (scripts, shortcuts and executables are blocked).");
 
             byte[] bytes;
             try { bytes = Convert.FromBase64String(entry.ContentBase64); }
@@ -353,7 +369,9 @@ public sealed class WorkspaceSnapshotService
                     string? omittedReason = null;
                     if (includeContents)
                     {
-                        if (info.Length > MaximumSingleFileContentBytes)
+                        if (!IsRestorableExtension(relative))
+                            omittedReason = "File type is not backed up with content (only plain text and data types are).";
+                        else if (info.Length > MaximumSingleFileContentBytes)
                             omittedReason = "File exceeds the 1 MiB per-file backup limit.";
                         else if (embeddedFiles >= MaximumEmbeddedFiles)
                             omittedReason = "The backup reached the 100-file content limit.";

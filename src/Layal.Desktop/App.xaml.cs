@@ -214,14 +214,11 @@ public partial class App : Application
             WriteCrashLog("Deliver overdue reminders", ex);
         }
 
-        try
-        {
-            AppRuntime.SynchronizeLocalNotifications();
-        }
-        catch (Exception ex)
-        {
-            WriteCrashLog("Schedule reminders", ex);
-        }
+        _ = AppRuntime.SynchronizeLocalNotificationsAsync().ContinueWith(
+            task => WriteCrashLog("Schedule reminders", task.Exception!.GetBaseException()),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
 
         if (deliveredAtStartup.Count == 1)
         {
