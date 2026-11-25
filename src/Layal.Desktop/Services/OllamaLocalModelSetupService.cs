@@ -561,8 +561,10 @@ public sealed class OllamaLocalModelSetupService
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or InvalidOperationException or
+                InvalidDataException or JsonException or
                 System.ComponentModel.Win32Exception or TimeoutException or HttpRequestException)
         {
+            // A corrupt pin or journal must read as "not ready" so setup can offer the repair path.
             return false;
         }
     }
