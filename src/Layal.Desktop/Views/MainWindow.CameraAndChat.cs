@@ -355,14 +355,10 @@ public partial class MainWindow
                     conversation).ToList();
                 if (!string.IsNullOrWhiteSpace(documentText))
                 {
-                    var boundedDocument = documentText.Length <= 12000
-                        ? documentText
-                        : documentText[..12000] + Environment.NewLine + "[document context truncated]";
                     modelMessages.Add(new ChatMessage
                     {
                         Role = "user",
-                        Content = (IsArabic ? "محتوى المستند المرفق (مقتطف محلي):\n" : "Attached document content (local excerpt):\n")
-                            + boundedDocument
+                        Content = UntrustedDocumentContext.Wrap(documentText, IsArabic)
                     });
                 }
 
