@@ -322,7 +322,7 @@ public sealed class ReminderManagerWindow : Window
         }
     }
 
-    private void AppendSchedulerStatus()
+    private async void AppendSchedulerStatus()
     {
         if (_scheduler is null)
         {
@@ -334,7 +334,7 @@ public sealed class ReminderManagerWindow : Window
 
         try
         {
-            AppRuntime.SynchronizeLocalNotifications();
+            await AppRuntime.SynchronizeLocalNotificationsAsync();
         }
         catch (Exception ex)
         {

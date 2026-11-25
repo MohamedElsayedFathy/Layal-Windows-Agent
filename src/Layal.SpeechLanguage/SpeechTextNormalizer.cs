@@ -64,6 +64,9 @@ public static class SpeechTextNormalizer
                 case '\u0626':
                     output.Append('ي');
                     break;
+                case '\u0629': // ة -> ه so "السلامة" and "السلامه" match on both sides of a lookup
+                    output.Append('ه');
+                    break;
                 case '\u0624':
                     output.Append('و');
                     break;
