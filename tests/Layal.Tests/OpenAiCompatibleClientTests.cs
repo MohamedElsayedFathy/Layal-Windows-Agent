@@ -190,6 +190,25 @@ data: [DONE]
     }
 
     [TestMethod]
+    public async Task ChatStreamAcceptsStreamThatEndsAfterFinishReasonWithoutDoneMarker()
+    {
+        const string stream = """
+data: {"choices":[{"delta":{"content":"Hello"}}]}
+
+data: {"choices":[{"delta":{},"finish_reason":"stop"}]}
+
+""";
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(stream, Encoding.UTF8, "text/event-stream")
+        });
+        var client = new OpenAiCompatibleClient(timeout => new HttpClient(handler, disposeHandler: false));
+        var reply = await client.ChatStreamAsync("https://provider.example/v1", "test-model", "key",
+            new[] { new ChatMessage { Role = "user", Content = "Hello" } }, _ => { });
+        Assert.AreEqual("Hello", reply);
+    }
+
+    [TestMethod]
     public async Task ChatStreamRejectsPartialResponseWhenDoneMarkerIsMissing()
     {
         const string stream = """
