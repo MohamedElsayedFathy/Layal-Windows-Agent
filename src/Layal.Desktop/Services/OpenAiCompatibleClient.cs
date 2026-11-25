@@ -271,6 +271,7 @@ public sealed class OpenAiCompatibleClient
 
         var result = new StringBuilder();
         var receivedDoneMarker = false;
+        var receivedFinishReason = false;
         await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var limitedBody = new ResponseLimitStream(body, MaxStreamResponseBytes);
         using var reader = new StreamReader(limitedBody, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
@@ -306,6 +307,12 @@ public sealed class OpenAiCompatibleClient
                     continue;
 
                 var choice = choices[0];
+                // Some servers close the stream right after the final chunk without a [DONE] line.
+                // A non-null finish_reason proves the model finished, so that ending is complete.
+                if (choice.TryGetProperty("finish_reason", out var finishReason) &&
+                    finishReason.ValueKind == JsonValueKind.String &&
+                    !string.IsNullOrEmpty(finishReason.GetString()))
+                    receivedFinishReason = true;
                 if (!choice.TryGetProperty("delta", out var delta)) continue;
                 var text = delta.TryGetProperty("content", out var content)
                     ? ReadContent(content)
@@ -320,7 +327,7 @@ public sealed class OpenAiCompatibleClient
             }
         }
 
-        if (!receivedDoneMarker)
+        if (!receivedDoneMarker && !receivedFinishReason)
             throw new InvalidOperationException("The provider SSE stream ended before the [DONE] marker. The response may be incomplete and was rejected.");
 
         return result.ToString();
