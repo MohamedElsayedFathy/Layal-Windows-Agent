@@ -60,9 +60,18 @@ public static class ChatContextBuilder
     {
         if (content.Length <= maxCharacters) return content;
         if (maxCharacters <= TruncationMarker.Length)
-            return content[..maxCharacters];
+            return content[..SafeCut(content, maxCharacters)];
 
-        return content[..(maxCharacters - TruncationMarker.Length)] + TruncationMarker;
+        var keep = SafeCut(content, maxCharacters - TruncationMarker.Length);
+        return content[..keep] + TruncationMarker;
+    }
+
+    /// <summary>Never cut between the two UTF-16 halves of an emoji or other surrogate pair.</summary>
+    private static int SafeCut(string content, int length)
+    {
+        if (length > 0 && length < content.Length && char.IsHighSurrogate(content[length - 1]))
+            return length - 1;
+        return length;
     }
 
     private static ChatMessage CloneWithContent(ChatMessage message, string content) => new()
