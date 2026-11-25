@@ -446,19 +446,21 @@ public partial class MainWindow
                                         ? (IsArabic ? "الإعدادات" : "Settings")
                                         : string.Empty;
         AutomationProperties.SetHelpText(MainTabs, IsArabic
-            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل الجانبي أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
-            : $"Current section: {currentSection}. Use the left navigation rail or Ctrl+1 through Ctrl+8 to choose a page.");
-        var activeBrush = ThemeBrush("Layal.NavSelected", Brushes.Transparent);
-        var activeBorder = ThemeBrush("Layal.NavSelectedBorder", Brushes.Transparent);
+            ? $"القسم الحالي: {currentSection}. استخدم شريط التنقل العائم أو Ctrl+1 إلى Ctrl+8 لاختيار الصفحة."
+            : $"Current section: {currentSection}. Use the floating navigation bar or Ctrl+1 through Ctrl+8 to choose a page.");
+        var activeForeground = ThemeBrush("Layal.OnAccent", Brushes.White);
+        var inactiveForeground = ThemeBrush("Layal.Muted", Brushes.Gray);
+        Button? activeButton = null;
         void Set(Button button, bool active)
         {
-            button.Background = active ? activeBrush : Brushes.Transparent;
-            button.BorderBrush = active ? activeBorder : Brushes.Transparent;
-            button.BorderThickness = active ? new Thickness(1) : new Thickness(0);
-            button.Foreground = active
-                ? ThemeBrush("Layal.Cyan", Brushes.SteelBlue)
-                : ThemeBrush("Layal.Text", Brushes.Black);
-            button.FontWeight = active ? FontWeights.Bold : FontWeights.Medium;
+            button.Background = Brushes.Transparent;
+            button.BorderBrush = Brushes.Transparent;
+            button.BorderThickness = new Thickness(0);
+            button.Foreground = active ? activeForeground : inactiveForeground;
+            button.Tag = active ? "active" : null;
+            LiftDockButton(button, active);
+            if (active)
+                activeButton = button;
         }
 
         Set(DockChatButton, ReferenceEquals(selected, ChatTab));
@@ -469,169 +471,118 @@ public partial class MainWindow
         Set(DockMemoryButton, ReferenceEquals(selected, MemoryTab));
         Set(DockApiButton, ReferenceEquals(selected, ApiIntegrationsTab));
         Set(DockSettingsButton, ReferenceEquals(selected, SettingsTab));
+        MoveDockActiveBubble(activeButton, animate: true);
     }
 
     private void ApplyNavigationRailPresentation()
     {
-        var expanded = _isBottomDockExpanded;
         var ar = IsArabic;
-
-        DockNavigationScrollViewer.Width = expanded ? 166 : 48;
-        DockNavigationScrollViewer.VerticalScrollBarVisibility = expanded
-            ? ScrollBarVisibility.Auto
-            : ScrollBarVisibility.Hidden;
-        DockBrandMark.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        DockBrandCopy.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        DockFooterNote.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        DockWorkspaceHeading.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        DockNavigationSeparator.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        DockPersonalHeading.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-
-        DockWorkspaceHeading.Text = ar ? "مساحة العمل" : "WORKSPACE";
-        DockPersonalHeading.Text = ar ? "أدوات شخصية" : "PERSONAL TOOLS";
-        DockBrandTitle.Text = ar ? "ليال" : "Layal";
-        DockBrandSubtitle.Text = ar ? "مساحة عملك الذكية" : "Your AI workspace";
-        DockFooterTitle.Text = ar ? "مساعدك الذكي" : "Your AI companion";
-        DockFooterDescription.Text = ar
-            ? "محادثاتك وأدواتك في مكان واحد."
-            : "Your chats and tools, together.";
 
         var destinations = new[]
         {
-            (Button: DockChatButton, Name: "Chat", Glyph: "\uE8BD", Ar: "الرئيسية", En: "Home", AccessibleAr: "الرئيسية - المحادثة", AccessibleEn: "Home - Chat"),
-            (Button: DockOverviewButton, Name: "Overview", Glyph: "\uE80F", Ar: "نظرة عامة", En: "Overview", AccessibleAr: "نظرة عامة", AccessibleEn: "Overview"),
-            (Button: DockTasksButton, Name: "Tasks", Glyph: "\uE9D5", Ar: "المهام", En: "Tasks", AccessibleAr: "المهام", AccessibleEn: "Tasks"),
-            (Button: DockSkillsButton, Name: "Skills", Glyph: "\uEA80", Ar: "المهارات", En: "Skills", AccessibleAr: "المهارات", AccessibleEn: "Skills"),
-            (Button: DockCamerasButton, Name: "Cameras", Glyph: "\uE722", Ar: "الكاميرات", En: "Cameras", AccessibleAr: "الكاميرات", AccessibleEn: "Cameras"),
-            (Button: DockMemoryButton, Name: "Memory", Glyph: "\uE8F1", Ar: "الذاكرة", En: "Memory", AccessibleAr: "الذاكرة", AccessibleEn: "Memory"),
-            (Button: DockApiButton, Name: "Api", Glyph: "\uE943", Ar: "تكاملات API", En: "API", AccessibleAr: "تكاملات API", AccessibleEn: "API integrations"),
-            (Button: DockSettingsButton, Name: "Settings", Glyph: "\uE713", Ar: "الإعدادات", En: "Settings", AccessibleAr: "الإعدادات", AccessibleEn: "Settings")
+            (Button: DockChatButton, Name: "Chat", Ar: "الرئيسية", En: "Home", AccessibleAr: "الرئيسية - المحادثة", AccessibleEn: "Home - Chat"),
+            (Button: DockOverviewButton, Name: "Overview", Ar: "نظرة عامة", En: "Overview", AccessibleAr: "نظرة عامة", AccessibleEn: "Overview"),
+            (Button: DockTasksButton, Name: "Tasks", Ar: "المهام", En: "Tasks", AccessibleAr: "المهام", AccessibleEn: "Tasks"),
+            (Button: DockSkillsButton, Name: "Skills", Ar: "المهارات", En: "Skills", AccessibleAr: "المهارات", AccessibleEn: "Skills"),
+            (Button: DockCamerasButton, Name: "Cameras", Ar: "الكاميرات", En: "Cameras", AccessibleAr: "الكاميرات", AccessibleEn: "Cameras"),
+            (Button: DockMemoryButton, Name: "Memory", Ar: "الذاكرة", En: "Memory", AccessibleAr: "الذاكرة", AccessibleEn: "Memory"),
+            (Button: DockApiButton, Name: "Api", Ar: "تكاملات API", En: "API", AccessibleAr: "تكاملات API", AccessibleEn: "API integrations"),
+            (Button: DockSettingsButton, Name: "Settings", Ar: "الإعدادات", En: "Settings", AccessibleAr: "الإعدادات", AccessibleEn: "Settings")
         };
 
         foreach (var destination in destinations)
         {
             var label = ar ? destination.Ar : destination.En;
-            destination.Button.Width = expanded ? 152 : 44;
-            destination.Button.MinHeight = 48;
-            destination.Button.Padding = expanded
-                ? new Thickness(12, 10, 12, 10)
-                : new Thickness(0);
-            destination.Button.FontSize = expanded ? 13.5 : 19;
-            destination.Button.HorizontalContentAlignment = expanded
-                ? HorizontalAlignment.Left
-                : HorizontalAlignment.Center;
-            var iconGlyph = new TextBlock
+            var iconPath = new System.Windows.Shapes.Path
             {
-                Text = destination.Glyph,
-                FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-                FontSize = 16,
-                FontWeight = FontWeights.SemiBold,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
+                Data = (Geometry)FindResource($"Layal.NavIcon.{destination.Name}"),
+                StrokeThickness = 1.6,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                StrokeLineJoin = PenLineJoin.Round,
+                IsHitTestVisible = false
             };
-            iconGlyph.SetResourceReference(TextBlock.ForegroundProperty, $"Layal.Icon.{destination.Name}Foreground");
-
-            var iconTile = new Border
+            iconPath.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
+                new Binding(nameof(Button.Foreground)) { Source = destination.Button });
+            var iconCanvas = new Canvas
             {
-                Width = 30,
-                Height = 30,
-                CornerRadius = new CornerRadius(10),
-                VerticalAlignment = VerticalAlignment.Center,
-                Child = iconGlyph
+                Width = 24,
+                Height = 24,
+                IsHitTestVisible = false
             };
-            iconTile.SetResourceReference(Border.BackgroundProperty, $"Layal.Icon.{destination.Name}Background");
-
-            if (expanded)
-            {
-                iconTile.Margin = ar ? new Thickness(10, 0, 0, 0) : new Thickness(0, 0, 10, 0);
-                var text = new TextBlock
-                {
-                    Text = label,
-                    FontSize = 13.5,
-                    TextWrapping = TextWrapping.NoWrap,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight
-                };
-                text.SetBinding(TextBlock.ForegroundProperty, new Binding(nameof(Button.Foreground)) { Source = destination.Button });
-                text.SetBinding(TextBlock.FontWeightProperty, new Binding(nameof(Button.FontWeight)) { Source = destination.Button });
-
-                var row = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    FlowDirection = ar ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                row.Children.Add(iconTile);
-                row.Children.Add(text);
-                destination.Button.Content = row;
-            }
-            else
-            {
-                destination.Button.Content = iconTile;
-            }
+            iconCanvas.Children.Add(iconPath);
+            destination.Button.Content = iconCanvas;
             destination.Button.ToolTip = label;
             AutomationProperties.SetName(destination.Button,
                 ar ? destination.AccessibleAr : destination.AccessibleEn);
         }
     }
 
-    private bool CanAnimateUi => !SystemParameters.HighContrast &&
-                                 SystemParameters.ClientAreaAnimation &&
-                                 !AppRuntime.Settings.PerformanceModeEnabled;
 
-    private void ToggleBottomDockButton_Click(object sender, RoutedEventArgs e) => SetBottomDockExpanded(!_isBottomDockExpanded);
-
-    private void SetBottomDockExpanded(bool expanded)
+    private void LiftDockButton(Button button, bool lifted)
     {
-        _isBottomDockExpanded = expanded;
-        ToggleBottomDockButton.Content = expanded ? "\uE711" : "\uE700";
-        ToggleBottomDockButton.ToolTip = expanded
-            ? (IsArabic ? "طي شريط التنقل الجانبي" : "Collapse navigation rail")
-            : (IsArabic ? "توسيع شريط التنقل الجانبي" : "Expand navigation rail");
-        AutomationProperties.SetName(ToggleBottomDockButton, ToggleBottomDockButton.ToolTip as string ?? string.Empty);
-
-        ApplyNavigationRailPresentation();
-        UpdateMainTabsNavigationMargin();
-
-        var currentWidth = Math.Max(48, DockExpandedSurface.ActualWidth);
-        DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
-        DockExpandedSurface.BeginAnimation(UIElement.OpacityProperty, null);
-
-        const double expandedWidth = 166;
-        const double collapsedWidth = 48;
-        var targetWidth = expanded ? expandedWidth : collapsedWidth;
-
-        if (!CanAnimateUi)
+        if (button.RenderTransform is not TranslateTransform transform || transform.IsFrozen)
         {
-            DockExpandedSurface.Width = targetWidth;
-            DockExpandedSurface.Opacity = 1;
-            DockExpandedSurface.IsHitTestVisible = true;
-            BottomDockShell.UpdateLayout();
-            UpdateMainTabsNavigationMargin();
+            transform = new TranslateTransform();
+            button.RenderTransform = transform;
+        }
+
+        var target = lifted ? _dockActiveLift : 0d;
+        if (!CanAnimateUi || DockActiveBubble.Visibility != Visibility.Visible)
+        {
+            transform.BeginAnimation(TranslateTransform.YProperty, null);
+            transform.Y = target;
             return;
         }
 
-        var duration = TimeSpan.FromMilliseconds(190);
-        var width = new DoubleAnimation(currentWidth, targetWidth, duration)
+        transform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(target, TimeSpan.FromMilliseconds(220))
         {
-            EasingFunction = new CubicEase
-            {
-                EasingMode = expanded ? EasingMode.EaseOut : EasingMode.EaseIn
-            }
-        };
-        width.Completed += (_, _) =>
-        {
-            DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
-            DockExpandedSurface.Width = targetWidth;
-            BottomDockShell.UpdateLayout();
-            UpdateMainTabsNavigationMargin();
-        };
-
-        DockExpandedSurface.IsHitTestVisible = true;
-        DockExpandedSurface.Opacity = 1;
-        DockExpandedSurface.BeginAnimation(FrameworkElement.WidthProperty, width);
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        });
     }
+
+    // One shared bubble slides under the selected destination. Animation is skipped when Windows
+    // animations are off, in high contrast, or in performance mode (see CanAnimateUi).
+    private void MoveDockActiveBubble(Button? target, bool animate)
+    {
+        _activeDockButton = target;
+        if (target is null)
+        {
+            DockActiveBubble.Visibility = Visibility.Hidden;
+            return;
+        }
+
+        if (DockNavigationLayer.ActualWidth <= 0 || !DockNavigationLayer.IsAncestorOf(target))
+            return;
+
+        var x = target.TransformToAncestor(DockNavigationLayer).Transform(new Point(0, 0)).X;
+        if (DockActiveBubble.RenderTransform is not TranslateTransform transform || transform.IsFrozen)
+        {
+            transform = new TranslateTransform(0, _dockActiveLift);
+            DockActiveBubble.RenderTransform = transform;
+        }
+
+        var firstPlacement = DockActiveBubble.Visibility != Visibility.Visible;
+        if (!animate || firstPlacement || !CanAnimateUi)
+        {
+            transform.BeginAnimation(TranslateTransform.XProperty, null);
+            transform.X = x;
+        }
+        else
+        {
+            transform.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(x, TimeSpan.FromMilliseconds(260))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+        }
+
+        transform.Y = _dockActiveLift;
+        DockActiveBubble.Visibility = Visibility.Visible;
+    }
+
+    private bool CanAnimateUi => !SystemParameters.HighContrast &&
+                                 SystemParameters.ClientAreaAnimation &&
+                                 !AppRuntime.Settings.PerformanceModeEnabled;
 
     private void ToggleChatHistoryButton_Click(object sender, RoutedEventArgs e) => SetChatHistoryPanelOpen(!_isChatHistoryPanelOpen);
     private void CloseChatHistoryButton_Click(object sender, RoutedEventArgs e) => SetChatHistoryPanelOpen(false);

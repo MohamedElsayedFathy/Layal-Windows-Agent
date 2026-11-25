@@ -131,7 +131,7 @@ public partial class MainWindow : Window
     private bool _restoringProactiveCheckInInterval;
     private bool _reminderTimerWasEnabledBeforePrivateChat;
     private bool _proactiveTimerWasEnabledBeforePrivateChat;
-    private bool _isBottomDockExpanded = true;
+    private Button? _activeDockButton;
     private int? _chatWelcomeLayoutModeApplied;
     private bool? _compactWindowChromeApplied;
     private bool _isChatHistoryPanelOpen;
