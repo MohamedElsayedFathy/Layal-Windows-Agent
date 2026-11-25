@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -184,7 +185,7 @@ public sealed class VoiceTutLocalService : IDisposable
                     await RunPythonAsync(new[]
                     {
                         "-m", "pip", "install", "--disable-pip-version-check",
-                        "--upgrade", "pip"
+                        "pip==" + PinnedPipVersion
                     }, ProcessInstallTimeout, token, "تحديث pip", progress, LocalResourceIds.PyTorch).ConfigureAwait(false);
 
                     var torchIndex = cudaDeviceDetected
@@ -193,9 +194,10 @@ public sealed class VoiceTutLocalService : IDisposable
                     await RunPythonAsync(new[]
                     {
                         "-m", "pip", "install", "--disable-pip-version-check",
-                        "--index-url", torchIndex, "--extra-index-url", "https://pypi.org/simple",
+                        "--index-url", torchIndex, "--no-deps",
                         "torch==2.8.0", "torchaudio==2.8.0"
                     }, ProcessInstallTimeout, token, "تثبيت PyTorch", progress, LocalResourceIds.PyTorch).ConfigureAwait(false);
+                    await InstallTorchDependenciesFromPyPiAsync(token, progress).ConfigureAwait(false);
 
                     if (cudaDeviceDetected)
                     {
@@ -211,8 +213,7 @@ public sealed class VoiceTutLocalService : IDisposable
                             await RunPythonAsync(new[]
                             {
                                 "-m", "pip", "install", "--disable-pip-version-check", "--force-reinstall",
-                                "--index-url", "https://download.pytorch.org/whl/cpu",
-                                "--extra-index-url", "https://pypi.org/simple",
+                                "--index-url", "https://download.pytorch.org/whl/cpu", "--no-deps",
                                 "torch==2.8.0", "torchaudio==2.8.0"
                             }, ProcessInstallTimeout, token, "تثبيت PyTorch CPU", progress, LocalResourceIds.PyTorch).ConfigureAwait(false);
                         }
@@ -791,6 +792,35 @@ public sealed class VoiceTutLocalService : IDisposable
         {
             return false;
         }
+    }
+
+
+    // Pinned so the PyTorch step never resolves "torch" from two indexes at once.
+    // NOTE: pins are exact versions only. A full --require-hashes lock must be generated
+    // by the maintainer on the Windows CI image (pip hash / pip-compile --generate-hashes).
+    private const string PinnedPipVersion = "25.2";
+
+    private static readonly string[] TorchDependencyPins =
+    {
+        "filelock==4.1.0",
+        "typing_extensions==4.16.0",
+        "sympy==1.14.0",
+        "networkx==3.4.2",
+        "Jinja2==3.1.6",
+        "MarkupSafe==3.0.4",
+        "fsspec==2026.9.0",
+        "mpmath==1.3.0",
+    };
+
+    private Task InstallTorchDependenciesFromPyPiAsync(CancellationToken token, IProgress<LocalSpeechProgress>? progress)
+    {
+        var args = new List<string>
+        {
+            "-m", "pip", "install", "--disable-pip-version-check",
+            "--index-url", "https://pypi.org/simple", "--only-binary", ":all:",
+        };
+        args.AddRange(TorchDependencyPins);
+        return RunPythonAsync(args.ToArray(), ProcessInstallTimeout, token, "تثبيت اعتماديات PyTorch", progress, LocalResourceIds.PyTorch);
     }
 
     private async Task RunPythonAsync(
