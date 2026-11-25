@@ -1660,10 +1660,10 @@ public sealed class MainWindowVisualSmokeTests
             $"The conversation surface must use the flexible star-sized column in {language}.");
         var dockHost = window.FindName("BottomDockHost") as Grid
             ?? throw new InvalidOperationException("BottomDockHost was not found.");
-        Assert.AreEqual(VerticalAlignment.Stretch, dockHost.VerticalAlignment,
-            "The persistent navigation rail must span the available application height.");
-        Assert.AreEqual(HorizontalAlignment.Left, dockHost.HorizontalAlignment,
-            "The persistent navigation rail must remain anchored to the left edge of the application.");
+        Assert.AreEqual(VerticalAlignment.Bottom, dockHost.VerticalAlignment,
+            "The floating navigation bar must stay anchored to the bottom of the application.");
+        Assert.AreEqual(HorizontalAlignment.Center, dockHost.HorizontalAlignment,
+            "The floating navigation bar must stay centered horizontally.");
 
         var taskResult = window.FindName("TaskResult") as TextBox
             ?? throw new InvalidOperationException("TaskResult was not found.");
@@ -1924,9 +1924,9 @@ public sealed class MainWindowVisualSmokeTests
         var contentBounds = tabs.TransformToAncestor(root)
             .TransformBounds(new Rect(0, 0, tabs.ActualWidth, tabs.ActualHeight));
 
-        Assert.IsTrue(railBounds.Right + 8 <= contentBounds.Left + 0.5,
-            $"The navigation rail must leave an 8-DIP content gutter and never cover workspace pages ({layoutName}). " +
-            $"RailRight={railBounds.Right:0.0}, ContentLeft={contentBounds.Left:0.0}.");
+        Assert.IsTrue(contentBounds.Bottom + 8 <= railBounds.Top + 0.5,
+            $"The floating navigation bar must leave an 8-DIP content gutter and never cover workspace pages ({layoutName}). " +
+            $"ContentBottom={contentBounds.Bottom:0.0}, BarTop={railBounds.Top:0.0}.");
     }
 
     private static void AssertPageHeroGradientTracksPalette(string mode)
@@ -2016,18 +2016,6 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("DockChatButton was not found.");
         var dockOverview = window.FindName("DockOverviewButton") as Button
             ?? throw new InvalidOperationException("DockOverviewButton was not found.");
-        var dockBrandTitle = window.FindName("DockBrandTitle") as TextBlock
-            ?? throw new InvalidOperationException("DockBrandTitle was not found.");
-        var dockBrandSubtitle = window.FindName("DockBrandSubtitle") as TextBlock
-            ?? throw new InvalidOperationException("DockBrandSubtitle was not found.");
-        var dockFooterTitle = window.FindName("DockFooterTitle") as TextBlock
-            ?? throw new InvalidOperationException("DockFooterTitle was not found.");
-        var dockFooterDescription = window.FindName("DockFooterDescription") as TextBlock
-            ?? throw new InvalidOperationException("DockFooterDescription was not found.");
-        var dockToggle = window.FindName("ToggleBottomDockButton") as Button
-            ?? throw new InvalidOperationException("ToggleBottomDockButton was not found.");
-        var expandedDock = window.FindName("DockExpandedSurface") as Border
-            ?? throw new InvalidOperationException("DockExpandedSurface was not found.");
         var historyToggle = window.FindName("ToggleChatHistoryButton") as Button
             ?? throw new InvalidOperationException("ToggleChatHistoryButton was not found.");
         var historyPanel = window.FindName("ChatHistoryPanel") as Border
@@ -2062,24 +2050,20 @@ public sealed class MainWindowVisualSmokeTests
         Assert.AreEqual("en", store.Load().Language, "The language change must survive reloading settings.json.");
         StringAssert.Contains(settingsTab.Header?.ToString() ?? string.Empty, "Settings",
             "Switching to English must update the settings tab label.");
-        Assert.AreEqual("Layal", dockBrandTitle.Text);
-        Assert.AreEqual("Your AI workspace", dockBrandSubtitle.Text);
-        Assert.AreEqual("Your AI companion", dockFooterTitle.Text);
-        Assert.AreEqual("Your chats and tools, together.", dockFooterDescription.Text);
-        Assert.IsInstanceOfType(dockChat.Content, typeof(StackPanel),
-            "Switching to English must preserve the modern Fluent icon-and-label navigation row.");
+        Assert.IsInstanceOfType(dockChat.Content, typeof(Canvas),
+            "Switching to English must preserve the thin-line icon in the floating navigation bar.");
+        Assert.AreEqual("Home - Chat", AutomationProperties.GetName(dockChat),
+            "Switching to English must localize the icon-only destination name.");
 
         languageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, languageButton));
         Assert.AreEqual("ar", AppRuntime.Settings.Language, "The header language button should switch English back to Arabic.");
         Assert.AreEqual("ar", store.Load().Language, "Switching the language back must also persist.");
         StringAssert.Contains(settingsTab.Header?.ToString() ?? string.Empty, "الإعدادات",
             "Switching back to Arabic must update the settings tab label.");
-        Assert.AreEqual("ليال", dockBrandTitle.Text);
-        Assert.AreEqual("مساحة عملك الذكية", dockBrandSubtitle.Text);
-        Assert.AreEqual("مساعدك الذكي", dockFooterTitle.Text);
-        Assert.AreEqual("محادثاتك وأدواتك في مكان واحد.", dockFooterDescription.Text);
-        Assert.IsInstanceOfType(dockChat.Content, typeof(StackPanel),
-            "Switching back to Arabic must preserve the modern Fluent icon-and-label navigation row.");
+        Assert.IsInstanceOfType(dockChat.Content, typeof(Canvas),
+            "Switching back to Arabic must preserve the thin-line icon in the floating navigation bar.");
+        Assert.AreEqual("الرئيسية - المحادثة", AutomationProperties.GetName(dockChat),
+            "Switching back to Arabic must localize the icon-only destination name.");
 
         // Navigation entry points must select the real corresponding tabs.
         goSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, goSettings));
@@ -2090,26 +2074,10 @@ public sealed class MainWindowVisualSmokeTests
         // The persistent left rail starts expanded, supports compact mode, and navigates to real pages.
         var previousPerformanceMode = AppRuntime.Settings.PerformanceModeEnabled;
         AppRuntime.Settings.PerformanceModeEnabled = true;
-        var bottomDockField = typeof(MainWindow).GetField("_isBottomDockExpanded", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Navigation rail expansion state was not found.");
         var toggleHistory = typeof(MainWindow).GetMethod("SetChatHistoryPanelOpen", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Chat history panel method was not found.");
-        var brandCopy = window.FindName("DockBrandCopy") as StackPanel
-            ?? throw new InvalidOperationException("DockBrandCopy was not found.");
-        var footerNote = window.FindName("DockFooterNote") as Border
-            ?? throw new InvalidOperationException("DockFooterNote was not found.");
         var railShell = window.FindName("BottomDockShell") as Border
             ?? throw new InvalidOperationException("BottomDockShell was not found.");
-        var navigationViewport = window.FindName("DockNavigationScrollViewer") as ScrollViewer
-            ?? throw new InvalidOperationException("DockNavigationScrollViewer was not found.");
-        var brandMark = window.FindName("DockBrandMark") as Border
-            ?? throw new InvalidOperationException("DockBrandMark was not found.");
-        var workspaceHeading = window.FindName("DockWorkspaceHeading") as TextBlock
-            ?? throw new InvalidOperationException("DockWorkspaceHeading was not found.");
-        var personalHeading = window.FindName("DockPersonalHeading") as TextBlock
-            ?? throw new InvalidOperationException("DockPersonalHeading was not found.");
-        var navigationSeparator = window.FindName("DockNavigationSeparator") as Separator
-            ?? throw new InvalidOperationException("DockNavigationSeparator was not found.");
         var navigationButtons = new[]
         {
             window.FindName("DockChatButton") as Button,
@@ -2127,102 +2095,43 @@ public sealed class MainWindowVisualSmokeTests
             ?? throw new InvalidOperationException("ChatInput was not found.");
         try
         {
-            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
-                "The navigation rail must start expanded so destinations are immediately visible.");
-            Assert.AreEqual(166, expandedDock.Width, 0.1,
-                "The expanded navigation rail must expose its labeled destinations.");
-            Assert.AreEqual(Visibility.Visible, brandCopy.Visibility,
-                "The expanded navigation rail must show its brand label.");
-            Assert.AreEqual(Visibility.Visible, footerNote.Visibility,
-                "The expanded navigation rail must show its footer note.");
-            Assert.AreEqual(Visibility.Visible, brandMark.Visibility);
-            Assert.AreEqual(Visibility.Visible, workspaceHeading.Visibility);
-            Assert.AreEqual(Visibility.Visible, personalHeading.Visibility);
-            Assert.AreEqual(Visibility.Visible, navigationSeparator.Visibility);
-            Assert.AreEqual(188, railShell.ActualWidth, 0.5,
-                "The expanded rail shell must equal its 166-DIP content body plus 22 DIP of padding and border.");
-            Assert.AreEqual(166, navigationViewport.Width, 0.1);
-            Assert.AreEqual(ScrollBarVisibility.Auto, navigationViewport.VerticalScrollBarVisibility);
-            foreach (var navigationButton in navigationButtons)
-            {
-                Assert.IsNotNull(navigationButton);
-                Assert.AreEqual(152, navigationButton!.Width, 0.1,
-                    "Expanded navigation destinations must use the full 152-DIP row width.");
-                Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(navigationButton)),
-                    "Every navigation destination must retain a screen-reader name.");
-                var row = navigationButton.Content as StackPanel;
-                Assert.IsNotNull(row, "Expanded destinations must combine a Fluent icon tile and a readable label.");
-                Assert.IsInstanceOfType(row!.Children[0], typeof(Border));
-                var iconTile = (Border)row.Children[0];
-                Assert.AreEqual(10, iconTile.CornerRadius.TopLeft, 0.1);
-                var iconGlyph = iconTile.Child as TextBlock;
-                Assert.IsNotNull(iconGlyph);
-                StringAssert.Contains(iconGlyph!.FontFamily.Source, "Segoe Fluent Icons");
-            }
-
-            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
-            Assert.IsFalse((bool)bottomDockField.GetValue(window)!,
-                "The navigation rail toggle must enter compact mode.");
-            Assert.AreEqual(48, expandedDock.Width, 0.1,
-                "The compact navigation rail must retain its icon destinations.");
-            Assert.AreEqual(Visibility.Collapsed, brandCopy.Visibility,
-                "The compact navigation rail must hide its brand label.");
-            Assert.AreEqual(Visibility.Collapsed, footerNote.Visibility,
-                "The compact navigation rail must hide its footer note.");
-            Assert.AreEqual(Visibility.Collapsed, brandMark.Visibility,
-                "The compact rail must hide the brand mark so it cannot force the shell wider than its icon rail.");
-            Assert.AreEqual(Visibility.Collapsed, workspaceHeading.Visibility);
-            Assert.AreEqual(Visibility.Collapsed, personalHeading.Visibility);
-            Assert.AreEqual(Visibility.Collapsed, navigationSeparator.Visibility);
             window.UpdateLayout();
-            Assert.AreEqual(70, railShell.ActualWidth, 0.5,
-                "The compact rail shell must equal its 48-DIP icon body plus 22 DIP of padding and border.");
-            Assert.AreEqual(48, navigationViewport.Width, 0.1);
-            Assert.AreEqual(ScrollBarVisibility.Hidden, navigationViewport.VerticalScrollBarVisibility,
-                "The compact rail must hide its vertical scrollbar so 44-DIP icons retain their full viewport width.");
+            Assert.IsTrue(railShell.ActualWidth > 0 && railShell.ActualHeight > 0,
+                "The floating navigation bar must be visible on first launch.");
             foreach (var navigationButton in navigationButtons)
             {
                 Assert.IsNotNull(navigationButton);
-                Assert.AreEqual(44, navigationButton!.Width, 0.1,
-                    "Compact navigation destinations must use 44-DIP icon-only targets.");
-                Assert.IsTrue(navigationButton.MinHeight >= 44,
-                    "Compact navigation destinations must preserve a 44-DIP minimum touch target.");
-                var iconTile = navigationButton.Content as Border;
-                Assert.IsNotNull(iconTile, "Compact navigation destinations must retain their colored icon tiles.");
-                Assert.IsInstanceOfType(iconTile!.Child, typeof(TextBlock));
-                var iconGlyph = (TextBlock)iconTile.Child;
-                Assert.IsFalse(string.IsNullOrWhiteSpace(iconGlyph.Text),
-                    "Compact navigation buttons must show only their icon, never clipped labels.");
-                Assert.IsTrue(iconTile.Background is SolidColorBrush,
-                    "Each compact Fluent icon must retain a coordinated theme-aware color tile.");
+                Assert.IsTrue(navigationButton!.ActualWidth >= 44 && navigationButton.ActualHeight >= 44,
+                    "Navigation destinations must keep a 44-DIP minimum touch target.");
+                Assert.IsInstanceOfType(navigationButton.Content, typeof(Canvas),
+                    "Navigation destinations must show a thin-line icon and no clipped label.");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(navigationButton.ToolTip?.ToString()),
                     "Every icon-only destination must provide a localized tooltip.");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(navigationButton)),
                     "Every icon-only destination must retain an accessible localized name.");
             }
-            AssertNavigationRailDoesNotOverlapContent(window, "collapsed navigation rail");
+            AssertNavigationRailDoesNotOverlapContent(window, "floating navigation bar");
 
-            dockToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockToggle));
-            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
-                "The navigation rail toggle must restore the expanded layout.");
-            Assert.AreEqual(166, expandedDock.Width, 0.1,
-                "The expanded rail must restore the full navigation width.");
-            window.UpdateLayout();
-            Assert.AreEqual(188, railShell.ActualWidth, 0.5);
-            Assert.AreEqual(Visibility.Visible, brandMark.Visibility);
-            Assert.AreEqual(Visibility.Visible, workspaceHeading.Visibility);
-            Assert.AreEqual(Visibility.Visible, personalHeading.Visibility);
-            Assert.AreEqual(Visibility.Visible, navigationSeparator.Visibility);
-            foreach (var navigationButton in navigationButtons)
-                Assert.AreEqual(152, navigationButton!.Width, 0.1);
-            AssertNavigationRailDoesNotOverlapContent(window, "restored expanded navigation rail");
             dockChat.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockChat));
             Assert.AreSame(chatTab, tabs.SelectedItem, "The first navigation destination must return to the primary chat page.");
             dockOverview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, dockOverview));
             Assert.AreSame(homeTab, tabs.SelectedItem, "The overview navigation destination must open the dashboard.");
-            Assert.IsTrue((bool)bottomDockField.GetValue(window)!,
-                "Page navigation must not unexpectedly collapse the left navigation rail.");
-            Assert.AreEqual(166, expandedDock.Width, 0.1);
+            window.UpdateLayout();
+            var dockLayer = window.FindName("DockNavigationLayer") as Grid
+                ?? throw new InvalidOperationException("DockNavigationLayer was not found.");
+            var dockBubble = window.FindName("DockActiveBubble") as Border
+                ?? throw new InvalidOperationException("DockActiveBubble was not found.");
+            Assert.AreEqual(Visibility.Visible, dockBubble.Visibility,
+                "The shared active bubble must be visible once a page is selected.");
+            var overviewX = dockOverview.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X;
+            var bubbleTransform = (TranslateTransform)dockBubble.RenderTransform;
+            // While the slide animation is still running the transform holds an in-between value,
+            // so only compare positions once the animation has finished (or was skipped).
+            if (!bubbleTransform.HasAnimatedProperties)
+            {
+                Assert.AreEqual(overviewX, bubbleTransform.X, 1.0,
+                    "The active bubble must sit under the selected navigation destination.");
+            }
 
             // Prompt starters must provide usable, localized text in the composer.
             suggestionPlan.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, suggestionPlan));
