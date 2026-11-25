@@ -241,6 +241,7 @@ public sealed class GmailInboxWindow : Window
         if (!_service.IsConnected) { _status.Text = _isArabic ? "اربط Gmail أولًا." : "Connect Gmail first."; return; }
         var cancellation = BeginOperation();
         try { await LoadMessagesAsync(cancellation.Token); }
+        catch (OperationCanceledException) { } // window closed or operation cancelled: not an error
         finally { EndOperation(cancellation); }
     }
 

@@ -56,6 +56,27 @@ public sealed class ChatContextBuilderTests
     }
 
     [TestMethod]
+    public void BuildDoesNotSplitSurrogatePairsWhenTruncating()
+    {
+        var content = new string('a', 10) + "\U0001F600" + new string('b', 50); // emoji sits at the cut point
+        var result = ChatContextBuilder.Build(
+            "system",
+            new[] { new ChatMessage { Role = "user", Content = content } },
+            maxMessages: 5,
+            maxCharacters: 12 + "…[truncated]".Length);
+
+        var text = result[^1].Content;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (char.IsHighSurrogate(text[i]))
+                Assert.IsTrue(i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]), "Broken surrogate pair.");
+            if (char.IsLowSurrogate(text[i]))
+                Assert.IsTrue(i > 0 && char.IsHighSurrogate(text[i - 1]), "Broken surrogate pair.");
+        }
+        Assert.IsTrue(text.Length <= 12 + "…[truncated]".Length);
+    }
+
+    [TestMethod]
     public void BuildHandlesCharacterBudgetsShorterThanTruncationMarker()
     {
         var latest = new ChatMessage { Role = "user", Content = "a much longer question" };
