@@ -7,55 +7,55 @@
         <services:TextDirectionConverter x:Key="Layal.TextDirectionConverter" />
         <FontFamily x:Key="Layal.InterfaceFont">pack://application:,,,/Layal;component/Assets/Fonts/#Cairo</FontFamily>
 
-        <!-- Soft Aurora: pearl, sapphire and lavender surfaces; dark mode uses colored midnight blue, never black. -->
-        <Color x:Key="Layal.Color.Background">#F3F6FF</Color>
-        <Color x:Key="Layal.Color.BackgroundEnd">#E8EEFC</Color>
-        <Color x:Key="Layal.Color.Surface">#FFFFFF</Color>
-        <Color x:Key="Layal.Color.SurfaceRaised">#FAFBFF</Color>
-        <Color x:Key="Layal.Color.SurfaceHover">#EEF2FF</Color>
-        <Color x:Key="Layal.Color.Border">#D5DCF0</Color>
-        <Color x:Key="Layal.Color.Cyan">#315FC1</Color>
-        <Color x:Key="Layal.Color.Purple">#7351B8</Color>
-        <Color x:Key="Layal.Color.Text">#1D2B49</Color>
-        <Color x:Key="Layal.Color.Muted">#53627D</Color>
-        <Color x:Key="Layal.Color.ScrollThumb">#8291AF</Color>
+        <!-- Warm Beige: cream and beige surfaces with a brown neutral; dark mode uses warm coffee brown. -->
+        <Color x:Key="Layal.Color.Background">#F5F0E8</Color>
+        <Color x:Key="Layal.Color.BackgroundEnd">#EBE3D6</Color>
+        <Color x:Key="Layal.Color.Surface">#FFFCF7</Color>
+        <Color x:Key="Layal.Color.SurfaceRaised">#FAF5EC</Color>
+        <Color x:Key="Layal.Color.SurfaceHover">#F1E9DC</Color>
+        <Color x:Key="Layal.Color.Border">#DDD2C0</Color>
+        <Color x:Key="Layal.Color.Cyan">#7A4E24</Color>
+        <Color x:Key="Layal.Color.Purple">#8A5A44</Color>
+        <Color x:Key="Layal.Color.Text">#2A2119</Color>
+        <Color x:Key="Layal.Color.Muted">#675A4C</Color>
+        <Color x:Key="Layal.Color.ScrollThumb">#A8977F</Color>
         <Color x:Key="Layal.Color.Success">#17734F</Color>
         <Color x:Key="Layal.Color.Warning">#8A5500</Color>
         <Color x:Key="Layal.Color.Danger">#A8324A</Color>
-        <Color x:Key="Layal.Color.Focus">#4368D2</Color>
-        <Color x:Key="Layal.Color.HeaderStart">#FFF8FB</Color>
-        <Color x:Key="Layal.Color.HeaderMiddle">#F6F3FF</Color>
-        <Color x:Key="Layal.Color.HeaderEnd">#EDF4FF</Color>
-        <Color x:Key="Layal.Color.CardStart">#FFFFFFFF</Color>
-        <Color x:Key="Layal.Color.CardEnd">#F5F5FF</Color>
-        <Color x:Key="Layal.Color.ButtonStart">#DCE7FF</Color>
-        <Color x:Key="Layal.Color.ButtonEnd">#E9E0FB</Color>
-        <Color x:Key="Layal.Color.BrandBorder">#BCCBF0</Color>
-        <Color x:Key="Layal.Color.BrandDot">#D59A45</Color>
-        <Color x:Key="Layal.Color.DangerSurface">#FCEDEF</Color>
-        <Color x:Key="Layal.Color.DangerBorder">#E7BBC4</Color>
-        <Color x:Key="Layal.Color.NavSelected">#E2E9FF</Color>
-        <Color x:Key="Layal.Color.NavSelectedBorder">#B6C4F0</Color>
-        <Color x:Key="Layal.Color.NavHover">#ECF0FF</Color>
-        <Color x:Key="Layal.Color.ListHover">#ECF0FF</Color>
-        <Color x:Key="Layal.Color.ListSelected">#DBE5FF</Color>
-        <Color x:Key="Layal.Color.InputFocus">#FBFCFF</Color>
-        <Color x:Key="Layal.Color.HoverSurface">#EEF2FF</Color>
-        <Color x:Key="Layal.Color.MenuHover">#E9EDFF</Color>
-        <Color x:Key="Layal.Color.MenuHoverText">#1D2B49</Color>
-        <Color x:Key="Layal.Color.Shadow">#7A86A2</Color>
-        <!-- A calm three-color aurora, with enough tint to avoid a flat grey canvas. -->
-        <Color x:Key="Layal.Color.BackdropStart">#E3EEFF</Color>
-        <Color x:Key="Layal.Color.BackdropMiddle">#EFE9FF</Color>
-        <Color x:Key="Layal.Color.BackdropEnd">#E8F6F4</Color>
-        <Color x:Key="Layal.Color.Glass">#F5FFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassStrong">#FCFFFFFF</Color>
-        <Color x:Key="Layal.Color.GlassBorder">#D0D9EF</Color>
-        <Color x:Key="Layal.Color.GlowBlue">#30487AE5</Color>
-        <Color x:Key="Layal.Color.GlowViolet">#258E62E6</Color>
-        <Color x:Key="Layal.Color.GlowPink">#20DA8EA7</Color>
-        <Color x:Key="Layal.Color.AccentStart">#3763C9</Color>
-        <Color x:Key="Layal.Color.AccentEnd">#7857C6</Color>
+        <Color x:Key="Layal.Color.Focus">#9A5F22</Color>
+        <Color x:Key="Layal.Color.HeaderStart">#FFFAF2</Color>
+        <Color x:Key="Layal.Color.HeaderMiddle">#F8F0E3</Color>
+        <Color x:Key="Layal.Color.HeaderEnd">#F1E7D6</Color>
+        <Color x:Key="Layal.Color.CardStart">#FFFFFCF7</Color>
+        <Color x:Key="Layal.Color.CardEnd">#FAF4EA</Color>
+        <Color x:Key="Layal.Color.ButtonStart">#E8D9C0</Color>
+        <Color x:Key="Layal.Color.ButtonEnd">#E2CFB1</Color>
+        <Color x:Key="Layal.Color.BrandBorder">#D4C3A8</Color>
+        <Color x:Key="Layal.Color.BrandDot">#C98B3E</Color>
+        <Color x:Key="Layal.Color.DangerSurface">#FBEDE8</Color>
+        <Color x:Key="Layal.Color.DangerBorder">#E3BDB2</Color>
+        <Color x:Key="Layal.Color.NavSelected">#EADFCF</Color>
+        <Color x:Key="Layal.Color.NavSelectedBorder">#CDBB9F</Color>
+        <Color x:Key="Layal.Color.NavHover">#F0E7D8</Color>
+        <Color x:Key="Layal.Color.ListHover">#F0E7D8</Color>
+        <Color x:Key="Layal.Color.ListSelected">#EBDFCD</Color>
+        <Color x:Key="Layal.Color.InputFocus">#FFFEFB</Color>
+        <Color x:Key="Layal.Color.HoverSurface">#F2EADE</Color>
+        <Color x:Key="Layal.Color.MenuHover">#EFE4D3</Color>
+        <Color x:Key="Layal.Color.MenuHoverText">#2A2119</Color>
+        <Color x:Key="Layal.Color.Shadow">#8A7355</Color>
+        <!-- A calm warm backdrop, with enough tint to avoid a flat grey canvas. -->
+        <Color x:Key="Layal.Color.BackdropStart">#F1EADD</Color>
+        <Color x:Key="Layal.Color.BackdropMiddle">#EDE3D3</Color>
+        <Color x:Key="Layal.Color.BackdropEnd">#E9E1D0</Color>
+        <Color x:Key="Layal.Color.Glass">#F5FFFCF7</Color>
+        <Color x:Key="Layal.Color.GlassStrong">#FCFFFCF7</Color>
+        <Color x:Key="Layal.Color.GlassBorder">#DCD0BC</Color>
+        <Color x:Key="Layal.Color.GlowBlue">#30C98B3E</Color>
+        <Color x:Key="Layal.Color.GlowViolet">#25B07A52</Color>
+        <Color x:Key="Layal.Color.GlowPink">#20D9A35F</Color>
+        <Color x:Key="Layal.Color.AccentStart">#6B4A2B</Color>
+        <Color x:Key="Layal.Color.AccentEnd">#8A5E36</Color>
         <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
         <Color x:Key="Layal.Color.IconChatBackground">#E4EBFF</Color>
         <Color x:Key="Layal.Color.IconChatForeground">#315EC3</Color>
@@ -119,7 +119,7 @@
         <SolidColorBrush x:Key="Layal.Icon.SettingsBackground" Color="{DynamicResource Layal.Color.IconSettingsBackground}" />
         <SolidColorBrush x:Key="Layal.Icon.SettingsForeground" Color="{DynamicResource Layal.Color.IconSettingsForeground}" />
         <SolidColorBrush x:Key="Layal.GlassFill" Color="{DynamicResource Layal.Color.Glass}" />
-        <SolidColorBrush x:Key="Layal.AppBackdropWash" Color="#FFF3F6FF" />
+        <SolidColorBrush x:Key="Layal.AppBackdropWash" Color="#FFF5F0E8" />
         <SolidColorBrush x:Key="Layal.GlassStrongFill" Color="{DynamicResource Layal.Color.GlassStrong}" />
         <SolidColorBrush x:Key="Layal.GlassBorderBrush" Color="{DynamicResource Layal.Color.GlassBorder}" />
         <RadialGradientBrush x:Key="Layal.GlowBlueBrush" RadiusX="0.5" RadiusY="0.5">

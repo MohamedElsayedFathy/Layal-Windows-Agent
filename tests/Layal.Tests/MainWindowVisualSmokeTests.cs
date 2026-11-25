@@ -1961,7 +1961,7 @@ public sealed class MainWindowVisualSmokeTests
         applyTheme.Invoke(window, null);
         applyLanguage.Invoke(window, null);
 
-        Assert.AreEqual(Color.FromRgb(243, 246, 255), (Color)Application.Current.Resources["Layal.Color.Background"],
+        Assert.AreEqual(Color.FromRgb(245, 240, 232), (Color)Application.Current.Resources["Layal.Color.Background"],
             "The light background palette must be active before the toggle.");
         AssertPageHeroGradientTracksPalette("light before toggle");
         Assert.AreEqual("☾ المظهر الداكن", BidiTextNormalizer.StripDirectionalControls(themeButton.Content as string),
@@ -1972,7 +1972,7 @@ public sealed class MainWindowVisualSmokeTests
 
         Assert.AreEqual("dark", AppRuntime.Settings.ThemeMode,
             "Clicking the theme button must switch the selected theme to dark.");
-        Assert.AreEqual(Color.FromRgb(38, 52, 81), (Color)Application.Current.Resources["Layal.Color.Background"],
+        Assert.AreEqual(Color.FromRgb(31, 26, 22), (Color)Application.Current.Resources["Layal.Color.Background"],
             "Clicking the theme button must apply the dark resource palette.");
         AssertPageHeroGradientTracksPalette("dark after toggle");
         Assert.AreEqual("dark", AppRuntime.SettingsStore.Load().ThemeMode,
@@ -1985,7 +1985,7 @@ public sealed class MainWindowVisualSmokeTests
 
         Assert.AreEqual("light", AppRuntime.Settings.ThemeMode,
             "Clicking the theme button again must restore the light theme.");
-        Assert.AreEqual(Color.FromRgb(243, 246, 255), (Color)Application.Current.Resources["Layal.Color.Background"],
+        Assert.AreEqual(Color.FromRgb(245, 240, 232), (Color)Application.Current.Resources["Layal.Color.Background"],
             "Switching back must restore the light resource palette.");
         AssertPageHeroGradientTracksPalette("light after toggle");
         Assert.AreEqual("light", AppRuntime.SettingsStore.Load().ThemeMode,
