@@ -177,8 +177,7 @@ try {
             $editDiagnostics += [pscustomobject]@{
                 Name = $editPeer.Current.Name
                 AutomationId = $editPeer.Current.AutomationId
-                Enabled = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsEnabledProperty)
-                KeyboardFocusable = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsKeyboardFocusableProperty)
+                Enabled = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsEnabledProperty)                KeyboardFocusable = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsKeyboardFocusableProperty)
                 Offscreen = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
                 HasKeyboardFocus = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::HasKeyboardFocusProperty)
             }
@@ -267,6 +266,33 @@ try {
         Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
     })
     if (-not $dockFocused) { throw "The first navigation destination could not receive keyboard focus." }
+
+    # Verify actual forward and reverse keyboard traversal between the first two dock destinations.
+    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $tabAdvancedToOverview = $null -ne $focused -and $focused.Current.AutomationId -eq "DockOverviewButton"
+    $results.Add([pscustomobject]@{
+        Test = "Tab advances from Chat to Overview"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($tabAdvancedToOverview) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId }); expected DockOverviewButton"
+    })
+    if (-not $tabAdvancedToOverview) { throw "Tab did not advance focus from Chat to the Overview destination." }
+
+    [System.Windows.Forms.SendKeys]::SendWait("+{TAB}")
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $shiftTabReturnedToChat = $null -ne $focused -and $focused.Current.AutomationId -eq "DockChatButton"
+    $results.Add([pscustomobject]@{
+        Test = "Shift+Tab returns from Overview to Chat"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($shiftTabReturnedToChat) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId }); expected DockChatButton"
+    })
+    if (-not $shiftTabReturnedToChat) { throw "Shift+Tab did not return focus from Overview to the Chat destination." }
 
     $expectedDockIds = @(
         "DockChatButton", "DockOverviewButton", "DockTasksButton", "DockSkillsButton",
