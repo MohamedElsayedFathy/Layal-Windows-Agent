@@ -445,6 +445,19 @@ public sealed class MemoryService
     private static readonly System.Text.RegularExpressions.Regex GoogleApiKey =
         new(@"\bAIza[0-9A-Za-z_\-]{30,}", System.Text.RegularExpressions.RegexOptions.Compiled);
 
+    private static readonly System.Text.RegularExpressions.Regex ExtraSecretShapes =
+        new(
+            @"\bxox[abprs]-[0-9A-Za-z-]{10,}" +                              // Slack tokens
+            @"|\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}" + // JWT
+            @"|\bBearer\s+[A-Za-z0-9._~+/=-]{20,}" +                          // Authorization header value
+            @"|\bsk-[A-Za-z0-9_-]{20,}" +                                    // generic sk- keys
+            @"|-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----" +                     // any private-key PEM
+            @"|\b(?:password|passwd|pwd|api[_-]?key|secret[_-]?key)\s*[:=]\s*\S{3,}", // key: value / key=value
+            System.Text.RegularExpressions.RegexOptions.Compiled |
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(250));
+
     private static bool LooksLikeSecret(string value)
     {
         string[] patterns =
@@ -452,9 +465,10 @@ public sealed class MemoryService
             "-----BEGIN PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----",
             "sk-proj-", "sk-ant-", "ghp_", "github_pat_"
         };
-        return patterns.Any(p => value.Contains(p, StringComparison.OrdinalIgnoreCase)) ||
-               AwsAccessKey.IsMatch(value) || GoogleApiKey.IsMatch(value) ||
-               (value.Contains("password", StringComparison.OrdinalIgnoreCase) && value.Contains('=')) ||
-               (value.Contains("api_key", StringComparison.OrdinalIgnoreCase) && value.Contains('='));
+        if (patterns.Any(p => value.Contains(p, StringComparison.OrdinalIgnoreCase)) ||
+            AwsAccessKey.IsMatch(value) || GoogleApiKey.IsMatch(value))
+            return true;
+        try { return ExtraSecretShapes.IsMatch(value); }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException) { return true; } // fail closed
     }
 }
