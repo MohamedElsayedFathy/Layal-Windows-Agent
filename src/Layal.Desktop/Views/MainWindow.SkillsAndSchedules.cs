@@ -509,11 +509,24 @@ public partial class MainWindow
         }
     }
 
-    private void TrySynchronizeLocalNotificationSchedule()
+    private async System.Threading.Tasks.Task SynchronizeRemindersAfterTickAsync()
+    {
+        try { await AppRuntime.SynchronizeLocalNotificationsAsync(); }
+        catch (Exception ex)
+        {
+            SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError(
+                "تعذر تحديث جدولة التذكيرات في Windows",
+                "Windows reminder scheduling could not be updated",
+                ex,
+                IsArabic));
+        }
+    }
+
+    private async void TrySynchronizeLocalNotificationSchedule()
     {
         try
         {
-            AppRuntime.SynchronizeLocalNotifications();
+            await AppRuntime.SynchronizeLocalNotificationsAsync();
         }
         catch (Exception ex)
         {
@@ -737,17 +750,9 @@ public partial class MainWindow
                 IsArabic));
         }
 
-        if (scheduleChanged && AppRuntime.ReminderTaskSchedulerService is { } scheduler)
+        if (scheduleChanged && AppRuntime.ReminderTaskSchedulerService is not null)
         {
-            try { AppRuntime.SynchronizeLocalNotifications(); }
-            catch (Exception ex)
-            {
-                SetAccessibleStatusText(TaskResult, UiLocalization.FormatTechnicalError(
-                    "تعذر تحديث جدولة التذكيرات في Windows",
-                    "Windows reminder scheduling could not be updated",
-                    ex,
-                    IsArabic));
-            }
+            _ = SynchronizeRemindersAfterTickAsync();
         }
     }
 

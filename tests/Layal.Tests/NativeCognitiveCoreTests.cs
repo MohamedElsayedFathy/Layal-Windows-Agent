@@ -206,4 +206,28 @@ public sealed class NativeCognitiveCoreTests
         Assert.IsFalse(response.Contains("تم حفظ الاختصار المحلي", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    public void PrivateChatDoesNotPersistAliasesOrReadPersonalMemory()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Inconclusive("The native stores are protected with Windows DPAPI.");
+
+        using var temp = new TestTempDirectory();
+        var learningPath = Path.Combine(temp.Path, "native-learning.dpapi");
+        var learning = new NativeLearningService(learningPath);
+        var memory = new MemoryService(Path.Combine(temp.Path, "memory.dpapi"));
+        memory.Save("zebrafish-secret-title", "zebrafish-secret-content");
+        var engine = new NativeConversationEngine(new NativeLanguageParser(learning), learning, memory);
+
+        var taught = engine.Respond("When I say \"privateword\", do what time is it", "en", privateChat: true);
+        var recalled = engine.Respond("tell me about zebrafish-secret-title", "en", privateChat: true);
+
+        Assert.IsFalse(taught.Contains("Saved the local shortcut", StringComparison.Ordinal));
+        Assert.IsFalse(new NativeLearningService(learningPath).TryResolveAlias("privateword", out _));
+        Assert.IsFalse(recalled.Contains("zebrafish-secret", StringComparison.Ordinal));
+
+        var normal = engine.Respond("tell me about zebrafish-secret-title", "en");
+        StringAssert.Contains(normal, "zebrafish-secret-title");
+    }
+
 }
