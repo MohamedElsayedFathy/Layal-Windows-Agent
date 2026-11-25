@@ -939,6 +939,34 @@ public sealed class AgentToolExecutorTests
     }
 
     [TestMethod]
+    public async Task DotnetBuildApprovalCoversTheWholeProjectFolderAndRejectsSiblingFileChanges()
+    {
+        using var temp = new TestTempDirectory();
+        var workspace = Path.Combine(temp.Path, "workspace");
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "app.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>");
+        var sibling = Path.Combine(workspace, "Build.targets");
+        File.WriteAllText(sibling, "<Project></Project>");
+        var executor = CreateExecutor(workspace);
+        string? details = null;
+
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => executor.ExecuteAsync(
+            "run_dotnet_build",
+            """{"project_file":"app.csproj","configuration":"Debug"}""",
+            (_, approvalDetails, _) =>
+            {
+                details = approvalDetails;
+                File.WriteAllText(sibling, "<Project><!-- changed after approval --></Project>");
+                return Task.FromResult(true);
+            },
+            _ => { },
+            CancellationToken.None));
+
+        StringAssert.Contains(details!, "folder manifest SHA-256");
+        StringAssert.Contains(error.Message, "approved project folder changed");
+    }
+
+    [TestMethod]
     public async Task ReadFileRejectsSameLengthContentChangeEvenWhenTimestampIsRestoredDuringApproval()
     {
         using var temp = new TestTempDirectory();
