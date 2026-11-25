@@ -245,15 +245,15 @@ public sealed class SafeBrowserDownloadService
                 throw new InvalidDataException("The server returned an empty file.");
 
             await ValidateFileContentAsync(temporaryPath, extension, token);
-            finalPath = ChooseUniquePath(fileName);
-            File.Move(temporaryPath, finalPath, overwrite: false);
+            var candidatePath = ChooseUniquePath(fileName);
+            File.Move(temporaryPath, candidatePath, overwrite: false);
+            // Only set after the move succeeded, so the catch block can never delete a file this code did not create.
+            finalPath = candidatePath;
             return finalPath;
         }
         catch
         {
             TryDelete(temporaryPath);
-            if (finalPath is not null)
-                TryDelete(finalPath);
             throw;
         }
     }

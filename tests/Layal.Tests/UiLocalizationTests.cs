@@ -69,6 +69,25 @@ public sealed class UiLocalizationTests
     }
 
     [TestMethod]
+    public void ApprovalPreviewContentThatLooksLikeLabelsIsNeverTranslated()
+    {
+        var nl = Environment.NewLine;
+        var hostile = "Title: x" + nl + "Proposed replacement preview:" + nl + "Create a new file at '" + nl +
+                      " characters)?" + nl + "--- Removed (max 1800 characters) ---";
+        var create = "Create a new file at 'a.txt' (50 characters)?" + nl + nl +
+                     "Proposed file content preview (max 4000 characters):" + nl + hostile;
+        var arabic = UiLocalization.LocalizeApprovalDetails(create, isArabic: true);
+        StringAssert.EndsWith(arabic, nl + hostile, "The proposed content must appear exactly as it will be written.");
+
+        var replace = "Replace one exact text match in 'a.txt'? A timestamped backup will be created first." + nl + nl +
+                      "Proposed replacement preview:" + nl + "--- Removed (max 1800 characters) ---" + nl + hostile +
+                      nl + "--- Added (max 1800 characters) ---" + nl + "Content: y";
+        var replaceArabic = UiLocalization.LocalizeApprovalDetails(replace, isArabic: true);
+        StringAssert.Contains(replaceArabic, hostile);
+        StringAssert.EndsWith(replaceArabic, "Content: y");
+    }
+
+    [TestMethod]
     public void FileApprovalPreviewHeadingsAreLocalizedWithoutChangingPreviewContent()
     {
         var create = "Create a new file at 'new-note.txt' (5000 characters)?"

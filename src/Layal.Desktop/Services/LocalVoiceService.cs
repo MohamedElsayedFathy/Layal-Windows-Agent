@@ -303,7 +303,8 @@ public sealed class LocalVoiceService
         {
             throw;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException or
+            InvalidDataException or TimeoutException or System.ComponentModel.Win32Exception)
         {
             // Treat unreadable or invalid cache entries as not ready. Setup will ask for consent
             // before attempting a repair or network download.

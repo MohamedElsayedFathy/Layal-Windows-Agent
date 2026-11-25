@@ -243,6 +243,56 @@ public static class UiLocalization
         };
     }
 
+    private const string OmissionNote = "…[preview truncated; remaining content omitted]";
+    private const string OmissionNoteArabic = "…[تم اقتطاع الباقي]";
+
+    private static string TranslateTrailingOmission(string body) =>
+        body.EndsWith(OmissionNote, StringComparison.Ordinal)
+            ? body[..^OmissionNote.Length] + OmissionNoteArabic
+            : body;
+
+    private static string LocalizeCreateFileApproval(string details)
+    {
+        var blank = Environment.NewLine + Environment.NewLine;
+        var split = details.IndexOf(blank, StringComparison.Ordinal);
+        if (split < 0) return details;
+        var header = details[..split];
+        var rest = details[(split + blank.Length)..];
+        const string previewLabel = "Proposed file content preview (max 4000 characters):";
+        if (!header.EndsWith(" characters)?", StringComparison.Ordinal) || !rest.StartsWith(previewLabel, StringComparison.Ordinal))
+            return details;
+
+        var headerArabic = "هل تريد إنشاء ملف جديد في '" + header["Create a new file at '".Length..^" characters)?".Length]
+            + " حرفًا)؟";
+        var body = TranslateTrailingOmission(rest[previewLabel.Length..]);
+        return headerArabic + blank + "معاينة محتوى الملف المقترح (بحد أقصى 4000 حرف):" + body;
+    }
+
+    private static string LocalizeReplaceApproval(string details)
+    {
+        var blank = Environment.NewLine + Environment.NewLine;
+        var split = details.IndexOf(blank, StringComparison.Ordinal);
+        if (split < 0) return details;
+        var header = details[..split];
+        var rest = details[(split + blank.Length)..];
+        const string headerTail = "'? A timestamped backup will be created first.";
+        var nl = Environment.NewLine;
+        var previewLabel = "Proposed replacement preview:" + nl + "--- Removed (max 1800 characters) ---";
+        if (!header.EndsWith(headerTail, StringComparison.Ordinal) || !rest.StartsWith(previewLabel, StringComparison.Ordinal))
+            return details;
+
+        var headerArabic = "هل تريد استبدال تطابق نصي واحد في '"
+            + header["Replace one exact text match in '".Length..^headerTail.Length]
+            + "'؟ سيتم إنشاء نسخة احتياطية مؤرخة أولًا.";
+        var body = rest[previewLabel.Length..];
+        var addedLabel = nl + "--- Added (max 1800 characters) ---";
+        var addedAt = body.IndexOf(addedLabel, StringComparison.Ordinal);
+        if (addedAt >= 0)
+            body = body[..addedAt] + nl + "--- النص المضاف (بحد أقصى 1800 حرف) ---" + body[(addedAt + addedLabel.Length)..];
+        body = TranslateTrailingOmission(body);
+        return headerArabic + blank + "معاينة التعديل المقترح:" + nl + "--- النص المحذوف (بحد أقصى 1800 حرف) ---" + body;
+    }
+
     public static string LocalizeApprovalDetails(string details, bool isArabic)
     {
         if (!isArabic) return details;
@@ -267,19 +317,14 @@ public static class UiLocalization
             return $"هل تريد قراءة الملف '{path}' وإرسال محتواه إلى مزود الذكاء الاصطناعي؟ لا تفعل ذلك إلا إذا تأكدت من خلو الملف من الأسرار والبيانات الخاصة.";
         }
 
+        // The proposed file/replacement text sits inside these prompts. Only the fixed header, the fixed
+        // labels at their fixed positions, and the fixed trailing omission note are translated. The
+        // user's content is copied unchanged, so the approval screen shows exactly what will be written.
         if (details.StartsWith("Create a new file at '", StringComparison.Ordinal))
-            return details.Replace("Create a new file at '", "هل تريد إنشاء ملف جديد في '", StringComparison.Ordinal)
-                .Replace(" characters)?", " حرفًا)؟", StringComparison.Ordinal)
-                .Replace("Proposed file content preview (max 4000 characters):", "معاينة محتوى الملف المقترح (بحد أقصى 4000 حرف):", StringComparison.Ordinal)
-                .Replace("…[preview truncated; remaining content omitted]", "…[تم اقتطاع الباقي]", StringComparison.Ordinal);
+            return LocalizeCreateFileApproval(details);
 
         if (details.StartsWith("Replace one exact text match in '", StringComparison.Ordinal))
-            return details.Replace("Replace one exact text match in '", "هل تريد استبدال تطابق نصي واحد في '", StringComparison.Ordinal)
-                .Replace("'? A timestamped backup will be created first.", "'؟ سيتم إنشاء نسخة احتياطية مؤرخة أولًا.", StringComparison.Ordinal)
-                .Replace("Proposed replacement preview:", "معاينة التعديل المقترح:", StringComparison.Ordinal)
-                .Replace("--- Removed (max 1800 characters) ---", "--- النص المحذوف (بحد أقصى 1800 حرف) ---", StringComparison.Ordinal)
-                .Replace("--- Added (max 1800 characters) ---", "--- النص المضاف (بحد أقصى 1800 حرف) ---", StringComparison.Ordinal)
-                .Replace("…[preview truncated; remaining content omitted]", "…[تم اقتطاع الباقي]", StringComparison.Ordinal);
+            return LocalizeReplaceApproval(details);
 
         if (details.StartsWith("The following window titles and process IDs will be sent", StringComparison.Ordinal))
         {
