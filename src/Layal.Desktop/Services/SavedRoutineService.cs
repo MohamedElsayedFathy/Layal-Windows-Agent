@@ -25,6 +25,7 @@ public sealed class SavedRoutineService
         lock (_sync)
         {
             return LoadAndNormalize()
+                .Where(item => !string.IsNullOrWhiteSpace(item.Goal))
                 .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(item => item.Clone())
                 .ToList();
@@ -205,6 +206,8 @@ public sealed class SavedRoutineService
                 routine.Goal = string.Empty;
             }
         }
-        return routines.Where(item => !string.IsNullOrWhiteSpace(item.Goal)).ToList();
+        // Keep damaged records in the list so a later Save does not permanently erase them;
+        // GetAll hides them from the UI.
+        return routines;
     }
 }
