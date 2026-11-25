@@ -177,7 +177,8 @@ try {
             $editDiagnostics += [pscustomobject]@{
                 Name = $editPeer.Current.Name
                 AutomationId = $editPeer.Current.AutomationId
-                Enabled = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsEnabledProperty)                KeyboardFocusable = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsKeyboardFocusableProperty)
+                Enabled = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsEnabledProperty)
+                KeyboardFocusable = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsKeyboardFocusableProperty)
                 Offscreen = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
                 HasKeyboardFocus = [bool]$editPeer.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::HasKeyboardFocusProperty)
             }
