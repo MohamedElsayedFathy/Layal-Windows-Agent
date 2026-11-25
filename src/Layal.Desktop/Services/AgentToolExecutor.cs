@@ -311,6 +311,58 @@ public sealed class AgentToolExecutor
         return result.ToDisplayText();
     }
 
+    private const int MaximumFolderManifestFiles = 2000;
+    private const long MaximumFolderManifestBytes = 100L * 1024 * 1024;
+    private static readonly string[] FolderManifestExcludedDirectories = { "bin", "obj", ".git", ".vs", "node_modules" };
+
+    /// <summary>
+    /// Hashes every regular file under the project folder (names, sizes and SHA-256 of contents) so the
+    /// approval covers code that build/test can execute, not only the .sln/.csproj file. Fails closed on
+    /// reparse points and when the folder exceeds the file or byte caps.
+    /// </summary>
+    private async Task<(string Hash, int FileCount)> ComputeFolderManifestAsync(string directory, CancellationToken token)
+    {
+        var files = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(directory);
+        while (pending.Count > 0)
+        {
+            token.ThrowIfCancellationRequested();
+            var current = pending.Pop();
+            EnsureNoReparsePoints(current);
+            foreach (var sub in Directory.EnumerateDirectories(current))
+            {
+                var name = Path.GetFileName(sub);
+                if (FolderManifestExcludedDirectories.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    continue;
+                pending.Push(sub);
+            }
+            foreach (var file in Directory.EnumerateFiles(current))
+            {
+                EnsureNoReparsePoints(file);
+                files.Add(file);
+                if (files.Count > MaximumFolderManifestFiles)
+                    throw new InvalidOperationException($"The project folder has more than {MaximumFolderManifestFiles} files, so its contents cannot be bound to one approval. Use a smaller project folder. No process was started.");
+            }
+        }
+
+        files.Sort(StringComparer.Ordinal);
+        long totalBytes = 0;
+        var manifest = new StringBuilder();
+        foreach (var file in files)
+        {
+            token.ThrowIfCancellationRequested();
+            totalBytes += new FileInfo(file).Length;
+            if (totalBytes > MaximumFolderManifestBytes)
+                throw new InvalidOperationException("The project folder is larger than 100 MB, so its contents cannot be bound to one approval. Use a smaller project folder. No process was started.");
+            var relative = Path.GetRelativePath(directory, file).Replace('\\', '/');
+            manifest.Append(relative).Append('\0').Append(await ComputeFileSha256Async(file, token)).Append('\n');
+        }
+
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(manifest.ToString())));
+        return (hash, files.Count);
+    }
+
     private async Task<string> RunDotnetAsync(string verb, string relativeProjectFile, string configuration, Func<string, string, CancellationToken, Task<bool>> confirm, Action<string> report, CancellationToken token)
     {
         if (configuration is not ("Debug" or "Release")) throw new InvalidOperationException("Configuration must be Debug or Release.");
@@ -320,9 +372,11 @@ public sealed class AgentToolExecutor
         if (!File.Exists(projectPath)) throw new FileNotFoundException("Project or solution file not found inside the workspace.", relativeProjectFile);
         EnsureNoReparsePoints(projectPath);
         var approvedProjectHash = await ComputeFileSha256Async(projectPath, token);
+        var projectDirectory = Path.GetDirectoryName(projectPath)!;
+        var (approvedFolderHash, approvedFolderFileCount) = await ComputeFolderManifestAsync(projectDirectory, token);
         var dotnetPath = ResolveTrustedDotnetExecutable();
         if (!await confirm($"Run dotnet {verb}",
-                $"Run the fixed .NET CLI host at '{dotnetPath}' with the '{verb}' verb on '{Path.GetRelativePath(_workspaceRoot, projectPath)}' using {configuration}?\nApproved project SHA-256: {approvedProjectHash}\nBuild/test targets can execute arbitrary project-defined code and may restore packages from the internet. Only continue if you trust every file and dependency in this project.",
+                $"Run the fixed .NET CLI host at '{dotnetPath}' with the '{verb}' verb on '{Path.GetRelativePath(_workspaceRoot, projectPath)}' using {configuration}?\nApproved project SHA-256: {approvedProjectHash}\nApproved folder manifest SHA-256: {approvedFolderHash} ({approvedFolderFileCount} files under '{Path.GetRelativePath(_workspaceRoot, projectDirectory)}', excluding bin, obj, .git, .vs, node_modules)\nBuild/test targets can execute arbitrary project-defined code and may restore packages from the internet. Only continue if you trust every file and dependency in this project.",
                 token))
             return "User declined the build/test operation.";
         token.ThrowIfCancellationRequested();
@@ -336,6 +390,9 @@ public sealed class AgentToolExecutor
         if (!string.Equals(approvedProjectHash, confirmedProjectHash, StringComparison.Ordinal))
             throw new IOException("The approved project/solution file changed while awaiting confirmation. No build or test process was started; inspect the updated file and approve again.");
         approvedProjectLease.Position = 0;
+        var (confirmedFolderHash, _) = await ComputeFolderManifestAsync(projectDirectory, token);
+        if (!string.Equals(approvedFolderHash, confirmedFolderHash, StringComparison.Ordinal))
+            throw new IOException("A file in the approved project folder changed while awaiting confirmation. No build or test process was started; inspect the folder and approve again.");
 
         if (!File.Exists(dotnetPath) || (File.GetAttributes(dotnetPath) & FileAttributes.ReparsePoint) != 0)
             throw new InvalidOperationException("The trusted .NET CLI host changed or became unavailable while awaiting approval. No process was started.");
