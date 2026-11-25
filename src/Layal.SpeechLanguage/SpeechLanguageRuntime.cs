@@ -199,16 +199,17 @@ public sealed class SpeechLanguageReferenceResponder
     {
         string[] prefixes =
         [
-            "ما معنى كلمة ", "ما معنى ", "معنى كلمة ", "معنى ", "يعني ايه كلمة ",
-            "يعني ايه ", "ايه معنى ", "اشرح كلمة ", "ما المقصود ب ",
+            // Literals are written in lookup form (ة -> ه) because the query is NormalizeForLookup output.
+            "ما معنى كلمه ", "ما معنى ", "معنى كلمه ", "معنى ", "يعني ايه كلمه ",
+            "يعني ايه ", "ايه معنى ", "اشرح كلمه ", "ما المقصود ب ",
             "what is the meaning of ", "meaning of ", "define "
         ];
         foreach (var prefix in prefixes)
         {
             if (!value.StartsWith(prefix, StringComparison.Ordinal)) continue;
             term = value[prefix.Length..].Trim();
-            if (term.StartsWith("كلمة ", StringComparison.Ordinal))
-                term = term["كلمة ".Length..].Trim();
+            if (term.StartsWith("كلمه ", StringComparison.Ordinal))
+                term = term["كلمه ".Length..].Trim();
             return term.Length >= 2;
         }
 
@@ -228,8 +229,8 @@ public sealed class SpeechLanguageReferenceResponder
     {
         string[] prefixes =
         [
-            "اشرح قاعدة ", "اشرحلي قاعدة ", "ما قاعدة ", "ايه قاعدة ",
-            "القاعدة النحوية ", "قاعدة ", "explain grammar ", "grammar rule ",
+            "اشرح قاعده ", "اشرحلي قاعده ", "ما قاعده ", "ايه قاعده ",
+            "القاعده النحويه ", "قاعده ", "explain grammar ", "grammar rule ",
             "what is the grammar of ", "explain the rule "
         ];
         foreach (var prefix in prefixes)
@@ -239,7 +240,7 @@ public sealed class SpeechLanguageReferenceResponder
             return true;
         }
 
-        if (value is "اشرح القواعد" or "قواعد اللغة" or "grammar")
+        if (value is "اشرح القواعد" or "قواعد اللغه" or "grammar")
         {
             term = string.Empty;
             return true;
@@ -271,7 +272,7 @@ public sealed class SpeechLanguageReferenceResponder
     {
         string[] prefixes =
         [
-            "ازاي اقول ", "كيف اقول ", "عبارة عن ", "عبارة ل ",
+            "ازاي اقول ", "كيف اقول ", "عباره عن ", "عباره ل ",
             "قول بالانجليزي ", "قول بالمصري ", "how do i say ", "how to say ",
             "phrase for ", "expression for "
         ];
