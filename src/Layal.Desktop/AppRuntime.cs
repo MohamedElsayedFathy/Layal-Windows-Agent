@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Layal.Models;
 using Layal.Services;
 using Layal.Views;
@@ -43,6 +47,45 @@ public static class AppRuntime
     /// local check-in. Incognito removes the dispatch task without modifying saved reminder
     /// records or their due times; startup or private-mode exit schedules it again.
     /// </summary>
+    private static Task _notificationSyncChain = Task.CompletedTask;
+
+    /// <summary>
+    /// Same reconciliation as <see cref="SynchronizeLocalNotifications"/>, but the schtasks process
+    /// calls run on a thread-pool thread so the UI thread never waits on Task Scheduler. Settings and
+    /// reminders are snapshotted on the calling (UI) thread; runs are chained so the newest snapshot
+    /// is always applied last. The returned task faults with the scheduler error, if any.
+    /// Call from the UI thread only.
+    /// </summary>
+    public static Task SynchronizeLocalNotificationsAsync()
+    {
+        var scheduler = ReminderTaskSchedulerService;
+        if (scheduler is null || ReminderService is null)
+            return Task.CompletedTask;
+
+        Action work;
+        if (!PrivateChatModePolicy.CanDeliverLocalNotifications(IsPrivateChatActive))
+        {
+            work = scheduler.DeleteTaskIfPresent;
+        }
+        else
+        {
+            var proactiveDueAt = ProactiveCheckInPolicy.GetNextDueAt(
+                enabled: Settings.ProactiveCheckInEnabled,
+                privacyShieldEnabled: Settings.PrivacyShieldEnabled,
+                gameModeActive: IsGameModeActive,
+                applicationExiting: IsExiting,
+                lastNotifiedAt: Settings.LastProactiveCheckInAt,
+                intervalMinutes: Settings.ProactiveCheckInIntervalMinutes);
+            var reminders = ReminderService.GetAll().ToList();
+            work = () => scheduler.Synchronize(reminders, proactiveDueAt);
+        }
+
+        var next = _notificationSyncChain.ContinueWith(
+            _ => work(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        _notificationSyncChain = next;
+        return next;
+    }
+
     public static void SynchronizeLocalNotifications()
     {
         var scheduler = ReminderTaskSchedulerService;
