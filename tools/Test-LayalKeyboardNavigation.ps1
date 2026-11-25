@@ -74,7 +74,7 @@ try {
     }
 
     # The redesigned shell intentionally hides the TabControl header and exposes destinations
-    # through the persistent left navigation rail. Verify the active page through the live accessible status
+    # through the floating navigation bar. Verify the active page through the live accessible status
     # on MainTabs instead of expecting visual TabItem peers that no longer exist in the UI tree.
     function Get-CurrentSectionStatus {
         return [string]$tabControl.GetCurrentPropertyValue(
@@ -236,105 +236,65 @@ try {
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Start-Sleep -Milliseconds 250
 
-    # Exercise the persistent left navigation rail through UI Automation and keyboard input.
+    # Exercise the floating navigation bar through UI Automation and keyboard input.
     # Stable AutomationIds keep this test independent from Arabic/English display text.
     [System.Windows.Forms.SendKeys]::SendWait("^1")
     Start-Sleep -Milliseconds 250
-    $toggleCondition = New-Object System.Windows.Automation.PropertyCondition(
-        [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
-        "ToggleBottomDockButton")
-    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
-    if ($null -eq $toggleElement) {
-        throw "The navigation rail toggle is not exposed to UI Automation."
-    }
-
-    $initialRailName = $toggleElement.Current.Name
-    $initialRailExpanded = $initialRailName -match "(?i)(Collapse navigation rail|طي شريط التنقل الجانبي)"
-    $results.Add([pscustomobject]@{
-        Test = "Navigation rail starts expanded"
-        ExpectedSection = "Chat / Home"
-        SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($initialRailExpanded) { "PASS" } else { "FAIL" }
-        Details = "Initial navigation toggle name: $initialRailName"
-    })
-    if (-not $initialRailExpanded) { throw "The navigation rail did not start expanded by default." }
-
-    $toggleElement.SetFocus()
-    Start-Sleep -Milliseconds 120
-    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-    $toggleFocused = $null -ne $focused -and $focused.Current.AutomationId -eq "ToggleBottomDockButton"
-    $results.Add([pscustomobject]@{
-        Test = "Navigation rail toggle focus"
-        ExpectedSection = "Chat / Home"
-        SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($toggleFocused) { "PASS" } else { "FAIL" }
-        Details = "AutomationId=$($toggleElement.Current.AutomationId); focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
-    })
-    if (-not $toggleFocused) { throw "The navigation rail toggle could not receive keyboard focus." }
-
-    [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Start-Sleep -Milliseconds 450
-    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
-    $collapsedRailName = if ($null -eq $toggleElement) { "" } else { $toggleElement.Current.Name }
-    $railCollapsed = $collapsedRailName -match "(?i)(Expand navigation rail|توسيع شريط التنقل الجانبي)"
-    $results.Add([pscustomobject]@{
-        Test = "Space collapses left navigation rail"
-        ExpectedSection = "Chat / Home"
-        SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($railCollapsed) { "PASS" } else { "FAIL" }
-        Details = "Navigation toggle name after collapse: $collapsedRailName"
-    })
-    if (-not $railCollapsed) { throw "Space did not collapse the left navigation rail." }
-
-    $toggleElement.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Start-Sleep -Milliseconds 450
-    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
-    $expandedRailName = if ($null -eq $toggleElement) { "" } else { $toggleElement.Current.Name }
-    $railExpanded = $expandedRailName -match "(?i)(Collapse navigation rail|طي شريط التنقل الجانبي)"
     $dockChatCondition = New-Object System.Windows.Automation.PropertyCondition(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
         "DockChatButton")
     $dockChatElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $dockChatCondition)
-    $dockExpanded = $null -ne $dockChatElement -and
+    $dockVisible = $null -ne $dockChatElement -and
         -not [bool]$dockChatElement.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
     $results.Add([pscustomobject]@{
-        Test = "Space expands left navigation rail"
+        Test = "Floating navigation bar is visible"
         ExpectedSection = "Chat / Home"
         SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($railExpanded -and $dockExpanded) { "PASS" } else { "FAIL" }
-        Details = "Navigation toggle name=$expandedRailName; first destination on-screen=$dockExpanded"
+        Result = if ($dockVisible) { "PASS" } else { "FAIL" }
+        Details = "First destination exposed and on-screen: $dockVisible"
     })
-    if (-not ($railExpanded -and $dockExpanded)) { throw "Space did not expand the left navigation rail and expose its destinations." }
+    if (-not $dockVisible) { throw "The floating navigation bar is not exposed to UI Automation." }
 
+    $dockChatElement.SetFocus()
+    Start-Sleep -Milliseconds 120
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $dockFocused = $null -ne $focused -and $focused.Current.AutomationId -eq "DockChatButton"
+    $results.Add([pscustomobject]@{
+        Test = "Navigation bar first destination focus"
+        ExpectedSection = "Chat / Home"
+        SelectedSection = (Get-CurrentSectionStatus)
+        Result = if ($dockFocused) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+    })
+    if (-not $dockFocused) { throw "The first navigation destination could not receive keyboard focus." }
+
+    # Verify actual forward and reverse keyboard traversal between the first two dock destinations.
     [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
     Start-Sleep -Milliseconds 120
     $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-    $tabEntersDock = $null -ne $focused -and $focused.Current.AutomationId -eq "DockChatButton"
+    $tabAdvancedToOverview = $null -ne $focused -and $focused.Current.AutomationId -eq "DockOverviewButton"
     $results.Add([pscustomobject]@{
-        Test = "Tab enters left navigation rail"
+        Test = "Tab advances from Chat to Overview"
         ExpectedSection = "Chat / Home"
         SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($tabEntersDock) { "PASS" } else { "FAIL" }
-        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+        Result = if ($tabAdvancedToOverview) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId }); expected DockOverviewButton"
     })
-    if (-not $tabEntersDock) { throw "Tab did not move from the rail toggle to the first navigation destination." }
+    if (-not $tabAdvancedToOverview) { throw "Tab did not advance focus from Chat to the Overview destination." }
 
     [System.Windows.Forms.SendKeys]::SendWait("+{TAB}")
     Start-Sleep -Milliseconds 120
     $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-    $reverseDockFocus = $null -ne $focused -and $focused.Current.AutomationId -eq "ToggleBottomDockButton"
+    $shiftTabReturnedToChat = $null -ne $focused -and $focused.Current.AutomationId -eq "DockChatButton"
     $results.Add([pscustomobject]@{
-        Test = "Shift+Tab returns to rail toggle"
+        Test = "Shift+Tab returns from Overview to Chat"
         ExpectedSection = "Chat / Home"
         SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($reverseDockFocus) { "PASS" } else { "FAIL" }
-        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId })"
+        Result = if ($shiftTabReturnedToChat) { "PASS" } else { "FAIL" }
+        Details = "Focused AutomationId=$(if ($null -eq $focused) { '' } else { $focused.Current.AutomationId }); expected DockChatButton"
     })
-    if (-not $reverseDockFocus) { throw "Shift+Tab did not return focus to the navigation rail toggle." }
+    if (-not $shiftTabReturnedToChat) { throw "Shift+Tab did not return focus from Overview to the Chat destination." }
 
-    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
-    Start-Sleep -Milliseconds 120
     $expectedDockIds = @(
         "DockChatButton", "DockOverviewButton", "DockTasksButton", "DockSkillsButton",
         "DockCamerasButton", "DockMemoryButton", "DockApiButton", "DockSettingsButton"
@@ -357,14 +317,14 @@ try {
         $expectedNamePattern = $expectedDockNamePatterns[$index]
         $dockButtonOk = $focusedId -eq $expectedId -and $focusedName -match $expectedNamePattern
         $results.Add([pscustomobject]@{
-            Test = "Tab rail destination $($index + 1)"
+            Test = "Tab bar destination $($index + 1)"
             ExpectedSection = $expectedId
             SelectedSection = (Get-CurrentSectionStatus)
             Result = if ($dockButtonOk) { "PASS" } else { "FAIL" }
             Details = "Focused AutomationId=$focusedId; Name=$focusedName; expected=$expectedId"
         })
         if (-not $dockButtonOk) {
-            throw "Tab order mismatch in left navigation rail at destination $($index + 1): expected $expectedId, focused $focusedId ('$focusedName')."
+            throw "Tab order mismatch in floating navigation bar at destination $($index + 1): expected $expectedId, focused $focusedId ('$focusedName')."
         }
         if ($index -lt $expectedDockIds.Count - 1) {
             [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
@@ -377,7 +337,7 @@ try {
     $selectedDockPage = Get-CurrentSectionStatus
     $settingsSelected = $selectedDockPage -match "(?i)(Settings|الإعدادات)"
     $results.Add([pscustomobject]@{
-        Test = "Space activates focused rail destination"
+        Test = "Space activates focused bar destination"
         ExpectedSection = "Settings"
         SelectedSection = $selectedDockPage
         Result = if ($settingsSelected) { "PASS" } else { "FAIL" }
@@ -387,18 +347,17 @@ try {
 
     [System.Windows.Forms.SendKeys]::SendWait("^1")
     Start-Sleep -Milliseconds 250
-    $toggleElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
-    if ($null -eq $toggleElement) { throw "The navigation rail toggle disappeared after returning to Chat." }
-    $toggleName = $toggleElement.Current.Name
-    $railRemainsExpanded = $toggleName -match "(?i)(Collapse navigation rail|طي شريط التنقل الجانبي)"
+    $dockChatElement = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $dockChatCondition)
+    $dockStillVisible = $null -ne $dockChatElement -and
+        -not [bool]$dockChatElement.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsOffscreenProperty)
     $results.Add([pscustomobject]@{
-        Test = "Navigation rail remains expanded after page navigation"
+        Test = "Navigation bar remains visible after page navigation"
         ExpectedSection = "Chat / Home"
         SelectedSection = (Get-CurrentSectionStatus)
-        Result = if ($railRemainsExpanded) { "PASS" } else { "FAIL" }
-        Details = "Navigation toggle accessible name: $toggleName"
+        Result = if ($dockStillVisible) { "PASS" } else { "FAIL" }
+        Details = "First destination exposed and on-screen: $dockStillVisible"
     })
-    if (-not $railRemainsExpanded) { throw "Page navigation unexpectedly collapsed the left navigation rail." }
+    if (-not $dockStillVisible) { throw "The floating navigation bar disappeared after returning to Chat." }
 
     $results | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
     $summary = [pscustomobject]@{

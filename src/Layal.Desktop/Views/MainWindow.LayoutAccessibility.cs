@@ -50,9 +50,16 @@ public partial class MainWindow
         // The main window enforces a 600-DIP minimum height; after its caption,
         // margins and navigation shell, the remaining tab viewport is roughly 530 DIPs.
         // Use a viewport-relative breakpoint rather than the old child-height threshold.
-        var compact = availableHeight < 560;
+        // The floating navigation bar now reserves about 70 to 100 DIP at the bottom of the window
+        // (the old side rail reserved none), so the same window leaves the tab viewport about 70 to 100 DIP
+        // shorter. The compact breakpoint moves down by the same amount (560 to 480) so full-height windows
+        // keep the weather card and the 600-DIP minimum window (about 470 DIP viewport) stays compact.
+        var compact = availableHeight < 480;
         var dense = availableHeight < 900;
-        var layoutMode = compact ? 2 : dense ? 1 : 0;
+        // Short viewports (under 600 DIP, includes compact) trim the chat header and welcome card so the
+        // clock and weather summary, header and welcome card all fit without clipping.
+        var shortTier = availableHeight < 600;
+        var layoutMode = compact ? 2 : shortTier ? 3 : dense ? 1 : 0;
         ChatEmptyStateText.Text = dense
             ? (IsArabic ? "اكتب سؤالك أو اختر اقتراحًا." : "Choose a prompt or type your question.")
             : (IsArabic
@@ -62,12 +69,36 @@ public partial class MainWindow
             return;
 
         _chatWelcomeLayoutModeApplied = layoutMode;
+        ChatSectionEyebrow.Visibility = shortTier ? Visibility.Collapsed : Visibility.Visible;
+        ChatHeaderCard.Padding = shortTier ? new Thickness(14, 6, 14, 6) : new Thickness(14, 10, 14, 10);
+        ChatHeaderCard.Margin = shortTier ? new Thickness(3, 0, 3, 3) : new Thickness(3, 0, 3, 7);
         ChatWelcomeEyebrow.Visibility = dense ? Visibility.Collapsed : Visibility.Visible;
+
+        // Short tier: the composer, notice line, header buttons and weather card give back vertical space
+        // (measured on CI: the welcome card was 45 DIP tall and needs about 70).
+        ChatInput.MinHeight = shortTier ? 44 : 54;
+        SendButton.MinHeight = shortTier ? 44 : 48;
+        ChatComposerShell.Padding = shortTier ? new Thickness(10, 4, 10, 4) : new Thickness(10, 8, 10, 8);
+        ChatNotice.Visibility = shortTier ? Visibility.Collapsed : Visibility.Visible;
+        ClockWeatherCard.Margin = shortTier ? new Thickness(3, 0, 3, 2) : new Thickness(3, 0, 3, 4);
+        foreach (var headerButton in new Button[]
+                 {
+                     ToggleChatHistoryButton, CopyChatButton, NewConversationButton, ClearSavedChatHistoryButton
+                 })
+        {
+            if (shortTier)
+                headerButton.Padding = new Thickness(15, 5, 15, 5);
+            else
+                headerButton.ClearValue(Control.PaddingProperty);
+        }
+
         ChatEmptyStateText.Visibility = dense ? Visibility.Collapsed : Visibility.Visible;
-        ChatWelcomeTitle.FontSize = dense ? 21 : 23;
-        ChatWelcomeTitle.Margin = dense
-            ? new Thickness(0, 0, 0, 3)
-            : new Thickness(0, 0, 0, 7);
+        ChatWelcomeTitle.FontSize = compact ? 18 : shortTier ? 17 : dense ? 21 : 23;
+        ChatWelcomeTitle.Margin = shortTier
+            ? new Thickness(0, 0, 0, 0)
+            : dense
+                ? new Thickness(0, 0, 0, 3)
+                : new Thickness(0, 0, 0, 7);
         ClockWeatherCard.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
 
         ChatHeaderMascot.Width = compact ? 46 : 60;
@@ -84,7 +115,11 @@ public partial class MainWindow
         ChatWelcomePanel.Margin = dense
             ? new Thickness(4, 1, 4, 1)
             : new Thickness(12, 6, 12, 6);
-        ChatWelcomePanel.Padding = dense
+        ChatWelcomePanel.Padding = compact
+            ? new Thickness(8, 5, 8, 5)
+            : shortTier
+            ? new Thickness(8, 4, 8, 4)
+            : dense
             ? new Thickness(8)
             : new Thickness(18);
         ChatEmptyStateText.FontSize = dense ? 11.5 : 13.5;
@@ -117,18 +152,62 @@ public partial class MainWindow
     private void BottomDockShell_SizeChanged(object sender, SizeChangedEventArgs e) =>
         UpdateMainTabsNavigationMargin();
 
+    private void DockNavigationLayer_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        MoveDockActiveBubble(_activeDockButton, animate: false);
+
     private void UpdateMainTabsNavigationMargin()
     {
-        if (BottomDockShell.ActualWidth <= 0)
+        if (BottomDockShell.ActualHeight <= 0)
             return;
 
-        const double contentGap = 12;
-        var left = BottomDockHost.Margin.Left + BottomDockShell.ActualWidth + contentGap;
-        MainTabs.Margin = new Thickness(Math.Ceiling(left), 10, 14, 12);
+        // The floating bar overlays the bottom of the page area, so reserve its height plus a gap.
+        var bottom = BottomDockHost.Margin.Bottom + BottomDockShell.ActualHeight + _dockContentGap;
+        MainTabs.Margin = new Thickness(14, 10, 14, Math.Ceiling(bottom));
     }
 
-    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e) =>
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
         ApplyCompactWindowChrome(e.NewSize.Width);
+        ApplyCompactDockSpacing(e.NewSize.Height);
+    }
+
+    // On short windows the floating bar uses tighter spacing so the page keeps enough height
+    // (the compact chat welcome card needs it). Buttons shrink from 52 to 46, above the 44 DIP touch target.
+    private bool? _compactDockSpacingApplied;
+    private double _dockContentGap = 12;
+    private double _dockActiveLift = -10;
+
+    private void ApplyCompactDockSpacing(double windowHeight)
+    {
+        if (BottomDockHost is null || BottomDockShell is null || windowHeight <= 0)
+            return;
+
+        var compact = windowHeight < 700;
+        if (_compactDockSpacingApplied == compact)
+            return;
+
+        _compactDockSpacingApplied = compact;
+        BottomDockHost.Margin = compact ? new Thickness(14, 0, 14, 4) : new Thickness(14, 0, 14, 16);
+        BottomDockShell.Padding = compact ? new Thickness(12, 3, 12, 3) : new Thickness(12, 9, 12, 9);
+        _dockContentGap = compact ? 11 : 12;
+        var buttonSize = compact ? 46d : 52d;
+        _dockActiveLift = compact ? -8d : -10d;
+        foreach (var dockChild in DockNavigationItems.Children)
+        {
+            if (dockChild is not Button dockButton)
+                continue;
+
+            dockButton.Width = buttonSize;
+            dockButton.Height = buttonSize;
+        }
+
+        DockActiveBubble.Width = buttonSize;
+        DockActiveBubble.Height = buttonSize;
+        DockActiveBubble.CornerRadius = new CornerRadius(buttonSize / 2);
+        BottomDockShell.UpdateLayout();
+        UpdateMainTabsNavigationMargin();
+        UpdateDockSelection();
+    }
 
     private void ApplyCompactWindowChrome(double availableWidth)
     {
@@ -176,6 +255,7 @@ public partial class MainWindow
         Left = Math.Clamp(Left, workArea.Left, workArea.Right - Width);
         Top = Math.Clamp(Top, workArea.Top, workArea.Bottom - Height);
         ApplyCompactWindowChrome(ActualWidth > 0 ? ActualWidth : Width);
+        ApplyCompactDockSpacing(ActualHeight > 0 ? ActualHeight : Height);
         BottomDockShell.UpdateLayout();
         UpdateMainTabsNavigationMargin();
         UpdateExpanderHeaderAccessibility();

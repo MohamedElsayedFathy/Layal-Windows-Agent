@@ -283,7 +283,7 @@
                     <Grid x:Name="ChatConversationSurface" Grid.Column="1" Loaded="ChatConversationSurface_Loaded" SizeChanged="ChatConversationSurface_SizeChanged">
                 <Grid Margin="8">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Border Grid.Row="0" Margin="3,0,3,7" Padding="14,10" CornerRadius="18" Background="{DynamicResource Layal.PageHeroGradient}"
+                    <Border x:Name="ChatHeaderCard" Grid.Row="0" Margin="3,0,3,7" Padding="14,10" CornerRadius="18" Background="{DynamicResource Layal.PageHeroGradient}"
                             BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -1365,119 +1365,42 @@
             </TabItem>
         </controls:ContentOnlyTabControl>
 
-        <!-- Persistent Soft Aurora navigation rail; expanded on first launch. -->
-        <Grid x:Name="BottomDockHost" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Stretch"
-              Margin="14,10,0,12" Panel.ZIndex="100" KeyboardNavigation.TabNavigation="Local">
+        <!-- Floating glass navigation bar: thin-line icons, one shared active bubble that slides between pages. -->
+        <Grid x:Name="BottomDockHost" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+              Margin="14,0,14,16" Panel.ZIndex="100" KeyboardNavigation.TabNavigation="Local">
             <Border x:Name="BottomDockShell" SizeChanged="BottomDockShell_SizeChanged" Background="{DynamicResource Layal.GlassStrongFill}"
                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                    CornerRadius="20" Padding="10" Effect="{DynamicResource Layal.CardShadow}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Margin="0,3,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Border x:Name="DockBrandMark" Width="32" Height="32" CornerRadius="10"
-                                Background="{DynamicResource Layal.AccentGradient}" Margin="0,0,6,0">
-                            <TextBlock Text="L" FontSize="22" FontWeight="Bold"
-                                       Foreground="{DynamicResource Layal.OnAccent}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <StackPanel x:Name="DockBrandCopy" Grid.Column="1" Width="88" VerticalAlignment="Center">
-                            <TextBlock x:Name="DockBrandTitle" Text="ليال" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource Layal.Text}"/>
-                            <TextBlock x:Name="DockBrandSubtitle" Text="مساحة عملك الذكية" FontSize="11.5" TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource Layal.Muted}"/>
-                        </StackPanel>
-                        <Button x:Name="ToggleBottomDockButton" Grid.Column="2" Content="&#xE711;"
-                                FontFamily="Segoe MDL2 Assets" Width="40" Height="40" Padding="0" Margin="0"
-                                Background="{DynamicResource Layal.NavSelected}"
-                                BorderBrush="{DynamicResource Layal.GlassBorderBrush}"
-                                Click="ToggleBottomDockButton_Click" ToolTip="طي شريط التنقل الجانبي"
-                                AutomationProperties.AutomationId="ToggleBottomDockButton"
-                                AutomationProperties.Name="طي شريط التنقل الجانبي"/>
-                    </Grid>
-                    <ScrollViewer x:Name="DockNavigationScrollViewer" Grid.Row="1" Width="166" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                        <Border x:Name="DockExpandedSurface" Width="166" Opacity="1" ClipToBounds="True"
-                                IsHitTestVisible="True" VerticalAlignment="Top">
-                            <StackPanel x:Name="DockNavigationItems" Orientation="Vertical"
-                                        FlowDirection="LeftToRight" KeyboardNavigation.TabNavigation="Local">
-                                <TextBlock x:Name="DockWorkspaceHeading" Text="WORKSPACE  /  مساحة العمل" FontSize="10.5" FontWeight="Bold"
-                                           Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
-                                <Button x:Name="DockChatButton" Content="✦  الرئيسية" Click="DockChatButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        ToolTip="العودة إلى المحادثة"
-                                        AutomationProperties.AutomationId="DockChatButton"
-                                        AutomationProperties.Name="الرئيسية - المحادثة"/>
-                                <Button x:Name="DockOverviewButton" Content="⌂  نظرة عامة" ToolTip="نظرة عامة" Click="DockOverviewButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        AutomationProperties.AutomationId="DockOverviewButton"
-                                        AutomationProperties.Name="نظرة عامة"/>
-                                <Button x:Name="DockTasksButton" Content="▣  المهام" ToolTip="المهام" Click="DockTasksButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        AutomationProperties.AutomationId="DockTasksButton"
-                                        AutomationProperties.Name="المهام"/>
-                                <Button x:Name="DockSkillsButton" Content="◇  المهارات" ToolTip="المهارات" Click="DockSkillsButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        AutomationProperties.AutomationId="DockSkillsButton"
-                                        AutomationProperties.Name="المهارات"/>
-                                <Button x:Name="DockCamerasButton" Content="◉  الكاميرات" ToolTip="الكاميرات" Click="DockCamerasButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        AutomationProperties.AutomationId="DockCamerasButton"
-                                        AutomationProperties.Name="الكاميرات"/>
-                                <Separator x:Name="DockNavigationSeparator" Margin="7,9"/>
-                                <TextBlock x:Name="DockPersonalHeading" Text="PERSONAL TOOLS  /  أدواتك" FontSize="10.5" FontWeight="Bold"
-                                           Foreground="{DynamicResource Layal.Muted}" Margin="8,0,4,8"/>
-                                <Button x:Name="DockMemoryButton" Content="▤  الذاكرة" ToolTip="الذاكرة" Click="DockMemoryButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        AutomationProperties.AutomationId="DockMemoryButton"
-                                        AutomationProperties.Name="الذاكرة"/>
-                                <Button x:Name="DockApiButton" Content="⌘  API" ToolTip="تكاملات API" Click="DockApiButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        AutomationProperties.AutomationId="DockApiButton"
-                                        AutomationProperties.Name="تكاملات API"/>
-                                <Button x:Name="DockSettingsButton" Content="⚙  الإعدادات" ToolTip="الإعدادات" Click="DockSettingsButton_Click"
-                                        Width="152" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Padding="12,10" Margin="2,3" FontSize="13.5" MinHeight="44"
-                                        Background="Transparent" BorderBrush="Transparent"
-                                        AutomationProperties.AutomationId="DockSettingsButton"
-                                        AutomationProperties.Name="الإعدادات"/>
-                            </StackPanel>
-                        </Border>
-                    </ScrollViewer>
-                    <Border x:Name="DockFooterNote" Grid.Row="2" Width="160" Margin="3,12,3,2" Padding="11"
-                            Background="{DynamicResource Layal.Panel}"
-                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                            CornerRadius="14">
-                        <StackPanel>
-                            <TextBlock x:Name="DockFooterTitle" Text="مساعدك الذكي" FontSize="12.5" FontWeight="Bold"
-                                       Foreground="{DynamicResource Layal.Cyan}"/>
-                            <TextBlock x:Name="DockFooterDescription" Text="محادثاتك وأدواتك في مكان واحد."
-                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}"
-                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
-                        </StackPanel>
+                    CornerRadius="34" Padding="12,9" Effect="{DynamicResource Layal.CardShadow}">
+                <Grid x:Name="DockNavigationLayer" SizeChanged="DockNavigationLayer_SizeChanged">
+                    <Border x:Name="DockActiveBubble" Width="52" Height="52" CornerRadius="26"
+                            HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False"
+                            Visibility="Hidden" Background="{DynamicResource Layal.AccentGradient}">
+                        <Border.RenderTransform>
+                            <TranslateTransform X="0" Y="-10" />
+                        </Border.RenderTransform>
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.28" Color="#000000" />
+                        </Border.Effect>
                     </Border>
+                    <StackPanel x:Name="DockNavigationItems" Orientation="Horizontal"
+                                FlowDirection="LeftToRight" KeyboardNavigation.TabNavigation="Local">
+                    <Button x:Name="DockChatButton" Click="DockChatButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockChatButton" AutomationProperties.Name="الرئيسية - المحادثة"/>
+                    <Button x:Name="DockOverviewButton" Click="DockOverviewButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockOverviewButton" AutomationProperties.Name="نظرة عامة"/>
+                    <Button x:Name="DockTasksButton" Click="DockTasksButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockTasksButton" AutomationProperties.Name="المهام"/>
+                    <Button x:Name="DockSkillsButton" Click="DockSkillsButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockSkillsButton" AutomationProperties.Name="المهارات"/>
+                    <Button x:Name="DockCamerasButton" Click="DockCamerasButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockCamerasButton" AutomationProperties.Name="الكاميرات"/>
+                    <Button x:Name="DockMemoryButton" Click="DockMemoryButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockMemoryButton" AutomationProperties.Name="الذاكرة"/>
+                    <Button x:Name="DockApiButton" Click="DockApiButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockApiButton" AutomationProperties.Name="تكاملات API"/>
+                    <Button x:Name="DockSettingsButton" Click="DockSettingsButton_Click" Style="{StaticResource Layal.DockIconButtonStyle}"
+                            AutomationProperties.AutomationId="DockSettingsButton" AutomationProperties.Name="الإعدادات"/>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>
