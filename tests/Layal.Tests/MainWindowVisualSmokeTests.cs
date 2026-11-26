@@ -774,6 +774,9 @@ public sealed class MainWindowVisualSmokeTests
             "Compact captures test window resizing only; they do not certify OS display scaling at 100%, 125%, 150%, or 175%."
         };
 
+        var previousPerformanceMode = AppRuntime.Settings.PerformanceModeEnabled;
+        // Snapshot each selected page in its settled layout, not at the first frame of the dock slide.
+        AppRuntime.Settings.PerformanceModeEnabled = true;
         foreach (var theme in new[] { "light", "dark" })
         foreach (var language in new[] { "ar", "en" })
         {
@@ -1084,6 +1087,7 @@ public sealed class MainWindowVisualSmokeTests
             window.UpdateLayout();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         }
+        AppRuntime.Settings.PerformanceModeEnabled = previousPerformanceMode;
 
         // Exercise the live WPF shell, not only the pure palette values, for all named presets.
         AssertOpaqueWindowShellAcrossNamedPresets(window, rootGrid, applyTheme);
