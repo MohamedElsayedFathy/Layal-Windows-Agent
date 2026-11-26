@@ -1387,15 +1387,19 @@
                             <Border.Effect>
                                 <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.34" Color="#000000" />
                             </Border.Effect>
-                            <Border x:Name="DockActiveGlassRim" Margin="3" CornerRadius="26" BorderThickness="1" BorderBrush="#70FFFFFF"
-                                    IsHitTestVisible="False">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                        <GradientStop Color="#40FFFFFF" Offset="0" />
-                                        <GradientStop Color="#08FFFFFF" Offset="1" />
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                            </Border>
+                            <Grid x:Name="DockActiveBubbleContent" IsHitTestVisible="False">
+                                <Border x:Name="DockActiveGlassRim" Margin="3" CornerRadius="26" BorderThickness="1" BorderBrush="#70FFFFFF">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#40FFFFFF" Offset="0" />
+                                            <GradientStop Color="#08FFFFFF" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <Canvas x:Name="DockActiveIconCanvas" Width="24" Height="24"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        IsHitTestVisible="False" />
+                            </Grid>
                         </Border>
                         <StackPanel x:Name="DockNavigationItems" Orientation="Horizontal"
                                     FlowDirection="LeftToRight" KeyboardNavigation.TabNavigation="Local">

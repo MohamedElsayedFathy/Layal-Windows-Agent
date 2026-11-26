@@ -493,17 +493,8 @@ public partial class MainWindow
         foreach (var destination in destinations)
         {
             var label = ar ? destination.Ar : destination.En;
-            var iconPath = new System.Windows.Shapes.Path
-            {
-                Data = (Geometry)FindResource($"Layal.NavIcon.{destination.Name}"),
-                StrokeThickness = 1.6,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round,
-                StrokeLineJoin = PenLineJoin.Round,
-                IsHitTestVisible = false
-            };
-            iconPath.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
-                new Binding(nameof(Button.Foreground)) { Source = destination.Button });
+            var iconPath = CreateDockIconPath(destination.Button,
+                (Geometry)FindResource($"Layal.NavIcon.{destination.Name}"));
             var iconCanvas = new Canvas
             {
                 Width = 24,
@@ -516,6 +507,22 @@ public partial class MainWindow
             AutomationProperties.SetName(destination.Button,
                 ar ? destination.AccessibleAr : destination.AccessibleEn);
         }
+    }
+
+    private static System.Windows.Shapes.Path CreateDockIconPath(Button owner, Geometry geometry)
+    {
+        var iconPath = new System.Windows.Shapes.Path
+        {
+            Data = geometry,
+            StrokeThickness = 1.6,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
+            IsHitTestVisible = false
+        };
+        iconPath.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
+            new Binding(nameof(Button.Foreground)) { Source = owner });
+        return iconPath;
     }
 
 
@@ -548,12 +555,25 @@ public partial class MainWindow
         _activeDockButton = target;
         if (target is null)
         {
+            foreach (var button in DockNavigationItems.Children.OfType<Button>())
+            {
+                if (button.Content is UIElement iconCanvas)
+                    iconCanvas.Opacity = 1;
+            }
             DockActiveBubble.Visibility = Visibility.Hidden;
             return;
         }
 
         if (DockNavigationLayer.ActualWidth <= 0 || !DockNavigationLayer.IsAncestorOf(target))
             return;
+
+        if (target.Content is Canvas targetIconCanvas &&
+            targetIconCanvas.Children.OfType<System.Windows.Shapes.Path>().FirstOrDefault() is { } sourceIcon)
+        {
+            DockActiveIconCanvas.Children.Clear();
+            DockActiveIconCanvas.Children.Add(CreateDockIconPath(target, sourceIcon.Data));
+            targetIconCanvas.Opacity = 0;
+        }
 
         var targetX = target.TransformToAncestor(DockNavigationLayer).Transform(new Point(0, 0)).X;
         var x = targetX + (target.ActualWidth - DockActiveBubble.Width) / 2d;
@@ -568,17 +588,33 @@ public partial class MainWindow
         {
             transform.BeginAnimation(TranslateTransform.XProperty, null);
             transform.X = x;
+            ShowInactiveDockIcons(target);
         }
         else
         {
-            transform.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(x, TimeSpan.FromMilliseconds(260))
+            var slide = new DoubleAnimation(x, TimeSpan.FromMilliseconds(260))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-            });
+            };
+            slide.Completed += (_, _) =>
+            {
+                if (ReferenceEquals(_activeDockButton, target))
+                    ShowInactiveDockIcons(target);
+            };
+            transform.BeginAnimation(TranslateTransform.XProperty, slide);
         }
 
         transform.Y = _dockActiveLift;
         DockActiveBubble.Visibility = Visibility.Visible;
+    }
+
+    private void ShowInactiveDockIcons(Button activeButton)
+    {
+        foreach (var button in DockNavigationItems.Children.OfType<Button>())
+        {
+            if (!ReferenceEquals(button, activeButton) && button.Content is UIElement iconCanvas)
+                iconCanvas.Opacity = 1;
+        }
     }
 
     private bool CanAnimateUi => !SystemParameters.HighContrast &&

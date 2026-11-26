@@ -311,7 +311,11 @@ public partial class MainWindow
         _ = Dispatcher.BeginInvoke(new Action(() =>
         {
             if (IsLoaded && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+            {
                 ApplyTheme();
+                if (!CanAnimateUi)
+                    MoveDockActiveBubble(_activeDockButton, animate: false);
+            }
         }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
     }
 

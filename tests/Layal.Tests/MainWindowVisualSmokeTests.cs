@@ -2127,8 +2127,20 @@ public sealed class MainWindowVisualSmokeTests
                 ?? throw new InvalidOperationException("DockNavigationLayer was not found.");
             var dockBubble = window.FindName("DockActiveBubble") as Border
                 ?? throw new InvalidOperationException("DockActiveBubble was not found.");
+            var movingIconCanvas = window.FindName("DockActiveIconCanvas") as Canvas
+                ?? throw new InvalidOperationException("DockActiveIconCanvas was not found.");
+            var movingIcon = movingIconCanvas.Children.OfType<System.Windows.Shapes.Path>().Single();
+            var selectedButtonCanvas = dockOverview.Content as Canvas
+                ?? throw new InvalidOperationException("The selected destination icon canvas was not found.");
+            var selectedButtonIcon = selectedButtonCanvas.Children.OfType<System.Windows.Shapes.Path>().Single();
             Assert.AreEqual(Visibility.Visible, dockBubble.Visibility,
                 "The shared active bubble must be visible once a page is selected.");
+            Assert.AreSame(dockBubble.Child, VisualTreeHelper.GetParent(movingIconCanvas),
+                "The selected icon must be rendered inside the moving bubble so it shares the bubble's exact animation transform.");
+            Assert.AreEqual(selectedButtonIcon.Data.ToString(), movingIcon.Data.ToString(),
+                "The moving bubble must carry the selected destination's icon so the two cannot drift apart during transition.");
+            Assert.AreEqual(0d, selectedButtonCanvas.Opacity, 0.01,
+                "The selected button must not render a second, stationary copy of the icon outside the moving bubble.");
             Assert.IsTrue(dockBubble.Width > dockOverview.ActualWidth,
                 "The raised active glass tab must extend beyond the icon button to form a distinct circular cap.");
             Assert.AreEqual(dockOverview.ActualHeight, dockLayer.ActualHeight, 1.0,
