@@ -24,6 +24,9 @@ public sealed class UiThemePaletteTests
         Assert.AreEqual(SystemColors.WindowTextColor, ToColor(palette, "Layal.Color.Text"));
         Assert.AreEqual(SystemColors.WindowTextColor, ToColor(palette, "Layal.Color.Muted"));
         Assert.AreEqual(SystemColors.HighlightColor, ToColor(palette, "Layal.Color.Focus"));
+        Assert.AreEqual(SystemColors.HighlightColor, ToColor(palette, "Layal.Color.DockActiveStart"));
+        Assert.AreEqual(SystemColors.HighlightColor, ToColor(palette, "Layal.Color.DockActiveEnd"));
+        Assert.AreEqual(SystemColors.WindowTextColor, ToColor(palette, "Layal.Color.DockActiveBorder"));
         Assert.AreEqual(SystemColors.HighlightColor, ToColor(palette, "Layal.Color.NavSelectedBorder"));
         Assert.AreEqual(SystemColors.HotTrackColor, ToColor(palette, "Layal.Color.Cyan"));
         CollectionAssert.AreEquivalent(palette.Keys.ToArray(), darkPalette.Keys.ToArray(),
@@ -51,6 +54,12 @@ public sealed class UiThemePaletteTests
         Assert.AreEqual("#8A5E36", light["Layal.Color.AccentEnd"]);
         Assert.AreEqual("#8A5A2A", dark["Layal.Color.AccentStart"]);
         Assert.AreEqual("#94622D", dark["Layal.Color.AccentEnd"]);
+        Assert.AreEqual("#3D8066", light["Layal.Color.DockActiveStart"]);
+        Assert.AreEqual("#245C49", light["Layal.Color.DockActiveEnd"]);
+        Assert.AreEqual("#A3D7BB", light["Layal.Color.DockActiveBorder"]);
+        Assert.AreEqual("#397D62", dark["Layal.Color.DockActiveStart"]);
+        Assert.AreEqual("#205741", dark["Layal.Color.DockActiveEnd"]);
+        Assert.AreEqual("#7BBF9E", dark["Layal.Color.DockActiveBorder"]);
         Assert.AreEqual("#F52A231D", dark["Layal.Color.Glass"]);
         Assert.AreEqual("#FC2D251F", dark["Layal.Color.GlassStrong"]);
         Assert.AreEqual("#E2CFB1", light["Layal.Color.ButtonEnd"]);
@@ -185,9 +194,13 @@ public sealed class UiThemePaletteTests
             var accentForeground = ToColor(palette, "Layal.Color.OnAccent");
             var buttonForeground = ToColor(palette, "Layal.Color.Text");
 
-            foreach (var accentStop in new[] { "Layal.Color.AccentStart", "Layal.Color.AccentEnd" })
+            foreach (var accentStop in new[]
+                     {
+                         "Layal.Color.AccentStart", "Layal.Color.AccentEnd",
+                         "Layal.Color.DockActiveStart", "Layal.Color.DockActiveEnd"
+                     })
                 Assert.IsTrue(ContrastRatio(accentForeground, ToColor(palette, accentStop)) >= 4.5,
-                    $"Accent foreground must be at least 4.5:1 against {accentStop} for {preset}/{mode}.");
+                    $"Active navigation and accent foreground must be at least 4.5:1 against {accentStop} for {preset}/{mode}.");
 
             foreach (var buttonStop in new[] { "Layal.Color.ButtonStart", "Layal.Color.ButtonEnd" })
                 Assert.IsTrue(ContrastRatio(buttonForeground, ToColor(palette, buttonStop)) >= 4.5,

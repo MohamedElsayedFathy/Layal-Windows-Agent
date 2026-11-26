@@ -57,6 +57,9 @@
         <Color x:Key="Layal.Color.AccentStart">#6B4A2B</Color>
         <Color x:Key="Layal.Color.AccentEnd">#8A5E36</Color>
         <Color x:Key="Layal.Color.OnAccent">#FFFFFF</Color>
+        <Color x:Key="Layal.Color.DockActiveStart">#3D8066</Color>
+        <Color x:Key="Layal.Color.DockActiveEnd">#245C49</Color>
+        <Color x:Key="Layal.Color.DockActiveBorder">#A3D7BB</Color>
         <Color x:Key="Layal.Color.IconChatBackground">#F1E6D4</Color>
         <Color x:Key="Layal.Color.IconChatForeground">#7A4E24</Color>
         <Color x:Key="Layal.Color.IconOverviewBackground">#E6EBDD</Color>
@@ -161,6 +164,11 @@
             <GradientStop Color="{DynamicResource Layal.Color.AccentStart}" Offset="0" />
             <GradientStop Color="{DynamicResource Layal.Color.AccentEnd}" Offset="1" />
         </LinearGradientBrush>
+        <LinearGradientBrush x:Key="Layal.DockActiveGlassGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{DynamicResource Layal.Color.DockActiveStart}" Offset="0" />
+            <GradientStop Color="{DynamicResource Layal.Color.DockActiveEnd}" Offset="1" />
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="Layal.DockActiveBorderBrush" Color="{DynamicResource Layal.Color.DockActiveBorder}" />
         <LinearGradientBrush x:Key="Layal.MascotShellGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#FFFFFF" Offset="0" />
             <GradientStop Color="#E9F1FF" Offset="0.48" />

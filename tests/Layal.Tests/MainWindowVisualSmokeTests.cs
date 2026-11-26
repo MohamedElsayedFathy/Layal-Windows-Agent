@@ -2123,14 +2123,21 @@ public sealed class MainWindowVisualSmokeTests
                 ?? throw new InvalidOperationException("DockActiveBubble was not found.");
             Assert.AreEqual(Visibility.Visible, dockBubble.Visibility,
                 "The shared active bubble must be visible once a page is selected.");
+            Assert.IsTrue(dockBubble.Width > dockOverview.ActualWidth,
+                "The raised active glass tab must extend beyond the icon button to form a distinct circular cap.");
+            Assert.AreEqual(dockOverview.ActualHeight, dockLayer.ActualHeight, 1.0,
+                "The raised glass bubble must remain an overlay and must not increase the navigation layout height.");
             var overviewX = dockOverview.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X;
+            var expectedBubbleX = overviewX + (dockOverview.ActualWidth - dockBubble.Width) / 2d;
             var bubbleTransform = (TranslateTransform)dockBubble.RenderTransform;
+            Assert.IsTrue(bubbleTransform.Y <= -20d,
+                "The active glass tab must protrude clearly above the navigation pill.");
             // While the slide animation is still running the transform holds an in-between value,
             // so only compare positions once the animation has finished (or was skipped).
             if (!bubbleTransform.HasAnimatedProperties)
             {
-                Assert.AreEqual(overviewX, bubbleTransform.X, 1.0,
-                    "The active bubble must sit under the selected navigation destination.");
+                Assert.AreEqual(expectedBubbleX, bubbleTransform.X, 1.0,
+                    "The active bubble must be centered over the selected navigation destination.");
             }
 
             // Prompt starters must provide usable, localized text in the composer.

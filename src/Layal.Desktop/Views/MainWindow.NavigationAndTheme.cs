@@ -555,7 +555,8 @@ public partial class MainWindow
         if (DockNavigationLayer.ActualWidth <= 0 || !DockNavigationLayer.IsAncestorOf(target))
             return;
 
-        var x = target.TransformToAncestor(DockNavigationLayer).Transform(new Point(0, 0)).X;
+        var targetX = target.TransformToAncestor(DockNavigationLayer).Transform(new Point(0, 0)).X;
+        var x = targetX + (target.ActualWidth - DockActiveBubble.Width) / 2d;
         if (DockActiveBubble.RenderTransform is not TranslateTransform transform || transform.IsFrozen)
         {
             transform = new TranslateTransform(0, _dockActiveLift);

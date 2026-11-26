@@ -215,6 +215,20 @@ public partial class MainWindow
         SetSolidBrush("Layal.GlassStrongFill", "Layal.Color.GlassStrong");
         SetSolidBrush("Layal.GlassBorderBrush", "Layal.Color.GlassBorder");
         SetSolidBrush("Layal.OnAccent", "Layal.Color.OnAccent");
+        Application.Current.Resources["Layal.DockActiveGlassGradient"] = MakeGradient(
+            ("Layal.Color.DockActiveStart", 0),
+            ("Layal.Color.DockActiveEnd", 1));
+        SetSolidBrush("Layal.DockActiveBorderBrush", "Layal.Color.DockActiveBorder");
+        DockActiveGlassRim.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
+        DockActiveBubble.Effect = highContrast
+            ? null
+            : new DropShadowEffect
+            {
+                BlurRadius = 18,
+                ShadowDepth = 4,
+                Opacity = 0.34,
+                Color = Colors.Black
+            };
 
         LinearGradientBrush MakeGradient(params (string Key, double Offset)[] stops)
         {
@@ -276,6 +290,8 @@ public partial class MainWindow
             Application.Current.Resources["Layal.PrimaryButtonGradient"] = systemSurface;
             Application.Current.Resources["Layal.Backdrop"] = systemSurface;
             Application.Current.Resources["Layal.AccentGradient"] = new SolidColorBrush(SystemColors.HighlightColor);
+            Application.Current.Resources["Layal.DockActiveGlassGradient"] = new SolidColorBrush(SystemColors.HighlightColor);
+            Application.Current.Resources["Layal.DockActiveBorderBrush"] = new SolidColorBrush(SystemColors.WindowTextColor);
             Application.Current.Resources["Layal.CardShadow"] = new DropShadowEffect
             {
                 Color = SystemColors.WindowTextColor,
