@@ -738,7 +738,8 @@ public sealed class MainWindowVisualSmokeTests
         var dockBubble = window.FindName("DockActiveBubble") as Border
             ?? throw new InvalidOperationException("DockActiveBubble was not found.");
         var dockCenters = dockButtonsByTab
-            .Select(button => button!.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X + button.ActualWidth / 2d)
+            .Select(button => button!.TransformToAncestor(dockLayer)
+                .Transform(new Point(button.ActualWidth / 2d, button.ActualHeight / 2d)).X)
             .OrderBy(center => center)
             .ToArray();
         var dockCenterSummary = string.Join(", ", dockCenters.Select(center => center.ToString("0.0", CultureInfo.InvariantCulture)));
@@ -870,8 +871,9 @@ public sealed class MainWindowVisualSmokeTests
                 Keyboard.ClearFocus();
 
                 var selectedDockButton = dockButtonsByTab[index]!;
-                var selectedButtonX = selectedDockButton.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X;
-                var expectedBubbleX = selectedButtonX + (selectedDockButton.ActualWidth - dockBubble.Width) / 2d;
+                var selectedButtonCenterX = selectedDockButton.TransformToAncestor(dockLayer)
+                    .Transform(new Point(selectedDockButton.ActualWidth / 2d, selectedDockButton.ActualHeight / 2d)).X;
+                var expectedBubbleX = selectedButtonCenterX - dockBubble.Width / 2d;
                 var bubbleTransform = dockBubble.RenderTransform as TranslateTransform
                     ?? throw new InvalidOperationException("DockActiveBubble must use a TranslateTransform.");
                 Assert.IsFalse(bubbleTransform.HasAnimatedProperties,
@@ -879,7 +881,7 @@ public sealed class MainWindowVisualSmokeTests
                     $"centers=[{dockCenterSummary}], bubbleX={bubbleTransform.X:0.0}.");
                 Assert.AreEqual(expectedBubbleX, bubbleTransform.X, 1.0,
                     $"The active bubble must align with {tabNames[index]} before its screenshot is captured. " +
-                    $"centers=[{dockCenterSummary}], selectedX={selectedButtonX:0.0}, bubbleX={bubbleTransform.X:0.0}.");
+                    $"centers=[{dockCenterSummary}], selectedCenterX={selectedButtonCenterX:0.0}, bubbleX={bubbleTransform.X:0.0}.");
                 var selectedIconCanvas = selectedDockButton.Content as Canvas
                     ?? throw new InvalidOperationException($"The {tabNames[index]} navigation icon canvas was not found.");
                 Assert.AreEqual(0d, selectedIconCanvas.Opacity, 0.01,
@@ -2195,8 +2197,9 @@ public sealed class MainWindowVisualSmokeTests
                 "The raised active glass tab must extend beyond the icon button to form a distinct circular cap.");
             Assert.AreEqual(dockOverview.ActualHeight, dockLayer.ActualHeight, 1.0,
                 "The raised glass bubble must remain an overlay and must not increase the navigation layout height.");
-            var overviewX = dockOverview.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X;
-            var expectedBubbleX = overviewX + (dockOverview.ActualWidth - dockBubble.Width) / 2d;
+            var overviewCenterX = dockOverview.TransformToAncestor(dockLayer)
+                .Transform(new Point(dockOverview.ActualWidth / 2d, dockOverview.ActualHeight / 2d)).X;
+            var expectedBubbleX = overviewCenterX - dockBubble.Width / 2d;
             var bubbleTransform = (TranslateTransform)dockBubble.RenderTransform;
             Assert.IsTrue(bubbleTransform.Y <= -20d,
                 "The active glass tab must protrude clearly above the navigation pill.");
