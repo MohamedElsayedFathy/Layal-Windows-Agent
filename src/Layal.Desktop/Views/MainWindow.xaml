@@ -109,125 +109,123 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <Border Grid.Row="0" Style="{StaticResource Layal.PageHero}" Padding="24" Margin="0,0,0,14">
-                                <Grid MinHeight="168">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="188"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" MaxWidth="700">
-                                        <TextBlock Text="YOUR AI DESK  /  مساحة عملك الذكية" Style="{StaticResource Layal.SectionEyebrow}"/>
-                                        <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontWeight="SemiBold"
-                                                   Margin="0,0,0,10" Style="{StaticResource Layal.PageHeading}"/>
-                                        <TextBlock x:Name="HomeDescription"
-                                                   Text="مساحة واحدة للمحادثة والمهام والذاكرة والأدوات. اربط مزود الذكاء الاصطناعي وابدأ من هنا."
-                                                   TextWrapping="Wrap" MaxWidth="620" Style="{StaticResource Layal.PageDescription}"/>
-                                        <WrapPanel Margin="0,16,0,0">
-                                            <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"
-                                                    Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="44" Padding="20,10"/>
-                                            <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"
-                                                    MinHeight="44" Padding="18,10"/>
-                                        </WrapPanel>
-                                    </StackPanel>
-                                    <Border Grid.Column="1" Width="168" Height="156" CornerRadius="24"
-                                            Background="{DynamicResource Layal.PageHeroGradient}"
-                                            BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
-                                            HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Image x:Name="HomeLayalImage" Width="158" Height="152"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
-                                               Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
-                                               IsHitTestVisible="False" Focusable="False"/>
-                                    </Border>
-                                </Grid>
-                            </Border>
-
-                            <UniformGrid x:Name="HomeMetricsGrid" Grid.Row="1" Columns="4" Margin="0,0,0,14"
-                                          SizeChanged="HomeMetricsGrid_SizeChanged">
-                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
-                                    <StackPanel>
-                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
-                                            <TextBlock Text="✦" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                                        <TextBlock x:Name="CardAiValue" Text="غير متصل" FontSize="19" FontWeight="Bold"
-                                                   Foreground="{DynamicResource Layal.Warning}" Margin="0,4,0,0"/>
-                                        <TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات"
-                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
-                                    <StackPanel>
-                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
-                                            <TextBlock Text="◉" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                                        <TextBlock x:Name="CardMascotValue" Text="نافذة Windows أصلية" FontSize="17" FontWeight="Bold"
-                                                   Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
-                                        <TextBlock x:Name="CardMascotHint" Text="اسحب ليال على سطح المكتب، وانقر مرتين لفتح الواجهة."
-                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
-                                    <StackPanel>
-                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
-                                            <TextBlock Text="⌘" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                                        <TextBlock x:Name="CardToolsValue" Text="أداة آمنة متاحة" FontSize="17" FontWeight="Bold"
-                                                   Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
-                                        <TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه."
-                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource Layal.DashboardCard}" MinHeight="156" Padding="18">
-                                    <StackPanel>
-                                        <Border Width="34" Height="34" CornerRadius="12" Background="{DynamicResource Layal.NavSelected}" HorizontalAlignment="Left">
-                                            <TextBlock Text="◇" FontSize="18" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="13.5" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                                        <TextBlock x:Name="CardSkillsValue" Text="استيراد ZIP مع التحقق" FontSize="17" FontWeight="Bold"
-                                                   Foreground="{DynamicResource Layal.Success}" Margin="0,4,0,0"/>
-                                        <TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها."
-                                                   FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Border>
-                            </UniformGrid>
-
-                            <Border Grid.Row="2" Style="{StaticResource Layal.DashboardCard}" Padding="18" Margin="4,0,4,14">
-                                <StackPanel>
-                                    <TextBlock Text="QUICK LAUNCH  /  وصول سريع" Style="{StaticResource Layal.SectionEyebrow}"/>
-                                    <TextBlock Text="ابدأ مباشرة" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                    <TextBlock Text="أوامر قصيرة تفتح لك أهم أجزاء مساحة العمل." FontSize="12.5"
-                                               Foreground="{DynamicResource Layal.Muted}" Margin="0,0,0,10"/>
-                                    <WrapPanel>
-                                        <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click"
-                                                Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="44" Padding="18,10"/>
-                                        <Button Content="فتح المهام" Click="DockTasksButton_Click" MinHeight="44" Padding="18,10"/>
-                                        <Button Content="فتح الذاكرة" Click="DockMemoryButton_Click" MinHeight="44" Padding="18,10"/>
+                            <!-- Calm layout (Overview concept 1): greeting with the character, ONE status list, quick links, small note. No hero card, no per-item cards. -->
+                            <Grid Grid.Row="0" Margin="4,0,4,16" MinHeight="140">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="160"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" MaxWidth="700">
+                                    <TextBlock Text="YOUR AI DESK  /  مساحة عملك الذكية" Style="{StaticResource Layal.SectionEyebrow}" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="HomeHeading" Text="أهلًا، أنا ليال" FontWeight="SemiBold"
+                                               Margin="0,0,0,6" Style="{StaticResource Layal.PageHeading}"/>
+                                    <TextBlock x:Name="HomeDescription"
+                                               Text="مساحة واحدة للمحادثة والمهام والذاكرة والأدوات. اربط مزود الذكاء الاصطناعي وابدأ من هنا."
+                                               TextWrapping="Wrap" MaxWidth="620" Style="{StaticResource Layal.PageDescription}"/>
+                                    <WrapPanel Margin="0,14,0,0">
+                                        <Button x:Name="GoChatButton" Content="فتح المحادثة" Click="GoChatButton_Click"
+                                                Background="{DynamicResource Layal.PrimaryButtonGradient}" MinHeight="44" Padding="22,10"/>
+                                        <Button x:Name="GoSettingsButton" Content="إعداد اتصال AI" Click="GoSettingsButton_Click"
+                                                MinHeight="44" Padding="18,10"/>
                                     </WrapPanel>
                                 </StackPanel>
+                                <Image x:Name="HomeLayalImage" Grid.Column="1" Width="150" Height="144"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Source="pack://application:,,,/Layal;component/Assets/Characters/layal-idle.png"
+                                       Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                                       IsHitTestVisible="False" Focusable="False"/>
+                            </Grid>
+
+                            <Border Grid.Row="1" Style="{StaticResource Layal.DashboardCard}" Padding="18,6" Margin="4,0,4,16">
+                                <UniformGrid x:Name="HomeMetricsGrid" Columns="1" SizeChanged="HomeMetricsGrid_SizeChanged">
+                                <Border BorderBrush="{DynamicResource Layal.Border}" BorderThickness="0,0,0,1" Padding="4,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="{DynamicResource Layal.NavSelected}" VerticalAlignment="Center">
+                                            <TextBlock Text="✦" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
+                                            <TextBlock x:Name="CardAiTitle" Text="اتصال الذكاء الاصطناعي" FontSize="14" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="CardAiHint" Text="أدخل عنوان API والمفتاح من الإعدادات"
+                                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="CardAiValue" Grid.Column="2" Text="غير متصل" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Layal.Warning}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="260"/>
+                                    </Grid>
+                                </Border>
+                                <Border BorderBrush="{DynamicResource Layal.Border}" BorderThickness="0,0,0,1" Padding="4,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="{DynamicResource Layal.NavSelected}" VerticalAlignment="Center">
+                                            <TextBlock Text="◉" FontSize="16" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
+                                            <TextBlock x:Name="CardMascotTitle" Text="الشخصية العائمة" FontSize="14" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="CardMascotHint" Text="اسحب ليال على سطح المكتب، وانقر مرتين لفتح الواجهة."
+                                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="CardMascotValue" Grid.Column="2" Text="نافذة Windows أصلية" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Layal.Success}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="260"/>
+                                    </Grid>
+                                </Border>
+                                <Border BorderBrush="{DynamicResource Layal.Border}" BorderThickness="0,0,0,1" Padding="4,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="{DynamicResource Layal.NavSelected}" VerticalAlignment="Center">
+                                            <TextBlock Text="⌘" FontSize="16" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
+                                            <TextBlock x:Name="CardToolsTitle" Text="أدوات Windows" FontSize="14" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="CardToolsHint" Text="يمكنك تجربة فتح المفكرة من الزر أدناه."
+                                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="CardToolsValue" Grid.Column="2" Text="أداة آمنة متاحة" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Layal.Success}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="260"/>
+                                    </Grid>
+                                </Border>
+                                <Border BorderBrush="{DynamicResource Layal.Border}" BorderThickness="0" Padding="4,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="{DynamicResource Layal.NavSelected}" VerticalAlignment="Center">
+                                            <TextBlock Text="◇" FontSize="17" Foreground="{DynamicResource Layal.Cyan}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
+                                            <TextBlock x:Name="CardSkillsTitle" Text="مدير المهارات" FontSize="14" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="CardSkillsHint" Text="يتم فحص SKILL.md وحفظ الحزمة دون تشغيل سكربتاتها."
+                                                       FontSize="11.5" Foreground="{DynamicResource Layal.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="CardSkillsValue" Grid.Column="2" Text="استيراد ZIP مع التحقق" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Layal.Success}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="260"/>
+                                    </Grid>
+                                </Border>
+                                </UniformGrid>
                             </Border>
 
-                            <Border Grid.Row="3" Background="{DynamicResource Layal.HeaderGradient}" CornerRadius="18"
-                                    Padding="18" Margin="4,0,4,0" BorderBrush="{DynamicResource Layal.Border}" BorderThickness="1">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Width="32" Height="32" CornerRadius="11" Background="{DynamicResource Layal.NavSelected}">
-                                        <TextBlock Text="i" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Layal.Cyan}"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="ملاحظة حول حالة الميزات" FontSize="13.5" FontWeight="SemiBold"/>
-                                        <TextBlock x:Name="HomeCaveat"
-                                                   Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة."
-                                                   Foreground="{DynamicResource Layal.Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
+                            <StackPanel Grid.Row="2" Margin="6,0,6,14">
+                                <TextBlock Text="وصول سريع" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Layal.Muted}" Margin="0,0,0,6"/>
+                                <WrapPanel>
+                                    <Button x:Name="OpenNotepadButton" Content="فتح المفكرة (اختبار فعلي)" Click="OpenNotepadButton_Click"
+                                            MinHeight="44" Padding="18,10"/>
+                                    <Button Content="فتح المهام" Click="DockTasksButton_Click" MinHeight="44" Padding="18,10"/>
+                                    <Button Content="فتح الذاكرة" Click="DockMemoryButton_Click" MinHeight="44" Padding="18,10"/>
+                                </WrapPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="3" Margin="8,0,8,0">
+                                <TextBlock Text="ملاحظة حول حالة الميزات" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Layal.Muted}"/>
+                                <TextBlock x:Name="HomeCaveat"
+                                           Text="الوظائف غير المكتملة لن يتم عرضها كأنها تعمل: الصوت، والتحكم العام في Windows، وأتمتة المتصفح، والبث الحقيقي للكاميرات ستضاف في مراحل لاحقة."
+                                           Foreground="{DynamicResource Layal.Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
                             <TextBlock x:Name="HomeResult" Grid.Row="4" Text="" Foreground="{DynamicResource Layal.Success}"
                                        TextWrapping="Wrap" Margin="6,12,6,0" AutomationProperties.Name="نتيجة الإجراء"
                                        AutomationProperties.LiveSetting="Polite"/>

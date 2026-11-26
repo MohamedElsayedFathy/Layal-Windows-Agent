@@ -929,9 +929,8 @@ public sealed class MainWindowVisualSmokeTests
                 {
                     var metricsGrid = window.FindName("HomeMetricsGrid") as UniformGrid
                         ?? throw new InvalidOperationException("HomeMetricsGrid was not found.");
-                    var expectedColumns = metricsGrid.ActualWidth <= 880 ? 2 : 4;
-                    Assert.AreEqual(expectedColumns, metricsGrid.Columns,
-                        $"The overview must follow its actual available width. Width={metricsGrid.ActualWidth:0.0} DIP, theme={theme}, language={language}.");
+                    Assert.AreEqual(1, metricsGrid.Columns,
+                        $"The overview status items must stay one vertical list at every width. Width={metricsGrid.ActualWidth:0.0} DIP, theme={theme}, language={language}.");
                 }
                 if (tabNames[index] == "chat")
                 {
@@ -1055,8 +1054,8 @@ public sealed class MainWindowVisualSmokeTests
                         ?? throw new InvalidOperationException("HomeMetricsGrid was not found.");
                     Assert.IsTrue(metricsGrid.ActualWidth <= 880,
                         $"The compact overview must stay within the two-column breakpoint. Width={metricsGrid.ActualWidth:0.0} DIP.");
-                    Assert.AreEqual(2, metricsGrid.Columns,
-                        $"The overview must switch to two metric cards per row on compact windows ({theme}/{language}).");
+                    Assert.AreEqual(1, metricsGrid.Columns,
+                        $"The overview status list must stay one column on compact windows ({theme}/{language}).");
                 }
                 AssertNavigationRailDoesNotOverlapContent(window, $"compact {theme}/{language}/{tabNames[index]}");
                 if (tabNames[index] == "chat")

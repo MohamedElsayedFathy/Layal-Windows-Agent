@@ -134,8 +134,8 @@ public partial class MainWindow
         if (sender is not System.Windows.Controls.Primitives.UniformGrid metricsGrid)
             return;
 
-        // Four cards read comfortably on wide workspaces; two columns avoid compressed cards on compact windows.
-        var columns = e.NewSize.Width <= 880 ? 2 : 4;
+        // Calm layout: the four status items are one vertical list at every width.
+        const int columns = 1;
         if (metricsGrid.Columns != columns)
             metricsGrid.Columns = columns;
     }
