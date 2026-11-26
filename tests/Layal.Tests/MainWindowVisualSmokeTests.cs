@@ -2125,6 +2125,8 @@ public sealed class MainWindowVisualSmokeTests
                 "The shared active bubble must be visible once a page is selected.");
             Assert.IsTrue(dockBubble.Width > dockOverview.ActualWidth,
                 "The raised active glass tab must extend beyond the icon button to form a distinct circular cap.");
+            Assert.AreEqual(dockOverview.ActualHeight, dockLayer.ActualHeight, 1.0,
+                "The raised glass bubble must remain an overlay and must not increase the navigation layout height.");
             var overviewX = dockOverview.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X;
             var expectedBubbleX = overviewX + (dockOverview.ActualWidth - dockBubble.Width) / 2d;
             var bubbleTransform = (TranslateTransform)dockBubble.RenderTransform;
