@@ -1371,7 +1371,7 @@
             <Border x:Name="BottomDockShell" SizeChanged="BottomDockShell_SizeChanged" Background="{DynamicResource Layal.GlassStrongFill}"
                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                     CornerRadius="34" Padding="12,9" Effect="{DynamicResource Layal.CardShadow}">
-                <Grid x:Name="DockNavigationLayer" SizeChanged="DockNavigationLayer_SizeChanged">
+                <Grid x:Name="DockNavigationLayer" Height="52" ClipToBounds="False" SizeChanged="DockNavigationLayer_SizeChanged">
                     <Border x:Name="DockActiveBubble" Width="58" Height="58" CornerRadius="29"
                             HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False"
                             Visibility="Hidden" Background="{DynamicResource Layal.DockActiveGlassGradient}"
