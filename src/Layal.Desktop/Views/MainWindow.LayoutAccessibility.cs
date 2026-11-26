@@ -191,7 +191,8 @@ public partial class MainWindow
         BottomDockShell.Padding = compact ? new Thickness(12, 3, 12, 3) : new Thickness(12, 9, 12, 9);
         _dockContentGap = compact ? 11 : 12;
         var buttonSize = compact ? 46d : 52d;
-        _dockActiveLift = compact ? -8d : -10d;
+        var bubbleSize = buttonSize + 6d;
+        _dockActiveLift = compact ? -24d : -33d;
         foreach (var dockChild in DockNavigationItems.Children)
         {
             if (dockChild is not Button dockButton)
@@ -201,9 +202,9 @@ public partial class MainWindow
             dockButton.Height = buttonSize;
         }
 
-        DockActiveBubble.Width = buttonSize;
-        DockActiveBubble.Height = buttonSize;
-        DockActiveBubble.CornerRadius = new CornerRadius(buttonSize / 2);
+        DockActiveBubble.Width = bubbleSize;
+        DockActiveBubble.Height = bubbleSize;
+        DockActiveBubble.CornerRadius = new CornerRadius(bubbleSize / 2);
         BottomDockShell.UpdateLayout();
         UpdateMainTabsNavigationMargin();
         UpdateDockSelection();
