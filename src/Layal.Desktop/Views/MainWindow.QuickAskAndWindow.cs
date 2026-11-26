@@ -219,6 +219,7 @@ public partial class MainWindow
             ("Layal.Color.DockActiveStart", 0),
             ("Layal.Color.DockActiveEnd", 1));
         SetSolidBrush("Layal.DockActiveBorderBrush", "Layal.Color.DockActiveBorder");
+        DockShellInset.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
         DockActiveGlassRim.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
         DockActiveBubble.Effect = highContrast
             ? null

@@ -2098,6 +2098,12 @@ public sealed class MainWindowVisualSmokeTests
             window.UpdateLayout();
             Assert.IsTrue(railShell.ActualWidth > 0 && railShell.ActualHeight > 0,
                 "The floating navigation bar must be visible on first launch.");
+            Assert.IsTrue(railShell.CornerRadius.TopLeft >= 32,
+                "The floating navigation shell must keep the rounded capsule silhouette from the design reference.");
+            var dockShellInset = window.FindName("DockShellInset") as Border
+                ?? throw new InvalidOperationException("DockShellInset was not found.");
+            Assert.IsFalse(dockShellInset.IsHitTestVisible,
+                "The decorative glass highlight must never intercept navigation input.");
             foreach (var navigationButton in navigationButtons)
             {
                 Assert.IsNotNull(navigationButton);
