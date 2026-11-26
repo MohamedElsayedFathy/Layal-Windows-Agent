@@ -192,6 +192,9 @@ public partial class MainWindow
         _dockContentGap = compact ? 11 : 12;
         var buttonSize = compact ? 46d : 52d;
         var bubbleSize = buttonSize + 6d;
+        // The oversized raised bubble is an overlay, not layout content. Keep the navigation
+        // layer at the button height so the visual cap cannot consume extra chat viewport space.
+        DockNavigationLayer.Height = buttonSize;
         _dockActiveLift = compact ? -24d : -33d;
         foreach (var dockChild in DockNavigationItems.Children)
         {
