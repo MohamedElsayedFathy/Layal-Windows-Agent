@@ -575,8 +575,11 @@ public partial class MainWindow
             targetIconCanvas.Opacity = 0;
         }
 
-        var targetX = target.TransformToAncestor(DockNavigationLayer).Transform(new Point(0, 0)).X;
-        var x = targetX + (target.ActualWidth - DockActiveBubble.Width) / 2d;
+        // Use the element's center, not its local origin: in RTL flow WPF mirrors the button's
+        // local coordinate system, so (0, 0) can map to the opposite edge of the visual slot.
+        var targetCenterX = target.TransformToAncestor(DockNavigationLayer)
+            .Transform(new Point(target.ActualWidth / 2d, target.ActualHeight / 2d)).X;
+        var x = targetCenterX - DockActiveBubble.Width / 2d;
         if (DockActiveBubble.RenderTransform is not TranslateTransform transform || transform.IsFrozen)
         {
             transform = new TranslateTransform(0, _dockActiveLift);
