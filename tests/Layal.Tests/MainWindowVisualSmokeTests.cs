@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -717,6 +718,35 @@ public sealed class MainWindowVisualSmokeTests
             Assert.IsNotNull(expectedTabs[i], $"Expected named tab '{tabNames[i]}' was not found.");
             Assert.AreSame(expectedTabs[i], tabs.Items[i], $"Tab order mismatch at '{tabNames[i]}'.");
         }
+        var dockButtonsByTab = new[]
+        {
+            window.FindName("DockOverviewButton") as Button,
+            window.FindName("DockChatButton") as Button,
+            window.FindName("DockTasksButton") as Button,
+            window.FindName("DockSkillsButton") as Button,
+            window.FindName("DockCamerasButton") as Button,
+            window.FindName("DockMemoryButton") as Button,
+            window.FindName("DockApiButton") as Button,
+            window.FindName("DockSettingsButton") as Button
+        };
+        Assert.AreEqual(tabNames.Length, dockButtonsByTab.Length);
+        Assert.IsTrue(dockButtonsByTab.All(button => button is not null),
+            "Every main tab must have a corresponding floating navigation button.");
+        window.UpdateLayout();
+        var dockLayer = window.FindName("DockNavigationLayer") as Grid
+            ?? throw new InvalidOperationException("DockNavigationLayer was not found.");
+        var dockBubble = window.FindName("DockActiveBubble") as Border
+            ?? throw new InvalidOperationException("DockActiveBubble was not found.");
+        var dockCenters = dockButtonsByTab
+            .Select(button => button!.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X + button.ActualWidth / 2d)
+            .OrderBy(center => center)
+            .ToArray();
+        var dockCenterSummary = string.Join(", ", dockCenters.Select(center => center.ToString("0.0", CultureInfo.InvariantCulture)));
+        for (var i = 1; i < dockCenters.Length; i++)
+        {
+            Assert.IsTrue(dockCenters[i] - dockCenters[i - 1] >= 44d,
+                $"Floating navigation buttons must occupy distinct touch-target positions. Centers: [{dockCenterSummary}].");
+        }
         AssertAccessibleStatusRegions(window);
 
         var historySelector = window.FindName("ChatHistorySelector") as ComboBox
@@ -838,6 +868,22 @@ public sealed class MainWindowVisualSmokeTests
                 window.UpdateLayout();
                 window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
                 Keyboard.ClearFocus();
+
+                var selectedDockButton = dockButtonsByTab[index]!;
+                var selectedButtonX = selectedDockButton.TransformToAncestor(dockLayer).Transform(new Point(0, 0)).X;
+                var expectedBubbleX = selectedButtonX + (selectedDockButton.ActualWidth - dockBubble.Width) / 2d;
+                var bubbleTransform = dockBubble.RenderTransform as TranslateTransform
+                    ?? throw new InvalidOperationException("DockActiveBubble must use a TranslateTransform.");
+                Assert.IsFalse(bubbleTransform.HasAnimatedProperties,
+                    $"Dock animation must be settled before capturing {theme}/{language}/{tabNames[index]}; " +
+                    $"centers=[{dockCenterSummary}], bubbleX={bubbleTransform.X:0.0}.");
+                Assert.AreEqual(expectedBubbleX, bubbleTransform.X, 1.0,
+                    $"The active bubble must align with {tabNames[index]} before its screenshot is captured. " +
+                    $"centers=[{dockCenterSummary}], selectedX={selectedButtonX:0.0}, bubbleX={bubbleTransform.X:0.0}.");
+                var selectedIconCanvas = selectedDockButton.Content as Canvas
+                    ?? throw new InvalidOperationException($"The {tabNames[index]} navigation icon canvas was not found.");
+                Assert.AreEqual(0d, selectedIconCanvas.Opacity, 0.01,
+                    $"The selected {tabNames[index]} icon must be rendered in the active bubble, not duplicated in its stationary button.");
 
                 var expectedCurrentSection = tabNames[index] switch
                 {
