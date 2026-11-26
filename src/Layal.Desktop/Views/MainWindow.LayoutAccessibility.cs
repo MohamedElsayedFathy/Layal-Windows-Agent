@@ -69,7 +69,7 @@ public partial class MainWindow
             return;
 
         _chatWelcomeLayoutModeApplied = layoutMode;
-        ChatSectionEyebrow.Visibility = shortTier ? Visibility.Collapsed : Visibility.Visible;
+        ChatSectionEyebrow.Visibility = Visibility.Collapsed;
         ChatHeaderCard.Padding = shortTier ? new Thickness(14, 6, 14, 6) : new Thickness(14, 10, 14, 10);
         ChatHeaderCard.Margin = shortTier ? new Thickness(3, 0, 3, 3) : new Thickness(3, 0, 3, 7);
         ChatWelcomeEyebrow.Visibility = dense ? Visibility.Collapsed : Visibility.Visible;
@@ -81,17 +81,6 @@ public partial class MainWindow
         ChatComposerShell.Padding = shortTier ? new Thickness(10, 4, 10, 4) : new Thickness(10, 8, 10, 8);
         ChatNotice.Visibility = shortTier ? Visibility.Collapsed : Visibility.Visible;
         ClockWeatherCard.Margin = shortTier ? new Thickness(3, 0, 3, 2) : new Thickness(3, 0, 3, 4);
-        foreach (var headerButton in new Button[]
-                 {
-                     ToggleChatHistoryButton, CopyChatButton, NewConversationButton, ClearSavedChatHistoryButton
-                 })
-        {
-            if (shortTier)
-                headerButton.Padding = new Thickness(15, 5, 15, 5);
-            else
-                headerButton.ClearValue(Control.PaddingProperty);
-        }
-
         ChatEmptyStateText.Visibility = dense ? Visibility.Collapsed : Visibility.Visible;
         ChatWelcomeTitle.FontSize = compact ? 18 : shortTier ? 17 : dense ? 21 : 23;
         ChatWelcomeTitle.Margin = shortTier
@@ -104,13 +93,15 @@ public partial class MainWindow
         ChatHeaderMascot.Width = compact ? 46 : 60;
         ChatHeaderMascot.Height = compact ? 46 : 60;
 
-        ChatWelcomeAvatarShell.Width = dense ? 54 : 88;
-        ChatWelcomeAvatarShell.Height = dense ? 54 : 88;
+        // Calm layout: the greeting is a centered column, so the character sits above the title.
+        var avatarShell = compact ? 54 : dense ? 72 : 88;
+        ChatWelcomeAvatarShell.Width = avatarShell;
+        ChatWelcomeAvatarShell.Height = avatarShell;
         ChatWelcomeAvatarShell.Margin = dense
-            ? new Thickness(0, 0, 10, 0)
-            : new Thickness(0, 0, 18, 0);
-        ChatWelcomeAvatarImage.Width = dense ? 50 : 82;
-        ChatWelcomeAvatarImage.Height = dense ? 50 : 82;
+            ? new Thickness(0, 0, 0, 4)
+            : new Thickness(0, 0, 0, 10);
+        ChatWelcomeAvatarImage.Width = avatarShell - 4;
+        ChatWelcomeAvatarImage.Height = avatarShell - 4;
 
         ChatWelcomePanel.Margin = dense
             ? new Thickness(4, 1, 4, 1)
