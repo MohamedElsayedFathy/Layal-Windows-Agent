@@ -422,6 +422,44 @@ public partial class MainWindow
             // cache so screen readers and UI Automation clients see the newly selected page.
             UIElementAutomationPeer.FromElement(MainTabs)?.ResetChildrenCache();
             UpdateDockSelection();
+            // SelectionChanged also bubbles up from lists and combo boxes inside the pages; only a real page change fades.
+            if (ReferenceEquals(e.OriginalSource, MainTabs) && e.RemovedItems.Count > 0 && e.AddedItems.Count > 0)
+                PlayPageTransition();
+        }
+    }
+
+    // Short fade and 8 DIP rise for the new page. Skipped by CanAnimateUi (Windows animations off, high contrast,
+    // performance mode). The animations are removed when they finish, so nothing keeps running.
+    private void PlayPageTransition()
+    {
+        if (!CanAnimateUi)
+        {
+            ResetPageTransition();
+            return;
+        }
+
+        if (MainTabs.RenderTransform is not TranslateTransform rise || rise.IsFrozen)
+        {
+            rise = new TranslateTransform();
+            MainTabs.RenderTransform = rise;
+        }
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var fade = new DoubleAnimation(0.35, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease };
+        fade.Completed += (_, _) => ResetPageTransition();
+        MainTabs.BeginAnimation(UIElement.OpacityProperty, fade);
+        rise.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(8, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
+    }
+
+    private void ResetPageTransition()
+    {
+        MainTabs.BeginAnimation(UIElement.OpacityProperty, null);
+        MainTabs.Opacity = 1;
+        if (MainTabs.RenderTransform is TranslateTransform { IsFrozen: false } rise)
+        {
+            rise.BeginAnimation(TranslateTransform.YProperty, null);
+            rise.Y = 0;
         }
     }
 
@@ -526,6 +564,9 @@ public partial class MainWindow
     }
 
 
+    private readonly Dictionary<Button, double> _dockLiftTargets = new();
+    private double? _dockBubbleSlideTargetX;
+
     private void LiftDockButton(Button button, bool lifted)
     {
         if (button.RenderTransform is not TranslateTransform transform || transform.IsFrozen)
@@ -535,6 +576,10 @@ public partial class MainWindow
         }
 
         var target = lifted ? _dockActiveLift : 0d;
+        // Same target as the last request: do not restart a running animation (language/theme/size refreshes call this too).
+        if (_dockLiftTargets.TryGetValue(button, out var lastTarget) && Math.Abs(lastTarget - target) < 0.01)
+            return;
+        _dockLiftTargets[button] = target;
         if (!CanAnimateUi || DockActiveBubble.Visibility != Visibility.Visible)
         {
             transform.BeginAnimation(TranslateTransform.YProperty, null);
@@ -591,10 +636,16 @@ public partial class MainWindow
         {
             transform.BeginAnimation(TranslateTransform.XProperty, null);
             transform.X = x;
+            _dockBubbleSlideTargetX = x;
             ShowInactiveDockIcons(target);
+        }
+        else if (_dockBubbleSlideTargetX is { } runningX && Math.Abs(runningX - x) < 0.5)
+        {
+            // Already sliding to (or resting at) this slot: leave the running animation alone.
         }
         else
         {
+            _dockBubbleSlideTargetX = x;
             var slide = new DoubleAnimation(x, TimeSpan.FromMilliseconds(260))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
