@@ -161,6 +161,11 @@
             <GradientStop Color="{DynamicResource Layal.Color.AccentStart}" Offset="0" />
             <GradientStop Color="{DynamicResource Layal.Color.AccentEnd}" Offset="1" />
         </LinearGradientBrush>
+        <LinearGradientBrush x:Key="Layal.DockActiveGlassGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{DynamicResource Layal.Color.DockActiveStart}" Offset="0" />
+            <GradientStop Color="{DynamicResource Layal.Color.DockActiveEnd}" Offset="1" />
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="Layal.DockActiveBorderBrush" Color="{DynamicResource Layal.Color.DockActiveBorder}" />
         <LinearGradientBrush x:Key="Layal.MascotShellGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#FFFFFF" Offset="0" />
             <GradientStop Color="#E9F1FF" Offset="0.48" />
