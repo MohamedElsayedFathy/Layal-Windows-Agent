@@ -1372,15 +1372,25 @@
                     BorderBrush="{DynamicResource Layal.GlassBorderBrush}" BorderThickness="1"
                     CornerRadius="34" Padding="12,9" Effect="{DynamicResource Layal.CardShadow}">
                 <Grid x:Name="DockNavigationLayer" SizeChanged="DockNavigationLayer_SizeChanged">
-                    <Border x:Name="DockActiveBubble" Width="52" Height="52" CornerRadius="26"
+                    <Border x:Name="DockActiveBubble" Width="58" Height="58" CornerRadius="29"
                             HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False"
-                            Visibility="Hidden" Background="{DynamicResource Layal.AccentGradient}">
+                            Visibility="Hidden" Background="{DynamicResource Layal.DockActiveGlassGradient}"
+                            BorderBrush="{DynamicResource Layal.DockActiveBorderBrush}" BorderThickness="1.2">
                         <Border.RenderTransform>
-                            <TranslateTransform X="0" Y="-10" />
+                            <TranslateTransform X="0" Y="-33" />
                         </Border.RenderTransform>
                         <Border.Effect>
-                            <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.28" Color="#000000" />
+                            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.34" Color="#000000" />
                         </Border.Effect>
+                        <Border Margin="3" CornerRadius="26" BorderThickness="1" BorderBrush="#70FFFFFF"
+                                IsHitTestVisible="False">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#40FFFFFF" Offset="0" />
+                                    <GradientStop Color="#08FFFFFF" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
                     </Border>
                     <StackPanel x:Name="DockNavigationItems" Orientation="Horizontal"
                                 FlowDirection="LeftToRight" KeyboardNavigation.TabNavigation="Local">
